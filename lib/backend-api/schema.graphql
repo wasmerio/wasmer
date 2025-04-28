@@ -30,6 +30,7 @@ type User implements Node & PackageOwner & Owner {
   lastName: String!
   email: String!
   dateJoined: DateTime!
+  probationStartedAt: DateTime
 
   """Required. 150 characters or fewer. Letters, digits and @/./+/-/_ only."""
   username: String!
@@ -46,6 +47,7 @@ type User implements Node & PackageOwner & Owner {
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
   avatar(size: Int = 80): String!
+  limitState: LimitState!
   isViewer: Boolean!
   hasUsablePassword: Boolean
   fullName: String!
@@ -59,7 +61,16 @@ type User implements Node & PackageOwner & Owner {
   namespaces(role: GrapheneRole, offset: Int, before: String, after: String, first: Int, last: Int): NamespaceConnection!
   packages(collaborating: Boolean = false, offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(collaborating: Boolean = false, sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
-  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  usageMetrics(
+    variant: MetricType!
+    grouping: MetricGrouping
+
+    """List of app IDs. Metrics gets filtered for the specific apps."""
+    appIds: [ID]
+
+    """Optional time range filter."""
+    timeRange: TimeRangeInput
+  ): [UsageMetric]!
   domains(offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
   isStaff: Boolean
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
@@ -73,6 +84,15 @@ type User implements Node & PackageOwner & Owner {
   githubUser: SocialAuth
   githubScopes: [String]!
   githubRepositories: [GithubRepository]!
+  isPro: Boolean!
+  currentUsage(
+    """List of app IDs. Usage gets filtered for the specific apps."""
+    appIds: [ID]
+
+    """Optional time range filter."""
+    timeRange: TimeRangeInput
+  ): OwnerUsageSummary
+  webhooks: [Webhook]
 }
 
 """Setup for backwards compatibility with existing frontends."""
@@ -100,6 +120,13 @@ value as specified by
 [iso8601](https://en.wikipedia.org/wiki/ISO_8601).
 """
 scalar DateTime
+
+enum LimitState {
+  not_limited
+  nearing_limits
+  under_probation
+  limit_exceeded
+}
 
 type ActivityEventConnection {
   """Pagination data for this connection."""
@@ -200,6 +227,7 @@ type NamespaceEdge {
 type Namespace implements Node & PackageOwner & Owner {
   """The ID of the object"""
   id: ID!
+  probationStartedAt: DateTime
   name: String!
   displayName: String
   description: String!
@@ -215,6 +243,7 @@ type Namespace implements Node & PackageOwner & Owner {
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
+  limitState: LimitState!
   avatar: String!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
@@ -231,8 +260,26 @@ type Namespace implements Node & PackageOwner & Owner {
   """The invitation for the current user to the namespace"""
   viewerInvitation: NamespaceCollaboratorInvite
   packageTransfersIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
-  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  usageMetrics(
+    variant: MetricType!
+    grouping: MetricGrouping
+
+    """List of app IDs. Metrics gets filtered for the specific apps."""
+    appIds: [ID]
+
+    """Optional time range filter."""
+    timeRange: TimeRangeInput
+  ): [UsageMetric]!
   domains(offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
+  isPro: Boolean!
+  billing: Billing
+  currentUsage(
+    """List of app IDs. Usage gets filtered for the specific apps."""
+    appIds: [ID]
+
+    """Optional time range filter."""
+    timeRange: TimeRangeInput
+  ): OwnerUsageSummary
 }
 
 type NamespaceCollaboratorInviteConnection {
@@ -372,12 +419,12 @@ type Package implements Likeable & Node & PackageOwner {
   likersCount: Int!
   watchersCount: Int!
   webcs(offset: Int, before: String, after: String, first: Int, last: Int): WebcImageConnection!
-
-  """List of app templates for this package"""
-  appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
   packagewebcSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageWebcConnection!
   versions: [PackageVersion]
   collectionSet: [Collection!]!
+
+  """List of app templates for this package"""
+  appTemplates(offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection!
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   keywords(offset: Int, before: String, after: String, first: Int, last: Int): PackageKeywordConnection!
   viewerHasLiked: Boolean!
@@ -636,7 +683,7 @@ type PackageWebc implements Node & PackageReleaseInterface & PackageInstance {
 type Command {
   command: String!
   packageVersion: PackageVersion!
-  module: PackageVersionModule!
+  module: PackageVersionModule
 }
 
 type PackageVersionModule {
@@ -881,7 +928,9 @@ type DeployAppVersion implements Node {
   description: String
   publishedBy: User!
   disabledAt: DateTime
+  disabledBy: User
   disabledReason: String
+  disabledPermanently: Boolean!
   createdAt: DateTime!
   updatedAt: DateTime!
   configWebc: String @deprecated(reason: "webc support has been deprecated for apps")
@@ -918,7 +967,13 @@ type DeployAppVersion implements Node {
     first: Int
     last: Int
   ): LogConnection!
-  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  usageMetrics(
+    variant: MetricType!
+    grouping: MetricGrouping
+
+    """Optional time range filter."""
+    timeRange: TimeRangeInput
+  ): [UsageMetric]!
   sourcePackageVersion: PackageVersion
   sourcePackageRelease: PackageWebc
   sourcePackage: Package!
@@ -932,11 +987,14 @@ type DeployAppVersion implements Node {
 type DeployApp implements Node & Owner {
   """The ID of the object"""
   id: ID!
+  state: String!
   forceHttps: Boolean!
   createdBy: User!
   createdAt: DateTime!
   updatedAt: DateTime!
   activeVersion: DeployAppVersion
+  managed: Boolean!
+  willPerishAt: DateTime
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
@@ -950,15 +1008,25 @@ type DeployApp implements Node & Owner {
   versions(sortBy: DeployAppVersionsSortBy, createdAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
   aggregateMetrics: AggregateMetrics!
   aliases(offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
+  domains(sortBy: AppAliasSortBy! = NEWEST, offset: Int, before: String, after: String, first: Int, last: Int): AppAliasConnection!
   secrets(offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection!
   databases(offset: Int, before: String, after: String, first: Int, last: Int): AppDatabaseConnection!
-  usageMetrics(forRange: MetricRange!, variant: MetricType!): [UsageMetric]!
+  usageMetrics(
+    variant: MetricType!
+    grouping: MetricGrouping
+
+    """Optional time range filter."""
+    timeRange: TimeRangeInput
+  ): [UsageMetric]!
   s3Url: URL
   s3Credentials: S3Credentials
   deleted: Boolean!
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
   deployments(before: String, after: String, first: Int, last: Int): DeploymentConnection
+  buildConfiguration: BuildConfiguration
+  mails: [AppMail]
+  kind: Kind
 }
 
 enum DeployAppVersionsSortBy {
@@ -997,16 +1065,33 @@ type AppAliasEdge {
 }
 
 type AppAlias implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  lastCheckedAt: DateTime
+  firstCheckedAt: DateTime
   name: String!
   app: DeployApp!
   isDefault: Boolean!
   hostname: String!
   text: String!
   kind: DeployAppAliasKindChoices!
+  redirectsTo: AppAlias
 
   """The ID of the object"""
   id: ID!
   url: String!
+  state: AppAliasVerificationStates!
+
+  """
+  List of records backend expects to move forward with domain verification
+  """
+  expectedDnsRecords: [AppAliasDNSRecord]
+
+  """HTTP code for redirection"""
+  redirectionHttpCode: HTTPRedirectType
+
+  """list of AppAlias objects that redirect to this one."""
+  redirectsFrom: [AppAlias]
 }
 
 enum DeployAppAliasKindChoices {
@@ -1015,6 +1100,30 @@ enum DeployAppAliasKindChoices {
 
   """Domain"""
   DOMAIN
+}
+
+enum AppAliasVerificationStates {
+  UNVERIFIED
+  VERIFIED
+  APEX_WITHOUT_REDIRECTION
+}
+
+type AppAliasDNSRecord {
+  recordType: String!
+  host: String!
+  value: String!
+}
+
+enum HTTPRedirectType {
+  TEMPORARY_REDIRECT
+  TEMPORARY_FOUND
+  PERMANENT_REDIRECT
+  PERMANENT_MOVED
+}
+
+enum AppAliasSortBy {
+  NEWEST
+  OLDEST
 }
 
 type SecretConnection {
@@ -1077,6 +1186,10 @@ type AppDatabase implements Node {
   """The ID of the object"""
   id: ID!
   host: String!
+  port: String!
+  phpmyadminUrl: String
+  dbExplorerUrl: String
+  password: String
 }
 
 type UsageMetric {
@@ -1104,8 +1217,14 @@ enum MetricUnit {
   """represents the unit of "milliseconds"."""
   MS
 
+  """represents the unit of "hours"."""
+  hours
+
   """represents the unit of "kilobytes"."""
   KB
+
+  """represents the unit of "bytes"."""
+  Bytes
 
   """represents the unit of "kilobytes per second"."""
   KBS
@@ -1117,10 +1236,21 @@ enum MetricUnit {
   DOLLARS
 }
 
-enum MetricRange {
-  LAST_24_HOURS
-  LAST_30_DAYS
-  LAST_1_HOUR
+"""Groupings for metrics"""
+enum MetricGrouping {
+  BY_15_MINUTES
+  BY_5_MINUTES
+  BY_HOUR
+  BY_DAY
+  BY_WEEK
+}
+
+input TimeRangeInput {
+  """Start of the time range."""
+  fromDt: DateTime!
+
+  """End of the time range."""
+  toDt: DateTime
 }
 
 """
@@ -1175,23 +1305,25 @@ type NakedDeployment implements Node {
 type AutobuildRepository implements Node {
   """The ID of the object"""
   id: ID!
+  appVersion: DeployAppVersion
+  buildId: UUID!
+  buildCmd: String
+  installCmd: String
   user: User!
   name: String!
   namespace: String!
   createdAt: DateTime!
   updatedAt: DateTime!
   appName: String
-  appVersion: DeployAppVersion
-  buildId: UUID!
-  buildCmd: String!
-  installCmd: String!
   repoUrl: String!
-  prevCommitHash: String!
+  prevCommitHash: String
   commitHash: String!
   commitMessage: String!
   commitAuthorUsername: String!
   status: StatusEnum!
   logUrl: String
+  commitUrl: String
+  buildConfiguration: BuildConfiguration
 }
 
 """
@@ -1209,6 +1341,79 @@ enum StatusEnum {
   TIMEOUT
   INTERNAL_ERROR
   CANCELLED
+}
+
+type BuildConfiguration implements Node {
+  setupDb: Boolean!
+  buildCmd: String!
+  installCmd: String!
+  canDeployWithoutRepo: Boolean!
+  completionTimeInSeconds: Int!
+  kind: BuildKind!
+  repo: String!
+
+  """The ID of the object"""
+  id: ID!
+  name: String!
+}
+
+type BuildKind implements Node {
+  setupDb: Boolean!
+  buildCmd: String!
+  installCmd: String!
+  canDeployWithoutRepo: Boolean!
+  name: String!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type AppMail implements Node {
+  emailAddr: String!
+  login: String!
+  passwordSecret: Secret!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+union Kind = WordpressAppKind
+
+type WordpressAppKind {
+  adminUrl: String!
+  liveConfig(forceFetch: Boolean): WordpressLiveConfig
+}
+
+type WordpressLiveConfig {
+  checkedAt: DateTime!
+  wordpressVersion: String!
+  phpVersion: String!
+  mysqlServer: String!
+  plugins: [WordPressPlugin]!
+  themes: [WordPressTheme]!
+  isLive: Boolean!
+  usersCount: Int!
+  publishedPostsCount: Int!
+  publishedPagesCount: Int!
+}
+
+type WordPressPlugin {
+  slug: String!
+  name: String!
+  icon: String
+  version: String!
+  latestVersion: String
+  active: Boolean!
+  description: String
+}
+
+type WordPressTheme {
+  slug: String!
+  name: String!
+  version: String!
+  latestVersion: String
+  active: Boolean!
+  description: String
 }
 
 type LogConnection {
@@ -1374,6 +1579,15 @@ type WebcImageEdge {
   cursor: String!
 }
 
+type Collection {
+  slug: String!
+  displayName: String!
+  description: String!
+  createdAt: DateTime!
+  banner: String!
+  packages(before: String, after: String, first: Int, last: Int): PackageConnection!
+}
+
 type AppTemplateConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -1402,6 +1616,7 @@ type AppTemplate implements Node {
   description: String!
   demoUrl: String!
   repoUrl: String!
+  branch: String
   category: AppTemplateCategory!
   isPublic: Boolean!
   createdAt: DateTime!
@@ -1410,6 +1625,9 @@ type AppTemplate implements Node {
   useCases: JSONString!
   repoLicense: String!
   usingPackage: Package
+  canDeployWithoutRepo: Boolean!
+  completionTimeInSeconds: Int!
+  highlighted: Boolean!
   defaultImage: String
   framework: String!
   templateFramework: TemplateFramework
@@ -1444,15 +1662,6 @@ type TemplateLanguage implements Node {
   updatedAt: DateTime!
   name: String!
   slug: String!
-}
-
-type Collection {
-  slug: String!
-  displayName: String!
-  description: String!
-  createdAt: DateTime!
-  banner: String!
-  packages(before: String, after: String, first: Int, last: Int): PackageConnection!
 }
 
 type CategoryConnection {
@@ -2034,6 +2243,32 @@ enum DnsmanagerSshFingerprintRecordTypeChoices {
   A_2
 }
 
+"""Usage summary for a specific owner."""
+type OwnerUsageSummary {
+  since: DateTime!
+  cpuTime: Usage!
+  noRequests: Usage!
+  ingress: Usage!
+  egress: Usage!
+  appCount: Usage!
+  buildMinutes: Usage!
+}
+
+"""Individual usage metrics for a specific app."""
+type Usage {
+  used: Int!
+  max: Int
+  charge: MoneyType!
+  usedPercent: Float!
+  unit: String
+  nearingLimits: Boolean!
+}
+
+type MoneyType {
+  amount: String
+  currency: String
+}
+
 type APITokenConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -2175,6 +2410,14 @@ type GithubRepository {
   namespace: String!
 }
 
+type Webhook implements Node {
+  url: String!
+  active: Boolean!
+
+  """The ID of the object"""
+  id: ID!
+}
+
 type Signature {
   id: ID!
   publicKey: PublicKey!
@@ -2189,6 +2432,7 @@ type StripeCustomer {
 type Billing {
   stripeCustomer: StripeCustomer!
   payments: [PaymentIntent]!
+  subscriptions: [WasmerSubscription]!
   paymentMethods: [PaymentMethod]!
 }
 
@@ -2232,6 +2476,89 @@ enum DjstripePaymentIntentStatusChoices {
 
   """The funds are in your account."""
   SUCCEEDED
+}
+
+type WasmerSubscription implements Node {
+  """The datetime this object was created in stripe."""
+  created: DateTime
+
+  """A description of this object."""
+  description: String
+
+  """
+  A date in the future at which the subscription will automatically get canceled.
+  """
+  cancelAt: DateTime
+
+  """
+  If the subscription has been canceled with the ``at_period_end`` flag set to true, ``cancel_at_period_end`` on the subscription will be true. You can use this attribute to determine whether a subscription that has a status of active is scheduled to be canceled at the end of the current period.
+  """
+  cancelAtPeriodEnd: Boolean!
+
+  """
+  If the subscription has been canceled, the date of that cancellation. If the subscription was canceled with ``cancel_at_period_end``, canceled_at will still reflect the date of the initial cancellation request, not the end of the subscription period when the subscription is automatically moved to a canceled state.
+  """
+  canceledAt: DateTime
+
+  """
+  End of the current period for which the subscription has been invoiced. At the end of this period, a new invoice will be created.
+  """
+  currentPeriodEnd: DateTime!
+
+  """
+  Start of the current period for which the subscription has been invoiced.
+  """
+  currentPeriodStart: DateTime!
+
+  """
+  Number of days a customer has to pay invoices generated by this subscription. This value will be `null` for subscriptions where `billing=charge_automatically`.
+  """
+  daysUntilDue: Int
+
+  """
+  If the subscription has ended (either because it was canceled or because the customer was switched to a subscription to a new plan), the date the subscription ended.
+  """
+  endedAt: DateTime
+
+  """
+  Date when the subscription was first created. The date might differ from the created date due to backdating.
+  """
+  startDate: DateTime
+
+  """The status of this subscription."""
+  status: DjstripeSubscriptionStatusChoices!
+
+  """If the subscription has a trial, the end of that trial."""
+  trialEnd: DateTime
+
+  """If the subscription has a trial, the beginning of that trial."""
+  trialStart: DateTime
+
+  """The ID of the object"""
+  id: ID!
+}
+
+enum DjstripeSubscriptionStatusChoices {
+  """Active"""
+  ACTIVE
+
+  """Canceled"""
+  CANCELED
+
+  """Incomplete"""
+  INCOMPLETE
+
+  """Incomplete Expired"""
+  INCOMPLETE_EXPIRED
+
+  """Past due"""
+  PAST_DUE
+
+  """Trialing"""
+  TRIALING
+
+  """Unpaid"""
+  UNPAID
 }
 
 union PaymentMethod = CardPaymentMethod
@@ -2446,7 +2773,7 @@ input WorkloadRunnerWasmSourceV1 {
 
 type Query {
   latestTOS: TermsOfService!
-  getAppRegions(offset: Int, before: String, after: String, first: Int, last: Int): AppRegionConnection!
+  getAppRegions(supportsVolumes: Boolean, supportsDatabases: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): AppRegionConnection!
   getDeployAppVersion(name: String!, owner: String, version: String): DeployAppVersion
   getAllDomains(namespace: String, offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
   getAllDNSRecords(sortBy: DNSRecordsSortBy, updatedAfter: DateTime, before: String, after: String, first: Int, last: Int): DNSRecordConnection!
@@ -2462,7 +2789,7 @@ type Query {
   getAppVersions(sortBy: DeployAppVersionsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
   getTemplateFrameworks(offset: Int, before: String, after: String, first: Int, last: Int): TemplateFrameworkConnection
   getTemplateLanguages(offset: Int, before: String, after: String, first: Int, last: Int): TemplateLanguageConnection
-  getAppTemplates(categorySlug: String, frameworkSlug: String, languageSlug: String, sortBy: AppTemplatesSortBy, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
+  getAppTemplates(categorySlug: String, frameworkSlug: String, languageSlug: String, sortBy: AppTemplatesSortBy, highlighted: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): AppTemplateConnection
   getAppSecrets(appId: ID!, names: [String], offset: Int, before: String, after: String, first: Int, last: Int): SecretConnection
   getAppSecret(appId: ID!, secretName: String!): Secret
   getAppSecretLog(appId: ID!, offset: Int, before: String, after: String, first: Int, last: Int): SecretLogConnection
@@ -2476,6 +2803,7 @@ type Query {
     """Name of the database"""
     name: String!
   ): Boolean!
+  wordpressDeploymentDefaults: WordpressDeploymentDefaults!
   viewer: User
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
@@ -2522,6 +2850,7 @@ type Query {
   getCommands(names: [String!]!): [Command]
   getCollections(before: String, after: String, first: Int, last: Int): CollectionConnection
   getSignedUrlForPackageUpload(name: String, version: String = "latest", filename: String, expiresAfterSeconds: Int = 60): SignedUrl
+  getSignedUrl(filename: String, expiresAfterSeconds: Int = 60): SignedUrl
   getPackageHash(name: String, hash: String!): PackageWebc
   getPackageRelease(hash: String): PackageWebc
   getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
@@ -2573,6 +2902,8 @@ type AppRegion implements Node {
   name: String!
   country: String!
   city: String!
+  supportsVolumes: Boolean!
+  supportsDbs: Boolean!
 
   """The ID of the object"""
   id: ID!
@@ -2732,14 +3063,12 @@ type BuildKindEdge {
   cursor: String!
 }
 
-type BuildKind implements Node {
-  name: String!
-  setupDb: Boolean!
-  buildCmd: String!
-  installCmd: String!
-
-  """The ID of the object"""
-  id: ID!
+type WordpressDeploymentDefaults {
+  siteTitle: String!
+  appName: String!
+  adminUsername: String!
+  adminPassword: String!
+  adminEmail: String!
 }
 
 type GetPasswordResetToken {
@@ -2879,7 +3208,7 @@ union SearchResult = PackageVersion | User | Namespace | DeployApp | BlogPost | 
 
 input PackagesFilter {
   count: Int = 1000
-  sortBy: SearchOrderSort = ASC
+  sortBy: SearchOrderSort = DESC
 
   """Filter packages by being curated."""
   curated: Boolean
@@ -2972,7 +3301,7 @@ enum PackageOrderBy {
 
 input NamespacesFilter {
   count: Int = 1000
-  sortBy: SearchOrderSort = ASC
+  sortBy: SearchOrderSort = DESC
 
   """Filter namespaces by package count."""
   packageCount: CountFilter
@@ -3002,7 +3331,7 @@ enum NamespaceOrderBy {
 
 input UsersFilter {
   count: Int = 1000
-  sortBy: SearchOrderSort = ASC
+  sortBy: SearchOrderSort = DESC
 
   """Filter users by package count."""
   packageCount: CountFilter
@@ -3028,7 +3357,7 @@ enum UserOrderBy {
 
 input AppFilter {
   count: Int = 1000
-  sortBy: SearchOrderSort = ASC
+  sortBy: SearchOrderSort = DESC
 
   """Filter apps by deployed by."""
   deployedBy: String
@@ -3056,7 +3385,7 @@ enum AppOrderBy {
 
 input BlogPostsFilter {
   count: Int = 1000
-  sortBy: SearchOrderSort = ASC
+  sortBy: SearchOrderSort = DESC
 
   """Filter blog posts by tag."""
   tags: [String]
@@ -3064,10 +3393,10 @@ input BlogPostsFilter {
 
 input AppTemplateFilter {
   count: Int = 1000
-  sortBy: SearchOrderSort = ASC
+  sortBy: SearchOrderSort = DESC
 
   """Order app templates by field."""
-  orderBy: AppTemplateOrderBy = CREATED_DATE
+  orderBy: AppTemplateOrderBy = HIGHLIGHTED
 
   """Filter by app template framework"""
   framework: String
@@ -3081,6 +3410,7 @@ input AppTemplateFilter {
 
 enum AppTemplateOrderBy {
   CREATED_DATE
+  HIGHLIGHTED
 }
 
 enum SearchKind {
@@ -3139,6 +3469,15 @@ type SchemaInfo {
 type Mutation {
   """Viewer accepts the latest ToS."""
   acceptTOS(input: AcceptTOSInput!): AcceptTOSPayload
+
+  """Delete domain with given ID"""
+  deleteAppDomain(input: DeleteAppDomainInput!): DeleteAppDomainPayload
+
+  """Detach autobuild from app."""
+  verifyAppDomain(input: VerifyAppDomainInput!): VerifyAppDomainPayload
+
+  """Create or update an app domain on an app with given ID"""
+  upsertAppDomain(input: UpsertAppDomainInput!): UpsertAppDomainPayload
   publishDeployApp(input: PublishDeployAppInput!): PublishDeployAppPayload
   deleteApp(input: DeleteAppInput!): DeleteAppPayload
 
@@ -3208,6 +3547,9 @@ type Mutation {
   """Get the autobuild config for a given repo"""
   autobuildConfigForRepo(input: AutobuildConfigForRepoInput!): AutobuildConfigForRepoPayload
 
+  """Get the autobuild config for a given zip upload URL"""
+  autobuildConfigForZipUpload(input: AutobuildConfigForZipUploadInput!): AutobuildConfigForZipUploadPayload
+
   """Add a new github app installation"""
   installGithubApp(input: InstallGithubAppInput!): InstallGithubAppPayload
 
@@ -3216,6 +3558,25 @@ type Mutation {
 
   """Update autobuild config for an app."""
   updateAutobuildConfigForApp(input: UpdateAutobuildConfigForAppInput!): UpdateAutobuildConfigForAppPayload
+
+  """Deploy a wordpress site."""
+  deployWordpress(input: DeployWordpressInput!): DeployWordpressPayload @deprecated(reason: "Use `publishAppFromRepoAutobuild` subscription instead.")
+
+  """Enable app that was previously disabled."""
+  enableApp(input: EnableAppInput!): EnableAppPayload
+
+  """Disable app with a reason."""
+  disableApp(input: DisableAppInput!): DisableAppPayload
+
+  """Ban app with a reason."""
+  banApp(input: BanAppInput!): BanAppPayload
+
+  """Un-ban app with a reason."""
+  unbanApp(input: UnbanAppInput!): UnbanAppPayload
+
+  """Claim a perishable app as their own."""
+  claimPerishableApp(input: ClaimPerishableAppInput!): ClaimPerishableAppPayload
+  deployViaAutobuild(input: DeployViaAutobuildInput!): DeployViaAutobuildPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3248,6 +3609,13 @@ type Mutation {
   mfa2RecoveryAuth(input: MFARecoveryAuthInput!): MFAAuthResponse
   mfa2EmailAuth(input: MFAEmailAuthInput!): MFAAuthResponse
   mfa2EmailGetToken(input: MFAGenerateEmailOTPInput!): MFAEmailGenerationResponse
+  generateCheckoutUrl(input: GenerateCheckoutUrlInput!): GenerateCheckoutUrlPayload
+
+  """Add webhook to user"""
+  addWebhook(input: AddWebhookInput!): AddWebhookPayload
+
+  """Add webhook to user"""
+  removeWebhook(input: RemoveWebhookInput!): RemoveWebhookPayload
   publishPublicKey(input: PublishPublicKeyInput!): PublishPublicKeyPayload
   publishPackage(input: PublishPackageInput!): PublishPackagePayload
   pushPackageRelease(input: PushPackageReleaseInput!): PushPackageReleasePayload
@@ -3293,6 +3661,75 @@ input AcceptTOSInput {
   clientMutationId: String
 }
 
+"""Delete domain with given ID"""
+type DeleteAppDomainPayload {
+  success: Boolean!
+
+  """ID of the deleted domain."""
+  id: ID!
+  clientMutationId: String
+}
+
+input DeleteAppDomainInput {
+  """ID of the domain to delete."""
+  id: ID!
+  clientMutationId: String
+}
+
+"""Detach autobuild from app."""
+type VerifyAppDomainPayload {
+  verified: Boolean!
+  clientMutationId: String
+}
+
+input VerifyAppDomainInput {
+  """The ID of the domain to verify"""
+  domainId: ID!
+
+  """Specify how to verify the domain"""
+  kind: VerificationKind = QUICK
+  clientMutationId: String
+}
+
+enum VerificationKind {
+  QUICK
+  DEEP
+}
+
+"""Create or update an app domain on an app with given ID"""
+type UpsertAppDomainPayload {
+  """List of domains generated by the mutation"""
+  domains: [AppAlias]
+  success: Boolean!
+  clientMutationId: String
+}
+
+input UpsertAppDomainInput {
+  """ID of the app onto which to add secrets."""
+  appId: ID!
+
+  """ID of the domain to upsert."""
+  id: ID
+
+  """Name of the secret."""
+  name: String!
+
+  """Redirection rules for this domain"""
+  redirection: AppDomainRedirectRules = null
+
+  """Wait for the domain to become available before returning."""
+  wait: Boolean = true
+  clientMutationId: String
+}
+
+input AppDomainRedirectRules {
+  """Domain to redirect to."""
+  to: String!
+
+  """Type of redirection; sets the http code appropriately."""
+  httpCode: HTTPRedirectType!
+}
+
 type PublishDeployAppPayload {
   deployAppVersion: DeployAppVersion!
   clientMutationId: String
@@ -3318,6 +3755,19 @@ input PublishDeployAppInput {
   If true, Publishing will fail if the source package does not have a valid webc.
   """
   strict: Boolean = false
+
+  """
+  If true, the mutation will wait for all deployment jobs to finish before returning.
+  """
+  waitForJobs: Boolean = false
+
+  """If true, the mutation will trigger a screenshot generation job."""
+  generateScreenshot: Boolean = true
+
+  """
+  Wait for smaller of n seconds or till the published app version is live.
+  """
+  waitTillLive: Int = null
   clientMutationId: String
 }
 
@@ -3724,7 +4174,7 @@ input CreateAppDBInput {
   id: ID!
 
   """Database name"""
-  name: String!
+  name: String
   clientMutationId: String
 }
 
@@ -3757,11 +4207,30 @@ type BuildConfig {
   setupDb: Boolean!
   presetName: String!
   appName: String!
+  canDeployWithoutRepo: Boolean!
+  completionTimeInSeconds: Int!
+  branch: String
 }
 
 input AutobuildConfigForRepoInput {
   """The repo URL"""
   repoUrl: String!
+  clientMutationId: String
+}
+
+"""Get the autobuild config for a given zip upload URL"""
+type AutobuildConfigForZipUploadPayload {
+  """The build configuration"""
+  buildConfig: BuildConfig
+
+  """List of apps deployed with this repo."""
+  deployedApps: [DeployApp]
+  clientMutationId: String
+}
+
+input AutobuildConfigForZipUploadInput {
+  """The Zip upload URL"""
+  uploadUrl: String!
   clientMutationId: String
 }
 
@@ -3806,6 +4275,180 @@ input UpdateAutobuildConfigForAppInput {
   """Install command for the app"""
   installCmd: String
   clientMutationId: String
+}
+
+"""Deploy a wordpress site."""
+type DeployWordpressPayload {
+  appVersion: DeployAppVersion!
+  clientMutationId: String
+}
+
+input DeployWordpressInput {
+  """Wordpress site name."""
+  siteName: String!
+
+  """Name of app to create."""
+  appName: String!
+
+  """Owner of this app."""
+  appOwner: String!
+
+  """Region for this app."""
+  region: String!
+
+  """Username of admin for the wordpress site."""
+  adminUsername: String!
+
+  """Admin password for the wordpress site."""
+  adminPassword: String!
+
+  """Email of admin of the wordpress site."""
+  adminEmail: String!
+
+  """Email of admin of the wordpress site."""
+  language: String
+
+  """If set, the app is managed by wasmer."""
+  managed: Boolean
+  clientMutationId: String
+}
+
+"""Enable app that was previously disabled."""
+type EnableAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input EnableAppInput {
+  """ID of app to disable"""
+  appId: ID!
+  clientMutationId: String
+}
+
+"""Disable app with a reason."""
+type DisableAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input DisableAppInput {
+  """ID of app to disable"""
+  appId: ID!
+
+  """Disable with this reason"""
+  reason: String!
+  clientMutationId: String
+}
+
+"""Ban app with a reason."""
+type BanAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input BanAppInput {
+  """ID of app to disable"""
+  appId: ID!
+
+  """Disable with this reason"""
+  reason: String!
+
+  """Blackhole the app (no network access)"""
+  blackholed: Boolean = false
+  clientMutationId: String
+}
+
+"""Un-ban app with a reason."""
+type UnbanAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input UnbanAppInput {
+  """ID of app to disable"""
+  appId: ID!
+  clientMutationId: String
+}
+
+"""Claim a perishable app as their own."""
+type ClaimPerishableAppPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input ClaimPerishableAppInput {
+  """ID of app to disable"""
+  appId: ID!
+  clientMutationId: String
+}
+
+type DeployViaAutobuildPayload {
+  success: Boolean!
+  buildId: UUID!
+  clientMutationId: String
+}
+
+input DeployViaAutobuildInput {
+  repoUrl: String
+  uploadUrl: String
+  appName: String!
+  owner: String
+  buildCmd: String
+  installCmd: String
+  enableDatabase: Boolean
+  secrets: [SecretInput]
+  extraData: AutobuildDeploymentExtraData
+  params: AutobuildDeploymentExtraData
+
+  """If set, the app is managed by wasmer."""
+  managed: Boolean = false
+  kind: String
+
+  """If set, the screenshot is waited for."""
+  waitForScreenshotGeneration: Boolean = false
+
+  """Region to deploy the app"""
+  region: String
+
+  """
+  Branch to deploy from. If no branch is specified, the default branch is used.
+  """
+  branch: String
+
+  """If set, allows deploying a new version of an existing app."""
+  allowExistingApp: Boolean = false
+
+  """Additional jobs to run in the deployment."""
+  jobs: [JobDefinitionInput]
+
+  """Domains for this app"""
+  domains: [String]
+  clientMutationId: String
+}
+
+input AutobuildDeploymentExtraData {
+  wordpress: WordpressDeploymentExtraData = null
+}
+
+input WordpressDeploymentExtraData {
+  siteName: String!
+  adminUsername: String!
+  adminPassword: String!
+  adminEmail: String!
+  language: String = "en_US"
+}
+
+input JobDefinitionInput {
+  name: String
+  package: String
+
+  """Command to run the job"""
+  command: String!
+  cliArgs: [String]
+  env: [String]
+
+  """Humanfriendly timeout definition. e.g. 10m, 1h"""
+  timeout: String = "10m"
 }
 
 type ObtainJSONWebTokenPayload {
@@ -3869,7 +4512,7 @@ type RegisterUserPayload {
 }
 
 input RegisterUserInput {
-  fullName: String!
+  fullName: String
   email: String!
   username: CaseInsensitiveString!
   password: String!
@@ -4174,6 +4817,56 @@ type MFAEmailGenerationResponse {
 }
 
 input MFAGenerateEmailOTPInput {
+  clientMutationId: String
+}
+
+type GenerateCheckoutUrlPayload {
+  checkout: StripeCheckout!
+  clientMutationId: String
+}
+
+type StripeCheckout {
+  url: String!
+  expiresAt: DateTime!
+}
+
+input GenerateCheckoutUrlInput {
+  """URL to redirect to on success."""
+  successUrl: String!
+
+  """URL to redirect to on cancellation."""
+  cancelUrl: String!
+
+  """ID of price (product) to charge the user."""
+  priceId: ID!
+
+  """Locale of the customer."""
+  locale: String!
+
+  """ID of owner to create subscription on. Defaults to current user."""
+  forOwnerId: ID
+  clientMutationId: String
+}
+
+"""Add webhook to user"""
+type AddWebhookPayload {
+  webhook: Webhook!
+  clientMutationId: String
+}
+
+input AddWebhookInput {
+  url: String!
+  clientMutationId: String
+}
+
+"""Add webhook to user"""
+type RemoveWebhookPayload {
+  success: Boolean!
+  clientMutationId: String
+}
+
+input RemoveWebhookInput {
+  id: ID!
   clientMutationId: String
 }
 
@@ -4631,8 +5324,22 @@ input GenerateUploadUrlInput {
 }
 
 type Subscription {
-  streamLogs(
+  autobuildDeployment(buildId: UUID!): AutobuildLog
+  generateScreenshot(
+    """App version ID"""
     appVersionId: ID!
+
+    """Force generation"""
+    forceGeneration: Boolean = false
+  ): DeployAppVersion!
+  streamLogs(
+    """
+    Specify the app to show logs for. Alternatively, you can also just specify the app version if you want. If both app and app-version are specified, then the app-version must be associated with specified app.
+    """
+    appId: ID
+
+    """Filter logs for app to a certain app version."""
+    appVersionId: ID
 
     """
     Get logs starting from this timestamp. Takes ISO timestamp in UTC timezone.
@@ -4658,8 +5365,9 @@ type Subscription {
   ): Log!
   waitOnRepoCreation(repoId: ID!): Boolean!
   appIsPublishedFromRepo(repoId: ID!): DeployAppVersion!
-  publishAppFromRepoAutobuild(repoUrl: String!, appName: String!, owner: String, buildCmd: String, installCmd: String, databaseName: String, secrets: [SecretInput]): AutobuildLog
+  runEdgeJob(command: String!, appVersionId: ID!, envVars: [SecretInput], source: String, cliArgs: [String]): Boolean
   fetchBuildLogs(buildId: String!): String
+  timeout: Int
   packageVersionCreated(publishedBy: ID, ownerId: ID): PackageVersion!
 
   """Subscribe to package version ready"""
@@ -4676,13 +5384,24 @@ type AutobuildLog {
   message: String
   appVersion: DeployAppVersion
 
-  """The database password, if DB was setup."""
-  dbPassword: String
+  """Timestamp in nanoseconds"""
+  timestamp: String!
+
+  """ISO 8601 string in UTC"""
+  datetime: DateTime!
+
+  """Log stream"""
+  stream: LogStream
 }
 
 enum AutoBuildDeployAppLogKind {
   LOG
+  PREPARING_TO_DEPLOY_STATUS
+  FETCHING_PLAN_STATUS
+  BUILD_STATUS
+  DEPLOY_STATUS
   COMPLETE
+  FAILED
 }
 
 type PackageVersionReadyResponse {
