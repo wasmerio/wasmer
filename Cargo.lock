@@ -2637,7 +2637,6 @@ checksum = "bd070e393353796e801d209ad339e89596eb4c8d430d18ede6a1cced8fafbd99"
 dependencies = [
  "autocfg",
  "hashbrown 0.12.3",
- "serde",
 ]
 
 [[package]]
@@ -6106,7 +6105,7 @@ dependencies = [
  "fs_extra",
  "futures",
  "getrandom",
- "indexmap 2.7.1",
+ "indexmap 2.7.0",
  "libc",
  "pin-project-lite",
  "pretty_assertions",
@@ -7118,7 +7117,7 @@ dependencies = [
  "dashmap 6.1.0",
  "enum-iterator",
  "fnv",
- "indexmap 2.7.1",
+ "indexmap 2.7.0",
  "libc",
  "loupe",
  "mach2",
@@ -7501,9 +7500,9 @@ dependencies = [
 
 [[package]]
 name = "webc"
-version = "7.0.0-rc.2"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e6893cbe58d5b97a0daa2dd77055d621db1c8b94fe0f2bbd719c8de747226ea6"
+checksum = "c3bdee7f8a5c220e497d264a89fca8e29627a702e2cc2fb8846426b8f0d2e2d5"
 dependencies = [
  "anyhow",
  "base64",
@@ -7512,7 +7511,7 @@ dependencies = [
  "ciborium",
  "document-features",
  "ignore",
- "indexmap 1.9.3",
+ "indexmap 2.7.0",
  "leb128",
  "lexical-sort",
  "libc",

@@ -92,7 +92,7 @@ wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
-webc = { version = "7.0.0-rc.2" }
+webc = { version = "8.0.0" }
 shared-buffer = "0.1.4"
 
 # Third-party crates
