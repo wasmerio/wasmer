@@ -397,6 +397,7 @@ scheduled_tasks:
                     regions: vec!["eu-rome".to_string()]
                 }),
                 jobs: None,
+                enable_email: None,
             }
         );
     }
