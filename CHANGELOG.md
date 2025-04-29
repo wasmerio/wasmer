@@ -7,6 +7,22 @@
 Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/CHANGELOG.md).
 
 
+ ## **Unreleased**
+
+## 5.0.6 - 29/04/2025
+Backport of PRs in wasmer 6.0.0.
+## Added
+ - [#5419](https://github.com/wasmerio/wasmer/pull/5419) reftypes panic fix
+ - [#5333](https://github.com/wasmerio/wasmer/pull/5333) allows to reduce build deps during libwasmvm build
+ - [#5449](https://github.com/wasmerio/wasmer/pull/5449) fixes a panic in singlepass
+ - [#5355](https://github.com/wasmerio/wasmer/pull/5355) lazy_static dependency removal
+
+## Changed
+
+  - [#5540](https://github.com/wasmerio/wasmer/pull/5540) chore: bump flagged packages
+
+## Fixed
+
 ## 5.0.5-rc1 - 03/01/2025
 Fixed an error in `wasmer create-exe` that prevented the correct execution and various improvements to the FS in WASIX. 
 
