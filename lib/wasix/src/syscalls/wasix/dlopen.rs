@@ -17,13 +17,16 @@ pub fn dlopen<M: MemorySize>(
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path.as_str());
 
-    if env.linker.is_none() {
-        env.linker = Some(crate::linker::Linker::new(
-            unsafe { env.inner() }.instance().clone(),
-        ));
-    }
+    let WasiModuleTreeHandles::Dynamic { ref linker, .. } = (unsafe { env.inner() }) else {
+        wasi_dl_err!(
+            "The current instance is not a dynamically-linked instance",
+            memory,
+            err_buf,
+            err_buf_len
+        );
+    };
+    let linker = linker.clone();
 
-    let linker = env.linker.as_ref().unwrap().clone();
     let module_handle = InlineWaker::block_on(linker.load_module(path, ctx.as_mut()));
 
     // Reborrow to keep rust happy

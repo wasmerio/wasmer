@@ -1,5 +1,6 @@
-//! TODO: This module is placed here because it has to be moved to the runtime, so we don't want to keep
-//! it well-organized enough to discourage that.
+// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+// prevents us from having a non-WASIX linker. However, there is currently no use-case
+// for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
 use std::{
     collections::HashMap,
@@ -12,13 +13,17 @@ use virtual_fs::{AsyncReadExt, FileSystem, FsError};
 use wasmer::{
     AsStoreMut, CompileError, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
     FunctionEnvMut, Global, GlobalType, ImportType, Imports, Instance, InstantiationError, Memory,
-    MemoryError, Module, RuntimeError, Type, Value, WASM_PAGE_SIZE,
+    MemoryError, Module, RuntimeError, Table, Type, Value, WASM_PAGE_SIZE,
 };
 
 use crate::{
     fs::WasiFsRoot, import_object_for_all_wasi_versions, ModuleInitializer, WasiEnv, WasiFs,
-    WasiInstanceHandles,
 };
+
+use super::WasiModuleInstanceHandles;
+
+// Module handle 0 is always the main module. Side modules get handles starting from 1.
+pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(0);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModuleHandle(u32);
@@ -62,18 +67,32 @@ impl MemoryAllocator {
     }
 }
 
-struct DlModule {
+pub struct DlModule {
     instance: Instance,
     memory_base: u64,
+    #[allow(dead_code)]
     table_base: u64,
+    #[allow(dead_code)]
+    instance_handles: WasiModuleInstanceHandles,
 }
 
 struct LinkerState {
-    main_module: Instance,
+    main_instance: Option<Instance>,
     side_modules: HashMap<ModuleHandle, DlModule>,
     side_module_names: HashMap<PathBuf, ModuleHandle>,
-    memory_allocator: MemoryAllocator,
     next_module_handle: u32,
+
+    memory_allocator: MemoryAllocator,
+    memory: Memory,
+
+    stack_pointer: Global,
+    #[allow(dead_code)]
+    stack_high: u64,
+    #[allow(dead_code)]
+    stack_low: u64,
+
+    // TODO: cache functions already placed in the table, so we don't add them again
+    indirect_function_table: Table,
 }
 
 #[derive(Clone)]
@@ -81,8 +100,24 @@ pub struct Linker {
     state: Arc<Mutex<LinkerState>>,
 }
 
+impl std::fmt::Debug for Linker {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("Linker").finish()
+    }
+}
+
 #[derive(thiserror::Error, Debug)]
 pub enum LinkError {
+    #[error("Linker not initialized")]
+    NotInitialized,
+
+    // FIXME: support needed subsection, remove this error
+    #[error("The 'needed' subsection of dylink.0 is not supported yet")]
+    NeededSubsectionNotSupported,
+
+    #[error("Main module is missing a required import: {0}")]
+    MissingMainModuleImport(String),
+
     #[error("Module compilation error: {0}")]
     CompileError(#[from] CompileError),
 
@@ -91,6 +126,9 @@ pub enum LinkError {
 
     #[error("Memory allocation error: {0}")]
     MemoryAllocationError(#[from] MemoryError),
+
+    #[error("Runtime error: {0}")]
+    TableAllocationError(RuntimeError),
 
     #[error("File system error: {0}")]
     FileSystemError(#[from] FsError),
@@ -142,21 +180,175 @@ pub enum ResolveError {
     InvalidExportType(ExternType),
 }
 
-struct DylinkInfo {
-    mem_info: wasmparser::MemInfo,
+pub struct DylinkInfo {
+    pub mem_info: wasmparser::MemInfo,
+}
+
+pub struct LinkedMainModule {
+    pub memory: Memory,
+    pub indirect_function_table: Table,
+    pub stack_low: u64,
+    pub stack_high: u64,
 }
 
 impl Linker {
-    pub fn new(main_module: Instance) -> Self {
-        Self {
+    // TODO: It makes more sense to move the entire instantiation flow here, but that requires a bigger
+    // refactor in WasiEnv::instantiate.
+    pub fn new_for_main_module(
+        main_module: &Module,
+        store: &mut impl AsStoreMut,
+        memory: Option<Memory>,
+        imports: &mut Imports,
+        stack_size: u64,
+    ) -> Result<(Self, LinkedMainModule), LinkError> {
+        let dylink_section = super::linker::parse_dylink0_section(&main_module)?;
+
+        let function_table_type = main_module
+            .imports()
+            .tables()
+            .filter_map(|t| {
+                if t.ty().ty == Type::FuncRef
+                    && t.name() == "__indirect_function_table"
+                    && t.module() == "env"
+                {
+                    Some(*t.ty())
+                } else {
+                    None
+                }
+            })
+            .next()
+            .ok_or(LinkError::MissingMainModuleImport(
+                "env.__indirect_function_table".to_string(),
+            ))?;
+
+        let indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(None))
+            .map_err(LinkError::TableAllocationError)?;
+
+        // Make sure the function table is as big as the dylink.0 section expects it to be
+        if indirect_function_table.size(store) < dylink_section.mem_info.table_size as u32 {
+            indirect_function_table
+                .grow(
+                    store,
+                    dylink_section.mem_info.table_size as u32 - indirect_function_table.size(store),
+                    Value::FuncRef(None),
+                )
+                .map_err(LinkError::TableAllocationError)?;
+        }
+
+        imports.define(
+            "env",
+            "__indirect_function_table",
+            Extern::Table(indirect_function_table.clone()),
+        );
+
+        let memory_type = main_module
+            .imports()
+            .memories()
+            .filter_map(|t| {
+                if t.name() == "memory" && t.module() == "env" {
+                    Some(*t.ty())
+                } else {
+                    None
+                }
+            })
+            .next()
+            .ok_or(LinkError::MissingMainModuleImport("env.memory".to_string()))?;
+
+        let memory = match memory {
+            Some(m) => m,
+            None => Memory::new(store, memory_type)?,
+        };
+
+        let stack_low = {
+            let data_end = dylink_section.mem_info.memory_size as u64;
+            if data_end % 1024 != 0 {
+                data_end + 1024 - (data_end % 1024)
+            } else {
+                data_end
+            }
+        };
+
+        if stack_size % 1024 != 0 {
+            panic!("Stack size must be 1024-bit aligned");
+        }
+
+        let stack_high = stack_low + stack_size;
+
+        // Allocate memory for the stack. This does not need to go through the memory allocator
+        // because:
+        //   1. It's always placed directly after the module's data
+        //   2. It's never freed, since the main module can't be unloaded
+        memory.grow_at_least(store, stack_high)?;
+
+        imports.define("env", "memory", Extern::Memory(memory.clone()));
+
+        let mut stack_pointer = None;
+
+        for import in main_module.imports() {
+            match (import.module(), import.name()) {
+                ("env", "__memory_base") => {
+                    define_integer_global_import(store, imports, &import, 0)?;
+                }
+                ("env", "__table_base") => {
+                    define_integer_global_import(store, imports, &import, 0)?;
+                }
+                ("env", "__stack_pointer") => {
+                    stack_pointer = Some(define_integer_global_import(
+                        store, imports, &import, stack_high,
+                    )?);
+                }
+                ("GOT.mem", "__stack_high") => {
+                    define_integer_global_import(store, imports, &import, stack_high)?;
+                }
+                ("GOT.mem", "__stack_low") => {
+                    define_integer_global_import(store, imports, &import, stack_low)?;
+                }
+                ("GOT.mem", "__heap_base") => {
+                    define_integer_global_import(store, imports, &import, stack_high)?;
+                }
+                _ => (),
+            }
+        }
+
+        // We need the main module to import a stack pointer, so we can feed it to
+        // the side modules later; thus, its absence is an error.
+        let Some(stack_pointer) = stack_pointer else {
+            return Err(LinkError::MissingMainModuleImport(
+                "__stack_pointer".to_string(),
+            ));
+        };
+
+        let linker = Self {
             state: Arc::new(Mutex::new(LinkerState {
-                main_module,
+                main_instance: None,
                 side_modules: HashMap::new(),
                 side_module_names: HashMap::new(),
-                memory_allocator: MemoryAllocator::new(),
                 next_module_handle: 1,
+                memory_allocator: MemoryAllocator::new(),
+                memory: memory.clone(),
+                stack_pointer,
+                stack_high,
+                stack_low,
+                indirect_function_table: indirect_function_table.clone(),
             })),
-        }
+        };
+
+        Ok((
+            linker,
+            LinkedMainModule {
+                memory,
+                indirect_function_table,
+                stack_low,
+                stack_high,
+            },
+        ))
+    }
+
+    // Initialize the linker with the instantiated main module. This needs to happen before the
+    // linker can be used to load any side modules.
+    pub fn initialize(&self, main_instance: Instance) {
+        let mut guard = self.state.lock().unwrap();
+        guard.main_instance = Some(main_instance);
     }
 
     // TODO: figure out how this should work with threads...
@@ -181,22 +373,21 @@ impl Linker {
             }
         }
 
+        let func_env = ctx.as_ref().clone();
+
         let (env, mut store) = ctx.data_and_store_mut();
         let module_bytes = locate_module(module_path.as_ref(), &env.state.fs).await?;
-
-        let memory = unsafe { env.memory() }.clone();
 
         let module = Module::new(store.engine(), &*module_bytes)?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
         let mut guard = self.state.lock().unwrap();
+        let memory = guard.memory.clone();
 
         let memory_base = guard.allocate_memory(&memory, &mut store, &dylink_info.mem_info)?;
         // TODO: handle table allocation... yes, we're even side-stepping that!
         let table_base = 0;
-
-        let func_env = wasmer::FunctionEnv::new(&mut store, env.clone());
 
         let (imports, init) = guard.resolve_imports(
             &mut store,
@@ -209,21 +400,14 @@ impl Linker {
 
         let instance = Instance::new(&mut store, &module, &imports)?;
 
-        let wasi_handles = WasiInstanceHandles::new(memory, &store, instance.clone());
-        func_env.as_mut(&mut store).set_inner(wasi_handles);
-
-        // No idea at which point this should be called. Also, apparently, there isn't an actual
-        // implementation of the init function that does anything (that I can find?), so it doesn't
-        // matter anyway.
-        init(&instance, &mut store).map_err(LinkError::InitializationError)?;
-
-        call_initialization_function(&instance, &mut store, "__wasm_apply_data_relocs")?;
-        call_initialization_function(&instance, &mut store, "__wasm_call_ctors")?;
+        let instance_handles =
+            WasiModuleInstanceHandles::new(memory.clone(), &store, instance.clone());
 
         let loaded_module = DlModule {
-            instance,
+            instance: instance.clone(),
             memory_base,
             table_base,
+            instance_handles,
         };
 
         let handle = ModuleHandle(guard.next_module_handle);
@@ -234,7 +418,28 @@ impl Linker {
             .side_module_names
             .insert(module_path.as_ref().to_owned(), handle);
 
-        Ok(handle)
+        func_env.as_mut(&mut store).dl_handle = handle;
+
+        let init = move || {
+            // No idea at which point this should be called. Also, apparently, there isn't an actual
+            // implementation of the init function that does anything (that I can find?), so it doesn't
+            // matter anyway.
+            init(&instance, &mut store).map_err(LinkError::InitializationError)?;
+
+            call_initialization_function(&instance, &mut store, "__wasm_apply_data_relocs")?;
+            call_initialization_function(&instance, &mut store, "__wasm_call_ctors")?;
+
+            Ok(())
+        };
+
+        match init() {
+            Ok(()) => Ok(handle),
+            Err(e) => {
+                guard.side_modules.remove(&handle);
+                guard.side_module_names.remove(module_path.as_ref());
+                Err(e)
+            }
+        }
     }
 
     // TODO: Support RTLD_DEFAULT, RTLD_NEXT
@@ -271,9 +476,36 @@ impl Linker {
             ty => Err(ResolveError::InvalidExportType(ty.clone())),
         }
     }
+
+    // TODO: cache functions so we don't grow the table unnecessarily?
+    pub fn append_to_function_table(
+        &self,
+        store: &mut impl AsStoreMut,
+        func: Function,
+    ) -> Result<u32, LinkError> {
+        let guard = self.state.lock().unwrap();
+        let table = &guard.indirect_function_table;
+
+        Ok(table
+            .grow(store, 1, func.into())
+            .map_err(LinkError::TableAllocationError)?)
+    }
+
+    pub fn with_module<F, T>(&self, handle: ModuleHandle, callback: F) -> Option<T>
+    where
+        F: FnOnce(&DlModule) -> T,
+    {
+        let guard = self.state.lock().unwrap();
+        let module = guard.side_modules.get(&handle)?;
+        Some(callback(module))
+    }
 }
 
 impl LinkerState {
+    fn main_instance(&self) -> Result<&Instance, LinkError> {
+        self.main_instance.as_ref().ok_or(LinkError::NotInitialized)
+    }
+
     fn allocate_memory(
         &mut self,
         memory: &Memory,
@@ -325,6 +557,20 @@ impl LinkerState {
                         Extern::Memory(memory.take().expect("env.memory imported multiple times")),
                     );
                 }
+                "__stack_pointer" => {
+                    if !matches!(import.ty(), ExternType::Global(ty) if *ty == self.stack_pointer.ty(store))
+                    {
+                        return Err(LinkError::BadImport(
+                            import.name().to_string(),
+                            import.ty().clone(),
+                        ));
+                    }
+                    imports.define(
+                        "env",
+                        "__stack_pointer",
+                        Extern::Global(self.stack_pointer.clone()),
+                    );
+                }
                 "__memory_base" => {
                     define_integer_global_import(store, &mut imports, &import, memory_base)?;
                 }
@@ -332,7 +578,7 @@ impl LinkerState {
                     define_integer_global_import(store, &mut imports, &import, table_base)?;
                 }
                 name => {
-                    let Some(export) = self.main_module.exports.get_extern(name) else {
+                    let Some(export) = self.main_instance()?.exports.get_extern(name) else {
                         return Err(LinkError::MissingImport(name.to_string()));
                     };
 
@@ -398,7 +644,11 @@ async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<Vec<u8>, LinkE
     }
 }
 
-fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
+pub fn is_dynamically_linked(module: &Module) -> bool {
+    module.custom_sections("dylink.0").next().is_some()
+}
+
+pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut sections = module.custom_sections("dylink.0");
 
     let Some(section) = sections.next() else {
@@ -420,8 +670,16 @@ fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             wasmparser::Dylink0Subsection::MemInfo(m) => {
                 mem_info = Some(m);
             }
-            // TODO
-            _ => todo!("handle other subsections"),
+
+            wasmparser::Dylink0Subsection::Needed(_) => {
+                return Err(LinkError::NeededSubsectionNotSupported)
+            }
+
+            // I haven't seen a single module with import or export info that's at least
+            // consistent with its own imports/exports, so let's skip these
+            wasmparser::Dylink0Subsection::ImportInfo(_)
+            | wasmparser::Dylink0Subsection::ExportInfo(_)
+            | wasmparser::Dylink0Subsection::Unknown { .. } => (),
         }
     }
 
@@ -440,37 +698,38 @@ fn define_integer_global_import(
     imports: &mut Imports,
     import: &ImportType,
     value: u64,
-) -> Result<(), LinkError> {
-    let ExternType::Global(GlobalType { ty, .. }) = import.ty() else {
+) -> Result<Global, LinkError> {
+    let ExternType::Global(GlobalType { ty, mutability }) = import.ty() else {
         return Err(LinkError::BadImport(
             import.name().to_string(),
             import.ty().clone(),
         ));
     };
-    match ty {
-        Type::I32 => {
-            imports.define(
-                import.module(),
-                import.name(),
-                Extern::Global(Global::new(store, wasmer::Value::I32(value as i32))),
-            );
-        }
-        Type::I64 => {
-            imports.define(
-                import.module(),
-                import.name(),
-                Extern::Global(Global::new(store, wasmer::Value::I64(value as i64))),
-            );
-        }
+
+    let new_global = if mutability.is_mutable() {
+        Global::new_mut
+    } else {
+        Global::new
+    };
+
+    let global = match ty {
+        Type::I32 => new_global(store, wasmer::Value::I32(value as i32)),
+        Type::I64 => new_global(store, wasmer::Value::I64(value as i64)),
         _ => {
             return Err(LinkError::BadImport(
                 import.name().to_string(),
                 import.ty().clone(),
             ));
         }
-    }
+    };
 
-    Ok(())
+    imports.define(
+        import.module(),
+        import.name(),
+        Extern::Global(global.clone()),
+    );
+
+    Ok(global)
 }
 
 fn call_initialization_function(

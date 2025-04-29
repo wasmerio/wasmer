@@ -48,7 +48,6 @@ pub mod capabilities;
 pub mod fs;
 pub mod http;
 pub mod journal;
-pub mod linker;
 mod rewind;
 pub mod runners;
 pub mod runtime;
@@ -97,8 +96,8 @@ pub use crate::{
     rewind::*,
     runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
-        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
-        WasiStateCreationError, ALL_RIGHTS,
+        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiModuleInstanceHandles,
+        WasiModuleTreeHandles, WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,
@@ -252,19 +251,19 @@ impl SpawnError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum WasiRuntimeError {
-    #[error("WASI state setup failed")]
+    #[error("WASI state setup failed: {0}")]
     Init(#[from] WasiStateCreationError),
-    #[error("Loading exports failed")]
+    #[error("Loading exports failed: {0}")]
     Export(#[from] wasmer::ExportError),
-    #[error("Instantiation failed")]
+    #[error("Instantiation failed: {0}")]
     Instantiation(#[from] wasmer::InstantiationError),
-    #[error("WASI error")]
+    #[error("WASI error: {0}")]
     Wasi(#[from] WasiError),
-    #[error("Process manager error")]
+    #[error("Process manager error: {0}")]
     ControlPlane(#[from] ControlPlaneError),
     #[error("{0}")]
     Runtime(#[from] RuntimeError),
-    #[error("Memory access error")]
+    #[error("Memory access error: {0}")]
     Thread(#[from] WasiThreadError),
     #[error("{0}")]
     Anyhow(#[from] Arc<anyhow::Error>),

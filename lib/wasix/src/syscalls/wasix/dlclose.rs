@@ -8,5 +8,6 @@ pub fn dlclose<M: MemorySize>(
     err_buf: WasmPtr<u8, M>,
     err_buf_len: M::Offset,
 ) -> Result<Errno, WasiError> {
+    // TODO: call dtors, preferably in the linker!
     todo!();
 }

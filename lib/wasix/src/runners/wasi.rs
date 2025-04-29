@@ -6,7 +6,7 @@ use anyhow::{Context, Error};
 use futures::future::Either;
 use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
-use wasmer::{Extern, Module};
+use wasmer::Module;
 use wasmer_types::ModuleHash;
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -238,32 +238,32 @@ impl WasiRunner {
         self
     }
 
-    /// Add an item to the list of importable items provided to the instance.
-    pub fn with_import(
-        &mut self,
-        namespace: impl Into<String>,
-        name: impl Into<String>,
-        value: impl Into<Extern>,
-    ) -> &mut Self {
-        self.with_imports([((namespace, name), value)])
-    }
+    // /// Add an item to the list of importable items provided to the instance.
+    // pub fn with_import(
+    //     &mut self,
+    //     namespace: impl Into<String>,
+    //     name: impl Into<String>,
+    //     value: impl Into<Extern>,
+    // ) -> &mut Self {
+    //     self.with_imports([((namespace, name), value)])
+    // }
 
-    /// Add multiple import functions.
-    ///
-    /// This method will accept a [`&Imports`][wasmer::Imports] object.
-    pub fn with_imports<I, S1, S2, E>(&mut self, imports: I) -> &mut Self
-    where
-        I: IntoIterator<Item = ((S1, S2), E)>,
-        S1: Into<String>,
-        S2: Into<String>,
-        E: Into<Extern>,
-    {
-        let imports = imports
-            .into_iter()
-            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
-        self.wasi.additional_imports.extend(imports);
-        self
-    }
+    // /// Add multiple import functions.
+    // ///
+    // /// This method will accept a [`&Imports`][wasmer::Imports] object.
+    // pub fn with_imports<I, S1, S2, E>(&mut self, imports: I) -> &mut Self
+    // where
+    //     I: IntoIterator<Item = ((S1, S2), E)>,
+    //     S1: Into<String>,
+    //     S2: Into<String>,
+    //     E: Into<Extern>,
+    // {
+    //     let imports = imports
+    //         .into_iter()
+    //         .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
+    //     self.wasi.additional_imports.extend(imports);
+    //     self
+    // }
 
     #[tracing::instrument(level = "debug", skip_all)]
     pub fn prepare_webc_env(

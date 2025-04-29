@@ -126,7 +126,7 @@ impl Handler {
         // threading, etc...
         task_manager
             .task_wasm(
-                TaskWasm::new(Box::new(run_exec), env, module, false)
+                TaskWasm::new(Box::new(run_exec), env, module, false, false)
                     //.with_optional_memory(spawn_type)
                     .with_recycle(Box::new(recycle)),
             )

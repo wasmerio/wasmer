@@ -97,11 +97,18 @@ pub struct TaskWasm<'a> {
     pub spawn_type: SpawnMemoryType<'a>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
+    pub call_initialize: bool,
     pub pre_run: Option<Box<TaskWasmPreRun>>,
 }
 
 impl<'a> TaskWasm<'a> {
-    pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
+    pub fn new(
+        run: Box<TaskWasmRun>,
+        env: WasiEnv,
+        module: Module,
+        update_layout: bool,
+        call_initialize: bool,
+    ) -> Self {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
             run,
@@ -114,6 +121,7 @@ impl<'a> TaskWasm<'a> {
             },
             trigger: None,
             update_layout,
+            call_initialize,
             recycle: None,
             pre_run: None,
         }
@@ -372,8 +380,12 @@ impl dyn VirtualTaskManager {
 
         let snapshot = capture_store_snapshot(&mut store.as_store_mut());
         let env = ctx.data(&store);
-        let module = env.inner().module_clone();
-        let memory = env.inner().memory_clone();
+        let handles = env
+            .inner()
+            .static_module_instance_handles()
+            .ok_or(WasiThreadError::Unsupported)?;
+        let module = handles.module_clone();
+        let memory = handles.memory_clone();
         let thread = env.thread.clone();
         let env = env.clone();
 
@@ -395,6 +407,7 @@ impl dyn VirtualTaskManager {
                 }),
                 env.clone(),
                 module,
+                false,
                 false,
             )
             .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))

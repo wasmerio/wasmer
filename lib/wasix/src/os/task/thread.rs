@@ -17,6 +17,7 @@ use wasmer_wasix_types::{
 
 use crate::{
     os::task::process::{WasiProcessId, WasiProcessInner},
+    state::LinkError,
     syscalls::HandleRewindType,
     WasiRuntimeError,
 };
@@ -618,6 +619,8 @@ pub enum WasiThreadError {
     MemoryCreateFailed(MemoryError),
     #[error("{0}")]
     ExportError(ExportError),
+    #[error("Linker error: {0}")]
+    LinkError(Arc<LinkError>),
     #[error("Failed to create the instance - {0}")]
     // Note: Boxed so we can keep the error size down
     InstanceCreateFailed(Box<InstantiationError>),
@@ -635,6 +638,7 @@ impl From<WasiThreadError> for Errno {
             WasiThreadError::MethodNotFound => Errno::Inval,
             WasiThreadError::MemoryCreateFailed(_) => Errno::Nomem,
             WasiThreadError::ExportError(_) => Errno::Noexec,
+            WasiThreadError::LinkError(_) => Errno::Noexec,
             WasiThreadError::InstanceCreateFailed(_) => Errno::Noexec,
             WasiThreadError::InitFailed(_) => Errno::Noexec,
             WasiThreadError::InvalidWasmContext => Errno::Noexec,

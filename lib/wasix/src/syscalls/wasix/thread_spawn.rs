@@ -120,7 +120,14 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     // We extract the memory which will be passed to the thread
     let env = ctx.data();
     let tasks = env.tasks().clone();
-    let thread_memory = unsafe { env.inner() }.memory_clone();
+
+    // TODO: figure out threads + DL
+    let Some(module_handles) = env.inner().static_module_instance_handles() else {
+        error!("Thread creation in dynamically-linked modules is not supported");
+        return Err(Errno::Notcapable);
+    };
+
+    let thread_memory = module_handles.memory_clone();
 
     // We capture some local variables
     let state = env.state.clone();
@@ -149,11 +156,11 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 
     // If the process does not export a thread spawn function then obviously
     // we can't spawn a background thread
-    if unsafe { env.inner() }.thread_spawn.is_none() {
+    if module_handles.thread_spawn.is_none() {
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Err(Errno::Notcapable);
     }
-    let thread_module = unsafe { env.inner() }.module_clone();
+    let thread_module = module_handles.module_clone();
     let globals = capture_store_snapshot(&mut ctx.as_store_mut());
     let spawn_type =
         crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
@@ -165,7 +172,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     };
     tasks
         .task_wasm(
-            TaskWasm::new(Box::new(run), thread_env, thread_module, false)
+            TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
                 .with_globals(globals)
                 .with_memory(spawn_type),
         )
@@ -190,7 +197,13 @@ fn call_module<M: MemorySize>(
     let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
         // We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
-        let spawn = unsafe { env.data(&store).inner() }
+
+        // Note: we ensure both unwraps can happen before getting to this point
+        let spawn = env
+            .data(&store)
+            .inner()
+            .static_module_instance_handles()
+            .unwrap()
             .thread_spawn
             .clone()
             .unwrap();
