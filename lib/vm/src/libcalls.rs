@@ -693,6 +693,17 @@ pub extern "C-unwind" fn wasmer_vm_dbg_usize(value: usize) {
     }
 }
 
+/// (debug) Print a string.
+#[no_mangle]
+pub extern "C-unwind" fn wasmer_vm_dbg_str(ptr: usize, len: u32) {
+    #[allow(clippy::print_stdout)]
+    unsafe {
+        let str = std::str::from_utf8(std::slice::from_raw_parts(ptr as _, len as _))
+            .unwrap_or("wasmer_vm_dbg_str failed");
+        eprintln!("{str}");
+    }
+}
+
 /// Implementation for allocating an exception.
 #[no_mangle]
 pub extern "C-unwind" fn wasmer_vm_alloc_exception(size: usize) -> u64 {
@@ -936,5 +947,6 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::DeleteException => wasmer_vm_delete_exception as usize,
         LibCall::ReadException => wasmer_vm_read_exception as usize,
         LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
+        LibCall::DebugStr => wasmer_vm_dbg_str as usize,
     }
 }

@@ -768,6 +768,8 @@ impl VMBuiltinFunctionsArray {
 
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() as usize] =
             wasmer_vm_dbg_usize as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() as usize] =
+            wasmer_vm_dbg_str as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 
