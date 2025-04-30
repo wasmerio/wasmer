@@ -42,7 +42,7 @@ use crate::{
 use wasmer_types::ModuleHash;
 
 pub use super::handles::*;
-use super::{conv_env_vars, Linker, ModuleHandle, WasiState, MAIN_MODULE_HANDLE};
+use super::{conv_env_vars, Linker, WasiState};
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -154,12 +154,6 @@ pub struct WasiEnv {
     /// Implementation of the WASI runtime.
     pub runtime: Arc<dyn Runtime + Send + Sync + 'static>,
 
-    /// The handle of the current module in the Linker. If the module is
-    /// statically linked, this will always be `MAIN_MODULE_HANDLE` which is
-    /// zero. Non-zero handles will correspond to the module's entry in the
-    /// linker, which will live in the `WasiEnv::inner` field.
-    pub dl_handle: ModuleHandle,
-
     pub capabilities: Capabilities,
 
     /// Is this environment capable and setup for deep sleeping
@@ -211,7 +205,6 @@ impl Clone for WasiEnv {
             inner: Default::default(),
             owned_handles: self.owned_handles.clone(),
             runtime: self.runtime.clone(),
-            dl_handle: self.dl_handle,
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -253,10 +246,6 @@ impl WasiEnv {
             inner: Default::default(),
             owned_handles: Vec::new(),
             runtime: self.runtime.clone(),
-            // A fork is meant to support a new process, so presumably, the first
-            // env should be created for the main module of that process. Hence,
-            // we set the dl_handle back to the main module's handle.
-            dl_handle: MAIN_MODULE_HANDLE,
             capabilities: self.capabilities.clone(),
             enable_deep_sleep: self.enable_deep_sleep,
             enable_journal: self.enable_journal,
@@ -405,9 +394,6 @@ impl WasiEnv {
                 .threading
                 .enable_exponential_cpu_backoff,
             runtime: init.runtime,
-            // Since we're just initializing the env, the first module (to which
-            // the new env belongs) should be the main
-            dl_handle: MAIN_MODULE_HANDLE,
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
@@ -566,6 +552,9 @@ impl WasiEnv {
 
         // If this module exports an _initialize function, run that first.
         if call_initialize {
+            // This function is exported from PIE executables, and needs to be run before calling
+            // _initialize or _start. More info:
+            // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
             if let Ok(apply_data_relocs) = instance.exports.get_function("__wasm_apply_data_relocs")
             {
                 if let Err(err) = crate::run_wasi_func_start(apply_data_relocs, &mut store) {

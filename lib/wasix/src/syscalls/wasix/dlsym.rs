@@ -1,3 +1,5 @@
+use state::MAIN_MODULE_HANDLE;
+
 use super::*;
 use crate::{
     state::{ModuleHandle, ResolvedExport},
@@ -29,7 +31,14 @@ pub fn dlsym<M: MemorySize>(
     };
     let linker = linker.clone();
 
-    let handle = ModuleHandle::from(handle);
+    // Technically, MAIN_MODULE_HANDLE is also zero, so this does nothing. Still,
+    // a zero DlHandle is a WASIX domain value, and MAIN_MODULE_HANDLE is a Linker
+    // domain value, so having this (non-)conversion here makes us future-proof.
+    let handle = if handle == 0 {
+        MAIN_MODULE_HANDLE
+    } else {
+        ModuleHandle::from(handle)
+    };
     let symbol = linker.resolve_export(&mut store, handle, &symbol);
 
     let (env, mut store) = ctx.data_and_store_mut();

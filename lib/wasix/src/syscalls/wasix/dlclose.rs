@@ -1,3 +1,5 @@
+use state::ModuleHandle;
+
 use super::*;
 use crate::syscalls::*;
 
@@ -8,6 +10,38 @@ pub fn dlclose<M: MemorySize>(
     err_buf: WasmPtr<u8, M>,
     err_buf_len: M::Offset,
 ) -> Result<Errno, WasiError> {
-    // TODO: call dtors, preferably in the linker!
-    todo!();
+    let (env, mut store) = ctx.data_and_store_mut();
+    let memory = unsafe { env.memory_view(&store) };
+
+    let handle = if handle == 0 {
+        wasi_dl_err!("Invalid handle: 0", memory, err_buf, err_buf_len);
+    } else {
+        ModuleHandle::from(handle)
+    };
+
+    let WasiModuleTreeHandles::Dynamic { ref linker, .. } = (unsafe { env.inner() }) else {
+        wasi_dl_err!(
+            "The current instance is not a dynamically-linked instance",
+            memory,
+            err_buf,
+            err_buf_len
+        );
+    };
+    let linker = linker.clone();
+
+    let result = linker.unload_module(handle, &mut ctx.as_mut());
+
+    // Reborrow to keep rust happy
+    let (env, mut store) = ctx.data_and_store_mut();
+    let memory = unsafe { env.memory_view(&store) };
+
+    let () = wasi_try_dl!(
+        result,
+        "failed to unload module: {}",
+        memory,
+        err_buf,
+        err_buf_len
+    );
+
+    Ok(Errno::Success)
 }
