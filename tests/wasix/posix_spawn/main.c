@@ -58,12 +58,12 @@ int run_tests()
         perror("open");
         return 1;
     }
-    if (dup2(fd, 11) != 0)
+    if (dup2(fd, 11) != 11)
     {
         perror("dup2");
         return 1;
     }
-    if (dup2(fd, 13) != 0)
+    if (dup2(fd, 13) != 13)
     {
         perror("dup2");
         return 1;
