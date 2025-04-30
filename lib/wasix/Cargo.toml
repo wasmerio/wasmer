@@ -78,7 +78,7 @@ serde_json = { version = "^1" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 linked_hash_set = { version = "0.1" }
-heapless = "0.7.16"
+heapless = "0.8"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
 semver = "1.0.17"
