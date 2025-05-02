@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     ffi::OsStr,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex, MutexGuard},
+    sync::{Arc, Mutex},
 };
 
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
@@ -14,7 +14,7 @@ use virtual_mio::InlineWaker;
 use wasmer::{
     AsStoreMut, CompileError, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
     FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
-    InstantiationError, Memory, MemoryError, Module, RuntimeError, Table, Type, Value,
+    InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Type, Value,
     WASM_PAGE_SIZE,
 };
 
@@ -24,6 +24,7 @@ use super::WasiModuleInstanceHandles;
 
 // Module handle 0 is always the main module. Side modules get handles starting from 1.
 pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(0);
+static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ModuleHandle(u32);
@@ -97,6 +98,15 @@ pub struct DlModule {
 }
 
 #[derive(thiserror::Error, Debug)]
+pub enum InitializeError {
+    #[error("Already initialized")]
+    AlreadyInitialized,
+
+    #[error("Link error: {0}")]
+    LinkError(#[from] LinkError),
+}
+
+#[derive(thiserror::Error, Debug)]
 pub enum LinkError {
     #[error("Linker not initialized")]
     NotInitialized,
@@ -124,6 +134,15 @@ pub enum LinkError {
 
     #[error("Failed to parse dylink.0 section: {0}")]
     Dylink0SectionParseError(#[from] wasmparser::BinaryReaderError),
+
+    #[error("Unresolved global '{0}'.{1} due to: {2}")]
+    UnresolvedGlobal(String, String, ResolveError),
+
+    #[error("Failed to update global {0} due to: {1}")]
+    GlobalUpdateFailed(String, RuntimeError),
+
+    #[error("Expected global to be of type I32 or I64: '{0}'.{1}")]
+    NonIntegerGlobal(String, String),
 
     #[error("Bad known import: {0} of type {1:?}")]
     BadImport(String, String, ExternType),
@@ -186,7 +205,6 @@ pub enum UnloadError {
 
 pub struct DylinkInfo {
     pub mem_info: wasmparser::MemInfo,
-    // TODO: implement!
     pub needed: Vec<String>,
 }
 
@@ -197,6 +215,53 @@ pub struct LinkedMainModule {
     pub stack_high: u64,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq)]
+enum GlobalImportResolutionKind {
+    Mem,
+    Func,
+}
+
+impl GlobalImportResolutionKind {
+    fn to_unresolved(&self, name: String, global: Global) -> UnresolvedGlobal {
+        match self {
+            Self::Mem => UnresolvedGlobal::Mem(name, global),
+            Self::Func => UnresolvedGlobal::Func(name, global),
+        }
+    }
+}
+
+enum UnresolvedGlobal {
+    // A GOT.mem entry, should be resolved to an exported global from another module.
+    Mem(String, Global),
+    // A GOT.func entry, should be resolved to the address of an exported function
+    // from another module (e.g. an index into __indirect_function_table).
+    Func(String, Global),
+}
+
+#[derive(Default)]
+struct InProgressLinkState {
+    // List of all pending modules. We need this so we don't get stuck in an infinite
+    // loop when modules have circular dependencies.
+    pending_modules: Vec<PathBuf>,
+
+    // List of globals we didn't manage to resolve yet. As the final step, this list
+    // is iterated over and all globals filled in. If they still can't be resolved,
+    // the entire link operation fails. This only works for mutable globals, but clang
+    // appears to generate mutable globals for both GOT.mem and GOT.func.
+    // The list contains the import types (name + global type), as well as the actual
+    // (uninitialized) global we created for it.
+    unresolved_globals: Vec<UnresolvedGlobal>,
+}
+
+enum MainInstanceState {
+    // Still in the process of linking the main module
+    Uninitialized,
+    // Main module linked, now waiting for its instance
+    Pending(InProgressLinkState),
+    // Main module linked and initialized
+    Initialized(Instance),
+}
+
 /// The linker is responsible for loading and linking dynamic modules at runtime,
 /// and managing the shared memory and indirect function table.
 #[derive(Clone)]
@@ -205,7 +270,8 @@ pub struct Linker {
 }
 
 struct LinkerState {
-    main_instance: Option<Instance>,
+    main_instance_state: MainInstanceState,
+
     side_modules: HashMap<ModuleHandle, DlModule>,
     side_module_names: HashMap<PathBuf, ModuleHandle>,
     next_module_handle: u32,
@@ -219,7 +285,6 @@ struct LinkerState {
     #[allow(dead_code)]
     stack_low: u64,
 
-    // TODO: cache functions already placed in the table, so we don't add them again
     indirect_function_table: Table,
 }
 
@@ -242,7 +307,7 @@ impl Linker {
     /// to the main module by calling [`Linker::initialize`] before it can be used.
     pub fn new_for_main_module(
         main_module: &Module,
-        store: &mut impl AsStoreMut,
+        store: &mut StoreMut<'_>,
         memory: Option<Memory>,
         imports: &mut Imports,
         env: &FunctionEnv<WasiEnv>,
@@ -340,7 +405,7 @@ impl Linker {
 
         let linker = Self {
             state: Arc::new(Mutex::new(LinkerState {
-                main_instance: None,
+                main_instance_state: MainInstanceState::Uninitialized,
                 side_modules: HashMap::new(),
                 side_module_names: HashMap::new(),
                 next_module_handle: 1,
@@ -353,21 +418,34 @@ impl Linker {
             })),
         };
 
-        linker.state.lock().unwrap().resolve_imports(
+        let mut guard = linker.state.lock().unwrap();
+        let mut link_state = InProgressLinkState::default();
+
+        for needed in dylink_section.needed {
+            // A successful load_module will add the module to the side_modules list,
+            // from which symbols can be resolved in the following call to
+            // guard.resolve_imports.
+            guard.load_module(&linker, needed, store, env, &mut link_state)?;
+        }
+
+        guard.resolve_imports(
             &linker,
             store,
             imports,
             env,
             main_module,
+            &mut link_state,
             &[
-                ("__memory_base", 0),
-                ("__table_base", 0),
-                ("__stack_pointer", stack_high),
-                ("__stack_high", stack_high),
-                ("__stack_low", stack_low),
-                ("__heap_base", stack_high),
+                ("env", "__memory_base", 0),
+                ("env", "__table_base", 0),
+                ("GOT.mem", "__stack_high", stack_high),
+                ("GOT.mem", "__stack_low", stack_low),
+                ("GOT.mem", "__heap_base", stack_high),
             ],
         )?;
+
+        guard.main_instance_state = MainInstanceState::Pending(link_state);
+        drop(guard);
 
         Ok((
             linker,
@@ -382,9 +460,29 @@ impl Linker {
 
     /// Initialize the linker with the instantiated main module. This needs to happen before the
     /// linker can be used to load any side modules.
-    pub fn initialize(&self, main_instance: Instance) {
+    /// Note, if resolution of the main module's imported globals fails, the linker will enter an
+    /// invalid state and can't be used anymore.
+    pub fn initialize(
+        &self,
+        store: &mut impl AsStoreMut,
+        main_instance: Instance,
+    ) -> Result<(), InitializeError> {
         let mut guard = self.state.lock().unwrap();
-        guard.main_instance = Some(main_instance);
+
+        // We need a bit of memory juggling to get ownership of the main instance state
+        let mut main_instance_state = MainInstanceState::Uninitialized;
+        std::mem::swap(&mut main_instance_state, &mut guard.main_instance_state);
+
+        let MainInstanceState::Pending(link_state) = main_instance_state else {
+            // Not in the proper state, put the actual state back where it belongs
+            std::mem::swap(&mut main_instance_state, &mut guard.main_instance_state);
+            return Err(InitializeError::AlreadyInitialized);
+        };
+
+        guard.finalize_link_operation(store, link_state)?;
+        guard.main_instance_state = MainInstanceState::Initialized(main_instance);
+
+        Ok(())
     }
 
     /// Loads a side module from the given path, linking it against the existing module tree
@@ -393,112 +491,23 @@ impl Linker {
     pub fn load_module(
         &self,
         module_path: impl AsRef<Path>,
-        ctx: FunctionEnvMut<'_, WasiEnv>,
+        mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
         let mut guard = self.state.lock().unwrap();
 
         // Ensure we have a main instance
-        _ = guard
-            .main_instance
-            .as_ref()
-            .ok_or(LinkError::NotInitialized)?;
+        _ = guard.main_instance().ok_or(LinkError::NotInitialized)?;
 
-        self.load_module_ext(&mut guard, module_path, ctx, false)
-    }
+        let mut link_state = InProgressLinkState::default();
+        let env = ctx.as_ref();
+        let mut store = ctx.as_store_mut();
 
-    // TODO: figure out how this should work with threads...
-    // TODO: auto-load dependencies, store relationship so dlsym can look inside deps of this lib as well
-    // TODO: give loaded library a different wasi env that specifies its module handle
-    fn load_module_ext(
-        &self,
-        guard: &mut MutexGuard<'_, LinkerState>,
-        module_path: impl AsRef<Path>,
-        mut ctx: FunctionEnvMut<'_, WasiEnv>,
-        search_cwd: bool,
-    ) -> Result<ModuleHandle, LinkError> {
-        {
-            if let Some(handle) = guard.side_module_names.get(module_path.as_ref()) {
-                let handle = *handle;
-                let module = guard
-                    .side_modules
-                    .get_mut(&handle)
-                    .expect("Internal error: side module names out of sync with side modules");
-                module.num_references += 1;
-                return Ok(handle);
-            }
-        }
+        let module_handle =
+            guard.load_module(self, module_path, &mut store, &env, &mut link_state)?;
 
-        let func_env = ctx.as_ref().clone();
+        guard.finalize_link_operation(&mut store, link_state)?;
 
-        let (env, mut store) = ctx.data_and_store_mut();
-        let module_bytes =
-            InlineWaker::block_on(locate_module(module_path.as_ref(), &env.state.fs))?;
-
-        let module = Module::new(store.engine(), &*module_bytes)?;
-
-        let dylink_info = parse_dylink0_section(&module)?;
-
-        let self_clone = self.clone();
-        let memory = guard.memory.clone();
-
-        let memory_base = guard.allocate_memory(&memory, &mut store, &dylink_info.mem_info)?;
-        // TODO: handle table allocation... yes, we're even side-stepping that!
-        let table_base = 0;
-
-        let (mut imports, init) =
-            import_object_for_all_wasi_versions(&module, &mut store, &func_env);
-
-        guard.resolve_imports(
-            &self_clone,
-            &mut store,
-            &mut imports,
-            &func_env,
-            &module,
-            &[("__memory_base", memory_base), ("__table_base", table_base)],
-        )?;
-
-        let instance = Instance::new(&mut store, &module, &imports)?;
-
-        let instance_handles =
-            WasiModuleInstanceHandles::new(memory.clone(), &store, instance.clone());
-
-        let loaded_module = DlModule {
-            instance: instance.clone(),
-            memory_base,
-            table_base,
-            instance_handles,
-            num_references: 1,
-            _private: (),
-        };
-
-        let handle = ModuleHandle(guard.next_module_handle);
-        guard.next_module_handle += 1;
-
-        guard.side_modules.insert(handle, loaded_module);
-        guard
-            .side_module_names
-            .insert(module_path.as_ref().to_owned(), handle);
-
-        let init = move || {
-            // No idea at which point this should be called. Also, apparently, there isn't an actual
-            // implementation of the init function that does anything (that I can find?), so it doesn't
-            // matter anyway.
-            init(&instance, &mut store).map_err(LinkError::InitializationError)?;
-
-            call_initialization_function(&instance, &mut store, "__wasm_apply_data_relocs")?;
-            call_initialization_function(&instance, &mut store, "__wasm_call_ctors")?;
-
-            Ok(())
-        };
-
-        match init() {
-            Ok(()) => Ok(handle),
-            Err(e) => {
-                guard.side_modules.remove(&handle);
-                guard.side_module_names.remove(module_path.as_ref());
-                Err(e)
-            }
-        }
+        Ok(module_handle)
     }
 
     pub fn unload_module(
@@ -540,7 +549,7 @@ impl Linker {
         Ok(())
     }
 
-    // TODO: Support RTLD_DEFAULT, RTLD_NEXT
+    // TODO: Support RTLD_NEXT
     /// Resolves an export from the module corresponding to the given module handle.
     /// Only functions and globals can be resolved.
     ///
@@ -553,49 +562,13 @@ impl Linker {
     pub fn resolve_export(
         &self,
         store: &mut impl AsStoreMut,
-        module_handle: ModuleHandle,
+        module_handle: Option<ModuleHandle>,
         symbol: &str,
     ) -> Result<ResolvedExport, ResolveError> {
         let guard = self.state.lock().unwrap();
-        let (instance, memory_base) = if module_handle == MAIN_MODULE_HANDLE {
-            (
-                guard
-                    .main_instance
-                    .as_ref()
-                    .ok_or(ResolveError::NotInitialized)?,
-                0,
-            )
-        } else {
-            let module = guard
-                .side_modules
-                .get(&module_handle)
-                .ok_or(ResolveError::InvalidModuleHandle)?;
-            (&module.instance, module.memory_base)
-        };
-
-        let export = instance
-            .exports
-            .get_extern(symbol)
-            .ok_or(ResolveError::MissingExport)?;
-
-        match export.ty(store) {
-            ExternType::Function(_) => Ok(ResolvedExport::Function(
-                Function::get_self_from_extern(export).unwrap().clone(),
-            )),
-            ty @ ExternType::Global(_) => {
-                let global = Global::get_self_from_extern(export).unwrap();
-                let value = match global.get(store) {
-                    Value::I32(value) => value as u64,
-                    Value::I64(value) => value as u64,
-                    _ => return Err(ResolveError::InvalidExportType(ty.clone())),
-                };
-                Ok(ResolvedExport::Global(value + memory_base))
-            }
-            ty => Err(ResolveError::InvalidExportType(ty.clone())),
-        }
+        guard.resolve_export(store, module_handle, symbol)
     }
 
-    // TODO: cache functions so we don't grow the table unnecessarily?
     /// Places a function into the indirect function table, returning its index
     /// which can be given to WASM code as a function pointer.
     pub fn append_to_function_table(
@@ -604,11 +577,7 @@ impl Linker {
         func: Function,
     ) -> Result<u32, LinkError> {
         let guard = self.state.lock().unwrap();
-        let table = &guard.indirect_function_table;
-
-        Ok(table
-            .grow(store, 1, func.into())
-            .map_err(LinkError::TableAllocationError)?)
+        guard.append_to_function_table(store, func)
     }
 
     /// Allows access to the internal representation of loaded modules. The modules
@@ -625,9 +594,15 @@ impl Linker {
 }
 
 impl LinkerState {
+    fn main_instance(&self) -> Option<&Instance> {
+        match self.main_instance_state {
+            MainInstanceState::Initialized(ref instance) => Some(instance),
+            _ => None,
+        }
+    }
+
     fn allocate_memory(
         &mut self,
-        memory: &Memory,
         store: &mut impl AsStoreMut,
         mem_info: &wasmparser::MemInfo,
     ) -> Result<u64, MemoryError> {
@@ -635,11 +610,38 @@ impl LinkerState {
             Ok(0)
         } else {
             self.memory_allocator.allocate(
-                memory,
+                &self.memory,
                 store,
                 mem_info.memory_size as u64,
                 2_u32.pow(mem_info.memory_alignment),
             )
+        }
+    }
+
+    fn allocate_table(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        mem_info: &wasmparser::MemInfo,
+    ) -> Result<u64, RuntimeError> {
+        if mem_info.table_size == 0 {
+            Ok(0)
+        } else {
+            let current_size = self.indirect_function_table.size(store) as u32;
+            let alignment = 2_u32.pow(mem_info.table_alignment);
+
+            let offset = if current_size % alignment != 0 {
+                alignment - (current_size % alignment)
+            } else {
+                0
+            };
+
+            let start = self.indirect_function_table.grow(
+                store,
+                mem_info.table_size as u32 + offset,
+                Value::FuncRef(None),
+            )?;
+
+            Ok((start + offset) as u64)
         }
     }
 
@@ -652,38 +654,73 @@ impl LinkerState {
         imports: &mut Imports,
         env: &FunctionEnv<WasiEnv>,
         module: &Module,
-        well_known_env_imports: &[(&str, u64)],
+        link_state: &mut InProgressLinkState,
+        well_known_imports: &[(&str, &str, u64)],
     ) -> Result<(), LinkError> {
         for import in module.imports() {
-            // TODO: also resolve GOT.mem and GOT.func symbols
-            match import.module() {
-                "env" => {
-                    imports.define(
-                        "env",
-                        import.name(),
-                        self.resolve_env_import(
-                            &import,
-                            linker,
-                            store,
-                            env,
-                            well_known_env_imports,
-                        )?,
-                    );
+            if let Some(well_known_value) = well_known_imports.iter().find_map(|i| {
+                if i.0 == import.module() && i.1 == import.name() {
+                    Some(i.2)
+                } else {
+                    None
                 }
-                _ => todo!(),
+            }) {
+                imports.define(
+                    import.module(),
+                    import.name(),
+                    define_integer_global_import(store, &import, well_known_value)?,
+                );
+            } else {
+                match import.module() {
+                    "env" => {
+                        imports.define(
+                            "env",
+                            import.name(),
+                            self.resolve_env_import(&import, linker, store, env)?,
+                        );
+                    }
+                    "GOT.mem" => {
+                        imports.define(
+                            "GOT.mem",
+                            import.name(),
+                            self.resolve_global_import(
+                                &import,
+                                store,
+                                link_state,
+                                GlobalImportResolutionKind::Mem,
+                            )?,
+                        );
+                    }
+                    "GOT.func" => {
+                        imports.define(
+                            "GOT.func",
+                            import.name(),
+                            self.resolve_global_import(
+                                &import,
+                                store,
+                                link_state,
+                                GlobalImportResolutionKind::Func,
+                            )?,
+                        );
+                    }
+                    _ => (),
+                }
             }
         }
 
         Ok(())
     }
 
+    // Imports from the env module are:
+    //   * the memory and indirect function table
+    //   * well-known addresses, such as __stack_pointer and __memory_base
+    //   * functions that are imported directly
     fn resolve_env_import(
         &self,
         import: &ImportType,
         linker: &Linker,
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<WasiEnv>,
-        well_known_imports: &[(&str, u64)],
     ) -> Result<Extern, LinkError> {
         match import.name() {
             "memory" => {
@@ -718,61 +755,117 @@ impl LinkerState {
                 Ok(Extern::Global(self.stack_pointer.clone()))
             }
             name => {
-                if let Some(well_known_value) = well_known_imports.iter().find_map(|i| {
-                    if i.0 == import.name() {
-                        Some(i.1)
-                    } else {
-                        None
+                let export = self.resolve_symbol(name)?;
+
+                match export {
+                    Some(export) => {
+                        let import_type = import.ty();
+                        let export_type = export.ty(store);
+                        if export_type != *import_type {
+                            return Err(LinkError::ImportTypeMismatch(
+                                "env".to_string(),
+                                name.to_string(),
+                                import_type.clone(),
+                                export_type,
+                            ));
+                        }
+
+                        Ok(export.clone())
                     }
-                }) {
-                    define_integer_global_import(store, &import, well_known_value).map(Into::into)
-                } else {
-                    let export = self.resolve_symbol(name)?;
-
-                    match export {
-                        Some(export) => {
-                            let import_type = import.ty();
-                            let export_type = export.ty(store);
-                            if export_type != *import_type {
-                                return Err(LinkError::ImportTypeMismatch(
-                                    "env".to_string(),
-                                    name.to_string(),
-                                    import_type.clone(),
-                                    export_type,
-                                ));
-                            }
-
-                            Ok(export.clone())
-                        }
-                        None => {
-                            // The function may be exported from a module we have yet to link in,
-                            // or otherwise not be used by the module at all. We provide a stub that,
-                            // when called, will try to resolve the symbol and call it. This lets
-                            // us resolve circular dependencies, as well as letting modules that don't
-                            // actually use their imports run successfully.
-                            let ExternType::Function(func_ty) = import.ty() else {
-                                return Err(LinkError::ImportMustBeFunction(name.to_string()));
-                            };
-                            Ok(self
-                                .generate_stub_function(
-                                    linker,
-                                    store,
-                                    func_ty,
-                                    env,
-                                    name.to_string(),
-                                )
-                                .into())
-                        }
+                    None => {
+                        // The function may be exported from a module we have yet to link in,
+                        // or otherwise not be used by the module at all. We provide a stub that,
+                        // when called, will try to resolve the symbol and call it. This lets
+                        // us resolve circular dependencies, as well as letting modules that don't
+                        // actually use their imports run successfully.
+                        let ExternType::Function(func_ty) = import.ty() else {
+                            return Err(LinkError::ImportMustBeFunction(name.to_string()));
+                        };
+                        Ok(self
+                            .generate_stub_function(linker, store, func_ty, env, name.to_string())
+                            .into())
                     }
                 }
             }
         }
     }
 
+    // "Global" imports (i.e. imports from GOT.mem and GOT.func) are integer globals.
+    // GOT.mem imports should point to the address of another module's data, while
+    // GOT.func imports are function pointers (i.e. indices into the indirect function
+    // table).
+    fn resolve_global_import(
+        &self,
+        import: &ImportType,
+        store: &mut impl AsStoreMut,
+        link_state: &mut InProgressLinkState,
+        global_kind: GlobalImportResolutionKind,
+    ) -> Result<Global, LinkError> {
+        let import_type = import.ty();
+        let ExternType::Global(ty) = import_type else {
+            return Err(LinkError::BadImport(
+                import.module().to_owned(),
+                import.name().to_owned(),
+                import_type.clone(),
+            ));
+        };
+
+        if !matches!(ty.ty, Type::I32 | Type::I64) {
+            return Err(LinkError::NonIntegerGlobal(
+                import.module().to_owned(),
+                import.name().to_owned(),
+            ));
+        }
+
+        let export = self.resolve_export(store, None, import.name());
+        let (value, missing) = match export {
+            Ok(ResolvedExport::Global(addr)) => {
+                if global_kind == GlobalImportResolutionKind::Mem {
+                    (addr as u64, false)
+                } else {
+                    return Err(LinkError::UnresolvedGlobal(
+                        import.module().to_owned(),
+                        import.name().to_owned(),
+                        ResolveError::MissingExport,
+                    ));
+                }
+            }
+            Ok(ResolvedExport::Function(func)) => {
+                if global_kind == GlobalImportResolutionKind::Func {
+                    let func_handle = self.append_to_function_table(store, func)?;
+                    (func_handle as u64, false)
+                } else {
+                    return Err(LinkError::UnresolvedGlobal(
+                        import.module().to_owned(),
+                        import.name().to_owned(),
+                        ResolveError::MissingExport,
+                    ));
+                }
+            }
+            Err(ResolveError::MissingExport) => (0, true),
+            Err(e) => {
+                return Err(LinkError::UnresolvedGlobal(
+                    import.module().to_owned(),
+                    import.name().to_owned(),
+                    e,
+                ))
+            }
+        };
+
+        let global = define_integer_global_import(store, import, value)?;
+
+        if missing {
+            link_state
+                .unresolved_globals
+                .push(global_kind.to_unresolved(import.name().to_owned(), global.clone()));
+        }
+
+        Ok(global)
+    }
+
     fn resolve_symbol(&self, symbol: &str) -> Result<Option<&Extern>, LinkError> {
         if let Some(export) = self
-            .main_instance
-            .as_ref()
+            .main_instance()
             .and_then(|instance| instance.exports.get_extern(symbol))
         {
             return Ok(Some(export));
@@ -837,10 +930,278 @@ impl LinkerState {
             },
         )
     }
+
+    // TODO: figure out how this should work with threads...
+    // TODO: give loaded library a different wasi env that specifies its module handle
+    fn load_module(
+        &mut self,
+        linker: &Linker,
+        module_path: impl AsRef<Path>,
+        store: &mut StoreMut<'_>,
+        env: &FunctionEnv<WasiEnv>,
+        link_state: &mut InProgressLinkState,
+    ) -> Result<ModuleHandle, LinkError> {
+        {
+            if let Some(handle) = self.side_module_names.get(module_path.as_ref()) {
+                let handle = *handle;
+                let module = self
+                    .side_modules
+                    .get_mut(&handle)
+                    .expect("Internal error: side module names out of sync with side modules");
+                module.num_references += 1;
+                return Ok(handle);
+            }
+        }
+
+        let (full_path, module_bytes) = InlineWaker::block_on(locate_module(
+            module_path.as_ref(),
+            &env.as_ref(store).state.fs,
+        ))?;
+
+        // TODO: this can be optimized by detecting early if the module is already
+        // pending without loading its bytes
+        if link_state.pending_modules.contains(&full_path) {
+            // This is fine, since a non-empty pending_modules list means we are
+            // recursively resolving needed modules. We don't use the handle
+            // returned from this function for anything when running recursively
+            // (see self.load_module call below).
+            return Ok(INVALID_MODULE_HANDLE);
+        }
+
+        let module = Module::new(store.engine(), &*module_bytes)?;
+
+        let dylink_info = parse_dylink0_section(&module)?;
+
+        link_state.pending_modules.push(full_path);
+        let num_pending_modules = link_state.pending_modules.len();
+        let pop_pending_module = |link_state: &mut InProgressLinkState| {
+            assert_eq!(
+                num_pending_modules,
+                link_state.pending_modules.len(),
+                "Internal error: pending modules not maintained correctly"
+            );
+            link_state.pending_modules.pop().unwrap();
+        };
+
+        for needed in dylink_info.needed {
+            // A successful load_module will add the module to the side_modules list,
+            // from which symbols can be resolved in the following call to
+            // self.resolve_imports.
+            match self.load_module(linker, needed, store, env, link_state) {
+                Ok(_) => (),
+                Err(e) => {
+                    pop_pending_module(link_state);
+                    return Err(e);
+                }
+            }
+        }
+
+        pop_pending_module(link_state);
+
+        let memory_base = self.allocate_memory(store, &dylink_info.mem_info)?;
+        let table_base = self
+            .allocate_table(store, &dylink_info.mem_info)
+            .map_err(LinkError::TableAllocationError)?;
+
+        let (mut imports, init) = import_object_for_all_wasi_versions(&module, store, env);
+
+        self.resolve_imports(
+            &linker,
+            store,
+            &mut imports,
+            env,
+            &module,
+            link_state,
+            &[
+                ("env", "__memory_base", memory_base),
+                ("env", "__table_base", table_base),
+            ],
+        )?;
+
+        let instance = Instance::new(store, &module, &imports)?;
+
+        let instance_handles =
+            WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
+
+        let loaded_module = DlModule {
+            instance: instance.clone(),
+            memory_base,
+            table_base,
+            instance_handles,
+            num_references: 1,
+            _private: (),
+        };
+
+        let handle = ModuleHandle(self.next_module_handle);
+        self.next_module_handle += 1;
+
+        self.side_modules.insert(handle, loaded_module);
+        self.side_module_names
+            .insert(module_path.as_ref().to_owned(), handle);
+
+        let init = move || {
+            // No idea at which point this should be called. Also, apparently, there isn't an actual
+            // implementation of the init function that does anything (that I can find?), so it doesn't
+            // matter anyway.
+            init(&instance, store).map_err(LinkError::InitializationError)?;
+
+            call_initialization_function(&instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function(&instance, store, "__wasm_call_ctors")?;
+
+            Ok(())
+        };
+
+        match init() {
+            Ok(()) => Ok(handle),
+            Err(e) => {
+                self.side_modules.remove(&handle);
+                self.side_module_names.remove(module_path.as_ref());
+                Err(e)
+            }
+        }
+    }
+
+    fn resolve_export(
+        &self,
+        store: &mut impl AsStoreMut,
+        module_handle: Option<ModuleHandle>,
+        symbol: &str,
+    ) -> Result<ResolvedExport, ResolveError> {
+        match module_handle {
+            Some(module_handle) => {
+                let (instance, memory_base) = if module_handle == MAIN_MODULE_HANDLE {
+                    (self.main_instance().ok_or(ResolveError::NotInitialized)?, 0)
+                } else {
+                    let module = self
+                        .side_modules
+                        .get(&module_handle)
+                        .ok_or(ResolveError::InvalidModuleHandle)?;
+                    (&module.instance, module.memory_base)
+                };
+
+                self.resolve_export_from(store, symbol, instance, memory_base)
+            }
+
+            None => {
+                // TODO: this would be the place to support RTLD_NEXT
+                if let Some(instance) = self.main_instance() {
+                    match self.resolve_export_from(store, symbol, instance, 0) {
+                        Ok(export) => return Ok(export),
+                        Err(ResolveError::MissingExport) => (),
+                        Err(e) => return Err(e),
+                    }
+                }
+
+                for module in self.side_modules.values() {
+                    match self.resolve_export_from(
+                        store,
+                        symbol,
+                        &module.instance,
+                        module.memory_base,
+                    ) {
+                        Ok(export) => return Ok(export),
+                        Err(ResolveError::MissingExport) => (),
+                        Err(e) => return Err(e),
+                    }
+                }
+
+                Err(ResolveError::MissingExport)
+            }
+        }
+    }
+
+    fn resolve_export_from(
+        &self,
+        store: &mut impl AsStoreMut,
+        symbol: &str,
+        instance: &Instance,
+        memory_base: u64,
+    ) -> Result<ResolvedExport, ResolveError> {
+        let export = instance
+            .exports
+            .get_extern(symbol)
+            .ok_or(ResolveError::MissingExport)?;
+
+        match export.ty(store) {
+            ExternType::Function(_) => Ok(ResolvedExport::Function(
+                Function::get_self_from_extern(export).unwrap().clone(),
+            )),
+            ty @ ExternType::Global(_) => {
+                let global = Global::get_self_from_extern(export).unwrap();
+                let value = match global.get(store) {
+                    Value::I32(value) => value as u64,
+                    Value::I64(value) => value as u64,
+                    _ => return Err(ResolveError::InvalidExportType(ty.clone())),
+                };
+                Ok(ResolvedExport::Global(value + memory_base))
+            }
+            ty => Err(ResolveError::InvalidExportType(ty.clone())),
+        }
+    }
+
+    pub fn append_to_function_table(
+        &self,
+        store: &mut impl AsStoreMut,
+        func: Function,
+    ) -> Result<u32, LinkError> {
+        let table = &self.indirect_function_table;
+
+        Ok(table
+            .grow(store, 1, func.into())
+            .map_err(LinkError::TableAllocationError)?)
+    }
+
+    fn finalize_link_operation(
+        &self,
+        store: &mut impl AsStoreMut,
+        link_state: InProgressLinkState,
+    ) -> Result<(), LinkError> {
+        // Can't have pending modules at this point now, can we?
+        assert!(link_state.pending_modules.is_empty());
+
+        for unresolved in link_state.unresolved_globals {
+            match unresolved {
+                UnresolvedGlobal::Mem(name, global) => {
+                    let resolved = self.resolve_export(store, None, &name).map_err(|e| {
+                        LinkError::UnresolvedGlobal("GOT.mem".to_string(), name.clone(), e)
+                    })?;
+                    if let ResolvedExport::Global(addr) = resolved {
+                        set_integer_global(store, &name, &global, addr)?;
+                    } else {
+                        return Err(LinkError::UnresolvedGlobal(
+                            "GOT.mem".to_string(),
+                            name,
+                            ResolveError::MissingExport,
+                        ));
+                    }
+                }
+                UnresolvedGlobal::Func(name, global) => {
+                    let resolved = self.resolve_export(store, None, &name).map_err(|e| {
+                        LinkError::UnresolvedGlobal("GOT.func".to_string(), name.clone(), e)
+                    })?;
+                    if let ResolvedExport::Function(func) = resolved {
+                        let func_handle = self.append_to_function_table(store, func)?;
+                        set_integer_global(store, &name, &global, func_handle as u64)?;
+                    } else {
+                        return Err(LinkError::UnresolvedGlobal(
+                            "GOT.func".to_string(),
+                            name,
+                            ResolveError::MissingExport,
+                        ));
+                    }
+                }
+            }
+        }
+
+        Ok(())
+    }
 }
 
-async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<Vec<u8>, LinkError> {
-    async fn try_load(fs: &WasiFsRoot, path: impl AsRef<Path>) -> Result<Vec<u8>, FsError> {
+async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
+    async fn try_load(
+        fs: &WasiFsRoot,
+        path: impl AsRef<Path>,
+    ) -> Result<(PathBuf, Vec<u8>), FsError> {
         let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
             Ok(f) => f,
             // Fallback for cases where the module thinks it's running on unix,
@@ -854,7 +1215,7 @@ async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<Vec<u8>, LinkE
 
         let mut buf = Vec::new();
         file.read_to_end(&mut buf).await?;
-        Ok(buf)
+        Ok((path.as_ref().to_owned(), buf))
     }
 
     if module_path.is_absolute() {
@@ -867,14 +1228,14 @@ async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<Vec<u8>, LinkE
         .await?)
     } else {
         // Go through all dyanmic library lookup paths
-        // TODO: implement RUNPATH
+        // Note: a path without a slash does *not* look at the current directory. This is by design.
+
+        // TODO: implement RUNPATH once it's supported by clang and wasmparser
         // TODO: support $ORIGIN and ${ORIGIN} in RUNPATH
 
-        // Note: a path without a slash does *not* look at the current directory.
-
         for path in DEFAULT_RUNTIME_PATH {
-            if let Ok(module) = try_load(&fs.root_fs, Path::new(path).join(module_path)).await {
-                return Ok(module);
+            if let Ok(ret) = try_load(&fs.root_fs, Path::new(path).join(module_path)).await {
+                return Ok(ret);
             }
         }
 
@@ -965,6 +1326,28 @@ fn define_integer_global_import(
     };
 
     Ok(global)
+}
+
+fn set_integer_global(
+    store: &mut impl AsStoreMut,
+    name: &str,
+    global: &Global,
+    value: u64,
+) -> Result<(), LinkError> {
+    match global.ty(store).ty {
+        Type::I32 => global
+            .set(store, Value::I32(value as i32))
+            .map_err(|e| LinkError::GlobalUpdateFailed(name.to_owned(), e))?,
+        Type::I64 => global
+            .set(store, Value::I64(value as i64))
+            .map_err(|e| LinkError::GlobalUpdateFailed(name.to_owned(), e))?,
+        _ => {
+            // This should be caught by resolve_global_import, so just panic here
+            unreachable!("Internal error: expected global of type I32 or I64");
+        }
+    }
+
+    Ok(())
 }
 
 fn call_initialization_function(

@@ -474,7 +474,16 @@ impl WasiEnv {
 
         let (handles, stack_layout) = match (linker, imported_memory) {
             (Some((linker, low, high)), Some(memory)) => {
-                linker.initialize(instance.clone());
+                linker
+                    .initialize(&mut store, instance.clone())
+                    .map_err(|e| match e {
+                        super::linker::InitializeError::LinkError(e) => {
+                            WasiThreadError::LinkError(Arc::new(e))
+                        }
+                        super::linker::InitializeError::AlreadyInitialized => {
+                            panic!("Internal error: linker can't have been initialized before")
+                        }
+                    })?;
 
                 let layout = WasiMemoryLayout {
                     stack_lower: low,

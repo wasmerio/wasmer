@@ -31,13 +31,11 @@ pub fn dlsym<M: MemorySize>(
     };
     let linker = linker.clone();
 
-    // Technically, MAIN_MODULE_HANDLE is also zero, so this does nothing. Still,
-    // a zero DlHandle is a WASIX domain value, and MAIN_MODULE_HANDLE is a Linker
-    // domain value, so having this (non-)conversion here makes us future-proof.
+    // handle = 0 is RTLD_DEFAULT, so search everywhere
     let handle = if handle == 0 {
-        MAIN_MODULE_HANDLE
+        None
     } else {
-        ModuleHandle::from(handle)
+        Some(ModuleHandle::from(handle))
     };
     let symbol = linker.resolve_export(&mut store, handle, &symbol);
 
