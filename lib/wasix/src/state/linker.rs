@@ -6,20 +6,19 @@ use std::{
     collections::HashMap,
     ffi::OsStr,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
 use virtual_mio::InlineWaker;
 use wasmer::{
     AsStoreMut, CompileError, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
-    FunctionEnvMut, Global, GlobalType, ImportType, Imports, Instance, InstantiationError, Memory,
-    MemoryError, Module, RuntimeError, Table, Type, Value, WASM_PAGE_SIZE,
+    FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
+    InstantiationError, Memory, MemoryError, Module, RuntimeError, Table, Type, Value,
+    WASM_PAGE_SIZE,
 };
 
-use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, ModuleInitializer, WasiEnv, WasiFs,
-};
+use crate::{fs::WasiFsRoot, import_object_for_all_wasi_versions, WasiEnv, WasiError, WasiFs};
 
 use super::WasiModuleInstanceHandles;
 
@@ -87,6 +86,7 @@ impl MemoryAllocator {
     }
 }
 
+#[allow(clippy::manual_non_exhaustive)]
 pub struct DlModule {
     pub instance: Instance,
     pub memory_base: u64,
@@ -100,10 +100,6 @@ pub struct DlModule {
 pub enum LinkError {
     #[error("Linker not initialized")]
     NotInitialized,
-
-    // FIXME: support needed subsection, remove this error
-    #[error("The 'needed' subsection of dylink.0 is not supported yet")]
-    NeededSubsectionNotSupported,
 
     #[error("Main module is missing a required import: {0}")]
     MissingMainModuleImport(String),
@@ -130,15 +126,15 @@ pub enum LinkError {
     Dylink0SectionParseError(#[from] wasmparser::BinaryReaderError),
 
     #[error("Bad known import: {0} of type {1:?}")]
-    BadImport(String, ExternType),
-
-    #[error("Import could not be satisfied because it's missing: {0}")]
-    MissingImport(String),
+    BadImport(String, String, ExternType),
 
     #[error(
         "Import could not be satisfied because of type mismatch: {0}, expected {1:?}, found {2:?}"
     )]
-    ImportTypeMismatch(String, ExternType, ExternType),
+    ImportTypeMismatch(String, String, ExternType, ExternType),
+
+    #[error("Expected import to be a function: env.{0}")]
+    ImportMustBeFunction(String),
 
     #[error("Failed to initialize instance: {0}")]
     InitializationError(anyhow::Error),
@@ -190,6 +186,8 @@ pub enum UnloadError {
 
 pub struct DylinkInfo {
     pub mem_info: wasmparser::MemInfo,
+    // TODO: implement!
+    pub needed: Vec<String>,
 }
 
 pub struct LinkedMainModule {
@@ -247,6 +245,7 @@ impl Linker {
         store: &mut impl AsStoreMut,
         memory: Option<Memory>,
         imports: &mut Imports,
+        env: &FunctionEnv<WasiEnv>,
         stack_size: u64,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
         let dylink_section = parse_dylink0_section(&main_module)?;
@@ -330,41 +329,14 @@ impl Linker {
 
         imports.define("env", "memory", Extern::Memory(memory.clone()));
 
-        let mut stack_pointer = None;
-
-        for import in main_module.imports() {
-            match (import.module(), import.name()) {
-                ("env", "__memory_base") => {
-                    define_integer_global_import(store, imports, &import, 0)?;
-                }
-                ("env", "__table_base") => {
-                    define_integer_global_import(store, imports, &import, 0)?;
-                }
-                ("env", "__stack_pointer") => {
-                    stack_pointer = Some(define_integer_global_import(
-                        store, imports, &import, stack_high,
-                    )?);
-                }
-                ("GOT.mem", "__stack_high") => {
-                    define_integer_global_import(store, imports, &import, stack_high)?;
-                }
-                ("GOT.mem", "__stack_low") => {
-                    define_integer_global_import(store, imports, &import, stack_low)?;
-                }
-                ("GOT.mem", "__heap_base") => {
-                    define_integer_global_import(store, imports, &import, stack_high)?;
-                }
-                _ => (),
-            }
-        }
-
-        // We need the main module to import a stack pointer, so we can feed it to
-        // the side modules later; thus, its absence is an error.
-        let Some(stack_pointer) = stack_pointer else {
-            return Err(LinkError::MissingMainModuleImport(
+        let stack_pointer_import = main_module
+            .imports()
+            .find(|i| i.module() == "env" && i.name() == "__stack_pointer")
+            .ok_or(LinkError::MissingMainModuleImport(
                 "__stack_pointer".to_string(),
-            ));
-        };
+            ))?;
+
+        let stack_pointer = define_integer_global_import(store, &stack_pointer_import, stack_high)?;
 
         let linker = Self {
             state: Arc::new(Mutex::new(LinkerState {
@@ -380,6 +352,22 @@ impl Linker {
                 indirect_function_table: indirect_function_table.clone(),
             })),
         };
+
+        linker.state.lock().unwrap().resolve_imports(
+            &linker,
+            store,
+            imports,
+            env,
+            main_module,
+            &[
+                ("__memory_base", 0),
+                ("__table_base", 0),
+                ("__stack_pointer", stack_high),
+                ("__stack_high", stack_high),
+                ("__stack_low", stack_low),
+                ("__heap_base", stack_high),
+            ],
+        )?;
 
         Ok((
             linker,
@@ -399,21 +387,36 @@ impl Linker {
         guard.main_instance = Some(main_instance);
     }
 
-    // TODO: figure out how this should work with threads...
-    // TODO: auto-load dependencies, store relationship so dlsym can look inside deps of this lib as well
-    // TODO: give loaded library a different wasi env that specifies its module handle
-    // TODO: call destructors
     /// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].
     pub fn load_module(
         &self,
         module_path: impl AsRef<Path>,
+        ctx: FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<ModuleHandle, LinkError> {
+        let mut guard = self.state.lock().unwrap();
+
+        // Ensure we have a main instance
+        _ = guard
+            .main_instance
+            .as_ref()
+            .ok_or(LinkError::NotInitialized)?;
+
+        self.load_module_ext(&mut guard, module_path, ctx, false)
+    }
+
+    // TODO: figure out how this should work with threads...
+    // TODO: auto-load dependencies, store relationship so dlsym can look inside deps of this lib as well
+    // TODO: give loaded library a different wasi env that specifies its module handle
+    fn load_module_ext(
+        &self,
+        guard: &mut MutexGuard<'_, LinkerState>,
+        module_path: impl AsRef<Path>,
         mut ctx: FunctionEnvMut<'_, WasiEnv>,
+        search_cwd: bool,
     ) -> Result<ModuleHandle, LinkError> {
         {
-            let mut guard = self.state.lock().unwrap();
-
             if let Some(handle) = guard.side_module_names.get(module_path.as_ref()) {
                 let handle = *handle;
                 let module = guard
@@ -435,20 +438,23 @@ impl Linker {
 
         let dylink_info = parse_dylink0_section(&module)?;
 
-        let mut guard = self.state.lock().unwrap();
+        let self_clone = self.clone();
         let memory = guard.memory.clone();
 
         let memory_base = guard.allocate_memory(&memory, &mut store, &dylink_info.mem_info)?;
         // TODO: handle table allocation... yes, we're even side-stepping that!
         let table_base = 0;
 
-        let (imports, init) = guard.resolve_imports(
+        let (mut imports, init) =
+            import_object_for_all_wasi_versions(&module, &mut store, &func_env);
+
+        guard.resolve_imports(
+            &self_clone,
             &mut store,
+            &mut imports,
             &func_env,
             &module,
-            memory.clone(),
-            memory_base,
-            table_base,
+            &[("__memory_base", memory_base), ("__table_base", table_base)],
         )?;
 
         let instance = Instance::new(&mut store, &module, &imports)?;
@@ -520,7 +526,8 @@ impl Linker {
             .retain(|_, handle| *handle != module_handle);
 
         // TODO: need to add support for this in wasix-libc, currently it's not
-        // exported from any side modules
+        // exported from any side modules. Each side module must have its own
+        // __cxa_atexit and friends, and export its own __wasm_call_dtors.
         call_destructor_function(&module.instance, store, "__wasm_call_dtors")?;
 
         let memory = guard.memory.clone();
@@ -553,8 +560,9 @@ impl Linker {
         let (instance, memory_base) = if module_handle == MAIN_MODULE_HANDLE {
             (
                 guard
-                    .main_instance()
-                    .map_err(|()| ResolveError::NotInitialized)?,
+                    .main_instance
+                    .as_ref()
+                    .ok_or(ResolveError::NotInitialized)?,
                 0,
             )
         } else {
@@ -617,10 +625,6 @@ impl Linker {
 }
 
 impl LinkerState {
-    fn main_instance(&self) -> Result<&Instance, ()> {
-        self.main_instance.as_ref().ok_or(())
-    }
-
     fn allocate_memory(
         &mut self,
         memory: &Memory,
@@ -641,97 +645,197 @@ impl LinkerState {
 
     fn resolve_imports(
         &self,
+        // This may look weird, but we need the linker itself (which has an Arc<Mutex> of us)
+        // to generate stub functions.
+        linker: &Linker,
         store: &mut impl AsStoreMut,
+        imports: &mut Imports,
         env: &FunctionEnv<WasiEnv>,
         module: &Module,
-        memory: Memory,
-        memory_base: u64,
-        table_base: u64,
-    ) -> Result<(Imports, ModuleInitializer), LinkError> {
-        let (mut imports, init) = import_object_for_all_wasi_versions(module, store, env);
-
-        let mut memory = Some(memory);
-
+        well_known_env_imports: &[(&str, u64)],
+    ) -> Result<(), LinkError> {
         for import in module.imports() {
-            // All DL-related imports are in the "env" module
-            if import.module() != "env" {
-                continue;
-            }
-
-            match import.name() {
-                "memory" => {
-                    if !matches!(import.ty(), ExternType::Memory(_)) {
-                        return Err(LinkError::BadImport(
-                            import.name().to_string(),
-                            import.ty().clone(),
-                        ));
-                    }
+            // TODO: also resolve GOT.mem and GOT.func symbols
+            match import.module() {
+                "env" => {
                     imports.define(
                         "env",
-                        "memory",
-                        Extern::Memory(memory.take().expect("env.memory imported multiple times")),
+                        import.name(),
+                        self.resolve_env_import(
+                            &import,
+                            linker,
+                            store,
+                            env,
+                            well_known_env_imports,
+                        )?,
                     );
                 }
-                "__indirect_function_table" => {
-                    if !matches!(import.ty(), ExternType::Table(ty) if ty.ty == Type::FuncRef) {
-                        return Err(LinkError::BadImport(
-                            import.name().to_string(),
-                            import.ty().clone(),
-                        ));
-                    }
-                    imports.define(
-                        "env",
-                        "__indirect_function_table",
-                        Extern::Table(self.indirect_function_table.clone()),
-                    );
-                }
-                "__stack_pointer" => {
-                    if !matches!(import.ty(), ExternType::Global(ty) if *ty == self.stack_pointer.ty(store))
-                    {
-                        return Err(LinkError::BadImport(
-                            import.name().to_string(),
-                            import.ty().clone(),
-                        ));
-                    }
-                    imports.define(
-                        "env",
-                        "__stack_pointer",
-                        Extern::Global(self.stack_pointer.clone()),
-                    );
-                }
-                "__memory_base" => {
-                    define_integer_global_import(store, &mut imports, &import, memory_base)?;
-                }
-                "__table_base" => {
-                    define_integer_global_import(store, &mut imports, &import, table_base)?;
-                }
-                name => {
-                    // TODO: resolve symbols from other loaded modules as well
-                    let Some(export) = self
-                        .main_instance()
-                        .map_err(|()| LinkError::NotInitialized)?
-                        .exports
-                        .get_extern(name)
-                    else {
-                        return Err(LinkError::MissingImport(name.to_string()));
-                    };
-
-                    let import_type = import.ty();
-                    let export_type = export.ty(store);
-                    if export_type != *import_type {
-                        return Err(LinkError::ImportTypeMismatch(
-                            name.to_string(),
-                            import_type.clone(),
-                            export_type,
-                        ));
-                    }
-
-                    imports.define("env", name, export.clone());
-                }
+                _ => todo!(),
             }
         }
 
-        Ok((imports, init))
+        Ok(())
+    }
+
+    fn resolve_env_import(
+        &self,
+        import: &ImportType,
+        linker: &Linker,
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<WasiEnv>,
+        well_known_imports: &[(&str, u64)],
+    ) -> Result<Extern, LinkError> {
+        match import.name() {
+            "memory" => {
+                if !matches!(import.ty(), ExternType::Memory(_)) {
+                    return Err(LinkError::BadImport(
+                        import.module().to_string(),
+                        import.name().to_string(),
+                        import.ty().clone(),
+                    ));
+                }
+                Ok(Extern::Memory(self.memory.clone()))
+            }
+            "__indirect_function_table" => {
+                if !matches!(import.ty(), ExternType::Table(ty) if ty.ty == Type::FuncRef) {
+                    return Err(LinkError::BadImport(
+                        import.module().to_string(),
+                        import.name().to_string(),
+                        import.ty().clone(),
+                    ));
+                }
+                Ok(Extern::Table(self.indirect_function_table.clone()))
+            }
+            "__stack_pointer" => {
+                if !matches!(import.ty(), ExternType::Global(ty) if *ty == self.stack_pointer.ty(store))
+                {
+                    return Err(LinkError::BadImport(
+                        import.module().to_string(),
+                        import.name().to_string(),
+                        import.ty().clone(),
+                    ));
+                }
+                Ok(Extern::Global(self.stack_pointer.clone()))
+            }
+            name => {
+                if let Some(well_known_value) = well_known_imports.iter().find_map(|i| {
+                    if i.0 == import.name() {
+                        Some(i.1)
+                    } else {
+                        None
+                    }
+                }) {
+                    define_integer_global_import(store, &import, well_known_value).map(Into::into)
+                } else {
+                    let export = self.resolve_symbol(name)?;
+
+                    match export {
+                        Some(export) => {
+                            let import_type = import.ty();
+                            let export_type = export.ty(store);
+                            if export_type != *import_type {
+                                return Err(LinkError::ImportTypeMismatch(
+                                    "env".to_string(),
+                                    name.to_string(),
+                                    import_type.clone(),
+                                    export_type,
+                                ));
+                            }
+
+                            Ok(export.clone())
+                        }
+                        None => {
+                            // The function may be exported from a module we have yet to link in,
+                            // or otherwise not be used by the module at all. We provide a stub that,
+                            // when called, will try to resolve the symbol and call it. This lets
+                            // us resolve circular dependencies, as well as letting modules that don't
+                            // actually use their imports run successfully.
+                            let ExternType::Function(func_ty) = import.ty() else {
+                                return Err(LinkError::ImportMustBeFunction(name.to_string()));
+                            };
+                            Ok(self
+                                .generate_stub_function(
+                                    linker,
+                                    store,
+                                    func_ty,
+                                    env,
+                                    name.to_string(),
+                                )
+                                .into())
+                        }
+                    }
+                }
+            }
+        }
+    }
+
+    fn resolve_symbol(&self, symbol: &str) -> Result<Option<&Extern>, LinkError> {
+        if let Some(export) = self
+            .main_instance
+            .as_ref()
+            .and_then(|instance| instance.exports.get_extern(symbol))
+        {
+            return Ok(Some(export));
+        } else {
+            for module in self.side_modules.values() {
+                if let Some(export) = module.instance.exports.get_extern(symbol) {
+                    return Ok(Some(export));
+                }
+            }
+
+            return Ok(None);
+        }
+    }
+
+    fn generate_stub_function(
+        &self,
+        linker: &Linker,
+        store: &mut impl AsStoreMut,
+        ty: &FunctionType,
+        env: &FunctionEnv<WasiEnv>,
+        name: String,
+    ) -> Function {
+        let linker = linker.clone();
+        let ty = ty.clone();
+        let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
+        Function::new_with_env(
+            store,
+            env,
+            ty.clone(),
+            move |mut env: FunctionEnvMut<'_, WasiEnv>, params: &[Value]| {
+                let mk_error = || {
+                    RuntimeError::user(Box::new(WasiError::DlSymbolResolutionFailed(name.clone())))
+                };
+                let mut store = env.as_store_mut();
+                let mut resolved_guard = resolved.lock().unwrap();
+                let func = match *resolved_guard {
+                    None => {
+                        let state_guard = linker.state.lock().unwrap();
+                        let export = state_guard
+                            .resolve_symbol(name.as_str())
+                            .map_err(|_| mk_error())?;
+                        let Some(export) = export else {
+                            *resolved_guard = Some(None);
+                            return Err(mk_error());
+                        };
+                        let Extern::Function(func) = export else {
+                            *resolved_guard = Some(None);
+                            return Err(mk_error());
+                        };
+                        if func.ty(&mut store) != ty {
+                            *resolved_guard = Some(None);
+                            return Err(mk_error());
+                        }
+                        *resolved_guard = Some(Some(func.clone()));
+                        func.clone()
+                    }
+                    Some(None) => return Err(mk_error()),
+                    Some(Some(ref func)) => func.clone(),
+                };
+                drop(resolved_guard);
+                func.call(&mut store, params).map(|ret| ret.into())
+            },
+        )
     }
 }
 
@@ -797,6 +901,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let reader = wasmparser::Dylink0SectionReader::new(wasmparser::BinaryReader::new(&*section, 0));
 
     let mut mem_info = None;
+    let mut needed = None;
 
     for subsection in reader {
         let subsection = subsection?;
@@ -805,8 +910,8 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
                 mem_info = Some(m);
             }
 
-            wasmparser::Dylink0Subsection::Needed(_) => {
-                return Err(LinkError::NeededSubsectionNotSupported)
+            wasmparser::Dylink0Subsection::Needed(n) => {
+                needed = Some(n.iter().map(|s| s.to_string()).collect::<Vec<_>>());
             }
 
             // I haven't seen a single module with import or export info that's at least
@@ -824,17 +929,18 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             table_size: 0,
             table_alignment: 0,
         }),
+        needed: needed.unwrap_or_default(),
     })
 }
 
 fn define_integer_global_import(
     store: &mut impl AsStoreMut,
-    imports: &mut Imports,
     import: &ImportType,
     value: u64,
 ) -> Result<Global, LinkError> {
     let ExternType::Global(GlobalType { ty, mutability }) = import.ty() else {
         return Err(LinkError::BadImport(
+            import.module().to_string(),
             import.name().to_string(),
             import.ty().clone(),
         ));
@@ -851,17 +957,12 @@ fn define_integer_global_import(
         Type::I64 => new_global(store, wasmer::Value::I64(value as i64)),
         _ => {
             return Err(LinkError::BadImport(
+                import.module().to_string(),
                 import.name().to_string(),
                 import.ty().clone(),
             ));
         }
     };
-
-    imports.define(
-        import.module(),
-        import.name(),
-        Extern::Global(global.clone()),
-    );
 
     Ok(global)
 }

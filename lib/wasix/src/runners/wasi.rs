@@ -542,6 +542,9 @@ fn wasi_runtime_error_to_owned(err: &WasiRuntimeError) -> WasiRuntimeError {
         WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
             WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("deep-sleep")))
         }
+        WasiRuntimeError::Wasi(WasiError::DlSymbolResolutionFailed(symbol)) => {
+            WasiRuntimeError::Wasi(WasiError::DlSymbolResolutionFailed(symbol.clone()))
+        }
         WasiRuntimeError::ControlPlane(a) => WasiRuntimeError::ControlPlane(a.clone()),
         WasiRuntimeError::Runtime(a) => WasiRuntimeError::Runtime(a.clone()),
         WasiRuntimeError::Thread(a) => WasiRuntimeError::Thread(a.clone()),

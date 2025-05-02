@@ -250,6 +250,14 @@ fn call_module<M: MemorySize>(
                     ret = Errno::Noexec;
                     exit_code = Some(ExitCode::from(128 + ret as i32));
                 }
+                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+                    debug!("failed as wasi version is unknown");
+                    env.data(&store)
+                        .runtime
+                        .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                    ret = Errno::Nolink;
+                    exit_code = Some(ExitCode::from(128 + ret as i32));
+                }
                 Err(err) => {
                     debug!("failed with runtime error: {}", err);
                     env.data(&store)

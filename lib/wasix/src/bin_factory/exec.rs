@@ -353,6 +353,11 @@ fn call_module(
                     runtime.on_taint(TaintReason::UnknownWasiVersion);
                     Ok(Errno::Noexec)
                 }
+                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+                    debug!("failed as wasi version is unknown");
+                    runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                    Err(WasiError::DlSymbolResolutionFailed(symbol).into())
+                }
                 Err(err) => {
                     runtime.on_taint(TaintReason::RuntimeError(err.clone()));
                     Err(WasiRuntimeError::from(err))
@@ -400,6 +405,7 @@ fn resume_vfork(
             Some(WasiError::Exit(code)) => (None, *code),
             Some(WasiError::ThreadExit) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
             Some(WasiError::UnknownWasiVersion) => (None, Errno::Noexec.into()),
+            Some(WasiError::DlSymbolResolutionFailed(_)) => (None, Errno::Nolink.into()),
             None => (
                 Some(WasiRuntimeError::from(err.clone())),
                 Errno::Unknown.into(),

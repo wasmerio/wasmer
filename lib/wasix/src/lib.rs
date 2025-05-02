@@ -120,6 +120,8 @@ pub enum WasiError {
     DeepSleep(DeepSleepWork),
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
+    #[error("Dynamically-linked symbol not found or has bad type: {0}")]
+    DlSymbolResolutionFailed(String),
 }
 
 pub type WasiResult<T> = Result<Result<T, Errno>, WasiError>;

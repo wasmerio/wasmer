@@ -440,6 +440,7 @@ impl WasiEnv {
                 &mut store,
                 memory,
                 &mut import_object,
+                &func_env.env,
                 8 * 1024 * 1024,
             )
             .map_err(|e| WasiThreadError::LinkError(Arc::new(e)))?;

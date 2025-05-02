@@ -40,6 +40,7 @@ pub enum TaintReason {
     UnknownWasiVersion,
     NonZeroExitCode(ExitCode),
     RuntimeError(RuntimeError),
+    DlSymbolResolutionFailed(String),
 }
 
 /// Runtime components used when running WebAssembly programs.
