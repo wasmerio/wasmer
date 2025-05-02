@@ -303,15 +303,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "atomic-polyfill"
-version = "1.0.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8cf2bce30dfe09ef0bfaef228b9d414faaf7e563035494d7fe092dba54b300f4"
-dependencies = [
- "critical-section",
-]
-
-[[package]]
 name = "atomic-waker"
 version = "1.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1083,12 +1074,6 @@ dependencies = [
  "cast",
  "itertools 0.10.5",
 ]
-
-[[package]]
-name = "critical-section"
-version = "1.2.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "790eea4361631c5e7d22598ecd5723ff611904e3344ce8720784c93e3d83d40b"
 
 [[package]]
 name = "crossbeam-channel"
@@ -2173,9 +2158,9 @@ checksum = "a6fce2283849822530a18d7d8eeb1719ac65a27cfb6649c0dc8dfd2d2cc5edfb"
 
 [[package]]
 name = "hash32"
-version = "0.2.1"
+version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b0c35f58762feb77d74ebe43bdbc3210f09be9fe6742234d573bacc26ed92b67"
+checksum = "47d60b12902ba28e2730cd37e95b8c9223af2808df9e902d4df49588d1470606"
 dependencies = [
  "byteorder",
 ]
@@ -2221,14 +2206,11 @@ checksum = "bf151400ff0baff5465007dd2f3e717f3fe502074ca563069ce3a6629d07b289"
 
 [[package]]
 name = "heapless"
-version = "0.7.17"
+version = "0.8.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cdc6457c0eb62c71aac4bc17216026d8410337c4126773b9c5daba343f17964f"
+checksum = "0bfb9eb618601c89945a70e254898da93b13be0388091d42117462b265bb3fad"
 dependencies = [
- "atomic-polyfill",
  "hash32",
- "rustc_version 0.4.1",
- "spin",
  "stable_deref_trait",
 ]
 
@@ -3112,7 +3094,7 @@ dependencies = [
 
 [[package]]
 name = "macro-wasmer-universal-test"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -4971,9 +4953,6 @@ name = "spin"
 version = "0.9.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "6980e8d7511241f8acf4aebddbb1ff938df5eebe98691418c4468d0b72a96a67"
-dependencies = [
- "lock_api",
-]
 
 [[package]]
 name = "stable_deref_trait"
@@ -6322,7 +6301,7 @@ checksum = "9c8d87e72b64a3b4db28d11ce29237c246188f4f51057d65a7eab63b7987e423"
 
 [[package]]
 name = "wasi-test-generator"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "glob",
  "gumdrop",
@@ -6515,7 +6494,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "bindgen",
@@ -6559,7 +6538,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-argus"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "async-trait",
@@ -6629,7 +6608,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "cbindgen",
  "cfg-if",
@@ -6668,7 +6647,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "blake3",
  "clap",
@@ -6686,7 +6665,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-capi-examples-runner"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "cc",
  "regex",
@@ -6696,7 +6675,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "assert_cmd 2.0.16",
@@ -6788,7 +6767,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "backtrace",
  "bytes",
@@ -6820,7 +6799,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cli"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "bytesize",
@@ -6841,7 +6820,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "cranelift-codegen",
  "cranelift-entity",
@@ -6860,7 +6839,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "byteorder",
  "cc",
@@ -6881,7 +6860,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -6921,7 +6900,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error2",
@@ -6988,7 +6967,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-ios"
-version = "5.0.5-rc1"
+version = "5.0.6"
 
 [[package]]
 name = "wasmer-journal"
@@ -7019,7 +6998,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -7084,7 +7063,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "bytecheck 0.6.12",
  "enum-iterator",
@@ -7106,7 +7085,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "backtrace",
  "cc",
@@ -7242,7 +7221,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "futures",
@@ -7259,7 +7238,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "5.0.5-rc1"
+version = "5.0.6"
 dependencies = [
  "anyhow",
  "build-deps",
