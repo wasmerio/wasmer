@@ -1268,9 +1268,7 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::Imm64(val), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                if val < 0x1000 {
-                    dynasm!(self ; mov X(dst), val as _);
-                } else if encode_logical_immediate_64bit(val as _).is_some() {
+                if val < 0x1000 || encode_logical_immediate_64bit(val as _).is_some() {
                     dynasm!(self ; mov X(dst), val as _);
                 } else {
                     dynasm!(self
