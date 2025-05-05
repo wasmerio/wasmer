@@ -523,11 +523,11 @@ impl EmitterARM64 for Assembler {
         dynasm!(
             self
             ; const_neg_one_32:
-            ; .word -1
+            ; .i32 -1
             ; const_zero_32:
-            ; .word 0
+            ; .i32 0
             ; const_pos_one_32:
-            ; .word 1
+            ; .i32 1
         );
     }
 
@@ -813,12 +813,12 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; str X(reg), [X(addr)], (offset as i32));
+                dynasm!(self ; str X(reg), [X(addr)], offset as i32);
             }
             (Size::S64, Location::SIMD(reg)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; str D(reg), [X(addr)], (offset as i32));
+                dynasm!(self ; str D(reg), [X(addr)], offset as i32);
             }
             _ => codegen_error!("singlepass can't emit STRIA"),
         }
@@ -836,12 +836,12 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(reg)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; ldr X(reg), [X(addr)], offset);
+                dynasm!(self ; ldr X(reg), [X(addr)], offset as _);
             }
             (Size::S64, Location::SIMD(reg)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; ldr D(reg), [X(addr)], offset);
+                dynasm!(self ; ldr D(reg), [X(addr)], offset as _);
             }
             _ => codegen_error!("singlepass can't emit LDRIA"),
         }
@@ -882,7 +882,7 @@ impl EmitterARM64 for Assembler {
                 let reg1 = reg1.into_index() as u32;
                 let reg2 = reg2.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                dynasm!(self ; ldp X(reg1), X(reg2), [X(addr)], offset);
+                dynasm!(self ; ldp X(reg1), X(reg2), [X(addr)], offset as _);
             }
             _ => codegen_error!("singlepass can't emit LDPIA"),
         }
@@ -1246,32 +1246,38 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::Imm32(val), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                if val < 0x1000 {
-                    dynasm!(self ; mov W(dst), val as u64);
-                } else if encode_logical_immediate_32bit(val as _).is_some() {
-                    dynasm!(self ; orr W(dst), wzr, val);
+                if val < 0x1000 || encode_logical_immediate_32bit(val as _).is_some() {
+                    dynasm!(self ; mov W(dst), val);
                 } else {
-                    codegen_error!("singlepass can't emit MOV S32 {}, {:?}", val, dst);
+                    dynasm!(self 
+                        ; movz W(dst), val
+                        ; movk W(dst), val, lsl #16);
                 }
             }
             (Size::S64, Location::Imm32(val), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 if val < 0x1000 {
-                    dynasm!(self ; mov W(dst), val as u64);
+                    dynasm!(self ; mov W(dst), val);
                 } else if encode_logical_immediate_64bit(val as _).is_some() {
-                    dynasm!(self ; orr X(dst), xzr, val as u64);
+                    dynasm!(self ; mov X(dst), val as _);
                 } else {
-                    codegen_error!("singlepass can't emit MOV S64 {}, {:?}", val, dst);
+                    dynasm!(self 
+                        ; movz X(dst), val
+                        ; movk X(dst), val, lsl #16);
                 }
             }
             (Size::S64, Location::Imm64(val), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 if val < 0x1000 {
-                    dynasm!(self ; mov W(dst), val as u64);
+                    dynasm!(self ; mov X(dst), val as _);
                 } else if encode_logical_immediate_64bit(val as _).is_some() {
-                    dynasm!(self ; orr X(dst), xzr, val as u64);
+                    dynasm!(self ; mov X(dst), val as _);
                 } else {
-                    codegen_error!("singleplasse can't emit MOV S64 {}, {:?}", val, dst);
+                    dynasm!(self 
+                        ; movz X(dst), val as _
+                        ; movk X(dst), val as _, lsl #16
+                        ; movk X(dst), val as _, lsl #32
+                        ; movk X(dst), val as _, lsl #48);
                 }
             }
             _ => codegen_error!("singlepass can't emit MOV {:?}, {:?}, {:?}", sz, src, dst),
@@ -1361,19 +1367,19 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(src1), X(src2), UXTX);
+                dynasm!(self ; add XSP(dst), XSP(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add W(dst), W(src1), W(src2), UXTX);
+                dynasm!(self ; add WSP(dst), WSP(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add X(dst), X(src1), imm as u32);
+                dynasm!(self ; add XSP(dst), XSP(src1), imm as _);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1382,7 +1388,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     unreachable!();
                 }
-                dynasm!(self ; add X(dst), X(src1), imm);
+                dynasm!(self ; add XSP(dst), XSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1392,13 +1398,13 @@ impl EmitterARM64 for Assembler {
                     unreachable!();
                 }
                 let imm = imm as u32;
-                dynasm!(self ; add X(dst), X(src1), imm);
+                dynasm!(self ; add XSP(dst), XSP(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; add W(dst), W(src1), imm as u32);
+                dynasm!(self ; add WSP(dst), WSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1407,7 +1413,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     unreachable!();
                 }
-                dynasm!(self ; add W(dst), W(src1), imm);
+                dynasm!(self ; add WSP(dst), WSP(src1), imm);
             }
             _ => codegen_error!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
@@ -1431,23 +1437,23 @@ impl EmitterARM64 for Assembler {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub X(dst), X(src1), X(src2), UXTX);
+                dynasm!(self; sub XSP(dst), XSP(src1), X(src2), UXTX 0);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let src2 = src2.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(src1), W(src2), UXTX);
+                dynasm!(self ; sub WSP(dst), WSP(src1), W(src2), UXTX 0);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub X(dst), X(src1), imm as u32);
+                dynasm!(self ; sub XSP(dst), XSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; sub W(dst), W(src1), imm as u32);
+                dynasm!(self ; sub WSP(dst), WSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -1455,7 +1461,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     unreachable!();
                 }
-                dynasm!(self ; sub W(dst), W(src1), imm);
+                dynasm!(self ; sub WSP(dst), WSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -1463,7 +1469,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     unreachable!();
                 }
-                dynasm!(self ; sub X(dst), X(src1), imm);
+                dynasm!(self ; sub XSP(dst), XSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -1471,7 +1477,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     unreachable!();
                 }
-                dynasm!(self ; sub X(dst), X(src1), imm as u32);
+                dynasm!(self ; sub XSP(dst), XSP(src1), imm as u32);
             }
             _ => codegen_error!(
                 "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
@@ -1537,7 +1543,7 @@ impl EmitterARM64 for Assembler {
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; adds X(dst), X(src1), imm as u32);
+                dynasm!(self ; adds X(dst), XSP(src1), imm as u32);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1546,13 +1552,13 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     codegen_error!("singlepass ADD.S with imm too large {}", imm);
                 }
-                dynasm!(self ; adds X(dst), X(src1), imm);
+                dynasm!(self ; adds X(dst), XSP(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; adds W(dst), W(src1), imm as u32);
+                dynasm!(self ; adds W(dst), WSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
@@ -1561,7 +1567,7 @@ impl EmitterARM64 for Assembler {
                 if imm >= 0x1000 {
                     codegen_error!("singlepass ADD.S with imm too large {}", imm);
                 }
-                dynasm!(self ; adds W(dst), W(src1), imm);
+                dynasm!(self ; adds W(dst), WSP(src1), imm);
             }
             _ => codegen_error!(
                 "singlepass can't emit ADD.S {:?} {:?} {:?} {:?}",
@@ -1596,12 +1602,12 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; subs X(dst), X(src1), imm as u32);
+                dynasm!(self ; subs X(dst), XSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; subs W(dst), W(src1), imm as u32);
+                dynasm!(self ; subs W(dst), WSP(src1), imm as u32);
             }
             _ => codegen_error!(
                 "singlepass can't emit SUB.S {:?} {:?} {:?} {:?}",
@@ -1654,32 +1660,32 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::Imm8(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; cmp X(dst), imm as u32);
+                dynasm!(self ; cmp XSP(dst), imm as u32);
             }
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
-                dynasm!(self ; cmp X(dst), imm as u32);
+                dynasm!(self ; cmp XSP(dst), imm as u32);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
-                dynasm!(self ; cmp X(dst), imm as u32);
+                dynasm!(self ; cmp XSP(dst), imm as u32);
             }
             (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; cmp W(dst), imm as u32);
+                dynasm!(self ; cmp WSP(dst), imm as u32);
             }
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) => {
                 let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
-                dynasm!(self ; cmp W(dst), imm as u32);
+                dynasm!(self ; cmp WSP(dst), imm as u32);
             }
             _ => codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, src, dst),
         }
@@ -2048,7 +2054,7 @@ impl EmitterARM64 for Assembler {
                 if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     codegen_error!("singlepass OR with incompatible imm {}", src2);
                 }
-                dynasm!(self ; orr X(dst), X(src1), src2);
+                dynasm!(self ; orr XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2057,7 +2063,7 @@ impl EmitterARM64 for Assembler {
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass OR with incompatible imm {}", src2);
                 }
-                dynasm!(self ; orr W(dst), W(src1), src2);
+                dynasm!(self ; orr WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2096,7 +2102,7 @@ impl EmitterARM64 for Assembler {
                 if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     codegen_error!("singlepass AND with incompatible imm {}", src2);
                 }
-                dynasm!(self ; and X(dst), X(src1), src2);
+                dynasm!(self ; and XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2105,7 +2111,7 @@ impl EmitterARM64 for Assembler {
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass AND with incompatible imm {}", src2);
                 }
-                dynasm!(self ; and W(dst), W(src1), src2);
+                dynasm!(self ; and WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2144,7 +2150,7 @@ impl EmitterARM64 for Assembler {
                 if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     codegen_error!("singlepass EOR with incompatible imm {}", src2);
                 }
-                dynasm!(self ; eor X(dst), X(src1), src2);
+                dynasm!(self ; eor XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2153,7 +2159,7 @@ impl EmitterARM64 for Assembler {
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass EOR with incompatible imm {}", src2);
                 }
-                dynasm!(self ; eor W(dst), W(src1), src2);
+                dynasm!(self ; eor WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
@@ -2765,7 +2771,7 @@ impl EmitterARM64 for Assembler {
     }
 
     fn emit_udf(&mut self, payload: u16) -> Result<(), CompileError> {
-        dynasm!(self ; udf (payload as u32));
+        dynasm!(self ; udf payload as u32);
         Ok(())
     }
     fn emit_dmb(&mut self) -> Result<(), CompileError> {
