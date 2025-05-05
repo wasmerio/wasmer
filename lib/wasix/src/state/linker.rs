@@ -6,7 +6,7 @@ use std::{
     collections::HashMap,
     ffi::OsStr,
     path::{Path, PathBuf},
-    sync::{Arc, Mutex},
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
@@ -240,6 +240,10 @@ enum UnresolvedGlobal {
 
 #[derive(Default)]
 struct InProgressLinkState {
+    // All modules loaded in by this link operation. Used to remove all the modules
+    // in case a initializer function ends up failing to run.
+    module_handles: Vec<ModuleHandle>,
+
     // List of all pending modules. We need this so we don't get stuck in an infinite
     // loop when modules have circular dependencies.
     pending_modules: Vec<PathBuf>,
@@ -251,6 +255,11 @@ struct InProgressLinkState {
     // The list contains the import types (name + global type), as well as the actual
     // (uninitialized) global we created for it.
     unresolved_globals: Vec<UnresolvedGlobal>,
+
+    // List of modules for which init functions should be run. This needs to happen
+    // as the last step, since the init functions may access stub globals or functions
+    // which can't be resolved until the entire module tree is loaded in.
+    init_callbacks: Vec<Box<dyn (FnOnce(&mut StoreMut) -> Result<(), LinkError>) + Send + Sync>>,
 }
 
 enum MainInstanceState {
@@ -347,12 +356,6 @@ impl Linker {
                 .map_err(LinkError::TableAllocationError)?;
         }
 
-        imports.define(
-            "env",
-            "__indirect_function_table",
-            Extern::Table(indirect_function_table.clone()),
-        );
-
         let memory_type = main_module
             .imports()
             .memories()
@@ -391,8 +394,6 @@ impl Linker {
         //   1. It's always placed directly after the module's data
         //   2. It's never freed, since the main module can't be unloaded
         memory.grow_at_least(store, stack_high)?;
-
-        imports.define("env", "memory", Extern::Memory(memory.clone()));
 
         let stack_pointer_import = main_module
             .imports()
@@ -479,8 +480,8 @@ impl Linker {
             return Err(InitializeError::AlreadyInitialized);
         };
 
-        guard.finalize_link_operation(store, link_state)?;
         guard.main_instance_state = MainInstanceState::Initialized(main_instance);
+        self.finalize_link_operation(guard, store, link_state)?;
 
         Ok(())
     }
@@ -505,9 +506,66 @@ impl Linker {
         let module_handle =
             guard.load_module(self, module_path, &mut store, &env, &mut link_state)?;
 
-        guard.finalize_link_operation(&mut store, link_state)?;
+        self.finalize_link_operation(guard, &mut store, link_state)?;
 
         Ok(module_handle)
+    }
+
+    fn finalize_link_operation(
+        &self,
+        // Take ownership of the guard and drop it ourselves to ensure no deadlock can happen
+        guard: MutexGuard<LinkerState>,
+        store: &mut impl AsStoreMut,
+        mut link_state: InProgressLinkState,
+    ) -> Result<(), LinkError> {
+        // Can't have pending modules at this point now, can we?
+        assert!(link_state.pending_modules.is_empty());
+
+        guard.finalize_pending_globals(store, &link_state.unresolved_globals)?;
+
+        // The linker must be unlocked for the next step, since modules may need to resolve
+        // stub functions and that requires a lock on the linker's state
+        drop(guard);
+
+        self.run_initializers(store, &mut link_state)?;
+
+        Ok(())
+    }
+
+    fn run_initializers(
+        &self,
+        store: &mut impl AsStoreMut,
+        link_state: &mut InProgressLinkState,
+    ) -> Result<(), LinkError> {
+        let mut result = Ok(());
+
+        let mut store_mut = store.as_store_mut();
+
+        for init in link_state.init_callbacks.drain(..) {
+            if let Err(e) = init(&mut store_mut) {
+                result = Err(e);
+                break;
+            }
+        }
+
+        // If a module failed to load, the entire module tree is now invalid, so purge everything
+        if let Err(_) = &result {
+            let mut guard = self.state.lock().unwrap();
+            let memory = guard.memory.clone();
+
+            for module_handle in link_state.module_handles.iter().cloned() {
+                let module = guard.side_modules.remove(&module_handle).unwrap();
+                guard
+                    .side_module_names
+                    .retain(|_, handle| *handle != module_handle);
+                // We already have an error we need to report, so ignore memory deallocation errors
+                _ = guard
+                    .memory_allocator
+                    .deallocate(&memory, store, module.memory_base);
+            }
+        }
+
+        result
     }
 
     pub fn unload_module(
@@ -888,6 +946,9 @@ impl LinkerState {
         env: &FunctionEnv<WasiEnv>,
         name: String,
     ) -> Function {
+        // TODO: since the instances are kept in the linker, and they can have stub functions,
+        // and the stub functions reference the linker with a strong pointer, this probably
+        // creates a cycle and memory leak. We need to use weak pointers here if that is the case.
         let linker = linker.clone();
         let ty = ty.clone();
         let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
@@ -1035,30 +1096,29 @@ impl LinkerState {
         let handle = ModuleHandle(self.next_module_handle);
         self.next_module_handle += 1;
 
+        link_state.module_handles.push(handle);
         self.side_modules.insert(handle, loaded_module);
         self.side_module_names
             .insert(module_path.as_ref().to_owned(), handle);
 
-        let init = move || {
-            // No idea at which point this should be called. Also, apparently, there isn't an actual
-            // implementation of the init function that does anything (that I can find?), so it doesn't
-            // matter anyway.
-            init(&instance, store).map_err(LinkError::InitializationError)?;
+        let init = {
+            let instance = instance.clone();
+            move |store: &mut StoreMut| {
+                // No idea at which point this should be called. Also, apparently, there isn't an actual
+                // implementation of the init function that does anything (that I can find?), so it doesn't
+                // matter anyway.
+                init(&instance, store).map_err(LinkError::InitializationError)?;
 
-            call_initialization_function(&instance, store, "__wasm_apply_data_relocs")?;
-            call_initialization_function(&instance, store, "__wasm_call_ctors")?;
+                call_initialization_function(&instance, store, "__wasm_apply_data_relocs")?;
+                call_initialization_function(&instance, store, "__wasm_call_ctors")?;
 
-            Ok(())
+                Ok(())
+            }
         };
 
-        match init() {
-            Ok(()) => Ok(handle),
-            Err(e) => {
-                self.side_modules.remove(&handle);
-                self.side_module_names.remove(module_path.as_ref());
-                Err(e)
-            }
-        }
+        link_state.init_callbacks.push(Box::new(init));
+
+        Ok(handle)
     }
 
     fn resolve_export(
@@ -1151,41 +1211,38 @@ impl LinkerState {
             .map_err(LinkError::TableAllocationError)?)
     }
 
-    fn finalize_link_operation(
+    fn finalize_pending_globals(
         &self,
         store: &mut impl AsStoreMut,
-        link_state: InProgressLinkState,
+        unresolved_globals: &Vec<UnresolvedGlobal>,
     ) -> Result<(), LinkError> {
-        // Can't have pending modules at this point now, can we?
-        assert!(link_state.pending_modules.is_empty());
-
-        for unresolved in link_state.unresolved_globals {
+        for unresolved in unresolved_globals {
             match unresolved {
                 UnresolvedGlobal::Mem(name, global) => {
-                    let resolved = self.resolve_export(store, None, &name).map_err(|e| {
+                    let resolved = self.resolve_export(store, None, name).map_err(|e| {
                         LinkError::UnresolvedGlobal("GOT.mem".to_string(), name.clone(), e)
                     })?;
                     if let ResolvedExport::Global(addr) = resolved {
-                        set_integer_global(store, &name, &global, addr)?;
+                        set_integer_global(store, name, global, addr)?;
                     } else {
                         return Err(LinkError::UnresolvedGlobal(
                             "GOT.mem".to_string(),
-                            name,
+                            name.clone(),
                             ResolveError::MissingExport,
                         ));
                     }
                 }
                 UnresolvedGlobal::Func(name, global) => {
-                    let resolved = self.resolve_export(store, None, &name).map_err(|e| {
+                    let resolved = self.resolve_export(store, None, name).map_err(|e| {
                         LinkError::UnresolvedGlobal("GOT.func".to_string(), name.clone(), e)
                     })?;
                     if let ResolvedExport::Function(func) = resolved {
                         let func_handle = self.append_to_function_table(store, func)?;
-                        set_integer_global(store, &name, &global, func_handle as u64)?;
+                        set_integer_global(store, name, global, func_handle as u64)?;
                     } else {
                         return Err(LinkError::UnresolvedGlobal(
                             "GOT.func".to_string(),
-                            name,
+                            name.clone(),
                             ResolveError::MissingExport,
                         ));
                     }

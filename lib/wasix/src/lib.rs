@@ -765,11 +765,17 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
-pub type InstanceInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
+pub type InstanceInitializer = Box<
+    dyn (FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>)
+        + Send
+        + Sync,
+>;
 
-type ModuleInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
+type ModuleInitializer = Box<
+    dyn (FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>)
+        + Send
+        + Sync,
+>;
 
 /// No-op module initializer.
 fn stub_initializer(

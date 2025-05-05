@@ -472,19 +472,8 @@ impl WasiEnv {
             }
         };
 
-        let (handles, stack_layout) = match (linker, imported_memory) {
+        let (linker, handles, stack_layout) = match (linker, imported_memory) {
             (Some((linker, low, high)), Some(memory)) => {
-                linker
-                    .initialize(&mut store, instance.clone())
-                    .map_err(|e| match e {
-                        super::linker::InitializeError::LinkError(e) => {
-                            WasiThreadError::LinkError(Arc::new(e))
-                        }
-                        super::linker::InitializeError::AlreadyInitialized => {
-                            panic!("Internal error: linker can't have been initialized before")
-                        }
-                    })?;
-
                 let layout = WasiMemoryLayout {
                     stack_lower: low,
                     stack_upper: high,
@@ -492,6 +481,7 @@ impl WasiEnv {
                     guard_size: 0,
                 };
                 (
+                    Some(linker.clone()),
                     WasiModuleTreeHandles::Dynamic {
                         linker,
                         main_module_instance_handles: WasiModuleInstanceHandles::new(
@@ -505,6 +495,7 @@ impl WasiEnv {
             }
             (Some(_), None) => unreachable!(),
             (None, Some(memory)) => (
+                None,
                 WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
                     memory,
                     &store,
@@ -528,6 +519,7 @@ impl WasiEnv {
                         "No imported or exported memory found".to_owned(),
                     )))?;
                 (
+                    None,
                     WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
                         exported_memory,
                         &store,
@@ -537,9 +529,6 @@ impl WasiEnv {
                 )
             }
         };
-
-        // Run initializers.
-        instance_init_callback(&instance, &store).unwrap();
 
         // Initialize the WASI environment
         if let Err(err) = func_env.initialize_handles_and_layout(
@@ -559,6 +548,26 @@ impl WasiEnv {
                 .blocking_on_exit(Some(Errno::Noexec.into()));
             return Err(WasiThreadError::ExportError(err));
         }
+
+        if let Some(linker) = linker {
+            // FIXME: The linker calls side modules' init function regardless of the value of
+            // call_initialize. Currently, there are no scenarios where call_initialize is
+            // false and we're loading a DL module, since such scenarios (threading, asyncify,
+            // etc.) are not supported in the presence of DL.
+            linker
+                .initialize(&mut store, instance.clone())
+                .map_err(|e| match e {
+                    super::linker::InitializeError::LinkError(e) => {
+                        WasiThreadError::LinkError(Arc::new(e))
+                    }
+                    super::linker::InitializeError::AlreadyInitialized => {
+                        panic!("Internal error: linker can't have been initialized before")
+                    }
+                })?;
+        }
+
+        // Run initializers.
+        instance_init_callback(&instance, &store).unwrap();
 
         // If this module exports an _initialize function, run that first.
         if call_initialize {
