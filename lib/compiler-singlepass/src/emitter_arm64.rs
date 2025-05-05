@@ -1249,7 +1249,7 @@ impl EmitterARM64 for Assembler {
                 if val < 0x1000 || encode_logical_immediate_32bit(val as _).is_some() {
                     dynasm!(self ; mov W(dst), val);
                 } else {
-                    dynasm!(self 
+                    dynasm!(self
                         ; movz W(dst), val
                         ; movk W(dst), val, lsl #16);
                 }
@@ -1261,7 +1261,7 @@ impl EmitterARM64 for Assembler {
                 } else if encode_logical_immediate_64bit(val as _).is_some() {
                     dynasm!(self ; mov X(dst), val as _);
                 } else {
-                    dynasm!(self 
+                    dynasm!(self
                         ; movz X(dst), val
                         ; movk X(dst), val, lsl #16);
                 }
@@ -1273,7 +1273,7 @@ impl EmitterARM64 for Assembler {
                 } else if encode_logical_immediate_64bit(val as _).is_some() {
                     dynasm!(self ; mov X(dst), val as _);
                 } else {
-                    dynasm!(self 
+                    dynasm!(self
                         ; movz X(dst), val as _
                         ; movk X(dst), val as _, lsl #16
                         ; movk X(dst), val as _, lsl #32
