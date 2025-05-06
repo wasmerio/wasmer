@@ -263,6 +263,15 @@ pub struct Intrinsics<'ctx> {
     pub vmmemory_definition_current_length_element: u32,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq)]
+enum MemoryOp {
+    Size,
+    Grow,
+    Wait32,
+    Wait64,
+    Notify,
+}
+
 impl<'ctx> Intrinsics<'ctx> {
     /// Create an [`Intrinsics`] for the given [`Context`].
     pub fn declare(
@@ -1222,8 +1231,7 @@ pub struct CtxType<'ctx, 'a> {
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
     cached_functions: HashMap<FunctionIndex, FunctionCache<'ctx>>,
-    cached_memory_grow: HashMap<MemoryIndex, PointerValue<'ctx>>,
-    cached_memory_size: HashMap<MemoryIndex, PointerValue<'ctx>>,
+    cached_memory_op: HashMap<(MemoryIndex, MemoryOp), PointerValue<'ctx>>,
 
     offsets: VMOffsets,
 }
@@ -1249,8 +1257,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_functions: HashMap::new(),
-            cached_memory_grow: HashMap::new(),
-            cached_memory_size: HashMap::new(),
+            cached_memory_op: HashMap::new(),
 
             // TODO: pointer width
             offsets: VMOffsets::new(8, wasm_module),
@@ -1795,14 +1802,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_grow, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_grow,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
-        match cached_memory_grow.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Grow)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (grow_fn, grow_fn_ty) =
@@ -1840,15 +1847,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
 
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Size)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1886,14 +1893,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Wait32)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1932,15 +1939,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
 
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Wait64)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1978,14 +1985,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Notify)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
