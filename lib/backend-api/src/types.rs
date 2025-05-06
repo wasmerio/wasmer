@@ -934,6 +934,7 @@ mod queries {
     #[derive(cynic::QueryFragment, Serialize, Debug, Clone)]
     pub struct DeployApp {
         pub id: cynic::Id,
+        pub global_name: String,
         pub name: String,
         pub created_at: DateTime,
         pub updated_at: DateTime,
@@ -2261,6 +2262,48 @@ mod queries {
         #[cynic(fallback)]
         Unknown,
     }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct UpsertVaultVariables<'a> {
+        pub config: &'a str,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "UpsertVaultVariables")]
+    pub struct UpsertVault {
+        #[arguments(input: { config: $config })]
+        pub upsert_vault: Option<UpsertVaultPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct UpsertVaultPayload {
+        pub vault: Vault,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct Vault {
+        pub id: cynic::Id,
+        pub name: String,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct AttachVaultVariables<'a> {
+        pub app_id: &'a cynic::Id,
+        pub vault_id: &'a cynic::Id,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "AttachVaultVariables")]
+    pub struct AttachVault {
+        #[arguments(input: { appId: $app_id, vaultId: $vault_id })]
+        pub attach_vault: Option<AttachVaultPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct AttachVaultPayload {
+        pub app: DeployApp,
+    }
+
 
     impl NodeDeployAppVersions {
         pub fn into_app(self) -> Option<DeployAppVersionsById> {
