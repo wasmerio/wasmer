@@ -16,7 +16,7 @@ use wasmer_backend_api::{
     WasmerClient,
 };
 use wasmer_config::{
-    app::AppConfigV1,
+    app::{AppConfigV1, VaultFile},
     package::{PackageIdent, PackageSource},
 };
 
@@ -367,9 +367,40 @@ impl AsyncCliCommand for CmdAppDeploy {
             &app_config_path,
             serde_yaml::to_string(&original_app_config)?,
         )
-        .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
+            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
 
         let mut app_config = original_app_config.clone();
+
+
+        app_config.vault = if let Some(vault) = &app_config.vault {
+            let filepath = app_config_path.parent().unwrap().join(vault);
+
+            if filepath.exists() && filepath.is_file() {
+                // It's a real file — treat it as such
+                let data = std::fs::read(&filepath).context("Unable to read vault file")?;
+                let vault_contents = String::from_utf8(data).context("Vault file is not valid UTF-8")?;
+
+
+                let mut vault: VaultFile = serde_yaml::from_str(&vault_contents)?;
+                if vault.owner.is_none() {
+                    vault.owner = Some(owner.clone())
+                }
+
+                let created_vault = wasmer_backend_api::query::upsert_vault(
+                    &self.env.client()?,
+                    &serde_yaml::to_string(&vault)?,
+                )
+                    .await
+                    .context("Upserting vault")?;
+                Some(created_vault.id.into_inner())
+            } else {
+                // Not a file — treat it as vault name directly
+                Some(vault.clone())
+            }
+        } else {
+            None
+        };
+
 
         app_config.owner = Some(owner.clone());
 

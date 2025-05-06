@@ -1,6 +1,6 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
-
 use anyhow::anyhow;
+use anyhow::Context;
 use serde::{de::Error, Deserialize, Serialize};
 
 use indexmap::IndexMap;
@@ -8,6 +8,83 @@ use indexmap::IndexMap;
 use crate::package::PackageSource;
 
 use super::{pretty_duration::PrettyDuration, AppConfigCapabilityMemoryV1, AppVolume, HttpRequest};
+
+#[derive(Debug, Default)]
+pub struct JobBuilder {
+    name: Option<String>,
+    trigger: Option<JobTrigger>,
+    timeout: Option<PrettyDuration>,
+    max_schedule_drift: Option<PrettyDuration>,
+    retries: Option<u32>,
+    jitter_percent_max: Option<u8>,
+    jitter_percent_min: Option<u8>,
+    action: Option<JobAction>,
+    other: IndexMap<String, serde_json::Value>,
+}
+
+impl JobBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn name(mut self, name: impl Into<String>) -> Self {
+        self.name = Some(name.into());
+        self
+    }
+
+    pub fn trigger(mut self, trigger: JobTrigger) -> Self {
+        self.trigger = Some(trigger);
+        self
+    }
+
+    pub fn timeout(mut self, timeout: PrettyDuration) -> Self {
+        self.timeout = Some(timeout);
+        self
+    }
+
+    pub fn max_schedule_drift(mut self, drift: PrettyDuration) -> Self {
+        self.max_schedule_drift = Some(drift);
+        self
+    }
+
+    pub fn retries(mut self, retries: u32) -> Self {
+        self.retries = Some(retries);
+        self
+    }
+
+    pub fn jitter_percent_max(mut self, max: u8) -> Self {
+        self.jitter_percent_max = Some(max);
+        self
+    }
+
+    pub fn jitter_percent_min(mut self, min: u8) -> Self {
+        self.jitter_percent_min = Some(min);
+        self
+    }
+
+    pub fn action(mut self, action: JobActionCase) -> Self {
+        self.action = Some(JobAction { action });
+        self
+    }
+
+    pub fn insert_other(mut self, key: impl Into<String>, value: serde_json::Value) -> Self {
+        self.other.insert(key.into(), value);
+        self
+    }
+
+    pub fn build(self) -> anyhow::Result<Job> {
+    Ok(Job {
+        name: self.name.context("Missing job name")?,
+        trigger: self.trigger.context("Missing job trigger")?,
+        timeout: self.timeout,
+        max_schedule_drift: self.max_schedule_drift,
+        retries: self.retries,
+        jitter_percent_max: self.jitter_percent_max,
+        jitter_percent_min: self.jitter_percent_min,
+        action: self.action.context("Missing job action")?,
+        other: self.other,
+    })
+}}
 
 /// Job configuration.
 #[derive(
@@ -62,6 +139,12 @@ pub struct Job {
     /// Exists for forward compatibility for newly added fields.
     #[serde(flatten)]
     pub other: IndexMap<String, serde_json::Value>,
+}
+
+impl Job {
+    pub fn builder() -> JobBuilder {
+        JobBuilder::new()
+    }
 }
 
 // We need this wrapper struct to enable this formatting:
@@ -162,6 +245,70 @@ impl<'de> Deserialize<'de> for JobTrigger {
         repr.parse().map_err(D::Error::custom)
     }
 }
+
+#[derive(Debug, Default)]
+pub struct ExecutableJobBuilder {
+    package: Option<PackageSource>,
+    command: Option<String>,
+    cli_args: Option<Vec<String>>,
+    env: Option<IndexMap<String, String>>,
+    capabilities: Option<ExecutableJobCompatibilityMapV1>,
+    volumes: Option<Vec<AppVolume>>,
+}
+
+impl ExecutableJobBuilder {
+    pub fn new() -> Self {
+        Self::default()
+    }
+
+    pub fn package(mut self, package: PackageSource) -> Self {
+        self.package = Some(package);
+        self
+    }
+
+    pub fn command(mut self, command: impl Into<String>) -> Self {
+        self.command = Some(command.into());
+        self
+    }
+
+    pub fn cli_args<I, S>(mut self, args: I) -> Self
+    where
+        I: IntoIterator<Item = S>,
+        S: Into<String>,
+    {
+        self.cli_args.get_or_insert_with(Vec::new)
+            .extend(args.into_iter().map(Into::into));
+        self
+    }
+
+    pub fn env(mut self, key: impl Into<String>, value: impl Into<String>) -> Self {
+        self.env.get_or_insert_with(IndexMap::new)
+            .insert(key.into(), value.into());
+        self
+    }
+
+    pub fn capability(mut self, capabilities: ExecutableJobCompatibilityMapV1) -> Self {
+        self.capabilities = Some(capabilities);
+        self
+    }
+
+    pub fn volume(mut self, volume: AppVolume) -> Self {
+        self.volumes.get_or_insert_with(Vec::new).push(volume);
+        self
+    }
+
+    pub fn build(self) -> ExecutableJob {
+        ExecutableJob {
+            package: self.package,
+            command: self.command,
+            cli_args: self.cli_args,
+            env: self.env,
+            capabilities: self.capabilities,
+            volumes: self.volumes,
+        }
+    }
+}
+
 
 impl Display for JobTrigger {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {

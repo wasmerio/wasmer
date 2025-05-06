@@ -13,6 +13,7 @@ pub mod regions;
 pub mod secrets;
 pub mod version;
 pub mod volumes;
+pub mod attach_vault;
 
 mod util;
 
@@ -39,6 +40,7 @@ pub enum CmdApp {
     Volume(volumes::CmdAppVolumes),
     #[clap(subcommand, alias = "deployments")]
     Deployment(deployments::CmdAppDeployment),
+    AttachVault(attach_vault::CmdAppAttachVault),
 }
 
 #[async_trait::async_trait]
@@ -69,6 +71,7 @@ impl AsyncCliCommand for CmdApp {
             Self::Region(cmd) => cmd.run_async().await,
             Self::Volume(cmd) => cmd.run_async().await,
             Self::Deployment(cmd) => cmd.run_async().await,
+            Self::AttachVault(cmd) => cmd.run_async().await,
         }
     }
 }

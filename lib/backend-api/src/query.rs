@@ -2104,3 +2104,47 @@ pub async fn upsert_domain_from_zone_file(
 
     Ok(domain)
 }
+
+
+/// Upsert a vault from file
+pub async fn upsert_vault(
+    client: &WasmerClient,
+    vault_contents: impl Into<&String>,
+) -> Result<Vault, anyhow::Error> {
+    let vars = UpsertVaultVariables {
+            config: vault_contents.into()
+        };
+    let res = client
+        .run_graphql_strict(types::UpsertVault::build(vars))
+        .await?;
+
+    let vault = res
+        .upsert_vault
+        .context("Upserting vault from file failed")?
+        .vault;
+
+    Ok(vault)
+}
+
+/// Upsert a vault from file
+pub async fn attach_vault(
+    client: &WasmerClient,
+    vault_id: cynic::Id,
+    app_id: cynic::Id,
+) -> Result<DeployApp, anyhow::Error> {
+    let vars = AttachVaultVariables {
+        vault_id: &vault_id,
+        app_id: &app_id,
+        };
+    let res = client
+        .run_graphql_strict(types::AttachVault::build(vars))
+        .await?;
+
+    let app = res
+        .attach_vault
+        .context("Attaching vault to app failed")?
+        .app;
+
+    Ok(app)
+}
+

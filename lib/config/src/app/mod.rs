@@ -6,8 +6,12 @@ mod job;
 mod pretty_duration;
 mod snapshot_trigger;
 
-pub use self::{healthcheck::*, http::*, job::*, pretty_duration::*, snapshot_trigger::*};
 
+pub use self::{healthcheck::*, http::*, job::*, pretty_duration::*, snapshot_trigger::*};
+use std::path::Path;
+
+pub use self::{healthcheck::*, http::*, job::*};
+use std::collections::BTreeMap;
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
 use indexmap::IndexMap;
@@ -21,6 +25,19 @@ use crate::package::PackageSource;
 // released.
 #[allow(clippy::declare_interior_mutable_const)]
 pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
+
+
+/// Spec for the vault file
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct VaultFile {
+    pub kind: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub owner: Option<String>,
+    pub secrets: BTreeMap<String, String>,
+}
+
 
 /// User-facing app.yaml config file for apps.
 ///
@@ -68,6 +85,10 @@ pub struct AppConfigV1 {
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     pub env: IndexMap<String, String>,
 
+    /// Create a randomly generated email for the app
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enable_email: Option<bool>,
+
     // CLI arguments passed to the runner.
     /// Only applicable for runners that accept CLI arguments.
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -88,6 +109,11 @@ pub struct AppConfigV1 {
     /// Enable debug mode, which will show detailed error pages in the web gateway.
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub debug: Option<bool>,
+
+    /// Specify a vault that should be associated with the app; can be a name or a file
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub vault: Option<String>,
+
 
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub scaling: Option<AppScalingConfigV1>,
@@ -187,12 +213,19 @@ impl AppConfigV1 {
         let data = serde_yaml::from_value(raw).context("could not deserialize app config")?;
         Ok(data)
     }
+    /// Returns `true` if the `vault` is a file path that exists.
+    pub fn vault_is_file(&self) -> bool {
+        self.vault
+            .as_ref()
+            .map(|v| Path::new(v).is_file())
+            .unwrap_or(false)
+    }
 }
 
 /// Restricted version of [`super::CapabilityMapV1`], with only a select subset
 /// of settings.
 #[derive(
-    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq, Default
 )]
 pub struct AppConfigCapabilityMapV1 {
     /// Instance memory settings.
@@ -206,6 +239,8 @@ pub struct AppConfigCapabilityMapV1 {
     /// Enables app bootstrapping with startup snapshots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
+
+    pub database: Option<AppConfigCapabilityDatabaseV1>,
 
     /// Additional unknown capabilities.
     ///
@@ -280,6 +315,24 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub max_age: Option<PrettyDuration>,
+}
+
+/// Supported database engines.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+#[serde(rename_all = "lowercase")] // So `mysql` not `MySql` in YAML/JSON
+pub enum AppConfigCapabilityDatabaseEngineV1 {
+    MySQL,
+}
+
+/// Settings for a database capability.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct AppConfigCapabilityDatabaseV1 {
+    /// The database engine to use.
+    pub engine: AppConfigCapabilityDatabaseEngineV1,
 }
 
 /// How will an instance be bootstrapped?

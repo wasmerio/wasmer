@@ -24,6 +24,8 @@ mod inspect;
 #[cfg(feature = "journal")]
 mod journal;
 pub(crate) mod namespace;
+
+pub(crate) mod vault;
 mod package;
 mod run;
 mod self_update;
@@ -214,6 +216,7 @@ impl WasmerCmd {
             Some(Cmd::Journal(journal)) => journal.run(),
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
+            Some(Cmd::Vault(vault)) => vault.run(),
             Some(Cmd::Domain(namespace)) => namespace.run(),
             None => {
                 WasmerCmd::command().print_long_help()?;
@@ -433,6 +436,11 @@ enum Cmd {
     /// Manage Wasmer namespaces
     #[clap(subcommand, alias = "namespaces")]
     Namespace(crate::commands::namespace::CmdNamespace),
+
+    /// Manage Wasmer namespaces
+    #[clap(subcommand, alias = "vaults")]
+    Vault(crate::commands::vault::CmdVault),
+
 
     /// Manage DNS records
     #[clap(subcommand, alias = "domains")]
