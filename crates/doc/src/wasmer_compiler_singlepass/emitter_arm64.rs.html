@@ -3779,6 +3779,10 @@
 <a href="#3779" id="3779">3779</a>
 <a href="#3780" id="3780">3780</a>
 <a href="#3781" id="3781">3781</a>
+<a href="#3782" id="3782">3782</a>
+<a href="#3783" id="3783">3783</a>
+<a href="#3784" id="3784">3784</a>
+<a href="#3785" id="3785">3785</a>
 </pre></div><pre class="rust"><code><span class="kw">pub use crate</span>::{
     arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON},
     location::{Multiplier, Reg},
@@ -4304,11 +4308,11 @@
         <span class="macro">dynasm!</span>(
             <span class="self">self
             </span>; const_neg_one_32:
-            ; .word -<span class="number">1
+            ; .i32 -<span class="number">1
             </span>; const_zero_32:
-            ; .word <span class="number">0
+            ; .i32 <span class="number">0
             </span>; const_pos_one_32:
-            ; .word <span class="number">1
+            ; .i32 <span class="number">1
         </span>);
     }
 
@@ -4594,12 +4598,12 @@
             (Size::S64, Location::GPR(reg)) =&gt; {
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; str X(reg), [X(addr)], (offset <span class="kw">as </span>i32));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; str X(reg), [X(addr)], offset <span class="kw">as </span>i32);
             }
             (Size::S64, Location::SIMD(reg)) =&gt; {
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; str D(reg), [X(addr)], (offset <span class="kw">as </span>i32));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; str D(reg), [X(addr)], offset <span class="kw">as </span>i32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit STRIA"</span>),
         }
@@ -4617,12 +4621,12 @@
             (Size::S64, Location::GPR(reg)) =&gt; {
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; ldr X(reg), [X(addr)], offset);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; ldr X(reg), [X(addr)], offset <span class="kw">as _</span>);
             }
             (Size::S64, Location::SIMD(reg)) =&gt; {
                 <span class="kw">let </span>reg = reg.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; ldr D(reg), [X(addr)], offset);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; ldr D(reg), [X(addr)], offset <span class="kw">as _</span>);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDRIA"</span>),
         }
@@ -4663,7 +4667,7 @@
                 <span class="kw">let </span>reg1 = reg1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>reg2 = reg2.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>addr = addr.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; ldp X(reg1), X(reg2), [X(addr)], offset);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; ldp X(reg1), X(reg2), [X(addr)], offset <span class="kw">as _</span>);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LDPIA"</span>),
         }
@@ -5027,32 +5031,36 @@
             }
             (Size::S32, Location::Imm32(val), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="kw">if </span>val &lt; <span class="number">0x1000 </span>{
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov W(dst), val <span class="kw">as </span>u64);
-                } <span class="kw">else if </span>encode_logical_immediate_32bit(val <span class="kw">as _</span>).is_some() {
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; orr W(dst), wzr, val);
+                <span class="kw">if </span>val &lt; <span class="number">0x1000 </span>|| encode_logical_immediate_32bit(val <span class="kw">as _</span>).is_some() {
+                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov W(dst), val);
                 } <span class="kw">else </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV S32 {}, {:?}"</span>, val, dst);
+                    <span class="macro">dynasm!</span>(<span class="self">self
+                        </span>; movz W(dst), val
+                        ; movk W(dst), val, lsl #<span class="number">16</span>);
                 }
             }
             (Size::S64, Location::Imm32(val), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>val &lt; <span class="number">0x1000 </span>{
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov W(dst), val <span class="kw">as </span>u64);
+                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov W(dst), val);
                 } <span class="kw">else if </span>encode_logical_immediate_64bit(val <span class="kw">as _</span>).is_some() {
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; orr X(dst), xzr, val <span class="kw">as </span>u64);
+                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov X(dst), val <span class="kw">as _</span>);
                 } <span class="kw">else </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV S64 {}, {:?}"</span>, val, dst);
+                    <span class="macro">dynasm!</span>(<span class="self">self
+                        </span>; movz X(dst), val
+                        ; movk X(dst), val, lsl #<span class="number">16</span>);
                 }
             }
             (Size::S64, Location::Imm64(val), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="kw">if </span>val &lt; <span class="number">0x1000 </span>{
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov W(dst), val <span class="kw">as </span>u64);
-                } <span class="kw">else if </span>encode_logical_immediate_64bit(val <span class="kw">as _</span>).is_some() {
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; orr X(dst), xzr, val <span class="kw">as </span>u64);
+                <span class="kw">if </span>val &lt; <span class="number">0x1000 </span>|| encode_logical_immediate_64bit(val <span class="kw">as _</span>).is_some() {
+                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov X(dst), val <span class="kw">as _</span>);
                 } <span class="kw">else </span>{
-                    <span class="macro">codegen_error!</span>(<span class="string">"singleplasse can't emit MOV S64 {}, {:?}"</span>, val, dst);
+                    <span class="macro">dynasm!</span>(<span class="self">self
+                        </span>; movz X(dst), val <span class="kw">as _
+                        </span>; movk X(dst), val <span class="kw">as _</span>, lsl #<span class="number">16
+                        </span>; movk X(dst), val <span class="kw">as _</span>, lsl #<span class="number">32
+                        </span>; movk X(dst), val <span class="kw">as _</span>, lsl #<span class="number">48</span>);
                 }
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV {:?}, {:?}, {:?}"</span>, sz, src, dst),
@@ -5142,19 +5150,19 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>src2 = src2.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add X(dst), X(src1), X(src2), UXTX);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add XSP(dst), XSP(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>src2 = src2.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add W(dst), W(src1), W(src2), UXTX);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add WSP(dst), WSP(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add X(dst), X(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add XSP(dst), XSP(src1), imm <span class="kw">as _</span>);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
@@ -5163,7 +5171,7 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">unreachable!</span>();
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add X(dst), X(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add XSP(dst), XSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
@@ -5173,13 +5181,13 @@
                     <span class="macro">unreachable!</span>();
                 }
                 <span class="kw">let </span>imm = imm <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add X(dst), X(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add XSP(dst), XSP(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add W(dst), W(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add WSP(dst), WSP(src1), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
@@ -5188,7 +5196,7 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">unreachable!</span>();
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; add W(dst), W(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; add WSP(dst), WSP(src1), imm);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
                 <span class="string">"singlepass can't emit ADD {:?} {:?} {:?} {:?}"</span>,
@@ -5212,23 +5220,23 @@
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>src2 = src2.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub X(dst), X(src1), X(src2), UXTX);
+                <span class="macro">dynasm!</span>(<span class="self">self</span>; sub XSP(dst), XSP(src1), X(src2), UXTX <span class="number">0</span>);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>src2 = src2.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub W(dst), W(src1), W(src2), UXTX);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub WSP(dst), WSP(src1), W(src2), UXTX <span class="number">0</span>);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub X(dst), X(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub XSP(dst), XSP(src1), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub W(dst), W(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub WSP(dst), WSP(src1), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5236,7 +5244,7 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">unreachable!</span>();
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub W(dst), W(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub WSP(dst), WSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5244,7 +5252,7 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">unreachable!</span>();
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub X(dst), X(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub XSP(dst), XSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5252,7 +5260,7 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">unreachable!</span>();
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub X(dst), X(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; sub XSP(dst), XSP(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
                 <span class="string">"singlepass can't emit SUB {:?} {:?} {:?} {:?}"</span>,
@@ -5318,7 +5326,7 @@
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds X(dst), X(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds X(dst), XSP(src1), imm <span class="kw">as </span>u32);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
@@ -5327,13 +5335,13 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass ADD.S with imm too large {}"</span>, imm);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds X(dst), X(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds X(dst), XSP(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds W(dst), W(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds W(dst), WSP(src1), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) =&gt; {
@@ -5342,7 +5350,7 @@
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass ADD.S with imm too large {}"</span>, imm);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds W(dst), W(src1), imm);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; adds W(dst), WSP(src1), imm);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
                 <span class="string">"singlepass can't emit ADD.S {:?} {:?} {:?} {:?}"</span>,
@@ -5377,12 +5385,12 @@
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; subs X(dst), X(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; subs X(dst), XSP(src1), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; subs W(dst), W(src1), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; subs W(dst), WSP(src1), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
                 <span class="string">"singlepass can't emit SUB.S {:?} {:?} {:?} {:?}"</span>,
@@ -5435,32 +5443,32 @@
             }
             (Size::S64, Location::Imm8(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp X(dst), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp XSP(dst), imm <span class="kw">as </span>u32);
             }
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass CMP with imm too large {}"</span>, imm);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp X(dst), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp XSP(dst), imm <span class="kw">as </span>u32);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass CMP with imm too large {}"</span>, imm);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp X(dst), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp XSP(dst), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::Imm8(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp W(dst), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp WSP(dst), imm <span class="kw">as </span>u32);
             }
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>dst = dst.into_index() <span class="kw">as </span>u32;
                 <span class="kw">if </span>imm &gt;= <span class="number">0x1000 </span>{
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass CMP with imm too large {}"</span>, imm);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp W(dst), imm <span class="kw">as </span>u32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cmp WSP(dst), imm <span class="kw">as </span>u32);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CMP {:?} {:?} {:?}"</span>, sz, src, dst),
         }
@@ -5829,7 +5837,7 @@
                 <span class="kw">if </span>encode_logical_immediate_64bit(src2 <span class="kw">as </span>u64).is_none() {
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass OR with incompatible imm {}"</span>, src2);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; orr X(dst), X(src1), src2);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; orr XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5838,7 +5846,7 @@
                 <span class="kw">if </span>encode_logical_immediate_32bit(src2).is_none() {
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass OR with incompatible imm {}"</span>, src2);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; orr W(dst), W(src1), src2);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; orr WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5877,7 +5885,7 @@
                 <span class="kw">if </span>encode_logical_immediate_64bit(src2 <span class="kw">as </span>u64).is_none() {
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass AND with incompatible imm {}"</span>, src2);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; and X(dst), X(src1), src2);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; and XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5886,7 +5894,7 @@
                 <span class="kw">if </span>encode_logical_immediate_32bit(src2).is_none() {
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass AND with incompatible imm {}"</span>, src2);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; and W(dst), W(src1), src2);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; and WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5925,7 +5933,7 @@
                 <span class="kw">if </span>encode_logical_immediate_64bit(src2 <span class="kw">as </span>u64).is_none() {
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass EOR with incompatible imm {}"</span>, src2);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; eor X(dst), X(src1), src2);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; eor XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -5934,7 +5942,7 @@
                 <span class="kw">if </span>encode_logical_immediate_32bit(src2).is_none() {
                     <span class="macro">codegen_error!</span>(<span class="string">"singlepass EOR with incompatible imm {}"</span>, src2);
                 }
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; eor W(dst), W(src1), src2);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; eor WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) =&gt; {
                 <span class="kw">let </span>src1 = src1.into_index() <span class="kw">as </span>u32;
@@ -6546,7 +6554,7 @@
     }
 
     <span class="kw">fn </span>emit_udf(<span class="kw-2">&amp;mut </span><span class="self">self</span>, payload: u16) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; udf (payload <span class="kw">as </span>u32));
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; udf payload <span class="kw">as </span>u32);
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_dmb(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
