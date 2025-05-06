@@ -2,6 +2,145 @@
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
+//! Linker for loading and linking dynamic modules at runtime. The linker is designed to
+//! work with output from clang (version 19 was used at the time of creating this code).
+//! Note that dynamic linking of WASM modules is considered unstable in clang/LLVM, so
+//! this code may need to be updated for future versions of clang.
+//! 
+//! The linker doesn't care about where code exists and how modules call each other, but
+//! the way we have found to be most effective is:
+//!     * The main module carries with it all of wasix-libc, and exports everything
+//!     * Side module don't link wasix-libc in, instead importing it from the main module
+//! This way, we only need one instance of wasix-libc, and one instance of all the static
+//! data that it requires to function. Indeed, if there were multiple instances of its
+//! static data, it would more than likely just break completely; one needs only imagine
+//! what would happen if there were multiple memory allocators (malloc) running at the same
+//! time. Emscripten (the only WASM runtime that supports dynamic linking, at the time of
+//! this writing) takes the same approach.
+//! 
+//! While locating modules by relative or absolute paths is possible, it is recommended
+//! to put every side module into /lib, where they can be located by name as well as by
+//! path.
+//!
+//! The linker starts from a dynamically-linked main module. It scans the dylink.0 section
+//! for memory and table-related information and the list of needed modules. The module
+//! tree requires a memory, an indirect function table, and stack-related parameters
+//! (including the __stack_pointer global), which are created. Since dynamically-linked
+//! modules use PIC (position-independent code), the stack is not fixed and can be resized
+//! at runtime.
+//! 
+//! After the memory, function table and stack are created, the linker proceeds to load in
+//! needed modules. Needed modules are always loaded in and initialized before modules that
+//! asked for them, since it is expected that the needed module needs to be usable before
+//! the module that needs it can be initialized.
+//!
+//! However, we also need to support circular dependencies between the modules; the most
+//! common case is when the main needs a side module and imports function from it, and the
+//! side imports wasix-libc functions from the main. To support this, the linker generates
+//! stub functions for all the imports that cannot be resolved when a module is being
+//! loaded in. The stub functions will then resolve the function once (and only once) at
+//! runtime when they're first called. This *does*, however, mean that link error can happen
+//! at runtime, after the linker has reported successful linking of the modules. Such errors
+//! are turned into a [`WasiError::DlSymbolResolutionFailed`] error and will terminate
+//! execution completely.
+//! 
+//! The top-level overview of steps taken to link a main module is:
+//!     * The main module is loaded in externally, at which point it is discovered that it
+//!       is a dynamically-loaded module. This module is then passed in to
+//!       [`Linker::new_for_main_module`].
+//!     * The linker parses the dylink.0 section and creates a memory, function table and
+//!       stack-related globals.
+//!     * The linker loads in and instantiates all the needed modules, but does not initialize
+//!       them yet. Imports for the main module are resolved, and control is returned to the
+//!       calling code, which is expected to instantiate the main module, initialize the
+//!       WasiEnv, and call [`Linker::initialize`].
+//!     * In the [`Linker::initialize`] function, the link operation is "finalized": globals
+//!       that couldn't be resolved due to circular dependencies are resolved to their
+//!       correct values, and the init functions of all modules are run in LIFO order, so
+//!       that the deepest needed module is initialized first.
+//!     * After the call to [`Linker::initialize`] returns successfully, the module tree is
+//!       now ready to be used and the main module's _start can be called.
+//! 
+//! The top-level overview of steps taken to link a side module is:
+//!     * The side module is located; Locating side modules happens as follows:
+//!         * If the name contains a slash (/), it is treated as a relative or absolute path.   
+//!         * Otherwise, the name is searched for in `/lib`, `/usr/lib` and `/usr/local/lib`.
+//!       The same logic is applied to all needed side modules as well.
+//!     * Once the module is located, the dylink.0 section is parsed. Memory is allocated for
+//!       the module (see [`MemoryAllocator`]), as well as empty slots in the function table.
+//!     * Needed modules are loaded in before the module itself is instantiated.
+//!     * Once all modules are loaded in, the same link finalization steps are run: globals
+//!       are resolved and init functions are run in LIFO order.
+//! 
+//! Note that building modules that conform the specific requirements of this linker requires
+//! careful configuration of clang. A PIC sysroot is required. The steps to build a main
+//! module are:
+//! 
+//! ```
+//!	clang-19 \
+//!   --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
+//!   -matomics -mbulk-memory -mmutable-globals -pthread \
+//!   -mthread-model posix -ftls-model=local-exec \
+//!   -fno-trapping-math -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL \
+//!   -D_WASI_EMULATED_PROCESS_CLOCKS \
+//!   # PIC is required for all modules, main and side
+//!   -fPIC \
+//!   # We need to compile to an object file we can manually link in the next step
+//!   -c main.c -o main.o
+//! 
+//! wasm-ld-19 \
+//!   # To link needed side modules, assuming `libsidewasm.so` exists in the current directory:
+//!   -L. -lsidewasm \
+//!   -L/path/to/sysroot32-pic/lib \
+//!   -L/path/to/sysroot32-pic/lib/wasm32-wasi \
+//!   # Make wasm-ld search everywhere and export everything, needed for wasix-libc functions to
+//!   # be exported correctly from the main module
+//!   --whole-archive --export-all \
+//!   # The object file from the last step
+//!   main.o \
+//!   # The crt1.o file contains the _start and _main_void functions
+//!   /path/to/sysroot32-pic/lib/wasm32-wasi/crt1.o \
+//!   # Statically link the sysroot's libraries
+//!   -lc -lresolv -lrt -lm -lpthread -lwasi-emulated-mman \
+//!   # The usual linker config for wasix modules
+//!   --import-memory --shared-memory --extra-features=atomics,bulk-memory,mutable-globals \
+//!   --export=__wasm_signal --export=__tls_size --export=__tls_align \
+//!   --export=__tls_base --export=__wasm_call_ctors --export-if-defined=__wasm_apply_data_relocs \
+//!   # Again, PIC is very important, as well as producing a location-independent executable with -pie
+//!   --experimental-pic -pie \
+//!   -o main.wasm 
+//! ```
+//! 
+//! And the steps to build a side module are:
+//! 
+//! ```
+//! clang-19 \
+//!   --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
+//!   -matomics -mbulk-memory -mmutable-globals -pthread \
+//!   -mthread-model posix -ftls-model=local-exec \
+//!   -fno-trapping-math -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL \
+//!   -D_WASI_EMULATED_PROCESS_CLOCKS \
+//!   # We need PIC
+//!   -fPIC
+//!   # Make it export everything that's not hidden explicitly
+//!   -fvisibility=default \
+//!   -c side.c -o side.o
+
+//! wasm-ld-19 \
+//!   # Note: we don't link against wasix-libc, so no -lc etc., because we want
+//!   # those symbols to be imported.
+//!   --extra-features=atomics,bulk-memory,mutable-globals \
+//!   --export=__wasm_call_ctors --export-if-defined=__wasm_apply_data_relocs \
+//!   # Need PIC
+//!   --experimental-pic \
+//!   # Import everything that's undefined, including wasix-libc functions
+//!   --unresolved-symbols=import-dynamic \
+//!   # build a shared library
+//!   -shared \
+//!   # Conform to the libxxx.so naming so clang can find it via -lxxx
+//!   -o libsidewasm.so side.o
+//! ```
+
 use std::{
     collections::HashMap,
     ffi::OsStr,
