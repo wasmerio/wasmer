@@ -6,7 +6,7 @@
 //! work with output from clang (version 19 was used at the time of creating this code).
 //! Note that dynamic linking of WASM modules is considered unstable in clang/LLVM, so
 //! this code may need to be updated for future versions of clang.
-//! 
+//!
 //! The linker doesn't care about where code exists and how modules call each other, but
 //! the way we have found to be most effective is:
 //!     * The main module carries with it all of wasix-libc, and exports everything
@@ -17,7 +17,7 @@
 //! what would happen if there were multiple memory allocators (malloc) running at the same
 //! time. Emscripten (the only WASM runtime that supports dynamic linking, at the time of
 //! this writing) takes the same approach.
-//! 
+//!
 //! While locating modules by relative or absolute paths is possible, it is recommended
 //! to put every side module into /lib, where they can be located by name as well as by
 //! path.
@@ -28,7 +28,7 @@
 //! (including the __stack_pointer global), which are created. Since dynamically-linked
 //! modules use PIC (position-independent code), the stack is not fixed and can be resized
 //! at runtime.
-//! 
+//!
 //! After the memory, function table and stack are created, the linker proceeds to load in
 //! needed modules. Needed modules are always loaded in and initialized before modules that
 //! asked for them, since it is expected that the needed module needs to be usable before
@@ -43,7 +43,7 @@
 //! at runtime, after the linker has reported successful linking of the modules. Such errors
 //! are turned into a [`WasiError::DlSymbolResolutionFailed`] error and will terminate
 //! execution completely.
-//! 
+//!
 //! The top-level overview of steps taken to link a main module is:
 //!     * The main module is loaded in externally, at which point it is discovered that it
 //!       is a dynamically-loaded module. This module is then passed in to
@@ -60,7 +60,7 @@
 //!       that the deepest needed module is initialized first.
 //!     * After the call to [`Linker::initialize`] returns successfully, the module tree is
 //!       now ready to be used and the main module's _start can be called.
-//! 
+//!
 //! The top-level overview of steps taken to link a side module is:
 //!     * The side module is located; Locating side modules happens as follows:
 //!         * If the name contains a slash (/), it is treated as a relative or absolute path.   
@@ -71,13 +71,13 @@
 //!     * Needed modules are loaded in before the module itself is instantiated.
 //!     * Once all modules are loaded in, the same link finalization steps are run: globals
 //!       are resolved and init functions are run in LIFO order.
-//! 
+//!
 //! Note that building modules that conform the specific requirements of this linker requires
 //! careful configuration of clang. A PIC sysroot is required. The steps to build a main
 //! module are:
-//! 
+//!
 //! ```
-//!	clang-19 \
+//! clang-19 \
 //!   --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
 //!   -matomics -mbulk-memory -mmutable-globals -pthread \
 //!   -mthread-model posix -ftls-model=local-exec \
@@ -87,7 +87,7 @@
 //!   -fPIC \
 //!   # We need to compile to an object file we can manually link in the next step
 //!   -c main.c -o main.o
-//! 
+//!
 //! wasm-ld-19 \
 //!   # To link needed side modules, assuming `libsidewasm.so` exists in the current directory:
 //!   -L. -lsidewasm \
@@ -108,11 +108,11 @@
 //!   --export=__tls_base --export=__wasm_call_ctors --export-if-defined=__wasm_apply_data_relocs \
 //!   # Again, PIC is very important, as well as producing a location-independent executable with -pie
 //!   --experimental-pic -pie \
-//!   -o main.wasm 
+//!   -o main.wasm
 //! ```
-//! 
+//!
 //! And the steps to build a side module are:
-//! 
+//!
 //! ```
 //! clang-19 \
 //!   --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
@@ -125,7 +125,7 @@
 //!   # Make it export everything that's not hidden explicitly
 //!   -fvisibility=default \
 //!   -c side.c -o side.o
-
+//!
 //! wasm-ld-19 \
 //!   # Note: we don't link against wasix-libc, so no -lc etc., because we want
 //!   # those symbols to be imported.
@@ -140,6 +140,8 @@
 //!   # Conform to the libxxx.so naming so clang can find it via -lxxx
 //!   -o libsidewasm.so side.o
 //! ```
+
+#![allow(clippy::result_large_err)]
 
 use std::{
     collections::HashMap,
@@ -361,7 +363,7 @@ enum GlobalImportResolutionKind {
 }
 
 impl GlobalImportResolutionKind {
-    fn to_unresolved(&self, name: String, global: Global) -> UnresolvedGlobal {
+    fn to_unresolved(self, name: String, global: Global) -> UnresolvedGlobal {
         match self {
             Self::Mem => UnresolvedGlobal::Mem(name, global),
             Self::Func => UnresolvedGlobal::Func(name, global),
@@ -376,6 +378,8 @@ enum UnresolvedGlobal {
     // from another module (e.g. an index into __indirect_function_table).
     Func(String, Global),
 }
+
+type ModuleInitCallback = dyn (FnOnce(&mut StoreMut) -> Result<(), LinkError>) + Send + Sync;
 
 #[derive(Default)]
 struct InProgressLinkState {
@@ -398,7 +402,7 @@ struct InProgressLinkState {
     // List of modules for which init functions should be run. This needs to happen
     // as the last step, since the init functions may access stub globals or functions
     // which can't be resolved until the entire module tree is loaded in.
-    init_callbacks: Vec<Box<dyn (FnOnce(&mut StoreMut) -> Result<(), LinkError>) + Send + Sync>>,
+    init_callbacks: Vec<Box<ModuleInitCallback>>,
 }
 
 enum MainInstanceState {
@@ -461,7 +465,7 @@ impl Linker {
         env: &FunctionEnv<WasiEnv>,
         stack_size: u64,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
-        let dylink_section = parse_dylink0_section(&main_module)?;
+        let dylink_section = parse_dylink0_section(main_module)?;
 
         let function_table_type = main_module
             .imports()
@@ -688,7 +692,7 @@ impl Linker {
         }
 
         // If a module failed to load, the entire module tree is now invalid, so purge everything
-        if let Err(_) = &result {
+        if result.is_err() {
             let mut guard = self.state.lock().unwrap();
             let memory = guard.memory.clone();
 
@@ -823,7 +827,7 @@ impl LinkerState {
         if mem_info.table_size == 0 {
             Ok(0)
         } else {
-            let current_size = self.indirect_function_table.size(store) as u32;
+            let current_size = self.indirect_function_table.size(store);
             let alignment = 2_u32.pow(mem_info.table_alignment);
 
             let offset = if current_size % alignment != 0 {
@@ -834,7 +838,7 @@ impl LinkerState {
 
             let start = self.indirect_function_table.grow(
                 store,
-                mem_info.table_size as u32 + offset,
+                mem_info.table_size + offset,
                 Value::FuncRef(None),
             )?;
 
@@ -1018,7 +1022,7 @@ impl LinkerState {
         let (value, missing) = match export {
             Ok(ResolvedExport::Global(addr)) => {
                 if global_kind == GlobalImportResolutionKind::Mem {
-                    (addr as u64, false)
+                    (addr, false)
                 } else {
                     return Err(LinkError::UnresolvedGlobal(
                         import.module().to_owned(),
@@ -1065,7 +1069,7 @@ impl LinkerState {
             .main_instance()
             .and_then(|instance| instance.exports.get_extern(symbol))
         {
-            return Ok(Some(export));
+            Ok(Some(export))
         } else {
             for module in self.side_modules.values() {
                 if let Some(export) = module.instance.exports.get_extern(symbol) {
@@ -1073,7 +1077,7 @@ impl LinkerState {
                 }
             }
 
-            return Ok(None);
+            Ok(None)
         }
     }
 
@@ -1115,7 +1119,7 @@ impl LinkerState {
                             *resolved_guard = Some(None);
                             return Err(mk_error());
                         };
-                        if func.ty(&mut store) != ty {
+                        if func.ty(&store) != ty {
                             *resolved_guard = Some(None);
                             return Err(mk_error());
                         }
@@ -1206,7 +1210,7 @@ impl LinkerState {
         let (mut imports, init) = import_object_for_all_wasi_versions(&module, store, env);
 
         self.resolve_imports(
-            &linker,
+            linker,
             store,
             &mut imports,
             env,
@@ -1345,9 +1349,9 @@ impl LinkerState {
     ) -> Result<u32, LinkError> {
         let table = &self.indirect_function_table;
 
-        Ok(table
+        table
             .grow(store, 1, func.into())
-            .map_err(LinkError::TableAllocationError)?)
+            .map_err(LinkError::TableAllocationError)
     }
 
     fn finalize_pending_globals(
@@ -1455,7 +1459,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
         return Err(LinkError::NotDynamicLibrary);
     };
 
-    let reader = wasmparser::Dylink0SectionReader::new(wasmparser::BinaryReader::new(&*section, 0));
+    let reader = wasmparser::Dylink0SectionReader::new(wasmparser::BinaryReader::new(&section, 0));
 
     let mut mem_info = None;
     let mut needed = None;
@@ -1480,7 +1484,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     }
 
     Ok(DylinkInfo {
-        mem_info: mem_info.unwrap_or_else(|| wasmparser::MemInfo {
+        mem_info: mem_info.unwrap_or(wasmparser::MemInfo {
             memory_size: 0,
             memory_alignment: 0,
             table_size: 0,
