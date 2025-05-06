@@ -21,8 +21,7 @@ use wasmer_wasix::{
     PluggableRuntime, Runtime,
 };
 
-#[tokio::main]
-async fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/wasi-wast/wasi/unstable/pipe_reverse.wasm"
@@ -30,13 +29,18 @@ async fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // We need a WASI runtime.
-    let tokio_task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
+    // We need a tokio runtime and a WASI runtime.
+    let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = tokio_runtime.enter();
+    let tokio_task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
     let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager));
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = runtime.load_module(&wasm_bytes[..]).await?;
+    let module = runtime.load_module_sync(&wasm_bytes[..])?;
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
