@@ -320,8 +320,7 @@ fn runtime() -> (impl Runtime + Send + Sync, Arc<TokioTaskManager>) {
     let http_client: Arc<dyn HttpClient + Send + Sync> =
         Arc::new(wasmer_wasix::http::default_http_client().unwrap());
 
-    rt.set_engine(Some(Engine::default()))
-        .set_module_cache(cache)
+    rt.set_module_cache(cache)
         .set_package_loader(
             BuiltinPackageLoader::new()
                 .with_cache_dir(cache_dir)
