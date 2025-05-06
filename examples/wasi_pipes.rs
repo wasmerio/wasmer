@@ -11,11 +11,18 @@
 //!
 //! Ready?
 
-use std::io::{Read, Write};
-use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+use std::{
+    io::{Read, Write},
+    sync::Arc,
+};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+use wasmer_wasix::{
+    runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, Pipe,
+    PluggableRuntime, Runtime,
+};
+
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/wasi-wast/wasi/unstable/pipe_reverse.wasm"
@@ -23,12 +30,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // Create a Store.
-    let mut store = Store::default();
+    // We need a WASI runtime.
+    let tokio_task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
+    let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager));
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes)?;
+    let module = runtime.load_module(&wasm_bytes[..]).await?;
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
@@ -38,12 +46,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // To write to the stdin
     writeln!(stdin_sender, "{}", msg)?;
 
+    // Create a WASI runner.
+    let mut runner = WasiRunner::new();
+
+    // Configure the WasiRunner with the stdio pipes.
+    runner
+        .with_stdin(Box::new(stdin_reader))
+        .with_stdout(Box::new(stdout_sender));
+
+    // Now, run the module.
     println!("Running module...");
-    // First, we create the `WasiEnv` with the stdio pipes
-    WasiEnv::builder("hello")
-        .stdin(Box::new(stdin_reader))
-        .stdout(Box::new(stdout_sender))
-        .run_with_store(module, &mut store)?;
+    runner.run_wasm(
+        Arc::new(runtime),
+        "hello",
+        module,
+        wasmer_types::ModuleHash::xxhash(wasm_bytes),
+    )?;
 
     // To read from the stdout
     let mut buf = String::new();

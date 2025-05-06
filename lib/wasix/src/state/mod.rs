@@ -20,7 +20,6 @@ mod env;
 mod func_env;
 mod handles;
 mod linker;
-mod run;
 mod types;
 
 use std::{

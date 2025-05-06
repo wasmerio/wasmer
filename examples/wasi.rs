@@ -14,12 +14,15 @@
 //!
 //! Ready?
 
-use std::io::Read;
+use std::{io::Read, sync::Arc};
 
-use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+use wasmer_wasix::{
+    runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, Pipe,
+    PluggableRuntime, Runtime,
+};
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+#[tokio::main]
+async fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
         env!("CARGO_MANIFEST_DIR"),
         "/tests/wasi-wast/wasi/unstable/hello.wasm"
@@ -27,21 +30,28 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // Create a Store.
-    let mut store = Store::default();
+    // We need a WASI runtime.
+    let tokio_task_manager = TokioTaskManager::new(tokio::runtime::Handle::current());
+    let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager));
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes)?;
+    let module = runtime.load_module(&wasm_bytes[..]).await?;
 
+    // Create a WASI runner.
+    let mut runner = WasiRunner::new();
+
+    // Create a pipe for the module's stdout.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
+    runner.with_stdout(Box::new(stdout_tx));
 
-    // Run the module.
-    WasiEnv::builder("hello")
-        // .args(&["world"])
-        // .env("KEY", "Value")
-        .stdout(Box::new(stdout_tx))
-        .run_with_store(module, &mut store)?;
+    // Now, run the module.
+    runner.run_wasm(
+        Arc::new(runtime),
+        "hello",
+        module,
+        wasmer_types::ModuleHash::xxhash(wasm_bytes),
+    )?;
 
     eprintln!("Run complete - reading output");
 
