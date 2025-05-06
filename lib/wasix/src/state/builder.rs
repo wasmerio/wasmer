@@ -29,6 +29,8 @@ use wasmer_wasix_types::wasi::SignalDisposition;
 
 use super::env::WasiEnvInit;
 
+// FIXME: additional import support was broken and has been removed. We need to re-introduce
+// it in a way that works with multi-threaded WASIX apps.
 /// Builder API for configuring a [`WasiEnv`] environment needed to run WASI modules.
 ///
 /// Usage:
@@ -81,8 +83,6 @@ pub struct WasiEnvBuilder {
 
     pub(super) capabilites: Capabilities,
 
-    // TODO: reintroduce in a way that works with threads as well
-    // pub(super) additional_imports: Imports,
     #[cfg(feature = "journal")]
     pub(super) snapshot_on: Vec<SnapshotTrigger>,
 
@@ -765,51 +765,6 @@ impl WasiEnvBuilder {
         self.skip_stdio_during_bootstrap = skip;
     }
 
-    // /// Add an item to the list of importable items provided to the instance.
-    // pub fn import(
-    //     mut self,
-    //     namespace: impl Into<String>,
-    //     name: impl Into<String>,
-    //     value: impl Into<Extern>,
-    // ) -> Self {
-    //     self.add_imports([((namespace, name), value)]);
-    //     self
-    // }
-
-    // /// Add an item to the list of importable items provided to the instance.
-    // pub fn add_import(
-    //     &mut self,
-    //     namespace: impl Into<String>,
-    //     name: impl Into<String>,
-    //     value: impl Into<Extern>,
-    // ) {
-    //     self.add_imports([((namespace, name), value)]);
-    // }
-
-    // pub fn add_imports<I, S1, S2, E>(&mut self, imports: I)
-    // where
-    //     I: IntoIterator<Item = ((S1, S2), E)>,
-    //     S1: Into<String>,
-    //     S2: Into<String>,
-    //     E: Into<Extern>,
-    // {
-    //     let imports = imports
-    //         .into_iter()
-    //         .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
-    //     self.additional_imports.extend(imports);
-    // }
-
-    // pub fn imports<I, S1, S2, E>(mut self, imports: I) -> Self
-    // where
-    //     I: IntoIterator<Item = ((S1, S2), E)>,
-    //     S1: Into<String>,
-    //     S2: Into<String>,
-    //     E: Into<Extern>,
-    // {
-    //     self.add_imports(imports);
-    //     self
-    // }
-
     /// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
     /// can be used to construct a new [`WasiEnv`].
     ///
@@ -1023,7 +978,6 @@ impl WasiEnvBuilder {
             #[cfg(feature = "journal")]
             stop_running_after_snapshot: self.stop_running_after_snapshot,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
-            // additional_imports: self.additional_imports,
         };
 
         Ok(init)

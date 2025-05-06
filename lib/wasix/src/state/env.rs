@@ -69,10 +69,6 @@ pub struct WasiEnvInit {
     /// Indicates if extra tracing should be output
     pub extra_tracing: bool,
 
-    // TODO: re-introduce this code in a way that works with threads as well
-    // /// Additional functionality provided to the WASIX instance, besides the
-    // /// normal WASIX syscalls.
-    // pub additional_imports: Imports,
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
@@ -125,7 +121,6 @@ impl WasiEnvInit {
             #[cfg(feature = "journal")]
             stop_running_after_snapshot: self.stop_running_after_snapshot,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
-            // additional_imports: self.additional_imports.clone(),
         }
     }
 }
