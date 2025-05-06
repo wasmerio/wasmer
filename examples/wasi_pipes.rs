@@ -50,27 +50,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // To write to the stdin
     writeln!(stdin_sender, "{}", msg)?;
 
-    // Create a WASI runner.
-    let mut runner = WasiRunner::new();
+    {
+        // Create a WASI runner. We use a scope to make sure the runner is dropped
+        // as soon as we are done with it; otherwise, it will keep the stdout pipe
+        // open.
+        let mut runner = WasiRunner::new();
 
-    // Configure the WasiRunner with the stdio pipes.
-    runner
-        .with_stdin(Box::new(stdin_reader))
-        .with_stdout(Box::new(stdout_sender));
+        // Configure the WasiRunner with the stdio pipes.
+        runner
+            .with_stdin(Box::new(stdin_reader))
+            .with_stdout(Box::new(stdout_sender));
 
-    // Now, run the module.
-    println!("Running module...");
-    runner.run_wasm(
-        Arc::new(runtime),
-        "hello",
-        module,
-        wasmer_types::ModuleHash::xxhash(wasm_bytes),
-    )?;
+        // Now, run the module.
+        println!("Running module...");
+        runner.run_wasm(
+            Arc::new(runtime),
+            "hello",
+            module,
+            wasmer_types::ModuleHash::xxhash(wasm_bytes),
+        )?;
+    }
 
     // To read from the stdout
     let mut buf = String::new();
     stdout_reader.read_to_string(&mut buf)?;
     println!("Read \"{}\" from the WASI stdout!", buf.trim());
+
+    // Verify the module wrote the correct thing, for the test below
+    assert_eq!(buf.trim(), "mooz og racecar");
 
     Ok(())
 }

@@ -42,28 +42,35 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's compile the Wasm module.
     let module = runtime.load_module_sync(&wasm_bytes[..])?;
 
-    // Create a WASI runner.
-    let mut runner = WasiRunner::new();
-
     // Create a pipe for the module's stdout.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
-    runner.with_stdout(Box::new(stdout_tx));
 
-    println!("Running module...");
-    // Now, run the module.
-    runner.run_wasm(
-        Arc::new(runtime),
-        "hello",
-        module,
-        wasmer_types::ModuleHash::xxhash(wasm_bytes),
-    )?;
+    {
+        // Create a WASI runner. We use a scope to make sure the runner is dropped
+        // as soon as we are done with it; otherwise, it will keep the stdout pipe
+        // open.
+        let mut runner = WasiRunner::new();
+        runner.with_stdout(Box::new(stdout_tx));
 
-    eprintln!("Run complete - reading output");
+        println!("Running module...");
+        // Now, run the module.
+        runner.run_wasm(
+            Arc::new(runtime),
+            "hello",
+            module,
+            wasmer_types::ModuleHash::xxhash(wasm_bytes),
+        )?;
+    }
+
+    println!("Run complete - reading output");
 
     let mut buf = String::new();
     stdout_rx.read_to_string(&mut buf).unwrap();
 
-    eprintln!("Output: {buf}");
+    println!("Output: {buf}");
+
+    // Verify the module wrote the correct thing, for the test below
+    assert_eq!(buf, "Hello, world!\n");
 
     Ok(())
 }
