@@ -848,6 +848,51 @@ mod queries {
         pub used_size: Option<BigInt>,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub(crate) struct GetAppDatabasesVars {
+        pub name: String,
+        pub owner: String,
+        pub after: Option<String>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Query", variables = "GetAppDatabasesVars")]
+    pub(crate) struct GetAppDatabases {
+        #[arguments(owner: $owner, name: $name)]
+        pub get_deploy_app: Option<AppDatabases>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub(crate) struct AppDatabaseConnection {
+        pub page_info: PageInfo,
+        pub edges: Vec<Option<AppDatabaseEdge>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "DeployApp")]
+    pub(crate) struct AppDatabases {
+        pub databases: AppDatabaseConnection,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub(crate) struct AppDatabaseEdge {
+        pub node: Option<AppDatabase>,
+    }
+
+    #[derive(serde::Serialize, cynic::QueryFragment, Debug)]
+    pub struct AppDatabase {
+        pub id: cynic::Id,
+        pub name: String,
+        pub created_at: DateTime,
+        pub updated_at: DateTime,
+        pub deleted_at: Option<DateTime>,
+        pub username: String,
+        pub db_explorer_url: Option<String>,
+        pub host: String,
+        pub port: String,
+        pub password: Option<String>,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
     pub struct RegisterDomainPayload {
         pub success: bool,
