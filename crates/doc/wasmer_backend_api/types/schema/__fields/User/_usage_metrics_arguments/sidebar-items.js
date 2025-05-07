@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["forRange","variant"]};
+window.SIDEBAR_ITEMS = {"struct":["appIds","grouping","timeRange","variant"]};

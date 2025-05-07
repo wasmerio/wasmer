@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","charge","max","nearingLimits","unit","used","usedPercent"]};

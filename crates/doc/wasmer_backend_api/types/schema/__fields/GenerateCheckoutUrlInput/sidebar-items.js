@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["cancelUrl","clientMutationId","forOwnerId","locale","priceId","successUrl"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","appCount","buildMinutes","cpuTime","egress","ingress","noRequests","since"]};

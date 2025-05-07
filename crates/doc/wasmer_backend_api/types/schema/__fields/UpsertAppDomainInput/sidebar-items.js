@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["appId","clientMutationId","id","name","redirection","wait"]};

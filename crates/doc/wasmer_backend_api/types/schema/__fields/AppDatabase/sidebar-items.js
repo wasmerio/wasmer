@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","app","createdAt","deletedAt","host","id","name","updatedAt","username"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","app","createdAt","dbExplorerUrl","deletedAt","host","id","name","password","phpmyadminUrl","port","updatedAt","username"]};

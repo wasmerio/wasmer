@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["adminEmail","adminPassword","adminUsername","appName","appOwner","clientMutationId","language","managed","region","siteName"]};

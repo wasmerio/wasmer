@@ -2102,6 +2102,13 @@
 <a href="#2102" id="2102">2102</a>
 <a href="#2103" id="2103">2103</a>
 <a href="#2104" id="2104">2104</a>
+<a href="#2105" id="2105">2105</a>
+<a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
@@ -2365,6 +2372,15 @@
     <span class="kw">pub </span>vmmemory_definition_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>vmmemory_definition_base_element: u32,
     <span class="kw">pub </span>vmmemory_definition_current_length_element: u32,
+}
+
+<span class="attr">#[derive(Debug, Hash, PartialEq, Eq)]
+</span><span class="kw">enum </span>MemoryOp {
+    Size,
+    Grow,
+    Wait32,
+    Wait64,
+    Notify,
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'ctx</span>&gt; Intrinsics&lt;<span class="lifetime">'ctx</span>&gt; {
@@ -3326,8 +3342,7 @@
     cached_sigindices: HashMap&lt;SignatureIndex, IntValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
     cached_globals: HashMap&lt;GlobalIndex, GlobalCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
     cached_functions: HashMap&lt;FunctionIndex, FunctionCache&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
-    cached_memory_grow: HashMap&lt;MemoryIndex, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
-    cached_memory_size: HashMap&lt;MemoryIndex, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    cached_memory_op: HashMap&lt;(MemoryIndex, MemoryOp), PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
 
     offsets: VMOffsets,
 }
@@ -3353,8 +3368,7 @@
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_functions: HashMap::new(),
-            cached_memory_grow: HashMap::new(),
-            cached_memory_size: HashMap::new(),
+            cached_memory_op: HashMap::new(),
 
             <span class="comment">// TODO: pointer width
             </span>offsets: VMOffsets::new(<span class="number">8</span>, wasm_module),
@@ -3899,14 +3913,14 @@
         memory_index: MemoryIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
-        <span class="kw">let </span>(cached_memory_grow, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_grow,
+        <span class="kw">let </span>(cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_op,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw">match </span>cached_memory_grow.entry(memory_index) {
+        <span class="kw">match </span>cached_memory_op.entry((memory_index, MemoryOp::Grow)) {
             Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>(grow_fn, grow_fn_ty) =
@@ -3944,15 +3958,15 @@
         memory_index: MemoryIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
-        <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
+        <span class="kw">let </span>(cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_op,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
 
-        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+        <span class="kw">match </span>cached_memory_op.entry((memory_index, MemoryOp::Size)) {
             Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>(size_fn, size_fn_ty) =
@@ -3990,14 +4004,14 @@
         memory_index: MemoryIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
-        <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
+        <span class="kw">let </span>(cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_op,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+        <span class="kw">match </span>cached_memory_op.entry((memory_index, MemoryOp::Wait32)) {
             Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>(size_fn, size_fn_ty) =
@@ -4036,15 +4050,15 @@
         memory_index: MemoryIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
-        <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
+        <span class="kw">let </span>(cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_op,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
 
-        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+        <span class="kw">match </span>cached_memory_op.entry((memory_index, MemoryOp::Wait64)) {
             Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>(size_fn, size_fn_ty) =
@@ -4082,14 +4096,14 @@
         memory_index: MemoryIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
-        <span class="kw">let </span>(cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_size,
+        <span class="kw">let </span>(cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_memory_op,
             <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.ctx_ptr_value,
         );
-        <span class="kw">match </span>cached_memory_size.entry(memory_index) {
+        <span class="kw">match </span>cached_memory_op.entry((memory_index, MemoryOp::Notify)) {
             Entry::Occupied(entry) =&gt; <span class="prelude-val">Ok</span>(<span class="kw-2">*</span>entry.get()),
             Entry::Vacant(entry) =&gt; {
                 <span class="kw">let </span>(size_fn, size_fn_ty) =

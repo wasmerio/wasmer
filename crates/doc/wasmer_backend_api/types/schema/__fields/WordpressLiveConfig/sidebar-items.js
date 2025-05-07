@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","checkedAt","isLive","mysqlServer","phpVersion","plugins","publishedPagesCount","publishedPostsCount","themes","usersCount","wordpressVersion"]};

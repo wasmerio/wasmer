@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","city","country","id","name"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","city","country","id","name","supportsDbs","supportsVolumes"]};

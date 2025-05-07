@@ -2104,6 +2104,34 @@
 <a href="#2104" id="2104">2104</a>
 <a href="#2105" id="2105">2105</a>
 <a href="#2106" id="2106">2106</a>
+<a href="#2107" id="2107">2107</a>
+<a href="#2108" id="2108">2108</a>
+<a href="#2109" id="2109">2109</a>
+<a href="#2110" id="2110">2110</a>
+<a href="#2111" id="2111">2111</a>
+<a href="#2112" id="2112">2112</a>
+<a href="#2113" id="2113">2113</a>
+<a href="#2114" id="2114">2114</a>
+<a href="#2115" id="2115">2115</a>
+<a href="#2116" id="2116">2116</a>
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
+<a href="#2121" id="2121">2121</a>
+<a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
+<a href="#2125" id="2125">2125</a>
+<a href="#2126" id="2126">2126</a>
+<a href="#2127" id="2127">2127</a>
+<a href="#2128" id="2128">2128</a>
+<a href="#2129" id="2129">2129</a>
+<a href="#2130" id="2130">2130</a>
+<a href="#2131" id="2131">2131</a>
+<a href="#2132" id="2132">2132</a>
+<a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
@@ -2364,6 +2392,34 @@
         .flatten()
         .collect();
     <span class="prelude-val">Ok</span>(volumes)
+}
+
+<span class="doccomment">/// Retrieve volumes for an app.
+</span><span class="kw">pub async fn </span>get_app_databases(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    owner: <span class="kw">impl </span>Into&lt;String&gt;,
+    name: <span class="kw">impl </span>Into&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;types::AppDatabase&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>vars = types::GetAppDatabasesVars {
+        owner: owner.into(),
+        name: name.into(),
+        after: <span class="prelude-val">None</span>,
+    };
+    <span class="kw">let </span>res = client
+        .run_graphql_strict(types::GetAppDatabases::build(vars))
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="kw">let </span>app = res.get_deploy_app.context(<span class="string">"app not found"</span>)<span class="question-mark">?</span>;
+    <span class="kw">let </span>dbs = app.databases;
+    <span class="kw">let _ </span>= dbs.page_info;
+
+    <span class="kw">let </span>dbs = dbs
+        .edges
+        .into_iter()
+        .flatten()
+        .flat_map(|edge| edge.node)
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    <span class="prelude-val">Ok</span>(dbs)
 }
 
 <span class="doccomment">/// Load the S3 credentials.

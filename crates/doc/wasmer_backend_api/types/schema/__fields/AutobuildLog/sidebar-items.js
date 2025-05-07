@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","appVersion","dbPassword","kind","message"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","appVersion","datetime","kind","message","stream","timestamp"]};

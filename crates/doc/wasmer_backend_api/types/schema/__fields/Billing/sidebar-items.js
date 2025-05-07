@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","paymentMethods","payments","stripeCustomer"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","paymentMethods","payments","stripeCustomer","subscriptions"]};
