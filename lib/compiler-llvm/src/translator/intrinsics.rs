@@ -252,6 +252,7 @@ pub struct Intrinsics<'ctx> {
 
     // Debug
     pub debug_ptr: FunctionValue<'ctx>,
+    pub debug_str: FunctionValue<'ctx>,
 
     // VM builtins.
     pub vmfunction_import_ty: StructType<'ctx>,
@@ -1048,6 +1049,11 @@ impl<'ctx> Intrinsics<'ctx> {
             debug_ptr: module.add_function(
                 "wasmer_vm_dbg_usize",
                 void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            debug_str: module.add_function(
+                "wasmer_vm_dbg_str",
+                void_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
                 None,
             ),
             memory_wait32: module.add_function(
