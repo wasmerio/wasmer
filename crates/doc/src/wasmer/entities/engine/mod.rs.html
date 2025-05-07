@@ -245,6 +245,17 @@
 <a href="#245" id="245">245</a>
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Defines the [`self::Engine`] type and useful traits and data types to interact with an engine.
 
 </span><span class="kw">use </span>bytes::Bytes;
@@ -295,9 +306,20 @@
 
 <span class="kw">impl </span>Engine {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>atomic_next_engine_id() -&gt; u64 {
-        <span class="kw">static </span>ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 =
-            std::sync::atomic::AtomicU64::new(<span class="number">0</span>);
-        ENGINE_ID_COUNTER.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::SeqCst)
+        <span class="attr">#[cfg(target_has_atomic = <span class="string">"64"</span>)]
+        </span>{
+            <span class="kw">static </span>ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(<span class="number">0</span>);
+            <span class="kw">return </span>ENGINE_ID_COUNTER.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        <span class="attr">#[allow(unreachable_code)]
+        #[cfg(target_has_atomic = <span class="string">"32"</span>)]
+        </span>{
+            <span class="kw">static </span>ENGINE_ID_COUNTER: std::sync::atomic::AtomicU32 =
+                std::sync::atomic::AtomicU32::new(<span class="number">0</span>);
+            ENGINE_ID_COUNTER.fetch_add(<span class="number">1</span>, std::sync::atomic::Ordering::SeqCst) <span class="kw">as _
+        </span>}
     }
 
     <span class="doccomment">/// Returns the deterministic id of this engine.
