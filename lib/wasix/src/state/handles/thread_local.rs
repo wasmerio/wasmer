@@ -159,7 +159,7 @@ impl<'a> Deref for WasiInstanceGuardMemory<'a> {
 }
 impl<'a> WasiInstanceGuard<'a> {
     pub fn memory(self) -> WasiInstanceGuardMemory<'a> {
-        let borrow: &Memory = &self.main_module_instance_handles().memory;
+        let borrow: &Memory = (*self).memory();
         let borrow: &'a Memory = unsafe { std::mem::transmute(borrow) };
         WasiInstanceGuardMemory {
             borrow,

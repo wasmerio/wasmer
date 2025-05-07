@@ -247,4 +247,29 @@ impl WasiModuleTreeHandles {
             _ => Err(()),
         }
     }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory_view<'a>(&'a self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
+        self.main_module_instance_handles().memory.view(store)
+    }
+
+    /// Providers safe access to the memory
+    /// (it must be initialized before it can be used)
+    pub fn memory(&self) -> &Memory {
+        &self.main_module_instance_handles().memory
+    }
+
+    /// Copy the lazy reference so that when it's initialized during the
+    /// export phase, all the other references get a copy of it
+    pub fn memory_clone(&self) -> Memory {
+        self.main_module_instance_handles().memory.clone()
+    }
+
+    pub fn linker(&self) -> Option<&Linker> {
+        match self {
+            Self::Static(_) => None,
+            Self::Dynamic { linker, .. } => Some(linker),
+        }
+    }
 }

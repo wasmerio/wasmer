@@ -122,7 +122,8 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     let tasks = env.tasks().clone();
 
     // TODO: figure out threads + DL
-    let Some(module_handles) = env.inner().static_module_instance_handles() else {
+    let env_inner = env.inner();
+    let Some(module_handles) = env_inner.static_module_instance_handles() else {
         error!("Thread creation in dynamically-linked modules is not supported");
         return Err(Errno::Notcapable);
     };

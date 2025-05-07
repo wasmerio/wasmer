@@ -37,10 +37,8 @@ pub fn callback_signal<M: MemorySize>(
     Span::current().record("funct_is_some", funct.is_some());
 
     {
-        let inner = ctx
-            .data_mut()
-            .inner_mut()
-            .main_module_instance_handles_mut();
+        let mut env_inner = ctx.data_mut().inner_mut();
+        let inner = env_inner.main_module_instance_handles_mut();
         inner.signal = funct;
         inner.signal_set = true;
     }

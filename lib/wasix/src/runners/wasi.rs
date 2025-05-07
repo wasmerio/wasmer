@@ -248,19 +248,27 @@ impl WasiRunner {
     }
 
     fn ensure_tokio_runtime() -> Option<tokio::runtime::Runtime> {
-        if tokio::runtime::Handle::try_current().is_ok() {
-            return None;
-        }
+        #[cfg(feature = "sys-thread")]
+        {
+            if tokio::runtime::Handle::try_current().is_ok() {
+                return None;
+            }
 
-        let rt = tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .expect(
-                "Failed to build a multi-threaded tokio runtime. This is necessary \
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect(
+                    "Failed to build a multi-threaded tokio runtime. This is necessary \
                 for WASIX to work. You can provide a tokio runtime by building one \
                 yourself and entering it before using WasiRunner.",
-            );
-        Some(rt)
+                );
+            Some(rt)
+        }
+
+        #[cfg(not(feature = "sys-thread"))]
+        {
+            None
+        }
     }
 
     #[tracing::instrument(level = "debug", skip_all)]

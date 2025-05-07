@@ -160,8 +160,12 @@ use wasmer::{
     InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Type, Value,
     WASM_PAGE_SIZE,
 };
+use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
-use crate::{fs::WasiFsRoot, import_object_for_all_wasi_versions, WasiEnv, WasiError, WasiFs};
+use crate::{
+    fs::WasiFsRoot, import_object_for_all_wasi_versions, WasiEnv, WasiError, WasiFs,
+    WasiFunctionEnv, WasiModuleTreeHandles,
+};
 
 use super::WasiModuleInstanceHandles;
 
@@ -241,19 +245,7 @@ pub struct DlModule {
 }
 
 #[derive(thiserror::Error, Debug)]
-pub enum InitializeError {
-    #[error("Already initialized")]
-    AlreadyInitialized,
-
-    #[error("Link error: {0}")]
-    LinkError(#[from] LinkError),
-}
-
-#[derive(thiserror::Error, Debug)]
 pub enum LinkError {
-    #[error("Linker not initialized")]
-    NotInitialized,
-
     #[error("Main module is missing a required import: {0}")]
     MissingMainModuleImport(String),
 
@@ -306,6 +298,9 @@ pub enum LinkError {
 
     #[error("Initialization function {0} failed to run: {1}")]
     InitFunctionFailed(String, RuntimeError),
+
+    #[error("Failed to initialize WASI(X) module handles: {0}")]
+    MainModuleHandleInitFailed(ExportError),
 }
 
 pub enum ResolvedExport {
@@ -352,6 +347,7 @@ pub struct DylinkInfo {
 }
 
 pub struct LinkedMainModule {
+    pub instance: Instance,
     pub memory: Memory,
     pub indirect_function_table: Table,
     pub stack_low: u64,
@@ -381,7 +377,7 @@ enum UnresolvedGlobal {
     Func(String, Global),
 }
 
-type ModuleInitCallback = dyn (FnOnce(&mut StoreMut) -> Result<(), LinkError>) + Send + Sync;
+type ModuleInitCallback = dyn FnOnce(&mut StoreMut) -> Result<(), LinkError>;
 
 #[derive(Default)]
 struct InProgressLinkState {
@@ -407,15 +403,6 @@ struct InProgressLinkState {
     init_callbacks: Vec<Box<ModuleInitCallback>>,
 }
 
-enum MainInstanceState {
-    // Still in the process of linking the main module
-    Uninitialized,
-    // Main module linked, now waiting for its instance
-    Pending(InProgressLinkState),
-    // Main module linked and initialized
-    Initialized(Instance),
-}
-
 /// The linker is responsible for loading and linking dynamic modules at runtime,
 /// and managing the shared memory and indirect function table.
 #[derive(Clone)]
@@ -424,7 +411,7 @@ pub struct Linker {
 }
 
 struct LinkerState {
-    main_instance_state: MainInstanceState,
+    main_instance: Option<Instance>,
 
     side_modules: HashMap<ModuleHandle, DlModule>,
     side_module_names: HashMap<PathBuf, ModuleHandle>,
@@ -449,25 +436,21 @@ impl std::fmt::Debug for Linker {
 }
 
 impl Linker {
-    // TODO: It makes more sense to move the entire instantiation flow here, but that requires a bigger
-    // refactor in WasiEnv::instantiate. This will, however, remove the need for the initialize
-    // function and the NotInitialized error, so it's a worthwhile refactor to make.
-
     /// Creates a new linker for the given main module. The module is expected to be a
     /// PIE executable. Imports for the module will be fulfilled, so that it can start
     /// running, and a Linker instance is returned which can then be used for the
     /// loading/linking of further side modules.
-    /// Note, the returned linker must be initialized with the Instance corresponding
-    /// to the main module by calling [`Linker::initialize`] before it can be used.
-    pub fn new_for_main_module(
+    pub fn new(
         main_module: &Module,
         store: &mut StoreMut<'_>,
         memory: Option<Memory>,
-        imports: &mut Imports,
-        env: &FunctionEnv<WasiEnv>,
+        func_env: &mut WasiFunctionEnv,
         stack_size: u64,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
         let dylink_section = parse_dylink0_section(main_module)?;
+
+        let (mut imports, init_callback) =
+            import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
         let function_table_type = main_module
             .imports()
@@ -549,36 +532,32 @@ impl Linker {
 
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, stack_high)?;
 
-        let linker = Self {
-            state: Arc::new(Mutex::new(LinkerState {
-                main_instance_state: MainInstanceState::Uninitialized,
-                side_modules: HashMap::new(),
-                side_module_names: HashMap::new(),
-                next_module_handle: 1,
-                memory_allocator: MemoryAllocator::new(),
-                memory: memory.clone(),
-                stack_pointer,
-                stack_high,
-                stack_low,
-                indirect_function_table: indirect_function_table.clone(),
-            })),
+        let mut linker_state = LinkerState {
+            main_instance: None,
+            side_modules: HashMap::new(),
+            side_module_names: HashMap::new(),
+            next_module_handle: 1,
+            memory_allocator: MemoryAllocator::new(),
+            memory: memory.clone(),
+            stack_pointer,
+            stack_high,
+            stack_low,
+            indirect_function_table: indirect_function_table.clone(),
         };
 
-        let mut guard = linker.state.lock().unwrap();
         let mut link_state = InProgressLinkState::default();
 
         for needed in dylink_section.needed {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
             // guard.resolve_imports.
-            guard.load_module(&linker, needed, store, env, &mut link_state)?;
+            linker_state.load_module(needed, store, &func_env.env, &mut link_state)?;
         }
 
-        guard.resolve_imports(
-            &linker,
+        linker_state.resolve_imports(
             store,
-            imports,
-            env,
+            &mut imports,
+            &func_env.env,
             main_module,
             &mut link_state,
             &[
@@ -590,45 +569,62 @@ impl Linker {
             ],
         )?;
 
-        guard.main_instance_state = MainInstanceState::Pending(link_state);
-        drop(guard);
+        let main_instance = Instance::new(store, main_module, &imports)?;
+
+        linker_state.main_instance = Some(main_instance.clone());
+
+        let linker = Self {
+            state: Arc::new(Mutex::new(linker_state)),
+        };
+
+        let stack_layout = WasiMemoryLayout {
+            stack_lower: stack_low,
+            stack_upper: stack_high,
+            stack_size: stack_high - stack_low,
+            guard_size: 0,
+        };
+        let module_handles = WasiModuleTreeHandles::Dynamic {
+            linker: linker.clone(),
+            main_module_instance_handles: WasiModuleInstanceHandles::new(
+                memory.clone(),
+                store,
+                main_instance.clone(),
+            ),
+        };
+
+        func_env
+            .initialize_handles_and_layout(
+                store,
+                main_instance.clone(),
+                module_handles,
+                Some(stack_layout),
+                true,
+            )
+            .map_err(LinkError::MainModuleHandleInitFailed)?;
+
+        {
+            let guard = linker.state.lock().unwrap();
+            linker.finalize_link_operation(guard, store, link_state)?;
+        }
+
+        init_callback(&main_instance, store).map_err(LinkError::InitializationError)?;
+
+        // This function is exported from PIE executables, and needs to be run before calling
+        // _initialize or _start. More info:
+        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
+        call_initialization_function(&main_instance, store, "__wasm_apply_data_relocs")?;
+        call_initialization_function(&main_instance, store, "_initialize")?;
 
         Ok((
             linker,
             LinkedMainModule {
+                instance: main_instance,
                 memory,
                 indirect_function_table,
                 stack_low,
                 stack_high,
             },
         ))
-    }
-
-    /// Initialize the linker with the instantiated main module. This needs to happen before the
-    /// linker can be used to load any side modules.
-    /// Note, if resolution of the main module's imported globals fails, the linker will enter an
-    /// invalid state and can't be used anymore.
-    pub fn initialize(
-        &self,
-        store: &mut impl AsStoreMut,
-        main_instance: Instance,
-    ) -> Result<(), InitializeError> {
-        let mut guard = self.state.lock().unwrap();
-
-        // We need a bit of memory juggling to get ownership of the main instance state
-        let mut main_instance_state = MainInstanceState::Uninitialized;
-        std::mem::swap(&mut main_instance_state, &mut guard.main_instance_state);
-
-        let MainInstanceState::Pending(link_state) = main_instance_state else {
-            // Not in the proper state, put the actual state back where it belongs
-            std::mem::swap(&mut main_instance_state, &mut guard.main_instance_state);
-            return Err(InitializeError::AlreadyInitialized);
-        };
-
-        guard.main_instance_state = MainInstanceState::Initialized(main_instance);
-        self.finalize_link_operation(guard, store, link_state)?;
-
-        Ok(())
     }
 
     /// Loads a side module from the given path, linking it against the existing module tree
@@ -641,15 +637,11 @@ impl Linker {
     ) -> Result<ModuleHandle, LinkError> {
         let mut guard = self.state.lock().unwrap();
 
-        // Ensure we have a main instance
-        _ = guard.main_instance().ok_or(LinkError::NotInitialized)?;
-
         let mut link_state = InProgressLinkState::default();
         let env = ctx.as_ref();
         let mut store = ctx.as_store_mut();
 
-        let module_handle =
-            guard.load_module(self, module_path, &mut store, &env, &mut link_state)?;
+        let module_handle = guard.load_module(module_path, &mut store, &env, &mut link_state)?;
 
         self.finalize_link_operation(guard, &mut store, link_state)?;
 
@@ -798,10 +790,7 @@ impl Linker {
 
 impl LinkerState {
     fn main_instance(&self) -> Option<&Instance> {
-        match self.main_instance_state {
-            MainInstanceState::Initialized(ref instance) => Some(instance),
-            _ => None,
-        }
+        self.main_instance.as_ref()
     }
 
     fn allocate_memory(
@@ -850,9 +839,6 @@ impl LinkerState {
 
     fn resolve_imports(
         &self,
-        // This may look weird, but we need the linker itself (which has an Arc<Mutex> of us)
-        // to generate stub functions.
-        linker: &Linker,
         store: &mut impl AsStoreMut,
         imports: &mut Imports,
         env: &FunctionEnv<WasiEnv>,
@@ -879,7 +865,7 @@ impl LinkerState {
                         imports.define(
                             "env",
                             import.name(),
-                            self.resolve_env_import(&import, linker, store, env)?,
+                            self.resolve_env_import(&import, store, env)?,
                         );
                     }
                     "GOT.mem" => {
@@ -921,7 +907,6 @@ impl LinkerState {
     fn resolve_env_import(
         &self,
         import: &ImportType,
-        linker: &Linker,
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<WasiEnv>,
     ) -> Result<Extern, LinkError> {
@@ -985,7 +970,7 @@ impl LinkerState {
                             return Err(LinkError::ImportMustBeFunction(name.to_string()));
                         };
                         Ok(self
-                            .generate_stub_function(linker, store, func_ty, env, name.to_string())
+                            .generate_stub_function(store, func_ty, env, name.to_string())
                             .into())
                     }
                 }
@@ -1085,7 +1070,6 @@ impl LinkerState {
 
     fn generate_stub_function(
         &self,
-        linker: &Linker,
         store: &mut impl AsStoreMut,
         ty: &FunctionType,
         env: &FunctionEnv<WasiEnv>,
@@ -1094,7 +1078,6 @@ impl LinkerState {
         // TODO: since the instances are kept in the linker, and they can have stub functions,
         // and the stub functions reference the linker with a strong pointer, this probably
         // creates a cycle and memory leak. We need to use weak pointers here if that is the case.
-        let linker = linker.clone();
         let ty = ty.clone();
         let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
         Function::new_with_env(
@@ -1105,10 +1088,15 @@ impl LinkerState {
                 let mk_error = || {
                     RuntimeError::user(Box::new(WasiError::DlSymbolResolutionFailed(name.clone())))
                 };
-                let mut store = env.as_store_mut();
+
                 let mut resolved_guard = resolved.lock().unwrap();
                 let func = match *resolved_guard {
                     None => {
+                        let (data, store) = env.data_and_store_mut();
+                        let env_inner = data.inner();
+                        // Safe to unwrap since we already know we're doing DL
+                        let linker = env_inner.linker().unwrap().clone();
+
                         let state_guard = linker.state.lock().unwrap();
                         let export = state_guard
                             .resolve_symbol(name.as_str())
@@ -1132,6 +1120,8 @@ impl LinkerState {
                     Some(Some(ref func)) => func.clone(),
                 };
                 drop(resolved_guard);
+
+                let mut store = env.as_store_mut();
                 func.call(&mut store, params).map(|ret| ret.into())
             },
         )
@@ -1141,7 +1131,6 @@ impl LinkerState {
     // TODO: give loaded library a different wasi env that specifies its module handle
     fn load_module(
         &mut self,
-        linker: &Linker,
         module_path: impl AsRef<Path>,
         store: &mut StoreMut<'_>,
         env: &FunctionEnv<WasiEnv>,
@@ -1193,7 +1182,7 @@ impl LinkerState {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
             // self.resolve_imports.
-            match self.load_module(linker, needed, store, env, link_state) {
+            match self.load_module(needed, store, env, link_state) {
                 Ok(_) => (),
                 Err(e) => {
                     pop_pending_module(link_state);
@@ -1212,7 +1201,6 @@ impl LinkerState {
         let (mut imports, init) = import_object_for_all_wasi_versions(&module, store, env);
 
         self.resolve_imports(
-            linker,
             store,
             &mut imports,
             env,
@@ -1275,7 +1263,11 @@ impl LinkerState {
         match module_handle {
             Some(module_handle) => {
                 let (instance, memory_base) = if module_handle == MAIN_MODULE_HANDLE {
-                    (self.main_instance().ok_or(ResolveError::NotInitialized)?, 0)
+                    (
+                        self.main_instance()
+                            .expect("Internal error: main_instance not set"),
+                        0,
+                    )
                 } else {
                     let module = self
                         .side_modules

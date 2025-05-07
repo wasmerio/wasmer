@@ -380,8 +380,8 @@ impl dyn VirtualTaskManager {
 
         let snapshot = capture_store_snapshot(&mut store.as_store_mut());
         let env = ctx.data(&store);
-        let handles = env
-            .inner()
+        let env_inner = env.inner();
+        let handles = env_inner
             .static_module_instance_handles()
             .ok_or(WasiThreadError::Unsupported)?;
         let module = handles.module_clone();

@@ -21,7 +21,8 @@ pub fn dlsym<M: MemorySize>(
     let symbol = unsafe { get_input_str_ok!(&memory, symbol, symbol_len) };
     Span::current().record("symbol", symbol.as_str());
 
-    let WasiModuleTreeHandles::Dynamic { ref linker, .. } = (unsafe { env.inner() }) else {
+    let env_inner = unsafe { env.inner() };
+    let Some(linker) = env_inner.linker() else {
         wasi_dl_err!(
             "The current instance is not a dynamically-linked instance",
             memory,

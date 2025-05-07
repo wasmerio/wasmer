@@ -416,39 +416,42 @@ impl WasiEnv {
         update_layout: bool,
         call_initialize: bool,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
-        let is_dl = super::linker::is_dynamically_linked(&module);
-
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
-
         let mut func_env = WasiFunctionEnv::new(&mut store, self);
+
+        let is_dl = super::linker::is_dynamically_linked(&module);
+        if is_dl {
+            // TODO: make stack size configurable
+            // TODO: make linker support update_layout and call_initialize when we plan for threads
+            match Linker::new(&module, &mut store, memory, &mut func_env, 8 * 1024 * 1024) {
+                Ok((_, linked_module)) => {
+                    return Ok((linked_module.instance, func_env));
+                }
+                Err(e) => {
+                    tracing::error!(
+                        %pid,
+                        error = &e as &dyn std::error::Error,
+                        "Failed to link DL main module",
+                    );
+                    func_env
+                        .data(&store)
+                        .blocking_on_exit(Some(Errno::Noexec.into()));
+                    return Err(WasiThreadError::LinkError(Arc::new(e)));
+                }
+            }
+        }
 
         // Let's instantiate the module with the imports.
         let (mut import_object, instance_init_callback) =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
-        let (linker, imported_memory) = if is_dl {
-            // TODO: make stack size configurable
-            let (linker, linked_module) = Linker::new_for_main_module(
-                &module,
-                &mut store,
-                memory,
-                &mut import_object,
-                &func_env.env,
-                8 * 1024 * 1024,
-            )
-            .map_err(|e| WasiThreadError::LinkError(Arc::new(e)))?;
-
-            (
-                Some((linker, linked_module.stack_low, linked_module.stack_high)),
-                Some(linked_module.memory),
-            )
-        } else if let Some(memory) = memory {
+        let imported_memory = if let Some(memory) = memory {
             import_object.define("env", "memory", memory.clone());
-            (None, Some(memory))
+            Some(memory)
         } else {
-            (None, None)
+            None
         };
 
         // Construct the instance.
@@ -467,38 +470,13 @@ impl WasiEnv {
             }
         };
 
-        let (linker, handles, stack_layout) = match (linker, imported_memory) {
-            (Some((linker, low, high)), Some(memory)) => {
-                let layout = WasiMemoryLayout {
-                    stack_lower: low,
-                    stack_upper: high,
-                    stack_size: high - low,
-                    guard_size: 0,
-                };
-                (
-                    Some(linker.clone()),
-                    WasiModuleTreeHandles::Dynamic {
-                        linker,
-                        main_module_instance_handles: WasiModuleInstanceHandles::new(
-                            memory,
-                            &store,
-                            instance.clone(),
-                        ),
-                    },
-                    Some(layout),
-                )
-            }
-            (Some(_), None) => unreachable!(),
-            (None, Some(memory)) => (
-                None,
-                WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
-                    memory,
-                    &store,
-                    instance.clone(),
-                )),
-                None,
-            ),
-            (None, None) => {
+        let handles = match imported_memory {
+            Some(memory) => WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
+                memory,
+                &store,
+                instance.clone(),
+            )),
+            None => {
                 let exported_memory = instance
                     .exports
                     .iter()
@@ -513,15 +491,11 @@ impl WasiEnv {
                     .ok_or(WasiThreadError::ExportError(ExportError::Missing(
                         "No imported or exported memory found".to_owned(),
                     )))?;
-                (
-                    None,
-                    WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
-                        exported_memory,
-                        &store,
-                        instance.clone(),
-                    )),
-                    None,
-                )
+                WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
+                    exported_memory,
+                    &store,
+                    instance.clone(),
+                ))
             }
         };
 
@@ -530,7 +504,7 @@ impl WasiEnv {
             &mut store,
             instance.clone(),
             handles,
-            stack_layout,
+            None,
             update_layout,
         ) {
             tracing::error!(
@@ -544,42 +518,11 @@ impl WasiEnv {
             return Err(WasiThreadError::ExportError(err));
         }
 
-        if let Some(linker) = linker {
-            // FIXME: The linker calls side modules' init function regardless of the value of
-            // call_initialize. Currently, there are no scenarios where call_initialize is
-            // false and we're loading a DL module, since such scenarios (threading, asyncify,
-            // etc.) are not supported in the presence of DL.
-            linker
-                .initialize(&mut store, instance.clone())
-                .map_err(|e| match e {
-                    super::linker::InitializeError::LinkError(e) => {
-                        WasiThreadError::LinkError(Arc::new(e))
-                    }
-                    super::linker::InitializeError::AlreadyInitialized => {
-                        panic!("Internal error: linker can't have been initialized before")
-                    }
-                })?;
-        }
-
         // Run initializers.
         instance_init_callback(&instance, &store).unwrap();
 
         // If this module exports an _initialize function, run that first.
         if call_initialize {
-            // This function is exported from PIE executables, and needs to be run before calling
-            // _initialize or _start. More info:
-            // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
-            if let Ok(apply_data_relocs) = instance.exports.get_function("__wasm_apply_data_relocs")
-            {
-                if let Err(err) = crate::run_wasi_func_start(apply_data_relocs, &mut store) {
-                    func_env
-                        .data(&store)
-                        .blocking_on_exit(Some(Errno::Noexec.into()));
-                    return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
-                        err,
-                    ))));
-                }
-            }
             if let Ok(initialize) = instance.exports.get_function("_initialize") {
                 if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                     func_env
@@ -627,10 +570,10 @@ impl WasiEnv {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        let inner = env
+        let env_inner = env
             .try_inner()
-            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?
-            .main_module_instance_handles();
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
+        let inner = env_inner.main_module_instance_handles();
         if !inner.signal_set {
             let signals = env.thread.pop_signals();
             if !signals.is_empty() {
@@ -664,10 +607,10 @@ impl WasiEnv {
         // If a signal handler has never been set then we need to handle signals
         // differently
         let env = ctx.data();
-        let inner = env
+        let env_inner = env
             .try_inner()
-            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?
-            .main_module_instance_handles();
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
+        let inner = env_inner.main_module_instance_handles();
         if !inner.signal_set {
             return Ok(Ok(false));
         }
@@ -689,10 +632,10 @@ impl WasiEnv {
         mut signals: Vec<Signal>,
     ) -> Result<bool, WasiError> {
         let env = ctx.data();
-        let inner = env
+        let env_inner = env
             .try_inner()
-            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?
-            .main_module_instance_handles();
+            .ok_or_else(|| WasiError::Exit(Errno::Fault.into()))?;
+        let inner = env_inner.main_module_instance_handles();
         if let Some(handler) = inner.signal.clone() {
             // We might also have signals that trigger on timers
             let mut now = 0;
@@ -847,17 +790,20 @@ impl WasiEnv {
     /// Tries to clone the instance from this environment, but only if it's a static
     /// module, since dynamically linked modules are made up of multiple instances.
     pub fn try_clone_instance(&self) -> Option<Instance> {
-        self.inner
-            .get()
-            .and_then(|i| i.static_module_instance_handles())
-            .map(|i| i.instance.clone())
+        let guard = self.inner.get();
+        match guard {
+            Some(guard) => match guard.static_module_instance_handles() {
+                Some(instance) => Some(instance.instance.clone()),
+                None => None,
+            },
+            None => None,
+        }
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
     pub fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
-        self.try_inner()
-            .map(|i| i.main_module_instance_handles().memory())
+        self.try_inner().map(|i| i.memory())
     }
 
     /// Providers safe access to the memory

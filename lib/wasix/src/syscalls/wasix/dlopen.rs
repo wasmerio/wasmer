@@ -17,7 +17,8 @@ pub fn dlopen<M: MemorySize>(
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
     Span::current().record("path", path.as_str());
 
-    let WasiModuleTreeHandles::Dynamic { ref linker, .. } = (unsafe { env.inner() }) else {
+    let env_inner = unsafe { env.inner() };
+    let Some(linker) = env_inner.linker() else {
         wasi_dl_err!(
             "The current instance is not a dynamically-linked instance",
             memory,

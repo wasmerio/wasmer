@@ -156,7 +156,8 @@ pub fn proc_fork<M: MemorySize>(
         let child_memory_stack = memory_stack.clone();
         let child_rewind_stack = rewind_stack.clone();
 
-        let instance_handles = ctx.data().inner().static_module_instance_handles().unwrap();
+        let env_inner = ctx.data().inner();
+        let instance_handles = env_inner.static_module_instance_handles().unwrap();
         let module = instance_handles.module_clone();
         let memory = instance_handles.memory_clone();
         let spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());

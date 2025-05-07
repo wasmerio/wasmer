@@ -19,7 +19,8 @@ pub fn dlclose<M: MemorySize>(
         ModuleHandle::from(handle)
     };
 
-    let WasiModuleTreeHandles::Dynamic { ref linker, .. } = (unsafe { env.inner() }) else {
+    let env_inner = unsafe { env.inner() };
+    let Some(linker) = env_inner.linker() else {
         wasi_dl_err!(
             "The current instance is not a dynamically-linked instance",
             memory,
