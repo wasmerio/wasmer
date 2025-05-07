@@ -863,8 +863,6 @@
 <a href="#863" id="863">863</a>
 <a href="#864" id="864">864</a>
 <a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1635,8 +1633,6 @@
 
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() <span class="kw">as </span>usize] =
             wasmer_vm_dbg_usize <span class="kw">as </span>usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() <span class="kw">as </span>usize] =
-            wasmer_vm_dbg_str <span class="kw">as </span>usize;
 
         <span class="macro">debug_assert!</span>(ptrs.iter().cloned().all(|p| p != <span class="number">0</span>));
 

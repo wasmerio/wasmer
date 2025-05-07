@@ -12949,33 +12949,6 @@
 <a href="#12949" id="12949">12949</a>
 <a href="#12950" id="12950">12950</a>
 <a href="#12951" id="12951">12951</a>
-<a href="#12952" id="12952">12952</a>
-<a href="#12953" id="12953">12953</a>
-<a href="#12954" id="12954">12954</a>
-<a href="#12955" id="12955">12955</a>
-<a href="#12956" id="12956">12956</a>
-<a href="#12957" id="12957">12957</a>
-<a href="#12958" id="12958">12958</a>
-<a href="#12959" id="12959">12959</a>
-<a href="#12960" id="12960">12960</a>
-<a href="#12961" id="12961">12961</a>
-<a href="#12962" id="12962">12962</a>
-<a href="#12963" id="12963">12963</a>
-<a href="#12964" id="12964">12964</a>
-<a href="#12965" id="12965">12965</a>
-<a href="#12966" id="12966">12966</a>
-<a href="#12967" id="12967">12967</a>
-<a href="#12968" id="12968">12968</a>
-<a href="#12969" id="12969">12969</a>
-<a href="#12970" id="12970">12970</a>
-<a href="#12971" id="12971">12971</a>
-<a href="#12972" id="12972">12972</a>
-<a href="#12973" id="12973">12973</a>
-<a href="#12974" id="12974">12974</a>
-<a href="#12975" id="12975">12975</a>
-<a href="#12976" id="12976">12976</a>
-<a href="#12977" id="12977">12977</a>
-<a href="#12978" id="12978">12978</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use super</span>::{
@@ -13191,8 +13164,8 @@
                 <span class="number">1
             </span>};
         <span class="kw">let </span><span class="kw-2">mut </span>is_first_alloca = <span class="bool-val">true</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>insert_alloca = |ty, name: String| -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue, CompileError&gt; {
-            <span class="kw">let </span>alloca = <span class="macro">err!</span>(alloca_builder.build_alloca(ty, <span class="kw-2">&amp;</span>name));
+        <span class="kw">let </span><span class="kw-2">mut </span>insert_alloca = |ty, name| -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue, CompileError&gt; {
+            <span class="kw">let </span>alloca = <span class="macro">err!</span>(alloca_builder.build_alloca(ty, name));
             <span class="kw">if </span>is_first_alloca {
                 alloca_builder.position_at(entry, <span class="kw-2">&amp;</span>alloca.as_instruction_value().unwrap());
                 is_first_alloca = <span class="bool-val">false</span>;
@@ -13200,42 +13173,25 @@
             <span class="prelude-val">Ok</span>(alloca)
         };
 
-        <span class="comment">// Uncomment to print, at the start of the function, the function name.
-        // (poor man's debugger!)
-        //let func_name_str =
-        //    err!(alloca_builder.build_global_string_ptr(&amp;function_name, "function_name"));
-        //
-        //_ = alloca_builder.build_call(
-        //    intrinsics.debug_str,
-        //    &amp;[
-        //        func_name_str.as_pointer_value().into(),
-        //        intrinsics
-        //            .i32_ty
-        //            .const_int(function_name.len() as _, false)
-        //            .into(),
-        //    ],
-        //    "",
-        //);
-
-        </span><span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..wasm_fn_type.params().len() {
+        <span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..wasm_fn_type.params().len() {
             <span class="kw">let </span>ty = wasm_fn_type.params()[idx];
             <span class="kw">let </span>ty = type_to_llvm(<span class="kw-2">&amp;</span>intrinsics, ty)<span class="question-mark">?</span>;
             <span class="kw">let </span>value = func
                 .get_nth_param((idx <span class="kw">as </span>u32).checked_add(first_param).unwrap())
                 .unwrap();
-            <span class="kw">let </span>alloca = insert_alloca(ty, <span class="macro">format!</span>(<span class="string">"param_{idx}"</span>))<span class="question-mark">?</span>;
+            <span class="kw">let </span>alloca = insert_alloca(ty, <span class="string">"param"</span>)<span class="question-mark">?</span>;
             <span class="macro">err!</span>(cache_builder.build_store(alloca, value));
             params.push((ty, alloca));
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>locals = <span class="macro">vec!</span>[];
         <span class="kw">let </span>num_locals = reader.read_local_count()<span class="question-mark">?</span>;
-        <span class="kw">for </span>idx <span class="kw">in </span><span class="number">0</span>..num_locals {
+        <span class="kw">for _ in </span><span class="number">0</span>..num_locals {
             <span class="kw">let </span>(count, ty) = reader.read_local_decl()<span class="question-mark">?</span>;
             <span class="kw">let </span>ty = <span class="macro">err!</span>(wptype_to_type(ty));
             <span class="kw">let </span>ty = type_to_llvm(<span class="kw-2">&amp;</span>intrinsics, ty)<span class="question-mark">?</span>;
             <span class="kw">for _ in </span><span class="number">0</span>..count {
-                <span class="kw">let </span>alloca = insert_alloca(ty, <span class="macro">format!</span>(<span class="string">"local_{idx}"</span>))<span class="question-mark">?</span>;
+                <span class="kw">let </span>alloca = insert_alloca(ty, <span class="string">"local"</span>)<span class="question-mark">?</span>;
                 <span class="macro">err!</span>(cache_builder.build_store(alloca, ty.const_zero()));
                 locals.push((ty, alloca));
             }
@@ -13248,7 +13204,7 @@
 
         <span class="kw">if </span>g0m0_is_enabled {
             <span class="kw">let </span>value = <span class="self">self</span>.abi.get_g0_ptr_param(<span class="kw-2">&amp;</span>func);
-            <span class="kw">let </span>g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), <span class="string">"g0"</span>.to_string())<span class="question-mark">?</span>;
+            <span class="kw">let </span>g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), <span class="string">"g0"</span>)<span class="question-mark">?</span>;
             <span class="macro">err!</span>(cache_builder.build_store(g0, value));
             g0.set_name(<span class="string">"g0"</span>);
             <span class="kw">let </span>m0 = <span class="self">self</span>.abi.get_m0_ptr_param(<span class="kw-2">&amp;</span>func);
@@ -14252,16 +14208,13 @@
                     <span class="kw">let </span>ptr_in_bounds = <span class="kw">match </span>ptr_in_bounds {
                         <span class="prelude-val">Some</span>(ptr) =&gt; ptr,
                         <span class="prelude-val">None </span>=&gt; {
-                            <span class="kw">let </span>load_offset_end = <span class="macro">err!</span>(builder.build_int_add(
-                                offset,
-                                value_size_v,
-                                <span class="string">"load_offset_end"
-                            </span>));
+                            <span class="kw">let </span>load_offset_end =
+                                <span class="macro">err!</span>(builder.build_int_add(offset, value_size_v, <span class="string">""</span>));
 
                             <span class="kw">let </span>current_length = <span class="macro">err!</span>(builder.build_load(
                                 <span class="self">self</span>.intrinsics.i32_ty,
                                 ptr_to_current_length,
-                                <span class="string">"current_length"
+                                <span class="string">""
                             </span>))
                             .into_int_value();
                             tbaa_label(
@@ -14273,14 +14226,14 @@
                             <span class="kw">let </span>current_length = <span class="macro">err!</span>(builder.build_int_z_extend(
                                 current_length,
                                 intrinsics.i64_ty,
-                                <span class="string">"current_length_zextd"
+                                <span class="string">""
                             </span>));
 
                             <span class="macro">err!</span>(builder.build_int_compare(
                                 IntPredicate::ULE,
                                 load_offset_end,
                                 current_length,
-                                <span class="string">"ptr_in_bounds"</span>,
+                                <span class="string">""</span>,
                             ))
                         }
                     };
@@ -14325,7 +14278,7 @@
                         builder.position_at_end(in_bounds_continue_block);
                     }
                     <span class="kw">let </span>ptr_to_base =
-                        <span class="macro">err!</span>(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, <span class="string">"ptr_to_base"</span>))
+                        <span class="macro">err!</span>(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, <span class="string">""</span>))
                             .into_pointer_value();
                     tbaa_label(
                         <span class="self">self</span>.module,
@@ -14338,11 +14291,10 @@
                 MemoryCache::Static { base_ptr } =&gt; base_ptr,
             }
         };
-        <span class="kw">let </span>value_ptr = <span class="kw">unsafe </span>{
-            <span class="macro">err!</span>(builder.build_gep(<span class="self">self</span>.intrinsics.i8_ty, base_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">"mem_value_ptr"</span>))
-        };
+        <span class="kw">let </span>value_ptr =
+            <span class="kw">unsafe </span>{ <span class="macro">err!</span>(builder.build_gep(<span class="self">self</span>.intrinsics.i8_ty, base_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>)) };
         <span class="macro">err_nt!</span>(builder
-            .build_bit_cast(value_ptr, ptr_ty, <span class="string">"mem_value"</span>)
+            .build_bit_cast(value_ptr, ptr_ty, <span class="string">""</span>)
             .map(|v| v.into_pointer_value()))
     }
 
@@ -14355,10 +14307,9 @@
         <span class="kw">if </span>align &lt;= <span class="number">1 </span>{
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
-        <span class="kw">let </span>value =
-            <span class="macro">err!</span>(<span class="self">self
-                </span>.builder
-                .build_ptr_to_int(ptr, <span class="self">self</span>.intrinsics.i64_ty, <span class="string">"mischeck_value"</span>));
+        <span class="kw">let </span>value = <span class="macro">err!</span>(<span class="self">self
+            </span>.builder
+            .build_ptr_to_int(ptr, <span class="self">self</span>.intrinsics.i64_ty, <span class="string">""</span>));
         <span class="kw">let </span>and = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_and(
             value,
             <span class="self">self</span>.intrinsics.i64_ty.const_int((align - <span class="number">1</span>).into(), <span class="bool-val">false</span>),
@@ -14368,7 +14319,7 @@
             IntPredicate::EQ,
             and,
             <span class="self">self</span>.intrinsics.i64_zero,
-            <span class="string">"is_aligned"
+            <span class="string">""
         </span>));
         <span class="kw">let </span>aligned = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
             <span class="self">self</span>.intrinsics.expect_i1,
@@ -14376,7 +14327,7 @@
                 aligned.into(),
                 <span class="self">self</span>.intrinsics.i1_ty.const_int(<span class="number">1</span>, <span class="bool-val">false</span>).into(),
             ],
-            <span class="string">"is_aligned_expect"</span>,
+            <span class="string">""</span>,
         ))
         .try_as_basic_value()
         .left()
@@ -15583,11 +15534,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
             <span class="comment">// Operate on self.locals.
             </span>Operator::LocalGet { local_index } =&gt; {
                 <span class="kw">let </span>(type_value, pointer_value) = <span class="self">self</span>.locals[local_index <span class="kw">as </span>usize];
-                <span class="kw">let </span>v = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
-                    type_value,
-                    pointer_value,
-                    <span class="kw-2">&amp;</span><span class="macro">format!</span>(<span class="string">"local_{local_index}_get"</span>)
-                ));
+                <span class="kw">let </span>v = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(type_value, pointer_value, <span class="string">""</span>));
                 tbaa_label(
                     <span class="self">self</span>.module,
                     <span class="self">self</span>.intrinsics,
@@ -23026,11 +22973,10 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="number">4</span>,
                 )<span class="question-mark">?</span>;
                 <span class="self">self</span>.trap_if_misaligned(memarg, effective_address, <span class="number">4</span>)<span class="question-mark">?</span>;
-                <span class="kw">let </span>result = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
-                    <span class="self">self</span>.intrinsics.i32_ty,
-                    effective_address,
-                    <span class="string">"atomic_load"
-                </span>));
+                <span class="kw">let </span>result =
+                    <span class="macro">err!</span>(<span class="self">self
+                        </span>.builder
+                        .build_load(<span class="self">self</span>.intrinsics.i32_ty, effective_address, <span class="string">""</span>));
                 <span class="kw">let </span>load = result.as_instruction_value().unwrap();
                 <span class="self">self</span>.annotate_user_memaccess(memory_index, memarg, <span class="number">4</span>, load)<span class="question-mark">?</span>;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)

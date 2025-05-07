@@ -2109,12 +2109,6 @@
 <a href="#2109" id="2109">2109</a>
 <a href="#2110" id="2110">2110</a>
 <a href="#2111" id="2111">2111</a>
-<a href="#2112" id="2112">2112</a>
-<a href="#2113" id="2113">2113</a>
-<a href="#2114" id="2114">2114</a>
-<a href="#2115" id="2115">2115</a>
-<a href="#2116" id="2116">2116</a>
-<a href="#2117" id="2117">2117</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
@@ -2369,7 +2363,6 @@
 
     <span class="comment">// Debug
     </span><span class="kw">pub </span>debug_ptr: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
-    <span class="kw">pub </span>debug_str: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
     <span class="comment">// VM builtins.
     </span><span class="kw">pub </span>vmfunction_import_ty: StructType&lt;<span class="lifetime">'ctx</span>&gt;,
@@ -3166,11 +3159,6 @@
             debug_ptr: module.add_function(
                 <span class="string">"wasmer_vm_dbg_usize"</span>,
                 void_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into()], <span class="bool-val">false</span>),
-                <span class="prelude-val">None</span>,
-            ),
-            debug_str: module.add_function(
-                <span class="string">"wasmer_vm_dbg_str"</span>,
-                void_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into(), i32_ty.into()], <span class="bool-val">false</span>),
                 <span class="prelude-val">None</span>,
             ),
             memory_wait32: module.add_function(

@@ -220,9 +220,6 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>enum_iterator::IntoEnumIterator;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
@@ -381,8 +378,6 @@
 
     <span class="doccomment">/// debug_usize
     </span>DebugUsize,
-    <span class="doccomment">/// debug_str
-    </span>DebugStr,
 }
 
 <span class="kw">impl </span>LibCall {
@@ -438,7 +433,6 @@
             <span class="self">Self</span>::DeleteException =&gt; <span class="string">"wasmer_vm_delete_exception"</span>,
             <span class="self">Self</span>::ReadException =&gt; <span class="string">"wasmer_vm_read_exception"</span>,
             <span class="self">Self</span>::DebugUsize =&gt; <span class="string">"wasmer_vm_dbg_usize"</span>,
-            <span class="self">Self</span>::DebugStr =&gt; <span class="string">"wasmer_vm_dbg_str"</span>,
         }
     }
 }
