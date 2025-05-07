@@ -1,4 +1,5 @@
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
+use virtual_mio::InlineWaker;
 use wasmer::Module;
 use wasmer_types::ModuleHash;
 use wasmer_wasix::{
@@ -7,19 +8,19 @@ use wasmer_wasix::{
 };
 
 mod sys {
-    #[tokio::test]
-    async fn test_stdout() {
-        super::test_stdout().await;
+    #[test]
+    fn test_stdout() {
+        super::test_stdout();
     }
 
-    #[tokio::test]
-    async fn test_stdin() {
-        super::test_stdin().await;
+    #[test]
+    fn test_stdin() {
+        super::test_stdin();
     }
 
-    #[tokio::test]
-    async fn test_env() {
-        super::test_env().await;
+    #[test]
+    fn test_env() {
+        super::test_env();
     }
 }
 
@@ -43,7 +44,17 @@ mod sys {
 //     }
 // }
 
-async fn test_stdout() {
+fn test_stdout() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    #[cfg(not(target_arch = "wasm32"))]
+    let handle = runtime.handle().clone();
+    #[cfg(not(target_arch = "wasm32"))]
+    let _guard = handle.enter();
+
     let engine = wasmer::Engine::default();
     let module = Module::new(&engine, br#"
     (module
@@ -95,12 +106,22 @@ async fn test_stdout() {
     }
 
     let mut stdout_str = String::new();
-    stdout_rx.read_to_string(&mut stdout_str).await.unwrap();
+    InlineWaker::block_on(stdout_rx.read_to_string(&mut stdout_str)).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world");
 }
 
-async fn test_env() {
+fn test_env() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    #[cfg(not(target_arch = "wasm32"))]
+    let handle = runtime.handle().clone();
+    #[cfg(not(target_arch = "wasm32"))]
+    let _guard = handle.enter();
+
     let engine = wasmer::Engine::default();
     let module = Module::new(&engine, include_bytes!("envvar.wasm")).unwrap();
 
@@ -132,12 +153,22 @@ async fn test_env() {
     }
 
     let mut stdout_str = String::new();
-    pipe_rx.read_to_string(&mut stdout_str).await.unwrap();
+    InlineWaker::block_on(pipe_rx.read_to_string(&mut stdout_str)).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
 }
 
-async fn test_stdin() {
+fn test_stdin() {
+    #[cfg(not(target_arch = "wasm32"))]
+    let runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    #[cfg(not(target_arch = "wasm32"))]
+    let handle = runtime.handle().clone();
+    #[cfg(not(target_arch = "wasm32"))]
+    let _guard = handle.enter();
+
     let engine = wasmer::Engine::default();
     let module = Module::new(&engine, include_bytes!("stdin-hello.wasm")).unwrap();
 
@@ -146,7 +177,7 @@ async fn test_stdin() {
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
-    pipe_tx.write_all(&buf[..]).await.unwrap();
+    InlineWaker::block_on(pipe_tx.write_all(&buf[..])).unwrap();
 
     {
         let mut runner = WasiRunner::new();

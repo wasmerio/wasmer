@@ -1215,15 +1215,6 @@ mod test {
             "nul in key must be invalid"
         );
 
-        // `=` in the value is valid.
-        assert!(
-            WasiEnvBuilder::new("test_prog")
-                .env("HOME", "/home/home=home")
-                .build_init()
-                .is_ok(),
-            "equal sign in the value must be valid"
-        );
-
         // `\0` in the value is invalid.
         assert!(
             WasiEnvBuilder::new("test_prog")
@@ -1231,6 +1222,16 @@ mod test {
                 .build_init()
                 .is_err(),
             "nul in value must be invalid"
+        );
+
+        // `=` in the value is valid.
+        assert!(
+            WasiEnvBuilder::new("test_prog")
+                .env("HOME", "/home/home=home")
+                .engine(Engine::default())
+                .build_init()
+                .is_ok(),
+            "equal sign in the value must be valid"
         );
     }
 
