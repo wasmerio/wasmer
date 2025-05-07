@@ -165,6 +165,10 @@ impl FuncTrampoline {
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let asm_buffer = target_machine
+                .write_to_memory_buffer(&module, FileType::Assembly)
+                .unwrap();
+            callbacks.asm_memory_buffer(&function, &asm_buffer);
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
@@ -293,6 +297,10 @@ impl FuncTrampoline {
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let asm_buffer = target_machine
+                .write_to_memory_buffer(&module, FileType::Assembly)
+                .unwrap();
+            callbacks.asm_memory_buffer(&function, &asm_buffer)
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
