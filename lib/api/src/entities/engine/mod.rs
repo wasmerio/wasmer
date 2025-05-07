@@ -48,9 +48,20 @@ impl Default for Engine {
 
 impl Engine {
     pub(crate) fn atomic_next_engine_id() -> u64 {
-        static ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 =
-            std::sync::atomic::AtomicU64::new(0);
-        ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst)
+        #[cfg(target_has_atomic = "64")]
+        {
+            static ENGINE_ID_COUNTER: std::sync::atomic::AtomicU64 =
+                std::sync::atomic::AtomicU64::new(0);
+            return ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        }
+
+        #[allow(unreachable_code)]
+        #[cfg(target_has_atomic = "32")]
+        {
+            static ENGINE_ID_COUNTER: std::sync::atomic::AtomicU32 =
+                std::sync::atomic::AtomicU32::new(0);
+            ENGINE_ID_COUNTER.fetch_add(1, std::sync::atomic::Ordering::SeqCst) as _
+        }
     }
 
     /// Returns the deterministic id of this engine.
