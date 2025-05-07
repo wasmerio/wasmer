@@ -9,7 +9,7 @@ use std::{
 use rand::Rng;
 use thiserror::Error;
 use virtual_fs::{ArcFile, FileSystem, FsError, TmpFileSystem, VirtualFile};
-use wasmer::{AsStoreMut, Instance, Module};
+use wasmer::{AsStoreMut, Engine, Instance, Module};
 use wasmer_config::package::PackageId;
 
 #[cfg(feature = "journal")]
@@ -21,7 +21,6 @@ use crate::{
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    utils::xxhash_random,
     Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
 };
 use wasmer_types::ModuleHash;
@@ -68,6 +67,7 @@ pub struct WasiEnvBuilder {
     pub(super) stderr: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) stdin: Option<Box<dyn VirtualFile + Send + Sync + 'static>>,
     pub(super) fs: Option<WasiFsRoot>,
+    pub(super) engine: Option<Engine>,
     pub(super) runtime: Option<Arc<dyn crate::Runtime + Send + Sync + 'static>>,
     pub(super) current_dir: Option<PathBuf>,
 
@@ -118,6 +118,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("stdout_override exists", &self.stdout.is_some())
             .field("stderr_override exists", &self.stderr.is_some())
             .field("stdin_override exists", &self.stdin.is_some())
+            .field("engine_override_exists", &self.engine.is_some())
             .field("runtime_override_exists", &self.runtime.is_some())
             .finish()
     }
@@ -722,6 +723,17 @@ impl WasiEnvBuilder {
         self
     }
 
+    /// Sets the wasmer engine and overrides the default; only used if
+    /// a runtime override is not provided.
+    pub fn engine(mut self, engine: Engine) -> Self {
+        self.set_engine(engine);
+        self
+    }
+
+    pub fn set_engine(&mut self, engine: Engine) {
+        self.engine = Some(engine);
+    }
+
     /// Sets the WASI runtime implementation and overrides the default
     /// implementation
     pub fn runtime(mut self, runtime: Arc<dyn Runtime + Send + Sync>) -> Self {
@@ -822,13 +834,6 @@ impl WasiEnvBuilder {
             }
         }
 
-        // TODO: must be used! (runtime was removed from env, must ensure configured runtime is used)
-        // // Get a reference to the runtime
-        // let runtime = self
-        //     .runtime
-        //     .clone()
-        //     .unwrap_or_else(|| Arc::new(PluggableRuntimeImplementation::default()));
-
         // Determine the STDIN
         let stdin: Box<dyn VirtualFile + Send + Sync + 'static> = self
             .stdin
@@ -924,6 +929,19 @@ impl WasiEnvBuilder {
             {
                 #[allow(unused_mut)]
                 let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
+                runtime.set_engine(
+                    self
+                        .engine
+                        .as_ref()
+                        .expect(
+                            "Neither a runtime nor an engine was provided to WasiEnvBuilder. \
+                            This is not supported because it means the module that's going to \
+                            run with the resulting WasiEnv will have been loaded using a \
+                            different engine than the one that will exist within the WasiEnv. \
+                            Use either `set_runtime` or `set_engine` before calling `build_init`.",
+                        )
+                        .clone()
+                );
                 #[cfg(feature = "journal")]
                 for journal in self.read_only_journals.clone() {
                     runtime.add_read_only_journal(journal);
@@ -985,7 +1003,7 @@ impl WasiEnvBuilder {
 
     #[allow(clippy::result_large_err)]
     pub fn build(self) -> Result<WasiEnv, WasiRuntimeError> {
-        let module_hash = self.module_hash.unwrap_or_else(xxhash_random);
+        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
         let init = self.build_init()?;
         WasiEnv::from_init(init, module_hash)
     }
@@ -1000,7 +1018,7 @@ impl WasiEnvBuilder {
         self,
         store: &mut impl AsStoreMut,
     ) -> Result<WasiFunctionEnv, WasiRuntimeError> {
-        let module_hash = self.module_hash.unwrap_or_else(xxhash_random);
+        let module_hash = self.module_hash.unwrap_or_else(ModuleHash::random);
         let init = self.build_init()?;
         let env = WasiEnv::from_init(init, module_hash)?;
         let func_env = WasiFunctionEnv::new(store, env);
@@ -1018,7 +1036,7 @@ impl WasiEnvBuilder {
         module: Module,
         store: &mut impl AsStoreMut,
     ) -> Result<(Instance, WasiFunctionEnv), WasiRuntimeError> {
-        self.instantiate_ext(module, xxhash_random(), store)
+        self.instantiate_ext(module, ModuleHash::random(), store)
     }
 
     #[allow(clippy::result_large_err)]

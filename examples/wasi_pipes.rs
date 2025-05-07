@@ -11,14 +11,12 @@
 //!
 //! Ready?
 
-use std::{
-    io::{Read, Write},
-    sync::Arc,
-};
+use std::io::{Read, Write};
 
+use wasmer::Module;
 use wasmer_wasix::{
-    runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, Pipe,
-    PluggableRuntime, Runtime,
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
+    Pipe,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,18 +27,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // We need a tokio runtime and a WASI runtime.
-    let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
-        .enable_all()
-        .build()
-        .unwrap();
-    let _guard = tokio_runtime.enter();
-    let tokio_task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
-    let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager));
+    // We need at least an engine to be able to compile the module.
+    let engine = wasmer::Engine::default();
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = runtime.load_module_sync(&wasm_bytes[..])?;
+    let module = Module::new(&engine, &wasm_bytes[..])?;
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
@@ -64,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Now, run the module.
         println!("Running module...");
         runner.run_wasm(
-            Arc::new(runtime),
+            RuntimeOrEngine::Engine(engine),
             "hello",
             module,
             wasmer_types::ModuleHash::xxhash(wasm_bytes),

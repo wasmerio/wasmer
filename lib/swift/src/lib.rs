@@ -4,7 +4,10 @@ use virtual_fs::{AsyncReadExt, AsyncSeekExt};
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix::{
     bin_factory::BinaryPackage,
-    runners::{wasi::WasiRunner, Runner},
+    runners::{
+        wasi::{RuntimeOrEngine, WasiRunner},
+        Runner,
+    },
     runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
     PluggableRuntime,
 };
@@ -60,7 +63,7 @@ pub fn run_package(webc_bytes: Vec<u8>, args: Vec<String>) -> Result<String, Was
             .with_stdin(Box::<virtual_fs::NullFile>::default())
             .with_stdout(Box::new(stdout_2) as Box<_>)
             .with_stderr(Box::<virtual_fs::NullFile>::default())
-            .run_command(&entrypoint, &pkg, Arc::new(rt))
+            .run_command(&entrypoint, &pkg, RuntimeOrEngine::Runtime(Arc::new(rt)))
     });
 
     let _ = handle.join();

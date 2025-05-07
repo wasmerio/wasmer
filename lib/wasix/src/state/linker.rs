@@ -137,6 +137,8 @@
 //!   --unresolved-symbols=import-dynamic \
 //!   # build a shared library
 //!   -shared \
+//!   # Import a shared memory
+//!   --shared-memory \
 //!   # Conform to the libxxx.so naming so clang can find it via -lxxx
 //!   -o libsidewasm.so side.o
 //! ```

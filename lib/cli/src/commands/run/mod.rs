@@ -45,7 +45,7 @@ use wasmer_wasix::{
     runners::{
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
-        wasi::WasiRunner,
+        wasi::{RuntimeOrEngine, WasiRunner},
         wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
     },
@@ -393,7 +393,7 @@ impl Run {
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
         let mut runner = self.build_wasi_runner(&runtime)?;
-        runner.run_command(command_name, pkg, runtime)
+        Runner::run_command(&mut runner, command_name, pkg, runtime)
     }
 
     fn run_wcgi(
@@ -584,7 +584,12 @@ impl Run {
         let program_name = wasm_path.display().to_string();
 
         let runner = self.build_wasi_runner(&runtime)?;
-        runner.run_wasm(runtime, &program_name, module, module_hash)
+        runner.run_wasm(
+            RuntimeOrEngine::Runtime(runtime),
+            &program_name,
+            module,
+            module_hash,
+        )
     }
 
     #[allow(unused_variables)]

@@ -1,6 +1,10 @@
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
-use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+use wasmer::Module;
+use wasmer_types::ModuleHash;
+use wasmer_wasix::{
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
+    Pipe,
+};
 
 mod sys {
     #[tokio::test]
@@ -40,8 +44,8 @@ mod sys {
 // }
 
 async fn test_stdout() {
-    let mut store = Store::default();
-    let module = Module::new(&store, br#"
+    let engine = wasmer::Engine::default();
+    let module = Module::new(&engine, br#"
     (module
         ;; Import the required fd_write WASI function which will write the given io vectors to stdout
         ;; The function signature for fd_write is:
@@ -74,19 +78,19 @@ async fn test_stdout() {
     // Create the `WasiEnv`.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
-    let builder = WasiEnv::builder("command-name")
-        .args(["Gordon"])
-        .stdout(Box::new(stdout_tx));
+    {
+        let mut runner = WasiRunner::new();
+        runner
+            .with_stdout(Box::new(stdout_tx))
+            .with_args(["Gordon"]);
 
-    #[cfg(feature = "js")]
-    {
-        builder.run_with_store(module, &mut store).unwrap();
-    }
-    #[cfg(not(feature = "js"))]
-    {
-        std::thread::spawn(move || builder.run_with_store(module, &mut store))
-            .join()
-            .unwrap()
+        runner
+            .run_wasm(
+                RuntimeOrEngine::Engine(engine),
+                "command-name",
+                module,
+                ModuleHash::random(),
+            )
             .unwrap();
     }
 
@@ -97,8 +101,8 @@ async fn test_stdout() {
 }
 
 async fn test_env() {
-    let mut store = Store::default();
-    let module = Module::new(&store, include_bytes!("envvar.wasm")).unwrap();
+    let engine = wasmer::Engine::default();
+    let module = Module::new(&engine, include_bytes!("envvar.wasm")).unwrap();
 
     #[cfg(feature = "js")]
     tracing_wasm::set_as_global_default_with_config({
@@ -110,23 +114,20 @@ async fn test_env() {
     // Create the `WasiEnv`.
     let (pipe_tx, mut pipe_rx) = Pipe::channel();
 
-    let builder = WasiEnv::builder("command-name")
-        .args(["Gordon"])
-        .env("DOG", "X")
-        .env("TEST", "VALUE")
-        .env("TEST2", "VALUE2")
-        .stdout(Box::new(pipe_tx));
-
-    #[cfg(feature = "js")]
     {
-        builder.run_with_store(module, &mut store).unwrap();
-    }
+        let mut runner = WasiRunner::new();
+        runner
+            .with_stdout(Box::new(pipe_tx))
+            .with_args(["Gordon"])
+            .with_envs([("DOG", "X"), ("TEST", "VALUE"), ("TEST2", "VALUE2")]);
 
-    #[cfg(not(feature = "js"))]
-    {
-        std::thread::spawn(move || builder.run_with_store(module, &mut store))
-            .join()
-            .unwrap()
+        runner
+            .run_wasm(
+                RuntimeOrEngine::Engine(engine),
+                "command-name",
+                module,
+                ModuleHash::random(),
+            )
             .unwrap();
     }
 
@@ -137,30 +138,27 @@ async fn test_env() {
 }
 
 async fn test_stdin() {
-    let mut store = Store::default();
-    let module = Module::new(&store, include_bytes!("stdin-hello.wasm")).unwrap();
+    let engine = wasmer::Engine::default();
+    let module = Module::new(&engine, include_bytes!("stdin-hello.wasm")).unwrap();
 
     // Create the `WasiEnv`.
     let (mut pipe_tx, pipe_rx) = Pipe::channel();
-    // FIXME: needed? (method not available)
-    // .with_blocking(false);
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
     pipe_tx.write_all(&buf[..]).await.unwrap();
 
-    let builder = WasiEnv::builder("command-name").stdin(Box::new(pipe_rx));
-
-    #[cfg(feature = "js")]
     {
-        builder.run_with_store(module, &mut store).unwrap();
-    }
+        let mut runner = WasiRunner::new();
+        runner.with_stdin(Box::new(pipe_rx));
 
-    #[cfg(not(feature = "js"))]
-    {
-        std::thread::spawn(move || builder.run_with_store(module, &mut store))
-            .join()
-            .unwrap()
+        runner
+            .run_wasm(
+                RuntimeOrEngine::Engine(engine),
+                "command-name",
+                module,
+                ModuleHash::random(),
+            )
             .unwrap();
     }
 

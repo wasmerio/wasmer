@@ -13,7 +13,6 @@ static INIT: Once = Once::new();
 
 use reqwest::Client;
 use tokio::runtime::Handle;
-use wasmer::Engine;
 use wasmer_wasix::{
     http::HttpClient,
     runners::Runner,
@@ -28,7 +27,11 @@ use wasmer_wasix::{
 mod wasi {
     use virtual_fs::{AsyncReadExt, AsyncSeekExt};
     use wasmer_package::utils::from_bytes;
-    use wasmer_wasix::{bin_factory::BinaryPackage, runners::wasi::WasiRunner, WasiError};
+    use wasmer_wasix::{
+        bin_factory::BinaryPackage,
+        runners::wasi::{RuntimeOrEngine, WasiRunner},
+        WasiError,
+    };
 
     use super::*;
 
@@ -67,7 +70,7 @@ mod wasi {
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
                 .with_stderr(Box::new(stderr_2) as Box<_>)
-                .run_command("wat2wasm", &pkg, Arc::new(rt))
+                .run_command("wat2wasm", &pkg, RuntimeOrEngine::Runtime(Arc::new(rt)))
         });
 
         handle
@@ -111,7 +114,7 @@ mod wasi {
                 .with_stdin(Box::<virtual_fs::NullFile>::default())
                 .with_stdout(Box::new(stdout_2) as Box<_>)
                 .with_stderr(Box::new(stderr_2) as Box<_>)
-                .run_command("python", &pkg, Arc::new(rt))
+                .run_command("python", &pkg, RuntimeOrEngine::Runtime(Arc::new(rt)))
         });
 
         stdout.rewind().await.unwrap();

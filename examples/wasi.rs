@@ -17,8 +17,9 @@
 use std::{io::Read, sync::Arc};
 
 use wasmer_wasix::{
-    runners::wasi::WasiRunner, runtime::task_manager::tokio::TokioTaskManager, Pipe,
-    PluggableRuntime, Runtime,
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
+    runtime::task_manager::tokio::TokioTaskManager,
+    Pipe, PluggableRuntime, Runtime,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -29,7 +30,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // We need a tokio runtime and a WASI runtime.
+    // We optionally need a tokio runtime and a WASI runtime. This doesn't need to
+    // happen though; see the wasi-pipes example for an alternate approach. Things
+    // such as the file system or networking can be configured on the runtime.
     let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
         .enable_all()
         .build()
@@ -55,7 +58,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Running module...");
         // Now, run the module.
         runner.run_wasm(
-            Arc::new(runtime),
+            RuntimeOrEngine::Runtime(Arc::new(runtime)),
             "hello",
             module,
             wasmer_types::ModuleHash::xxhash(wasm_bytes),
