@@ -792,10 +792,9 @@ impl WasiEnv {
     pub fn try_clone_instance(&self) -> Option<Instance> {
         let guard = self.inner.get();
         match guard {
-            Some(guard) => match guard.static_module_instance_handles() {
-                Some(instance) => Some(instance.instance.clone()),
-                None => None,
-            },
+            Some(guard) => guard
+                .static_module_instance_handles()
+                .map(|instance| instance.instance.clone()),
             None => None,
         }
     }

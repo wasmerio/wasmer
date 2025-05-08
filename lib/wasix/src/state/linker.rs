@@ -450,7 +450,7 @@ impl Linker {
         let dylink_section = parse_dylink0_section(main_module)?;
 
         let (mut imports, init_callback) =
-            import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
+            import_object_for_all_wasi_versions(main_module, store, &func_env.env);
 
         let function_table_type = main_module
             .imports()
