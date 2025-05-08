@@ -5,7 +5,8 @@ env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
   MSRV: "1.81"
 
-#on:
+on:
+  pull_request:
 #  push:
 #    branches:
 #      - 'main'
