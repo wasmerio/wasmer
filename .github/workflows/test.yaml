@@ -337,7 +337,7 @@ jobs:
         with:
           toolchain: "nightly-2024-08-21"
           target: x86_64-unknown-linux-gnu
-      - run: cargo install toml-cli # toml-cli is required to run `make test-build-docs-rs`
+      - run: cargo install toml-cli --locked # toml-cli is required to run `make test-build-docs-rs`
 
       - name: Install `ninja` on Ubuntu
         shell: bash
@@ -519,7 +519,7 @@ jobs:
               # Unfortunately, building a shared lib of the c_api with the v8
               # backend does not work, due to unsupported relocations to hidden
               # symbols in wee8.
-              supports_v8: false
+              supports_v8: false,
             },
             {
               build: macos-x64,
@@ -527,7 +527,7 @@ jobs:
               target: x86_64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz",
-              supports_v8: true
+              supports_v8: true,
             },
             {
               build: macos-arm,
@@ -535,7 +535,7 @@ jobs:
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
-              supports_v8: true
+              supports_v8: true,
             },
             {
               build: windows-x64,
@@ -544,13 +544,13 @@ jobs:
               exe: ".exe",
               # For now, disable LLVM in `windows-x64.`
               # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-              supports_v8: false
+              supports_v8: false,
             },
             {
               build: windows-gnu,
               target: x86_64-pc-windows-gnu,
               os: ubuntu-22.04,
-              supports_v8: false
+              supports_v8: false,
             },
             {
               build: linux-musl,
@@ -558,7 +558,7 @@ jobs:
               os: ubuntu-22.04,
               exe: "",
               container: "alpine:latest",
-              supports_v8: false
+              supports_v8: false,
             },
           ]
     container: ${{ matrix.metadata.container }}
@@ -698,7 +698,7 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
-      - name: Test C-API (v8)  
+      - name: Test C-API (v8)
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
         if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}

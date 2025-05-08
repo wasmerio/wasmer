@@ -189,6 +189,52 @@ impl CliRender for wasmer_backend_api::types::AppVersionVolume {
     }
 }
 
+impl CliRender for wasmer_backend_api::types::AppDatabase {
+    fn render_item_table(&self) -> String {
+        let mut table = Table::new();
+        table.add_rows([
+            vec!["Name".to_string(), self.name.clone()],
+            vec!["Host".to_string(), self.host.clone()],
+            vec!["Port".to_string(), self.port.clone()],
+            vec!["Username".to_string(), self.username.clone()],
+            vec![
+                "Password".to_string(),
+                self.password.clone().unwrap_or_else(|| "n/a".to_string()),
+            ],
+            vec![
+                "UI".to_string(),
+                self.db_explorer_url
+                    .clone()
+                    .unwrap_or_else(|| "n/a".to_string()),
+            ],
+        ]);
+        table.to_string()
+    }
+
+    fn render_list_table(items: &[Self]) -> String {
+        let mut table = Table::new();
+        table.set_header(vec![
+            "Name".to_string(),
+            "Host".to_string(),
+            "Port".to_string(),
+            "UI".to_string(),
+            "Password".to_string(),
+        ]);
+        table.add_rows(items.iter().map(|vol| {
+            vec![
+                vol.name.clone(),
+                vol.host.clone(),
+                vol.port.clone(),
+                vol.db_explorer_url
+                    .clone()
+                    .unwrap_or_else(|| "n/a".to_string()),
+                vol.password.clone().unwrap_or_else(|| "n/a".to_string()),
+            ]
+        }));
+        table.to_string()
+    }
+}
+
 fn format_disk_size_opt(value: Option<wasmer_backend_api::types::BigInt>) -> String {
     let value = value.and_then(|x| {
         let y: Option<u64> = x.0.try_into().ok();

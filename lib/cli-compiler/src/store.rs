@@ -294,6 +294,22 @@ impl CompilerOptions {
                             pos += file.write(&mem_buf_slice[pos..]).unwrap();
                         }
                     }
+
+                    fn asm_memory_buffer(
+                        &self,
+                        kind: &CompiledKind,
+                        asm_memory_buffer: &InkwellMemoryBuffer,
+                    ) {
+                        let mut path = self.debug_dir.clone();
+                        path.push(format!("{}.s", function_kind_to_filename(kind)));
+                        let mem_buf_slice = asm_memory_buffer.as_slice();
+                        let mut file = File::create(path)
+                            .expect("Error while creating debug object file from LLVM IR");
+                        let mut pos = 0;
+                        while pos < mem_buf_slice.len() {
+                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+                        }
+                    }
                 }
 
                 impl fmt::Debug for Callbacks {

@@ -38,6 +38,7 @@ pub trait LLVMCallbacks: Debug + Send + Sync {
     fn preopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
     fn postopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
     fn obj_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
+    fn asm_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
 }
 
 #[derive(Debug, Clone)]
