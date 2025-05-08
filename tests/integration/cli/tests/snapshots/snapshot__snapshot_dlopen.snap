@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1399
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_dlopen",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false,
+    "mounts": [
+      [
+        "/lib",
+        "/home/arshia/repos/wasmer/wasmer/tests/integration/cli/tests/wasm"
+      ]
+    ]
+  },
+  "result": {
+    "Success": {
+      "stdout": "Main loaded\nloading side module...\nSide 1 loaded\nfinding data_export...\ndata_export = 42\nfinding func_export...\ncalling func_export\nfunc_export started\nlocal_function called with 123\ncalling func_export2\nstarting func_export2\nresult: 987\ncalling func_export2 via pointer\nstarting func_export2\ndata_export2: 10101\nresult: 234\nclosing side\ndone!\nSide 1 unloaded\nMain unloaded\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}

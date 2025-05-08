@@ -1,0 +1,28 @@
+---
+source: tests/integration/cli/tests/snapshot.rs
+assertion_line: 1409
+expression: snapshot
+---
+{
+  "spec": {
+    "name": "snapshot::test_snapshot_dylink_needed",
+    "use_packages": [],
+    "include_webcs": [],
+    "cli_args": [],
+    "enable_threads": true,
+    "enable_network": false,
+    "mounts": [
+      [
+        "/lib",
+        "/home/arshia/repos/wasmer/wasmer/tests/integration/cli/tests/wasm"
+      ]
+    ]
+  },
+  "result": {
+    "Success": {
+      "stdout": "Side 1 loaded\nMain loaded\nMain started\ndata_export = 42\ncalling func_export directly\nfunc_export started\nlocal_function called with 123\ncalling func_export2\nstarting func_export2\nresult: 987\ncalling func_export2 via pointer\nstarting func_export2\ndata_export2: 10101\nresult: 234\ncalling func_export via pointer\nfunc_export started\nlocal_function called with 123\ncalling func_export2\nstarting func_export2\nresult: 987\ncalling func_export2 via pointer\nstarting func_export2\ndata_export2: 10101\ndone\nMain unloaded\nSide 1 unloaded\n",
+      "stderr": "",
+      "exit_code": 0
+    }
+  }
+}
