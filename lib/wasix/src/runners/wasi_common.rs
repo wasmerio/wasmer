@@ -46,8 +46,6 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) stop_running_after_snapshot: bool,
     pub(crate) skip_stdio_during_bootstrap: bool,
     pub(crate) current_dir: Option<PathBuf>,
-    // TODO: reintroduce in a way that works with threads
-    // pub(crate) additional_imports: Imports,
 }
 
 impl CommonWasiOptions {
@@ -94,8 +92,6 @@ impl CommonWasiOptions {
         self.populate_args(wasi, builder);
 
         *builder.capabilities_mut() = self.capabilities.clone();
-
-        // builder.add_imports(&self.additional_imports);
 
         #[cfg(feature = "journal")]
         {
