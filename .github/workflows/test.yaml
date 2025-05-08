@@ -1,13 +1,13 @@
 name: test-sys
 
 on:
-  #push:
-  #  branches:
-  #    - main
-  #    - "with-ci-.*"
-  #    - "v3.0.x"
-  #    - "v3.1.x"
-  #pull_request:
+  push:
+    branches:
+      - main
+      - "with-ci-.*"
+      - "v3.0.x"
+      - "v3.1.x"
+  pull_request:
   workflow_dispatch:
     inputs:
       release:
@@ -488,26 +488,26 @@ jobs:
       matrix:
         build-what:
           [
-            #{
-            #  key: capi,
-            #  build-cmd: "make build-capi && make build-capi-headless && make package-capi && make tar-capi",
-            #  name: "Build and test C-API",
-            #},
-            #{
-            #  key: capi-v8,
-            #  build-cmd: "make test-capi-v8",
-            #  name: "Build and test C-API with v8",
-            #},
+            {
+              key: capi,
+              build-cmd: "make build-capi && make build-capi-headless && make package-capi && make tar-capi",
+              name: "Build and test C-API",
+            },
+            {
+              key: capi-v8,
+              build-cmd: "make test-capi-v8",
+              name: "Build and test C-API with v8",
+            },
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
               name: "Build wasmer-cli",
             },
-            #{
-            #  key: "api-feats",
-            #  build-cmd: "make check-api-features",
-            #  name: "Check wasmer API with all sys features enabled"
-            #},
+            {
+              key: "api-feats",
+              build-cmd: "make check-api-features",
+              name: "Check wasmer API with all sys features enabled",
+            },
           ]
         metadata: [
             {
