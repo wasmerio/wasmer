@@ -860,6 +860,11 @@
 <a href="#860" id="860">860</a>
 <a href="#861" id="861">861</a>
 <a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1034,9 +1039,14 @@
         <span class="self">Self</span>(<span class="number">35</span>)
     }
 
+    <span class="doccomment">/// Returns an index for wasm's imported `debug_str` builtin function.
+    </span><span class="kw">pub const fn </span>get_imported_debug_str_index() -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(<span class="number">36</span>)
+    }
+
     <span class="doccomment">/// Returns the total number of builtin functions.
     </span><span class="kw">pub const fn </span>builtin_functions_total_number() -&gt; u32 {
-        <span class="number">36
+        <span class="number">37
     </span>}
 
     <span class="doccomment">/// Return the index as an u32 number.

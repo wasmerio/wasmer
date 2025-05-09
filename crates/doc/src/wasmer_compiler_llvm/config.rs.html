@@ -351,6 +351,7 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::LLVMCompiler;
 <span class="kw">use </span>inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target <span class="kw">as </span>InkwellTarget, TargetMachine,
@@ -391,6 +392,7 @@
     <span class="kw">fn </span>preopt_ir(<span class="kw-2">&amp;</span><span class="self">self</span>, function: <span class="kw-2">&amp;</span>CompiledKind, module: <span class="kw-2">&amp;</span>InkwellModule);
     <span class="kw">fn </span>postopt_ir(<span class="kw-2">&amp;</span><span class="self">self</span>, function: <span class="kw-2">&amp;</span>CompiledKind, module: <span class="kw-2">&amp;</span>InkwellModule);
     <span class="kw">fn </span>obj_memory_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>, function: <span class="kw-2">&amp;</span>CompiledKind, memory_buffer: <span class="kw-2">&amp;</span>InkwellMemoryBuffer);
+    <span class="kw">fn </span>asm_memory_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>, function: <span class="kw-2">&amp;</span>CompiledKind, memory_buffer: <span class="kw-2">&amp;</span>InkwellMemoryBuffer);
 }
 
 <span class="attr">#[derive(Debug, Clone)]

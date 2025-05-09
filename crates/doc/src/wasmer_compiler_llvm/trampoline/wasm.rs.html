@@ -696,6 +696,14 @@
 <a href="#696" id="696">696</a>
 <a href="#697" id="697">697</a>
 <a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a>
+<a href="#703" id="703">703</a>
+<a href="#704" id="704">704</a>
+<a href="#705" id="705">705</a>
+<a href="#706" id="706">706</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     abi::{get_abi, Abi, G0M0FunctionKind},
     config::{CompiledKind, LLVM},
@@ -863,6 +871,10 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>memory_buffer);
+            <span class="kw">let </span>asm_buffer = target_machine
+                .write_to_memory_buffer(<span class="kw-2">&amp;</span>module, FileType::Assembly)
+                .unwrap();
+            callbacks.asm_memory_buffer(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>asm_buffer);
         }
 
         <span class="kw">let </span>mem_buf_slice = memory_buffer.as_slice();
@@ -991,6 +1003,10 @@
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>memory_buffer);
+            <span class="kw">let </span>asm_buffer = target_machine
+                .write_to_memory_buffer(<span class="kw-2">&amp;</span>module, FileType::Assembly)
+                .unwrap();
+            callbacks.asm_memory_buffer(<span class="kw-2">&amp;</span>function, <span class="kw-2">&amp;</span>asm_buffer)
         }
 
         <span class="kw">let </span>mem_buf_slice = memory_buffer.as_slice();

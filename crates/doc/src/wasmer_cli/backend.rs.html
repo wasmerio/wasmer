@@ -912,6 +912,36 @@
 <a href="#912" id="912">912</a>
 <a href="#913" id="913">913</a>
 <a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
 </pre></div><pre class="rust"><code><span class="doccomment">//! Common module with common used structures across different
 //! commands.
 
@@ -1482,6 +1512,21 @@
                             pos += file.write(<span class="kw-2">&amp;</span>mem_buf_slice[pos..]).unwrap();
                         }
                     }
+                    <span class="kw">fn </span>asm_memory_buffer(
+                        <span class="kw-2">&amp;</span><span class="self">self</span>,
+                        kind: <span class="kw-2">&amp;</span>CompiledKind,
+                        asm_memory_buffer: <span class="kw-2">&amp;</span>InkwellMemoryBuffer,
+                    ) {
+                        <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
+                        path.push(<span class="macro">format!</span>(<span class="string">"{}.s"</span>, function_kind_to_filename(kind)));
+                        <span class="kw">let </span>mem_buf_slice = asm_memory_buffer.as_slice();
+                        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(path)
+                            .expect(<span class="string">"Error while creating debug object file from LLVM IR"</span>);
+                        <span class="kw">let </span><span class="kw-2">mut </span>pos = <span class="number">0</span>;
+                        <span class="kw">while </span>pos &lt; mem_buf_slice.len() {
+                            pos += file.write(<span class="kw-2">&amp;</span>mem_buf_slice[pos..]).unwrap();
+                        }
+                    }
                 }
 
                 <span class="kw">impl </span>fmt::Debug <span class="kw">for </span>Callbacks {
@@ -1691,6 +1736,21 @@
                         <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
                         path.push(<span class="macro">format!</span>(<span class="string">"{}.o"</span>, function_kind_to_filename(kind)));
                         <span class="kw">let </span>mem_buf_slice = memory_buffer.as_slice();
+                        <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(path)
+                            .expect(<span class="string">"Error while creating debug object file from LLVM IR"</span>);
+                        <span class="kw">let </span><span class="kw-2">mut </span>pos = <span class="number">0</span>;
+                        <span class="kw">while </span>pos &lt; mem_buf_slice.len() {
+                            pos += file.write(<span class="kw-2">&amp;</span>mem_buf_slice[pos..]).unwrap();
+                        }
+                    }
+                    <span class="kw">fn </span>asm_memory_buffer(
+                        <span class="kw-2">&amp;</span><span class="self">self</span>,
+                        kind: <span class="kw-2">&amp;</span>CompiledKind,
+                        asm_memory_buffer: <span class="kw-2">&amp;</span>InkwellMemoryBuffer,
+                    ) {
+                        <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
+                        path.push(<span class="macro">format!</span>(<span class="string">"{}.s"</span>, function_kind_to_filename(kind)));
+                        <span class="kw">let </span>mem_buf_slice = asm_memory_buffer.as_slice();
                         <span class="kw">let </span><span class="kw-2">mut </span>file = File::create(path)
                             .expect(<span class="string">"Error while creating debug object file from LLVM IR"</span>);
                         <span class="kw">let </span><span class="kw-2">mut </span>pos = <span class="number">0</span>;

@@ -938,6 +938,18 @@
 <a href="#938" id="938">938</a>
 <a href="#939" id="939">939</a>
 <a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
 </pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
@@ -1633,6 +1645,17 @@
     }
 }
 
+<span class="doccomment">/// (debug) Print a string.
+</span><span class="attr">#[no_mangle]
+</span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_dbg_str(ptr: usize, len: u32) {
+    <span class="attr">#[allow(clippy::print_stdout)]
+    </span><span class="kw">unsafe </span>{
+        <span class="kw">let </span>str = std::str::from_utf8(std::slice::from_raw_parts(ptr <span class="kw">as _</span>, len <span class="kw">as _</span>))
+            .unwrap_or(<span class="string">"wasmer_vm_dbg_str failed"</span>);
+        <span class="macro">eprintln!</span>(<span class="string">"{str}"</span>);
+    }
+}
+
 <span class="doccomment">/// Implementation for allocating an exception.
 </span><span class="attr">#[no_mangle]
 </span><span class="kw">pub extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_alloc_exception(size: usize) -&gt; u64 {
@@ -1876,6 +1899,7 @@
         LibCall::DeleteException =&gt; wasmer_vm_delete_exception <span class="kw">as </span>usize,
         LibCall::ReadException =&gt; wasmer_vm_read_exception <span class="kw">as </span>usize,
         LibCall::DebugUsize =&gt; wasmer_vm_dbg_usize <span class="kw">as </span>usize,
+        LibCall::DebugStr =&gt; wasmer_vm_dbg_str <span class="kw">as </span>usize,
     }
 }
 </code></pre></div></section></main></body></html>
