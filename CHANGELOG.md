@@ -8,6 +8,27 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.0.1 - 09/05/2025
+
+## Added
+
+  - [#5546](https://github.com/wasmerio/wasmer/pull/5546) feat(llvm): Add `asm_memory_buffer` to `LLVMCallbacks`
+  - [#5548](https://github.com/wasmerio/wasmer/pull/5548) feat(llvm): Add the `debug_str` intrinsic function
+  - [#5538](https://github.com/wasmerio/wasmer/pull/5538) feat(cli): Add "app database list" command
+
+## Changed
+
+  - [#5553](https://github.com/wasmerio/wasmer/pull/5553) feat(singlepass): Update dynasm to 3.2.0
+
+## Fixed
+
+  - [#5556](https://github.com/wasmerio/wasmer/pull/5556) ci: fix build of Wasmer on linux-aarch64
+  - [#5555](https://github.com/wasmerio/wasmer/pull/5555) Fix docs build
+  - [#5554](https://github.com/wasmerio/wasmer/pull/5554) fix(api): Misc fixes to compile with v8 when targeting aarch64-linux-android
+  - [#5549](https://github.com/wasmerio/wasmer/pull/5549) fix(llvm): Correctly cache pointers to intrinsic memory operations
+
+
+
 ## 6.0.0 - 24/04/2025
 
 This stable release adds support for the exception handling proposal on Linux
