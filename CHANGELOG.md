@@ -9,6 +9,10 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 6.0.1 - 09/05/2025
+This patch release fixes an error in cached memory operations in LLVM, adds CLI
+commands to list databases tied to an app, and provides miscellaneous QoL
+improvements to LLVM and updates. It also fixes the build of Wasmer for
+linux-aarch64.
 
 ## Added
 
