@@ -26,7 +26,7 @@ thiserror = "1.0.64"
 cfg-if = "1.0.0"
 ciborium = "0.2.2"
 semver = "1.0.23"
-url = "2.5.2"
+url = "=2.5.2"
 serde = "1.0.211"
 insta = { version = "1", features = ["filters", "yaml"] }
 flate2 = "1.0.34"
