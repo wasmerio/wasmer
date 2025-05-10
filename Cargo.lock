@@ -6195,6 +6195,7 @@ dependencies = [
  "tracing-test",
  "typetag",
  "wasmer-package",
+ "web-time",
  "webc",
 ]
 
