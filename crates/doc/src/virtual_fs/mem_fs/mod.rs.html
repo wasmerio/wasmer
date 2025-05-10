@@ -166,10 +166,6 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a>
-<a href="#171" id="171">171</a>
-<a href="#172" id="172">172</a>
 </pre></div><pre class="rust"><code><span class="kw">mod </span>file;
 <span class="kw">mod </span>file_opener;
 <span class="kw">mod </span>filesystem;
@@ -179,7 +175,11 @@
 <span class="kw">use </span>file::{File, FileHandle, ReadOnlyFile};
 <span class="kw">pub use </span>filesystem::FileSystem;
 <span class="kw">pub use </span>offloaded_file::OffloadBackingStore;
+<span class="attr">#[cfg(not(feature = <span class="string">"js"</span>))]
+</span><span class="kw">use </span>std::time::{SystemTime, UNIX_EPOCH};
 <span class="kw">pub use </span>stdio::{Stderr, Stdin, Stdout};
+<span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+</span><span class="kw">pub use </span>web_time::{SystemTime, UNIX_EPOCH};
 
 <span class="kw">use </span><span class="kw">crate</span>::Metadata;
 <span class="kw">use </span>std::{
@@ -327,19 +327,11 @@
 }
 
 <span class="kw">fn </span>time() -&gt; u64 {
-    <span class="attr">#[cfg(not(feature = <span class="string">"no-time"</span>))]
-    </span>{
-        <span class="comment">// SAFETY: It's very unlikely that the system returns a time that
-        // is before `UNIX_EPOCH` :-).
-        </span>std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() <span class="kw">as </span>u64
-    }
-
-    <span class="attr">#[cfg(feature = <span class="string">"no-time"</span>)]
-    </span>{
-        <span class="number">0
-    </span>}
+    <span class="comment">// SAFETY: It's very unlikely that the system returns a time that
+    // is before `UNIX_EPOCH` :-).
+    </span>SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() <span class="kw">as </span>u64
 }
 </code></pre></div></section></main></body></html>
