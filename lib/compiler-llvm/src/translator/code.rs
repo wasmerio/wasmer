@@ -213,8 +213,8 @@ impl FuncTranslator {
                 1
             };
         let mut is_first_alloca = true;
-        let mut insert_alloca = |ty, name| -> Result<PointerValue, CompileError> {
-            let alloca = err!(alloca_builder.build_alloca(ty, name));
+        let mut insert_alloca = |ty, name: String| -> Result<PointerValue, CompileError> {
+            let alloca = err!(alloca_builder.build_alloca(ty, &name));
             if is_first_alloca {
                 alloca_builder.position_at(entry, &alloca.as_instruction_value().unwrap());
                 is_first_alloca = false;
@@ -222,25 +222,42 @@ impl FuncTranslator {
             Ok(alloca)
         };
 
+        // Uncomment to print, at the start of the function, the function name.
+        // (poor man's debugger!)
+        //let func_name_str =
+        //    err!(alloca_builder.build_global_string_ptr(&function_name, "function_name"));
+        //
+        //_ = alloca_builder.build_call(
+        //    intrinsics.debug_str,
+        //    &[
+        //        func_name_str.as_pointer_value().into(),
+        //        intrinsics
+        //            .i32_ty
+        //            .const_int(function_name.len() as _, false)
+        //            .into(),
+        //    ],
+        //    "",
+        //);
+
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty)?;
             let value = func
                 .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
-            let alloca = insert_alloca(ty, "param")?;
+            let alloca = insert_alloca(ty, format!("param_{idx}"))?;
             err!(cache_builder.build_store(alloca, value));
             params.push((ty, alloca));
         }
 
         let mut locals = vec![];
         let num_locals = reader.read_local_count()?;
-        for _ in 0..num_locals {
+        for idx in 0..num_locals {
             let (count, ty) = reader.read_local_decl()?;
             let ty = err!(wptype_to_type(ty));
             let ty = type_to_llvm(&intrinsics, ty)?;
             for _ in 0..count {
-                let alloca = insert_alloca(ty, "local")?;
+                let alloca = insert_alloca(ty, format!("local_{idx}"))?;
                 err!(cache_builder.build_store(alloca, ty.const_zero()));
                 locals.push((ty, alloca));
             }
@@ -253,7 +270,7 @@ impl FuncTranslator {
 
         if g0m0_is_enabled {
             let value = self.abi.get_g0_ptr_param(&func);
-            let g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), "g0")?;
+            let g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), "g0".to_string())?;
             err!(cache_builder.build_store(g0, value));
             g0.set_name("g0");
             let m0 = self.abi.get_m0_ptr_param(&func);
@@ -406,6 +423,10 @@ impl FuncTranslator {
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let asm_buffer = target_machine
+                .write_to_memory_buffer(&module, FileType::Assembly)
+                .unwrap();
+            callbacks.asm_memory_buffer(&function, &asm_buffer)
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
@@ -1257,13 +1278,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let ptr_in_bounds = match ptr_in_bounds {
                         Some(ptr) => ptr,
                         None => {
-                            let load_offset_end =
-                                err!(builder.build_int_add(offset, value_size_v, ""));
+                            let load_offset_end = err!(builder.build_int_add(
+                                offset,
+                                value_size_v,
+                                "load_offset_end"
+                            ));
 
                             let current_length = err!(builder.build_load(
                                 self.intrinsics.i32_ty,
                                 ptr_to_current_length,
-                                ""
+                                "current_length"
                             ))
                             .into_int_value();
                             tbaa_label(
@@ -1275,14 +1299,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             let current_length = err!(builder.build_int_z_extend(
                                 current_length,
                                 intrinsics.i64_ty,
-                                ""
+                                "current_length_zextd"
                             ));
 
                             err!(builder.build_int_compare(
                                 IntPredicate::ULE,
                                 load_offset_end,
                                 current_length,
-                                "",
+                                "ptr_in_bounds",
                             ))
                         }
                     };
@@ -1327,7 +1351,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         builder.position_at_end(in_bounds_continue_block);
                     }
                     let ptr_to_base =
-                        err!(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, ""))
+                        err!(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, "ptr_to_base"))
                             .into_pointer_value();
                     tbaa_label(
                         self.module,
@@ -1340,10 +1364,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 MemoryCache::Static { base_ptr } => base_ptr,
             }
         };
-        let value_ptr =
-            unsafe { err!(builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "")) };
+        let value_ptr = unsafe {
+            err!(builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "mem_value_ptr"))
+        };
         err_nt!(builder
-            .build_bit_cast(value_ptr, ptr_ty, "")
+            .build_bit_cast(value_ptr, ptr_ty, "mem_value")
             .map(|v| v.into_pointer_value()))
     }
 
@@ -1356,9 +1381,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         if align <= 1 {
             return Ok(());
         }
-        let value = err!(self
-            .builder
-            .build_ptr_to_int(ptr, self.intrinsics.i64_ty, ""));
+        let value =
+            err!(self
+                .builder
+                .build_ptr_to_int(ptr, self.intrinsics.i64_ty, "mischeck_value"));
         let and = err!(self.builder.build_and(
             value,
             self.intrinsics.i64_ty.const_int((align - 1).into(), false),
@@ -1368,7 +1394,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             IntPredicate::EQ,
             and,
             self.intrinsics.i64_zero,
-            ""
+            "is_aligned"
         ));
         let aligned = err!(self.builder.build_call(
             self.intrinsics.expect_i1,
@@ -1376,7 +1402,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 aligned.into(),
                 self.intrinsics.i1_ty.const_int(1, false).into(),
             ],
-            "",
+            "is_aligned_expect",
         ))
         .try_as_basic_value()
         .left()
@@ -2583,7 +2609,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             // Operate on self.locals.
             Operator::LocalGet { local_index } => {
                 let (type_value, pointer_value) = self.locals[local_index as usize];
-                let v = err!(self.builder.build_load(type_value, pointer_value, ""));
+                let v = err!(self.builder.build_load(
+                    type_value,
+                    pointer_value,
+                    &format!("local_{local_index}_get")
+                ));
                 tbaa_label(
                     self.module,
                     self.intrinsics,
@@ -10022,10 +10052,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 self.trap_if_misaligned(memarg, effective_address, 4)?;
-                let result =
-                    err!(self
-                        .builder
-                        .build_load(self.intrinsics.i32_ty, effective_address, ""));
+                let result = err!(self.builder.build_load(
+                    self.intrinsics.i32_ty,
+                    effective_address,
+                    "atomic_load"
+                ));
                 let load = result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)

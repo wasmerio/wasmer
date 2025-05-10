@@ -47,7 +47,7 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: 'wasmer-linux-aarch64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz'
+            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             use_sccache: false
             use_rustcache: false
@@ -166,7 +166,7 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.llvm_url
+        if: ${{ matrix.llvm_url && matrix.enable_llvm == true }}
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -196,13 +196,13 @@ jobs:
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: startsWith(matrix.os, 'macos')
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         with:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
-      - uses: actions/cache@v3
+      - uses: actions/cache@v4
         if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
@@ -259,7 +259,7 @@ jobs:
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer binary 
-        if: ${{ matrix.enable_llvm && !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
+        if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
         run: |
           make build-wasmer

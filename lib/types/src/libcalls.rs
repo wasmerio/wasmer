@@ -156,6 +156,8 @@ pub enum LibCall {
 
     /// debug_usize
     DebugUsize,
+    /// debug_str
+    DebugStr,
 }
 
 impl LibCall {
@@ -211,6 +213,7 @@ impl LibCall {
             Self::DeleteException => "wasmer_vm_delete_exception",
             Self::ReadException => "wasmer_vm_read_exception",
             Self::DebugUsize => "wasmer_vm_dbg_usize",
+            Self::DebugStr => "wasmer_vm_dbg_str",
         }
     }
 }

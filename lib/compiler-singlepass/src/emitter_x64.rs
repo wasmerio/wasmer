@@ -928,11 +928,11 @@ impl EmitterX64 for AssemblerX64 {
         dynasm!(
             self
             ; const_neg_one_32:
-            ; .dword -1
+            ; .i32 -1
             ; const_zero_32:
-            ; .dword 0
+            ; .i32  0
             ; const_pos_one_32:
-            ; .dword 1
+            ; .i32 1
         );
         Ok(())
     }
