@@ -227,7 +227,7 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 compiler = []
 
 js = [
-	"virtual-fs/no-time",
+	"virtual-fs/js",
 	"getrandom/js",
 	"chrono",
 	"js-sys",
