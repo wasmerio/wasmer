@@ -17,11 +17,8 @@ use shared_buffer::OwnedBuffer;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
-use std::{
-    io::Write,
-    sync::atomic::{AtomicUsize, Ordering::SeqCst},
-};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
@@ -98,9 +95,9 @@ impl Engine {
 
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> String {
-        let i = self.inner();
         #[cfg(feature = "compiler")]
         {
+            let i = self.inner();
             if let Some(ref c) = i.compiler {
                 return c.deterministic_id();
             } else {
@@ -303,6 +300,7 @@ impl Engine {
     /// Not every backend supports every optimization. This function may fail (i.e. not set the
     /// suggested optimizations) silently if the underlying engine backend does not support one or
     /// more optimizations.
+    #[allow(unused)]
     pub fn with_opts(
         &mut self,
         suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
@@ -537,35 +535,41 @@ impl EngineInner {
     }
 
     #[cfg(not(target_arch = "wasm32"))]
+    #[allow(unused)]
     pub(crate) fn register_perfmap(
         &self,
         finished_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
         module_info: &ModuleInfo,
     ) -> Result<(), CompileError> {
-        if self
-            .compiler
-            .as_ref()
-            .is_some_and(|v| v.get_perfmap_enabled())
+        #[cfg(feature = "compiler")]
         {
-            let filename = format!("/tmp/perf-{}.map", std::process::id());
-            let mut file = std::io::BufWriter::new(std::fs::File::create(filename).unwrap());
+            use std::io::Write;
+            if self
+                .compiler
+                .as_ref()
+                .is_some_and(|v| v.get_perfmap_enabled())
+            {
+                let filename = format!("/tmp/perf-{}.map", std::process::id());
+                let mut file = std::io::BufWriter::new(std::fs::File::create(filename).unwrap());
 
-            for (func_index, code) in finished_functions.iter() {
-                let func_index = module_info.func_index(func_index);
-                let name = if let Some(func_name) = module_info.function_names.get(&func_index) {
-                    func_name.clone()
-                } else {
-                    format!("{:p}", code.ptr.0)
-                };
+                for (func_index, code) in finished_functions.iter() {
+                    let func_index = module_info.func_index(func_index);
+                    let name = if let Some(func_name) = module_info.function_names.get(&func_index)
+                    {
+                        func_name.clone()
+                    } else {
+                        format!("{:p}", code.ptr.0)
+                    };
 
-                let sanitized_name = name.replace(['\n', '\r'], "_");
-                let line = format!(
-                    "{:p} {:x} {}\n",
-                    code.ptr.0 as *const _, code.length, sanitized_name
-                );
-                write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
-                file.flush()
-                    .map_err(|e| CompileError::Codegen(e.to_string()))?;
+                    let sanitized_name = name.replace(['\n', '\r'], "_");
+                    let line = format!(
+                        "{:p} {:x} {}\n",
+                        code.ptr.0 as *const _, code.length, sanitized_name
+                    );
+                    write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
+                    file.flush()
+                        .map_err(|e| CompileError::Codegen(e.to_string()))?;
+                }
             }
         }
 
