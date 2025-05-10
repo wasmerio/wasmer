@@ -201,6 +201,7 @@ impl VirtualTaskManager for TokioTaskManager {
                 task.globals,
                 make_memory,
                 task.update_layout,
+                task.call_initialize,
             )?;
 
             let mut trigger = trigger();
@@ -264,6 +265,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     task.globals,
                     make_memory,
                     task.update_layout,
+                    task.call_initialize,
                 );
 
                 let (mut ctx, mut store) = match ret {

@@ -31,7 +31,12 @@ impl JournalEffector {
         }
 
         // Reset the memory back to a zero size
-        let memory = ctx.data_mut().inner().memory().clone();
+        let memory = ctx
+            .data()
+            .inner()
+            .main_module_instance_handles()
+            .memory()
+            .clone();
         memory.reset(ctx)?;
         Ok(())
     }
