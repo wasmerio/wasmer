@@ -93,7 +93,7 @@ curl https://get.wasmer.io -sSfL | sh
 ### Quickstart
 
 > [!Tip]  
-> As part of our commitment to open source, we want to reward all GitHub users. In addition to the free tier, you can get up to $500 in [Wasmer Edge](https://wasmer.io/products/edge)  credits for your open-source contributions - [Claim here](https://github.com/wasmerio/wasmer/discussions/5560).
+> As part of our commitment to open source, we want to reward all GitHub users. In addition to the free tier, you can get up to $200 in [Wasmer Edge](https://wasmer.io/products/edge) credits for your open-source contributions - [Claim here](https://github.com/wasmerio/wasmer/discussions/5560).
 
 You can start by running
 [Cowsay](https://wasmer.io/syrusakbary/cowsay):
