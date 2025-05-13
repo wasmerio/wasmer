@@ -7,6 +7,9 @@
   </a>
 
   <p>
+     <a href="https://github.com/wasmerio/wasmer/releases">
+      <img src="https://shields.io/github/v/tag/wasmerio/wasmer" alt="Github release">
+    </a>
     <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
     </a>
