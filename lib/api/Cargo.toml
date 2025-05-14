@@ -142,7 +142,7 @@ llvm = ["compiler", "wasmer-compiler-llvm"]
 # --- Enable the WAMR backend and use it as default backend.
 wamr-default = ["wamr", "wat"]
 # --- Enable the WAMR backend and use it as defaul backend only if it is the only one enabled.
-wamr = ["wasm-c-api", "std", "dep:which", "dep:zip"]
+wamr = ["wasm-c-api", "std", "dep:which", "dep:zip", "dep:ureq"]
 
 # --- Enable the wasmi backend and use it as default backend.
 wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api"]
@@ -150,7 +150,7 @@ wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api"]
 wasmi-default = ["wasmi", "wat"]
 
 # --- Enable the v8 backend and use it as default backend.
-v8 = ["wasm-c-api", "std", "dep:which", "dep:xz"]
+v8 = ["wasm-c-api", "std", "dep:which", "dep:xz", "dep:ureq"]
 # --- Enable the v8 backend and use it as defaul backend only if it is the only one enabled.
 v8-default = ["v8", "wat"]
 
@@ -182,7 +182,7 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 [build-dependencies]
 cmake = "0.1.50"
 tar = "0.4.42"
-ureq = "2.10.1"
+ureq = { version = "2.10.1", optional = true }
 which = { version = "7.0.0", optional = true }
 xz = { version = "0.1.0", optional = true }
 zip = { version = "2.2.0", optional = true }
