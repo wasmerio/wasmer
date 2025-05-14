@@ -6,6 +6,7 @@
 #include <unistd.h>
 #include <errno.h>
 #include <sys/wait.h>
+#include <sys/stat.h>
 #include <spawn.h>
 #include <signal.h>
 
@@ -86,6 +87,8 @@ int run_tests()
     posix_spawn_file_actions_adddup2(&fdops, 11, 12);
     // Close 11
     posix_spawn_file_actions_addclose(&fdops, 11);
+    // Request for 3 to be closed, but we expect it to remain open since it's a pre-open
+    posix_spawn_file_actions_addclose(&fdops, 3);
     // After all of this, the subprocess should have 10 and 12, but not 11
 
     if (posix_spawn(&pid, "./main-not-asyncified.wasm", &fdops, &attr, argv, envp) != 0)
@@ -280,6 +283,13 @@ int subprocess(int argc, char **argv)
     if (close(12) < 0)
     {
         write_subprocess_error("close(12) failed");
+    }
+
+    // 3 is a pre-open, and should remain open
+    struct stat st;
+    if (fstat(3, &st) != 0)
+    {
+        write_subprocess_error("failed to fstat pre-opened FD 3");
     }
 
     return 0;
