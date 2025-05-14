@@ -77,6 +77,17 @@
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -120,7 +131,18 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
-    <span class="kw">if </span>state.fs.get_fd(to).is_ok() {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = state.fs.get_fd(to) {
+        <span class="kw">if </span>!fd.is_stdio &amp;&amp; fd.inode.is_preopened {
+            <span class="comment">// There isn't a good hack we can do here; the code that made this call
+            // expects its new FD to be the number it asked for. This will, however,
+            // break wasix-libc when it attempts to use the FD to make any fs-related
+            // syscalls. The best we can do is warn people so they can change the code.
+            </span><span class="macro">warn!</span>(
+                <span class="string">"FD ({to}) is a pre-open and should not be closed, \
+                but will be closed in response to an fd_renumber operation. \
+                This will likely break stuff."
+            </span>);
+        }
         <span class="kw">match </span>__asyncify_light(env, <span class="prelude-val">None</span>, state.fs.flush(to))<span class="question-mark">? </span>{
             <span class="prelude-val">Ok</span>(<span class="kw">_</span>) | <span class="prelude-val">Err</span>(Errno::Isdir) | <span class="prelude-val">Err</span>(Errno::Io) | <span class="prelude-val">Err</span>(Errno::Access) =&gt; {}
             <span class="prelude-val">Err</span>(e) =&gt; {

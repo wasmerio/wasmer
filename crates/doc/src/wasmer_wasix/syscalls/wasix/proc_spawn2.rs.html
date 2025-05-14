@@ -271,6 +271,24 @@
 <a href="#271" id="271">271</a>
 <a href="#272" id="272">272</a>
 <a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>wasmer::FromToNativeWasmType;
 <span class="kw">use </span>wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 
@@ -465,8 +483,26 @@
     op: <span class="kw-2">&amp;</span>ProcSpawnFdOp&lt;M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
     <span class="kw">match </span>op.cmd {
-        ProcSpawnFdOpName::Close =&gt; env.state.fs.close_fd(op.fd),
+        ProcSpawnFdOpName::Close =&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = env.state.fs.get_fd(op.fd) {
+                <span class="kw">if </span>!fd.is_stdio &amp;&amp; fd.inode.is_preopened {
+                    <span class="macro">trace!</span>(<span class="string">"Skipping close FD action for pre-opened FD ({})"</span>, op.fd);
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                }
+            }
+            env.state.fs.close_fd(op.fd)
+        }
         ProcSpawnFdOpName::Dup2 =&gt; {
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = env.state.fs.get_fd(op.fd) {
+                <span class="kw">if </span>!fd.is_stdio &amp;&amp; fd.inode.is_preopened {
+                    <span class="macro">warn!</span>(
+                        <span class="string">"FD {} is a pre-open and should not be closed, \
+                        but will be closed in response to a dup2 FD action. \
+                        This will likely break stuff."</span>,
+                        op.fd
+                    );
+                }
+            }
             <span class="kw">if </span>env.state.fs.get_fd(op.fd).is_ok() {
                 env.state.fs.close_fd(op.fd)<span class="question-mark">?</span>;
             }
