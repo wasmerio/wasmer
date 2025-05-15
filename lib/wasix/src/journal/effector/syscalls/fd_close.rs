@@ -8,6 +8,8 @@ impl JournalEffector {
     pub fn apply_fd_close(ctx: &mut FunctionEnvMut<'_, WasiEnv>, fd: Fd) -> anyhow::Result<()> {
         let env = ctx.data();
         let (_, state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
+        // FIXME: the journal should use the same logic as the fd_close syscall,
+        // NOT invent its own!!
         if let Err(err) = state.fs.close_fd(fd) {
             bail!(
                 "journal restore error: failed to close descriptor (fd={}) - {}",
