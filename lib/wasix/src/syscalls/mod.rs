@@ -245,11 +245,8 @@ pub unsafe fn stderr_write<'a>(
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
 
     let buf = buf.to_vec();
-    let fd_map = state.fs.fd_map.clone();
-    Box::pin(async move {
-        let mut stderr = WasiInodes::stderr_mut(&fd_map).map_err(fs_error_into_wasi_err)?;
-        stderr.write_all(&buf).await.map_err(map_io_err)
-    })
+    let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err);
+    Box::pin(async move { stderr?.write_all(&buf).await.map_err(map_io_err) })
 }
 
 fn block_on_with_timeout<T, Fut>(
