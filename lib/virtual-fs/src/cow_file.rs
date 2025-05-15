@@ -14,8 +14,8 @@ use crate::{BufferFile, VirtualFile};
 enum CowState {
     ReadOnly(Box<dyn VirtualFile + Send + Sync>),
     Copying {
-        pos: u64,
         inner: Box<dyn VirtualFile + Send + Sync>,
+        just_started: bool,
     },
     Copied,
 }
@@ -56,28 +56,37 @@ impl CopyOnWriteFile {
         }
     }
     fn poll_copy_progress(&mut self, cx: &mut Context) -> Poll<io::Result<()>> {
-        if let CowState::Copying { ref mut inner, pos } = &mut self.state {
-            let mut temp = [0u8; 8192];
-
-            while *pos < inner.size() {
-                let mut read_temp = ReadBuf::new(&mut temp);
-
-                if let Err(err) = Pin::new(inner.as_mut()).start_seek(SeekFrom::Start(*pos)) {
+        if let CowState::Copying {
+            ref mut inner,
+            ref mut just_started,
+        } = &mut self.state
+        {
+            if *just_started {
+                *just_started = false;
+                if let Err(err) = Pin::new(inner.as_mut()).start_seek(SeekFrom::Start(0)) {
                     return Poll::Ready(Err(err));
                 }
-                match Pin::new(inner.as_mut()).poll_complete(cx).map_ok(|_| ()) {
-                    Poll::Ready(Ok(())) => {}
-                    p => return p,
-                }
+            }
+
+            match Pin::new(inner.as_mut()).poll_complete(cx).map_ok(|_| ()) {
+                Poll::Ready(Ok(())) => {}
+                p => return p,
+            }
+
+            let mut temp = [0u8; 8192];
+
+            loop {
+                let mut read_temp = ReadBuf::new(&mut temp);
+
                 match Pin::new(inner.as_mut()).poll_read(cx, &mut read_temp) {
                     Poll::Pending => return Poll::Pending,
                     Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                     Poll::Ready(Ok(())) => {}
                 }
-                if read_temp.remaining() == 0 {
-                    return Poll::Pending;
+
+                if read_temp.filled().is_empty() {
+                    break;
                 }
-                *pos += read_temp.remaining() as u64;
 
                 self.buf.data.write_all(read_temp.filled()).unwrap();
             }
@@ -87,7 +96,10 @@ impl CopyOnWriteFile {
     }
     fn poll_copy_start_and_progress(&mut self, cx: &mut Context) -> Poll<io::Result<()>> {
         replace_with_or_abort(&mut self.state, |state| match state {
-            CowState::ReadOnly(inner) => CowState::Copying { pos: 0, inner },
+            CowState::ReadOnly(inner) => CowState::Copying {
+                inner,
+                just_started: false,
+            },
             state => state,
         });
         self.poll_copy_progress(cx)
