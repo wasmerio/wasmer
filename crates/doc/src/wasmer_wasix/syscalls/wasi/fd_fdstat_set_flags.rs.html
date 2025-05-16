@@ -53,7 +53,6 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
 </pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
@@ -94,9 +93,8 @@
     {
         <span class="kw">let </span>env = ctx.data();
         <span class="kw">let </span>(<span class="kw">_</span>, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-        <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
+        <span class="kw">let </span>fd_map = state.fs.fd_map.read().unwrap();
         <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(fd_map.get(fd).ok_or(Errno::Badf));
-        <span class="kw">let </span>inode = fd_entry.inode.clone();
 
         <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
             <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);

@@ -2341,7 +2341,6 @@
 <a href="#2341" id="2341">2341</a>
 <a href="#2342" id="2342">2342</a>
 <a href="#2343" id="2343">2343</a>
-<a href="#2344" id="2344">2344</a>
 </pre></div><pre class="rust"><code><span class="comment">// TODO: currently, hard links are broken in the presence or renames.
 // It is impossible to fix them with the current setup, since a hard
 // link must point to the actual file rather than its path, but the
@@ -2871,12 +2870,12 @@
 </span><span class="kw">pub struct </span>WasiFs {
     <span class="comment">//pub repo: Repo,
     </span><span class="kw">pub </span>preopen_fds: RwLock&lt;Vec&lt;u32&gt;&gt;,
-    <span class="kw">pub </span>fd_map: Arc&lt;RwLock&lt;FdList&gt;&gt;,
+    <span class="kw">pub </span>fd_map: RwLock&lt;FdList&gt;,
     <span class="kw">pub </span>current_dir: Mutex&lt;String&gt;,
     <span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip, default))]
     </span><span class="kw">pub </span>root_fs: WasiFsRoot,
     <span class="kw">pub </span>root_inode: InodeGuard,
-    <span class="kw">pub </span>has_unioned: Arc&lt;Mutex&lt;HashSet&lt;PackageId&gt;&gt;&gt;,
+    <span class="kw">pub </span>has_unioned: Mutex&lt;HashSet&lt;PackageId&gt;&gt;,
 
     <span class="comment">// TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -2903,15 +2902,14 @@
 
     <span class="doccomment">/// Forking the WasiState is used when either fork or vfork is called
     </span><span class="kw">pub fn </span>fork(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="self">Self </span>{
-        <span class="kw">let </span>fd_map = <span class="self">self</span>.fd_map.read().unwrap().clone();
         <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="self">self</span>.preopen_fds.read().unwrap().clone()),
-            fd_map: Arc::new(RwLock::new(fd_map)),
+            fd_map: RwLock::new(<span class="self">self</span>.fd_map.read().unwrap().clone()),
             current_dir: Mutex::new(<span class="self">self</span>.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(<span class="self">self</span>.is_wasix.load(Ordering::Acquire)),
             root_fs: <span class="self">self</span>.root_fs.clone(),
             root_inode: <span class="self">self</span>.root_inode.clone(),
-            has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            has_unioned: Mutex::new(<span class="self">self</span>.has_unioned.lock().unwrap().clone()),
             init_preopens: <span class="self">self</span>.init_preopens.clone(),
             init_vfs_preopens: <span class="self">self</span>.init_vfs_preopens.clone(),
         }
@@ -3046,12 +3044,12 @@
 
         <span class="kw">let </span>wasi_fs = <span class="self">Self </span>{
             preopen_fds: RwLock::new(<span class="macro">vec!</span>[]),
-            fd_map: Arc::new(RwLock::new(FdList::new())),
+            fd_map: RwLock::new(FdList::new()),
             current_dir: Mutex::new(<span class="string">"/"</span>.to_string()),
             is_wasix: AtomicBool::new(<span class="bool-val">false</span>),
             root_fs: fs_backing,
             root_inode,
-            has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            has_unioned: Mutex::new(HashSet::new()),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),
         };
