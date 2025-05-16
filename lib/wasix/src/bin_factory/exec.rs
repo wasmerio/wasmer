@@ -354,7 +354,7 @@ fn call_module(
                     Ok(Errno::Noexec)
                 }
                 Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
-                    debug!("failed as wasi version is unknown");
+                    debug!("failed as a needed DL symbol could not be resolved");
                     runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
                     Err(WasiError::DlSymbolResolutionFailed(symbol).into())
                 }
