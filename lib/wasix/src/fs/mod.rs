@@ -527,12 +527,12 @@ fn create_dir_all(fs: &dyn FileSystem, path: &Path) -> Result<(), virtual_fs::Fs
 pub struct WasiFs {
     //pub repo: Repo,
     pub preopen_fds: RwLock<Vec<u32>>,
-    pub fd_map: Arc<RwLock<FdList>>,
+    pub fd_map: RwLock<FdList>,
     pub current_dir: Mutex<String>,
     #[cfg_attr(feature = "enable-serde", serde(skip, default))]
     pub root_fs: WasiFsRoot,
     pub root_inode: InodeGuard,
-    pub has_unioned: Arc<Mutex<HashSet<PackageId>>>,
+    pub has_unioned: Mutex<HashSet<PackageId>>,
 
     // TODO: remove
     // using an atomic is a hack to enable customization after construction,
@@ -559,15 +559,14 @@ impl WasiFs {
 
     /// Forking the WasiState is used when either fork or vfork is called
     pub fn fork(&self) -> Self {
-        let fd_map = self.fd_map.read().unwrap().clone();
         Self {
             preopen_fds: RwLock::new(self.preopen_fds.read().unwrap().clone()),
-            fd_map: Arc::new(RwLock::new(fd_map)),
+            fd_map: RwLock::new(self.fd_map.read().unwrap().clone()),
             current_dir: Mutex::new(self.current_dir.lock().unwrap().clone()),
             is_wasix: AtomicBool::new(self.is_wasix.load(Ordering::Acquire)),
             root_fs: self.root_fs.clone(),
             root_inode: self.root_inode.clone(),
-            has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            has_unioned: Mutex::new(self.has_unioned.lock().unwrap().clone()),
             init_preopens: self.init_preopens.clone(),
             init_vfs_preopens: self.init_vfs_preopens.clone(),
         }
@@ -702,12 +701,12 @@ impl WasiFs {
 
         let wasi_fs = Self {
             preopen_fds: RwLock::new(vec![]),
-            fd_map: Arc::new(RwLock::new(FdList::new())),
+            fd_map: RwLock::new(FdList::new()),
             current_dir: Mutex::new("/".to_string()),
             is_wasix: AtomicBool::new(false),
             root_fs: fs_backing,
             root_inode,
-            has_unioned: Arc::new(Mutex::new(HashSet::new())),
+            has_unioned: Mutex::new(HashSet::new()),
             init_preopens: Default::default(),
             init_vfs_preopens: Default::default(),
         };
