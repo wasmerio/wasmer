@@ -17,6 +17,8 @@ pub fn path_unlink_file<M: MemorySize>(
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 

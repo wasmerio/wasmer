@@ -16,6 +16,8 @@ pub fn dlsym<M: MemorySize>(
     err_buf_len: M::Offset,
     out_symbol: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
     let symbol = unsafe { get_input_str_ok!(&memory, symbol, symbol_len) };

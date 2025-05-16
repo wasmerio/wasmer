@@ -786,6 +786,11 @@ impl Linker {
         let module = guard.side_modules.get(&handle)?;
         Some(callback(module))
     }
+
+    // TODO: implement stuff here
+    pub(crate) fn do_pending_link_operations(&self) -> Result<(), LinkError> {
+        Ok(())
+    }
 }
 
 impl LinkerState {

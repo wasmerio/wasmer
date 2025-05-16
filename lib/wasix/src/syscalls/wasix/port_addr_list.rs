@@ -20,6 +20,8 @@ pub fn port_addr_list<M: MemorySize>(
     addrs_ptr: WasmPtr<__wasi_cidr_t, M>,
     naddrs_ptr: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let mut env = ctx.data();
     let mut memory = unsafe { env.memory_view(&ctx) };
     let max_addrs = wasi_try_mem_ok!(naddrs_ptr.read(&memory));

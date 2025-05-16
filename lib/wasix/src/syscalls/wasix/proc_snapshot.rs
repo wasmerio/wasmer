@@ -6,6 +6,8 @@ use crate::syscalls::*;
 pub fn proc_snapshot<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // If we have an Explicit trigger, process that...
     ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::Explicit)?);
     // ... if not, we may still have an external request for a snapshot, so do that as well

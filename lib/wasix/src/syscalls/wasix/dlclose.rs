@@ -10,6 +10,8 @@ pub fn dlclose<M: MemorySize>(
     err_buf: WasmPtr<u8, M>,
     err_buf_len: M::Offset,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
 

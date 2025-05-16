@@ -29,6 +29,8 @@ pub fn path_filestat_set_times<M: MemorySize>(
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let (memory, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 

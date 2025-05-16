@@ -18,6 +18,8 @@ pub fn port_bridge<M: MemorySize>(
     token_len: M::Offset,
     security: Streamsecurity,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 

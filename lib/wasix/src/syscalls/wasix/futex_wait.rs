@@ -72,12 +72,14 @@ impl Drop for FutexPoller {
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
 #[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty))]
 pub fn futex_wait<M: MemorySize + 'static>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     expected: u32,
     timeout: WasmPtr<OptionTimestamp, M>,
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     futex_wait_internal(ctx, futex_ptr, expected, timeout, ret_woken)
 }
 
@@ -88,8 +90,6 @@ pub(super) fn futex_wait_internal<M: MemorySize + 'static>(
     timeout: WasmPtr<OptionTimestamp, M>,
     ret_woken: WasmPtr<Bool, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
 

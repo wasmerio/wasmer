@@ -17,6 +17,8 @@ pub fn sock_set_opt_size(
     opt: Sockoption,
     size: Filesize,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(sock_set_opt_size_internal(&mut ctx, sock, opt, size)?);
 
     #[cfg(feature = "journal")]

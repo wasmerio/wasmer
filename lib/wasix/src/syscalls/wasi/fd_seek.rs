@@ -21,7 +21,7 @@ pub fn fd_seek<M: MemorySize>(
     whence: Whence,
     newoffset: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     let new_offset = wasi_try_ok!(fd_seek_internal(&mut ctx, fd, offset, whence)?);
     let env = ctx.data();

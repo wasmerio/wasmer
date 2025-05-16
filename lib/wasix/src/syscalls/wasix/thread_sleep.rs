@@ -14,6 +14,8 @@ pub fn thread_sleep<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     thread_sleep_internal::<M>(ctx, duration)
 }
 
@@ -21,8 +23,6 @@ pub(crate) fn thread_sleep_internal<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     duration: Timestamp,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-
     if let Some(()) = unsafe { handle_rewind::<M, _>(&mut ctx) } {
         return Ok(Errno::Success);
     }

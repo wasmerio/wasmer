@@ -19,6 +19,8 @@ pub fn sock_listen<M: MemorySize>(
     sock: WasiFd,
     backlog: M::Offset,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     ctx = wasi_try_ok!(maybe_snapshot_once::<M>(ctx, SnapshotTrigger::FirstListen)?);
 
     let env = ctx.data();

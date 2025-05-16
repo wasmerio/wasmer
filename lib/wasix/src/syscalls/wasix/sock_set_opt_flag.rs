@@ -17,6 +17,8 @@ pub fn sock_set_opt_flag(
     opt: Sockoption,
     flag: Bool,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let flag = match flag {
         Bool::False => false,
         Bool::True => true,

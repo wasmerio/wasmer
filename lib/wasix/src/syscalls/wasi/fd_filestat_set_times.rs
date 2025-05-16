@@ -20,6 +20,8 @@ pub fn fd_filestat_set_times(
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(fd_filestat_set_times_internal(
         &mut ctx, fd, st_atim, st_mtim, fst_flags
     ));

@@ -64,7 +64,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
@@ -220,8 +220,6 @@ pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
 where
     After: FnOnce(&FunctionEnvMut<'a, WasiEnv>, Vec<Event>) -> Errno,
 {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
     let subs_len = subs.len();

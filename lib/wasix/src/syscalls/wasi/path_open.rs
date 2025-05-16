@@ -38,6 +38,8 @@ pub fn path_open<M: MemorySize>(
     fs_flags: Fdflags,
     fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
         Span::current().record("follow_symlinks", true);
     }

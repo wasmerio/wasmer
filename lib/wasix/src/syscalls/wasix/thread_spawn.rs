@@ -35,13 +35,15 @@ pub fn thread_spawn_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
     ret_tid: WasmPtr<Tid, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // Create the thread
-    let tid = wasi_try!(thread_spawn_internal_from_wasi(&mut ctx, start_ptr));
+    let tid = wasi_try_ok!(thread_spawn_internal_from_wasi(&mut ctx, start_ptr));
 
     // Success
     let memory = unsafe { ctx.data().memory_view(&ctx) };
-    wasi_try_mem!(ret_tid.write(&memory, tid));
+    wasi_try_mem_ok!(ret_tid.write(&memory, tid));
 
     tracing::debug!(
         tid,
@@ -49,7 +51,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
         "spawned new thread"
     );
 
-    Errno::Success
+    Ok(Errno::Success)
 }
 
 pub fn thread_spawn_internal_from_wasi<M: MemorySize>(

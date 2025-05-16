@@ -405,15 +405,14 @@ where
                     .next()
             };
 
-            return match WasiEnv::process_signals_and_exit(self.ctx) {
-                Ok(Ok(_)) => {
+            return match WasiEnv::do_pending_operations(self.ctx) {
+                Ok(()) => {
                     if let Some(exit_code) = has_exit {
                         Poll::Ready(Err(WasiError::Exit(exit_code)))
                     } else {
                         Poll::Pending
                     }
                 }
-                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::from(err)))),
                 Err(err) => Poll::Ready(Err(err)),
             };
         }

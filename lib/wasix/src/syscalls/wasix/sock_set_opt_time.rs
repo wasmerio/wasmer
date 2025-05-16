@@ -16,6 +16,8 @@ pub fn sock_set_opt_time<M: MemorySize>(
     opt: Sockoption,
     time: WasmPtr<OptionTimestamp, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let time = wasi_try_mem_ok!(time.read(&memory));

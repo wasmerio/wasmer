@@ -23,6 +23,8 @@ pub fn fd_pipe<M: MemorySize>(
     ro_read_fd: WasmPtr<WasiFd, M>,
     ro_write_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let (read_fd, write_fd) = wasi_try_ok!(fd_pipe_internal(&mut ctx, None, None));
     let env = ctx.data();
 

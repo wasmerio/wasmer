@@ -16,6 +16,8 @@ pub fn sock_shutdown(
     sock: WasiFd,
     how: SdFlags,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let both = __WASI_SHUT_RD | __WASI_SHUT_WR;
     let shutdown = match how {
         __WASI_SHUT_RD => std::net::Shutdown::Read,

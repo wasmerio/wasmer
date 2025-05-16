@@ -20,6 +20,8 @@ pub fn fd_advise(
     len: Filesize,
     advice: Advice,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(fd_advise_internal(&mut ctx, fd, offset, len, advice));
     let env = ctx.data();
 

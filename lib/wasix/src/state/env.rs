@@ -565,6 +565,19 @@ impl WasiEnv {
         self.process.active_threads()
     }
 
+    /// Called by most (if not all) syscalls to process pending operations that are
+    /// cross-cutting, such as signals, thread/process exit, DL operations, etc.
+    pub fn do_pending_operations(ctx: &mut FunctionEnvMut<'_, Self>) -> Result<(), WasiError> {
+        if let Some(linker) = ctx.data().inner().linker() {
+            if let Err(e) = linker.do_pending_link_operations() {
+                tracing::warn!(err = ?e, "Failed to process pending link operations");
+                return Err(WasiError::Exit(Errno::Noexec.into()));
+            }
+        }
+        _ = Self::process_signals_and_exit(ctx)?;
+        Ok(())
+    }
+
     /// Porcesses any signals that are batched up or any forced exit codes
     pub fn process_signals_and_exit(ctx: &mut FunctionEnvMut<'_, Self>) -> WasiResult<bool> {
         // If a signal handler has never been set then we need to handle signals
@@ -922,7 +935,7 @@ impl WasiEnv {
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState) {
+    ) -> (MemoryView<'a>, &'a WasiState) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
         (memory, state)
@@ -937,7 +950,7 @@ impl WasiEnv {
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState, &WasiInodes) {
+    ) -> (MemoryView<'a>, &'a WasiState, &'a WasiInodes) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = &state.inodes;

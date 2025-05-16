@@ -32,12 +32,12 @@ pub fn proc_exec3<M: MemorySize>(
     path: WasmPtr<u8, M>,
     path_len: M::Offset,
 ) -> Result<Errno, WasiError> {
-    WasiEnv::process_signals_and_exit(&mut ctx)?;
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     // If we were just restored the stack then we were woken after a deep sleep
     if let Some(exit_code) = unsafe { handle_rewind::<M, i32>(&mut ctx) } {
         // We should never get here as the process will be termined
-        // in the `WasiEnv::process_signals_and_exit()` call
+        // in the `WasiEnv::do_pending_operations()` call
         let exit_code = ExitCode::from_native(exit_code);
         ctx.data().process.terminate(exit_code);
         return Err(WasiError::Exit(exit_code));

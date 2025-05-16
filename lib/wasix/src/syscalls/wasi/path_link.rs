@@ -29,6 +29,8 @@ pub fn path_link<M: MemorySize>(
     new_path: WasmPtr<u8, M>,
     new_path_len: M::Offset,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     if old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
         Span::current().record("follow_symlinks", true);
     }

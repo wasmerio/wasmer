@@ -25,7 +25,7 @@ pub fn proc_fork<M: MemorySize>(
     mut copy_memory: Bool,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     wasi_try_ok!(ctx.data().ensure_static_module().map_err(|_| {
         warn!("process forking not supported for dynamically linked modules");

@@ -41,6 +41,8 @@ pub fn sock_pair<M: MemorySize>(
     ro_sock1: WasmPtr<WasiFd, M>,
     ro_sock2: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // only certain combinations are supported
     match pt {
         SockProto::Tcp => {
