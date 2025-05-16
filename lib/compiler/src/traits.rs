@@ -30,19 +30,19 @@ pub trait ArtifactCreate<'a>: Send + Sync + Upcastable {
     fn set_module_info_name(&'a mut self, name: String) -> bool;
 
     /// Returns the `ModuleInfo` for instantiation
-    fn module_info(&'a self) -> &ModuleInfo;
+    fn module_info(&'a self) -> &'a ModuleInfo;
 
     /// Returns the features for this Artifact
-    fn features(&'a self) -> &Features;
+    fn features(&'a self) -> &'a Features;
 
     /// Returns the CPU features for this Artifact
     fn cpu_features(&'a self) -> EnumSet<CpuFeature>;
 
     /// Returns the memory styles associated with this `Artifact`.
-    fn memory_styles(&'a self) -> &PrimaryMap<MemoryIndex, MemoryStyle>;
+    fn memory_styles(&'a self) -> &'a PrimaryMap<MemoryIndex, MemoryStyle>;
 
     /// Returns the table plans associated with this `Artifact`.
-    fn table_styles(&'a self) -> &PrimaryMap<TableIndex, TableStyle>;
+    fn table_styles(&'a self) -> &'a PrimaryMap<TableIndex, TableStyle>;
 
     /// Returns data initializers to pass to `VMInstance::initialize`
     fn data_initializers(&'a self) -> Self::OwnedDataInitializerIterator;

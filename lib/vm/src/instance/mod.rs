@@ -373,7 +373,8 @@ impl Instance {
 
         let sig = self.module.functions[start_index];
         let trampoline = self.function_call_trampolines[sig];
-        let values_vec = vec![].as_mut_ptr();
+        let mut values_vec = vec![];
+        let values_vec_ptr = values_vec.as_mut_ptr();
 
         unsafe {
             // Even though we already know the type of the function we need to call, in certain
@@ -385,7 +386,7 @@ impl Instance {
                 callee_vmctx,
                 trampoline,
                 callee_address,
-                values_vec,
+                values_vec_ptr,
             )
         }
     }
