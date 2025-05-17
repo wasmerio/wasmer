@@ -2417,6 +2417,24 @@ impl<M: MemorySize> core::fmt::Debug for ProcSpawnFdOp<M> {
     }
 }
 
+pub type DlHandle = u32;
+
+wai_bindgen_rust::bitflags::bitflags! {
+    pub struct DlFlags : u32 {
+        const LAZY = 1 << 0;
+        const NOW = 1 << 1;
+        const GLOBAL = 1 << 2;
+        const NOLOAD = 1 << 3;
+        const NODELETE = 1 << 4;
+        const DEEPBIND = 1 << 5;
+    }
+}
+impl DlFlags {
+    pub fn from_bits_preserve(bits: u32) -> Self {
+        Self { bits }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct AddrUnspec {

@@ -680,7 +680,7 @@ impl Wasi {
         rt.set_package_loader(package_loader)
             .set_module_cache(module_cache)
             .set_source(registry)
-            .set_engine(Some(engine));
+            .set_engine(engine);
 
         Ok(rt)
     }

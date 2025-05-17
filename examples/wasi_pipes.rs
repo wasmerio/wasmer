@@ -12,8 +12,12 @@
 //! Ready?
 
 use std::io::{Read, Write};
-use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+
+use wasmer::Module;
+use wasmer_wasix::{
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
+    Pipe,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -23,12 +27,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // Create a Store.
-    let mut store = Store::default();
+    // We need at least an engine to be able to compile the module.
+    let engine = wasmer::Engine::default();
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes)?;
+    let module = Module::new(&engine, &wasm_bytes[..])?;
 
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
@@ -38,17 +42,34 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // To write to the stdin
     writeln!(stdin_sender, "{}", msg)?;
 
-    println!("Running module...");
-    // First, we create the `WasiEnv` with the stdio pipes
-    WasiEnv::builder("hello")
-        .stdin(Box::new(stdin_reader))
-        .stdout(Box::new(stdout_sender))
-        .run_with_store(module, &mut store)?;
+    {
+        // Create a WASI runner. We use a scope to make sure the runner is dropped
+        // as soon as we are done with it; otherwise, it will keep the stdout pipe
+        // open.
+        let mut runner = WasiRunner::new();
+
+        // Configure the WasiRunner with the stdio pipes.
+        runner
+            .with_stdin(Box::new(stdin_reader))
+            .with_stdout(Box::new(stdout_sender));
+
+        // Now, run the module.
+        println!("Running module...");
+        runner.run_wasm(
+            RuntimeOrEngine::Engine(engine),
+            "hello",
+            module,
+            wasmer_types::ModuleHash::xxhash(wasm_bytes),
+        )?;
+    }
 
     // To read from the stdout
     let mut buf = String::new();
     stdout_reader.read_to_string(&mut buf)?;
     println!("Read \"{}\" from the WASI stdout!", buf.trim());
+
+    // Verify the module wrote the correct thing, for the test below
+    assert_eq!(buf.trim(), "mooz og racecar");
 
     Ok(())
 }
