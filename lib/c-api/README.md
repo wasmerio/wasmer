@@ -127,7 +127,7 @@ If you want to generate the library and headers in a friendly format as shown in
 make package-capi
 ```
 
-This command will generate a `package` directory, that you can then use easily in the [Wasmer C API examples](https://docs.wasmer.io/integrations/examples).
+This command will generate a `package` directory, that you can then use easily in the [Wasmer C API examples](https://wasmerio.github.io/wasmer/crates/doc/wasmer_c_api/).
 
 
 ## Testing
