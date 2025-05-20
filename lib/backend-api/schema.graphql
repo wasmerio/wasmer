@@ -3577,6 +3577,12 @@ type Mutation {
   """Claim a perishable app as their own."""
   claimPerishableApp(input: ClaimPerishableAppInput!): ClaimPerishableAppPayload
   deployViaAutobuild(input: DeployViaAutobuildInput!): DeployViaAutobuildPayload
+
+  """Create a new vault from yaml config"""
+  upsertVault(input: UpsertVaultInput!): UpsertVaultPayload
+
+  """Attach vault to an app"""
+  attachVault(input: AttachVaultInput!): AttachVaultPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -4449,6 +4455,43 @@ input JobDefinitionInput {
 
   """Humanfriendly timeout definition. e.g. 10m, 1h"""
   timeout: String = "10m"
+}
+
+"""Create a new vault from yaml config"""
+type UpsertVaultPayload {
+  vault: Vault!
+  clientMutationId: String
+}
+
+type Vault implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+  app: DeployApp
+
+  """The ID of the object"""
+  id: ID!
+}
+
+input UpsertVaultInput {
+  """YAML Configuration for vault"""
+  config: String!
+  clientMutationId: String
+}
+
+"""Attach vault to an app"""
+type AttachVaultPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input AttachVaultInput {
+  """ID of app to which the vault will be attached."""
+  appId: ID!
+
+  """ID of vault to attach."""
+  vaultId: ID!
+  clientMutationId: String
 }
 
 type ObtainJSONWebTokenPayload {
