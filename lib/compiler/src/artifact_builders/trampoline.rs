@@ -3,14 +3,15 @@
 //! This is needed because the target of libcall relocations are not reachable
 //! through normal branch instructions.
 
+#![cfg_attr(not(feature = "compiler"), allow(dead_code))]
+
 use enum_iterator::IntoEnumIterator;
-use target_lexicon::Architecture;
+use wasmer_types::target::{Architecture, Target};
 use wasmer_types::LibCall;
 
 use crate::types::{
     relocation::{Relocation, RelocationKind, RelocationTarget},
     section::{CustomSection, CustomSectionProtection, SectionBody},
-    target::Target,
 };
 
 // SystemV says that both x16 and x17 are available as intra-procedural scratch
@@ -45,7 +46,7 @@ const RISCV64_TRAMPOLINE: [u8; 24] = [
 // JR r12             80 01 00 4c [00 00 00 00]
 // JMPADDR            00 00 00 00 00 00 00 00
 const LOONGARCH64_TRAMPOLINE: [u8; 24] = [
-    0x0c, 0x00, 0x00, 0x0c, 0x8c, 0x41, 0xc0, 0x28, 0x80, 0x01, 0x00, 0x4c, 0, 0, 0, 0, 0, 0, 0, 0,
+    0x0c, 0x00, 0x00, 0x18, 0x8c, 0x41, 0xc0, 0x28, 0x80, 0x01, 0x00, 0x4c, 0, 0, 0, 0, 0, 0, 0, 0,
     0, 0, 0, 0,
 ];
 
@@ -92,7 +93,7 @@ fn make_trampoline(
                 addend: 0,
             });
         }
-        arch => panic!("Unsupported architecture: {}", arch),
+        arch => panic!("Unsupported architecture: {arch}"),
     };
 }
 
@@ -103,7 +104,7 @@ pub fn libcall_trampoline_len(target: &Target) -> usize {
         Architecture::X86_64 => X86_64_TRAMPOLINE.len(),
         Architecture::Riscv64(_) => RISCV64_TRAMPOLINE.len(),
         Architecture::LoongArch64 => LOONGARCH64_TRAMPOLINE.len(),
-        arch => panic!("Unsupported architecture: {}", arch),
+        arch => panic!("Unsupported architecture: {arch}"),
     }
 }
 
@@ -116,6 +117,7 @@ pub fn make_libcall_trampolines(target: &Target) -> CustomSection {
     }
     CustomSection {
         protection: CustomSectionProtection::ReadExecute,
+        alignment: None,
         bytes: SectionBody::new_with_vec(code),
         relocations,
     }

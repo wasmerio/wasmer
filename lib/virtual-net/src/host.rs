@@ -1,4 +1,5 @@
 #![allow(unused_variables)]
+use crate::ruleset::{Direction, Ruleset};
 use crate::{io_err_into_net_error, VirtualIoSource};
 #[allow(unused_imports)]
 use crate::{
@@ -32,6 +33,7 @@ use virtual_mio::{
 pub struct LocalNetworking {
     selector: Arc<Selector>,
     handle: Handle,
+    ruleset: Option<Ruleset>,
 }
 
 impl LocalNetworking {
@@ -39,6 +41,15 @@ impl LocalNetworking {
         Self {
             selector: Selector::new(),
             handle: Handle::current(),
+            ruleset: None,
+        }
+    }
+
+    pub fn with_ruleset(ruleset: Ruleset) -> Self {
+        Self {
+            selector: Selector::new(),
+            handle: Handle::current(),
+            ruleset: Some(ruleset),
         }
     }
 }
@@ -65,6 +76,13 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualTcpListener + Sync>> {
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if !ruleset.allows_socket(addr, Direction::Inbound) {
+                tracing::warn!(%addr, "listen_tcp blocked by firewall rule");
+                return Err(NetworkError::PermissionDenied);
+            }
+        }
+
         let listener = std::net::TcpListener::bind(addr)
             .map(|sock| {
                 sock.set_nonblocking(true).ok();
@@ -75,6 +93,7 @@ impl VirtualNetworking for LocalNetworking {
                     no_delay: None,
                     keep_alive: None,
                     backlog: Default::default(),
+                    ruleset: self.ruleset.clone(),
                 })
             })
             .map_err(io_err_into_net_error)?;
@@ -84,9 +103,32 @@ impl VirtualNetworking for LocalNetworking {
     async fn bind_udp(
         &self,
         addr: SocketAddr,
-        _reuse_port: bool,
-        _reuse_addr: bool,
+        reuse_port: bool,
+        reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        use socket2::{Domain, Socket, Type};
+
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if !ruleset.allows_socket(addr, Direction::Inbound) {
+                tracing::warn!(%addr, "bind_udp blocked by firewall rule");
+                return Err(NetworkError::PermissionDenied);
+            }
+        }
+
+        #[cfg(not(windows))]
+        let socket = {
+            let std_sock =
+                Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_address(reuse_addr)
+                .map_err(io_err_into_net_error)?;
+            std_sock
+                .set_reuse_port(reuse_port)
+                .map_err(io_err_into_net_error)?;
+            std_sock.bind(&addr.into()).map_err(io_err_into_net_error)?;
+            mio::net::UdpSocket::from_std(std_sock.into())
+        };
+        #[cfg(windows)]
         let socket = mio::net::UdpSocket::bind(addr).map_err(io_err_into_net_error)?;
 
         #[allow(unused_mut)]
@@ -96,6 +138,7 @@ impl VirtualNetworking for LocalNetworking {
             addr,
             handler_guard: HandlerGuardState::None,
             backlog: Default::default(),
+            ruleset: self.ruleset.clone(),
         };
 
         // In windows we can not poll the socket as it is not supported and hence
@@ -117,6 +160,13 @@ impl VirtualNetworking for LocalNetworking {
         _addr: SocketAddr,
         mut peer: SocketAddr,
     ) -> Result<Box<dyn VirtualTcpSocket + Sync>> {
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if !ruleset.allows_socket(peer, Direction::Outbound) {
+                tracing::warn!(%peer, "connect_tcp blocked by firewall rule");
+                return Err(NetworkError::PermissionDenied);
+            }
+        }
+
         let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
 
         if let Ok(p) = stream.peer_addr() {
@@ -132,17 +182,35 @@ impl VirtualNetworking for LocalNetworking {
         port: Option<u16>,
         dns_server: Option<IpAddr>,
     ) -> Result<Vec<IpAddr>> {
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if !ruleset.allows_domain(host) {
+                tracing::warn!(%host, "dns resolve blocked by firewall rule");
+                return Err(NetworkError::PermissionDenied);
+            }
+        }
+
         let host_to_lookup = if host.contains(':') {
             host.to_string()
         } else {
             format!("{}:{}", host, port.unwrap_or(0))
         };
-        self.handle
+        let addrs = self
+            .handle
             .spawn(tokio::net::lookup_host(host_to_lookup))
             .await
             .map_err(|_| NetworkError::IOError)?
             .map(|a| a.map(|a| a.ip()).collect::<Vec<_>>())
-            .map_err(io_err_into_net_error)
+            .map_err(io_err_into_net_error)?;
+
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if let Err(e) = ruleset.expand_domain(host, &addrs) {
+                tracing::debug!(err=%e, "ruleset expansion failed");
+            } else {
+                tracing::debug!(addrs=?addrs, domain = host, "ruleset expansion")
+            }
+        }
+
+        Ok(addrs)
     }
 }
 
@@ -154,12 +222,20 @@ pub struct LocalTcpListener {
     no_delay: Option<bool>,
     keep_alive: Option<bool>,
     backlog: VecDeque<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)>,
+    ruleset: Option<Ruleset>,
 }
 
 impl LocalTcpListener {
     fn try_accept_internal(&mut self) -> Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr)> {
         match self.stream.accept().map_err(io_err_into_net_error) {
             Ok((stream, addr)) => {
+                if let Some(ruleset) = self.ruleset.as_ref() {
+                    if !ruleset.allows_socket(addr, Direction::Outbound) {
+                        tracing::warn!(%addr, "try_accept blocked by firewall rule");
+                        return Err(NetworkError::PermissionDenied);
+                    }
+                }
+
                 let mut socket = LocalTcpStream::new(self.selector.clone(), stream, addr);
                 if let Some(no_delay) = self.no_delay {
                     socket.set_nodelay(no_delay).ok();
@@ -662,6 +738,7 @@ pub struct LocalUdpSocket {
     selector: Arc<Selector>,
     handler_guard: HandlerGuardState,
     backlog: VecDeque<(BytesMut, SocketAddr)>,
+    ruleset: Option<Ruleset>,
 }
 
 impl LocalUdpSocket {
@@ -762,6 +839,13 @@ impl VirtualUdpSocket for LocalUdpSocket {
 
 impl VirtualConnectionlessSocket for LocalUdpSocket {
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize> {
+        if let Some(ruleset) = self.ruleset.as_ref() {
+            if !ruleset.allows_socket(addr, Direction::Outbound) {
+                tracing::warn!(%addr, "try_send blocked by firewall rule");
+                return Err(NetworkError::PermissionDenied);
+            }
+        }
+
         let ret = self
             .socket
             .send_to(data, addr)

@@ -86,6 +86,10 @@ pub enum JournalEntryRecordType {
     SocketShutdownV1 = 58,
     SnapshotV1 = 59,
     ClearEtherealV1 = 60,
+    OpenFileDescriptorV2 = 61,
+    DuplicateFileDescriptorV2 = 62,
+    FileDescriptorSetFdFlagsV1 = 63,
+    SocketPairV1 = 64,
 }
 
 impl JournalEntryRecordType {
@@ -126,6 +130,9 @@ impl JournalEntryRecordType {
             JournalEntryRecordType::OpenFileDescriptorV1 => {
                 ArchivedJournalEntry::OpenFileDescriptorV1(rkyv::access_unchecked(data))
             }
+            JournalEntryRecordType::OpenFileDescriptorV2 => {
+                ArchivedJournalEntry::OpenFileDescriptorV2(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::CloseFileDescriptorV1 => {
                 ArchivedJournalEntry::CloseFileDescriptorV1(rkyv::access_unchecked(data))
             }
@@ -134,6 +141,9 @@ impl JournalEntryRecordType {
             }
             JournalEntryRecordType::DuplicateFileDescriptorV1 => {
                 ArchivedJournalEntry::DuplicateFileDescriptorV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::DuplicateFileDescriptorV2 => {
+                ArchivedJournalEntry::DuplicateFileDescriptorV2(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::CreateDirectoryV1 => {
                 ArchivedJournalEntry::CreateDirectoryV1(rkyv::access_unchecked(data))
@@ -149,6 +159,9 @@ impl JournalEntryRecordType {
             }
             JournalEntryRecordType::FileDescriptorSetSizeV1 => {
                 ArchivedJournalEntry::FileDescriptorSetSizeV1(rkyv::access_unchecked(data))
+            }
+            JournalEntryRecordType::FileDescriptorSetFdFlagsV1 => {
+                ArchivedJournalEntry::FileDescriptorSetFdFlagsV1(rkyv::access_unchecked(data))
             }
             JournalEntryRecordType::FileDescriptorSetFlagsV1 => {
                 ArchivedJournalEntry::FileDescriptorSetFlagsV1(rkyv::access_unchecked(data))
@@ -219,6 +232,9 @@ impl JournalEntryRecordType {
             JournalEntryRecordType::SocketOpenV1 => {
                 ArchivedJournalEntry::SocketOpenV1(rkyv::access_unchecked(data))
             }
+            JournalEntryRecordType::SocketPairV1 => {
+                ArchivedJournalEntry::SocketPairV1(rkyv::access_unchecked(data))
+            }
             JournalEntryRecordType::SocketListenV1 => {
                 ArchivedJournalEntry::SocketListenV1(rkyv::access_unchecked(data))
             }
@@ -286,17 +302,24 @@ impl<'a> JournalEntry<'a> {
             Self::SetClockTimeV1 { .. } => JournalEntryRecordType::SetClockTimeV1,
             Self::CloseFileDescriptorV1 { .. } => JournalEntryRecordType::CloseFileDescriptorV1,
             Self::OpenFileDescriptorV1 { .. } => JournalEntryRecordType::OpenFileDescriptorV1,
+            Self::OpenFileDescriptorV2 { .. } => JournalEntryRecordType::OpenFileDescriptorV2,
             Self::RenumberFileDescriptorV1 { .. } => {
                 JournalEntryRecordType::RenumberFileDescriptorV1
             }
             Self::DuplicateFileDescriptorV1 { .. } => {
                 JournalEntryRecordType::DuplicateFileDescriptorV1
             }
+            Self::DuplicateFileDescriptorV2 { .. } => {
+                JournalEntryRecordType::DuplicateFileDescriptorV2
+            }
             Self::CreateDirectoryV1 { .. } => JournalEntryRecordType::CreateDirectoryV1,
             Self::RemoveDirectoryV1 { .. } => JournalEntryRecordType::RemoveDirectoryV1,
             Self::PathSetTimesV1 { .. } => JournalEntryRecordType::PathSetTimesV1,
             Self::FileDescriptorSetTimesV1 { .. } => {
                 JournalEntryRecordType::FileDescriptorSetTimesV1
+            }
+            Self::FileDescriptorSetFdFlagsV1 { .. } => {
+                JournalEntryRecordType::FileDescriptorSetFdFlagsV1
             }
             Self::FileDescriptorSetFlagsV1 { .. } => {
                 JournalEntryRecordType::FileDescriptorSetFlagsV1
@@ -330,6 +353,7 @@ impl<'a> JournalEntry<'a> {
             Self::PortRouteClearV1 => JournalEntryRecordType::PortRouteClearV1,
             Self::PortRouteDelV1 { .. } => JournalEntryRecordType::PortRouteDelV1,
             Self::SocketOpenV1 { .. } => JournalEntryRecordType::SocketOpenV1,
+            Self::SocketPairV1 { .. } => JournalEntryRecordType::SocketPairV1,
             Self::SocketListenV1 { .. } => JournalEntryRecordType::SocketListenV1,
             Self::SocketBindV1 { .. } => JournalEntryRecordType::SocketBindV1,
             Self::SocketConnectedV1 { .. } => JournalEntryRecordType::SocketConnectedV1,
@@ -469,6 +493,30 @@ impl<'a> JournalEntry<'a> {
                 },
                 serializer,
             ),
+            JournalEntry::OpenFileDescriptorV2 {
+                fd,
+                dirfd,
+                dirflags,
+                path,
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+                fd_flags,
+            } => serialize_using(
+                &JournalEntryOpenFileDescriptorV2 {
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path: path.into(),
+                    o_flags: o_flags.bits(),
+                    fs_rights_base: fs_rights_base.bits(),
+                    fs_rights_inheriting: fs_rights_inheriting.bits(),
+                    fs_flags: fs_flags.bits(),
+                    fd_flags: fd_flags.bits(),
+                },
+                serializer,
+            ),
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => serialize_using(
                 &JournalEntryRenumberFileDescriptorV1 { old_fd, new_fd },
                 serializer,
@@ -480,6 +528,18 @@ impl<'a> JournalEntry<'a> {
                 &JournalEntryDuplicateFileDescriptorV1 {
                     original_fd,
                     copied_fd,
+                },
+                serializer,
+            ),
+            JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                cloexec,
+            } => serialize_using(
+                &JournalEntryDuplicateFileDescriptorV2 {
+                    original_fd,
+                    copied_fd,
+                    cloexec,
                 },
                 serializer,
             ),
@@ -526,6 +586,13 @@ impl<'a> JournalEntry<'a> {
                     st_atim,
                     st_mtim,
                     fst_flags: fst_flags.bits(),
+                },
+                serializer,
+            ),
+            JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags } => serialize_using(
+                &JournalEntryFileDescriptorSetFdFlagsV1 {
+                    fd,
+                    flags: flags.bits(),
                 },
                 serializer,
             ),
@@ -655,8 +722,8 @@ impl<'a> JournalEntry<'a> {
                 },
                 serializer,
             ),
-            JournalEntry::CreatePipeV1 { fd1, fd2 } => {
-                serialize_using(&JournalEntryCreatePipeV1 { fd1, fd2 }, serializer)
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
+                serialize_using(&JournalEntryCreatePipeV1 { read_fd, write_fd }, serializer)
             }
             JournalEntry::CreateEventV1 {
                 initial_val,
@@ -721,6 +788,9 @@ impl<'a> JournalEntry<'a> {
                 },
                 serializer,
             ),
+            JournalEntry::SocketPairV1 { fd1, fd2 } => {
+                serialize_using(&JournalEntrySocketPairV1 { fd1, fd2 }, serializer)
+            }
             JournalEntry::SocketListenV1 { fd, backlog } => {
                 serialize_using(&JournalEntrySocketListenV1 { fd, backlog }, serializer)
             }
@@ -919,14 +989,17 @@ pub enum ArchivedJournalEntry<'a> {
     UpdateMemoryRegionV1(&'a ArchivedJournalEntryUpdateMemoryRegionV1<'a>),
     SetClockTimeV1(&'a ArchivedJournalEntrySetClockTimeV1),
     OpenFileDescriptorV1(&'a ArchivedJournalEntryOpenFileDescriptorV1<'a>),
+    OpenFileDescriptorV2(&'a ArchivedJournalEntryOpenFileDescriptorV2<'a>),
     CloseFileDescriptorV1(&'a ArchivedJournalEntryCloseFileDescriptorV1),
     RenumberFileDescriptorV1(&'a ArchivedJournalEntryRenumberFileDescriptorV1),
     DuplicateFileDescriptorV1(&'a ArchivedJournalEntryDuplicateFileDescriptorV1),
+    DuplicateFileDescriptorV2(&'a ArchivedJournalEntryDuplicateFileDescriptorV2),
     CreateDirectoryV1(&'a ArchivedJournalEntryCreateDirectoryV1<'a>),
     RemoveDirectoryV1(&'a ArchivedJournalEntryRemoveDirectoryV1<'a>),
     PathSetTimesV1(&'a ArchivedJournalEntryPathSetTimesV1<'a>),
     FileDescriptorSetTimesV1(&'a ArchivedJournalEntryFileDescriptorSetTimesV1),
     FileDescriptorSetSizeV1(&'a ArchivedJournalEntryFileDescriptorSetSizeV1),
+    FileDescriptorSetFdFlagsV1(&'a ArchivedJournalEntryFileDescriptorSetFdFlagsV1),
     FileDescriptorSetFlagsV1(&'a ArchivedJournalEntryFileDescriptorSetFlagsV1),
     FileDescriptorSetRightsV1(&'a ArchivedJournalEntryFileDescriptorSetRightsV1),
     FileDescriptorAdviseV1(&'a ArchivedJournalEntryFileDescriptorAdviseV1),
@@ -952,6 +1025,7 @@ pub enum ArchivedJournalEntry<'a> {
     PortRouteClearV1,
     PortRouteDelV1(&'a ArchivedJournalEntryPortRouteDelV1),
     SocketOpenV1(&'a ArchivedJournalEntrySocketOpenV1),
+    SocketPairV1(&'a ArchivedJournalEntrySocketPairV1),
     SocketListenV1(&'a ArchivedJournalEntrySocketListenV1),
     SocketBindV1(&'a ArchivedJournalEntrySocketBindV1),
     SocketConnectedV1(&'a ArchivedJournalEntrySocketConnectedV1),
@@ -1079,6 +1153,22 @@ pub struct JournalEntryOpenFileDescriptorV1<'a> {
 #[repr(C)]
 #[repr(align(8))]
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(attr(repr(align(8))))]
+pub struct JournalEntryOpenFileDescriptorV2<'a> {
+    pub fd: u32,
+    pub dirfd: u32,
+    pub dirflags: u32,
+    pub fs_flags: u16,
+    pub fd_flags: u16,
+    pub o_flags: u16,
+    pub fs_rights_base: u64,
+    pub fs_rights_inheriting: u64,
+    pub path: AlignedCowStr<'a>,
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug), attr(repr(align(8))))]
 pub struct JournalEntryCloseFileDescriptorV1 {
     pub fd: u32,
@@ -1100,6 +1190,16 @@ pub struct JournalEntryRenumberFileDescriptorV1 {
 pub struct JournalEntryDuplicateFileDescriptorV1 {
     pub original_fd: u32,
     pub copied_fd: u32,
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug), attr(repr(align(8))))]
+pub struct JournalEntryDuplicateFileDescriptorV2 {
+    pub original_fd: u32,
+    pub copied_fd: u32,
+    pub cloexec: bool,
 }
 
 #[repr(C)]
@@ -1151,6 +1251,15 @@ pub struct JournalEntryFileDescriptorSetTimesV1 {
 pub struct JournalEntryFileDescriptorSetSizeV1 {
     pub fd: u32,
     pub st_size: u64,
+}
+
+#[repr(C)]
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug), attr(repr(align(8))))]
+pub struct JournalEntryFileDescriptorSetFdFlagsV1 {
+    pub fd: u32,
+    pub flags: u16,
 }
 
 #[repr(C)]
@@ -1284,8 +1393,8 @@ pub struct JournalEntryTtySetV1 {
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 #[rkyv(derive(Debug), attr(repr(align(8))))]
 pub struct JournalEntryCreatePipeV1 {
-    pub fd1: u32,
-    pub fd2: u32,
+    pub read_fd: u32,
+    pub write_fd: u32,
 }
 
 #[repr(C)]
@@ -1360,6 +1469,14 @@ pub struct JournalEntrySocketOpenV1 {
     pub ty: JournalSocktypeV1,
     pub pt: u16,
     pub fd: u32,
+}
+
+#[repr(align(8))]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[rkyv(derive(Debug), attr(repr(align(8))))]
+pub struct JournalEntrySocketPairV1 {
+    pub fd1: u32,
+    pub fd2: u32,
 }
 
 #[repr(C)]
@@ -1604,6 +1721,7 @@ pub enum JournalSnapshotTriggerV1 {
     NonDeterministicCall,
     Bootstrap,
     Transaction,
+    Explicit,
 }
 
 #[repr(C)]

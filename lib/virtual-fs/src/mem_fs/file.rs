@@ -3,6 +3,7 @@
 //! `FileHandle` can be used through the `VirtualFile` trait object.
 
 use futures::future::BoxFuture;
+use shared_buffer::OwnedBuffer;
 use tokio::io::AsyncRead;
 use tokio::io::{AsyncSeek, AsyncWrite};
 
@@ -11,7 +12,6 @@ use self::offloaded_file::OffloadWrite;
 use super::*;
 use crate::limiter::TrackedVec;
 use crate::{CopyOnWriteFile, FsError, Result, VirtualFile};
-use std::borrow::Cow;
 use std::cmp;
 use std::convert::TryInto;
 use std::fmt;
@@ -333,6 +333,38 @@ impl VirtualFile for FileHandle {
                         inode: inode.inode(),
                         name: inode.name().to_string_lossy().to_string().into(),
                         file: Mutex::new(Box::new(CopyOnWriteFile::new(src))),
+                        metadata,
+                    });
+                    Ok(())
+                }
+                None => Err(std::io::ErrorKind::InvalidInput.into()),
+            }
+        })
+    }
+
+    fn copy_from_owned_buffer(&mut self, src: &OwnedBuffer) -> BoxFuture<'_, std::io::Result<()>> {
+        let inner = self.filesystem.inner.clone();
+        let src = src.clone();
+        Box::pin(async move {
+            let mut fs = inner.write().unwrap();
+            let inode = fs.storage.get_mut(self.inode);
+            match inode {
+                Some(inode) => {
+                    let metadata = Metadata {
+                        ft: crate::FileType {
+                            file: true,
+                            ..Default::default()
+                        },
+                        accessed: 1,
+                        created: 1,
+                        modified: 1,
+                        len: src.len() as u64,
+                    };
+
+                    *inode = Node::ReadOnlyFile(ReadOnlyFileNode {
+                        inode: inode.inode(),
+                        name: inode.name().to_string_lossy().to_string().into(),
+                        file: ReadOnlyFile { buffer: src },
                         metadata,
                     });
                     Ok(())
@@ -1523,11 +1555,11 @@ impl File {
 /// Read only file that uses copy-on-write
 #[derive(Debug)]
 pub(super) struct ReadOnlyFile {
-    buffer: Cow<'static, [u8]>,
+    buffer: OwnedBuffer,
 }
 
 impl ReadOnlyFile {
-    pub(super) fn new(buffer: Cow<'static, [u8]>) -> Self {
+    pub(super) fn new(buffer: OwnedBuffer) -> Self {
         Self { buffer }
     }
 

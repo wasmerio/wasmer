@@ -1,10 +1,12 @@
 use super::Engine;
-use crate::{types::target::Target, CompilerConfig};
-use wasmer_types::{Features, HashAlgorithm};
+#[cfg(feature = "compiler")]
+use crate::CompilerConfig;
+use wasmer_types::{target::Target, Features, HashAlgorithm};
 
 /// The Builder contents of `Engine`
 pub struct EngineBuilder {
     /// The compiler
+    #[cfg(feature = "compiler")]
     compiler_config: Option<Box<dyn CompilerConfig>>,
     /// The machine target
     target: Option<Target>,
@@ -16,6 +18,7 @@ pub struct EngineBuilder {
 
 impl EngineBuilder {
     /// Create a new builder with pre-made components
+    #[cfg(feature = "compiler")]
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -31,6 +34,7 @@ impl EngineBuilder {
     /// Create a new headless Backend
     pub fn headless() -> Self {
         Self {
+            #[cfg(feature = "compiler")]
             compiler_config: None,
             target: None,
             features: None,

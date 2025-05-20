@@ -8,24 +8,27 @@ readme = "README.md"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
-license.workspace = true
+license-file = "LICENSE"
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=5.0.2", features = [
-    "translator", "compiler"
+wasmer-compiler = { path = "../compiler", version = "=6.0.1", features = [
+	"translator",
+	"compiler",
 ] }
-wasmer-vm = { path = "../vm", version = "=5.0.2" }
-wasmer-types = { path = "../types", version = "=5.0.2" }
+wasmer-vm = { path = "../vm", version = "=6.0.1" }
+wasmer-types = { path = "../types", version = "=6.0.1" }
 target-lexicon = { version = "0.12.2", default-features = false }
 smallvec = "1.6"
-object = { version = "0.30.3", default-features = false, features = ["read"] }
+object = { workspace = true, features = ["read"] }
 libc.workspace = true
 byteorder = "1"
 itertools = "0.10"
 rayon = "1.5"
+phf = { version = "0.11.2", features = ["macros"] }
+tracing = { version = "0.1", default-features = false, features = ["log"] }
 
 [dependencies.inkwell]
 package = "inkwell"
@@ -41,7 +44,6 @@ features = [
 
 [build-dependencies]
 cc = "1.0"
-lazy_static = "1.4"
 regex = "1.5"
 semver = "1.0"
 rustc_version = "0.4"

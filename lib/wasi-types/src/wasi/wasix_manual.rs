@@ -5,8 +5,9 @@ use std::mem::MaybeUninit;
 use wasmer::{FromToNativeWasmType, MemorySize, ValueType};
 
 use super::{
-    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, Fd, JoinStatusType, Signal,
-    Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite, Userdata,
+    Errno, ErrnoSignal, EventFdReadwrite, Eventtype, Fd, JoinStatusType, ProcSpawnFdOp, Signal,
+    SignalDisposition, Snapshot0SubscriptionClock, SubscriptionClock, SubscriptionFsReadwrite,
+    Userdata,
 };
 
 /// Thread local key
@@ -502,6 +503,16 @@ unsafe impl<M> ValueType for EpollEvent<M>
 where
     M: MemorySize,
 {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl ValueType for SignalDisposition {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+unsafe impl<M: MemorySize> ValueType for ProcSpawnFdOp<M> {
     #[inline]
     fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
 }

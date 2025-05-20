@@ -71,7 +71,7 @@ impl WasmMmap {
         // Wasm linear memories are never allowed to grow beyond what is
         // indexable. If the memory has no maximum, enforce the greatest
         // limit here.
-        if new_pages >= Pages::max_value() {
+        if new_pages > Pages::max_value() {
             // Linear memory size would exceed the index range.
             return Err(MemoryError::CouldNotGrow {
                 current: self.size,

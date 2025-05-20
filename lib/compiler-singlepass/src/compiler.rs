@@ -22,15 +22,15 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     types::{
-        function::{Compilation, CompiledFunction, Dwarf, FunctionBody},
+        function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
-        target::{Architecture, CallingConvention, CpuFeature, OperatingSystem, Target},
     },
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
     TableIndex, TrapCode, TrapInformation, VMOffsets,
@@ -38,6 +38,7 @@ use wasmer_types::{
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
+#[derive(Debug)]
 pub struct SinglepassCompiler {
     config: Singlepass,
 }
@@ -57,6 +58,10 @@ impl SinglepassCompiler {
 impl Compiler for SinglepassCompiler {
     fn name(&self) -> &str {
         "singlepass"
+    }
+
+    fn deterministic_id(&self) -> String {
+        String::from("singlepass")
     }
 
     /// Get the middlewares for this compiler
@@ -236,8 +241,11 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
+        #[allow(unused_mut)]
+        let mut unwind_info = UnwindInfo::default();
+
         #[cfg(feature = "unwind")]
-        let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
             for fde in fdes.into_iter().flatten() {
                 match fde {
                     UnwindFrame::SystemV(fde) => dwarf_frametable.add_fde(cie_id, fde),
@@ -248,19 +256,18 @@ impl Compiler for SinglepassCompiler {
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);
-            Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
-        } else {
-            None
+            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1))
         };
-        #[cfg(not(feature = "unwind"))]
-        let dwarf = None;
+
+        let got = wasmer_compiler::types::function::GOT::empty();
 
         Ok(Compilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug: dwarf,
+            unwind_info,
+            got,
         })
     }
 
@@ -294,11 +301,11 @@ mod tests {
     use super::*;
     use std::str::FromStr;
     use target_lexicon::triple;
-    use wasmer_compiler::{
-        types::target::{CpuFeature, Triple},
-        Features,
+    use wasmer_compiler::Features;
+    use wasmer_types::{
+        target::{CpuFeature, Triple},
+        MemoryStyle, TableStyle,
     };
-    use wasmer_types::{MemoryStyle, TableStyle};
 
     fn dummy_compilation_ingredients<'a>() -> (
         CompileModuleInfo,
@@ -326,7 +333,7 @@ mod tests {
         let result = compiler.compile_module(&linux32, &info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
-            error => panic!("Unexpected error: {:?}", error),
+            error => panic!("Unexpected error: {error:?}"),
         };
 
         // Compile for win32
@@ -335,7 +342,7 @@ mod tests {
         let result = compiler.compile_module(&win32, &info, &translation, inputs);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
-            error => panic!("Unexpected error: {:?}", error),
+            error => panic!("Unexpected error: {error:?}"),
         };
     }
 

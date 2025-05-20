@@ -79,7 +79,7 @@ fn generate_native_output(
         .unwrap();
 
     if let Some(stdin_str) = &options.stdin {
-        write!(native_command.stdin.as_ref().unwrap(), "{}", stdin_str).unwrap();
+        write!(native_command.stdin.as_ref().unwrap(), "{stdin_str}").unwrap();
     }
 
     let result = native_command
@@ -100,8 +100,8 @@ fn generate_native_output(
     };
     if !result.success() {
         println!("NATIVE PROGRAM FAILED");
-        println!("stdout:\n{}", stdout_str);
-        eprintln!("stderr:\n{}", stderr_str);
+        println!("stdout:\n{stdout_str}");
+        eprintln!("stderr:\n{stderr_str}");
     }
 
     let result = result.code().unwrap() as i64;
@@ -131,7 +131,7 @@ fn compile_wasm_for_version(
         wasm_out_name.set_extension("wasm");
         wasm_out_name
     };
-    println!("Reading contents from file `{}`", file);
+    println!("Reading contents from file `{file}`");
     let file_contents: String = {
         let mut fc = String::new();
         let mut f = fs::OpenOptions::new().read(true).open(file)?;
@@ -139,7 +139,7 @@ fn compile_wasm_for_version(
         fc
     };
 
-    let temp_wasi_rs_file_name = temp_dir.join(format!("wasi_modified_version_{}.rs", rs_mod_name));
+    let temp_wasi_rs_file_name = temp_dir.join(format!("wasi_modified_version_{rs_mod_name}.rs"));
     {
         let mut actual_file = fs::OpenOptions::new()
             .write(true)
@@ -159,13 +159,13 @@ fn compile_wasm_for_version(
 
     command
         .arg(format!("+{}", version.get_compiler_toolchain()))
-        .arg("--target=wasm32-wasi")
+        .arg("--target=wasm32-wasip1")
         .arg("-C")
         .arg("opt-level=z")
         .arg(&temp_wasi_rs_file_name)
         .arg("-o")
         .arg(&wasm_out_name);
-    println!("Command {:?}", command);
+    println!("Command {command:?}");
 
     let wasm_compilation_out = command.output().expect("Failed to compile program to wasm");
     util::print_info_on_error(&wasm_compilation_out, "WASM COMPILATION");
@@ -214,7 +214,7 @@ fn compile(temp_dir: &Path, file: &str, wasi_versions: &[WasiVersion]) {
         .expect("Generate native output");
 
     let test = WasiTest {
-        wasm_prog_name: format!("{}.wasm", rs_mod_name),
+        wasm_prog_name: format!("{rs_mod_name}.wasm"),
         stdout,
         stderr,
         result,
@@ -238,7 +238,7 @@ fn compile(temp_dir: &Path, file: &str, wasi_versions: &[WasiVersion]) {
             println!("Writing test output to {}", wasm_out_name.to_string_lossy());
             fs::write(&wasm_out_name, test_serialized.clone()).unwrap();
 
-            println!("Compiling wasm version {:?}", version);
+            println!("Compiling wasm version {version:?}");
             compile_wasm_for_version(temp_dir, file, &out_dir, &rs_mod_name, version)
                 .unwrap_or_else(|_| panic!("Could not compile Wasm to WASI version {:?}, perhaps you need to install the `{}` rust toolchain", version, version.get_compiler_toolchain()));
         }).for_each(drop); // Do nothing with it, but let the iterator be consumed/iterated.
@@ -261,7 +261,7 @@ pub fn build(wasi_versions: &[WasiVersion], specific_tests: &[&str]) {
                     compile(temp_dir.path(), test, wasi_versions);
                 }
             }
-            Err(e) => println!("{:?}", e),
+            Err(e) => println!("{e:?}"),
         }
     }
     println!("All modules generated.");
@@ -296,20 +296,20 @@ impl WasiTest {
                 .options
                 .env
                 .iter()
-                .map(|(name, value)| format!("\"{}={}\"", name, value))
+                .map(|(name, value)| format!("\"{name}={value}\""))
                 .collect::<Vec<String>>()
                 .join(" ");
-            let _ = write!(out, "\n  (envs {})", envs);
+            let _ = write!(out, "\n  (envs {envs})");
         }
         if !self.options.args.is_empty() {
             let args = self
                 .options
                 .args
                 .iter()
-                .map(|v| format!("\"{}\"", v))
+                .map(|v| format!("\"{v}\""))
                 .collect::<Vec<String>>()
                 .join(" ");
-            let _ = write!(out, "\n  (args {})", args);
+            let _ = write!(out, "\n  (args {args})");
         }
 
         if !self.options.dir.is_empty() {
@@ -317,35 +317,35 @@ impl WasiTest {
                 .options
                 .dir
                 .iter()
-                .map(|v| format!("\"{}\"", v))
+                .map(|v| format!("\"{v}\""))
                 .collect::<Vec<String>>()
                 .join(" ");
-            let _ = write!(out, "\n  (preopens {})", preopens);
+            let _ = write!(out, "\n  (preopens {preopens})");
         }
         if !self.options.mapdir.is_empty() {
             let map_dirs = self
                 .options
                 .mapdir
                 .iter()
-                .map(|(a, b)| format!("\"{}:{}\"", a, b))
+                .map(|(a, b)| format!("\"{a}:{b}\""))
                 .collect::<Vec<String>>()
                 .join(" ");
-            let _ = write!(out, "\n  (map_dirs {})", map_dirs);
+            let _ = write!(out, "\n  (map_dirs {map_dirs})");
         }
         if !self.options.tempdir.is_empty() {
             let temp_dirs = self
                 .options
                 .tempdir
                 .iter()
-                .map(|td| format!("\"{}\"", td))
+                .map(|td| format!("\"{td}\""))
                 .collect::<Vec<String>>()
                 .join(" ");
-            let _ = write!(out, "\n  (temp_dirs {})", temp_dirs);
+            let _ = write!(out, "\n  (temp_dirs {temp_dirs})");
         }
 
         let _ = write!(out, "\n  (assert_return (i64.const {}))", self.result);
         if let Some(stdin) = &self.options.stdin {
-            let _ = write!(out, "\n  (stdin {:?})", stdin);
+            let _ = write!(out, "\n  (stdin {stdin:?})");
         }
 
         if !self.stdout.is_empty() {
@@ -407,14 +407,14 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
                         // And then we try splitting by `:` (for compatibility with previous API)
                         args.mapdir.push((alias.to_string(), real_dir.to_string()));
                     } else {
-                        eprintln!("Parse error in mapdir {} not parsed correctly", value);
+                        eprintln!("Parse error in mapdir {value} not parsed correctly");
                     }
                 }
                 "env" => {
                     if let [name, val] = value.split('=').collect::<Vec<&str>>()[..] {
                         args.env.push((name.to_string(), val.to_string()));
                     } else {
-                        eprintln!("Parse error in env {} not parsed correctly", value);
+                        eprintln!("Parse error in env {value} not parsed correctly");
                     }
                 }
                 "dir" => {
@@ -437,7 +437,7 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
                     args.stdin = Some(s.to_string());
                 }
                 e => {
-                    eprintln!("WARN: comment arg: `{}` is not supported", e);
+                    eprintln!("WARN: comment arg: `{e}` is not supported");
                 }
             }
         }

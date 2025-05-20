@@ -272,11 +272,16 @@ impl<W: WritableJournal> WritableJournal for FilteredJournalTx<W> {
             JournalEntry::FileDescriptorSeekV1 { fd, .. }
             | JournalEntry::FileDescriptorWriteV1 { fd, .. }
             | JournalEntry::OpenFileDescriptorV1 { fd, .. }
+            | JournalEntry::OpenFileDescriptorV2 { fd, .. }
             | JournalEntry::CloseFileDescriptorV1 { fd, .. }
             | JournalEntry::RenumberFileDescriptorV1 { old_fd: fd, .. }
             | JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd: fd, ..
             }
+            | JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd: fd, ..
+            }
+            | JournalEntry::FileDescriptorSetFdFlagsV1 { fd, .. }
             | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. }
             | JournalEntry::FileDescriptorAdviseV1 { fd, .. }
             | JournalEntry::FileDescriptorAllocateV1 { fd, .. }
@@ -335,6 +340,7 @@ impl<W: WritableJournal> WritableJournal for FilteredJournalTx<W> {
             | JournalEntry::PortRouteClearV1
             | JournalEntry::PortRouteDelV1 { .. }
             | JournalEntry::SocketOpenV1 { .. }
+            | JournalEntry::SocketPairV1 { .. }
             | JournalEntry::SocketListenV1 { .. }
             | JournalEntry::SocketBindV1 { .. }
             | JournalEntry::SocketConnectedV1 { .. }

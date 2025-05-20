@@ -121,7 +121,7 @@ impl NamedPackageIdent {
         };
 
         let reg = if !reg.starts_with("http://") && !reg.starts_with("https://") {
-            format!("https://{}", reg)
+            format!("https://{reg}")
         } else {
             reg.clone()
         };
@@ -144,7 +144,7 @@ impl NamedPackageIdent {
         if let Some(tag) = &self.tag {
             ident.push('@');
             // Writing to a string only fails on memory allocation errors.
-            write!(&mut ident, "{}", tag).unwrap();
+            write!(&mut ident, "{tag}").unwrap();
         }
         ident
     }
@@ -153,7 +153,7 @@ impl NamedPackageIdent {
         let mut out = String::new();
         if let Some(url) = &self.registry {
             // NOTE: writing to a String can only fail on allocation errors.
-            write!(&mut out, "{}", url).unwrap();
+            write!(&mut out, "{url}").unwrap();
 
             if !out.ends_with('/') {
                 out.push(':');
@@ -167,10 +167,28 @@ impl NamedPackageIdent {
         if let Some(tag) = &self.tag {
             out.push('@');
             // Writing to a string only fails on memory allocation errors.
-            write!(&mut out, "{}", tag).unwrap();
+            write!(&mut out, "{tag}").unwrap();
         }
 
         out
+    }
+
+    /// Returns true if this ident matches the given package id.
+    ///
+    /// Semver constraints are matched against the package id's version.
+    pub fn matches_id(&self, id: &NamedPackageId) -> bool {
+        if self.full_name() == id.full_name {
+            if let Some(tag) = &self.tag {
+                match tag {
+                    Tag::Named(n) => n == &id.version.to_string(),
+                    Tag::VersionReq(v) => v.matches(&id.version),
+                }
+            } else {
+                true
+            }
+        } else {
+            false
+        }
     }
 }
 
@@ -442,5 +460,24 @@ mod tests {
 
         let ident2 = serde_json::from_str::<NamedPackageIdent>(&raw).unwrap();
         assert_eq!(ident, ident2);
+    }
+
+    #[test]
+    fn test_named_package_ident_matches_id() {
+        assert!(NamedPackageIdent::from_str("ns/name")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "0.1.0").unwrap()));
+
+        assert!(NamedPackageIdent::from_str("ns/name")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+
+        assert!(NamedPackageIdent::from_str("ns/name@1")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+
+        assert!(!NamedPackageIdent::from_str("ns/name@2")
+            .unwrap()
+            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
     }
 }

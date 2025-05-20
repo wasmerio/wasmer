@@ -29,17 +29,19 @@ use std::sync::Arc;
 
 use wasmer_compiler::{
     types::{
-        function::{Compilation, CompiledFunction, CompiledFunctionFrameInfo, Dwarf, FunctionBody},
+        function::{
+            Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
+        },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
-        target::{CallingConvention, Target},
         unwind::CompiledFunctionUnwindInfo,
     },
     Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
     ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::target::{CallingConvention, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
     TrapInformation,
@@ -47,6 +49,7 @@ use wasmer_types::{
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
+#[derive(Debug)]
 pub struct CraneliftCompiler {
     config: Cranelift,
 }
@@ -66,6 +69,14 @@ impl CraneliftCompiler {
 impl Compiler for CraneliftCompiler {
     fn name(&self) -> &str {
         "cranelift"
+    }
+
+    fn get_perfmap_enabled(&self) -> bool {
+        self.config.enable_perfmap
+    }
+
+    fn deterministic_id(&self) -> String {
+        String::from("cranelift")
     }
 
     /// Get the middlewares for this compiler
@@ -350,8 +361,10 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .unzip();
 
+        let mut unwind_info = UnwindInfo::default();
+
         #[cfg(feature = "unwind")]
-        let dwarf = if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
+        if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
             for fde in fdes.into_iter().flatten() {
                 dwarf_frametable.add_fde(cie_id, fde);
             }
@@ -360,12 +373,8 @@ impl Compiler for CraneliftCompiler {
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);
-            Some(Dwarf::new(SectionIndex::new(custom_sections.len() - 1)))
-        } else {
-            None
+            unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
         };
-        #[cfg(not(feature = "unwind"))]
-        let dwarf = None;
 
         // function call trampolines (only for local functions, by signature)
         #[cfg(not(feature = "rayon"))]
@@ -419,12 +428,15 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
 
+        let got = wasmer_compiler::types::function::GOT::empty();
+
         Ok(Compilation {
             functions: functions.into_iter().collect(),
             custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            debug: dwarf,
+            unwind_info,
+            got,
         })
     }
 }

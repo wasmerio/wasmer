@@ -34,7 +34,9 @@ use run::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
-use wasmer_wasix_types::wasi::{Errno, Fd as WasiFd, Rights, Snapshot0Clockid};
+use wasmer_wasix_types::wasi::{
+    Disposition, Errno, Fd as WasiFd, Rights, Signal, Snapshot0Clockid,
+};
 
 pub use self::{
     builder::*,
@@ -135,6 +137,7 @@ pub(crate) struct WasiState {
     pub clock_offset: Mutex<HashMap<Snapshot0Clockid, i64>>,
     pub args: Mutex<Vec<String>>,
     pub envs: Mutex<Vec<Vec<u8>>>,
+    pub signals: Mutex<HashMap<Signal, Disposition>>,
 
     // TODO: should not be here, since this requires active work to resolve.
     // State should only hold active runtime state that can be reproducibly re-created.
@@ -257,6 +260,7 @@ impl WasiState {
             clock_offset: Mutex::new(self.clock_offset.lock().unwrap().clone()),
             args: Mutex::new(self.args.lock().unwrap().clone()),
             envs: Mutex::new(self.envs.lock().unwrap().clone()),
+            signals: Mutex::new(self.signals.lock().unwrap().clone()),
             preopen: self.preopen.clone(),
         }
     }

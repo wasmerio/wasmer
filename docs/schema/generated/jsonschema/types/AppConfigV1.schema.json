@@ -4,7 +4,6 @@
   "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend, Edge itself does not use this format, and uses [`super::AppVersionV1Spec`] instead.",
   "type": "object",
   "required": [
-    "name",
     "package"
   ],
   "properties": {
@@ -68,6 +67,15 @@
         "$ref": "#/definitions/HealthCheckV1"
       }
     },
+    "jobs": {
+      "type": [
+        "array",
+        "null"
+      ],
+      "items": {
+        "$ref": "#/definitions/Job"
+      }
+    },
     "locality": {
       "description": "Location-related configuration for the app.",
       "anyOf": [
@@ -81,7 +89,10 @@
     },
     "name": {
       "description": "Name of the app.",
-      "type": "string"
+      "type": [
+        "string",
+        "null"
+      ]
     },
     "owner": {
       "description": "Owner of the app.\n\nThis is either a username or a namespace.",
@@ -141,9 +152,25 @@
       "properties": {
         "max_age": {
           "description": "Maximum age of snapshots.\n\nFormat: 5m, 1h, 2d, ...\n\nAfter the specified time new snapshots will be created, and the old ones discarded.",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "mode": {
+          "description": "The method to use to generate the instaboot snapshot for the instance.",
+          "default": null,
+          "anyOf": [
+            {
+              "$ref": "#/definitions/InstabootSnapshotModeV1"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "requests": {
@@ -180,6 +207,17 @@
               "type": "null"
             }
           ]
+        },
+        "runtime": {
+          "description": "Runtime settings.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityRuntimeV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -190,6 +228,26 @@
       "properties": {
         "limit": {
           "description": "Memory limit for an instance.\n\nFormat: [digit][unit], where unit is Mb/Gb/MiB/GiB,...",
+          "type": [
+            "string",
+            "null"
+          ]
+        }
+      }
+    },
+    "AppConfigCapabilityRuntimeV1": {
+      "description": "Runtime capability settings.",
+      "type": "object",
+      "properties": {
+        "async_threads": {
+          "description": "Whether to enable asynchronous threads/deep sleeping.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "engine": {
+          "description": "Engine to use for an instance, e.g. wasmer_cranelift, wasmer_llvm, etc.",
           "type": [
             "string",
             "null"
@@ -243,6 +301,85 @@
           "type": "string"
         }
       }
+    },
+    "ExecutableJob": {
+      "type": "object",
+      "properties": {
+        "capabilities": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/ExecutableJobCompatibilityMapV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "cli_args": {
+          "description": "CLI arguments passed to the runner. Only applicable for runners that accept CLI arguments.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "command": {
+          "description": "The command to run. Defaults to the package's entrypoint.",
+          "type": [
+            "string",
+            "null"
+          ]
+        },
+        "env": {
+          "description": "Environment variables.",
+          "type": [
+            "object",
+            "null"
+          ],
+          "additionalProperties": {
+            "type": "string"
+          }
+        },
+        "package": {
+          "description": "The package that contains the command to run. Defaults to the app config's package.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PackageSource"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "volumes": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/AppVolume"
+          }
+        }
+      }
+    },
+    "ExecutableJobCompatibilityMapV1": {
+      "type": "object",
+      "properties": {
+        "memory": {
+          "description": "Instance memory settings.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/AppConfigCapabilityMemoryV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        }
+      },
+      "additionalProperties": true
     },
     "HealthCheckHttpV1": {
       "description": "Health check configuration for http endpoints.",
@@ -307,9 +444,13 @@
         },
         "timeout": {
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         },
         "unhealthy_threshold": {
@@ -402,9 +543,13 @@
         },
         "timeout": {
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
-          "type": [
-            "string",
-            "null"
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
           ]
         }
       }
@@ -441,6 +586,134 @@
         }
       }
     },
+    "InstabootSnapshotModeV1": {
+      "description": "How will an instance be bootstrapped?",
+      "oneOf": [
+        {
+          "description": "Start the instance without any snapshot triggers. Once the requests are done, use [`snapshot_and_stop`](wasmer_wasix::WasiProcess::snapshot_and_stop) to capture a snapshot and shut the instance down.",
+          "type": "string",
+          "enum": [
+            "bootstrap"
+          ]
+        },
+        {
+          "description": "Explicitly enable the given snapshot triggers before starting the instance. The instance's process will have its stop_running_after_checkpoint flag set, so the first snapshot will cause the instance to shut down.",
+          "type": "object",
+          "required": [
+            "triggers"
+          ],
+          "properties": {
+            "triggers": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/SnapshotTrigger"
+              }
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "Job": {
+      "description": "Job configuration.",
+      "type": "object",
+      "required": [
+        "action",
+        "name",
+        "trigger"
+      ],
+      "properties": {
+        "action": {
+          "$ref": "#/definitions/JobAction"
+        },
+        "jitter_percent_max": {
+          "description": "Maximum percent of \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time. The calculation works by multiplying the time between invocations by a random amount, and taking the percentage of that random amount.\n\nSee also [`Self::jitter_percent_min`] to set a minimum jitter.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "jitter_percent_min": {
+          "description": "Minimum \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time. The calculation works by multiplying the time between invocations by a random amount, and taking the percentage of that random amount.\n\nIf not specified while `jitter_percent_max` is, it will default to 10%.\n\nSee also [`Self::jitter_percent_max`] to set a maximum jitter.",
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint8",
+          "minimum": 0.0
+        },
+        "max_schedule_drift": {
+          "description": "Don't start job if past the due time by this amount, instead opting to wait for the next instance of it to be triggered.",
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "name": {
+          "type": "string"
+        },
+        "retries": {
+          "type": [
+            "integer",
+            "null"
+          ],
+          "format": "uint32",
+          "minimum": 0.0
+        },
+        "timeout": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/PrettyDuration"
+            },
+            {
+              "type": "null"
+            }
+          ]
+        },
+        "trigger": {
+          "$ref": "#/definitions/JobTrigger"
+        }
+      },
+      "additionalProperties": true
+    },
+    "JobAction": {
+      "type": "object",
+      "oneOf": [
+        {
+          "type": "object",
+          "required": [
+            "fetch"
+          ],
+          "properties": {
+            "fetch": {
+              "$ref": "#/definitions/HttpRequest"
+            }
+          },
+          "additionalProperties": false
+        },
+        {
+          "type": "object",
+          "required": [
+            "execute"
+          ],
+          "properties": {
+            "execute": {
+              "$ref": "#/definitions/ExecutableJob"
+            }
+          },
+          "additionalProperties": false
+        }
+      ]
+    },
+    "JobTrigger": {
+      "type": "string"
+    },
     "Locality": {
       "type": "object",
       "required": [
@@ -458,6 +731,9 @@
     "PackageSource": {
       "type": "string"
     },
+    "PrettyDuration": {
+      "type": "string"
+    },
     "Redirect": {
       "description": "App redirect configuration.",
       "type": "object",
@@ -470,6 +746,9 @@
           ]
         }
       }
+    },
+    "SnapshotTrigger": {
+      "type": "string"
     }
   }
 }

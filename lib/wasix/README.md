@@ -1,4 +1,4 @@
-# `wasmer-wasi` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-wasi.svg)](https://crates.io/crates/wasmer-wasi)
+# `wasmer-wasi` [![Build Status](https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-wasi.svg)](https://crates.io/crates/wasmer-wasi)
 
 This crate provides the necessary imports to use WASI easily from Wasmer.
 [WebAssembly System Interface](https://github.com/WebAssembly/WASI)
@@ -8,7 +8,7 @@ is being standardized in the WebAssembly subgroup.
 Very succinctly, from the user perspective, WASI is a set of
 WebAssembly module _imports_ under a specific _namespace_ (which
 varies based on the WASI version). A program compiled for the
-`wasm32-wasi` target will be able to support standard I/O, file I/O,
+`wasm32-wasip1` target will be able to support standard I/O, file I/O,
 filesystem manipulation, memory management, time, string, environment
 variables, program startup etc.
 
@@ -47,7 +47,7 @@ fn main() {
 Then, let's compile it to a WebAssembly module with WASI support:
 
 ```sh
-$ rustc --target wasm32-wasi hello.rs
+$ rustc --target wasm32-wasip1 hello.rs
 ```
 
 Finally, let's execute it with the `wasmer` CLI:

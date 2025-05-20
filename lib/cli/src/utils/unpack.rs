@@ -1,3 +1,5 @@
+#![allow(unused)]
+
 use crate::common::normalize_path;
 use std::path::{Path, PathBuf};
 

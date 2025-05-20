@@ -422,7 +422,7 @@ fn decode_summary(
         };
 
     let id = PackageId::Named(NamedPackageId {
-        full_name: format!("{}/{}", namespace, package_name),
+        full_name: format!("{namespace}/{package_name}"),
         version: pkg_version
             .version
             .parse()

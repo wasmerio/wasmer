@@ -178,6 +178,7 @@ impl From<SnapshotTrigger> for JournalSnapshotTriggerV1 {
             SnapshotTrigger::NonDeterministicCall => JournalSnapshotTriggerV1::NonDeterministicCall,
             SnapshotTrigger::Bootstrap => JournalSnapshotTriggerV1::Bootstrap,
             SnapshotTrigger::Transaction => JournalSnapshotTriggerV1::Transaction,
+            SnapshotTrigger::Explicit => JournalSnapshotTriggerV1::Explicit,
         }
     }
 }
@@ -197,6 +198,7 @@ impl From<JournalSnapshotTriggerV1> for SnapshotTrigger {
             JournalSnapshotTriggerV1::NonDeterministicCall => SnapshotTrigger::NonDeterministicCall,
             JournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
             JournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
+            JournalSnapshotTriggerV1::Explicit => SnapshotTrigger::Explicit,
         }
     }
 }
@@ -218,6 +220,7 @@ impl From<&'_ ArchivedJournalSnapshotTriggerV1> for SnapshotTrigger {
             }
             ArchivedJournalSnapshotTriggerV1::Bootstrap => SnapshotTrigger::Bootstrap,
             ArchivedJournalSnapshotTriggerV1::Transaction => SnapshotTrigger::Transaction,
+            ArchivedJournalSnapshotTriggerV1::Explicit => SnapshotTrigger::Explicit,
         }
     }
 }
@@ -736,6 +739,31 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 ),
                 fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags.to_native()),
             },
+            ArchivedJournalEntry::OpenFileDescriptorV2(
+                ArchivedJournalEntryOpenFileDescriptorV2 {
+                    fd,
+                    dirfd,
+                    dirflags,
+                    path,
+                    o_flags,
+                    fs_rights_base,
+                    fs_rights_inheriting,
+                    fs_flags,
+                    fd_flags,
+                },
+            ) => Self::OpenFileDescriptorV2 {
+                fd: fd.to_native(),
+                dirfd: dirfd.to_native(),
+                dirflags: dirflags.to_native(),
+                path: String::from_utf8_lossy(path.as_ref()),
+                o_flags: wasi::Oflags::from_bits_truncate(o_flags.to_native()),
+                fs_rights_base: wasi::Rights::from_bits_truncate(fs_rights_base.to_native()),
+                fs_rights_inheriting: wasi::Rights::from_bits_truncate(
+                    fs_rights_inheriting.to_native(),
+                ),
+                fs_flags: wasi::Fdflags::from_bits_truncate(fs_flags.to_native()),
+                fd_flags: wasi::Fdflagsext::from_bits_truncate(fd_flags.to_native()),
+            },
             ArchivedJournalEntry::CloseFileDescriptorV1(
                 ArchivedJournalEntryCloseFileDescriptorV1 { fd },
             ) => Self::CloseFileDescriptorV1 { fd: fd.to_native() },
@@ -794,6 +822,17 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 original_fd: old_fd.to_native(),
                 copied_fd: new_fd.to_native(),
             },
+            ArchivedJournalEntry::DuplicateFileDescriptorV2(
+                ArchivedJournalEntryDuplicateFileDescriptorV2 {
+                    original_fd: old_fd,
+                    copied_fd: new_fd,
+                    cloexec,
+                },
+            ) => Self::DuplicateFileDescriptorV2 {
+                original_fd: old_fd.to_native(),
+                copied_fd: new_fd.to_native(),
+                cloexec: *cloexec,
+            },
             ArchivedJournalEntry::CreateDirectoryV1(ArchivedJournalEntryCreateDirectoryV1 {
                 fd,
                 path,
@@ -834,6 +873,12 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
             ) => Self::FileDescriptorSetSizeV1 {
                 fd: fd.to_native(),
                 st_size: st_size.to_native(),
+            },
+            ArchivedJournalEntry::FileDescriptorSetFdFlagsV1(
+                ArchivedJournalEntryFileDescriptorSetFdFlagsV1 { fd, flags },
+            ) => Self::FileDescriptorSetFdFlagsV1 {
+                fd: fd.to_native(),
+                flags: wasi::Fdflagsext::from_bits_truncate(flags.to_native()),
             },
             ArchivedJournalEntry::FileDescriptorSetFlagsV1(
                 ArchivedJournalEntryFileDescriptorSetFlagsV1 { fd, flags },
@@ -942,12 +987,13 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 },
                 line_feeds: *line_feeds,
             },
-            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 { fd1, fd2 }) => {
-                Self::CreatePipeV1 {
-                    fd1: fd1.to_native(),
-                    fd2: fd2.to_native(),
-                }
-            }
+            ArchivedJournalEntry::CreatePipeV1(ArchivedJournalEntryCreatePipeV1 {
+                read_fd,
+                write_fd,
+            }) => Self::CreatePipeV1 {
+                read_fd: read_fd.to_native(),
+                write_fd: write_fd.to_native(),
+            },
             ArchivedJournalEntry::PortAddAddrV1(ArchivedJournalEntryPortAddAddrV1 { cidr }) => {
                 Self::PortAddAddrV1 {
                     cidr: JournalIpCidrV1 {
@@ -1007,6 +1053,12 @@ impl<'a> TryFrom<ArchivedJournalEntry<'a>> for JournalEntry<'a> {
                 pt: (pt.to_native()).try_into().unwrap_or(wasi::SockProto::Max),
                 fd: fd.to_native(),
             },
+            ArchivedJournalEntry::SocketPairV1(ArchivedJournalEntrySocketPairV1 { fd1, fd2 }) => {
+                Self::SocketPairV1 {
+                    fd1: fd1.to_native(),
+                    fd2: fd2.to_native(),
+                }
+            }
             ArchivedJournalEntry::SocketListenV1(ArchivedJournalEntrySocketListenV1 {
                 fd,
                 backlog,

@@ -4,10 +4,10 @@
 //! Note, The Unix spec requires newly allocated FDs to always be the
 //! lowest-numbered FD available.
 
-use super::fd::Fd;
+use super::fd::{Fd, FdInner};
 use wasmer_wasix_types::wasi::Fd as WasiFd;
 
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub struct FdList {
     fds: Vec<Option<Fd>>,
     first_free: Option<usize>,
@@ -57,23 +57,22 @@ impl FdList {
         self.fds.get(idx as usize).and_then(|x| x.as_ref())
     }
 
-    pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut Fd> {
-        self.fds.get_mut(idx as usize).and_then(|x| x.as_mut())
+    pub fn get_mut(&mut self, idx: WasiFd) -> Option<&mut FdInner> {
+        self.fds
+            .get_mut(idx as usize)
+            .and_then(|x| x.as_mut())
+            .map(|x| &mut x.inner)
     }
 
     pub fn insert_first_free(&mut self, fd: Fd) -> WasiFd {
+        fd.inode.acquire_handle();
         match self.first_free {
             Some(free) => {
-                debug_assert!(self.fds[free].is_none());
+                assert!(self.fds[free].is_none());
 
                 self.fds[free] = Some(fd);
 
-                self.first_free = self
-                    .fds
-                    .iter()
-                    .skip(free + 1)
-                    .position(|fd| fd.is_none())
-                    .map(|idx| idx + free + 1);
+                self.first_free = self.first_free_after(free as WasiFd + 1);
 
                 free as WasiFd
             }
@@ -82,6 +81,58 @@ impl FdList {
                 (self.fds.len() - 1) as WasiFd
             }
         }
+    }
+
+    pub fn insert_first_free_after(&mut self, fd: Fd, after_or_equal: WasiFd) -> WasiFd {
+        match self.first_free {
+            // We're shorter than `after`, need to extend the list regardless of whether we have holes
+            _ if self.fds.len() < after_or_equal as usize => {
+                if !self.insert(true, after_or_equal, fd) {
+                    panic!("Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough");
+                }
+                after_or_equal
+            }
+
+            // First free hole is suitable, we can insert there
+            Some(free) if free >= after_or_equal as usize => self.insert_first_free(fd),
+
+            // No holes, and we're longer than `after`, so insert at the end
+            None if self.fds.len() >= after_or_equal as usize => self.insert_first_free(fd),
+
+            // Keeping the compiler happy
+            None => unreachable!("Both None cases were handled before"),
+
+            // If there's a hole but its index is too low, we need to search
+            Some(_) => {
+                // This is handled by insert or insert_first_free in every other case, but not this one
+                fd.inode.acquire_handle();
+
+                match self.first_free_after(after_or_equal) {
+                    // Found a suitable hole, and it's guaranteed to not be the first since
+                    // that's checked in the previous Some case, so filling it has no effect
+                    // on self.first_free
+                    Some(free) => {
+                        self.fds[free] = Some(fd);
+                        free as WasiFd
+                    }
+
+                    // No holes - insert at the end
+                    None => {
+                        self.fds.push(Some(fd));
+                        (self.fds.len() - 1) as WasiFd
+                    }
+                }
+            }
+        }
+    }
+
+    fn first_free_after(&self, after_or_equal: WasiFd) -> Option<usize> {
+        let skip = after_or_equal as usize;
+        self.fds
+            .iter()
+            .skip(skip)
+            .position(|fd| fd.is_none())
+            .map(|idx| idx + skip)
     }
 
     pub fn insert(&mut self, exclusive: bool, idx: WasiFd, fd: Fd) -> bool {
@@ -102,11 +153,21 @@ impl FdList {
             self.fds.resize(idx + 1, None);
         }
 
-        if self.fds[idx].is_some() && exclusive {
-            return false;
+        if let Some(ref prev_fd) = self.fds[idx] {
+            if exclusive {
+                return false;
+            } else {
+                prev_fd.inode.drop_one_handle();
+            }
         }
 
+        fd.inode.acquire_handle();
         self.fds[idx] = Some(fd);
+
+        if self.first_free == Some(idx) {
+            self.first_free = self.first_free_after(idx as WasiFd + 1);
+        }
+
         true
     }
 
@@ -115,18 +176,26 @@ impl FdList {
 
         let result = self.fds.get_mut(idx).and_then(|fd| fd.take());
 
-        if result.is_some() {
+        if let Some(fd) = result.as_ref() {
             match self.first_free {
                 None => self.first_free = Some(idx),
                 Some(x) if x > idx => self.first_free = Some(idx),
                 _ => (),
             }
+
+            fd.inode.drop_one_handle();
         }
 
         result
     }
 
     pub fn clear(&mut self) {
+        for fd in &self.fds {
+            if let Some(fd) = fd.as_ref() {
+                fd.inode.drop_one_handle();
+            }
+        }
+
         self.fds.clear();
         self.first_free = None;
     }
@@ -147,6 +216,27 @@ impl FdList {
             fds_iterator: self.fds.iter_mut(),
             idx: 0,
         }
+    }
+}
+
+impl Clone for FdList {
+    fn clone(&self) -> Self {
+        for fd in &self.fds {
+            if let Some(fd) = fd.as_ref() {
+                fd.inode.acquire_handle();
+            }
+        }
+
+        Self {
+            fds: self.fds.clone(),
+            first_free: self.first_free,
+        }
+    }
+}
+
+impl Drop for FdList {
+    fn drop(&mut self) {
+        self.clear();
     }
 }
 
@@ -174,7 +264,7 @@ impl<'a> Iterator for FdListIterator<'a> {
 }
 
 impl<'a> Iterator for FdListIteratorMut<'a> {
-    type Item = (WasiFd, &'a mut Fd);
+    type Item = (WasiFd, &'a mut FdInner);
 
     fn next(&mut self) -> Option<Self::Item> {
         loop {
@@ -189,7 +279,7 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
                 Some(Some(fd)) => {
                     let wasi_fd = self.idx as WasiFd;
                     self.idx += 1;
-                    return Some((wasi_fd, fd));
+                    return Some((wasi_fd, &mut fd.inner));
                 }
             }
         }
@@ -200,37 +290,49 @@ impl<'a> Iterator for FdListIteratorMut<'a> {
 mod tests {
     use std::{
         borrow::Cow,
-        sync::{atomic::AtomicU64, Arc, RwLock},
+        sync::{
+            atomic::{AtomicI32, AtomicU64},
+            Arc, RwLock,
+        },
     };
 
-    use wasmer_wasix_types::wasi::{Fdflags, Rights};
+    use assert_panic::assert_panic;
+    use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Rights};
 
-    use crate::fs::{Inode, InodeGuard, InodeVal, Kind};
+    use crate::fs::{fd::FdInner, Inode, InodeGuard, InodeVal, Kind};
 
     use super::{Fd, FdList, WasiFd};
 
     fn useless_fd(n: u16) -> Fd {
         Fd {
-            open_flags: n,
-            flags: Fdflags::empty(),
+            open_flags: 0,
             inode: InodeGuard {
                 ino: Inode(0),
                 inner: Arc::new(InodeVal {
                     is_preopened: false,
                     kind: RwLock::new(Kind::Buffer { buffer: vec![] }),
-                    name: Cow::Borrowed(""),
+                    name: RwLock::new(Cow::Borrowed("")),
                     stat: RwLock::new(Default::default()),
                 }),
+                open_handles: Arc::new(AtomicI32::new(0)),
             },
             is_stdio: false,
-            offset: Arc::new(AtomicU64::new(0)),
-            rights: Rights::empty(),
-            rights_inheriting: Rights::empty(),
+            inner: FdInner {
+                offset: Arc::new(AtomicU64::new(0)),
+                rights: Rights::empty(),
+                rights_inheriting: Rights::empty(),
+                flags: Fdflags::from_bits_preserve(n),
+                fd_flags: Fdflagsext::empty(),
+            },
         }
     }
 
     fn is_useless_fd(fd: &Fd, n: u16) -> bool {
-        fd.open_flags == n
+        fd.inner.flags.bits() == n
+    }
+
+    fn is_useless_fd_inner(fd_inner: &FdInner, n: u16) -> bool {
+        fd_inner.flags.bits() == n
     }
 
     fn assert_fds_match(l: &FdList, expected: &[(WasiFd, u16)]) {
@@ -301,6 +403,21 @@ mod tests {
     }
 
     #[test]
+    fn insert_at_first_free_updates_first_free() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.remove(1);
+        l.remove(2);
+        assert!(l.insert(true, 1, useless_fd(4)));
+        assert_eq!(l.first_free, Some(2));
+
+        assert_fds_match(&l, &[(0, 0), (1, 4), (3, 3)]);
+    }
+
+    #[test]
     fn next_and_last_fd_reported_correctly() {
         let mut l = FdList::new();
 
@@ -346,8 +463,8 @@ mod tests {
         assert!(is_useless_fd(l.get(2).unwrap(), 2));
 
         let at_4 = l.get_mut(4).unwrap();
-        assert!(is_useless_fd(at_4, 4));
-        *at_4 = useless_fd(5);
+        assert!(is_useless_fd_inner(at_4, 4));
+        at_4.flags = Fdflags::from_bits_preserve(5); // Update the "useless FD" number without changing the InodeGuard
         assert!(is_useless_fd(l.get(4).unwrap(), 5));
 
         assert!(l.get(10).is_none());
@@ -402,6 +519,80 @@ mod tests {
     }
 
     #[test]
+    fn insert_first_free_after_beyond_end_of_empty_list() {
+        let mut l = FdList::new();
+        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 1));
+    }
+
+    #[test]
+    fn insert_first_free_after_beyond_end_of_non_empty_list() {
+        let mut l = FdList::new();
+        l.insert(false, 0, useless_fd(0));
+        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 1));
+    }
+
+    #[test]
+    fn insert_first_free_after_beyond_end_of_non_empty_list_with_hole() {
+        let mut l = FdList::new();
+        l.insert(false, 0, useless_fd(0));
+        l.insert(false, 2, useless_fd(2));
+        assert_eq!(l.insert_first_free_after(useless_fd(1), 5), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 1));
+    }
+
+    #[test]
+    fn insert_first_free_after_behind_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.remove(2).unwrap();
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 1), 2);
+        assert!(is_useless_fd(l.get(2).unwrap(), 5));
+    }
+
+    #[test]
+    fn insert_first_free_after_behind_end_without_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 4);
+        assert!(is_useless_fd(l.get(4).unwrap(), 5));
+    }
+
+    #[test]
+    fn insert_first_free_after_between_hole_and_end_without_other_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.insert_first_free(useless_fd(4));
+        l.remove(1).unwrap();
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 5);
+        assert!(is_useless_fd(l.get(5).unwrap(), 5));
+    }
+
+    #[test]
+    fn insert_first_free_after_between_hole_and_end_with_other_hole() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+        l.insert_first_free(useless_fd(2));
+        l.insert_first_free(useless_fd(3));
+        l.insert_first_free(useless_fd(4));
+        l.remove(1).unwrap();
+        l.remove(3).unwrap();
+        assert_eq!(l.insert_first_free_after(useless_fd(5), 2), 3);
+        assert!(is_useless_fd(l.get(3).unwrap(), 5));
+    }
+
+    #[test]
     fn remove_works() {
         let mut l = FdList::new();
 
@@ -441,15 +632,72 @@ mod tests {
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 0);
-        assert!(is_useless_fd(next.1, 0));
-        *next.1 = useless_fd(2);
+        assert!(is_useless_fd_inner(next.1, 0));
+        next.1.flags = Fdflags::from_bits_preserve(2); // Update the "useless FD" number without changing the InodeGuard
 
         let next = i.next().unwrap();
         assert_eq!(next.0, 1);
-        assert!(is_useless_fd(next.1, 1));
+        assert!(is_useless_fd_inner(next.1, 1));
 
         assert!(i.next().is_none());
 
         assert_fds_match(&l, &[(0, 2), (1, 1)]);
+    }
+
+    #[test]
+    fn open_handles_are_updated_correctly() {
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+        l.insert_first_free(useless_fd(1));
+
+        let fd0 = l.get(0).unwrap().clone();
+        assert_eq!(fd0.inode.handle_count(), 1);
+
+        // Try removing an FD, should drop the handle
+        let fd1 = l.get(1).unwrap().clone();
+        assert_eq!(fd1.inode.handle_count(), 1);
+        l.remove(1).unwrap();
+        assert_eq!(fd1.inode.handle_count(), 0);
+
+        // Existing FDs should get a new handle when cloning the list
+        let mut l2 = l.clone();
+        assert_eq!(fd0.inode.handle_count(), 2);
+
+        {
+            // Dropping the list should drop open handles
+            let l3 = l2.clone();
+            assert_eq!(fd0.inode.handle_count(), 3);
+            drop(l3);
+            assert_eq!(fd0.inode.handle_count(), 2);
+        }
+
+        // Clearing the list should drop open handles
+        l.clear();
+        assert_eq!(fd0.inode.handle_count(), 1);
+
+        // Clear the last handle, should go back to zero
+        l2.clear();
+        assert_eq!(fd0.inode.handle_count(), 0);
+
+        assert_panic!(
+            fd0.inode.drop_one_handle(),
+            &str,
+            "InodeGuard handle dropped too many times"
+        );
+
+        assert_panic!(drop(fd0.inode.write()), String, contains "PoisonError");
+    }
+
+    #[test]
+    fn messing_with_inode_causes_panic() {
+        // We want to pin this behavior down, as not causing a panic
+        // can lead to inconsistencies
+        let mut l = FdList::new();
+        l.insert_first_free(useless_fd(0));
+
+        let fd = l.get(0).unwrap();
+        fd.inode.drop_one_handle();
+
+        assert_panic!(drop(l), &str, "InodeGuard handle dropped too many times");
     }
 }

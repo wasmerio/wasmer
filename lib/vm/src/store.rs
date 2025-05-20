@@ -1,5 +1,6 @@
 use crate::{
-    VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory, VMTable,
+    VMExceptionObj, VMExternObj, VMFunction, VMFunctionEnvironment, VMGlobal, VMInstance, VMMemory,
+    VMTable, VMTag,
 };
 use core::slice::Iter;
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
@@ -8,7 +9,10 @@ use wasmer_types::StoreId;
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
 pub trait StoreObject: Sized {
+    /// List the objects in the store.
     fn list(ctx: &StoreObjects) -> &Vec<Self>;
+
+    /// List the objects in the store, mutably.
     fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
 }
 macro_rules! impl_context_object {
@@ -32,6 +36,8 @@ impl_context_object! {
     instances => VMInstance,
     memories => VMMemory,
     extern_objs => VMExternObj,
+    exceptions => VMExceptionObj,
+    tags => VMTag,
     function_environments => VMFunctionEnvironment,
 }
 
@@ -45,10 +51,40 @@ pub struct StoreObjects {
     functions: Vec<VMFunction>,
     instances: Vec<VMInstance>,
     extern_objs: Vec<VMExternObj>,
+    exceptions: Vec<VMExceptionObj>,
+    tags: Vec<VMTag>,
     function_environments: Vec<VMFunctionEnvironment>,
 }
 
 impl StoreObjects {
+    /// Create a new instance of [`Self`]
+    #[allow(clippy::too_many_arguments)]
+    pub fn new(
+        id: StoreId,
+        memories: Vec<VMMemory>,
+        tables: Vec<VMTable>,
+        globals: Vec<VMGlobal>,
+        functions: Vec<VMFunction>,
+        instances: Vec<VMInstance>,
+        extern_objs: Vec<VMExternObj>,
+        exceptions: Vec<VMExceptionObj>,
+        tags: Vec<VMTag>,
+        function_environments: Vec<VMFunctionEnvironment>,
+    ) -> Self {
+        Self {
+            id,
+            memories,
+            tables,
+            globals,
+            functions,
+            instances,
+            extern_objs,
+            function_environments,
+            exceptions,
+            tags,
+        }
+    }
+
     /// Returns the ID of this context.
     pub fn id(&self) -> StoreId {
         self.id

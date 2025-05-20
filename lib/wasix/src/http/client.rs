@@ -1,28 +1,28 @@
-use std::{collections::HashSet, ops::Deref, sync::Arc};
+use std::{collections::BTreeSet, ops::Deref, sync::Arc};
 
 use futures::future::BoxFuture;
 use http::{HeaderMap, Method, StatusCode};
 use url::Url;
 
 /// Defines http client permissions.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash)]
 pub struct HttpClientCapabilityV1 {
     pub allow_all: bool,
-    pub allowed_hosts: HashSet<String>,
+    pub allowed_hosts: BTreeSet<String>,
 }
 
 impl HttpClientCapabilityV1 {
     pub fn new() -> Self {
         Self {
             allow_all: false,
-            allowed_hosts: HashSet::new(),
+            allowed_hosts: Default::default(),
         }
     }
 
     pub fn new_allow_all() -> Self {
         Self {
             allow_all: true,
-            allowed_hosts: HashSet::new(),
+            allowed_hosts: Default::default(),
         }
     }
 
@@ -95,7 +95,7 @@ impl std::fmt::Debug for HttpRequest {
         } = self;
 
         f.debug_struct("HttpRequest")
-            .field("url", &format_args!("{}", url))
+            .field("url", &format_args!("{url}"))
             .field("method", method)
             .field("headers", headers)
             .field("body", &body.as_deref().map(String::from_utf8_lossy))

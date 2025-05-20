@@ -9,8 +9,7 @@ pub use crate::{
 };
 use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_compiler::types::target::CpuFeature;
-use wasmer_types::CompileError;
+use wasmer_types::{target::CpuFeature, CompileError};
 
 /// Force `dynasm!` to use the correct arch (x64) when cross-compiling.
 /// `dynasm!` proc-macro tries to auto-detect it by default by looking at the
@@ -929,11 +928,11 @@ impl EmitterX64 for AssemblerX64 {
         dynasm!(
             self
             ; const_neg_one_32:
-            ; .dword -1
+            ; .i32 -1
             ; const_zero_32:
-            ; .dword 0
+            ; .i32  0
             ; const_pos_one_32:
-            ; .dword 1
+            ; .i32 1
         );
         Ok(())
     }

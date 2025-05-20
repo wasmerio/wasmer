@@ -10,14 +10,14 @@ fn get_env_var(var_name: &str) -> Result<String, env::VarError> {
 
 fn main() {
     let mut env_vars = env::vars()
-        .map(|(key, value)| format!("{}={}", key, value))
+        .map(|(key, value)| format!("{key}={value}"))
         .collect::<Vec<String>>();
 
     env_vars.sort();
 
     println!("Env vars:");
     for e in env_vars {
-        println!("{}", e);
+        println!("{e}");
     }
 
     env::set_var("WASI_ENVVAR_TEST", "HELLO");

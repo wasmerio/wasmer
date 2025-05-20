@@ -38,11 +38,10 @@ pub(crate) fn fd_fdstat_set_flags_internal(
     {
         let env = ctx.data();
         let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-        let mut fd_map = state.fs.fd_map.write().unwrap();
-        let fd_entry = wasi_try_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
-        let inode = fd_entry.inode.clone();
+        let fd_map = state.fs.fd_map.read().unwrap();
+        let fd_entry = wasi_try_ok!(fd_map.get(fd).ok_or(Errno::Badf));
 
-        if !fd_entry.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
+        if !fd_entry.inner.rights.contains(Rights::FD_FDSTAT_SET_FLAGS) {
             return Ok(Errno::Access);
         }
     }
@@ -50,7 +49,7 @@ pub(crate) fn fd_fdstat_set_flags_internal(
     let env = ctx.data();
     let (_, mut state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
     let mut fd_map = state.fs.fd_map.write().unwrap();
-    let fd_entry = wasi_try_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
+    let mut fd_entry = wasi_try_ok!(fd_map.get_mut(fd).ok_or(Errno::Badf));
     fd_entry.flags = flags;
     Ok(Errno::Success)
 }

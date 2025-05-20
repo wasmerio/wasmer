@@ -36,7 +36,7 @@ pub fn args_get<M: MemorySize>(
             .unwrap()
             .iter()
             .enumerate()
-            .map(|(i, v)| format!("{:>20}: {}", i, v))
+            .map(|(i, v)| format!("{i:>20}: {v}"))
             .collect::<Vec<String>>()
             .join("\n")
     );

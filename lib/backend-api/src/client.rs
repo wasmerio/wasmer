@@ -7,8 +7,9 @@ use cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use reqwest::Proxy;
 use url::Url;
+
 #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-struct Proxy;
+pub struct Proxy;
 
 /// API client for the Wasmer API.
 ///
@@ -45,7 +46,7 @@ impl WasmerClient {
         }
         user_agent
             .parse()
-            .with_context(|| format!("invalid user agent: '{}'", user_agent))
+            .with_context(|| format!("invalid user agent: '{user_agent}'"))
     }
 
     pub fn new_with_client(
@@ -83,6 +84,7 @@ impl WasmerClient {
         Self::new_with_proxy(graphql_endpoint, user_agent, None)
     }
 
+    #[cfg_attr(all(target_arch = "wasm32", target_os = "unknown"), allow(unused))]
     pub fn new_with_proxy(
         graphql_endpoint: Url,
         user_agent: &str,
@@ -90,7 +92,7 @@ impl WasmerClient {
     ) -> Result<Self, anyhow::Error> {
         let builder = {
             #[cfg(all(target_arch = "wasm32", target_os = "unknown"))]
-            let mut builder = reqwest::ClientBuilder::new();
+            let builder = reqwest::ClientBuilder::new();
 
             #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
             let builder = reqwest::ClientBuilder::new()

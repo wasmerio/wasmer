@@ -12,6 +12,7 @@ pub enum wasm_valkind_enum {
     WASM_F64 = 3,
     WASM_EXTERNREF = 128,
     WASM_FUNCREF = 129,
+    WASM_EXNREF = 130,
 }
 
 impl From<Type> for wasm_valkind_enum {
@@ -24,6 +25,7 @@ impl From<Type> for wasm_valkind_enum {
             Type::V128 => todo!("no v128 type in Wasm C API yet!"),
             Type::ExternRef => Self::WASM_EXTERNREF,
             Type::FuncRef => Self::WASM_FUNCREF,
+            Type::ExceptionRef => Self::WASM_EXNREF,
         }
     }
 }
@@ -38,6 +40,7 @@ impl From<wasm_valkind_enum> for Type {
             WASM_F64 => Type::F64,
             WASM_EXTERNREF => Type::ExternRef,
             WASM_FUNCREF => Type::FuncRef,
+            WASM_EXNREF => Type::ExternRef,
         }
     }
 }

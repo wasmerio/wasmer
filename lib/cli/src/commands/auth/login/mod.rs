@@ -55,25 +55,15 @@ impl Login {
             return Ok(AuthorizationState::TokenSuccess(token.clone()));
         }
 
-        let registry_host = env.registry_endpoint()?;
-        let registry_tld = tldextract::TldExtractor::new(tldextract::TldOption::default())
-            .extract(registry_host.as_str())
-            .map_err(|e| {
-                std::io::Error::new(
-                    std::io::ErrorKind::Other,
-                    format!("Invalid registry for login {}: {e}", registry_host),
-                )
-            })?;
+        let public_url = env.registry_public_url()?;
 
-        let login_prompt = match (
-            registry_tld.domain.as_deref(),
-            registry_tld.suffix.as_deref(),
-        ) {
-            (Some(d), Some(s)) => {
-                format!("Please paste the login token from https://{d}.{s}/settings/access-tokens")
+        let login_prompt = match public_url.domain() {
+            Some(d) => {
+                format!("Please paste the login token from https://{d}/settings/access-tokens")
             }
             _ => "Please paste the login token".to_string(),
         };
+
         #[cfg(test)]
         {
             Ok(AuthorizationState::TokenSuccess(login_prompt))
@@ -140,7 +130,7 @@ impl Login {
                     let fut = graceful.watch(conn);
                     futs.push(async move {
                         if let Err(e) = fut.await {
-                            eprintln!("Error serving connection: {:?}", e);
+                            eprintln!("Error serving connection: {e:?}");
                         }
                     });
                 },

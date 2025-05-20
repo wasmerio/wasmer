@@ -8,7 +8,7 @@ use cranelift_codegen::{
     isa::TargetFrontendConfig,
 };
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::{types::relocation::RelocationKind, wasmparser};
+use wasmer_compiler::{types::relocation::RelocationKind, wasm_unsupported, wasmparser};
 use wasmer_types::{FunctionType, LibCall, Type, WasmError, WasmResult};
 
 /// Helper function translate a Function signature into Cranelift Ir
@@ -55,6 +55,9 @@ pub fn type_to_irtype(ty: Type, target_config: TargetFrontendConfig) -> WasmResu
         Type::F64 => Ok(ir::types::F64),
         Type::V128 => Ok(ir::types::I8X16),
         Type::ExternRef | Type::FuncRef => reference_type(target_config),
+        Type::ExceptionRef => Err(wasm_unsupported!(
+            "exnrefs are not supported yet in cranelift"
+        )),
         // ty => Err(wasm_unsupported!("type_to_type: wasm type {:?}", ty)),
     }
 }
@@ -86,7 +89,7 @@ pub fn irreloc_to_relocationkind(reloc: Reloc) -> RelocationKind {
         Reloc::X86GOTPCRel4 => RelocationKind::X86GOTPCRel4,
         Reloc::Arm64Call => RelocationKind::Arm64Call,
         Reloc::RiscvCallPlt => RelocationKind::RiscvCall,
-        _ => panic!("The relocation {} is not yet supported.", reloc),
+        _ => panic!("The relocation {reloc} is not yet supported."),
     }
 }
 
@@ -116,8 +119,7 @@ pub fn block_with_params<'a, PE: TargetEnvironment + ?Sized>(
                     builder.append_block_param(block, environ.reference_type());
                 } else {
                     return Err(WasmError::Unsupported(format!(
-                        "unsupported reference type: {:?}",
-                        ty
+                        "unsupported reference type: {ty:?}"
                     )));
                 }
             }

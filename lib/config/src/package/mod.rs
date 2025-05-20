@@ -22,7 +22,7 @@ pub use self::{
 
 use std::{
     borrow::Cow,
-    collections::{hash_map::HashMap, BTreeMap, BTreeSet},
+    collections::{BTreeMap, BTreeSet},
     fmt::{self, Display},
     path::{Path, PathBuf},
     str::FromStr,
@@ -386,7 +386,7 @@ fn toml_to_cbor_value(val: &toml::Value) -> ciborium::Value {
         toml::Value::Integer(i) => ciborium::Value::Integer(ciborium::value::Integer::from(*i)),
         toml::Value::Float(f) => ciborium::Value::Float(*f),
         toml::Value::Boolean(b) => ciborium::Value::Bool(*b),
-        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{}", d)),
+        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{d}")),
         toml::Value::Array(sq) => {
             ciborium::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
         }
@@ -504,10 +504,30 @@ pub struct Module {
     pub kind: Option<String>,
     /// WebAssembly interfaces this module requires.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub interfaces: Option<HashMap<String, String>>,
+    pub interfaces: Option<IndexMap<String, String>>,
     /// Interface definitions that can be used to generate bindings to this
     /// module.
     pub bindings: Option<Bindings>,
+    /// Miscellaneous annotations from the user.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub annotations: Option<UserAnnotations>,
+}
+
+/// Miscellaneous annotations specified by the user.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub struct UserAnnotations {
+    pub suggested_compiler_optimizations: SuggestedCompilerOptimizations,
+}
+
+/// Suggested optimization that might be operated on the module when (and if) compiled.
+#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+pub struct SuggestedCompilerOptimizations {
+    pub pass_params: Option<bool>,
+}
+
+impl SuggestedCompilerOptimizations {
+    pub const KEY: &'static str = "suggested_compiler_optimizations";
+    pub const PASS_PARAMS_KEY: &'static str = "pass_params";
 }
 
 /// The interface exposed by a [`Module`].
@@ -717,9 +737,9 @@ pub struct Manifest {
     /// Metadata about the package itself.
     pub package: Option<Package>,
     /// The package's dependencies.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
     #[builder(default)]
-    pub dependencies: HashMap<String, VersionReq>,
+    pub dependencies: IndexMap<String, VersionReq>,
     /// The mappings used when making bundled assets available to WebAssembly
     /// instances, in the form guest -> host.
     #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
@@ -739,7 +759,7 @@ impl Manifest {
     pub fn new_empty() -> Self {
         Self {
             package: None,
-            dependencies: HashMap::new(),
+            dependencies: IndexMap::new(),
             fs: IndexMap::new(),
             modules: Vec::new(),
             commands: Vec::new(),
@@ -915,7 +935,7 @@ impl ManifestBuilder {
     /// Add a dependency to the [`Manifest`].
     pub fn with_dependency(&mut self, name: impl Into<String>, version: VersionReq) -> &mut Self {
         self.dependencies
-            .get_or_insert_with(HashMap::new)
+            .get_or_insert_with(IndexMap::new)
             .insert(name.into(), version);
         self
     }
@@ -1004,7 +1024,7 @@ mod tests {
                 entrypoint: None,
                 private: false,
             }),
-            dependencies: HashMap::new(),
+            dependencies: IndexMap::new(),
             modules: vec![Module {
                 name: "test".to_string(),
                 abi: Abi::Wasi,
@@ -1012,6 +1032,7 @@ mod tests {
                 interfaces: None,
                 kind: Some("https://webc.org/kind/wasi".to_string()),
                 source: Path::new("test.wasm").to_path_buf(),
+                annotations: None,
             }],
             commands: Vec::new(),
             fs: vec![
@@ -1036,12 +1057,12 @@ license = "MIT"
 
 [[module]]
 name = "mod"
-source = "target/wasm32-wasi/release/mod.wasm"
+source = "target/wasm32-wasip1/release/mod.wasm"
 interfaces = {"wasi" = "0.0.0-unstable"}
 
 [[module]]
 name = "mod-with-exports"
-source = "target/wasm32-wasi/release/mod-with-exports.wasm"
+source = "target/wasm32-wasip1/release/mod-with-exports.wasm"
 bindings = { wit-exports = "exports.wit", wit-bindgen = "0.0.0" }
 
 [[command]]
@@ -1059,7 +1080,7 @@ module = "mod"
             modules[1],
             Module {
                 name: "mod-with-exports".to_string(),
-                source: PathBuf::from("target/wasm32-wasi/release/mod-with-exports.wasm"),
+                source: PathBuf::from("target/wasm32-wasip1/release/mod-with-exports.wasm"),
                 abi: Abi::None,
                 kind: None,
                 interfaces: None,
@@ -1067,6 +1088,7 @@ module = "mod"
                     wit_exports: PathBuf::from("exports.wit"),
                     wit_bindgen: "0.0.0".parse().unwrap()
                 })),
+                annotations: None
             },
         );
     }

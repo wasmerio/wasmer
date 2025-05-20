@@ -12,7 +12,7 @@ use crate::os::task::thread::RewindResultType;
 use crate::syscalls::restore_snapshot;
 use crate::{
     import_object_for_all_wasi_versions,
-    runtime::SpawnMemoryType,
+    runtime::task_manager::SpawnMemoryTypeOrStore,
     state::WasiInstanceHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
     RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
@@ -41,16 +41,37 @@ impl WasiFunctionEnv {
     pub fn new_with_store(
         module: Module,
         env: WasiEnv,
-        store_snapshot: Option<&StoreSnapshot>,
-        spawn_type: SpawnMemoryType,
+        store_snapshot: Option<StoreSnapshot>,
+        spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
     ) -> Result<(Self, Store), WasiThreadError> {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
-        let mut store = env.runtime.new_store();
-        let memory = env
-            .tasks()
-            .build_memory(&mut store.as_store_mut(), spawn_type)?;
+        let (memory, store): (Option<wasmer::Memory>, Option<wasmer::Store>) = match spawn_type {
+            SpawnMemoryTypeOrStore::New => (None, None),
+            SpawnMemoryTypeOrStore::Type(mut ty) => {
+                ty.shared = true;
+
+                let mut store = env.runtime.new_store();
+
+                // Note: If memory is shared, maximum needs to be set in the
+                // browser otherwise creation will fail.
+                let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
+
+                let mem = Memory::new(&mut store, ty).map_err(|err| {
+                    tracing::error!(
+                        error = &err as &dyn std::error::Error,
+                        memory_type=?ty,
+                        "could not create memory",
+                    );
+                    WasiThreadError::MemoryCreateFailed(err)
+                })?;
+                (Some(mem), Some(store))
+            }
+            SpawnMemoryTypeOrStore::StoreAndMemory(s, m) => (m, Some(s)),
+        };
+
+        let mut store = store.unwrap_or_else(|| env.runtime().new_store());
 
         // Build the context object and import the memory
         let mut ctx = WasiFunctionEnv::new(&mut store, env);
@@ -79,7 +100,7 @@ impl WasiFunctionEnv {
 
         // Set all the globals
         if let Some(snapshot) = store_snapshot {
-            restore_store_snapshot(&mut store, snapshot);
+            restore_store_snapshot(&mut store, &snapshot);
         }
 
         Ok((ctx, store))
@@ -319,14 +340,40 @@ impl WasiFunctionEnv {
         {
             // If there are journals we need to restore then do so (this will
             // prevent the initialization function from running
-            let restore_journals = self.data(&store).runtime.journals().clone();
-            if !restore_journals.is_empty() {
+            let restore_ro_journals = self
+                .data(&store)
+                .runtime
+                .read_only_journals()
+                .collect::<Vec<_>>();
+            let restore_w_journals = self
+                .data(&store)
+                .runtime
+                .writable_journals()
+                .collect::<Vec<_>>();
+            if !restore_ro_journals.is_empty() || !restore_w_journals.is_empty() {
                 tracing::trace!("replaying journal=true");
                 self.data_mut(&mut store).replaying_journal = true;
 
-                for journal in restore_journals {
+                for journal in restore_ro_journals {
                     let ctx = self.env.clone().into_mut(&mut store);
-                    let rewind = match restore_snapshot(ctx, journal, true) {
+                    let rewind = match restore_snapshot(ctx, journal.as_ref(), true) {
+                        Ok(r) => r,
+                        Err(err) => {
+                            tracing::trace!("replaying journal=false (err={:?})", err);
+                            self.data_mut(&mut store).replaying_journal = false;
+                            return Err(err);
+                        }
+                    };
+                    rewind_state = rewind.map(|rewind| (rewind, RewindResultType::RewindRestart));
+                }
+
+                for journal in restore_w_journals {
+                    let ctx = self.env.clone().into_mut(&mut store);
+                    let rewind = match restore_snapshot(
+                        ctx,
+                        journal.as_ref().as_dyn_readable_journal(),
+                        true,
+                    ) {
                         Ok(r) => r,
                         Err(err) => {
                             tracing::trace!("replaying journal=false (err={:?})", err);
@@ -358,8 +405,7 @@ impl WasiFunctionEnv {
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                        "journal failed to save the module initialization event - {}",
-                        err
+                        "journal failed to save the module initialization event - {err}"
                     )))
                 })?;
             } else {
@@ -371,8 +417,7 @@ impl WasiFunctionEnv {
                 )
                 .map_err(|err| {
                     WasiRuntimeError::Runtime(wasmer::RuntimeError::new(format!(
-                        "journal failed to save clear ethereal event - {}",
-                        err
+                        "journal failed to save clear ethereal event - {err}",
                     )))
                 })?;
             }

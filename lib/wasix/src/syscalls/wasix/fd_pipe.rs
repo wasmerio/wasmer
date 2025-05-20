@@ -1,27 +1,34 @@
+use std::sync::atomic::AtomicUsize;
+
 use virtual_fs::Pipe;
 
 use super::*;
 use crate::syscalls::*;
 
+// Used to make pipe end names unique. This is necessary since we use
+// a hash of the name to calculate inode numbers. The actual number
+// has no other meaning.
+static PIPE_NUMBER: AtomicUsize = AtomicUsize::new(0);
+
 /// ### `fd_pipe()`
 /// Creates ta pipe that feeds data between two file handles
 /// Output:
 /// - `Fd`
-///     First file handle that represents one end of the pipe
+///     First file handle that represents the read end of the pipe
 /// - `Fd`
-///     Second file handle that represents the other end of the pipe
-#[instrument(level = "trace", skip_all, fields(fd1 = field::Empty, fd2 = field::Empty), ret)]
+///     Second file handle that represents the write end of the pipe
+#[instrument(level = "trace", skip_all, fields(read_fd = field::Empty, write_fd = field::Empty), ret)]
 pub fn fd_pipe<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    ro_fd1: WasmPtr<WasiFd, M>,
-    ro_fd2: WasmPtr<WasiFd, M>,
+    ro_read_fd: WasmPtr<WasiFd, M>,
+    ro_write_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
-    let (fd1, fd2) = wasi_try_ok!(fd_pipe_internal(&mut ctx, None, None));
+    let (read_fd, write_fd) = wasi_try_ok!(fd_pipe_internal(&mut ctx, None, None));
     let env = ctx.data();
 
     #[cfg(feature = "journal")]
     if env.enable_journal {
-        JournalEffector::save_fd_pipe(&mut ctx, fd1, fd2).map_err(|err| {
+        JournalEffector::save_fd_pipe(&mut ctx, read_fd, write_fd).map_err(|err| {
             tracing::error!("failed to save create pipe event - {}", err);
             WasiError::Exit(ExitCode::from(Errno::Fault))
         })?;
@@ -30,66 +37,99 @@ pub fn fd_pipe<M: MemorySize>(
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 
-    Span::current().record("fd1", fd1).record("fd2", fd2);
+    Span::current()
+        .record("read_fd", read_fd)
+        .record("write_fd", write_fd);
 
-    wasi_try_mem_ok!(ro_fd1.write(&memory, fd1));
-    wasi_try_mem_ok!(ro_fd2.write(&memory, fd2));
+    wasi_try_mem_ok!(ro_read_fd.write(&memory, read_fd));
+    wasi_try_mem_ok!(ro_write_fd.write(&memory, write_fd));
 
     Ok(Errno::Success)
 }
 
 pub fn fd_pipe_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    with_fd1: Option<WasiFd>,
-    with_fd2: Option<WasiFd>,
+    with_read_fd: Option<WasiFd>,
+    with_write_fd: Option<WasiFd>,
 ) -> Result<(WasiFd, WasiFd), Errno> {
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
-    let (pipe1, pipe2) = Pipe::channel();
+    let (tx, rx) = Pipe::new().split();
 
-    let inode1 = state.fs.create_inode_with_default_stat(
+    // FIXME: since a hash of the inode name is used to calculate the inode number, this may
+    // or may not break journals that include pipes and are compacted.
+    let pipe_no = PIPE_NUMBER.fetch_add(1, Ordering::SeqCst);
+
+    let rx_inode = state.fs.create_inode_with_default_stat(
         inodes,
-        Kind::Pipe { pipe: pipe1 },
+        Kind::PipeRx { rx },
         false,
-        "pipe".to_string().into(),
+        format!("pipe{pipe_no}-rx").into(),
     );
-    let inode2 = state.fs.create_inode_with_default_stat(
+    let tx_inode = state.fs.create_inode_with_default_stat(
         inodes,
-        Kind::Pipe { pipe: pipe2 },
+        Kind::PipeTx { tx },
         false,
-        "pipe".to_string().into(),
+        format!("pipe{pipe_no}-tx").into(),
     );
 
-    let rights = Rights::FD_READ
-        | Rights::FD_WRITE
-        | Rights::FD_SYNC
+    let rights = Rights::FD_SYNC
         | Rights::FD_DATASYNC
         | Rights::POLL_FD_READWRITE
         | Rights::SOCK_SEND
         | Rights::FD_FDSTAT_SET_FLAGS
         | Rights::FD_FILESTAT_GET;
 
-    let fd1 = if let Some(fd) = with_fd1 {
+    let read_rights = rights | Rights::FD_READ;
+    let write_rights = rights | Rights::FD_WRITE;
+
+    let read_fd = if let Some(fd) = with_read_fd {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), 0, inode1, fd)
-            .map(|_| fd)?
+            .with_fd(
+                read_rights,
+                read_rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                0,
+                rx_inode,
+                fd,
+            )
+            .map(|()| fd)?
     } else {
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), 0, inode1)?
+        state.fs.create_fd(
+            read_rights,
+            read_rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            0,
+            rx_inode,
+        )?
     };
 
-    let fd2 = if let Some(fd) = with_fd2 {
+    let write_fd = if let Some(fd) = with_write_fd {
         state
             .fs
-            .with_fd(rights, rights, Fdflags::empty(), 0, inode2, fd)
-            .map(|_| fd)?
+            .with_fd(
+                write_rights,
+                write_rights,
+                Fdflags::empty(),
+                Fdflagsext::empty(),
+                0,
+                tx_inode,
+                fd,
+            )
+            .map(|()| fd)?
     } else {
-        state
-            .fs
-            .create_fd(rights, rights, Fdflags::empty(), 0, inode2)?
+        state.fs.create_fd(
+            write_rights,
+            write_rights,
+            Fdflags::empty(),
+            Fdflagsext::empty(),
+            0,
+            tx_inode,
+        )?
     };
 
-    Ok((fd1, fd2))
+    Ok((read_fd, write_fd))
 }

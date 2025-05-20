@@ -324,14 +324,20 @@ fn test_popcnt(mut config: crate::Config) -> Result<()> {
     let mut num = 1;
     for _ in 1..10000 {
         let result = popcnt_i32.call(&mut store, &[Value::I32(num)]).unwrap();
-        assert_eq!(&Value::I32(num.count_ones() as i32), result.get(0).unwrap());
+        assert_eq!(
+            &Value::I32(num.count_ones() as i32),
+            result.first().unwrap()
+        );
         num = get_next_number_i32(num);
     }
 
     let mut num = 1;
     for _ in 1..10000 {
         let result = popcnt_i64.call(&mut store, &[Value::I64(num)]).unwrap();
-        assert_eq!(&Value::I64(num.count_ones() as i64), result.get(0).unwrap());
+        assert_eq!(
+            &Value::I64(num.count_ones() as i64),
+            result.first().unwrap()
+        );
         num = get_next_number_i64(num);
     }
 
@@ -439,7 +445,7 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
         .get_function("large_local")?
         .call(&mut store, &[])
         .unwrap();
-    assert_eq!(&Value::I64(1_i64), result.get(0).unwrap());
+    assert_eq!(&Value::I64(1_i64), result.first().unwrap());
     Ok(())
 }
 
@@ -492,6 +498,32 @@ fn issue_4519_sdiv64(mut config: crate::Config) -> Result<()> {
 
     let mut store = config.store();
     let module = Module::new(&store, wat)?;
+
+    Ok(())
+}
+
+#[compiler_test(issues)]
+/// Singlepass panics when encountering ref types.
+///
+/// Note: this one is specific to Singlepass, but we want to test in all
+/// available compilers.
+///
+/// Note: for now, we don't want to implement reference types, we just don't want singlepass to
+/// panic.
+///
+/// https://github.com/wasmerio/wasmer/issues/5309
+fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
+    let wat = format!(
+        r#"
+      (module
+        (type $x1 (func (param funcref)))
+        (import "env" "abort" (func $f (type $x1)))
+      )
+    "#,
+    );
+
+    let mut store = config.store();
+    let _ = Module::new(&store, wat);
 
     Ok(())
 }

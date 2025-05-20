@@ -7,8 +7,8 @@
   </a>
 
   <p>
-    <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?event=push" alt="Build Status">
+     <a href="https://github.com/wasmerio/wasmer/releases">
+      <img src="https://shields.io/github/v/tag/wasmerio/wasmer" alt="Github release">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
@@ -17,8 +17,11 @@
       <img src="https://img.shields.io/static/v1?label=Docs&message=docs.wasmer.io&color=blue" alt="Wasmer Docs">
     </a>
     <a href="https://discord.gg/rWkMNStrEW">
-      <img src="https://img.shields.io/discord/1110300506942881873" alt="Wasmer on Discord">
+      <img src="https://img.shields.io/discord/1110300506942881873?label=Wasmer&logo=discord&logoColor=white" alt="Wasmer on Discord">
     </a>
+    <a href="https://x.com/wasmerio">
+      <img src="https://img.shields.io/twitter/follow/wasmerio" alt="Wasmer on X">
+    </a>  
   </p>
 </div>
 
@@ -89,8 +92,11 @@ curl https://get.wasmer.io -sSfL | sh
 </details>
 
 > Note: You can also try Wasmer online in [wasmer.sh](https://wasmer.sh/)
-> 
+
 ### Quickstart
+
+> [!Tip]  
+> As part of our commitment to open source, we want to reward all GitHub users. In addition to the free tier, you can get up to $200 in [Wasmer Edge](https://wasmer.io/products/edge) credits for your open-source contributions - [Claim here](https://github.com/wasmerio/wasmer/discussions/5560).
 
 You can start by running
 [Cowsay](https://wasmer.io/syrusakbary/cowsay):
@@ -238,7 +244,7 @@ We recommend reading the following guide on how to contribute into a complex pro
 https://mitchellh.com/writing/contributing-to-complex-projects
 
 Check our docs on how to [build Wasmer from
-source](https://docs.wasmer.io/developers/build-from-source) or [test your changes](https://docs.wasmer.io/developers/testing).
+source](./docs/BUILD.md) or [test your changes](https://docs.wasmer.io/developers/testing).
 
 <!-- ## Bounties
 

@@ -2277,6 +2277,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::ArrayAtomicRmwCmpxchg { .. } => {
             return Err(wasm_unsupported!("Array atomics not supported yet!"))
         }
+        Operator::ContNew { .. } => todo!(),
+        Operator::ContBind { .. } => todo!(),
+        Operator::Suspend { .. } => todo!(),
+        Operator::Resume { .. } => todo!(),
+        Operator::ResumeThrow { .. } => todo!(),
+        Operator::Switch { .. } => todo!(),
+        Operator::I64Add128 => todo!(),
+        Operator::I64Sub128 => todo!(),
+        Operator::I64MulWideS => todo!(),
+        Operator::I64MulWideU => todo!(),
+        _ => todo!(),
     };
     Ok(())
 }
@@ -2722,7 +2733,7 @@ fn mem_op_size(opcode: ir::Opcode, ty: Type) -> u8 {
         ir::Opcode::Istore16 | ir::Opcode::Sload16 | ir::Opcode::Uload16 => 2,
         ir::Opcode::Istore32 | ir::Opcode::Sload32 | ir::Opcode::Uload32 => 4,
         ir::Opcode::Store | ir::Opcode::Load => u8::try_from(ty.bytes()).unwrap(),
-        _ => panic!("unknown size of mem op for {:?}", opcode),
+        _ => panic!("unknown size of mem op for {opcode:?}"),
     }
 }
 

@@ -8,11 +8,11 @@ use wasmer_compiler::{
         function::FunctionBody,
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::CustomSection,
-        target::{CallingConvention, CpuFeature, Target},
     },
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
+    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
 };
 
@@ -102,7 +102,7 @@ fn dwarf_index(reg: u16) -> gimli::Register {
     match reg {
         0..=31 => DWARF_GPR[reg as usize],
         64..=95 => DWARF_NEON[reg as usize - 64],
-        _ => panic!("Unknown register index {}", reg),
+        _ => panic!("Unknown register index {reg}"),
     }
 }
 
@@ -2309,7 +2309,7 @@ impl Machine for MachineARM64 {
     // assembler finalize
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
         self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {:?}", e))
+            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
         })
     }
 

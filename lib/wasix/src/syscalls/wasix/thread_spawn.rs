@@ -166,7 +166,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     tasks
         .task_wasm(
             TaskWasm::new(Box::new(run), thread_env, thread_module, false)
-                .with_globals(&globals)
+                .with_globals(globals)
                 .with_memory(spawn_type),
         )
         .map_err(Into::<Errno>::into)?;
@@ -230,7 +230,7 @@ fn call_module<M: MemorySize>(
                     return Err(deep);
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
-                    debug!("failed as wasi version is unknown",);
+                    debug!("failed as wasi version is unknown");
                     env.data(&store)
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);

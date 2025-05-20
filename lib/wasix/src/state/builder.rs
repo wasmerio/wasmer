@@ -13,7 +13,7 @@ use wasmer::{AsStoreMut, Extern, Imports, Instance, Module, Store};
 use wasmer_config::package::PackageId;
 
 #[cfg(feature = "journal")]
-use crate::journal::{DynJournal, SnapshotTrigger};
+use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
@@ -28,6 +28,7 @@ use crate::{
     Runtime, WasiEnv, WasiError, WasiFunctionEnv, WasiRuntimeError,
 };
 use wasmer_types::ModuleHash;
+use wasmer_wasix_types::wasi::SignalDisposition;
 
 use super::env::WasiEnvInit;
 
@@ -55,6 +56,8 @@ pub struct WasiEnvBuilder {
     pub(super) args: Vec<String>,
     /// Environment variables.
     pub(super) envs: Vec<(String, Vec<u8>)>,
+    /// Signals that should get their handler overridden.
+    pub(super) signals: Vec<SignalDisposition>,
     /// Pre-opened directories that will be accessible from WASI.
     pub(super) preopens: Vec<PreopenedDir>,
     /// Pre-opened virtual directories that will be accessible from WASI.
@@ -89,7 +92,15 @@ pub struct WasiEnvBuilder {
     pub(super) snapshot_interval: Option<std::time::Duration>,
 
     #[cfg(feature = "journal")]
-    pub(super) journals: Vec<Arc<DynJournal>>,
+    pub(super) stop_running_after_snapshot: bool,
+
+    #[cfg(feature = "journal")]
+    pub(super) read_only_journals: Vec<Arc<DynReadableJournal>>,
+
+    #[cfg(feature = "journal")]
+    pub(super) writable_journals: Vec<Arc<DynJournal>>,
+
+    pub(super) skip_stdio_during_bootstrap: bool,
 
     #[cfg(feature = "ctrlc")]
     pub(super) attach_ctrl_c: bool,
@@ -102,6 +113,7 @@ impl std::fmt::Debug for WasiEnvBuilder {
             .field("entry_function", &self.entry_function)
             .field("args", &self.args)
             .field("envs", &self.envs)
+            .field("signals", &self.signals)
             .field("preopens", &self.preopens)
             .field("uses", &self.uses)
             .field("setup_fs_fn exists", &self.setup_fs_fn.is_some())
@@ -143,7 +155,7 @@ pub enum WasiStateCreationError {
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
     if !alias.bytes().all(|b| b != b'\0') {
         return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-            format!("Alias \"{}\" contains a nul byte", alias),
+            format!("Alias \"{alias}\" contains a nul byte"),
         ));
     }
 
@@ -163,6 +175,14 @@ impl WasiEnvBuilder {
         }
     }
 
+    /// Attaches a ctrl-c handler which will send signals to the
+    /// process rather than immediately termiante it
+    #[cfg(feature = "ctrlc")]
+    pub fn attach_ctrl_c(mut self) -> Self {
+        self.attach_ctrl_c = true;
+        self
+    }
+
     /// Add an environment variable pair.
     ///
     /// Both the key and value of an environment variable must not
@@ -174,14 +194,6 @@ impl WasiEnvBuilder {
         Value: AsRef<[u8]>,
     {
         self.add_env(key, value);
-        self
-    }
-
-    /// Attaches a ctrl-c handler which will send signals to the
-    /// process rather than immediately termiante it
-    #[cfg(feature = "ctrlc")]
-    pub fn attach_ctrl_c(mut self) -> Self {
-        self.attach_ctrl_c = true;
         self
     }
 
@@ -241,6 +253,47 @@ impl WasiEnvBuilder {
     /// Get a mutable reference to the configured environment variables.
     pub fn get_env_mut(&mut self) -> &mut Vec<(String, Vec<u8>)> {
         &mut self.envs
+    }
+
+    /// Add a signal handler override.
+    pub fn signal(mut self, sig_action: SignalDisposition) -> Self {
+        self.add_signal(sig_action);
+        self
+    }
+
+    /// Add a signal handler override.
+    pub fn add_signal(&mut self, sig_action: SignalDisposition) {
+        self.signals.push(sig_action);
+    }
+
+    /// Add multiple signal handler overrides.
+    pub fn signals<I>(mut self, signal_pairs: I) -> Self
+    where
+        I: IntoIterator<Item = SignalDisposition>,
+    {
+        self.add_signals(signal_pairs);
+
+        self
+    }
+
+    /// Add multiple signal handler overrides.
+    pub fn add_signals<I>(&mut self, signal_pairs: I)
+    where
+        I: IntoIterator<Item = SignalDisposition>,
+    {
+        for sig in signal_pairs {
+            self.add_signal(sig);
+        }
+    }
+
+    /// Get a reference to the configured signal handler overrides.
+    pub fn get_signals(&self) -> &[SignalDisposition] {
+        &self.signals
+    }
+
+    /// Get a mutable reference to the configured signalironment variables.
+    pub fn get_signals_mut(&mut self) -> &mut Vec<SignalDisposition> {
+        &mut self.signals
     }
 
     pub fn entry_function<S>(mut self, entry_function: S) -> Self
@@ -570,13 +623,23 @@ impl WasiEnvBuilder {
     ///
     /// The state of the WASM process and its sandbox will be reapplied use
     /// the journals in the order that you specify here.
+    #[cfg(feature = "journal")]
+    pub fn add_read_only_journal(&mut self, journal: Arc<DynReadableJournal>) {
+        self.read_only_journals.push(journal);
+    }
+
+    /// Specifies one or more journal files that Wasmer will use to restore
+    /// the state of the WASM process.
+    ///
+    /// The state of the WASM process and its sandbox will be reapplied use
+    /// the journals in the order that you specify here.
     ///
     /// The last journal file specified will be created if it does not exist
     /// and opened for read and write. New journal events will be written to this
     /// file
     #[cfg(feature = "journal")]
-    pub fn add_journal(&mut self, journal: Arc<DynJournal>) {
-        self.journals.push(journal);
+    pub fn add_writable_journal(&mut self, journal: Arc<DynJournal>) {
+        self.writable_journals.push(journal);
     }
 
     pub fn get_current_dir(&mut self) -> Option<PathBuf> {
@@ -695,6 +758,15 @@ impl WasiEnvBuilder {
         self.snapshot_interval.replace(interval);
     }
 
+    #[cfg(feature = "journal")]
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.stop_running_after_snapshot = stop_running;
+    }
+
+    pub fn with_skip_stdio_during_bootstrap(&mut self, skip: bool) {
+        self.skip_stdio_during_bootstrap = skip;
+    }
+
     /// Add an item to the list of importable items provided to the instance.
     pub fn import(
         mut self,
@@ -774,16 +846,13 @@ impl WasiEnvBuilder {
             }) {
                 Some(InvalidCharacter::Nul) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!("found nul byte in env var key \"{}\" (key=value)", env_key),
+                        format!("found nul byte in env var key \"{env_key}\" (key=value)"),
                     ))
                 }
 
                 Some(InvalidCharacter::Equal) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!(
-                            "found equal sign in env var key \"{}\" (key=value)",
-                            env_key
-                        ),
+                        format!("found equal sign in env var key \"{env_key}\" (key=value)"),
                     ))
                 }
 
@@ -894,6 +963,7 @@ impl WasiEnvBuilder {
             futexs: Default::default(),
             clock_offset: Default::default(),
             envs: std::sync::Mutex::new(conv_env_vars(self.envs)),
+            signals: std::sync::Mutex::new(self.signals.iter().map(|s| (s.sig, s.disp)).collect()),
         };
 
         let runtime = self.runtime.unwrap_or_else(|| {
@@ -902,8 +972,12 @@ impl WasiEnvBuilder {
                 #[allow(unused_mut)]
                 let mut runtime = crate::runtime::PluggableRuntime::new(Arc::new(crate::runtime::task_manager::tokio::TokioTaskManager::default()));
                 #[cfg(feature = "journal")]
-                for journal in self.journals.clone() {
-                    runtime.add_journal(journal);
+                for journal in self.read_only_journals.clone() {
+                    runtime.add_read_only_journal(journal);
+                }
+                #[cfg(feature = "journal")]
+                for journal in self.writable_journals.clone() {
+                    runtime.add_writable_journal(journal);
                 }
                 Arc::new(runtime)
             }
@@ -940,13 +1014,17 @@ impl WasiEnvBuilder {
             process: None,
             thread: None,
             #[cfg(feature = "journal")]
-            call_initialize: self.journals.is_empty(),
+            call_initialize: self.read_only_journals.is_empty()
+                && self.writable_journals.is_empty(),
             #[cfg(not(feature = "journal"))]
             call_initialize: true,
             can_deep_sleep: false,
             extra_tracing: true,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on,
+            #[cfg(feature = "journal")]
+            stop_running_after_snapshot: self.stop_running_after_snapshot,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports,
         };
 

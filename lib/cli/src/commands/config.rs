@@ -190,40 +190,40 @@ impl Config {
         let bindir = prefix.join("bin").display().to_string();
         let includedir = prefix.join("include").display().to_string();
         let libdir = prefix.join("lib").display().to_string();
-        let cflags = format!("-I{}", includedir);
-        let libs = format!("-L{} -lwasmer", libdir);
+        let cflags = format!("-I{includedir}");
+        let libs = format!("-L{libdir} -lwasmer");
 
         if flags.pkg_config {
-            println!("prefix={}", prefixdir);
-            println!("exec_prefix={}", bindir);
-            println!("includedir={}", includedir);
-            println!("libdir={}", libdir);
+            println!("prefix={prefixdir}");
+            println!("exec_prefix={bindir}");
+            println!("includedir={includedir}");
+            println!("libdir={libdir}");
             println!();
             println!("Name: wasmer");
             println!("Description: The Wasmer library for running WebAssembly");
-            println!("Version: {}", VERSION);
-            println!("Cflags: {}", cflags);
-            println!("Libs: {}", libs);
+            println!("Version: {VERSION}");
+            println!("Cflags: {cflags}");
+            println!("Libs: {libs}");
             return Ok(());
         }
 
         if flags.prefix {
-            println!("{}", prefixdir);
+            println!("{prefixdir}");
         }
         if flags.bindir {
-            println!("{}", bindir);
+            println!("{bindir}");
         }
         if flags.includedir {
-            println!("{}", includedir);
+            println!("{includedir}");
         }
         if flags.libdir {
-            println!("{}", libdir);
+            println!("{libdir}");
         }
         if flags.libs {
-            println!("{}", libs);
+            println!("{libs}");
         }
         if flags.cflags {
-            println!("{}", cflags);
+            println!("{cflags}");
         }
 
         if flags.config_path {

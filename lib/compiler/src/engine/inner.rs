@@ -1,6 +1,6 @@
 //! Universal compilation.
 
-use crate::{engine::builder::EngineBuilder, types::target::Target};
+use crate::engine::builder::EngineBuilder;
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
     types::{
@@ -17,15 +17,20 @@ use shared_buffer::OwnedBuffer;
 
 #[cfg(not(target_arch = "wasm32"))]
 use std::path::Path;
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
+use std::{
+    io::Write,
+    sync::atomic::{AtomicUsize, Ordering::SeqCst},
+};
 
+#[cfg(feature = "compiler")]
+use wasmer_types::Features;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
     SignatureIndex,
 };
-use wasmer_types::{CompileError, Features, HashAlgorithm, ModuleInfo};
+use wasmer_types::{target::Target, CompileError, HashAlgorithm, ModuleInfo};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -76,15 +81,6 @@ impl Engine {
         }
     }
 
-    #[cfg(not(feature = "compiler"))]
-    pub fn new(
-        compiler_config: Box<dyn CompilerConfig>,
-        target: Target,
-        features: Features,
-    ) -> Self {
-        panic!("The engine is not compiled with any compiler support")
-    }
-
     /// Returns the name of this engine
     pub fn name(&self) -> &str {
         self.name.as_str()
@@ -101,12 +97,21 @@ impl Engine {
     }
 
     /// Returns the deterministic id of this engine
-    pub fn deterministic_id(&self) -> &str {
-        // TODO: add a `deterministic_id` to the Compiler, so two
-        // compilers can actually serialize into a different deterministic_id
-        // if their configuration is different (eg. LLVM with optimizations vs LLVM
-        // without optimizations)
-        self.name.as_str()
+    pub fn deterministic_id(&self) -> String {
+        let i = self.inner();
+        #[cfg(feature = "compiler")]
+        {
+            if let Some(ref c) = i.compiler {
+                return c.deterministic_id();
+            } else {
+                return self.name.clone();
+            }
+        }
+
+        #[allow(unreachable_code)]
+        {
+            self.name.to_string()
+        }
     }
 
     /// Create a headless `Engine`
@@ -290,15 +295,33 @@ impl Engine {
     pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
     }
+
+    /// Add suggested optimizations to this engine.
+    ///
+    /// # Note
+    ///
+    /// Not every backend supports every optimization. This function may fail (i.e. not set the
+    /// suggested optimizations) silently if the underlying engine backend does not support one or
+    /// more optimizations.
+    pub fn with_opts(
+        &mut self,
+        suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
+    ) -> Result<(), CompileError> {
+        #[cfg(feature = "compiler")]
+        {
+            let mut i = self.inner_mut();
+            if let Some(ref mut c) = i.compiler {
+                c.with_opts(suggested_opts)?;
+            }
+        }
+
+        Ok(())
+    }
 }
 
 impl std::fmt::Debug for Engine {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
-        f.debug_struct("Engine")
-            .field("target", &self.target)
-            .field("engine_id", &self.engine_id)
-            .field("name", &self.name)
-            .finish()
+        write!(f, "{}", self.deterministic_id())
     }
 }
 
@@ -318,6 +341,24 @@ pub struct EngineInner {
     /// performantly.
     #[cfg(not(target_arch = "wasm32"))]
     signatures: SignatureRegistry,
+}
+
+impl std::fmt::Debug for EngineInner {
+    fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
+        let mut formatter = f.debug_struct("EngineInner");
+        #[cfg(feature = "compiler")]
+        {
+            formatter.field("compiler", &self.compiler);
+            formatter.field("features", &self.features);
+        }
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            formatter.field("signatures", &self.signatures);
+        }
+
+        formatter.finish()
+    }
 }
 
 impl EngineInner {
@@ -350,7 +391,7 @@ impl EngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate<'a, FunctionBody, CustomSection>(
         &'a mut self,
-        _module: &ModuleInfo,
+        _module: &wasmer_types::ModuleInfo,
         functions: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         function_call_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
         dynamic_function_trampolines: impl ExactSizeIterator<Item = &'a FunctionBody> + 'a,
@@ -391,8 +432,7 @@ impl EngineInner {
                 )
                 .map_err(|message| {
                     CompileError::Resource(format!(
-                        "failed to allocate memory for functions: {}",
-                        message
+                        "failed to allocate memory for functions: {message}",
                     ))
                 })?;
 
@@ -435,7 +475,6 @@ impl EngineInner {
                 )
             })
             .collect::<PrimaryMap<SectionIndex, _>>();
-
         Ok((
             allocated_functions_result,
             allocated_function_call_trampolines,
@@ -459,7 +498,25 @@ impl EngineInner {
             .unwind_registry_mut()
             .publish(eh_frame)
             .map_err(|e| {
-                CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
+                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
+            })?;
+        Ok(())
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    /// Register macos-specific exception handling information associated with the code.
+    pub(crate) fn register_compact_unwind(
+        &mut self,
+        compact_unwind: Option<&[u8]>,
+        eh_personality_addr_in_got: Option<usize>,
+    ) -> Result<(), CompileError> {
+        self.code_memory
+            .last_mut()
+            .unwrap()
+            .unwind_registry_mut()
+            .register_compact_unwind(compact_unwind, eh_personality_addr_in_got)
+            .map_err(|e| {
+                CompileError::Resource(format!("Error while publishing the unwind code: {e}"))
             })?;
         Ok(())
     }
@@ -477,6 +534,42 @@ impl EngineInner {
             .last_mut()
             .unwrap()
             .register_frame_info(frame_info);
+    }
+
+    #[cfg(not(target_arch = "wasm32"))]
+    pub(crate) fn register_perfmap(
+        &self,
+        finished_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
+        module_info: &ModuleInfo,
+    ) -> Result<(), CompileError> {
+        if self
+            .compiler
+            .as_ref()
+            .is_some_and(|v| v.get_perfmap_enabled())
+        {
+            let filename = format!("/tmp/perf-{}.map", std::process::id());
+            let mut file = std::io::BufWriter::new(std::fs::File::create(filename).unwrap());
+
+            for (func_index, code) in finished_functions.iter() {
+                let func_index = module_info.func_index(func_index);
+                let name = if let Some(func_name) = module_info.function_names.get(&func_index) {
+                    func_name.clone()
+                } else {
+                    format!("{:p}", code.ptr.0)
+                };
+
+                let sanitized_name = name.replace(['\n', '\r'], "_");
+                let line = format!(
+                    "{:p} {:x} {}\n",
+                    code.ptr.0 as *const _, code.length, sanitized_name
+                );
+                write!(file, "{line}").map_err(|e| CompileError::Codegen(e.to_string()))?;
+                file.flush()
+                    .map_err(|e| CompileError::Codegen(e.to_string()))?;
+            }
+        }
+
+        Ok(())
     }
 }
 

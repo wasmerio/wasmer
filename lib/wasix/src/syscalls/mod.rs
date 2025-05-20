@@ -86,11 +86,11 @@ pub use windows::*;
 pub(crate) use self::types::{
     wasi::{
         Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
-        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdstat, Filesize, Filestat,
-        Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, Rights, Snapshot0Clockid,
-        Sockoption, Sockstatus, Socktype, StackSnapshot, StdioMode as WasiStdioMode,
-        Streamsecurity, Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser,
-        TlVal, Tty, Whence,
+        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
+        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
+        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
+        StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity, Subscription,
+        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };
@@ -121,10 +121,10 @@ pub(crate) use crate::{
 };
 use crate::{
     fs::{
-        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, InodeVal, Kind,
+        fs_error_into_wasi_err, virtual_file_type_to_wasi_file_type, Fd, FdInner, InodeVal, Kind,
         MAX_SYMLINKS,
     },
-    journal::{DynJournal, JournalEffector},
+    journal::{DynJournal, DynReadableJournal, DynWritableJournal, JournalEffector},
     os::task::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
         thread::{RewindResult, RewindResultType},
@@ -245,11 +245,8 @@ pub unsafe fn stderr_write<'a>(
     let (memory, state, inodes) = env.get_memory_and_wasi_state_and_inodes(ctx, 0);
 
     let buf = buf.to_vec();
-    let fd_map = state.fs.fd_map.clone();
-    Box::pin(async move {
-        let mut stderr = WasiInodes::stderr_mut(&fd_map).map_err(fs_error_into_wasi_err)?;
-        stderr.write_all(&buf).await.map_err(map_io_err)
-    })
+    let mut stderr = WasiInodes::stderr_mut(&state.fs.fd_map).map_err(fs_error_into_wasi_err);
+    Box::pin(async move { stderr?.write_all(&buf).await.map_err(map_io_err) })
 }
 
 fn block_on_with_timeout<T, Fut>(
@@ -557,7 +554,7 @@ where
 /// synchronous IO engine
 pub(crate) fn __asyncify_light<T, Fut>(
     env: &WasiEnv,
-    timeout: Option<Duration>,
+    _timeout: Option<Duration>,
     work: Fut,
 ) -> WasiResult<T>
 where
@@ -565,37 +562,6 @@ where
     Fut: Future<Output = Result<T, Errno>>,
 {
     let snapshot_wait = wait_for_snapshot(env);
-
-    // This poller will process any signals when the main working function is idle
-    struct Poller<'a, Fut, T>
-    where
-        Fut: Future<Output = Result<T, Errno>>,
-    {
-        env: &'a WasiEnv,
-        pinned_work: Pin<Box<Fut>>,
-        pinned_snapshot: Pin<Box<dyn Future<Output = ()>>>,
-    }
-    impl<'a, Fut, T> Future for Poller<'a, Fut, T>
-    where
-        Fut: Future<Output = Result<T, Errno>>,
-    {
-        type Output = Result<Fut::Output, WasiError>;
-        fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-            if let Poll::Ready(res) = Pin::new(&mut self.pinned_work).poll(cx) {
-                return Poll::Ready(Ok(res));
-            }
-            if let Poll::Ready(()) = Pin::new(&mut self.pinned_snapshot).poll(cx) {
-                return Poll::Ready(Ok(Err(Errno::Intr)));
-            }
-            if let Some(exit_code) = self.env.should_exit() {
-                return Poll::Ready(Err(WasiError::Exit(exit_code)));
-            }
-            if self.env.thread.has_signals_or_subscribe(cx.waker()) {
-                return Poll::Ready(Ok(Err(Errno::Intr)));
-            }
-            Poll::Pending
-        }
-    }
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
@@ -627,7 +593,7 @@ where
     Fut: std::future::Future<Output = Result<T, Errno>>,
 {
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -671,7 +637,7 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -710,7 +676,7 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -747,7 +713,7 @@ where
     let tasks = env.tasks().clone();
 
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         return Err(Errno::Access);
     }
 
@@ -781,7 +747,7 @@ where
 {
     let env = ctx.data();
     let fd_entry = env.state.fs.get_fd(sock)?;
-    if !rights.is_empty() && !fd_entry.rights.contains(rights) {
+    if !rights.is_empty() && !fd_entry.inner.rights.contains(rights) {
         tracing::warn!(
             "wasi[{}:{}]::sock_upgrade(fd={}, rights={:?}) - failed - no access rights to upgrade",
             ctx.data().pid(),
@@ -802,7 +768,7 @@ where
                 drop(guard);
 
                 // Start the work using the socket
-                let work = actor(socket, fd_entry.flags);
+                let work = actor(socket, fd_entry.inner.flags);
 
                 // Block on the work and process it
                 let res = InlineWaker::block_on(work);
@@ -988,7 +954,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
                 .map_err(|err| format!("failed to save stack: stack pointer overflow (stack_pointer={}, stack_lower={}, stack_upper={})", stack_offset, env.layout.stack_lower, env.layout.stack_upper))?,
         )
         .and_then(|memory_stack| memory_stack.read_to_bytes())
-        .map_err(|err| format!("failed to read stack: {}", err))
+        .map_err(|err| format!("failed to read stack: {err}"))
 }
 
 #[allow(dead_code)]
@@ -1018,7 +984,7 @@ pub(crate) fn set_memory_stack<M: MemorySize>(
                 .map_err(|_| "failed to restore stack: stack pointer overflow".to_string())?,
         )
         .and_then(|memory_stack| memory_stack.write_slice(&stack[..]))
-        .map_err(|err| format!("failed to write stack: {}", err))?;
+        .map_err(|err| format!("failed to write stack: {err}"))?;
 
     // Set the stack pointer itself and return
     set_memory_stack_offset(env, store, stack_offset)?;
@@ -1233,7 +1199,7 @@ where
                     .map_err(|_| "failed to save stack: stack pointer overflow".to_string())?,
             )
             .and_then(|memory_stack| memory_stack.read_to_bytes())
-            .map_err(|err| format!("failed to read stack: {}", err))?;
+            .map_err(|err| format!("failed to read stack: {err}"))?;
 
         // Notify asyncify that we are no longer unwinding
         if let Some(asyncify_stop_unwind) = env
@@ -1259,7 +1225,7 @@ where
 #[must_use = "the action must be passed to the call loop"]
 pub fn rewind<M: MemorySize, T>(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    memory_stack: Bytes,
+    memory_stack: Option<Bytes>,
     rewind_stack: Bytes,
     store_data: Bytes,
     result: T,
@@ -1270,7 +1236,7 @@ where
     let rewind_result = bincode::serialize(&result).unwrap().into();
     rewind_ext::<M>(
         &mut ctx,
-        Some(memory_stack),
+        memory_stack,
         rewind_stack,
         store_data,
         RewindResultType::RewindWithResult(rewind_result),
@@ -1491,12 +1457,11 @@ pub(crate) fn _prepare_wasi(
     wasi_env: &mut WasiEnv,
     args: Option<Vec<String>>,
     envs: Option<Vec<(String, String)>>,
+    signals: Option<Vec<SignalDisposition>>,
 ) {
     // Swap out the arguments with the new ones
     if let Some(args) = args {
-        let mut wasi_state = wasi_env.state.fork();
-        *wasi_state.args.lock().unwrap() = args;
-        wasi_env.state = Arc::new(wasi_state);
+        *wasi_env.state.args.lock().unwrap() = args;
     }
 
     // Update the env vars
@@ -1531,26 +1496,12 @@ pub(crate) fn _prepare_wasi(
         drop(guard)
     }
 
-    // Close any files after the STDERR that are not preopened
-    let close_fds = {
-        let preopen_fds = {
-            let preopen_fds = wasi_env.state.fs.preopen_fds.read().unwrap();
-            preopen_fds.iter().copied().collect::<HashSet<_>>()
-        };
-        let mut fd_map = wasi_env.state.fs.fd_map.read().unwrap();
-        fd_map
-            .keys()
-            .filter_map(|a| match a {
-                a if a <= __WASI_STDERR_FILENO => None,
-                a if preopen_fds.contains(&a) => None,
-                a => Some(a),
-            })
-            .collect::<Vec<_>>()
-    };
-
-    // Now close all these files
-    for fd in close_fds {
-        let _ = wasi_env.state.fs.close_fd(fd);
+    if let Some(signals) = signals {
+        let mut guard = wasi_env.state.signals.lock().unwrap();
+        for signal in signals {
+            guard.insert(signal.sig, signal.disp);
+        }
+        drop(guard);
     }
 }
 

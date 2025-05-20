@@ -8,7 +8,7 @@ use std::{
 
 use futures::future::BoxFuture;
 use rand::Rng;
-use virtual_fs::{FileSystem, FsError, StaticFile, VirtualFile};
+use virtual_fs::{FileSystem, FsError, VirtualFile};
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, FunctionEnvMut, Global, Imports, Instance, Memory, MemoryType,
@@ -249,6 +249,13 @@ pub struct WasiEnvInit {
     /// Indicates triggers that will cause a snapshot to be taken
     #[cfg(feature = "journal")]
     pub snapshot_on: Vec<SnapshotTrigger>,
+
+    /// Stop running after the first snapshot is taken
+    #[cfg(feature = "journal")]
+    pub stop_running_after_snapshot: bool,
+
+    /// Skip writes to stdout and stderr when bootstrapping from a journal
+    pub skip_stdio_during_bootstrap: bool,
 }
 
 impl WasiEnvInit {
@@ -271,6 +278,7 @@ impl WasiEnvInit {
                 ),
                 args: std::sync::Mutex::new(self.state.args.lock().unwrap().clone()),
                 envs: std::sync::Mutex::new(self.state.envs.lock().unwrap().deref().clone()),
+                signals: std::sync::Mutex::new(self.state.signals.lock().unwrap().deref().clone()),
                 preopen: self.state.preopen.clone(),
             },
             runtime: self.runtime.clone(),
@@ -287,6 +295,9 @@ impl WasiEnvInit {
             extra_tracing: false,
             #[cfg(feature = "journal")]
             snapshot_on: self.snapshot_on.clone(),
+            #[cfg(feature = "journal")]
+            stop_running_after_snapshot: self.stop_running_after_snapshot,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             additional_imports: self.additional_imports.clone(),
         }
     }
@@ -333,6 +344,9 @@ pub struct WasiEnv {
     /// (and hence it should not record new events)
     pub replaying_journal: bool,
 
+    /// Should stdio be skipped when bootstrapping this module from an existing journal?
+    pub skip_stdio_during_bootstrap: bool,
+
     /// Flag that indicates the cleanup of the environment is to be disabled
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
@@ -369,6 +383,7 @@ impl Clone for WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: self.replaying_journal,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
         }
     }
@@ -409,6 +424,7 @@ impl WasiEnv {
             enable_journal: self.enable_journal,
             enable_exponential_cpu_backoff: self.enable_exponential_cpu_backoff,
             replaying_journal: false,
+            skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
         };
         Ok((new_env, handle))
@@ -510,7 +526,9 @@ impl WasiEnv {
 
         #[cfg(feature = "journal")]
         {
-            process.inner.0.lock().unwrap().snapshot_on = init.snapshot_on.into_iter().collect();
+            let mut guard = process.inner.0.lock().unwrap();
+            guard.snapshot_on = init.snapshot_on.into_iter().collect();
+            guard.stop_running_after_checkpoint = init.stop_running_after_snapshot;
         }
 
         let layout = WasiMemoryLayout::default();
@@ -535,6 +553,7 @@ impl WasiEnv {
             #[cfg(not(feature = "journal"))]
             enable_journal: false,
             replaying_journal: false,
+            skip_stdio_during_bootstrap: init.skip_stdio_during_bootstrap,
             enable_deep_sleep: init.capabilities.threading.enable_asynchronous_threading,
             enable_exponential_cpu_backoff: init
                 .capabilities
@@ -710,6 +729,7 @@ impl WasiEnv {
                         || sig == Signal::Sigquit
                         || sig == Signal::Sigkill
                         || sig == Signal::Sigabrt
+                        || sig == Signal::Sigpipe
                     {
                         let exit_code = env.thread.set_or_get_exit_code_for_signal(sig);
                         return Err(WasiError::Exit(exit_code));
@@ -905,15 +925,17 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
+    pub fn try_memory(&self) -> Option<WasiInstanceGuardMemory<'_>> {
         self.try_inner().map(|i| i.memory())
     }
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
+    pub unsafe fn memory(&self) -> WasiInstanceGuardMemory<'_> {
         self.try_memory().expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -921,7 +943,7 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
-    pub(crate) fn try_memory_view<'a>(
+    pub fn try_memory_view<'a>(
         &self,
         store: &'a (impl AsStoreRef + ?Sized),
     ) -> Option<MemoryView<'a>> {
@@ -930,12 +952,11 @@ impl WasiEnv {
 
     /// Providers safe access to the memory
     /// (it must be initialized before it can be used)
+    ///
+    /// # Safety
     /// This has been marked as unsafe as it will panic if its executed
     /// on the wrong thread or before the inner is set
-    pub(crate) unsafe fn memory_view<'a>(
-        &self,
-        store: &'a (impl AsStoreRef + ?Sized),
-    ) -> MemoryView<'a> {
+    pub unsafe fn memory_view<'a>(&self, store: &'a (impl AsStoreRef + ?Sized)) -> MemoryView<'a> {
         self.try_memory_view(store).expect(
             "You must initialize the WasiEnv before using it and can not pass it between threads",
         )
@@ -1087,33 +1108,32 @@ impl WasiEnv {
 
         if !pkg.commands.is_empty() {
             let _ = root_fs.create_dir(Path::new("/bin"));
+            let _ = root_fs.create_dir(Path::new("/usr"));
+            let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
             for command in &pkg.commands {
                 let path = format!("/bin/{}", command.name());
+                let path2 = format!("/usr/bin/{}", command.name());
                 let path = Path::new(path.as_str());
+                let path2 = Path::new(path2.as_str());
 
-                // FIXME(Michael-F-Bryan): This is pretty sketchy.
-                // We should be using some sort of reference-counted
-                // pointer to some bytes that are either on the heap
-                // or from a memory-mapped file. However, that's not
-                // possible here because things like memfs and
-                // WasiEnv are expecting a Cow<'static, [u8]>. It's
-                // too hard to refactor those at the moment, and we
-                // were pulling the same trick before by storing an
-                // "ownership" object in the BinaryPackageCommand,
-                // so as long as packages aren't removed from the
-                // module cache it should be fine.
-                // See https://github.com/wasmerio/wasmer/issues/3875
-                let atom: &'static [u8] = unsafe { std::mem::transmute(command.atom()) };
+                let atom = command.atom();
 
                 match root_fs {
                     WasiFsRoot::Sandbox(root_fs) => {
-                        // As a short-cut, when we are using a TmpFileSystem
-                        // we can (unsafely) add the file to the filesystem
-                        // without any copying.
                         if let Err(err) = root_fs
                             .new_open_options_ext()
-                            .insert_ro_file(path, atom.into())
+                            .insert_ro_file(path, atom.clone())
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.id,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
+                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
@@ -1125,8 +1145,17 @@ impl WasiEnv {
                         }
                     }
                     WasiFsRoot::Backing(fs) => {
+                        // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
+                        // usage will be very high.
                         let mut f = fs.new_open_options().create(true).write(true).open(path)?;
-                        if let Err(e) = f.copy_reference(Box::new(StaticFile::new(atom))).await {
+                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
+                            tracing::warn!(
+                                error = &e as &dyn std::error::Error,
+                                "Unable to copy file reference",
+                            );
+                        }
+                        let mut f = fs.new_open_options().create(true).write(true).open(path2)?;
+                        if let Err(e) = f.copy_from_owned_buffer(&atom).await {
                             tracing::warn!(
                                 error = &e as &dyn std::error::Error,
                                 "Unable to copy file reference",
@@ -1163,15 +1192,13 @@ impl WasiEnv {
         for package_name in uses {
             let specifier = package_name.parse::<PackageSource>().map_err(|e| {
                 WasiStateCreationError::WasiIncludePackageError(format!(
-                    "package_name={package_name}, {}",
-                    e
+                    "package_name={package_name}, {e}",
                 ))
             })?;
             let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
                 |e| {
                     WasiStateCreationError::WasiIncludePackageError(format!(
-                        "package_name={package_name}, {}",
-                        e
+                        "package_name={package_name}, {e}",
                     ))
                 },
             )?;
@@ -1190,6 +1217,7 @@ impl WasiEnv {
         #[allow(unused_imports)]
         use std::path::Path;
 
+        use shared_buffer::OwnedBuffer;
         #[allow(unused_imports)]
         use virtual_fs::FileSystem;
 
@@ -1203,12 +1231,23 @@ impl WasiEnv {
                     err
                 ))
             })?;
-            let file: std::borrow::Cow<'static, [u8]> = file.into();
+            let file = OwnedBuffer::from(file);
 
             if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
                 let _ = root_fs.create_dir(Path::new("/bin"));
+                let _ = root_fs.create_dir(Path::new("/usr"));
+                let _ = root_fs.create_dir(Path::new("/usr/bin"));
 
-                let path = format!("/bin/{}", command);
+                let path = format!("/bin/{command}");
+                let path = Path::new(path.as_str());
+                if let Err(err) = root_fs
+                    .new_open_options_ext()
+                    .insert_ro_file(path, file.clone())
+                {
+                    tracing::debug!("failed to add atom command [{}] - {}", command, err);
+                    continue;
+                }
+                let path = format!("/usr/bin/{command}");
                 let path = Path::new(path.as_str());
                 if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
                     tracing::debug!("failed to add atom command [{}] - {}", command, err);

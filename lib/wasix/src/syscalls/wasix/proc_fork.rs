@@ -96,10 +96,10 @@ pub fn proc_fork<M: MemorySize>(
             std::mem::swap(ctx.data_mut(), &mut child_env);
             ctx.data_mut().vfork.replace(WasiVFork {
                 rewind_stack: rewind_stack.clone(),
-                memory_stack: memory_stack.clone(),
                 store_data: store_data.clone(),
                 env: Box::new(child_env),
                 handle: child_handle,
+                is_64bit: M::is_64bit(),
             });
 
             // Carry on as if the fork had taken place (which basically means
@@ -107,7 +107,7 @@ pub fn proc_fork<M: MemorySize>(
             // Rewind the stack and carry on
             match rewind::<M, _>(
                 ctx,
-                memory_stack.freeze(),
+                Some(memory_stack.freeze()),
                 rewind_stack.freeze(),
                 store_data,
                 ForkResult {
@@ -174,7 +174,7 @@ pub fn proc_fork<M: MemorySize>(
                     let (data, mut store) = ctx.data_and_store_mut();
                     match rewind::<M, _>(
                         ctx,
-                        child_memory_stack,
+                        Some(child_memory_stack),
                         child_rewind_stack,
                         store_data.clone(),
                         ForkResult {
@@ -200,7 +200,7 @@ pub fn proc_fork<M: MemorySize>(
             tasks_outer
                 .task_wasm(
                     TaskWasm::new(Box::new(run), child_env, module, false)
-                        .with_globals(&snapshot)
+                        .with_globals(snapshot)
                         .with_memory(spawn_type),
                 )
                 .map_err(|err| {
@@ -216,7 +216,7 @@ pub fn proc_fork<M: MemorySize>(
         // Rewind the stack and carry on
         match rewind::<M, _>(
             ctx,
-            memory_stack,
+            Some(memory_stack),
             rewind_stack,
             store_data,
             ForkResult {

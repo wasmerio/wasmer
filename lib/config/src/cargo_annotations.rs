@@ -1,6 +1,8 @@
 //! Rust and cargo specific annotations used to interoperate with external tools.
 
-use std::{collections::HashMap, path::PathBuf};
+use std::path::PathBuf;
+
+use indexmap::IndexMap;
 
 use crate::package::{Abi, Bindings};
 
@@ -20,7 +22,7 @@ pub struct CargoWasmerPackageAnnotation {
     pub abi: Abi,
     /// Filesystem mappings.
     #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub fs: Option<HashMap<String, PathBuf>>,
+    pub fs: Option<IndexMap<String, PathBuf>>,
     /// Binding declarations for the crate.
     pub bindings: Option<Bindings>,
 }

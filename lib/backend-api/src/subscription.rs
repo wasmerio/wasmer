@@ -38,7 +38,7 @@ pub async fn package_version_ready(
     if let Some(token) = client.auth_token() {
         req.headers_mut().insert(
             reqwest::header::AUTHORIZATION,
-            HeaderValue::from_str(&format!("Bearer {}", token))?,
+            HeaderValue::from_str(&format!("Bearer {token}"))?,
         );
     }
 

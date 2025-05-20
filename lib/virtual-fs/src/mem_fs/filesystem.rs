@@ -447,7 +447,7 @@ impl crate::FileSystem for FileSystem {
     }
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
-        Box::pin(async {
+        Box::pin(async move {
             let name_of_to;
 
             // Read lock.
@@ -493,6 +493,7 @@ impl crate::FileSystem for FileSystem {
             };
 
             match (inode_of_from_parent, inode_of_to_parent) {
+                // Rename within this MemFS instance
                 (Either::Left(inode_of_from_parent), Either::Left(inode_of_to_parent)) => {
                     let fs = self.inner.read().map_err(|_| FsError::Lock)?;
 
@@ -572,16 +573,34 @@ impl crate::FileSystem for FileSystem {
 
                     Ok(())
                 }
-                (Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path))) => {
-                    if Arc::ptr_eq(&from_fs, &to_fs) {
-                        let same_fs = from_fs;
 
-                        same_fs.rename(&from_path, &to_path).await
-                    } else {
-                        Err(FsError::InvalidInput)
-                    }
+                // Rename within the same mounted FS instance
+                (Either::Right((from_fs, from_path)), Either::Right((to_fs, to_path)))
+                    if Arc::ptr_eq(&from_fs, &to_fs) =>
+                {
+                    let same_fs = from_fs;
+                    same_fs.rename(&from_path, &to_path).await
                 }
-                _ => Err(FsError::InvalidInput),
+
+                // Rename across file systems; we need to do a create and a delete
+                _ => {
+                    let mut from_file = self.new_open_options().read(true).open(from)?;
+                    let mut to_file = self
+                        .new_open_options()
+                        .create_new(true)
+                        .write(true)
+                        .open(to)?;
+                    tokio::io::copy(from_file.as_mut(), to_file.as_mut()).await?;
+                    if let Err(error) = self.remove_file(from) {
+                        tracing::warn!(
+                            ?from,
+                            ?to,
+                            ?error,
+                            "Failed to remove file after cross-FS rename"
+                        );
+                    }
+                    Ok(())
+                }
             }
         })
     }
@@ -1132,8 +1151,9 @@ impl DirectoryMustBeEmpty {
 
 #[cfg(test)]
 mod test_filesystem {
-    use std::{borrow::Cow, path::Path};
+    use std::path::Path;
 
+    use shared_buffer::OwnedBuffer;
     use tokio::io::AsyncReadExt;
 
     use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
@@ -1178,7 +1198,7 @@ mod test_filesystem {
             "creating the root which already exists",
         );
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
+        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -1281,7 +1301,7 @@ mod test_filesystem {
             "cannot remove a directory that doesn't exist",
         );
 
-        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory",);
+        assert_eq!(fs.create_dir(path!("/foo")), Ok(()), "creating a directory");
 
         assert_eq!(
             fs.create_dir(path!("/foo/bar")),
@@ -1310,7 +1330,7 @@ mod test_filesystem {
             "removing a sub-directory",
         );
 
-        assert_eq!(fs.remove_dir(path!("/foo")), Ok(()), "removing a directory",);
+        assert_eq!(fs.remove_dir(path!("/foo")), Ok(()), "removing a directory");
 
         {
             let fs_inner = fs.inner.read().unwrap();
@@ -1923,13 +1943,13 @@ mod test_filesystem {
         let other = FileSystem::default();
         crate::ops::create_dir_all(&other, "/a/x").unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/a.txt"), Cow::Borrowed(b"a"))
+            .insert_ro_file(Path::new("/a/x/a.txt"), OwnedBuffer::from_static(b"a"))
             .unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/b.txt"), Cow::Borrowed(b"b"))
+            .insert_ro_file(Path::new("/a/x/b.txt"), OwnedBuffer::from_static(b"b"))
             .unwrap();
         other
-            .insert_ro_file(Path::new("/a/x/c.txt"), Cow::Borrowed(b"c"))
+            .insert_ro_file(Path::new("/a/x/c.txt"), OwnedBuffer::from_static(b"c"))
             .unwrap();
 
         let out = other.read_dir(Path::new("/")).unwrap();

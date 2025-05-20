@@ -10,7 +10,8 @@ use futures::{future::BoxFuture, StreamExt, TryStreamExt};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
-use wasmer_config::package::PackageId;
+use wasmer_config::package::{PackageId, SuggestedCompilerOptimizations};
+use wasmer_package::utils::wasm_annotations_to_features;
 use webc::metadata::annotations::Atom as AtomAnnotation;
 use webc::{Container, Volume};
 
@@ -26,6 +27,26 @@ use crate::{
 };
 
 use super::to_module_hash;
+
+/// Convert WebAssembly feature annotations to a Features object
+fn wasm_annotation_to_features(
+    wasm_annotation: &webc::metadata::annotations::Wasm,
+) -> Option<wasmer_types::Features> {
+    Some(wasm_annotations_to_features(&wasm_annotation.features))
+}
+
+/// Extract WebAssembly features from atom metadata if available
+fn extract_features_from_atom_metadata(
+    atom_metadata: &webc::metadata::Atom,
+) -> Option<wasmer_types::Features> {
+    if let Ok(Some(wasm_annotation)) = atom_metadata
+        .annotation::<webc::metadata::annotations::Wasm>(webc::metadata::annotations::Wasm::KEY)
+    {
+        wasm_annotation_to_features(&wasm_annotation)
+    } else {
+        None
+    }
+}
 
 /// The maximum number of packages that will be loaded in parallel.
 const MAX_PARALLEL_DOWNLOADS: usize = 32;
@@ -180,9 +201,52 @@ fn load_binary_command(
         )
     })?;
 
-    let cmd = BinaryPackageCommand::new(command_name.to_string(), cmd.clone(), atom, hash);
+    // Get WebAssembly features from manifest atom annotations
+    let features = if let Some(atom_metadata) = webc.manifest().atoms.get(&atom_name) {
+        extract_features_from_atom_metadata(atom_metadata)
+    } else {
+        None
+    };
+
+    let suggested_compiler_optimizations =
+        if let Some(atom_metadata) = webc.manifest().atoms.get(&atom_name) {
+            extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
+        } else {
+            wasmer_config::package::SuggestedCompilerOptimizations::default()
+        };
+
+    let cmd = BinaryPackageCommand::new(
+        command_name.to_string(),
+        cmd.clone(),
+        atom,
+        hash,
+        features,
+        suggested_compiler_optimizations,
+    );
 
     Ok(Some(cmd))
+}
+
+fn extract_suggested_compiler_opts_from_atom_metadata(
+    atom_metadata: &webc::metadata::Atom,
+) -> wasmer_config::package::SuggestedCompilerOptimizations {
+    let mut ret = SuggestedCompilerOptimizations::default();
+
+    if let Some(sco) = atom_metadata
+        .annotations
+        .get(SuggestedCompilerOptimizations::KEY)
+    {
+        if let Some((_, v)) = sco.as_map().and_then(|v| {
+            v.iter().find(|(k, _)| {
+                k.as_text()
+                    .is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY)
+            })
+        }) {
+            ret.pass_params = v.as_bool()
+        }
+    }
+
+    ret
 }
 
 fn atom_name_for_command(
@@ -245,11 +309,28 @@ fn legacy_atom_hack(
 
     let hash = to_module_hash(webc.manifest().atom_signature(&name)?);
 
+    // Get WebAssembly features from manifest atom annotations
+    let features = if let Some(atom_metadata) = webc.manifest().atoms.get(&name) {
+        extract_features_from_atom_metadata(atom_metadata)
+    } else {
+        None
+    };
+
+    // Get WebAssembly features from manifest atom annotations
+    let suggested_opts_from_manifest = if let Some(atom_metadata) = webc.manifest().atoms.get(&name)
+    {
+        extract_suggested_compiler_opts_from_atom_metadata(atom_metadata)
+    } else {
+        SuggestedCompilerOptimizations::default()
+    };
+
     Ok(Some(BinaryPackageCommand::new(
         command_name.to_string(),
         metadata.clone(),
         atom,
         hash,
+        features,
+        suggested_opts_from_manifest,
     )))
 }
 
@@ -332,8 +413,8 @@ fn filesystem(
         )));
     }
 
-    let mut found_v2 = false;
-    let mut found_v3 = false;
+    let mut found_v2 = None;
+    let mut found_v3 = None;
 
     for ResolvedFileSystemMapping { package, .. } in &pkg.filesystem {
         let container = packages.get(package).with_context(|| {
@@ -343,14 +424,23 @@ fn filesystem(
             )
         })?;
 
-        found_v2 |= container.version() == webc::Version::V2;
-        found_v3 |= container.version() == webc::Version::V3;
+        if container.version() == webc::Version::V2 && found_v2.is_none() {
+            found_v2 = Some(package.clone());
+        }
+        if container.version() == webc::Version::V3 && found_v3.is_none() {
+            found_v3 = Some(package.clone());
+        }
     }
 
-    if found_v3 && !found_v2 {
-        filesystem_v3(packages, pkg, root_is_local_dir)
-    } else {
-        filesystem_v2(packages, pkg, root_is_local_dir)
+    match (found_v2, found_v3) {
+        (None, Some(_)) => filesystem_v3(packages, pkg, root_is_local_dir),
+        (Some(_), None) => filesystem_v2(packages, pkg, root_is_local_dir),
+        (Some(v2), Some(v3)) => {
+            anyhow::bail!(
+                "Mix of webc v2 and v3 in the same dependency tree is not supported; v2: {v2}, v3: {v3}"
+            )
+        }
+        (None, None) => anyhow::bail!("Internal error: no packages found in tree"),
     }
 }
 

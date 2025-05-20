@@ -8,11 +8,11 @@ use super::error::from_binaryreadererror_wasmerror;
 use super::sections::{
     parse_data_section, parse_element_section, parse_export_section, parse_function_section,
     parse_global_section, parse_import_section, parse_memory_section, parse_name_section,
-    parse_start_section, parse_table_section, parse_type_section,
+    parse_start_section, parse_table_section, parse_tag_section, parse_type_section,
 };
 use super::state::ModuleTranslationState;
-use wasmer_types::WasmResult;
-use wasmparser::{BinaryReader, NameSectionReader, Parser, Payload, WasmFeatures};
+use wasmer_types::{WasmError, WasmResult};
+use wasmparser::{BinaryReader, NameSectionReader, Parser, Payload};
 
 /// Translate a sequence of bytes forming a valid Wasm binary into a
 /// parsed ModuleInfo `ModuleTranslationState`.
@@ -83,23 +83,7 @@ pub fn translate_module<'data>(
                 environ.reserve_passive_data(count)?;
             }
 
-            Payload::InstanceSection(_)
-            | Payload::ComponentSection { .. }
-            | Payload::CoreTypeSection(_)
-            | Payload::ComponentTypeSection(_)
-            | Payload::ComponentInstanceSection(_)
-            | Payload::ComponentAliasSection(_)
-            | Payload::ComponentCanonicalSection(_)
-            | Payload::ComponentStartSection { .. }
-            | Payload::ComponentImportSection(_)
-            | Payload::ComponentExportSection(_)
-            | Payload::ModuleSection { .. } => {
-                unimplemented!("module linking not implemented. It will only be implemented if/when browsers support it")
-            }
-
-            Payload::TagSection(_) => {
-                unimplemented!("exception handling not implemented yet")
-            }
+            Payload::TagSection(t) => parse_tag_section(t, environ)?,
 
             Payload::CustomSection(sectionreader) => {
                 // We still add the custom section data, but also read it as name section reader
@@ -110,7 +94,6 @@ pub fn translate_module<'data>(
                         NameSectionReader::new(BinaryReader::new(
                             sectionreader.data(),
                             sectionreader.data_offset(),
-                            WasmFeatures::default(),
                         )),
                         environ,
                     )?;
@@ -118,6 +101,11 @@ pub fn translate_module<'data>(
             }
 
             Payload::UnknownSection { .. } => unreachable!(),
+            k => {
+                return Err(WasmError::Unsupported(format!(
+                    "Unsupported paylod kind: {k:?}"
+                )))
+            }
         }
     }
 

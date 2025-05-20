@@ -18,7 +18,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         trace!("restored - (ret={})", val);
         return Ok(Errno::Success);
     }
-    trace!("capturing",);
+    trace!("capturing");
 
     wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
@@ -128,7 +128,7 @@ pub fn stack_checkpoint<M: MemorySize>(
         let tid = ctx.data().tid();
         match rewind::<M, _>(
             ctx,
-            memory_stack_corrected.freeze(),
+            Some(memory_stack_corrected.freeze()),
             rewind_stack.freeze(),
             store_data,
             0 as Longsize,

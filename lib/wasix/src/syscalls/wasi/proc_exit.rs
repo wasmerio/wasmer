@@ -17,6 +17,20 @@ pub fn proc_exit<M: MemorySize>(
 
     // If we are in a vfork we need to return to the point we left off
     if let Some(mut vfork) = ctx.data_mut().vfork.take() {
+        tracing::debug!(
+            parent_pid = %vfork.env.process.pid(),
+            child_pid = %ctx.data().process.pid(),
+            "proc_exit from vfork, returning control to parent process"
+        );
+
+        // Prepare the child env for teardown by closing its FDs
+        InlineWaker::block_on(
+            unsafe { ctx.data().get_memory_and_wasi_state(&ctx, 0) }
+                .1
+                .fs
+                .close_all(),
+        );
+
         // Restore the WasiEnv to the point when we vforked
         vfork.env.swap_inner(ctx.data_mut());
         std::mem::swap(vfork.env.as_mut(), ctx.data_mut());
@@ -28,14 +42,13 @@ pub fn proc_exit<M: MemorySize>(
 
         // Jump back to the vfork point and current on execution
         let child_pid = child_env.process.pid();
-        let memory_stack = vfork.memory_stack.freeze();
         let rewind_stack = vfork.rewind_stack.freeze();
         let store_data = vfork.store_data;
         unwind::<M, _>(ctx, move |mut ctx, _, _| {
             // Now rewind the previous stack and carry on from where we did the vfork
             match rewind::<M, _>(
                 ctx,
-                memory_stack,
+                None,
                 rewind_stack,
                 store_data,
                 ForkResult {

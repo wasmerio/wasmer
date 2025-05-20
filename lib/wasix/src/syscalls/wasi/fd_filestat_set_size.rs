@@ -38,7 +38,7 @@ pub(crate) fn fd_filestat_set_size_internal(
     let fd_entry = state.fs.get_fd(fd)?;
     let inode = fd_entry.inode;
 
-    if !fd_entry.rights.contains(Rights::FD_FILESTAT_SET_SIZE) {
+    if !fd_entry.inner.rights.contains(Rights::FD_FILESTAT_SET_SIZE) {
         return Err(Errno::Access);
     }
 
@@ -56,10 +56,13 @@ pub(crate) fn fd_filestat_set_size_internal(
             Kind::Buffer { buffer } => {
                 buffer.resize(st_size as usize, 0);
             }
-            Kind::Socket { .. } => return Err(Errno::Badf),
-            Kind::Pipe { .. } => return Err(Errno::Badf),
-            Kind::Symlink { .. } => return Err(Errno::Badf),
-            Kind::EventNotifications { .. } | Kind::Epoll { .. } => return Err(Errno::Badf),
+            Kind::Socket { .. }
+            | Kind::PipeRx { .. }
+            | Kind::PipeTx { .. }
+            | Kind::DuplexPipe { .. }
+            | Kind::Symlink { .. }
+            | Kind::EventNotifications { .. }
+            | Kind::Epoll { .. } => return Err(Errno::Badf),
             Kind::Dir { .. } | Kind::Root { .. } => return Err(Errno::Isdir),
         }
     }

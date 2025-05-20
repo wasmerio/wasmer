@@ -355,8 +355,21 @@ impl Package {
 
         let volumes = new_volumes;
 
+        let mut annotated_atoms = BTreeMap::new();
+
+        for (atom_name, (a, b)) in atoms {
+            let annotations =
+                if let Some(module) = manifest.modules.iter().find(|v| v.name == atom_name) {
+                    module.annotations.as_ref()
+                } else {
+                    None
+                };
+
+            annotated_atoms.insert(atom_name, (a, b, annotations));
+        }
+
         let (mut manifest, atoms) =
-            super::manifest::in_memory_wasmer_manifest_to_webc(&manifest, &atoms)?;
+            super::manifest::in_memory_wasmer_manifest_to_webc(&manifest, &annotated_atoms)?;
 
         if let Some(entry) = manifest.package.get_mut(Wapm::KEY) {
             let mut wapm: Wapm = entry.deserialized()?;
@@ -558,7 +571,7 @@ fn tempdir() -> Result<TempDir, std::io::Error> {
         return TempDir::new();
     }
 
-    // Note: When compiling to wasm32-wasi, we can't use TempDir::new()
+    // Note: When compiling to wasm32-wasip1, we can't use TempDir::new()
     // because std::env::temp_dir() will unconditionally panic.
     let temp_dir: PathBuf = std::env::var("TMPDIR")
         .unwrap_or_else(|_| "/tmp".to_string())
@@ -589,7 +602,7 @@ fn tempdir() -> Result<TempDir, std::io::Error> {
 /// A polyfill for [`Archive::unpack()`] that is WASI-compatible.
 ///
 /// This works around `canonicalize()` being [unsupported][github] on
-/// `wasm32-wasi`.
+/// `wasm32-wasip1`.
 ///
 /// [github]: https://github.com/rust-lang/rust/blob/5b1dc9de77106cb08ce9a1a8deaa14f52751d7e4/library/std/src/sys/wasi/fs.rs#L654-L658
 fn unpack_archive(
@@ -893,6 +906,9 @@ mod tests {
         //   - file.txt
         // - nested/
         //   - dir/ ("second")
+        //     - .wasmerignore
+        //     - .hidden (should be ignored)
+        //     - ignore_me (should be ignored)
         //     - README.md
         //     - another-dir/
         //       - empty.txt
@@ -907,6 +923,9 @@ mod tests {
         // The "second" entry
         let second = temp.path().join("nested").join("dir");
         std::fs::create_dir_all(&second).unwrap();
+        std::fs::write(second.join(".wasmerignore"), "ignore_me").unwrap();
+        std::fs::write(second.join(".hidden"), "something something").unwrap();
+        std::fs::write(second.join("ignore_me"), "something something").unwrap();
         std::fs::write(second.join("README.md"), "please").unwrap();
         let another_dir = temp.path().join("nested").join("dir").join("another-dir");
         std::fs::create_dir_all(&another_dir).unwrap();
@@ -975,6 +994,9 @@ mod tests {
             nested_dir_volume.read_file("README.md").unwrap(),
             (b"please".as_slice().into(), Some(readme_hash)),
         );
+        assert!(nested_dir_volume.read_file(".wasmerignore").is_none());
+        assert!(nested_dir_volume.read_file(".hidden").is_none());
+        assert!(nested_dir_volume.read_file("ignore_me").is_none());
         assert_eq!(
             nested_dir_volume
                 .read_file("/another-dir/empty.txt")
@@ -1534,8 +1556,8 @@ mod tests {
             meta_volume.read_file("README.md").unwrap(),
             (b"readme".as_slice().into(), Some(readme_hash)),
         );
-        assert!(dir1_volume.read_dir("/").unwrap().is_empty(),);
-        assert!(dir2_volume.read_dir("/").unwrap().is_empty(),);
+        assert!(dir1_volume.read_dir("/").unwrap().is_empty());
+        assert!(dir2_volume.read_dir("/").unwrap().is_empty());
     }
 
     #[test]

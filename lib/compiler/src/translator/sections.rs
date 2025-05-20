@@ -21,15 +21,15 @@ use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
-    MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
+    MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, TagIndex, Type, V128,
 };
 use wasmer_types::{WasmError, WasmResult};
 use wasmparser::{
     self, Data, DataKind, DataSectionReader, Element, ElementItems, ElementKind,
     ElementSectionReader, Export, ExportSectionReader, ExternalKind, FunctionSectionReader,
     GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Operator, TableSectionReader, TypeRef,
-    TypeSectionReader,
+    MemoryType as WPMemoryType, NameSectionReader, Operator, TableSectionReader,
+    TagType as WPTagType, TypeRef, TypeSectionReader,
 };
 
 /// Helper function translating wasmparser types to Wasm Type.
@@ -50,6 +50,9 @@ pub fn wpreftype_to_type(ty: wasmparser::RefType) -> WasmResult<Type> {
         Ok(Type::ExternRef)
     } else if ty.is_func_ref() {
         Ok(Type::FuncRef)
+    } else if ty == wasmparser::RefType::EXNREF || ty == wasmparser::RefType::EXN {
+        // no `.is_exnref` yet
+        Ok(Type::ExceptionRef)
     } else {
         Err(wasm_unsupported!("unsupported reference type: {:?}", ty))
     }
@@ -61,6 +64,7 @@ pub fn wpheaptype_to_type(ty: wasmparser::HeapType) -> WasmResult<Type> {
         wasmparser::HeapType::Abstract { ty, .. } => match ty {
             wasmparser::AbstractHeapType::Func => Ok(Type::FuncRef),
             wasmparser::AbstractHeapType::Extern => Ok(Type::ExternRef),
+            wasmparser::AbstractHeapType::Exn => Ok(Type::ExceptionRef),
             other => Err(wasm_unsupported!("unsupported reference type: {other:?}")),
         },
         other => Err(wasm_unsupported!("unsupported reference type: {other:?}")),
@@ -125,8 +129,8 @@ pub fn parse_import_section<'data>(
                     field_name,
                 )?;
             }
-            TypeRef::Tag(_) => {
-                unimplemented!("exception handling not implemented yet")
+            TypeRef::Tag(t) => {
+                environ.declare_tag_import(t, module_name, field_name)?;
             }
             TypeRef::Memory(WPMemoryType {
                 shared,
@@ -244,6 +248,21 @@ pub fn parse_memory_section(
     Ok(())
 }
 
+/// Parser the Tag section of the wasm module.
+pub fn parse_tag_section(
+    tags: wasmparser::SectionLimited<wasmparser::TagType>,
+    environ: &mut ModuleEnvironment,
+) -> WasmResult<()> {
+    environ.reserve_tags(tags.count())?;
+
+    for entry in tags {
+        let WPTagType { func_type_idx, .. } = entry.map_err(from_binaryreadererror_wasmerror)?;
+        environ.declare_tag(SignatureIndex::from_u32(func_type_idx))?;
+    }
+
+    Ok(())
+}
+
 /// Parses the Global section of the wasm module.
 pub fn parse_global_section(
     globals: GlobalSectionReader,
@@ -325,9 +344,7 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
-            ExternalKind::Tag => {
-                unimplemented!("exception handling not implemented yet")
-            }
+            ExternalKind::Tag => environ.declare_tag_export(TagIndex::new(index), field)?,
         }
     }
 

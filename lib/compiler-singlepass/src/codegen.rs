@@ -20,7 +20,6 @@ use wasmer_compiler::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
         section::SectionIndex,
-        target::CallingConvention,
     },
     wasmparser::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
@@ -32,13 +31,13 @@ use wasmer_compiler::{
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
+use wasmer_types::target::CallingConvention;
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap},
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
     VMBuiltinFunctionIndex, VMOffsets,
 };
-
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.
@@ -252,6 +251,7 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::V128 => WpType::V128,
         Type::ExternRef => WpType::Ref(WpRefType::new(true, WpHeapType::EXTERN).unwrap()),
         Type::FuncRef => WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap()),
+        Type::ExceptionRef => todo!(),
     }
 }
 
@@ -4091,7 +4091,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let targets = targets
                     .targets()
                     .collect::<Result<Vec<_>, _>>()
-                    .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {:?}", e)))?;
+                    .map_err(|e| CompileError::Codegen(format!("BrTable read_table: {e:?}")))?;
                 let cond = self.pop_value_released()?;
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
@@ -4114,8 +4114,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     if !frame.loop_like && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CompileError::Codegen(format!(
-                                "BrTable: incorrect frame.returns for {:?}",
-                                target
+                                "BrTable: incorrect frame.returns for {target:?}",
                             )));
                         }
 
@@ -6619,8 +6618,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
-                    "not yet implemented: {:?}",
-                    op
+                    "not yet implemented: {op:?}"
                 )));
             }
         }

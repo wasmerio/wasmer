@@ -1,7 +1,6 @@
 //! Create a new Edge app.
 
 use std::{
-    collections::HashMap,
     env,
     io::Cursor,
     path::{Path, PathBuf},
@@ -13,6 +12,7 @@ use anyhow::Context;
 use colored::Colorize;
 use dialoguer::{theme::ColorfulTheme, Confirm, Select};
 use futures::stream::TryStreamExt;
+use indexmap::IndexMap;
 use is_terminal::IsTerminal;
 use wasmer_backend_api::{
     types::{AppTemplate, TemplateLanguage},
@@ -132,12 +132,12 @@ impl CmdAppCreate {
     #[inline]
     fn get_app_config(&self, owner: &str, name: &str, package: &str) -> AppConfigV1 {
         AppConfigV1 {
-            name: String::from(name),
+            name: Some(String::from(name)),
             owner: Some(String::from(owner)),
             package: PackageSource::from_str(package).unwrap(),
             app_id: None,
             domains: None,
-            env: HashMap::new(),
+            env: IndexMap::new(),
             cli_args: None,
             capabilities: None,
             scheduled_tasks: None,
@@ -147,7 +147,8 @@ impl CmdAppCreate {
             scaling: None,
             locality: None,
             redirect: None,
-            extra: HashMap::new(),
+            extra: IndexMap::new(),
+            jobs: None,
         }
     }
 
@@ -173,7 +174,7 @@ impl CmdAppCreate {
             }),
         };
 
-        crate::utils::prompts::prompt_for_ident(
+        crate::utils::prompts::prompt_for_app_ident(
             "What should be the name of the app?",
             default_name.as_deref(),
         )

@@ -38,7 +38,7 @@ $ cargo fuzz run universal_cranelift
 ```
 
 See the
-[`fuzz/fuzz_targets`](https://github.com/wasmerio/wasmer/tree/fuzz/fuzz_targets/)
+[`fuzz/fuzz_targets`](https://github.com/wasmerio/wasmer/tree/main/fuzz/fuzz_targets/)
 directory for the full list of fuzzers.
 
 You should see output that looks something like this:

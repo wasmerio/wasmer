@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasix"
-version = "0.32.0"
+version = "0.600.1"
 description = "WASI and WASIX implementation library for Wasmer WebAssembly runtime"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
@@ -14,23 +14,23 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer-package.workspace = true
-wasmer-wasix-types = { path = "../wasi-types", version = "0.32.0", features = [
+wasmer-wasix-types = { path = "../wasi-types", version = "0.600.1", features = [
 	"enable-serde",
 ] }
-wasmer-types = { path = "../types", version = "=5.0.2", default-features = false }
-wasmer = { path = "../api", version = "=5.0.2", default-features = false, features = [
+wasmer-types = { path = "../types", version = "=6.0.1", default-features = false }
+wasmer = { path = "../api", version = "=6.0.1", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 ] }
-virtual-mio = { path = "../virtual-io", version = "0.6.0", default-features = false }
-virtual-fs = { path = "../virtual-fs", version = "0.20.0", default-features = false, features = [
+virtual-mio = { path = "../virtual-io", version = "0.600.1", default-features = false }
+virtual-fs = { path = "../virtual-fs", version = "0.600.1", default-features = false, features = [
 	"webc-fs",
 ] }
-virtual-net = { path = "../virtual-net", version = "0.12.0", default-features = false, features = [
+virtual-net = { path = "../virtual-net", version = "0.600.1", default-features = false, features = [
 	"rkyv",
 ] }
-wasmer-journal = { path = "../journal", version = "0.14.0", default-features = false }
-wasmer-config = { version = "0.10.0", path = "../config" }
+wasmer-journal = { path = "../journal", version = "0.600.1", default-features = false }
+wasmer-config = { version = "0.600.1", path = "../config" }
 
 http.workspace = true
 dashmap.workspace = true
@@ -58,7 +58,6 @@ chrono = { version = "^0.4.38", default-features = false, features = [
 ], optional = true }
 bytes = "1"
 anyhow = { version = "1.0.66" }
-lazy_static = "1.4"
 sha2 = { version = "0.10" }
 waker-fn = { version = "1.1" }
 cooked-waker = "^5"
@@ -79,7 +78,7 @@ serde_json = { version = "^1" }
 weezl = { version = "^0.1" }
 hex = { version = "^0.4" }
 linked_hash_set = { version = "0.1" }
-heapless = "0.7.16"
+heapless = "0.8"
 once_cell = "1.17.0"
 pin-project = "1.0.12"
 semver = "1.0.17"
@@ -121,7 +120,7 @@ hyper-util = { version = "0.1.5", features = [
 	"client",
 ], optional = true }
 http-body-util = { version = "0.1.1", optional = true }
-toml = "0.8"
+toml = { workspace = true }
 pin-utils = "0.1.0"
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
@@ -151,7 +150,7 @@ windows-sys = { version = "0.59", features = [
 terminal_size = { version = "0.3.0" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=5.0.2", default-features = false, features = [
+wasmer = { path = "../api", version = "=6.0.1", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 ] }
@@ -165,6 +164,7 @@ tracing-test = "0.2.4"
 wasm-bindgen-test = "0.3.0"
 env_logger = { version = "0.11.5", default-features = false }
 log = "0.4.22"
+assert-panic = "1.0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wasm-bindgen-test = "0.3.0"
@@ -172,7 +172,7 @@ tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 tracing-subscriber = { version = "^0.3" }
-wasmer = { path = "../api", version = "=5.0.2", default-features = false, features = [
+wasmer = { path = "../api", version = "=6.0.1", default-features = false, features = [
 	"wat",
 	"js-serializable-module",
 	"cranelift",
@@ -203,9 +203,10 @@ webc_runner_rt_dproxy = [
 	"journal",
 ]
 
-sys = ["webc/mmap", "time", "virtual-mio/sys"]
-sys-default = [
-	"sys",
+sys = [
+	"webc/mmap",
+	"time",
+	"virtual-mio/sys",
 	"logging",
 	"host-fs",
 	"journal",
@@ -216,6 +217,7 @@ sys-default = [
 	"host-reqwest",
 	"ctrlc",
 ]
+sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
 extra-logging = []
 sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
@@ -225,13 +227,15 @@ journal = ["tokio/fs", "wasmer-journal/log-file"]
 compiler = []
 
 js = [
-	"virtual-fs/no-time",
+	"virtual-fs/js",
 	"getrandom/js",
 	"chrono",
 	"js-sys",
 	"wasm-bindgen",
 	"wasm-bindgen-futures",
 	"web-sys",
+	"wasmer/js-default",
+	"wasmer/wasm-types-polyfill",
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
@@ -248,11 +252,13 @@ enable-serde = [
 	"typetag",
 	"virtual-fs/enable-serde",
 	"wasmer-wasix-types/enable-serde",
+	"wasmer/enable-serde",
 ]
 
 [package.metadata.docs.rs]
 features = [
 	"wasmer/sys",
+	"wasmer/compiler",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
 	"webc_runner_rt_dproxy",

@@ -56,7 +56,7 @@ impl EventResult {
 /// Output:
 /// - `u32 nevents`
 ///     The number of events seen
-//#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     in_: WasmPtr<Subscription, M>,
@@ -179,7 +179,7 @@ pub(crate) fn poll_fd_guard(
             .map_err(fs_error_into_wasi_err)?,
         _ => {
             let fd_entry = state.fs.get_fd(fd)?;
-            if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+            if !fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE) {
                 return Err(Errno::Access);
             }
             let inode = fd_entry.inode;
@@ -256,7 +256,9 @@ where
                             Ok(a) => a,
                             Err(err) => return Ok(err),
                         };
-                        if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                        if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                            && fd_entry.inner.rights.contains(Rights::FD_READ))
+                        {
                             return Ok(Errno::Access);
                         }
                     }
@@ -274,7 +276,9 @@ where
                             Ok(a) => a,
                             Err(err) => return Ok(err),
                         };
-                        if !fd_entry.rights.contains(Rights::POLL_FD_READWRITE) {
+                        if !(fd_entry.inner.rights.contains(Rights::POLL_FD_READWRITE)
+                            && fd_entry.inner.rights.contains(Rights::FD_WRITE))
+                        {
                             return Ok(Errno::Access);
                         }
                     }
@@ -357,9 +361,9 @@ where
 
             if fd_guards.len() > 10 {
                 let small_list: Vec<_> = fd_guards.iter().take(10).collect();
-                tracing::Span::current().record("fd_guards", format!("{:?}...", small_list));
+                tracing::Span::current().record("fd_guards", format!("{small_list:?}..."));
             } else {
-                tracing::Span::current().record("fd_guards", format!("{:?}", fd_guards));
+                tracing::Span::current().record("fd_guards", format!("{fd_guards:?}"));
             }
 
             fd_guards
@@ -391,7 +395,7 @@ where
         |ctx: &FunctionEnvMut<'a, WasiEnv>| {
             // The timeout has triggered so lets add that event
             if clock_subs.is_empty() {
-                tracing::warn!("triggered_timeout (without any clock subscriptions)",);
+                tracing::warn!("triggered_timeout (without any clock subscriptions)");
             }
             let mut evts = Vec::new();
             for (clock_info, userdata) in clock_subs {

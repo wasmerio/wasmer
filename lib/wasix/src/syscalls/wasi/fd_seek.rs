@@ -59,7 +59,7 @@ pub(crate) fn fd_seek_internal(
     let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let fd_entry = wasi_try_ok_ok!(state.fs.get_fd(fd));
 
-    if !fd_entry.rights.contains(Rights::FD_SEEK) {
+    if !fd_entry.inner.rights.contains(Rights::FD_SEEK) {
         return Ok(Err(Errno::Access));
     }
 
@@ -121,7 +121,9 @@ pub(crate) fn fd_seek_internal(
                 Kind::Dir { .. }
                 | Kind::Root { .. }
                 | Kind::Socket { .. }
-                | Kind::Pipe { .. }
+                | Kind::PipeRx { .. }
+                | Kind::PipeTx { .. }
+                | Kind::DuplexPipe { .. }
                 | Kind::EventNotifications { .. }
                 | Kind::Epoll { .. } => {
                     // TODO: check this
@@ -133,7 +135,7 @@ pub(crate) fn fd_seek_internal(
                     return Ok(Err(Errno::Inval));
                 }
             }
-            fd_entry.offset.load(Ordering::Acquire)
+            fd_entry.inner.offset.load(Ordering::Acquire)
         }
         Whence::Set => {
             let mut fd_map = state.fs.fd_map.write().unwrap();

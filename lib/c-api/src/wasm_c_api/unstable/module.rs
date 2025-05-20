@@ -172,7 +172,7 @@ pub unsafe extern "C" fn wasmer_module_new(
     engine: Option<&mut wasm_engine_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    let engine: wasmer_api::Engine = engine?.inner.clone().into();
+    let engine: wasmer_api::Engine = engine?.inner.clone();
     let bytes = bytes?;
 
     let module = c_try!(Module::from_binary(&engine, bytes.as_slice()));

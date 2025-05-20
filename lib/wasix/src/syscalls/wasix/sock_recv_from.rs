@@ -74,7 +74,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                 sock,
                 Rights::SOCK_RECV,
                 |socket, fd| async move {
-                    let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                    let nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
                     let timeout = socket
                         .opt_time(TimeType::ReadTimeout)
                         .ok()
@@ -99,7 +99,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
                 sock,
                 Rights::SOCK_RECV_FROM,
                 |socket, fd| async move {
-                    let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                    let nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
                     let timeout = socket
                         .opt_time(TimeType::ReadTimeout)
                         .ok()
@@ -134,7 +134,7 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
     };
     Span::current()
         .record("nread", bytes_read)
-        .record("peer", format!("{:?}", peer));
+        .record("peer", format!("{peer:?}"));
 
     wasi_try_ok!(write_ip_port(&memory, ro_addr, peer.ip(), peer.port()));
 

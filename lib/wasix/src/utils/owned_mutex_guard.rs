@@ -115,7 +115,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(guard) = self.guard.as_ref() {
-            write!(f, "{:?}", guard)
+            write!(f, "{guard:?}")
         } else {
             write!(f, "none")
         }
@@ -128,7 +128,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(guard) = self.guard.as_ref() {
-            write!(f, "{}", guard)
+            write!(f, "{guard}")
         } else {
             write!(f, "none")
         }
@@ -193,7 +193,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(guard) = self.guard.as_ref() {
-            write!(f, "{:?}", guard)
+            write!(f, "{guard:?}")
         } else {
             write!(f, "none")
         }
@@ -206,7 +206,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if let Some(guard) = self.guard.as_ref() {
-            write!(f, "{}", guard)
+            write!(f, "{guard}")
         } else {
             write!(f, "none")
         }

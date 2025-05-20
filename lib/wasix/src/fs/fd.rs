@@ -11,8 +11,8 @@ use futures::Future;
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
 use tokio::sync::{watch, Mutex as AsyncMutex};
-use virtual_fs::{Pipe, VirtualFile};
-use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Filestat, Rights};
+use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
+use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
 use crate::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
 
@@ -24,16 +24,27 @@ use super::{
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Fd {
-    pub rights: Rights,
-    pub rights_inheriting: Rights,
-    pub flags: Fdflags,
-    pub offset: Arc<AtomicU64>,
+    #[cfg_attr(feature = "enable-serde", serde(flatten))]
+    pub inner: FdInner,
+
     /// Flags that determine how the [`Fd`] can be used.
     ///
     /// Used when reopening a [`VirtualFile`] during deserialization.
     pub open_flags: u16,
     pub inode: InodeGuard,
     pub is_stdio: bool,
+}
+
+// This struct contains the bits of Fd that are safe to mutate, so that
+// FdList::get_mut can safely return mutable references.
+#[derive(Debug, Clone)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+pub struct FdInner {
+    pub rights: Rights,
+    pub rights_inheriting: Rights,
+    pub flags: Fdflags,         // This is file table related flags, not fd flags
+    pub offset: Arc<AtomicU64>, // This also belongs in the file table
+    pub fd_flags: Fdflagsext,   // This is the actual FD flags that belongs here
 }
 
 impl Fd {
@@ -62,7 +73,7 @@ impl Fd {
 pub struct InodeVal {
     pub stat: RwLock<Filestat>,
     pub is_preopened: bool,
-    pub name: Cow<'static, str>,
+    pub name: RwLock<Cow<'static, str>>,
     pub kind: RwLock<Kind>,
 }
 
@@ -173,8 +184,15 @@ pub enum Kind {
         socket: InodeSocket,
     },
     #[cfg_attr(feature = "enable-serde", serde(skip))]
-    Pipe {
-        /// Reference to the pipe
+    PipeTx {
+        tx: PipeTx,
+    },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    PipeRx {
+        rx: PipeRx,
+    },
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    DuplexPipe {
         pipe: Pipe,
     },
     Epoll {

@@ -23,11 +23,13 @@ use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
 #[cfg(feature = "sys")]
-use wasmer::NativeEngineExt;
+use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type, TypedFunction,
-    Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
+    TypedFunction, Value,
 };
+
+use wasmer_types::{target::Target, Features};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
@@ -57,8 +59,8 @@ use webc::metadata::Manifest;
 use webc::Container;
 
 use crate::{
-    commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv, error::PrettyError,
-    logging::Output, store::StoreOptions,
+    backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
+    error::PrettyError, logging::Output,
 };
 
 const TICK: Duration = Duration::from_millis(250);
@@ -69,7 +71,7 @@ pub struct Run {
     #[clap(flatten)]
     env: WasmerEnv,
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
     #[clap(flatten)]
     wasi: crate::commands::run::Wasi,
     #[clap(flatten)]
@@ -115,11 +117,6 @@ impl Run {
             .build()?;
         let handle = runtime.handle().clone();
 
-        #[cfg(feature = "sys")]
-        if self.stack_size.is_some() {
-            wasmer_vm::set_stack_size(self.stack_size.unwrap());
-        }
-
         // Check for the preferred webc version.
         // Default to v3.
         let webc_version_var = std::env::var("WASMER_WEBC_VERSION");
@@ -132,18 +129,80 @@ impl Run {
         };
 
         let _guard = handle.enter();
-        let (store, _) = self.store.get_store()?;
+
+        // Get the input file path
+        let mut wasm_bytes: Option<Vec<u8>> = None;
+
+        // Try to detect WebAssembly features before selecting a backend
+        tracing::info!("Input source: {:?}", self.input);
+        if let PackageSource::File(path) = &self.input {
+            tracing::info!("Input file path: {}", path.display());
+
+            // Try to read and detect any file that exists, regardless of extension
+            if path.exists() {
+                tracing::info!("Found file: {}", path.display());
+                match std::fs::read(path) {
+                    Ok(bytes) => {
+                        tracing::info!("Read {} bytes from file", bytes.len());
+
+                        // Check if it's a WebAssembly module by looking for magic bytes
+                        let magic = [0x00, 0x61, 0x73, 0x6D]; // "\0asm"
+                        if bytes.len() >= 4 && bytes[0..4] == magic {
+                            // Looks like a valid WebAssembly module, save the bytes for feature detection
+                            tracing::info!(
+                                "Valid WebAssembly module detected, magic header verified"
+                            );
+                            wasm_bytes = Some(bytes);
+                        } else {
+                            tracing::info!("File does not have valid WebAssembly magic number, will try to run it anyway");
+                            // Still provide the bytes so the engine can attempt to run it
+                            wasm_bytes = Some(bytes);
+                        }
+                    }
+                    Err(e) => {
+                        tracing::info!("Failed to read file for feature detection: {}", e);
+                    }
+                }
+            } else {
+                tracing::info!("File does not exist: {}", path.display());
+            }
+        } else {
+            tracing::info!("Input is not a file, skipping WebAssembly feature detection");
+        }
+
+        // Get engine with feature-based backend selection if possible
+        let mut engine = match &wasm_bytes {
+            Some(wasm_bytes) => {
+                tracing::info!("Attempting to detect WebAssembly features from binary");
+
+                self.rt
+                    .get_engine_for_module(wasm_bytes, &Target::default())?
+            }
+            None => {
+                // No WebAssembly file available for analysis, check if we have a webc package
+                if let PackageSource::Package(ref pkg_source) = &self.input {
+                    tracing::info!("Checking package for WebAssembly features: {}", pkg_source);
+                    self.rt.get_engine(&Target::default())?
+                } else {
+                    tracing::info!("No feature detection possible, using default engine");
+                    self.rt.get_engine(&Target::default())?
+                }
+            }
+        };
+
+        let engine_kind = engine.deterministic_id();
+        tracing::info!("Executing on backend {engine_kind:?}");
 
         #[cfg(feature = "sys")]
-        let engine = {
-            let mut engine = store.engine().clone();
+        if engine.is_sys() {
+            if self.stack_size.is_some() {
+                wasmer_vm::set_stack_size(self.stack_size.unwrap());
+            }
             let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
             engine.set_hash_algorithm(Some(hash_algorithm));
+        }
 
-            engine
-        };
-        #[cfg(not(feature = "sys"))]
-        let engine = store.engine().clone();
+        let engine = engine.clone();
 
         let runtime = self.wasi.prepare_runtime(
             engine,
@@ -178,8 +237,64 @@ impl Run {
                     module,
                     module_hash,
                     path,
-                } => self.execute_wasm(&path, &module, module_hash, store, runtime.clone()),
-                ExecutableTarget::Package(pkg) => self.execute_webc(&pkg, runtime.clone()),
+                } => self.execute_wasm(&path, module, module_hash, runtime.clone()),
+                ExecutableTarget::Package(pkg) => {
+                    // Check if we should update the engine based on the WebC package features
+                    if let Some(cmd) = pkg.get_entrypoint_command() {
+                        if let Some(features) = cmd.wasm_features() {
+                            // Get the right engine for these features
+                            let backends = self.rt.get_available_backends()?;
+                            let available_engines = backends
+                                .iter()
+                                .map(|b| b.to_string())
+                                .collect::<Vec<_>>()
+                                .join(", ");
+
+                            let filtered_backends = RuntimeOptions::filter_backends_by_features(
+                                backends.clone(),
+                                &features,
+                                &Target::default(),
+                            );
+
+                            if !filtered_backends.is_empty() {
+                                let engine_id = filtered_backends[0].to_string();
+
+                                // Get a new engine that's compatible with the required features
+                                if let Ok(new_engine) = filtered_backends[0].get_engine(
+                                    &Target::default(),
+                                    &features,
+                                    &self.rt,
+                                ) {
+                                    tracing::info!(
+                                        "The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}.",
+                                        cmd.name(),
+                                        features,
+                                        available_engines,
+                                        engine_id
+                                    );
+                                    // Create a new runtime with the updated engine
+                                    let new_runtime = self.wasi.prepare_runtime(
+                                        new_engine,
+                                        &self.env,
+                                        &capabilities::get_capability_cache_path(
+                                            &self.env,
+                                            &self.input,
+                                        )?,
+                                        tokio::runtime::Builder::new_multi_thread()
+                                            .enable_all()
+                                            .build()?,
+                                        preferred_webc_version,
+                                    )?;
+
+                                    let new_runtime =
+                                        Arc::new(MonitoringRuntime::new(new_runtime, pb.clone()));
+                                    return self.execute_webc(&pkg, new_runtime);
+                                }
+                            }
+                        }
+                    }
+                    self.execute_webc(&pkg, runtime.clone())
+                }
             }
         };
 
@@ -201,15 +316,14 @@ impl Run {
     fn execute_wasm(
         &self,
         path: &Path,
-        module: &Module,
+        module: Module,
         module_hash: ModuleHash,
-        mut store: Store,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        if wasmer_wasix::is_wasi_module(module) || wasmer_wasix::is_wasix_module(module) {
-            self.execute_wasi_module(path, module, module_hash, runtime, store)
+        if wasmer_wasix::is_wasi_module(&module) || wasmer_wasix::is_wasix_module(&module) {
+            self.execute_wasi_module(path, module, module_hash, runtime)
         } else {
-            self.execute_pure_wasm_module(module, &mut store)
+            self.execute_pure_wasm_module(&module)
         }
     }
 
@@ -316,19 +430,26 @@ impl Run {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
                 config.add_snapshot_trigger(trigger);
             }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.writable_journals.is_empty() {
                 config.add_default_snapshot_triggers();
             }
             if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.journals.is_empty() {
+                if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                        "If you specify a snapshot interval then you must also specify a journal file"
+                        "If you specify a snapshot interval then you must also specify a writable journal file"
                     ));
                 }
                 config.with_snapshot_interval(Duration::from_millis(period));
             }
-            for journal in self.wasi.build_journals()? {
-                config.add_journal(journal);
+            if self.wasi.stop_after_snapshot {
+                config.with_stop_running_after_snapshot(true);
+            }
+            let (r, w) = self.wasi.build_journals()?;
+            for journal in r {
+                config.add_read_only_journal(journal);
+            }
+            for journal in w {
+                config.add_writable_journal(journal);
             }
         }
 
@@ -360,9 +481,12 @@ impl Run {
     }
 
     #[tracing::instrument(skip_all)]
-    fn execute_pure_wasm_module(&self, module: &Module, store: &mut Store) -> Result<(), Error> {
+    fn execute_pure_wasm_module(&self, module: &Module) -> Result<(), Error> {
+        /// The rest of the execution happens in the main thread, so we can create the
+        /// store here.
+        let mut store = self.rt.get_store()?;
         let imports = Imports::default();
-        let instance = Instance::new(store, module, &imports)
+        let instance = Instance::new(&mut store, module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
         let entry_function  = match &self.invoke {
@@ -377,7 +501,7 @@ impl Run {
             }
         };
 
-        let return_values = invoke_function(&instance, store, entry_function, &self.args)?;
+        let return_values = invoke_function(&instance, &mut store, entry_function, &self.args)?;
 
         println!(
             "{}",
@@ -422,20 +546,28 @@ impl Run {
             for trigger in self.wasi.snapshot_on.iter().cloned() {
                 runner.with_snapshot_trigger(trigger);
             }
-            if self.wasi.snapshot_on.is_empty() && !self.wasi.journals.is_empty() {
+            if self.wasi.snapshot_on.is_empty() && !self.wasi.writable_journals.is_empty() {
                 runner.with_default_snapshot_triggers();
             }
             if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.journals.is_empty() {
+                if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                        "If you specify a snapshot interval then you must also specify a journal file"
+                        "If you specify a snapshot interval then you must also specify a writable journal file"
                     ));
                 }
                 runner.with_snapshot_interval(Duration::from_millis(period));
             }
-            for journal in self.wasi.build_journals()? {
-                runner.with_journal(journal);
+            if self.wasi.stop_after_snapshot {
+                runner.with_stop_running_after_snapshot(true);
             }
+            let (r, w) = self.wasi.build_journals()?;
+            for journal in r {
+                runner.with_read_only_journal(journal);
+            }
+            for journal in w {
+                runner.with_writable_journal(journal);
+            }
+            runner.with_skip_stdio_during_bootstrap(self.wasi.skip_stdio_during_bootstrap);
         }
 
         Ok(runner)
@@ -445,21 +577,14 @@ impl Run {
     fn execute_wasi_module(
         &self,
         wasm_path: &Path,
-        module: &Module,
+        module: Module,
         module_hash: ModuleHash,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        mut store: Store,
     ) -> Result<(), Error> {
         let program_name = wasm_path.display().to_string();
 
         let runner = self.build_wasi_runner(&runtime)?;
-        runner.run_wasm(
-            runtime,
-            &program_name,
-            module,
-            module_hash,
-            self.wasi.enable_async_threads,
-        )
+        runner.run_wasm(runtime, &program_name, module, module_hash)
     }
 
     #[allow(unused_variables)]
@@ -498,10 +623,10 @@ impl Run {
                 bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
             }
         };
-        let store = StoreOptions::default();
+        let rt = RuntimeOptions::default();
         Ok(Run {
             env: WasmerEnv::default(),
-            store,
+            rt,
             wasi: Wasi::for_binfmt_interpreter()?,
             wcgi: WcgiOptions::default(),
             stack_size: None,
@@ -639,7 +764,7 @@ impl TargetOnDisk {
         let mut buffer = [0_u8; 512];
 
         let mut f = File::open(path)
-            .with_context(|| format!("Unable to open \"{}\" for reading", path.display(),))?;
+            .with_context(|| format!("Unable to open \"{}\" for reading", path.display()))?;
         let bytes_read = f.read(&mut buffer)?;
 
         let leading_bytes = &buffer[..bytes_read];
@@ -938,6 +1063,25 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 
     fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
         self.runtime.tty()
+    }
+
+    #[cfg(feature = "journal")]
+    fn read_only_journals<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynReadableJournal>> + 'a> {
+        self.runtime.read_only_journals()
+    }
+
+    #[cfg(feature = "journal")]
+    fn writable_journals<'a>(
+        &'a self,
+    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynJournal>> + 'a> {
+        self.runtime.writable_journals()
+    }
+
+    #[cfg(feature = "journal")]
+    fn active_journal(&self) -> Option<&'_ wasmer_wasix::journal::DynJournal> {
+        self.runtime.active_journal()
     }
 }
 

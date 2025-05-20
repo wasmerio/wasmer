@@ -28,6 +28,15 @@ pub struct PackageDownload {
     #[clap(long)]
     pub quiet: bool,
 
+    /// Unpack the downloaded package.
+    ///
+    /// The output directory will be next to the downloaded file.
+    ///
+    /// Note: unpacking can also be done manually with the `wasmer package unpack`
+    /// command.
+    #[clap(long)]
+    unpack: bool,
+
     /// The package to download.
     package: PackageSource,
 }
@@ -56,13 +65,33 @@ impl PackageDownload {
 
         pb.println(format!(
             "{} {}Creating output directory...",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
             CREATING_OUTPUT_DIRECTORY_EMOJI,
         ));
 
         step_num += 1;
+
+        let out_dir = if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
+            match parent.metadata() {
+                Ok(m) => {
+                    if !m.is_dir() {
+                        bail!(
+                            "parent of output file is not a directory: '{}'",
+                            parent.display()
+                        );
+                    }
+                    parent.to_owned()
+                }
+                Err(err) if err.kind() == std::io::ErrorKind::NotFound => {
+                    std::fs::create_dir_all(parent)
+                        .context("could not create parent directory of output file")?;
+                    parent.to_owned()
+                }
+                Err(err) => return Err(err.into()),
+            }
+        } else {
+            current_dir()?
+        };
 
         if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
             match parent.metadata() {
@@ -84,9 +113,7 @@ impl PackageDownload {
 
         pb.println(format!(
             "{} {}Retrieving package information...",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
             RETRIEVING_PACKAGE_INFORMATION_EMOJI
         ));
 
@@ -151,7 +178,7 @@ impl PackageDownload {
                     .with_context(|| format!("Package with {hash} does not exist in the registry, or is not accessible"))?;
 
                 let ident = hash.to_string();
-                let filename = format!("{}.webc", hash);
+                let filename = format!("{hash}.webc");
 
                 (pkg.webc_url, ident, filename)
             }
@@ -173,12 +200,8 @@ impl PackageDownload {
             .header(http::header::ACCEPT, "application/webc");
 
         pb.println(format!(
-            "{} {}Downloading package {} ...",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
-            DOWNLOADING_PACKAGE_EMOJI,
-            ident,
+            "{} {DOWNLOADING_PACKAGE_EMOJI}Downloading package {ident} ...",
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
         ));
 
         step_num += 1;
@@ -203,11 +226,7 @@ impl PackageDownload {
         // Set the length of the progress bar
         pb.set_length(webc_total_size);
 
-        let mut tmpfile = if let Some(parent) = self.out_path.as_ref().and_then(|p| p.parent()) {
-            NamedTempFile::new_in(parent)?
-        } else {
-            NamedTempFile::new()?
-        };
+        let mut tmpfile = NamedTempFile::new_in(&out_dir)?;
         let accepted_contenttypes = vec![
             "application/webc",
             "application/octet-stream",
@@ -221,8 +240,7 @@ impl PackageDownload {
         if !(accepted_contenttypes.contains(&ty)) {
             eprintln!(
                 "Warning: response has invalid content type - expected \
-                 one of {:?}, got {ty}",
-                accepted_contenttypes
+                 one of {accepted_contenttypes:?}, got {ty}",
             );
         }
 
@@ -234,11 +252,8 @@ impl PackageDownload {
         if self.validate {
             if !self.quiet {
                 println!(
-                    "{} {}Validating package...",
-                    style(format!("[{}/{}]", step_num, total_steps))
-                        .bold()
-                        .dim(),
-                    VALIDATING_PACKAGE_EMOJI
+                    "{} {VALIDATING_PACKAGE_EMOJI}Validating package...",
+                    style(format!("[{step_num}/{total_steps}]")).bold().dim(),
                 );
             }
 
@@ -251,7 +266,7 @@ impl PackageDownload {
         let out_path = if let Some(out_path) = &self.out_path {
             out_path.clone()
         } else {
-            current_dir()?.join(filename)
+            out_dir.join(filename)
         };
 
         tmpfile.persist(&out_path).with_context(|| {
@@ -262,16 +277,30 @@ impl PackageDownload {
         })?;
 
         pb.println(format!(
-            "{} {}Package downloaded to '{}'",
-            style(format!("[{}/{}]", step_num, total_steps))
-                .bold()
-                .dim(),
-            WRITING_PACKAGE_EMOJI,
+            "{} {WRITING_PACKAGE_EMOJI}Package downloaded to '{}'",
+            style(format!("[{step_num}/{total_steps}]")).bold().dim(),
             out_path.display()
         ));
 
         // We're done, so finish the progress bar
         pb.finish();
+
+        if self.unpack {
+            let out_dir = if out_path.extension().is_some() {
+                out_path.with_extension("")
+            } else {
+                out_path.with_extension("unpacked")
+            };
+
+            let unpack_cmd = super::unpack::PackageUnpack {
+                out_dir,
+                overwrite: false,
+                quiet: self.quiet,
+                package_path: out_path,
+                format: super::unpack::Format::Package,
+            };
+            unpack_cmd.execute()?;
+        }
 
         Ok(())
     }
@@ -298,11 +327,14 @@ mod tests {
             validate: true,
             out_path: Some(out_path.clone()),
             package: "wasmer/hello@0.1.0".parse().unwrap(),
+            unpack: true,
             quiet: true,
         };
 
         cmd.execute().unwrap();
 
         from_disk(out_path).unwrap();
+
+        assert!(dir.path().join("hello/wasmer.toml").is_file());
     }
 }

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-backend-api"
-version = "0.2.0"
+version = "0.600.1"
 description = "Client library for the Wasmer GraphQL API"
 readme = "README.md"
 documentation = "https://docs.rs/wasmer-backend-api"
@@ -15,7 +15,7 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # Wasmer dependencies.
-wasmer-config = { version = "0.10.0", path = "../config" }
+wasmer-config = { version = "0.600.1", path = "../config" }
 wasmer-package.workspace = true
 webc.workspace = true
 
@@ -41,14 +41,14 @@ merge-streams = "0.1.2"
 graphql-ws-client = { version = "0.11.0", features = [
 	"tungstenite",
 	"client-cynic",
-] }
+], optional = true }
 tokio-tungstenite = { version = "0.24.0", features = [
 	"rustls-tls-native-roots",
-] }
+], optional = true }
 async-tungstenite = { version = "0.28.0", features = [
 	"tokio-runtime",
 	"tokio-rustls-native-certs",
-] }
+], optional = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies.getrandom]
 version = "0.2.14"
@@ -58,3 +58,11 @@ features = ["js"]
 tokio = { workspace = true, features = ["macros", "rt"] }
 base64.workspace = true
 uuid = { version = "1", features = ["v4"] }
+
+[features]
+
+default = ["sys"]
+
+sys = ["graphql-ws-client", "tokio-tungstenite", "async-tungstenite"]
+
+js = []

@@ -17,12 +17,13 @@ use wasmer_wast::Wast;
 include!(concat!(env!("OUT_DIR"), "/generated_spectests.rs"));
 
 pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()> {
-    println!("Running wast `{}`", wast_path);
+    println!("Running wast `{wast_path}`");
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");
     let is_simd = wast_path.contains("simd");
     let is_threads = wast_path.contains("threads");
+    let is_exception_handling = wast_path.contains("exception-handling");
     if is_bulkmemory {
         features.bulk_memory(true);
     }
@@ -31,6 +32,10 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     }
     if is_threads {
         features.threads(true);
+    }
+
+    if is_exception_handling {
+        features.exceptions(true);
     }
     if config.compiler == crate::Compiler::Singlepass {
         features.multi_value(false);

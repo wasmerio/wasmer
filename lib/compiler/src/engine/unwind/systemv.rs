@@ -11,6 +11,8 @@ use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 pub struct UnwindRegistry {
     registrations: Vec<usize>,
     published: bool,
+    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+    compact_unwind_mgr: compact_unwind::CompactUnwindManager,
 }
 
 extern "C" {
@@ -18,6 +20,10 @@ extern "C" {
     fn __register_frame(fde: *const u8);
     fn __deregister_frame(fde: *const u8);
 }
+
+// Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
+#[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+mod compact_unwind;
 
 /// There are two primary unwinders on Unix platforms: libunwind and libgcc.
 ///
@@ -85,6 +91,8 @@ impl UnwindRegistry {
         Self {
             registrations: Vec::new(),
             published: false,
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            compact_unwind_mgr: Default::default(),
         }
     }
 
@@ -115,6 +123,14 @@ impl UnwindRegistry {
             }
         }
 
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            self.compact_unwind_mgr
+                .finalize()
+                .map_err(|v| v.to_string())?;
+            self.compact_unwind_mgr.register();
+        }
+
         self.published = true;
 
         Ok(())
@@ -139,26 +155,58 @@ impl UnwindRegistry {
             __register_frame(ptr);
             self.registrations.push(ptr as usize);
         } else {
-            // For libunwind, `__register_frame` takes a pointer to a single FDE
-            let start = eh_frame.as_ptr();
-            let end = start.add(eh_frame.len());
-            let mut current = start;
+            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+            {
+                compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
+            }
 
-            // Walk all of the entries in the frame table and register them
-            while current < end {
-                let len = std::ptr::read::<u32>(current as *const u32) as usize;
+            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+            {
+                // For libunwind, `__register_frame` takes a pointer to a single FDE
+                let start = eh_frame.as_ptr();
+                let end = start.add(eh_frame.len());
+                let mut current = start;
 
-                // Skip over the CIE and zero-length FDEs.
-                // LLVM's libunwind emits a warning on zero-length FDEs.
-                if current != start && len != 0 {
-                    __register_frame(current);
-                    self.registrations.push(current as usize);
+                // Walk all of the entries in the frame table and register them
+                while current < end {
+                    let len = std::ptr::read::<u32>(current as *const u32) as usize;
+
+                    // Skip over the CIE and zero-length FDEs.
+                    // LLVM's libunwind emits a warning on zero-length FDEs.
+                    if current != start && len != 0 {
+                        __register_frame(current);
+                        self.registrations.push(current as usize);
+                    }
+
+                    // Move to the next table entry (+4 because the length itself is not inclusive)
+                    current = current.add(len + 4);
                 }
-
-                // Move to the next table entry (+4 because the length itself is not inclusive)
-                current = current.add(len + 4);
             }
         }
+    }
+
+    pub(crate) fn register_compact_unwind(
+        &mut self,
+        compact_unwind: Option<&[u8]>,
+        eh_personality_addr_in_got: Option<usize>,
+    ) -> Result<(), String> {
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        unsafe {
+            if let Some(slice) = compact_unwind {
+                self.compact_unwind_mgr.read_compact_unwind_section(
+                    slice.as_ptr() as _,
+                    slice.len(),
+                    eh_personality_addr_in_got,
+                )?;
+            }
+        }
+
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            _ = compact_unwind;
+            _ = eh_personality_addr_in_got;
+        }
+        Ok(())
     }
 }
 
@@ -175,7 +223,16 @@ impl Drop for UnwindRegistry {
                 // To ensure that we just pop off the first element in the list upon every
                 // deregistration, walk our list of registrations backwards.
                 for fde in self.registrations.iter().rev() {
-                    __deregister_frame(*fde as *const _);
+                    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                    {
+                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*fde);
+                        self.compact_unwind_mgr.deregister();
+                    }
+
+                    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+                    {
+                        __deregister_frame(*fde as *const _);
+                    }
                 }
             }
         }

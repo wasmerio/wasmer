@@ -1,14 +1,14 @@
 use super::filesystem::InodeResolution;
 use super::*;
 use crate::{FileType, FsError, Metadata, OpenOptionsConfig, Result, VirtualFile};
-use std::borrow::Cow;
+use shared_buffer::OwnedBuffer;
 use std::path::Path;
 use tracing::*;
 
 impl FileSystem {
     /// Inserts a readonly file into the file system that uses copy-on-write
     /// (this is required for zero-copy creation of the same file)
-    pub fn insert_ro_file(&self, path: &Path, contents: Cow<'static, [u8]>) -> Result<()> {
+    pub fn insert_ro_file(&self, path: &Path, contents: OwnedBuffer) -> Result<()> {
         let _ = crate::FileSystem::remove_file(self, path);
         let (inode_of_parent, maybe_inode_of_file, name_of_file) = self.insert_inode(path)?;
 

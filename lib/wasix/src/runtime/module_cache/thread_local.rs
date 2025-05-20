@@ -31,7 +31,7 @@ impl ThreadLocalCache {
 impl ModuleCache for ThreadLocalCache {
     #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        match self.lookup(key, engine.deterministic_id()) {
+        match self.lookup(key, &engine.deterministic_id()) {
             Some(m) => {
                 tracing::debug!("Cache hit!");
                 Ok(m)
@@ -47,7 +47,7 @@ impl ModuleCache for ThreadLocalCache {
         engine: &Engine,
         module: &Module,
     ) -> Result<(), CacheError> {
-        self.insert(key, module, engine.deterministic_id());
+        self.insert(key, module, &engine.deterministic_id());
         Ok(())
     }
 }

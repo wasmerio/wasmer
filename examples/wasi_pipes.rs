@@ -6,7 +6,7 @@
 //! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
-//! cargo run --example wasi-pipes --release --features "cranelift,wasi"
+//! cargo run --example wasi-pipes --release --features "cranelift,tokio,backend,wasi"
 //! ```
 //!
 //! Ready?

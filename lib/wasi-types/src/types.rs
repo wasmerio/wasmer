@@ -41,7 +41,7 @@ pub mod file {
                 right_set.insert(cur_right.to_str().unwrap_or("INVALID RIGHT"));
             }
         }
-        println!("{:#?}", right_set);
+        println!("{right_set:#?}");
     }
 }
 

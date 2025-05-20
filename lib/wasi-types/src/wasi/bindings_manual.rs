@@ -155,7 +155,7 @@ impl std::fmt::Display for Sockoption {
             Self::Type => "Sockoption::Type",
             Self::Proto => "Sockoption::Proto",
         };
-        write!(f, "{}", s)
+        write!(f, "{s}")
     }
 }
 
@@ -166,6 +166,25 @@ unsafe impl wasmer::FromToNativeWasmType for Fdflags {
     fn to_native(self) -> Self::Native {
         self.bits() as i32
     }
+
+    fn from_native(n: Self::Native) -> Self {
+        Self::from_bits_truncate(n as u16)
+    }
+
+    fn is_from_store(&self, _store: &impl wasmer::AsStoreRef) -> bool {
+        // TODO: find correct implementation
+        false
+    }
+}
+
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl wasmer::FromToNativeWasmType for Fdflagsext {
+    type Native = i32;
+
+    fn to_native(self) -> Self::Native {
+        self.bits() as i32
+    }
+
     fn from_native(n: Self::Native) -> Self {
         Self::from_bits_truncate(n as u16)
     }

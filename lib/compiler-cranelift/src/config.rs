@@ -5,10 +5,8 @@ use cranelift_codegen::{
     CodegenResult,
 };
 use std::sync::Arc;
-use wasmer_compiler::{
-    types::target::{Architecture, CpuFeature, Target},
-    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
-};
+use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_types::target::{Architecture, CpuFeature, Target};
 
 // Runtime Environment
 
@@ -35,6 +33,7 @@ pub enum CraneliftOptLevel {
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
+    pub(crate) enable_perfmap: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     /// The middleware chain.
@@ -51,6 +50,7 @@ impl Cranelift {
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
             middlewares: vec![],
+            enable_perfmap: false,
         }
     }
 
@@ -194,6 +194,10 @@ impl CompilerConfig for Cranelift {
 
     fn enable_verifier(&mut self) {
         self.enable_verifier = true;
+    }
+
+    fn enable_perfmap(&mut self) {
+        self.enable_perfmap = true;
     }
 
     fn canonicalize_nans(&mut self, enable: bool) {

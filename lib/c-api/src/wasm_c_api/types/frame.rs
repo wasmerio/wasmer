@@ -123,5 +123,5 @@ fn test_frame_name() {
         wasm_name_delete(Some(&mut wasm_frame_module_name));
     }
 
-    println!("{:#?}", info);
+    println!("{info:#?}");
 }

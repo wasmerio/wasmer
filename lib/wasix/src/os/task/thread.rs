@@ -318,6 +318,7 @@ impl WasiThread {
     pub fn set_or_get_exit_code_for_signal(&self, sig: Signal) -> ExitCode {
         let default_exitcode: ExitCode = match sig {
             Signal::Sigquit | Signal::Sigabrt => Errno::Success.into(),
+            Signal::Sigpipe => Errno::Pipe.into(),
             _ => Errno::Intr.into(),
         };
         // This will only set the status code if its not already set
@@ -617,7 +618,7 @@ pub enum WasiThreadError {
     MemoryCreateFailed(MemoryError),
     #[error("{0}")]
     ExportError(ExportError),
-    #[error("Failed to create the instance")]
+    #[error("Failed to create the instance - {0}")]
     // Note: Boxed so we can keep the error size down
     InstanceCreateFailed(Box<InstantiationError>),
     #[error("Initialization function failed - {0}")]

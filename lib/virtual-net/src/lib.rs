@@ -7,6 +7,7 @@ pub mod composite;
 pub mod host;
 pub mod loopback;
 pub mod meta;
+pub mod ruleset;
 #[cfg(feature = "remote")]
 pub mod rx_tx;
 #[cfg(feature = "remote")]

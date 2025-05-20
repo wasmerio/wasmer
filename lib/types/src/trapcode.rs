@@ -60,6 +60,9 @@ pub enum TrapCode {
 
     /// An atomic memory access was attempted with an unaligned pointer.
     UnalignedAtomic = 10,
+
+    /// An exception was thrown but it was left uncaught.
+    UncaughtException = 11,
 }
 
 impl TrapCode {
@@ -77,6 +80,7 @@ impl TrapCode {
             Self::BadConversionToInteger => "invalid conversion to integer",
             Self::UnreachableCodeReached => "unreachable",
             Self::UnalignedAtomic => "unaligned atomic access",
+            Self::UncaughtException => "uncaught exception",
         }
     }
 }
@@ -95,6 +99,7 @@ impl Display for TrapCode {
             Self::BadConversionToInteger => "bad_toint",
             Self::UnreachableCodeReached => "unreachable",
             Self::UnalignedAtomic => "unalign_atom",
+            Self::UncaughtException => "uncaught_exception",
         };
         f.write_str(identifier)
     }

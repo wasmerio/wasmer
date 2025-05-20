@@ -3,15 +3,16 @@ pub use env::*;
 
 use serde::{Deserialize, Serialize};
 use std::path::{Path, PathBuf};
+use std::sync::LazyLock;
 use url::Url;
 use wasmer_backend_api::WasmerClient;
 
 pub static GLOBAL_CONFIG_FILE_NAME: &str = "wasmer.toml";
 pub static DEFAULT_PROD_REGISTRY: &str = "https://registry.wasmer.io/graphql";
 
-lazy_static::lazy_static! {
-    /// The default value for `$WASMER_DIR`.
-    pub static ref DEFAULT_WASMER_DIR: PathBuf = match WasmerConfig::get_wasmer_dir() {
+/// The default value for `$WASMER_DIR`.
+pub static DEFAULT_WASMER_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| match WasmerConfig::get_wasmer_dir() {
         Ok(path) => path,
         Err(e) => {
             if let Some(install_prefix) = option_env!("WASMER_INSTALL_PREFIX") {
@@ -20,11 +21,11 @@ lazy_static::lazy_static! {
 
             panic!("Unable to determine the wasmer dir: {e}");
         }
-    };
+    });
 
-    /// The default value for `$WASMER_DIR`.
-    pub static ref DEFAULT_WASMER_CACHE_DIR: PathBuf = DEFAULT_WASMER_DIR.join("cache");
-}
+/// The default value for `$WASMER_DIR`.
+pub static DEFAULT_WASMER_CACHE_DIR: LazyLock<PathBuf> =
+    LazyLock::new(|| DEFAULT_WASMER_DIR.join("cache"));
 
 #[derive(Deserialize, Serialize, Debug, PartialEq, Eq)]
 pub struct WasmerConfig {

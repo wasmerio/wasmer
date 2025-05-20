@@ -260,6 +260,34 @@ pub async fn get_app_volumes(
     Ok(volumes)
 }
 
+/// Retrieve volumes for an app.
+pub async fn get_app_databases(
+    client: &WasmerClient,
+    owner: impl Into<String>,
+    name: impl Into<String>,
+) -> Result<Vec<types::AppDatabase>, anyhow::Error> {
+    let vars = types::GetAppDatabasesVars {
+        owner: owner.into(),
+        name: name.into(),
+        after: None,
+    };
+    let res = client
+        .run_graphql_strict(types::GetAppDatabases::build(vars))
+        .await?;
+
+    let app = res.get_deploy_app.context("app not found")?;
+    let dbs = app.databases;
+    let _ = dbs.page_info;
+
+    let dbs = dbs
+        .edges
+        .into_iter()
+        .flatten()
+        .flat_map(|edge| edge.node)
+        .collect::<Vec<_>>();
+    Ok(dbs)
+}
+
 /// Load the S3 credentials.
 ///
 /// S3 can be used to get access to an apps volumes.
@@ -1075,7 +1103,7 @@ pub async fn app_deployment(
 ) -> Result<types::AutobuildRepository, anyhow::Error> {
     let node = get_node(client, id.clone())
         .await?
-        .with_context(|| format!("app deployment with id '{}' not found", id))?;
+        .with_context(|| format!("app deployment with id '{id}' not found"))?;
     match node {
         types::Node::AutobuildRepository(x) => Ok(*x),
         _ => anyhow::bail!("invalid node type returned"),
@@ -1429,7 +1457,7 @@ pub async fn namespace_apps(
 
         let ns = res
             .get_namespace
-            .with_context(|| format!("failed to get namespace '{}'", namespace))?;
+            .with_context(|| format!("failed to get namespace '{namespace}'"))?;
 
         let apps: Vec<_> = ns
             .apps

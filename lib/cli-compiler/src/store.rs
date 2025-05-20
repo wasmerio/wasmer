@@ -4,13 +4,15 @@
 use crate::common::WasmFeatures;
 use anyhow::Result;
 use clap::Parser;
+#[cfg(doc)]
+use std::path::PathBuf;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use wasmer_compiler::{
-    types::target::{PointerWidth, Target},
-    CompilerConfig, EngineBuilder, Features,
-};
+use wasmer_compiler::{CompilerConfig, EngineBuilder, Features};
+use wasmer_types::target::{PointerWidth, Target};
+#[cfg(doc)]
+use wasmer_types::Type;
 use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.
@@ -211,7 +213,7 @@ impl CompilerOptions {
                 use std::fs::File;
                 use std::io::Write;
                 use wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
+                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
                 };
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
@@ -292,6 +294,22 @@ impl CompilerOptions {
                             pos += file.write(&mem_buf_slice[pos..]).unwrap();
                         }
                     }
+
+                    fn asm_memory_buffer(
+                        &self,
+                        kind: &CompiledKind,
+                        asm_memory_buffer: &InkwellMemoryBuffer,
+                    ) {
+                        let mut path = self.debug_dir.clone();
+                        path.push(format!("{}.s", function_kind_to_filename(kind)));
+                        let mem_buf_slice = asm_memory_buffer.as_slice();
+                        let mut file = File::create(path)
+                            .expect("Error while creating debug object file from LLVM IR");
+                        let mut pos = 0;
+                        while pos < mem_buf_slice.len() {
+                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
+                        }
+                    }
                 }
 
                 impl fmt::Debug for Callbacks {
@@ -308,7 +326,7 @@ impl CompilerOptions {
                 }
                 Box::new(config)
             }
-            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
+            #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!(
                     "The `{}` compiler is not included in this binary.",

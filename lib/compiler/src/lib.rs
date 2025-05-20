@@ -60,14 +60,14 @@ mod artifact_builders;
 
 pub use self::artifact_builders::*;
 
-#[cfg(feature = "translator")]
+#[cfg(feature = "compiler")]
 mod compiler;
+#[cfg(feature = "compiler")]
+pub use crate::compiler::{Compiler, CompilerConfig};
 
 #[cfg(feature = "translator")]
 #[macro_use]
 mod translator;
-#[cfg(feature = "translator")]
-pub use crate::compiler::{Compiler, CompilerConfig};
 #[cfg(feature = "translator")]
 pub use crate::translator::{
     from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type, wptype_to_type,

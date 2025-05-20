@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use super::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
@@ -14,21 +16,21 @@ use inkwell::{
     targets::{FileType, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
-        BasicMetadataValueEnum, BasicValue, BasicValueEnum, FloatValue, FunctionValue,
-        InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue, VectorValue,
+        AnyValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
+        FunctionValue, InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue,
+        VectorValue,
     },
     AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
 };
+use itertools::Itertools;
 use smallvec::SmallVec;
+use target_lexicon::BinaryFormat;
 
-use crate::object_file::{load_object_file, CompiledFunction};
 use crate::{
-    abi::{get_abi, Abi},
-    error::err,
-};
-use crate::{
+    abi::{get_abi, Abi, G0M0FunctionKind, LocalFunctionG0M0params},
     config::{CompiledKind, LLVM},
-    error::err_nt,
+    error::{err, err_nt},
+    object_file::{load_object_file, CompiledFunction},
 };
 use wasmer_compiler::{
     from_binaryreadererror_wasmerror,
@@ -36,33 +38,50 @@ use wasmer_compiler::{
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
     },
-    wasmparser::{MemArg, Operator},
+    wasmparser::{Catch, MemArg, Operator},
     wpheaptype_to_type, wptype_to_type, FunctionBinaryReader, FunctionBodyData,
     MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
 };
-use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{entity::PrimaryMap, TagIndex};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
     ModuleInfo, SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, TableStyle, VMOffsets};
 
-const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
+const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
+const FUNCTION_SECTION_MACHO: &str = "__TEXT";
+const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 
 pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
     abi: Box<dyn Abi>,
+    binary_fmt: BinaryFormat,
+    func_section: String,
 }
 
 impl FuncTranslator {
-    pub fn new(target_machine: TargetMachine) -> Self {
+    pub fn new(
+        target_machine: TargetMachine,
+        binary_fmt: BinaryFormat,
+    ) -> Result<Self, CompileError> {
         let abi = get_abi(&target_machine);
-        Self {
+        Ok(Self {
             ctx: Context::create(),
             target_machine,
             abi,
-        }
+            func_section: match binary_fmt {
+                BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
+                BinaryFormat::Macho => FUNCTION_SEGMENT_MACHO.to_string(),
+                _ => {
+                    return Err(CompileError::UnsupportedTarget(format!(
+                        "Unsupported binary format: {binary_fmt:?}"
+                    )))
+                }
+            },
+            binary_fmt,
+        })
     }
 
     #[allow(clippy::too_many_arguments)]
@@ -82,9 +101,17 @@ impl FuncTranslator {
         let func_index = wasm_module.func_index(*local_func_index);
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
+
+        let g0m0_is_enabled = config.enable_g0m0_opt;
+        let func_kind = if g0m0_is_enabled {
+            Some(G0M0FunctionKind::Local)
+        } else {
+            None
+        };
+
         let module_name = match wasm_module.name.as_ref() {
-            None => format!("<anonymous module> function {}", function_name),
-            Some(module_name) => format!("module {} function {}", module_name, function_name),
+            None => format!("<anonymous module> function {function_name}"),
+            Some(module_name) => format!("module {module_name} function {function_name}"),
         };
         let module = self.ctx.create_module(module_name.as_str());
 
@@ -100,10 +127,14 @@ impl FuncTranslator {
 
         // TODO: pointer width
         let offsets = VMOffsets::new(8, wasm_module);
-        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data);
-        let (func_type, func_attrs) =
-            self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, Some(&offsets), wasm_fn_type)?;
+        let intrinsics = Intrinsics::declare(&module, &self.ctx, &target_data, &self.binary_fmt);
+        let (func_type, func_attrs) = self.abi.func_type_to_llvm(
+            &self.ctx,
+            &intrinsics,
+            Some(&offsets),
+            wasm_fn_type,
+            func_kind,
+        )?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         for (attr, attr_loc) in &func_attrs {
@@ -111,8 +142,25 @@ impl FuncTranslator {
         }
 
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
+        func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
+        func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
+
+        let section = match self.binary_fmt {
+            BinaryFormat::Elf => FUNCTION_SECTION_ELF.to_string(),
+            BinaryFormat::Macho => {
+                format!("{FUNCTION_SECTION_MACHO},{FUNCTION_SEGMENT_MACHO}")
+            }
+            _ => {
+                return Err(CompileError::UnsupportedTarget(format!(
+                    "Unsupported binary format: {:?}",
+                    self.binary_fmt
+                )))
+            }
+        };
+
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(Some(FUNCTION_SECTION));
+        func.as_global_value().set_section(Some(&section));
+
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
@@ -154,13 +202,19 @@ impl FuncTranslator {
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
-                2
+                if g0m0_is_enabled {
+                    4
+                } else {
+                    2
+                }
+            } else if g0m0_is_enabled {
+                3
             } else {
                 1
             };
         let mut is_first_alloca = true;
-        let mut insert_alloca = |ty, name| -> Result<PointerValue, CompileError> {
-            let alloca = err!(alloca_builder.build_alloca(ty, name));
+        let mut insert_alloca = |ty, name: String| -> Result<PointerValue, CompileError> {
+            let alloca = err!(alloca_builder.build_alloca(ty, &name));
             if is_first_alloca {
                 alloca_builder.position_at(entry, &alloca.as_instruction_value().unwrap());
                 is_first_alloca = false;
@@ -168,25 +222,42 @@ impl FuncTranslator {
             Ok(alloca)
         };
 
+        // Uncomment to print, at the start of the function, the function name.
+        // (poor man's debugger!)
+        //let func_name_str =
+        //    err!(alloca_builder.build_global_string_ptr(&function_name, "function_name"));
+        //
+        //_ = alloca_builder.build_call(
+        //    intrinsics.debug_str,
+        //    &[
+        //        func_name_str.as_pointer_value().into(),
+        //        intrinsics
+        //            .i32_ty
+        //            .const_int(function_name.len() as _, false)
+        //            .into(),
+        //    ],
+        //    "",
+        //);
+
         for idx in 0..wasm_fn_type.params().len() {
             let ty = wasm_fn_type.params()[idx];
             let ty = type_to_llvm(&intrinsics, ty)?;
             let value = func
                 .get_nth_param((idx as u32).checked_add(first_param).unwrap())
                 .unwrap();
-            let alloca = insert_alloca(ty, "param")?;
+            let alloca = insert_alloca(ty, format!("param_{idx}"))?;
             err!(cache_builder.build_store(alloca, value));
             params.push((ty, alloca));
         }
 
         let mut locals = vec![];
         let num_locals = reader.read_local_count()?;
-        for _ in 0..num_locals {
+        for idx in 0..num_locals {
             let (count, ty) = reader.read_local_decl()?;
             let ty = err!(wptype_to_type(ty));
             let ty = type_to_llvm(&intrinsics, ty)?;
             for _ in 0..count {
-                let alloca = insert_alloca(ty, "local")?;
+                let alloca = insert_alloca(ty, format!("local_{idx}"))?;
                 err!(cache_builder.build_store(alloca, ty.const_zero()));
                 locals.push((ty, alloca));
             }
@@ -195,7 +266,21 @@ impl FuncTranslator {
         let mut params_locals = params.clone();
         params_locals.extend(locals.iter().cloned());
 
+        let mut g0m0_params = None;
+
+        if g0m0_is_enabled {
+            let value = self.abi.get_g0_ptr_param(&func);
+            let g0 = insert_alloca(intrinsics.i32_ty.as_basic_type_enum(), "g0".to_string())?;
+            err!(cache_builder.build_store(g0, value));
+            g0.set_name("g0");
+            let m0 = self.abi.get_m0_ptr_param(&func);
+            m0.set_name("m0_base_ptr");
+
+            g0m0_params = Some((g0, m0));
+        }
+
         let mut fcg = LLVMFunctionCodeGenerator {
+            g0m0: g0m0_params,
             context: &self.ctx,
             builder,
             alloca_builder,
@@ -203,7 +288,7 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi),
+            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi, config),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -213,7 +298,15 @@ impl FuncTranslator {
             symbol_registry,
             abi: &*self.abi,
             config,
+            exception_types_cache: HashMap::new(),
+            tags_cache: HashMap::new(),
+            ptr_size: self
+                .target_machine
+                .get_target_data()
+                .get_pointer_byte_size(None),
+            binary_fmt: self.binary_fmt,
         };
+
         fcg.ctx.add_func(
             func_index,
             func.as_global_value().as_pointer_value(),
@@ -267,6 +360,16 @@ impl FuncTranslator {
         passes.push("simplifycfg");
         passes.push("mem2reg");
 
+        //let llvm_dump_path = std::env::var("WASMER_LLVM_DUMP_DIR");
+        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
+        //    let path = std::path::Path::new(llvm_dump_path);
+        //    if !path.exists() {
+        //        std::fs::create_dir_all(path).unwrap()
+        //    }
+        //    let path = path.join(format!("{function_name}.ll"));
+        //    _ = module.print_to_file(path).unwrap();
+        //}
+
         module
             .run_passes(
                 passes.join(",").as_str(),
@@ -274,6 +377,14 @@ impl FuncTranslator {
                 PassBuilderOptions::create(),
             )
             .unwrap();
+
+        //if let Ok(ref llvm_dump_path) = llvm_dump_path {
+        //    if !passes.is_empty() {
+        //        let path =
+        //            std::path::Path::new(llvm_dump_path).join(format!("{function_name}_opt.ll"));
+        //        _ = module.print_to_file(path).unwrap();
+        //    }
+        //}
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
@@ -312,24 +423,39 @@ impl FuncTranslator {
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.obj_memory_buffer(&function, &memory_buffer);
+            let asm_buffer = target_machine
+                .write_to_memory_buffer(&module, FileType::Assembly)
+                .unwrap();
+            callbacks.asm_memory_buffer(&function, &asm_buffer)
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
+
         load_object_file(
             mem_buf_slice,
-            FUNCTION_SECTION,
+            &self.func_section,
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &str| {
-                Ok(
+                Ok({
+                    let name = if matches!(self.binary_fmt, BinaryFormat::Macho) {
+                        if name.starts_with("_") {
+                            name.replacen("_", "", 1)
+                        } else {
+                            name.to_string()
+                        }
+                    } else {
+                        name.to_string()
+                    };
                     if let Some(Symbol::LocalFunction(local_func_index)) =
-                        symbol_registry.name_to_symbol(name)
+                        symbol_registry.name_to_symbol(&name)
                     {
                         Some(RelocationTarget::LocalFunc(local_func_index))
                     } else {
                         None
-                    },
-                )
+                    }
+                })
             },
+            self.binary_fmt,
         )
     }
 }
@@ -1118,7 +1244,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let offset = err!(builder.build_int_add(var_offset, imm_offset, ""));
 
         // Look up the memory base (as pointer) and bounds (as unsigned integer).
-        let base_ptr =
+        let base_ptr = if let Some((_, ref m0)) = self.g0m0 {
+            *m0
+        } else {
             match self
                 .ctx
                 .memory(memory_index, intrinsics, self.module, self.memory_styles)?
@@ -1150,13 +1278,16 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let ptr_in_bounds = match ptr_in_bounds {
                         Some(ptr) => ptr,
                         None => {
-                            let load_offset_end =
-                                err!(builder.build_int_add(offset, value_size_v, ""));
+                            let load_offset_end = err!(builder.build_int_add(
+                                offset,
+                                value_size_v,
+                                "load_offset_end"
+                            ));
 
                             let current_length = err!(builder.build_load(
                                 self.intrinsics.i32_ty,
                                 ptr_to_current_length,
-                                ""
+                                "current_length"
                             ))
                             .into_int_value();
                             tbaa_label(
@@ -1168,14 +1299,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             let current_length = err!(builder.build_int_z_extend(
                                 current_length,
                                 intrinsics.i64_ty,
-                                ""
+                                "current_length_zextd"
                             ));
 
                             err!(builder.build_int_compare(
                                 IntPredicate::ULE,
                                 load_offset_end,
                                 current_length,
-                                "",
+                                "ptr_in_bounds",
                             ))
                         }
                     };
@@ -1220,7 +1351,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         builder.position_at_end(in_bounds_continue_block);
                     }
                     let ptr_to_base =
-                        err!(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, ""))
+                        err!(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, "ptr_to_base"))
                             .into_pointer_value();
                     tbaa_label(
                         self.module,
@@ -1231,11 +1362,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ptr_to_base
                 }
                 MemoryCache::Static { base_ptr } => base_ptr,
-            };
-        let value_ptr =
-            unsafe { err!(builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "")) };
+            }
+        };
+        let value_ptr = unsafe {
+            err!(builder.build_gep(self.intrinsics.i8_ty, base_ptr, &[offset], "mem_value_ptr"))
+        };
         err_nt!(builder
-            .build_bit_cast(value_ptr, ptr_ty, "")
+            .build_bit_cast(value_ptr, ptr_ty, "mem_value")
             .map(|v| v.into_pointer_value()))
     }
 
@@ -1248,9 +1381,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         if align <= 1 {
             return Ok(());
         }
-        let value = err!(self
-            .builder
-            .build_ptr_to_int(ptr, self.intrinsics.i64_ty, ""));
+        let value =
+            err!(self
+                .builder
+                .build_ptr_to_int(ptr, self.intrinsics.i64_ty, "mischeck_value"));
         let and = err!(self.builder.build_and(
             value,
             self.intrinsics.i64_ty.const_int((align - 1).into(), false),
@@ -1260,7 +1394,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             IntPredicate::EQ,
             and,
             self.intrinsics.i64_zero,
-            ""
+            "is_aligned"
         ));
         let aligned = err!(self.builder.build_call(
             self.intrinsics.expect_i1,
@@ -1268,7 +1402,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 aligned.into(),
                 self.intrinsics.i1_ty.const_int(1, false).into(),
             ],
-            "",
+            "is_aligned_expect",
         ))
         .try_as_basic_value()
         .left()
@@ -1348,6 +1482,345 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 )?)));
         }
         Ok(())
+    }
+
+    fn get_or_insert_global_tag(&mut self, tag: u32) -> BasicValueEnum<'ctx> {
+        if let Some(tag) = self.tags_cache.get(&tag) {
+            return *tag;
+        }
+
+        let tag_ty = self
+            .context
+            .struct_type(&[self.intrinsics.i64_ty.into()], false);
+        let tag_glbl = self.module.add_global(
+            tag_ty,
+            Some(AddressSpace::default()),
+            &format!("__wasmer_eh_type_info_{tag}"),
+        );
+        tag_glbl.set_initializer(
+            &tag_ty
+                .const_named_struct(&[self
+                    .intrinsics
+                    .i64_ty
+                    .const_int(self.encode_tag(tag) as _, false)
+                    .into()])
+                .as_basic_value_enum(),
+        );
+
+        tag_glbl.set_linkage(Linkage::External);
+        tag_glbl.set_constant(true);
+        // Why set this to a specific section? On macOS it would land on a specifc read only data
+        // section. GOT-based relocations will probably be generated with a non-zero addend, making
+        // some EH-related intricacies not working.
+        //
+        // The general idea is that each tag has its own section, so the GOT-based relocation can
+        // have a zero addend, i.e. the data of the tag is the first (and only) value in a specific
+        // section we can target in relocations.
+        if matches!(self.binary_fmt, target_lexicon::BinaryFormat::Macho) {
+            tag_glbl.set_section(Some(&format!("{FUNCTION_SECTION_MACHO},_eh_ti_{tag}")));
+        }
+
+        let tag_glbl = tag_glbl.as_basic_value_enum();
+
+        self.tags_cache.insert(tag, tag_glbl);
+        tag_glbl
+    }
+
+    fn get_or_insert_exception_type(
+        &mut self,
+        tag: u32,
+        signature: &FunctionType,
+    ) -> Result<inkwell::types::StructType<'ctx>, CompileError> {
+        if let Some(ty) = self.exception_types_cache.get(&tag) {
+            return Ok(*ty);
+        }
+        let types = signature
+            .params()
+            .iter()
+            .map(|v| type_to_llvm(self.intrinsics, *v))
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
+        let ty = self.context.struct_type(&types, false);
+        self.exception_types_cache.insert(tag, ty);
+        Ok(ty)
+    }
+
+    // Encode a tag - an u32 identifying an event - into a unique value that can be used in
+    // catch clauses.
+    //
+    // This is to avoid that the #0 tag is reinterpreted as nullptr in the catch clause of a
+    // landing pad.
+    #[inline]
+    fn encode_tag(&self, tag: u32) -> usize {
+        let size = self.ptr_size;
+        if size == 4 {
+            // Add 1 to the tag value so that we don't have tags with value `0`; this is because
+            // the catches in the landingpad match on the value of the tag, and a value of 0 means
+            // catch_all
+            (tag + 1) as usize
+        } else if size == 8 {
+            let mut base = vec![b'w', b'a', b's', b'm'];
+            base.append(&mut tag.to_be_bytes().to_vec());
+            u64::from_be_bytes(base.try_into().unwrap()) as usize
+        } else {
+            panic!()
+        }
+    }
+
+    fn build_g0m0_indirect_call(
+        &mut self,
+        table_index: u32,
+        ctx_ptr: PointerValue<'ctx>,
+        func_type: &FunctionType,
+        func_ptr: PointerValue<'ctx>,
+        func_index: IntValue<'ctx>,
+    ) -> Result<(), CompileError> {
+        let Some((g0, m0)) = self.g0m0 else {
+            return Err(CompileError::Codegen(
+                "Call to build_g0m0_indirect_call without g0m0 parameters!".to_string(),
+            ));
+        };
+
+        let mut local_func_indices = vec![];
+        let mut foreign_func_indices = vec![];
+
+        for t in &self.wasm_module.table_initializers {
+            if t.table_index.as_u32() == table_index {
+                for (func_in_table_idx, func_idx) in t.elements.iter().enumerate() {
+                    if self.wasm_module.local_func_index(*func_idx).is_some() {
+                        local_func_indices.push(func_in_table_idx)
+                    } else {
+                        foreign_func_indices.push(func_in_table_idx)
+                    }
+                }
+                break;
+            }
+        }
+
+        // removed with mem2reg.
+        //
+        let g0_value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, "g0"));
+
+        let needs_switch = self.g0m0.is_some()
+            && !local_func_indices.is_empty()
+            && !foreign_func_indices.is_empty();
+
+        if needs_switch {
+            let foreign_idx_block = self
+                .context
+                .append_basic_block(self.function, "foreign_call_block");
+            let local_idx_block = self
+                .context
+                .append_basic_block(self.function, "local_call_block");
+            let unreachable_indirect_call_branch_block = self
+                .context
+                .append_basic_block(self.function, "unreachable_indirect_call_branch");
+
+            let cont = self.context.append_basic_block(self.function, "cont");
+
+            err!(self.builder.build_switch(
+                func_index,
+                unreachable_indirect_call_branch_block,
+                &local_func_indices
+                    .into_iter()
+                    .map(|v| (
+                        self.intrinsics.i32_ty.const_int(v as _, false),
+                        local_idx_block
+                    ))
+                    .chain(foreign_func_indices.into_iter().map(|v| (
+                        self.intrinsics.i32_ty.const_int(v as _, false),
+                        foreign_idx_block
+                    )))
+                    .collect::<Vec<_>>()
+            ));
+
+            self.builder
+                .position_at_end(unreachable_indirect_call_branch_block);
+            err!(self.builder.build_unreachable());
+
+            //let current_block = self.builder.get_insert_block().unwrap();
+            self.builder.position_at_end(local_idx_block);
+            let local_call_site = self.build_indirect_call(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(G0M0FunctionKind::Local),
+                Some((g0_value.into_int_value(), m0)),
+            )?;
+
+            let local_rets = self.abi.rets_from_call(
+                &self.builder,
+                self.intrinsics,
+                local_call_site,
+                func_type,
+            )?;
+
+            err!(self.builder.build_unconditional_branch(cont));
+
+            self.builder.position_at_end(foreign_idx_block);
+            let foreign_call_site = self.build_indirect_call(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(G0M0FunctionKind::Imported),
+                None,
+            )?;
+
+            let foreign_rets = self.abi.rets_from_call(
+                &self.builder,
+                self.intrinsics,
+                foreign_call_site,
+                func_type,
+            )?;
+
+            err!(self.builder.build_unconditional_branch(cont));
+
+            self.builder.position_at_end(cont);
+
+            for i in 0..foreign_rets.len() {
+                let f_i = foreign_rets[i];
+                let l_i = local_rets[i];
+                let ty = f_i.get_type();
+                let v = err!(self.builder.build_phi(ty, ""));
+                v.add_incoming(&[(&f_i, foreign_idx_block), (&l_i, local_idx_block)]);
+                self.state.push1(v.as_basic_value());
+            }
+        } else if foreign_func_indices.is_empty() {
+            let call_site = self.build_indirect_call(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(G0M0FunctionKind::Local),
+                Some((g0_value.into_int_value(), m0)),
+            )?;
+
+            self.abi
+                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                .iter()
+                .for_each(|ret| self.state.push1(*ret));
+        } else {
+            let call_site = self.build_indirect_call(
+                ctx_ptr,
+                func_type,
+                func_ptr,
+                Some(G0M0FunctionKind::Imported),
+                Some((g0_value.into_int_value(), m0)),
+            )?;
+            self.abi
+                .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
+                .iter()
+                .for_each(|ret| self.state.push1(*ret));
+        }
+
+        Ok(())
+    }
+
+    fn build_indirect_call(
+        &mut self,
+        ctx_ptr: PointerValue<'ctx>,
+        func_type: &FunctionType,
+        func_ptr: PointerValue<'ctx>,
+        func_kind: Option<G0M0FunctionKind>,
+        g0m0_params: LocalFunctionG0M0params<'ctx>,
+    ) -> Result<CallSiteValue<'ctx>, CompileError> {
+        let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+            self.context,
+            self.intrinsics,
+            Some(self.ctx.get_offsets()),
+            func_type,
+            func_kind,
+        )?;
+
+        let params = self.state.popn_save_extra(func_type.params().len())?;
+
+        // Apply pending canonicalizations.
+        let params = params
+            .iter()
+            .zip(func_type.params().iter())
+            .map(|((v, info), wasm_ty)| match wasm_ty {
+                Type::F32 => err_nt!(self.builder.build_bit_cast(
+                    self.apply_pending_canonicalization(*v, *info)?,
+                    self.intrinsics.f32_ty,
+                    "",
+                )),
+                Type::F64 => err_nt!(self.builder.build_bit_cast(
+                    self.apply_pending_canonicalization(*v, *info)?,
+                    self.intrinsics.f64_ty,
+                    "",
+                )),
+                Type::V128 => self.apply_pending_canonicalization(*v, *info),
+                _ => Ok(*v),
+            })
+            .collect::<Result<Vec<_>, _>>()?;
+
+        let params = self.abi.args_to_call(
+            &self.alloca_builder,
+            func_type,
+            &llvm_func_type,
+            ctx_ptr,
+            params.as_slice(),
+            self.intrinsics,
+            g0m0_params,
+        )?;
+
+        let typed_func_ptr = err!(self.builder.build_pointer_cast(
+            func_ptr,
+            self.context.ptr_type(AddressSpace::default()),
+            "typed_func_ptr",
+        ));
+
+        /*
+        if self.track_state {
+            if let Some(offset) = opcode_offset {
+                let mut stackmaps = self.stackmaps.borrow_mut();
+                emit_stack_map(
+                    &info,
+                    self.intrinsics,
+                    self.builder,
+                    self.index,
+                    &mut *stackmaps,
+                    StackmapEntryKind::Call,
+                    &self.locals,
+                    state,
+                    ctx,
+                    offset,
+                )
+            }
+        }
+        */
+
+        let call_site_local = if let Some(lpad) = self.state.get_landingpad() {
+            let then_block = self.context.append_basic_block(self.function, "then_block");
+
+            let ret = err!(self.builder.build_indirect_invoke(
+                llvm_func_type,
+                typed_func_ptr,
+                params.as_slice(),
+                then_block,
+                lpad,
+                "",
+            ));
+
+            self.builder.position_at_end(then_block);
+            ret
+        } else {
+            err!(self.builder.build_indirect_call(
+                llvm_func_type,
+                typed_func_ptr,
+                params
+                    .iter()
+                    .copied()
+                    .map(Into::into)
+                    .collect::<Vec<BasicMetadataValueEnum>>()
+                    .as_slice(),
+                "indirect_call",
+            ))
+        };
+        for (attr, attr_loc) in llvm_func_attrs {
+            call_site_local.add_attribute(attr_loc, attr);
+        }
+
+        Ok(call_site_local)
     }
 }
 
@@ -1437,6 +1910,7 @@ fn finalize_opcode_stack_map<'ctx>(
  */
 
 pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
+    g0m0: Option<(PointerValue<'ctx>, PointerValue<'ctx>)>,
     context: &'ctx Context,
     builder: Builder<'ctx>,
     alloca_builder: Builder<'ctx>,
@@ -1462,9 +1936,27 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
+    tags_cache: HashMap<u32, BasicValueEnum<'ctx>>,
+    exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
+    ptr_size: u32,
+    binary_fmt: target_lexicon::BinaryFormat,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
+    //fn add_fn_to_got(&mut self, func: &FunctionValue<'ctx>, name: &str) {
+    //    //let throw_intrinsic = self.intrinsics.throw.as_global_value().as_pointer_value();
+    //    if !self.got_cache.contains(name) {
+    //        let func_ptr = func.as_global_value().as_pointer_value();
+    //        let global =
+    //            self.module
+    //                .add_global(func_ptr.get_type(), Some(AddressSpace::from(1u16)), name);
+
+    //        global.set_initializer(&func_ptr);
+    //        global.set_section(Some("__DATA_CONST,__got"));
+    //        self.got_cache.insert(name.to_string());
+    //    }
+    //}
+
     fn translate_operator(&mut self, op: Operator, _source_loc: u32) -> Result<(), CompileError> {
         // TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
@@ -1883,7 +2375,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                     self.builder.position_at_end(*if_else);
                     err!(self.builder.build_unconditional_branch(*next));
-                }
+                } else if let ControlFrame::Landingpad { .. } = &frame {
+                    self.state.pop_landingpad();
+                };
 
                 self.builder.position_at_end(*frame.code_after());
                 self.state.reset_stack(&frame);
@@ -2115,11 +2609,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             // Operate on self.locals.
             Operator::LocalGet { local_index } => {
                 let (type_value, pointer_value) = self.locals[local_index as usize];
-                let v = err!(self.builder.build_load(type_value, pointer_value, ""));
+                let v = err!(self.builder.build_load(
+                    type_value,
+                    pointer_value,
+                    &format!("local_{local_index}_get")
+                ));
                 tbaa_label(
                     self.module,
                     self.intrinsics,
-                    format!("local {}", local_index),
+                    format!("local {local_index}"),
                     v.as_instruction_value().unwrap(),
                 );
                 self.state.push1(v);
@@ -2132,7 +2630,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     self.module,
                     self.intrinsics,
-                    format!("local {}", local_index),
+                    format!("local {local_index}"),
                     store,
                 );
             }
@@ -2144,58 +2642,81 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 tbaa_label(
                     self.module,
                     self.intrinsics,
-                    format!("local {}", local_index),
+                    format!("local {local_index}"),
                     store,
                 );
             }
 
             Operator::GlobalGet { global_index } => {
-                let global_index = GlobalIndex::from_u32(global_index);
-                match self
-                    .ctx
-                    .global(global_index, self.intrinsics, self.module)?
-                {
-                    GlobalCache::Const { value } => {
-                        self.state.push1(*value);
-                    }
-                    GlobalCache::Mut {
-                        ptr_to_value,
-                        value_type,
-                    } => {
-                        let value = err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
-                        tbaa_label(
-                            self.module,
-                            self.intrinsics,
-                            format!("global {}", global_index.as_u32()),
-                            value.as_instruction_value().unwrap(),
-                        );
-                        self.state.push1(value);
+                if self.g0m0.is_some() && global_index == 0 {
+                    let Some((g0, _)) = self.g0m0 else {
+                        unreachable!()
+                    };
+
+                    // Removed with mem2reg.
+                    let value = err!(self.builder.build_load(self.intrinsics.i32_ty, g0, ""));
+
+                    self.state.push1(value);
+                } else {
+                    let global_index = GlobalIndex::from_u32(global_index);
+                    match self
+                        .ctx
+                        .global(global_index, self.intrinsics, self.module)?
+                    {
+                        GlobalCache::Const { value } => {
+                            self.state.push1(*value);
+                        }
+                        GlobalCache::Mut {
+                            ptr_to_value,
+                            value_type,
+                        } => {
+                            let value =
+                                err!(self.builder.build_load(*value_type, *ptr_to_value, ""));
+                            tbaa_label(
+                                self.module,
+                                self.intrinsics,
+                                format!("global {}", global_index.as_u32()),
+                                value.as_instruction_value().unwrap(),
+                            );
+                            self.state.push1(value);
+                        }
                     }
                 }
             }
             Operator::GlobalSet { global_index } => {
-                let global_index = GlobalIndex::from_u32(global_index);
-                match self
-                    .ctx
-                    .global(global_index, self.intrinsics, self.module)?
-                {
-                    GlobalCache::Const { value: _ } => {
-                        return Err(CompileError::Codegen(format!(
-                            "global.set on immutable global index {}",
-                            global_index.as_u32()
-                        )))
-                    }
-                    GlobalCache::Mut { ptr_to_value, .. } => {
-                        let ptr_to_value = *ptr_to_value;
-                        let (value, info) = self.state.pop1_extra()?;
-                        let value = self.apply_pending_canonicalization(value, info)?;
-                        let store = err!(self.builder.build_store(ptr_to_value, value));
-                        tbaa_label(
-                            self.module,
-                            self.intrinsics,
-                            format!("global {}", global_index.as_u32()),
-                            store,
-                        );
+                if self.g0m0.is_some() && global_index == 0 {
+                    let Some((g0, _)) = self.g0m0 else {
+                        unreachable!()
+                    };
+                    let ptr_to_value = g0;
+                    let (value, info) = self.state.pop1_extra()?;
+                    let value = self.apply_pending_canonicalization(value, info)?;
+                    let store = err!(self.builder.build_store(ptr_to_value, value));
+                    tbaa_label(self.module, self.intrinsics, "global 0".to_string(), store);
+                } else {
+                    let global_index = GlobalIndex::from_u32(global_index);
+                    match self
+                        .ctx
+                        .global(global_index, self.intrinsics, self.module)?
+                    {
+                        GlobalCache::Const { value: _ } => {
+                            return Err(CompileError::Codegen(format!(
+                                "global.set on immutable global index {}",
+                                global_index.as_u32()
+                            )))
+                        }
+                        GlobalCache::Mut { ptr_to_value, .. } => {
+                            let ptr_to_value = *ptr_to_value;
+                            let (value, info) = self.state.pop1_extra()?;
+                            let value = self.apply_pending_canonicalization(value, info)?;
+                            let store = err!(self.builder.build_store(ptr_to_value, value));
+                            tbaa_label(
+                                self.module,
+                                self.intrinsics,
+                                format!("global {}", global_index.as_u32()),
+                                store,
+                            );
+                        }
                     }
                 }
             }
@@ -2249,15 +2770,25 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
 
+                let mut g0m0_params = None;
+
                 let FunctionCache {
                     func,
                     llvm_func_type,
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
+                    if let Some((g0, m0)) = &self.g0m0 {
+                        // removed with mem2reg.
+                        let value = err!(self.builder.build_load(self.intrinsics.i32_ty, *g0, ""));
+
+                        g0m0_params = Some((value.into_int_value(), *m0));
+                    }
+
                     let function_name = self
                         .symbol_registry
                         .symbol_to_name(Symbol::LocalFunction(local_func_index));
+
                     self.ctx.local_func(
                         local_func_index,
                         func_index,
@@ -2310,6 +2841,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     callee_vmctx.into_pointer_value(),
                     params.as_slice(),
                     self.intrinsics,
+                    g0m0_params,
                 )?;
 
                 /*
@@ -2331,17 +2863,33 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     }
                 }
                 */
-                let call_site = err!(self.builder.build_indirect_call(
-                    llvm_func_type,
-                    func,
-                    params
-                        .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<BasicMetadataValueEnum>>()
-                        .as_slice(),
-                    "",
-                ));
+                let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                    let then_block = self.context.append_basic_block(self.function, "then_block");
+
+                    let ret = err!(self.builder.build_indirect_invoke(
+                        llvm_func_type,
+                        func,
+                        params.as_slice(),
+                        then_block,
+                        lpad,
+                        "",
+                    ));
+
+                    self.builder.position_at_end(then_block);
+                    ret
+                } else {
+                    err!(self.builder.build_indirect_call(
+                        llvm_func_type,
+                        func,
+                        params
+                            .iter()
+                            .copied()
+                            .map(Into::into)
+                            .collect::<Vec<BasicMetadataValueEnum>>()
+                            .as_slice(),
+                        "",
+                    ))
+                };
                 for (attr, attr_loc) in attrs {
                     call_site.add_attribute(attr_loc, attr);
                 }
@@ -2584,103 +3132,28 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 err!(self.builder.build_unreachable());
                 self.builder.position_at_end(continue_block);
 
-                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
-                    self.context,
-                    self.intrinsics,
-                    Some(self.ctx.get_offsets()),
-                    func_type,
-                )?;
+                if self.g0m0.is_some() {
+                    self.build_g0m0_indirect_call(
+                        table_index,
+                        ctx_ptr.into_pointer_value(),
+                        func_type,
+                        func_ptr,
+                        func_index,
+                    )?;
+                } else {
+                    let call_site = self.build_indirect_call(
+                        ctx_ptr.into_pointer_value(),
+                        func_type,
+                        func_ptr,
+                        None,
+                        None,
+                    )?;
 
-                let params = self.state.popn_save_extra(func_type.params().len())?;
-
-                // Apply pending canonicalizations.
-                let params = params
-                    .iter()
-                    .zip(func_type.params().iter())
-                    .map(|((v, info), wasm_ty)| match wasm_ty {
-                        Type::F32 => err_nt!(self.builder.build_bit_cast(
-                            self.apply_pending_canonicalization(*v, *info)?,
-                            self.intrinsics.f32_ty,
-                            "",
-                        )),
-                        Type::F64 => err_nt!(self.builder.build_bit_cast(
-                            self.apply_pending_canonicalization(*v, *info)?,
-                            self.intrinsics.f64_ty,
-                            "",
-                        )),
-                        Type::V128 => self.apply_pending_canonicalization(*v, *info),
-                        _ => Ok(*v),
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                let params = self.abi.args_to_call(
-                    &self.alloca_builder,
-                    func_type,
-                    &llvm_func_type,
-                    ctx_ptr.into_pointer_value(),
-                    params.as_slice(),
-                    self.intrinsics,
-                )?;
-
-                let typed_func_ptr = err!(self.builder.build_pointer_cast(
-                    func_ptr,
-                    self.context.ptr_type(AddressSpace::default()),
-                    "typed_func_ptr",
-                ));
-
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            &info,
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            &self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        )
-                    }
-                }
-                */
-                let call_site = err!(self.builder.build_indirect_call(
-                    llvm_func_type,
-                    typed_func_ptr,
-                    params
+                    self.abi
+                        .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
                         .iter()
-                        .copied()
-                        .map(Into::into)
-                        .collect::<Vec<BasicMetadataValueEnum>>()
-                        .as_slice(),
-                    "indirect_call",
-                ));
-                for (attr, attr_loc) in llvm_func_attrs {
-                    call_site.add_attribute(attr_loc, attr);
+                        .for_each(|ret| self.state.push1(*ret));
                 }
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Call,
-                            offset,
-                        )
-                    }
-                }
-                */
-
-                self.abi
-                    .rets_from_call(&self.builder, self.intrinsics, call_site, func_type)?
-                    .iter()
-                    .for_each(|ret| self.state.push1(*ret));
             }
 
             /***************************
@@ -7956,7 +8429,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             //     let res = self
             //         .builder
             //         .build_signed_int_to_float(v, self.intrinsics.f64x2_ty, "");
-            //     let res = err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
             //     self.state.push1(res);
             // }
             // Operator::F64x2ConvertI64x2U => {
@@ -7968,7 +8441,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             //     let res = self
             //         .builder
             //         .build_unsigned_int_to_float(v, self.intrinsics.f64x2_ty, "");
-            //     let res = err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
+            //     let res = chck_err!(self.builder.build_bit_cast(res, self.intrinsics.i128_ty, ""));
             //     self.state.push1(res);
             // }
             Operator::I32ReinterpretF32 => {
@@ -9579,10 +10052,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     4,
                 )?;
                 self.trap_if_misaligned(memarg, effective_address, 4)?;
-                let result =
-                    err!(self
-                        .builder
-                        .build_load(self.intrinsics.i32_ty, effective_address, ""));
+                let result = err!(self.builder.build_load(
+                    self.intrinsics.i32_ty,
+                    effective_address,
+                    "atomic_load"
+                ));
                 let load = result.as_instruction_value().unwrap();
                 self.annotate_user_memaccess(memory_index, memarg, 4, load)?;
                 load.set_atomic_ordering(AtomicOrdering::SequentiallyConsistent)
@@ -11966,10 +12440,488 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 ));
                 self.state.push1(cnt.try_as_basic_value().left().unwrap());
             }
+
+            Operator::TryTable { try_table } => {
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
+                let can_throw_block = self.context.append_basic_block(self.function, "try_begin");
+                let catch_block = self.context.append_basic_block(self.function, "catch");
+
+                let rethrow_block = self.context.append_basic_block(self.function, "rethrow");
+
+                self.builder.position_at_end(current_block);
+
+                let end_block = self.context.append_basic_block(self.function, "try_end");
+
+                let end_phis = {
+                    self.builder.position_at_end(end_block);
+
+                    let phis = self
+                        .module_translation
+                        .blocktype_params_results(&try_table.ty)?
+                        .1
+                        .iter()
+                        .map(|&wp_ty| {
+                            err_nt!(wptype_to_type(wp_ty)).and_then(|wasm_ty| {
+                                type_to_llvm(self.intrinsics, wasm_ty)
+                                    .and_then(|ty| err_nt!(self.builder.build_phi(ty, "")))
+                            })
+                        })
+                        .collect::<Result<_, _>>()?;
+
+                    self.builder.position_at_end(current_block);
+                    phis
+                };
+
+                self.builder.position_at_end(current_block);
+                err!(self.builder.build_unconditional_branch(can_throw_block));
+                self.builder.position_at_end(catch_block);
+
+                // Collect unique catches. It is not a "hard" error on the wasm side,
+                // but LLVM will definitely complain about having the same identifier
+                // match two different branches in the switch below.
+                let catches: Vec<_> = try_table
+                    .catches
+                    .into_iter()
+                    .unique_by(|v| match v {
+                        Catch::One { label, .. }
+                        | Catch::OneRef { label, .. }
+                        | Catch::All { label }
+                        | Catch::AllRef { label } => *label,
+                    })
+                    .collect();
+
+                let block_param_types = self
+                    .module_translation
+                    .blocktype_params_results(&try_table.ty)?
+                    .0
+                    .iter()
+                    .map(|&wp_ty| {
+                        err_nt!(wptype_to_type(wp_ty))
+                            .and_then(|wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
+                    })
+                    .collect::<Result<Vec<_>, _>>()?;
+
+                // Build the landing pad.
+                let null = self.intrinsics.ptr_ty.const_zero();
+                let exception_type = self.context.struct_type(
+                    &[self.intrinsics.ptr_ty.into(), self.intrinsics.i32_ty.into()],
+                    false,
+                );
+
+                let mut tags = vec![];
+                let clauses: Vec<BasicValueEnum<'ctx>> = catches
+                    .iter()
+                    .map(|catch| match catch {
+                        Catch::All { .. } | Catch::AllRef { .. } => {
+                            tags.push(0);
+                            Ok(null.into())
+                        }
+                        Catch::One { tag, .. } | Catch::OneRef { tag, .. } => {
+                            //let (int_tag, tag_ptr) = self.tag_to_catch_clause(*tag);
+                            //let tag_ptr = tag_ptr?;
+                            //tags.push(int_tag);
+                            //Ok(tag_ptr.into())
+                            tags.push(*tag);
+                            Ok(self.get_or_insert_global_tag(*tag))
+                        }
+                    })
+                    .collect::<Result<Vec<BasicValueEnum<'ctx>>, CompileError>>()?;
+
+                let res = err!(self.builder.build_landing_pad(
+                    exception_type,
+                    self.intrinsics.personality,
+                    &clauses,
+                    false,
+                    "exc",
+                ));
+
+                let res = res.into_struct_value();
+
+                let uw_exc = err!(self.builder.build_extract_value(res, 0, "exc"));
+                let exc_ty = err!(self.builder.build_extract_value(res, 1, "exc_ty"));
+
+                // The exception we get at this point is a wrapper around the [`WasmerException`]
+                // type. This is needed because when we create the exception to pass it to
+                // libunwind, the exception object needs to begin with a specific set of fields
+                // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
+                // fields and we need to pass them back when rethrowing. This to say, we need to
+                // keep the original exception passed to us by libunwind to be able to rethrow it.
+                let uw_exc = uw_exc.into_pointer_value();
+                let exc = err!(self.builder.build_call(
+                    self.intrinsics.read_exception,
+                    &[uw_exc.into()],
+                    "wasmer_exc_ptr"
+                ));
+
+                let exc = exc.as_any_value_enum().into_pointer_value();
+                let exc_ty = exc_ty.into_int_value();
+
+                let mut catch_blocks = vec![];
+                for catch in catches.iter() {
+                    match catch {
+                        Catch::All { label } => {
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_all_clause");
+                            self.builder.position_at_end(b);
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::One { tag, label } => {
+                            let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
+                            let signature = &self.wasm_module.signatures[tag_idx];
+                            let params = signature.params();
+
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_one_clause");
+                            self.builder.position_at_end(b);
+
+                            // Get the type of the exception.
+                            let inner_exc_ty =
+                                self.get_or_insert_exception_type(*tag, signature)?;
+
+                            // Cast the outer exception - a pointer - to a pointer to a struct of
+                            // type WasmerException.
+                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                            //     exc,
+                            //     self.intrinsics.exc_ty,
+                            //     "wasmer_exc_ptr"
+                            // ));
+                            //
+                            // Not actually needed, since ptr is a single, unique type.
+
+                            // Points at the `data` field of the exception.
+                            let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
+                                self.intrinsics.exc_ty,
+                                exc,
+                                1,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = err!(self.builder.build_load(
+                                self.intrinsics.ptr_ty,
+                                wasmer_exc_data_ptr_ptr,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                            // Read each value from the data ptr.
+                            let values = params
+                                .iter()
+                                .enumerate()
+                                .map(|(i, v)| {
+                                    let name = format!("value{i}");
+                                    let ptr = err!(self.builder.build_struct_gep(
+                                        inner_exc_ty,
+                                        wasmer_exc_data_ptr,
+                                        i as u32,
+                                        &(name.clone() + "ptr")
+                                    ));
+                                    err_nt!(self.builder.build_load(
+                                        type_to_llvm(self.intrinsics, *v)?,
+                                        ptr,
+                                        &name,
+                                    ))
+                                })
+                                .collect::<Result<Vec<_>, CompileError>>()?;
+
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            // todo: check that the types are compatible
+
+                            for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                phi.add_incoming(&[(value, b)])
+                            }
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::OneRef { label, tag } => {
+                            let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
+                            let signature = &self.wasm_module.signatures[tag_idx];
+                            let params = signature.params();
+
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_one_clause");
+                            self.builder.position_at_end(b);
+
+                            // Get the type of the exception.
+                            let inner_exc_ty =
+                                self.get_or_insert_exception_type(*tag, signature)?;
+
+                            // Cast the outer exception - a pointer - to a pointer to a struct of
+                            // type WasmerException.
+                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                            //     exc,
+                            //     self.intrinsics.exc_ty,
+                            //     "wasmer_exc_ptr"
+                            // ));
+                            //
+                            // Not actually needed, since ptr is a single, unique type.
+
+                            // Points at the `data` field of the exception.
+                            let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
+                                self.intrinsics.exc_ty,
+                                exc,
+                                1,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = err!(self.builder.build_load(
+                                self.intrinsics.ptr_ty,
+                                wasmer_exc_data_ptr_ptr,
+                                "wasmer_exc_data_ptr"
+                            ));
+
+                            let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                            // Read each value from the data ptr.
+                            let mut values = params
+                                .iter()
+                                .enumerate()
+                                .map(|(i, v)| {
+                                    let name = format!("value{i}");
+                                    let ptr = err!(self.builder.build_struct_gep(
+                                        inner_exc_ty,
+                                        wasmer_exc_data_ptr,
+                                        i as u32,
+                                        &(name.clone() + "ptr")
+                                    ));
+                                    err_nt!(self.builder.build_load(
+                                        type_to_llvm(self.intrinsics, *v)?,
+                                        ptr,
+                                        &name,
+                                    ))
+                                })
+                                .collect::<Result<Vec<_>, CompileError>>()?;
+
+                            values.push(uw_exc.as_basic_value_enum());
+
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            // todo: check that the types are compatible
+
+                            for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                phi.add_incoming(&[(value, b)])
+                            }
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                        Catch::AllRef { label } => {
+                            let b = self
+                                .context
+                                .append_basic_block(self.function, "catch_one_clause");
+                            self.builder.position_at_end(b);
+
+                            let frame = self.state.frame_at_depth(*label)?;
+
+                            let phis = frame.phis();
+
+                            // sanity check (todo): check that the phi has only one element
+
+                            for phi in phis.iter() {
+                                phi.add_incoming(&[(&uw_exc.as_basic_value_enum(), b)])
+                            }
+
+                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                            self.builder.position_at_end(catch_block);
+                            catch_blocks.push(b);
+                        }
+                    }
+                }
+
+                err!(self.builder.build_switch(
+                    exc_ty,
+                    rethrow_block,
+                    catch_blocks
+                        .into_iter()
+                        .enumerate()
+                        .map(|(i, v)| (self.intrinsics.i32_ty.const_int(tags[i] as _, false), v))
+                        .collect::<Vec<_>>()
+                        .as_slice()
+                ));
+
+                // -- end
+
+                // -- The rethrow block
+                self.builder.position_at_end(rethrow_block);
+
+                err!(self
+                    .builder
+                    .build_call(self.intrinsics.rethrow, &[uw_exc.into()], "rethrow"));
+                // can't reach after an explicit throw!
+                err!(self.builder.build_unreachable());
+
+                // Move to the block that can throw exceptions
+                self.builder.position_at_end(can_throw_block);
+                let can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
+                    .iter()
+                    .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
+                    .collect::<Result<SmallVec<_>, _>>()?;
+
+                for phi in can_throw_phis.iter() {
+                    self.state.push1(phi.as_basic_value());
+                }
+
+                self.state.push_landingpad(
+                    catch_block,
+                    can_throw_block,
+                    can_throw_phis,
+                    end_block,
+                    end_phis,
+                    &tags,
+                );
+            }
+            Operator::Throw { tag_index } => {
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
+
+                let tag = self.wasm_module.tags[TagIndex::from_u32(tag_index)];
+                let signature = &self.wasm_module.signatures[tag];
+                let params = signature.params();
+                let values = self.state.popn_save_extra(params.len())?;
+
+                values.iter().enumerate().try_for_each(|(i, (v, _))| {
+                    let t = type_to_llvm(self.intrinsics, params[i])?;
+                    if t != v.get_type() {
+                        return Err(CompileError::Codegen(format!(
+                            "Incompatible types: {:?} != {:?}",
+                            t,
+                            v.get_type()
+                        )));
+                    }
+
+                    Ok(())
+                })?;
+
+                let exception_type: inkwell::types::StructType =
+                    self.get_or_insert_exception_type(tag_index, signature)?;
+
+                let size = exception_type.size_of().unwrap();
+
+                // Allocate the necessary bytes for the exception.
+                let exc = err!(self.builder.build_direct_call(
+                    self.intrinsics.alloc_exception,
+                    &[size.into()],
+                    "exception_ptr",
+                ));
+                let exc = exc.try_as_basic_value().left().unwrap();
+                let exc = exc.into_pointer_value();
+
+                for (i, value) in values.into_iter().enumerate() {
+                    let ptr = err!(self.builder.build_struct_gep(
+                        exception_type,
+                        exc,
+                        i as u32,
+                        i.to_string().as_str(),
+                    ));
+                    err!(self.builder.build_store(ptr, value.0));
+                }
+
+                let encoded_tag = self.encode_tag(tag_index);
+                if let Some(pad) = self.state.get_landingpad_for_tag(tag_index) {
+                    let unreachable_block = self
+                        .context
+                        .append_basic_block(self.function, "_throw_unreachable");
+
+                    err!(self.builder.build_invoke(
+                        self.intrinsics.throw,
+                        &[
+                            self.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag as _, false)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
+                        unreachable_block,
+                        pad,
+                        "throw",
+                    ));
+
+                    self.builder.position_at_end(unreachable_block);
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
+
+                    self.builder.position_at_end(current_block);
+                } else {
+                    err!(self.builder.build_call(
+                        self.intrinsics.throw,
+                        &[
+                            self.intrinsics
+                                .i64_ty
+                                .const_int(encoded_tag as _, false)
+                                .into(),
+                            exc.into(),
+                            size.into()
+                        ],
+                        "throw"
+                    ));
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
+                }
+
+                self.state.reachable = false;
+            }
+            Operator::ThrowRef => {
+                let current_block = self
+                    .builder
+                    .get_insert_block()
+                    .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
+
+                let exc = self.state.pop1()?;
+
+                if let Some(pad) = self.state.get_landingpad() {
+                    let unreachable_block = self
+                        .context
+                        .append_basic_block(self.function, "_rethrow_unreachable");
+
+                    err!(self.builder.build_invoke(
+                        self.intrinsics.rethrow,
+                        &[exc],
+                        unreachable_block,
+                        pad,
+                        "throw",
+                    ));
+
+                    self.builder.position_at_end(unreachable_block);
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
+
+                    self.builder.position_at_end(current_block);
+                } else {
+                    err!(self.builder.build_call(
+                        self.intrinsics.rethrow,
+                        &[exc.into(),],
+                        "rethrow"
+                    ));
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
+                }
+
+                self.state.reachable = false;
+            }
             _ => {
                 return Err(CompileError::Codegen(format!(
-                    "Operator {:?} unimplemented",
-                    op
+                    "Operator {op:?} unimplemented",
                 )));
             }
         }

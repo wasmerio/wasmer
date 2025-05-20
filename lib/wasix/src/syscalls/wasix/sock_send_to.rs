@@ -36,7 +36,7 @@ pub fn sock_send_to<M: MemorySize>(
         wasi_try_ok!(read_ip_port(&memory, addr))
     };
     let addr = SocketAddr::new(addr_ip, addr_port);
-    Span::current().record("addr", format!("{:?}", addr));
+    Span::current().record("addr", format!("{addr:?}"));
 
     let bytes_written = wasi_try_ok!(sock_send_to_internal(
         &ctx,
@@ -93,7 +93,7 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
             sock,
             Rights::SOCK_SEND_TO,
             |socket, fd| async move {
-                let nonblocking = fd.flags.contains(Fdflags::NONBLOCK);
+                let nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
                 let timeout = socket
                     .opt_time(TimeType::WriteTimeout)
                     .ok()

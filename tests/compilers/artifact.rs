@@ -1,5 +1,7 @@
 use std::{fs, path::PathBuf};
+
 use wasmer::{Engine, Module};
+use wasmer_types::Features;
 
 #[test]
 fn artifact_serialization_roundtrip() {
@@ -24,15 +26,20 @@ fn artifact_serialization_roundtrip() {
 #[ignore = "Please enable it when tests fail, so we can generate new versions of the .wasmu files"]
 fn artifact_serialization_build() {
     use std::str::FromStr;
-    use wasmer::sys::{get_default_compiler_config, Features, NativeEngineExt};
-    use wasmer::{CpuFeature, Target, Triple};
+    use wasmer::{
+        sys::{
+            engine::{get_default_compiler_config, NativeEngineExt},
+            CpuFeature, Target, Triple,
+        },
+        Engine, Module,
+    };
 
     let file_names = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wasm"];
     let operating_systems = ["linux", "windows"];
     let chipset = "x86_64";
 
     for os in operating_systems {
-        let triple = Triple::from_str(&format!("{}-{}", chipset, os)).unwrap();
+        let triple = Triple::from_str(&format!("{chipset}-{os}")).unwrap();
         let mut cpu_feature = CpuFeature::set();
         cpu_feature.insert(CpuFeature::from_str("sse2").unwrap());
         let target = Target::new(triple, cpu_feature);
@@ -46,7 +53,7 @@ fn artifact_serialization_build() {
 
             let module = Module::new(&engine, wasm_module).unwrap();
             let serialized_bytes = module.serialize().unwrap();
-            let path = PathBuf::from(&format!("tests/compilers/wasmu/{}/{}u", os, file_name));
+            let path = PathBuf::from(&format!("tests/compilers/wasmu/{os}/{file_name}u"));
             std::fs::write(path, serialized_bytes).unwrap();
         }
     }

@@ -42,7 +42,7 @@ impl FileSystemCache {
 impl ModuleCache for FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
-        let path = self.path(key, engine.deterministic_id());
+        let path = self.path(key, &engine.deterministic_id());
 
         self.task_manager
             .runtime_handle()
@@ -97,7 +97,7 @@ impl ModuleCache for FileSystemCache {
         engine: &Engine,
         module: &Module,
     ) -> Result<(), CacheError> {
-        let path = self.path(key, engine.deterministic_id());
+        let path = self.path(key, &engine.deterministic_id());
 
         self.task_manager
             .runtime_handle()
@@ -221,7 +221,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
-        let expected_path = cache.path(key, engine.deterministic_id());
+        let expected_path = cache.path(key, &engine.deterministic_id());
 
         cache.save(key, &engine, &module).await.unwrap();
 
@@ -262,7 +262,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, engine.deterministic_id());
+        let expected_path = cache.path(key, &engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         std::fs::write(&expected_path, &serialized).unwrap();
@@ -285,7 +285,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
         let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
-        let expected_path = cache.path(key, engine.deterministic_id());
+        let expected_path = cache.path(key, &engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
         let mut encoder = weezl::encode::Encoder::new(weezl::BitOrder::Msb, 8);

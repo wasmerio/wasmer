@@ -140,7 +140,7 @@ fn back_and_forth_with_imports() -> Result<()> {
     )?;
 
     fn sum(a: i32, b: i32) -> i32 {
-        println!("Summing: {}+{}", a, b);
+        println!("Summing: {a}+{b}");
         a + b
     }
 

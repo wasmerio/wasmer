@@ -35,6 +35,9 @@ pub struct Wast {
     /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
     /// See https://github.com/wasmerio/wasmer/issues/1550 for more info
     disable_assert_trap_exhaustion: bool,
+
+    /// A flag indicating that assert_exception should be skipped.
+    disable_assert_exception: bool,
 }
 
 impl Wast {
@@ -50,6 +53,7 @@ impl Wast {
             instances: HashMap::new(),
             fail_fast: true,
             disable_assert_trap_exhaustion: false,
+            disable_assert_exception: false,
         }
     }
 
@@ -70,6 +74,11 @@ impl Wast {
     /// Do not run any code in assert_trap or assert_exhaustion.
     pub fn disable_assert_and_exhaustion(&mut self) {
         self.disable_assert_trap_exhaustion = true;
+    }
+
+    /// Do not run any code in assert_exception.
+    pub fn disable_assert_exception(&mut self) {
+        self.disable_assert_exception = true;
     }
 
     /// Construct a new instance of `Wast` with the spectests imports.
@@ -114,6 +123,7 @@ impl Wast {
             .map(|v| match v {
                 WastArg::Core(v) => self.runtime_value(v),
                 WastArg::Component(_) => bail!("expected component function, found core"),
+                _ => todo!(),
             })
             .collect::<Result<Vec<_>>>()?;
         self.invoke(exec.module.map(|i| i.name()), exec.name, &values)
@@ -133,6 +143,7 @@ impl Wast {
                     }
                 }
                 wast::WastRet::Component(_) => anyhow::bail!("Components not supported yet!"),
+                _ => todo!(),
             }
 
             if let Value::V128(bits) = v {
@@ -145,7 +156,25 @@ impl Wast {
                     );
                 }
             }
-            bail!("expected {:?}, got {:?}", e, v)
+            if let Some(f) = v.f64() {
+                if let wast::WastRet::Core(WastRetCore::F64(wast::core::NanPattern::Value(f1))) = e
+                {
+                    let f = f64::from_bits(f1.bits);
+                    bail!("expected {f:?} ({:?}), got {v:?} ({})", e, f.to_bits())
+                } else {
+                    bail!("expected {:?}, got {:?} ({})", e, v, f.to_bits())
+                }
+            } else if let Some(f) = v.f32() {
+                if let wast::WastRet::Core(WastRetCore::F32(wast::core::NanPattern::Value(f1))) = e
+                {
+                    let f = f32::from_bits(f1.bits);
+                    bail!("expected {f:?} ({:?}), got {v:?} ({})", e, f.to_bits())
+                } else {
+                    bail!("expected {:?}, got {:?} ({})", e, v, f.to_bits())
+                }
+            } else {
+                bail!("expected {:?}, got {:?}", e, v)
+            }
         }
         Ok(())
     }
@@ -169,7 +198,7 @@ impl Wast {
     fn assert_trap(&self, result: Result<Vec<Value>>, expected: &str) -> Result<()> {
         let actual = match result {
             Ok(values) => bail!("expected trap, got {:?}", values),
-            Err(t) => format!("{}", t),
+            Err(t) => format!("{t}"),
         };
         if self.matches_message_assert_trap(expected, &actual) {
             return Ok(());
@@ -181,7 +210,8 @@ impl Wast {
         use wast::WastDirective::*;
 
         match directive {
-            Wat(module) => self.wat(module)?,
+            ModuleDefinition(module) => self.wat(module)?,
+            Module(module) => self.wat(module)?,
             Register {
                 span: _,
                 name,
@@ -229,7 +259,7 @@ impl Wast {
                     Ok(()) => bail!("expected module to fail to build"),
                     Err(e) => e,
                 };
-                let error_message = format!("{:?}", err);
+                let error_message = format!("{err:?}");
                 if !Self::matches_message_assert_invalid(message, &error_message) {
                     bail!(
                         "assert_invalid: expected \"{}\", got \"{}\"",
@@ -238,8 +268,11 @@ impl Wast {
                     )
                 }
             }
-            AssertException { .. } => {
-                // Do nothing for now
+            AssertException { span: _, exec } => {
+                if !self.disable_assert_exception {
+                    let result = self.perform_execute(exec);
+                    self.assert_exception(result)?;
+                }
             }
             AssertMalformed {
                 module,
@@ -270,7 +303,7 @@ impl Wast {
                     Ok(()) => bail!("expected module to fail to link"),
                     Err(e) => e,
                 };
-                let error_message = format!("{:?}", err);
+                let error_message = format!("{err:?}");
                 if !Self::matches_message_assert_unlinkable(message, &error_message) {
                     bail!(
                         "assert_unlinkable: expected {}, got {}",
@@ -281,6 +314,12 @@ impl Wast {
             }
             Thread(_) => anyhow::bail!("`thread` directives not implemented yet!"),
             Wait { .. } => anyhow::bail!("`wait` directives not implemented yet!"),
+            ModuleInstance { .. } => {
+                anyhow::bail!("module instance directive not implemented yet!")
+            }
+            AssertSuspension { .. } => {
+                anyhow::bail!("`assert suspension` directive not implemented yet!")
+            }
         }
 
         Ok(())
@@ -305,7 +344,7 @@ impl Wast {
         for directive in ast.directives {
             let sp = directive.span();
             if let Err(e) = self.run_directive(test, directive) {
-                let message = format!("{}", e);
+                let message = format!("{e}");
                 // If depends on an instance that doesn't exist
                 if message.contains("no previous instance found") {
                     continue;
@@ -376,7 +415,7 @@ impl Wast {
                 // We set the current to None to allow running other
                 // spectests when `fail_fast` is `false`.
                 self.current = None;
-                let error_message = format!("{}", e);
+                let error_message = format!("{e}");
                 self.current_is_allowed_failure = false;
                 for allowed_failure in self.allowed_instantiation_failures.iter() {
                     if error_message.contains(allowed_failure) {
@@ -498,6 +537,7 @@ impl Wast {
             // for this scenario
             || (expected == "unknown global" && actual.contains("global.get of locally defined global"))
             || (expected == "immutable global" && actual.contains("global is immutable: cannot modify it with `global.set`"))
+            || (expected.contains("type mismatch: instruction requires") && actual.contains("instantiation failed with: Validation error: type mismatch: expected"))
     }
 
     // Checks if the `assert_trap` message matches the expected one
@@ -507,6 +547,13 @@ impl Wast {
                 .match_trap_messages
                 .get(expected)
                 .map_or(false, |alternative| actual.contains(alternative))
+    }
+
+    fn assert_exception(&self, result: Result<Vec<Value>>) -> Result<()> {
+        if result.is_ok() {
+            anyhow::bail!("Expected exception to be thrown, returned {result:?} instead");
+        }
+        Ok(())
     }
 
     fn val_matches(&self, actual: &Value, expected: &WastRetCore) -> Result<bool> {
@@ -536,7 +583,7 @@ impl Wast {
                 })),
             ) => true,
             (Value::ExternRef(None), WastRetCore::RefExtern(_)) => false,
-
+            (Value::ExceptionRef(None), WastRetCore::RefNull(_)) => true,
             (Value::ExternRef(Some(_)), WastRetCore::RefNull(_)) => false,
             (Value::ExternRef(Some(extern_ref)), WastRetCore::RefExtern(num)) => {
                 let x = extern_ref.downcast::<u32>(&self.store).cloned();

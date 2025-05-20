@@ -31,6 +31,19 @@ pub enum SpawnMemoryType<'a> {
     CopyMemory(Memory, StoreRef<'a>),
 }
 
+/// Describes whether a new memory should be created (and, in case, its type) or if it was already
+/// created and the store it belongs to.
+///
+/// # Note
+///
+/// This type is necessary for now because we can't pass a [`wasmer::StoreRef`] between threads, so this
+/// conceptually is a Send-able [`SpawnMemoryType`].
+pub enum SpawnMemoryTypeOrStore {
+    New,
+    Type(wasmer::MemoryType),
+    StoreAndMemory(wasmer::Store, Option<wasmer::Memory>),
+}
+
 pub type WasmResumeTask = dyn FnOnce(WasiFunctionEnv, Store, Bytes) + Send + 'static;
 
 pub type WasmResumeTrigger = dyn FnOnce() -> Pin<Box<dyn Future<Output = Result<Bytes, ExitCode>> + Send + 'static>>
@@ -51,6 +64,12 @@ pub struct TaskWasmRunProperties {
     pub recycle: Option<Box<TaskWasmRecycle>>,
 }
 
+pub type TaskWasmPreRun = dyn (for<'a> FnOnce(
+        &'a mut WasiFunctionEnv,
+        &'a mut Store,
+    ) -> Pin<Box<dyn Future<Output = ()> + Send + 'a>>)
+    + Send;
+
 /// Callback that will be invoked
 pub type TaskWasmRun = dyn FnOnce(TaskWasmRunProperties) + Send + 'static;
 
@@ -69,18 +88,19 @@ pub struct TaskWasmRecycleProperties {
 pub type TaskWasmRecycle = dyn FnOnce(TaskWasmRecycleProperties) + Send + 'static;
 
 /// Represents a WASM task that will be executed on a dedicated thread
-pub struct TaskWasm<'a, 'b> {
+pub struct TaskWasm<'a> {
     pub run: Box<TaskWasmRun>,
     pub recycle: Option<Box<TaskWasmRecycle>>,
     pub env: WasiEnv,
     pub module: Module,
-    pub globals: Option<&'b StoreSnapshot>,
+    pub globals: Option<StoreSnapshot>,
     pub spawn_type: SpawnMemoryType<'a>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
+    pub pre_run: Option<Box<TaskWasmPreRun>>,
 }
 
-impl<'a, 'b> TaskWasm<'a, 'b> {
+impl<'a> TaskWasm<'a> {
     pub fn new(run: Box<TaskWasmRun>, env: WasiEnv, module: Module, update_layout: bool) -> Self {
         let shared_memory = module.imports().memories().next().map(|a| *a.ty());
         Self {
@@ -95,6 +115,7 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
             trigger: None,
             update_layout,
             recycle: None,
+            pre_run: None,
         }
     }
 
@@ -110,7 +131,7 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
         self
     }
 
-    pub fn with_globals(mut self, snapshot: &'b StoreSnapshot) -> Self {
+    pub fn with_globals(mut self, snapshot: StoreSnapshot) -> Self {
         self.globals.replace(snapshot);
         self
     }
@@ -120,8 +141,13 @@ impl<'a, 'b> TaskWasm<'a, 'b> {
         self
     }
 
-    pub fn with_recycle(mut self, trigger: Box<TaskWasmRecycle>) -> Self {
-        self.recycle.replace(trigger);
+    pub fn with_recycle(mut self, recycle: Box<TaskWasmRecycle>) -> Self {
+        self.recycle.replace(recycle);
+        self
+    }
+
+    pub fn with_pre_run(mut self, pre_run: Box<TaskWasmPreRun>) -> Self {
+        self.pre_run.replace(pre_run);
         self
     }
 }
@@ -372,7 +398,7 @@ impl dyn VirtualTaskManager {
                 false,
             )
             .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
-            .with_globals(&snapshot)
+            .with_globals(snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {
                     let mut poller = AsyncifyPollerOwned {

@@ -326,7 +326,7 @@ impl CStatement {
                 w.push_str("typedef ");
                 // leaky abstraction / hack, doesn't fully solve the problem
                 if let CType::Function { .. } = source_type {
-                    source_type.generate_c_with_name(&format!("(*{})", new_name), w);
+                    source_type.generate_c_with_name(&format!("(*{new_name})"), w);
                 } else {
                     source_type.generate_c(w);
                     w.push(' ');

@@ -62,7 +62,7 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_module_sync(cmd.atom())?;
+        let module = runtime.load_command_module_sync(cmd)?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {
@@ -154,7 +154,7 @@ impl WcgiRunner {
                         let fut = graceful.watch(conn);
                         futs.push(async move {
                             if let Err(e) = fut.await {
-                                eprintln!("Error serving connection: {:?}", e);
+                                eprintln!("Error serving connection: {e:?}");
                             }
                         });
                     },
@@ -325,8 +325,22 @@ impl Config {
     }
 
     #[cfg(feature = "journal")]
-    pub fn add_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
-        self.wasi.journals.push(journal);
+    pub fn with_stop_running_after_snapshot(&mut self, stop_running: bool) {
+        self.wasi.stop_running_after_snapshot = stop_running;
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_read_only_journal(
+        &mut self,
+        journal: Arc<crate::journal::DynReadableJournal>,
+    ) -> &mut Self {
+        self.wasi.read_only_journals.push(journal);
+        self
+    }
+
+    #[cfg(feature = "journal")]
+    pub fn add_writable_journal(&mut self, journal: Arc<crate::journal::DynJournal>) -> &mut Self {
+        self.wasi.writable_journals.push(journal);
         self
     }
 }

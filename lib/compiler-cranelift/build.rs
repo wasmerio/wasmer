@@ -11,5 +11,5 @@ fn main() {
         Ok(output) => str::from_utf8(&output.stdout).unwrap().trim().to_string(),
         Err(_) => env!("CARGO_PKG_VERSION").to_string(),
     };
-    println!("cargo:rustc-env=GIT_REV={}", git_rev);
+    println!("cargo:rustc-env=GIT_REV={git_rev}");
 }

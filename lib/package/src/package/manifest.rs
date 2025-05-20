@@ -1,20 +1,23 @@
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::BTreeMap,
     path::{Path, PathBuf},
 };
 
-use ciborium::Value;
+use ciborium::{cbor, Value};
 use semver::VersionReq;
 use sha2::Digest;
 use shared_buffer::{MmapError, OwnedBuffer};
 use url::Url;
 #[allow(deprecated)]
 use wasmer_config::package::{CommandV1, CommandV2, Manifest as WasmerManifest, Package};
+use wasmer_config::package::{SuggestedCompilerOptimizations, UserAnnotations};
 use webc::{
     indexmap::{self, IndexMap},
     metadata::AtomSignature,
     sanitize_path,
 };
+
+use crate::utils::features_to_wasm_annotations;
 
 use webc::metadata::{
     annotations::{
@@ -158,7 +161,7 @@ pub(crate) fn wasmer_manifest_to_webc(
 /// take a `wasmer.toml` manifest and convert it to the `*.webc` equivalent.
 pub(crate) fn in_memory_wasmer_manifest_to_webc(
     manifest: &WasmerManifest,
-    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer)>,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
 ) -> Result<(WebcManifest, BTreeMap<String, OwnedBuffer>), ManifestError> {
     let use_map = transform_dependencies(&manifest.dependencies)?;
 
@@ -227,7 +230,7 @@ fn transform_package_annotations_shared(
 }
 
 fn transform_dependencies(
-    original_dependencies: &HashMap<String, VersionReq>,
+    original_dependencies: &IndexMap<String, VersionReq>,
 ) -> Result<IndexMap<String, UrlOrManifest>, ManifestError> {
     let mut dependencies = IndexMap::new();
 
@@ -277,28 +280,70 @@ fn transform_atoms(
             error,
         })?;
 
-        atom_entries.insert(name.clone(), (module.kind.clone(), file));
+        atom_entries.insert(
+            name.clone(),
+            (module.kind.clone(), file, module.annotations.as_ref()),
+        );
     }
 
     transform_atoms_shared(&atom_entries)
 }
 
 fn transform_in_memory_atoms(
-    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer)>,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
 ) -> Result<(IndexMap<String, Atom>, Atoms), ManifestError> {
     transform_atoms_shared(atoms)
 }
 
 fn transform_atoms_shared(
-    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer)>,
+    atoms: &BTreeMap<String, (Option<String>, OwnedBuffer, Option<&UserAnnotations>)>,
 ) -> Result<(IndexMap<String, Atom>, Atoms), ManifestError> {
     let mut atom_files = BTreeMap::new();
     let mut metadata = IndexMap::new();
 
-    for (name, (kind, content)) in atoms.iter() {
+    for (name, (kind, content, misc_annotations)) in atoms.iter() {
+        // Create atom with annotations including Wasm features if available
+        let mut annotations = IndexMap::new();
+        if let Some(misc_annotations) = misc_annotations {
+            if let Some(pass_params) = misc_annotations
+                .suggested_compiler_optimizations
+                .pass_params
+            {
+                annotations.insert(
+                    SuggestedCompilerOptimizations::KEY.to_string(),
+                    cbor!({"pass_params" => pass_params}).unwrap(),
+                );
+            }
+        }
+
+        // Detect required WebAssembly features by analyzing the module binary
+        let features_result = wasmer_types::Features::detect_from_wasm(content);
+
+        if let Ok(features) = features_result {
+            // Convert wasmer_types::Features to webc::metadata::annotations::Wasm
+            let feature_strings = features_to_wasm_annotations(&features);
+
+            // Only create annotation if we detected features
+            if !feature_strings.is_empty() {
+                let wasm = webc::metadata::annotations::Wasm::new(feature_strings);
+                match ciborium::value::Value::serialized(&wasm) {
+                    Ok(wasm_value) => {
+                        annotations.insert(
+                            webc::metadata::annotations::Wasm::KEY.to_string(),
+                            wasm_value,
+                        );
+                    }
+                    Err(e) => {
+                        eprintln!("Failed to serialize wasm features: {e}");
+                    }
+                }
+            }
+        }
+
         let atom = Atom {
             kind: atom_kind(kind.as_ref().map(|s| s.as_str()))?,
             signature: atom_signature(content),
+            annotations,
         };
 
         if metadata.contains_key(name) {
@@ -664,7 +709,7 @@ fn toml_to_cbor_value(val: &toml::value::Value) -> ciborium::Value {
         toml::Value::Integer(i) => ciborium::Value::Integer(ciborium::value::Integer::from(*i)),
         toml::Value::Float(f) => ciborium::Value::Float(*f),
         toml::Value::Boolean(b) => ciborium::Value::Bool(*b),
-        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{}", d)),
+        toml::Value::Datetime(d) => ciborium::Value::Text(format!("{d}")),
         toml::Value::Array(sq) => {
             ciborium::Value::Array(sq.iter().map(toml_to_cbor_value).collect())
         }

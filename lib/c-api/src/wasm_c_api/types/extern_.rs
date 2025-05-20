@@ -1,7 +1,7 @@
 use super::super::externals::wasm_extern_t;
 use super::{
     wasm_functype_t, wasm_globaltype_t, wasm_memorytype_t, wasm_tabletype_t, WasmFunctionType,
-    WasmGlobalType, WasmMemoryType, WasmTableType,
+    WasmGlobalType, WasmMemoryType, WasmTableType, WasmTagType,
 };
 use std::convert::{TryFrom, TryInto};
 use std::mem;
@@ -18,6 +18,7 @@ pub enum wasm_externkind_enum {
     WASM_EXTERN_GLOBAL = 1,
     WASM_EXTERN_TABLE = 2,
     WASM_EXTERN_MEMORY = 3,
+    WASM_EXTERN_TAG = 4,
 }
 
 impl From<ExternType> for wasm_externkind_enum {
@@ -32,6 +33,7 @@ impl From<&ExternType> for wasm_externkind_enum {
             ExternType::Global(_) => Self::WASM_EXTERN_GLOBAL,
             ExternType::Table(_) => Self::WASM_EXTERN_TABLE,
             ExternType::Memory(_) => Self::WASM_EXTERN_MEMORY,
+            ExternType::Tag(_) => Self::WASM_EXTERN_TAG,
         }
     }
 }
@@ -42,6 +44,9 @@ pub(crate) enum WasmExternType {
     Global(WasmGlobalType),
     Table(WasmTableType),
     Memory(WasmMemoryType),
+    // No support for eh in the C-API yet.
+    #[allow(unused)]
+    Tag(WasmTagType),
 }
 
 #[allow(non_camel_case_types)]
@@ -66,6 +71,7 @@ impl wasm_externtype_t {
                 ExternType::Memory(memory_type) => {
                     WasmExternType::Memory(WasmMemoryType::new(memory_type))
                 }
+                ExternType::Tag(tag_type) => WasmExternType::Tag(WasmTagType::new(tag_type)),
             },
         }
     }
@@ -110,6 +116,7 @@ pub unsafe extern "C" fn wasm_externtype_kind(
         WasmExternType::Global(_) => wasm_externkind_enum::WASM_EXTERN_GLOBAL,
         WasmExternType::Table(_) => wasm_externkind_enum::WASM_EXTERN_TABLE,
         WasmExternType::Memory(_) => wasm_externkind_enum::WASM_EXTERN_MEMORY,
+        WasmExternType::Tag(_) => wasm_externkind_enum::WASM_EXTERN_TAG,
     }) as wasm_externkind_t
 }
 

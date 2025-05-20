@@ -4,7 +4,9 @@ use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
 use virtual_fs::FileSystem;
-use wasmer_config::package::{PackageHash, PackageId, PackageSource};
+use wasmer_config::package::{
+    PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
+};
 use wasmer_package::package::Package;
 use webc::compat::SharedBytes;
 use webc::Container;
@@ -23,6 +25,8 @@ pub struct BinaryPackageCommand {
     #[debug(ignore)]
     pub(crate) atom: SharedBytes,
     hash: ModuleHash,
+    features: Option<wasmer_types::Features>,
+    pub suggested_compiler_optimizations: SuggestedCompilerOptimizations,
 }
 
 impl BinaryPackageCommand {
@@ -31,12 +35,16 @@ impl BinaryPackageCommand {
         metadata: webc::metadata::Command,
         atom: SharedBytes,
         hash: ModuleHash,
+        features: Option<wasmer_types::Features>,
+        suggested_compiler_optimizations: SuggestedCompilerOptimizations,
     ) -> Self {
         Self {
             name,
             metadata,
             atom,
             hash,
+            features,
+            suggested_compiler_optimizations,
         }
     }
 
@@ -48,16 +56,25 @@ impl BinaryPackageCommand {
         &self.metadata
     }
 
-    /// Get a reference to this [`BinaryPackageCommand`]'s atom.
-    ///
-    /// The address of the returned slice is guaranteed to be stable and live as
-    /// long as the [`BinaryPackageCommand`].
-    pub fn atom(&self) -> &[u8] {
-        &self.atom
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom as a cheap
+    /// clone of the internal OwnedBuffer.
+    pub fn atom(&self) -> SharedBytes {
+        self.atom.clone()
     }
 
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
+    }
+
+    /// Get the WebAssembly features required by this command's module
+    pub fn wasm_features(&self) -> Option<wasmer_types::Features> {
+        // Return only the pre-computed features from the container manifest
+        if let Some(features) = &self.features {
+            return Some(features.clone());
+        }
+
+        // If no annotations were found, return None
+        None
     }
 }
 
@@ -204,10 +221,10 @@ impl BinaryPackage {
 
     /// Get the bytes for the entrypoint command.
     #[deprecated(
-        note = "Use BinaryPackage::get_entrypoint_cmd instead",
+        note = "Use BinaryPackage::get_entrypoint_command instead",
         since = "0.22.0"
     )]
-    pub fn entrypoint_bytes(&self) -> Option<&[u8]> {
+    pub fn entrypoint_bytes(&self) -> Option<SharedBytes> {
         self.get_entrypoint_command().map(|entry| entry.atom())
     }
 

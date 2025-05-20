@@ -11,7 +11,6 @@ use anyhow::Context;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
-use wasmer_wasix_types::wasi::Errno;
 
 mod binary_package;
 mod exec;
@@ -19,8 +18,8 @@ mod exec;
 pub use self::{
     binary_package::*,
     exec::{
-        run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm, spawn_load_module,
-        spawn_load_wasm, spawn_union_fs,
+        package_command_by_name, run_exec, spawn_exec, spawn_exec_module, spawn_exec_wasm,
+        spawn_load_module, spawn_union_fs,
     },
 };
 use crate::{
@@ -70,7 +69,6 @@ impl BinFactory {
     pub fn spawn<'a>(
         &'a self,
         name: String,
-        store: wasmer::Store,
         env: WasiEnv,
     ) -> Pin<Box<dyn Future<Output = Result<TaskJoinHandle, SpawnError>> + 'a>> {
         Box::pin(async move {
@@ -81,9 +79,6 @@ impl BinFactory {
                 .ok_or_else(|| SpawnError::BinaryNotFound {
                     binary: name.clone(),
                 });
-            if res.is_err() {
-                env.on_exit(Some(Errno::Noent.into())).await;
-            }
             let executable = res?;
 
             // Execute
@@ -93,25 +88,11 @@ impl BinFactory {
                 }
                 Executable::BinaryPackage(pkg) => {
                     // Get the command that is going to be executed
-                    let cmd = if let Some(cmd) = pkg.get_command(name.as_str()) {
-                        cmd
-                    } else if let Some(cmd) = pkg.get_entrypoint_command() {
-                        cmd
-                    } else {
-                        tracing::error!(
-                          command=name,
-                          pkg=%pkg.id,
-                          "Unable to spawn a command because its package has no entrypoint",
-                        );
-                        env.on_exit(Some(Errno::Noexec.into())).await;
-                        return Err(SpawnError::MissingEntrypoint {
-                            package_id: pkg.id.clone(),
-                        });
-                    };
+                    let cmd = package_command_by_name(&pkg, name.as_str())?;
 
                     env.prepare_spawn(cmd);
 
-                    spawn_exec(pkg, name.as_str(), store, env, &self.runtime).await
+                    spawn_exec(pkg, name.as_str(), env, &self.runtime).await
                 }
             }
         })
@@ -121,15 +102,12 @@ impl BinFactory {
         &self,
         name: String,
         parent_ctx: Option<&FunctionEnvMut<'_, WasiEnv>>,
-        store: &mut Option<wasmer::Store>,
         builder: &mut Option<WasiEnv>,
     ) -> Result<TaskJoinHandle, SpawnError> {
         // We check for built in commands
         if let Some(parent_ctx) = parent_ctx {
             if self.commands.exists(name.as_str()) {
-                return self
-                    .commands
-                    .exec(parent_ctx, name.as_str(), store, builder);
+                return self.commands.exec(parent_ctx, name.as_str(), builder);
             }
         } else if self.commands.exists(name.as_str()) {
             tracing::warn!("builtin command without a parent ctx - {}", name);

@@ -1,0 +1,1 @@
+$WASMER -q run main.wasm

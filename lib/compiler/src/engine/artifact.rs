@@ -6,15 +6,16 @@ use std::sync::{
     Arc,
 };
 
+#[cfg(feature = "compiler")]
+use crate::ModuleEnvironment;
 use crate::{
     engine::link::link_module,
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
-    types::target::{CpuFeature, Target},
+    types::relocation::{RelocationLike, RelocationTarget},
     ArtifactBuild, ArtifactBuildFromArchive, ArtifactCreate, Engine, EngineInner, Features,
-    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError,
-    ModuleEnvironment, Tunables,
+    FrameInfosVariant, FunctionExtent, GlobalFrameInfoRegistration, InstantiationError, Tunables,
 };
 #[cfg(any(feature = "static-artifact-create", feature = "static-artifact-load"))]
 use crate::{serialize::SerializableCompilation, types::symbols::ModuleMetadata};
@@ -28,14 +29,19 @@ use shared_buffer::OwnedBuffer;
 use std::mem;
 
 #[cfg(feature = "static-artifact-create")]
-use crate::object::{emit_compilation, emit_data, get_object_for_target, Object};
+use crate::object::{
+    emit_compilation, emit_data, get_object_for_target, Object, ObjectMetadataBuilder,
+};
 
+#[cfg(feature = "compiler")]
+use wasmer_types::HashAlgorithm;
 use wasmer_types::{
     entity::{BoxedSlice, PrimaryMap},
+    target::{CpuFeature, Target},
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, CompileError, DataInitializer,
     DataInitializerLike, DataInitializerLocation, DataInitializerLocationLike, DeserializeError,
-    FunctionIndex, HashAlgorithm, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, ModuleInfo, OwnedDataInitializer,
+    SerializeError, SignatureIndex, TableIndex,
 };
 
 use wasmer_vm::{
@@ -107,6 +113,7 @@ pub struct Artifact {
 /// module, corresponding to `ArtifactBuildVariant::Plain`, or loaded
 /// from an archive, corresponding to `ArtifactBuildVariant::Archived`.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+#[allow(clippy::large_enum_variant)]
 pub enum ArtifactBuildVariant {
     Plain(ArtifactBuild),
     Archived(ArtifactBuildFromArchive),
@@ -207,10 +214,10 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(_) => {
-                    return Err(DeserializeError::Incompatible(
-                        "The provided bytes are not wasmer-universal".to_string(),
-                    ));
+                Err(e) => {
+                    return Err(DeserializeError::Incompatible(format!(
+                        "The provided bytes are not wasmer-universal: {e}"
+                    )));
                 }
             }
         }
@@ -252,10 +259,10 @@ impl Artifact {
                 Ok(v) => {
                     return Ok(v);
                 }
-                Err(_) => {
-                    return Err(DeserializeError::Incompatible(
-                        "The provided bytes are not wasmer-universal".to_string(),
-                    ));
+                Err(e) => {
+                    return Err(DeserializeError::Incompatible(format!(
+                        "The provided bytes are not wasmer-universal: {e}"
+                    )));
                 }
             }
         }
@@ -324,6 +331,44 @@ impl Artifact {
             )?,
         };
 
+        let get_got_address: Box<dyn Fn(RelocationTarget) -> Option<usize>> = match &artifact {
+            ArtifactBuildVariant::Plain(ref p) => {
+                if let Some(got) = p.get_got_ref().index {
+                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
+                        .iter()
+                        .map(|v| (v.reloc_target, v.offset))
+                        .collect();
+                    let got_base = custom_sections[got].0 as usize;
+                    Box::new(move |t: RelocationTarget| {
+                        relocs
+                            .iter()
+                            .find(|(v, _)| v == &t)
+                            .map(|(_, o)| got_base + (*o as usize))
+                    })
+                } else {
+                    Box::new(|_: RelocationTarget| None)
+                }
+            }
+
+            ArtifactBuildVariant::Archived(ref p) => {
+                if let Some(got) = p.get_got_ref().index {
+                    let relocs: Vec<_> = p.get_custom_section_relocations_ref()[got]
+                        .iter()
+                        .map(|v| (v.reloc_target(), v.offset))
+                        .collect();
+                    let got_base = custom_sections[got].0 as usize;
+                    Box::new(move |t: RelocationTarget| {
+                        relocs
+                            .iter()
+                            .find(|(v, _)| v == &t)
+                            .map(|(_, o)| got_base + (o.to_native() as usize))
+                    })
+                } else {
+                    Box::new(|_: RelocationTarget| None)
+                }
+            }
+        };
+
         match &artifact {
             ArtifactBuildVariant::Plain(p) => link_module(
                 module_info,
@@ -337,6 +382,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 p.get_libcall_trampolines(),
                 p.get_libcall_trampoline_len(),
+                &get_got_address,
             ),
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
@@ -350,6 +396,7 @@ impl Artifact {
                     .map(|(k, v)| (k, v.iter())),
                 a.get_libcall_trampolines(),
                 a.get_libcall_trampoline_len(),
+                &get_got_address,
             ),
         };
 
@@ -363,33 +410,55 @@ impl Artifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        let debug_ref = match &artifact {
-            // Why clone? See comment at the top of ./lib/types/src/indexes.rs.
-            ArtifactBuildVariant::Plain(p) => p.get_debug_ref().cloned(),
-            ArtifactBuildVariant::Archived(a) => a.get_debug_ref(),
+        let eh_frame = match &artifact {
+            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().eh_frame.map(|v| unsafe {
+                std::slice::from_raw_parts(
+                    *custom_sections[v],
+                    p.get_custom_sections_ref()[v].bytes.len(),
+                )
+            }),
+            ArtifactBuildVariant::Archived(a) => a.get_unwind_info().eh_frame.map(|v| unsafe {
+                std::slice::from_raw_parts(
+                    *custom_sections[v],
+                    a.get_custom_sections_ref()[v].bytes.len(),
+                )
+            }),
         };
-        let eh_frame = match debug_ref {
-            Some(debug) => {
-                let eh_frame_section_size = match &artifact {
-                    ArtifactBuildVariant::Plain(p) => {
-                        p.get_custom_sections_ref()[debug.eh_frame].bytes.len()
-                    }
-                    ArtifactBuildVariant::Archived(a) => {
-                        a.get_custom_sections_ref()[debug.eh_frame].bytes.len()
-                    }
-                };
-                let eh_frame_section_pointer = custom_sections[debug.eh_frame];
-                Some(unsafe {
-                    std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)
+
+        let compact_unwind = match &artifact {
+            ArtifactBuildVariant::Plain(p) => p.get_unwind_info().compact_unwind.map(|v| unsafe {
+                std::slice::from_raw_parts(
+                    *custom_sections[v],
+                    p.get_custom_sections_ref()[v].bytes.len(),
+                )
+            }),
+            ArtifactBuildVariant::Archived(a) => {
+                a.get_unwind_info().compact_unwind.map(|v| unsafe {
+                    std::slice::from_raw_parts(
+                        *custom_sections[v],
+                        a.get_custom_sections_ref()[v].bytes.len(),
+                    )
                 })
             }
-            None => None,
         };
+
+        // This needs to be called before publishind the `eh_frame`.
+        engine_inner.register_compact_unwind(
+            compact_unwind,
+            get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
+        )?;
+
+        #[cfg(not(target_arch = "wasm32"))]
+        {
+            engine_inner.register_perfmap(&finished_functions, module_info)?;
+        }
 
         // Make all code compiled thus far executable.
         engine_inner.publish_compiled_code();
 
         engine_inner.publish_eh_frame(eh_frame)?;
+
+        drop(get_got_address);
 
         let finished_function_lengths = finished_functions
             .values()
@@ -423,7 +492,7 @@ impl Artifact {
 
         artifact
             .internal_register_frame_info()
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{e:?}")))?;
         if let Some(frame_info) = artifact.internal_take_frame_info_registration() {
             engine_inner.register_frame_info(frame_info);
         }
@@ -809,6 +878,10 @@ impl Artifact {
             )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
+        let finished_tags = tunables
+            .create_tags(context, &module)
+            .map_err(InstantiationError::Link)?
+            .into_boxed_slice();
         let finished_globals = tunables
             .create_globals(context, &module)
             .map_err(InstantiationError::Link)?
@@ -822,6 +895,7 @@ impl Artifact {
             self.finished_function_call_trampolines().clone(),
             finished_memories,
             finished_tables,
+            finished_tags,
             finished_globals,
             imports,
             self.signatures().clone(),
@@ -981,7 +1055,7 @@ impl Artifact {
         use crate::types::symbols::{ModuleMetadataSymbolRegistry, SymbolRegistry};
 
         fn to_compile_error(err: impl std::error::Error) -> CompileError {
-            CompileError::Codegen(format!("{}", err))
+            CompileError::Codegen(format!("{err}"))
         }
 
         let target_triple = target.triple();
@@ -1006,10 +1080,8 @@ impl Artifact {
         - SignatureIndex -> VMSharedSignatureindextureIndex // signatures
          */
 
-        let serialized_data = metadata.serialize().map_err(to_compile_error)?;
-        let mut metadata_binary = vec![];
-        metadata_binary.extend(MetadataHeader::new(serialized_data.len()).into_bytes());
-        metadata_binary.extend(serialized_data);
+        let mut metadata_builder =
+            ObjectMetadataBuilder::new(&metadata, target_triple).map_err(to_compile_error)?;
 
         let (_compile_info, symbol_registry) = metadata.split();
 
@@ -1026,15 +1098,41 @@ impl Artifact {
         }
         .symbol_to_name(crate::types::symbols::Symbol::Metadata);
 
-        emit_data(&mut obj, object_name.as_bytes(), &metadata_binary, 1)
-            .map_err(to_compile_error)?;
+        let default_align = match target_triple.architecture {
+            target_lexicon::Architecture::Aarch64(_) => {
+                if matches!(
+                    target_triple.operating_system,
+                    target_lexicon::OperatingSystem::Darwin
+                ) {
+                    8
+                } else {
+                    4
+                }
+            }
+            _ => 1,
+        };
 
-        emit_compilation(&mut obj, compilation, &symbol_registry, target_triple)
-            .map_err(to_compile_error)?;
+        let offset = emit_data(
+            &mut obj,
+            object_name.as_bytes(),
+            metadata_builder.placeholder_data(),
+            default_align,
+        )
+        .map_err(to_compile_error)?;
+        metadata_builder.set_section_offset(offset);
+
+        emit_compilation(
+            &mut obj,
+            compilation,
+            &symbol_registry,
+            target_triple,
+            &metadata_builder,
+        )
+        .map_err(to_compile_error)?;
         Ok((
             Arc::try_unwrap(metadata.compile_info.module).unwrap(),
             obj,
-            metadata_binary.len(),
+            metadata_builder.placeholder_data().len(),
             Box::new(symbol_registry),
         ))
     }

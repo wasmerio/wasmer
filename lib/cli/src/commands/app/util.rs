@@ -35,13 +35,13 @@ impl AppIdent {
             AppIdent::AppId(app_id) => {
                 wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
                     .await
-                    .with_context(|| format!("Could not find app with id '{}'", app_id))
+                    .with_context(|| format!("Could not find app with id '{app_id}'"))
             }
             AppIdent::AppVersionId(id) => {
                 let (app, _version) =
                     wasmer_backend_api::query::get_app_version_by_id_with_app(client, id.clone())
                         .await
-                        .with_context(|| format!("Could not query for app version id '{}'", id))?;
+                        .with_context(|| format!("Could not query for app version id '{id}'"))?;
                 Ok(app)
             }
             AppIdent::Name(name) => {
@@ -152,9 +152,12 @@ impl AppIdentOpts {
         let ident = if let Some(id) = &config.app_id {
             AppIdent::AppId(id.clone())
         } else if let Some(owner) = &config.owner {
-            AppIdent::NamespacedName(owner.clone(), config.name.clone())
+            AppIdent::NamespacedName(
+                owner.clone(),
+                config.name.clone().context("App name was not specified")?,
+            )
         } else {
-            AppIdent::Name(config.name.clone())
+            AppIdent::Name(config.name.clone().context("App name was not specified")?)
         };
 
         Ok(ResolvedAppIdent::Config {

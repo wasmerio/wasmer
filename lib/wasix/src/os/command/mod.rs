@@ -2,7 +2,7 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
-use wasmer::{FunctionEnvMut, Store};
+use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
@@ -27,7 +27,6 @@ where
         &self,
         parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         path: &str,
-        store: &mut Option<Store>,
         config: &mut Option<WasiEnv>,
     ) -> Result<TaskJoinHandle, SpawnError>;
 }
@@ -86,17 +85,16 @@ impl Commands {
         &self,
         parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         path: &str,
-        store: &mut Option<Store>,
         builder: &mut Option<WasiEnv>,
     ) -> Result<TaskJoinHandle, SpawnError> {
         let path = path.to_string();
         if let Some(cmd) = self.commands.get(&path) {
-            cmd.exec(parent_ctx, path.as_str(), store, builder)
+            cmd.exec(parent_ctx, path.as_str(), builder)
         } else {
             unsafe {
                 InlineWaker::block_on(stderr_write(
                     parent_ctx,
-                    format!("wasm command unknown - {}\r\n", path).as_bytes(),
+                    format!("wasm command unknown - {path}\r\n").as_bytes(),
                 ))
             }
             .ok();

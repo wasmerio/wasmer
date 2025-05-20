@@ -4,11 +4,9 @@ use anyhow::{Context, Result};
 use clap::Parser;
 use std::fs;
 use std::path::{Path, PathBuf};
-use wasmer_compiler::{
-    types::target::{Architecture, CpuFeature, Target, Triple},
-    ArtifactBuild, ArtifactCreate, ModuleEnvironment,
-};
+use wasmer_compiler::{ArtifactBuild, ArtifactCreate, ModuleEnvironment};
 use wasmer_types::entity::PrimaryMap;
+use wasmer_types::target::{Architecture, CpuFeature, Target, Triple};
 use wasmer_types::{CompileError, MemoryIndex, MemoryStyle, TableIndex, TableStyle};
 
 #[derive(Debug, Parser)]
@@ -82,7 +80,7 @@ impl Compile {
         }
         let tunables = self.store.get_tunables_for_target(&target)?;
 
-        println!("Compiler: {}", compiler_type);
+        println!("Compiler: {compiler_type}");
         println!("Target: {}", target.triple());
 
         // compile and save the artifact (without using module from api)

@@ -2,16 +2,15 @@
 
 mod healthcheck;
 mod http;
+mod job;
+mod pretty_duration;
+mod snapshot_trigger;
 
-pub use self::{
-    healthcheck::{HealthCheckHttpV1, HealthCheckV1},
-    http::HttpRequest,
-};
-
-use std::collections::HashMap;
+pub use self::{healthcheck::*, http::*, job::*, pretty_duration::*, snapshot_trigger::*};
 
 use anyhow::{bail, Context};
 use bytesize::ByteSize;
+use indexmap::IndexMap;
 
 use crate::package::PackageSource;
 
@@ -32,7 +31,7 @@ pub const HEADER_APP_VERSION_ID: &str = "x-edge-app-version-id";
 )]
 pub struct AppConfigV1 {
     /// Name of the app.
-    pub name: String,
+    pub name: Option<String>,
 
     /// App id assigned by the backend.
     ///
@@ -65,8 +64,8 @@ pub struct AppConfigV1 {
     pub locality: Option<Locality>,
 
     /// Environment variables.
-    #[serde(default, skip_serializing_if = "HashMap::is_empty")]
-    pub env: HashMap<String, String>,
+    #[serde(default, skip_serializing_if = "IndexMap::is_empty")]
+    pub env: IndexMap<String, String>,
 
     // CLI arguments passed to the runner.
     /// Only applicable for runners that accept CLI arguments.
@@ -95,9 +94,12 @@ pub struct AppConfigV1 {
     #[serde(default, skip_serializing_if = "Option::is_none")]
     pub redirect: Option<Redirect>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub jobs: Option<Vec<Job>>,
+
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
-    pub extra: HashMap<String, serde_json::Value>,
+    pub extra: IndexMap<String, serde_json::Value>,
 }
 
 #[derive(
@@ -196,6 +198,10 @@ pub struct AppConfigCapabilityMapV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub memory: Option<AppConfigCapabilityMemoryV1>,
 
+    /// Runtime settings.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub runtime: Option<AppConfigCapabilityRuntimeV1>,
+
     /// Enables app bootstrapping with startup snapshots.
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
@@ -205,7 +211,7 @@ pub struct AppConfigCapabilityMapV1 {
     /// This provides a small bit of forwards compatibility for newly added
     /// capabilities.
     #[serde(flatten)]
-    pub other: HashMap<String, serde_json::Value>,
+    pub other: IndexMap<String, serde_json::Value>,
 }
 
 /// Memory capability settings.
@@ -225,6 +231,19 @@ pub struct AppConfigCapabilityMemoryV1 {
     pub limit: Option<ByteSize>,
 }
 
+/// Runtime capability settings.
+#[derive(
+    serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
+)]
+pub struct AppConfigCapabilityRuntimeV1 {
+    /// Engine to use for an instance, e.g. wasmer_cranelift, wasmer_llvm, etc.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub engine: Option<String>,
+    /// Whether to enable asynchronous threads/deep sleeping.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    pub async_threads: Option<bool>,
+}
+
 /// Enables accelerated instance boot times with startup snapshots.
 ///
 /// How it works:
@@ -240,6 +259,10 @@ pub struct AppConfigCapabilityMemoryV1 {
     serde::Serialize, serde::Deserialize, schemars::JsonSchema, Clone, Debug, PartialEq, Eq,
 )]
 pub struct AppConfigCapabilityInstaBootV1 {
+    /// The method to use to generate the instaboot snapshot for the instance.
+    #[serde(default)]
+    pub mode: Option<InstabootSnapshotModeV1>,
+
     /// HTTP requests to perform during startup snapshot creation.
     /// Apps can perform all the appropriate warmup logic in these requests.
     ///
@@ -255,7 +278,34 @@ pub struct AppConfigCapabilityInstaBootV1 {
     /// After the specified time new snapshots will be created, and the old
     /// ones discarded.
     #[serde(skip_serializing_if = "Option::is_none")]
-    pub max_age: Option<String>,
+    pub max_age: Option<PrettyDuration>,
+}
+
+/// How will an instance be bootstrapped?
+#[derive(
+    serde::Serialize,
+    serde::Deserialize,
+    PartialEq,
+    Eq,
+    Hash,
+    Clone,
+    Debug,
+    schemars::JsonSchema,
+    Default,
+)]
+#[serde(rename_all = "snake_case")]
+pub enum InstabootSnapshotModeV1 {
+    /// Start the instance without any snapshot triggers. Once the requests are done,
+    /// use [`snapshot_and_stop`](wasmer_wasix::WasiProcess::snapshot_and_stop) to
+    /// capture a snapshot and shut the instance down.
+    #[default]
+    Bootstrap,
+
+    /// Explicitly enable the given snapshot triggers before starting the instance.
+    /// The instance's process will have its stop_running_after_checkpoint flag set,
+    /// so the first snapshot will cause the instance to shut down.
+    // FIXME: make this strongly typed
+    Triggers(Vec<SnapshotTrigger>),
 }
 
 /// App redirect configuration.
@@ -310,7 +360,7 @@ scheduled_tasks:
         assert_eq!(
             parsed,
             AppConfigV1 {
-                name: "test".to_string(),
+                name: Some("test".to_string()),
                 app_id: None,
                 package: "ns/name@0.1.0".parse().unwrap(),
                 owner: None,
@@ -341,7 +391,8 @@ scheduled_tasks:
                 }),
                 locality: Some(Locality {
                     regions: vec!["eu-rome".to_string()]
-                })
+                }),
+                jobs: None,
             }
         );
     }
@@ -374,10 +425,7 @@ volumes:
         if let Some(actual_volumes) = parsed.volumes {
             assert_eq!(actual_volumes, expected_volumes);
         } else {
-            panic!(
-                "Parsed volumes are None, expected Some({:?})",
-                expected_volumes
-            );
+            panic!("Parsed volumes are None, expected Some({expected_volumes:?})");
         }
     }
 }

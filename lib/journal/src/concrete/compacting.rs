@@ -61,7 +61,7 @@ impl From<Range<u64>> for MemoryRange {
 /// on the final deterministic outcome of the entire log.
 ///
 /// By grouping events into subevents it makes it possible to ignore an
-/// entire subgroup of events which are superseeded by a later event. For
+/// entire subgroup of events which are superceded by a later event. For
 /// example, all the events involved in creating a file are irrelevant if
 /// that file is later deleted.
 #[derive(Debug, Clone, Copy, PartialOrd, Ord, PartialEq, Eq, Hash)]
@@ -230,6 +230,15 @@ impl State {
         filter.build_split(writer, reader)
     }
 
+    fn insert_new_sub_events_empty(&mut self) -> SubGroupIndex {
+        let lookup = SubGroupIndex(self.descriptor_seed);
+        self.descriptor_seed += 1;
+
+        self.sub_events.entry(lookup).or_default();
+
+        lookup
+    }
+
     fn insert_new_sub_events(&mut self, event_index: usize) -> SubGroupIndex {
         let lookup = SubGroupIndex(self.descriptor_seed);
         self.descriptor_seed += 1;
@@ -299,6 +308,10 @@ impl State {
         self.stdio_descriptors.clear();
         self.suspect_descriptors.clear();
         self.thread_map.clear();
+        for i in 0..=2 {
+            let lookup = self.insert_new_sub_events_empty();
+            self.stdio_descriptors.insert(i, lookup);
+        }
     }
 }
 
@@ -335,7 +348,7 @@ impl CompactingJournal {
         J: Journal,
     {
         let (tx, rx) = inner.split();
-        let state = State {
+        let mut state = State {
             inner_tx: tx,
             inner_rx: rx.as_restarted()?,
             tty: None,
@@ -364,6 +377,11 @@ impl CompactingJournal {
             delta_list: None,
             event_index: 0,
         };
+        // stdio FDs are always created for a process initially, fill them out here
+        for i in 0..=2 {
+            let lookup = state.insert_new_sub_events_empty();
+            state.stdio_descriptors.insert(i, lookup);
+        }
         Ok(Self {
             tx: CompactingJournalTx {
                 state: Arc::new(Mutex::new(state)),
@@ -546,6 +564,9 @@ impl WritableJournal for CompactingJournalTx {
             }
             JournalEntry::OpenFileDescriptorV1 {
                 fd, o_flags, path, ..
+            }
+            | JournalEntry::OpenFileDescriptorV2 {
+                fd, o_flags, path, ..
             } => {
                 // Creating a file and erasing anything that was there before means
                 // the entire create branch that exists before this one can be ignored
@@ -581,12 +602,6 @@ impl WritableJournal for CompactingJournalTx {
                     state.keep_descriptors.insert(*fd, lookup);
                 }
 
-                // If its stdio then we need to create the descriptor if its not there already
-                if *fd <= 3 && !state.stdio_descriptors.contains_key(fd) {
-                    let lookup = state.insert_new_sub_events(event_index);
-                    state.stdio_descriptors.insert(*fd, lookup);
-                }
-
                 // Update the state
                 if let Some(state) = state
                     .find_sub_events(fd)
@@ -605,18 +620,11 @@ impl WritableJournal for CompactingJournalTx {
                     }
                 }
             }
-            // Seeks to a particular position within
-            JournalEntry::FileDescriptorSeekV1 { fd, .. }
-            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. } => {
-                // If its stdio then we need to create the descriptor if its not there already
-                if *fd <= 3 && !state.stdio_descriptors.contains_key(fd) {
-                    let lookup = state.insert_new_sub_events(event_index);
-                    state.stdio_descriptors.insert(*fd, lookup);
-                }
-                state.find_sub_events_and_append(fd, event_index);
-            }
             // We keep non-mutable events for file descriptors that are suspect
-            JournalEntry::SocketBindV1 { fd, .. }
+            JournalEntry::FileDescriptorSeekV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetFdFlagsV1 { fd, .. }
+            | JournalEntry::FileDescriptorSetFlagsV1 { fd, .. }
+            | JournalEntry::SocketBindV1 { fd, .. }
             | JournalEntry::SocketSendFileV1 { socket_fd: fd, .. }
             | JournalEntry::SocketSendToV1 { fd, .. }
             | JournalEntry::SocketSendV1 { fd, .. }
@@ -657,39 +665,58 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
+            }
+            | JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                ..
             } => {
                 if let Some(lookup) = state.suspect_descriptors.get(original_fd).cloned() {
                     state.suspect_descriptors.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.keep_descriptors.get(original_fd).cloned() {
                     state.keep_descriptors.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.stdio_descriptors.get(original_fd).cloned() {
                     state.stdio_descriptors.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.open_pipes.get(original_fd).cloned() {
                     state.open_pipes.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.open_sockets.get(original_fd).cloned() {
                     state.open_sockets.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.accepted_sockets.get(original_fd).cloned() {
                     state.accepted_sockets.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.event_descriptors.get(original_fd).cloned() {
                     state.event_descriptors.insert(*copied_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 }
             }
             // Renumbered file descriptors will retain their suspect status
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 if let Some(lookup) = state.suspect_descriptors.remove(old_fd) {
                     state.suspect_descriptors.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.keep_descriptors.remove(old_fd) {
                     state.keep_descriptors.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.stdio_descriptors.remove(old_fd) {
                     state.stdio_descriptors.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.open_pipes.remove(old_fd) {
                     state.open_pipes.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.open_sockets.remove(old_fd) {
                     state.open_sockets.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.open_sockets.remove(old_fd) {
                     state.accepted_sockets.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 } else if let Some(lookup) = state.event_descriptors.remove(old_fd) {
                     state.event_descriptors.insert(*new_fd, lookup);
+                    state.append_to_sub_events(&lookup, event_index);
                 }
             }
             // Creating a new directory only needs to be done once
@@ -733,10 +760,10 @@ impl WritableJournal for CompactingJournalTx {
                 }
             }
             // Pipes that remain open at the end will be added
-            JournalEntry::CreatePipeV1 { fd1, fd2, .. } => {
+            JournalEntry::CreatePipeV1 { read_fd, write_fd } => {
                 let lookup = state.insert_new_sub_events(event_index);
-                state.open_pipes.insert(*fd1, lookup);
-                state.open_pipes.insert(*fd2, lookup);
+                state.open_pipes.insert(*read_fd, lookup);
+                state.open_pipes.insert(*write_fd, lookup);
             }
             // Epoll events
             JournalEntry::EpollCreateV1 { fd } => {
@@ -756,6 +783,11 @@ impl WritableJournal for CompactingJournalTx {
             JournalEntry::SocketAcceptedV1 { fd, .. } | JournalEntry::SocketOpenV1 { fd, .. } => {
                 let lookup = state.insert_new_sub_events(event_index);
                 state.open_sockets.insert(*fd, lookup);
+            }
+            JournalEntry::SocketPairV1 { fd1, fd2 } => {
+                let lookup = state.insert_new_sub_events(event_index);
+                state.open_sockets.insert(*fd1, lookup);
+                state.open_sockets.insert(*fd2, lookup);
             }
             JournalEntry::InitModuleV1 { .. } => {
                 state.clear_run_sub_events();

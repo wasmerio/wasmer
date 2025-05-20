@@ -1,10 +1,13 @@
 use std::path::PathBuf;
 
-use anyhow::{Context, Result};
+use anyhow::{bail, Context, Result};
 use clap::Parser;
-use wasmer::*;
+use wasmer::{
+    sys::{engine::NativeEngineExt, *},
+    *,
+};
 
-use crate::{common::HashAlgorithm, store::StoreOptions, warning};
+use crate::{backend::RuntimeOptions, common::HashAlgorithm, warning};
 
 #[derive(Debug, Parser)]
 /// The options for the `wasmer compile` subcommand
@@ -22,7 +25,7 @@ pub struct Compile {
     target_triple: Option<Triple>,
 
     #[clap(flatten)]
-    store: StoreOptions,
+    rt: RuntimeOptions,
 
     #[clap(short = 'm')]
     cpu_features: Vec<CpuFeature>,
@@ -57,9 +60,16 @@ impl Compile {
                 Target::new(target_triple.clone(), features)
             })
             .unwrap_or_default();
-        let (mut store, compiler_type) = self.store.get_store_for_target(target.clone())?;
 
-        let engine = store.engine_mut();
+        let module_contents = std::fs::read(&self.path)?;
+        if !is_wasm(&module_contents) {
+            bail!("`wasmer compile` only compiles WebAssembly files");
+        }
+
+        let mut engine = self
+            .rt
+            .get_engine_for_module(&module_contents, &Target::default())?;
+
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
 
@@ -80,10 +90,10 @@ impl Compile {
                 warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
             }
         }
-        println!("Compiler: {}", compiler_type);
+        println!("Compiler: {}", engine.deterministic_id());
         println!("Target: {}", target.triple());
 
-        let module = Module::from_file(&store, &self.path)?;
+        let module = Module::new(&engine, &module_contents)?;
         module.serialize_to_file(&self.output)?;
         eprintln!(
             "✔ File compiled successfully to `{}`.",

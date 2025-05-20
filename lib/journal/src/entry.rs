@@ -5,9 +5,9 @@ use std::time::{Duration, SystemTime};
 use std::{borrow::Cow, ops::Range};
 use virtual_net::{IpCidr, StreamSecurity};
 use wasmer_wasix_types::wasi::{
-    Addressfamily, Advice, EpollCtl, EpollEventCtl, EventFdFlags, ExitCode, Fdflags, FileDelta,
-    Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid, SockProto,
-    Sockoption, Socktype, Timestamp, Tty, Whence,
+    Addressfamily, Advice, EpollCtl, EpollEventCtl, EventFdFlags, ExitCode, Fdflags, Fdflagsext,
+    FileDelta, Filesize, Fstflags, LookupFlags, Oflags, Rights, SiFlags, Snapshot0Clockid,
+    SockProto, Sockoption, Socktype, Timestamp, Tty, Whence,
 };
 use wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
@@ -145,6 +145,19 @@ pub enum JournalEntry<'a> {
         fs_rights_inheriting: Rights,
         fs_flags: Fdflags,
     },
+    OpenFileDescriptorV2 {
+        fd: Fd,
+        dirfd: Fd,
+        dirflags: LookupFlags,
+        path: Cow<'a, str>,
+        o_flags: Oflags,
+        #[debug(ignore)]
+        fs_rights_base: Rights,
+        #[debug(ignore)]
+        fs_rights_inheriting: Rights,
+        fs_flags: Fdflags,
+        fd_flags: Fdflagsext,
+    },
     RenumberFileDescriptorV1 {
         old_fd: Fd,
         new_fd: Fd,
@@ -152,6 +165,11 @@ pub enum JournalEntry<'a> {
     DuplicateFileDescriptorV1 {
         original_fd: Fd,
         copied_fd: Fd,
+    },
+    DuplicateFileDescriptorV2 {
+        original_fd: Fd,
+        copied_fd: Fd,
+        cloexec: bool,
     },
     CreateDirectoryV1 {
         fd: Fd,
@@ -174,6 +192,10 @@ pub enum JournalEntry<'a> {
         st_atim: Timestamp,
         st_mtim: Timestamp,
         fst_flags: Fstflags,
+    },
+    FileDescriptorSetFdFlagsV1 {
+        fd: Fd,
+        flags: Fdflagsext,
     },
     FileDescriptorSetFlagsV1 {
         fd: Fd,
@@ -238,8 +260,8 @@ pub enum JournalEntry<'a> {
         line_feeds: bool,
     },
     CreatePipeV1 {
-        fd1: Fd,
-        fd2: Fd,
+        read_fd: Fd,
+        write_fd: Fd,
     },
     CreateEventV1 {
         initial_val: u64,
@@ -278,6 +300,10 @@ pub enum JournalEntry<'a> {
         ty: Socktype,
         pt: SockProto,
         fd: Fd,
+    },
+    SocketPairV1 {
+        fd1: Fd,
+        fd2: Fd,
     },
     SocketListenV1 {
         fd: Fd,
@@ -437,6 +463,27 @@ impl<'a> JournalEntry<'a> {
                 fs_rights_inheriting,
                 fs_flags,
             },
+            Self::OpenFileDescriptorV2 {
+                fd,
+                dirfd,
+                dirflags,
+                path,
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+                fd_flags,
+            } => JournalEntry::OpenFileDescriptorV2 {
+                fd,
+                dirfd,
+                dirflags,
+                path: path.into_owned().into(),
+                o_flags,
+                fs_rights_base,
+                fs_rights_inheriting,
+                fs_flags,
+                fd_flags,
+            },
             Self::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd }
             }
@@ -446,6 +493,15 @@ impl<'a> JournalEntry<'a> {
             } => JournalEntry::DuplicateFileDescriptorV1 {
                 original_fd,
                 copied_fd,
+            },
+            Self::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                cloexec,
+            } => JournalEntry::DuplicateFileDescriptorV2 {
+                original_fd,
+                copied_fd,
+                cloexec,
             },
             Self::CreateDirectoryV1 { fd, path } => JournalEntry::CreateDirectoryV1 {
                 fd,
@@ -481,6 +537,9 @@ impl<'a> JournalEntry<'a> {
                 st_mtim,
                 fst_flags,
             },
+            Self::FileDescriptorSetFdFlagsV1 { fd, flags } => {
+                JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags }
+            }
             Self::FileDescriptorSetFlagsV1 { fd, flags } => {
                 JournalEntry::FileDescriptorSetFlagsV1 { fd, flags }
             }
@@ -563,7 +622,9 @@ impl<'a> JournalEntry<'a> {
                 event,
             },
             Self::TtySetV1 { tty, line_feeds } => JournalEntry::TtySetV1 { tty, line_feeds },
-            Self::CreatePipeV1 { fd1, fd2 } => JournalEntry::CreatePipeV1 { fd1, fd2 },
+            Self::CreatePipeV1 { read_fd, write_fd } => {
+                JournalEntry::CreatePipeV1 { read_fd, write_fd }
+            }
             Self::CreateEventV1 {
                 initial_val,
                 flags,
@@ -602,6 +663,7 @@ impl<'a> JournalEntry<'a> {
             Self::PortRouteClearV1 => JournalEntry::PortRouteClearV1,
             Self::PortRouteDelV1 { ip } => JournalEntry::PortRouteDelV1 { ip },
             Self::SocketOpenV1 { af, ty, pt, fd } => JournalEntry::SocketOpenV1 { af, ty, pt, fd },
+            Self::SocketPairV1 { fd1, fd2 } => JournalEntry::SocketPairV1 { fd1, fd2 },
             Self::SocketListenV1 { fd, backlog } => JournalEntry::SocketListenV1 { fd, backlog },
             Self::SocketBindV1 { fd, addr } => JournalEntry::SocketBindV1 { fd, addr },
             Self::SocketConnectedV1 {
@@ -734,12 +796,15 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::SetClockTimeV1 { .. } => base_size,
             JournalEntry::CloseFileDescriptorV1 { .. } => base_size,
             JournalEntry::OpenFileDescriptorV1 { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::OpenFileDescriptorV2 { path, .. } => base_size + path.as_bytes().len(),
             JournalEntry::RenumberFileDescriptorV1 { .. } => base_size,
             JournalEntry::DuplicateFileDescriptorV1 { .. } => base_size,
+            JournalEntry::DuplicateFileDescriptorV2 { .. } => base_size,
             JournalEntry::CreateDirectoryV1 { path, .. } => base_size + path.as_bytes().len(),
             JournalEntry::RemoveDirectoryV1 { path, .. } => base_size + path.as_bytes().len(),
             JournalEntry::PathSetTimesV1 { path, .. } => base_size + path.as_bytes().len(),
             JournalEntry::FileDescriptorSetTimesV1 { .. } => base_size,
+            JournalEntry::FileDescriptorSetFdFlagsV1 { .. } => base_size,
             JournalEntry::FileDescriptorSetFlagsV1 { .. } => base_size,
             JournalEntry::FileDescriptorSetRightsV1 { .. } => base_size,
             JournalEntry::FileDescriptorSetSizeV1 { .. } => base_size,
@@ -774,6 +839,7 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::PortRouteClearV1 => base_size,
             JournalEntry::PortRouteDelV1 { .. } => base_size,
             JournalEntry::SocketOpenV1 { .. } => base_size,
+            JournalEntry::SocketPairV1 { .. } => base_size,
             JournalEntry::SocketListenV1 { .. } => base_size,
             JournalEntry::SocketBindV1 { .. } => base_size,
             JournalEntry::SocketConnectedV1 { .. } => base_size,

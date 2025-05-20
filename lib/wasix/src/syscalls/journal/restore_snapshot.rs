@@ -8,7 +8,7 @@ use super::*;
 #[tracing::instrument(skip_all)]
 pub unsafe fn restore_snapshot(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    journal: Arc<DynJournal>,
+    journal: &DynReadableJournal,
     bootstrapping: bool,
 ) -> Result<Option<RewindState>, WasiRuntimeError> {
     use std::{collections::BTreeMap, ops::Range};
@@ -22,7 +22,7 @@ pub unsafe fn restore_snapshot(
     let mut ethereal_events = Vec::new();
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
         tracing::trace!(event=?next, "restoring event");
-        runner.play_event(next.into_inner(), Some(&mut ethereal_events));
+        runner.play_event(next.into_inner(), Some(&mut ethereal_events))?;
     }
 
     // Check for events that are orphaned
@@ -30,25 +30,42 @@ pub unsafe fn restore_snapshot(
         tracing::trace!("Orphaned ethereal events - {:?}", evt);
     }
 
+    // FIXME: if the stdout/stderr FDs were closed as a result of replaying the journal,
+    // this breaks. A potential fix would be to only close those two FDs afterwards; so
+    // a `JournalSyscallPlayer::should_close_stdout: bool` or similar.
     // Now output the stdout and stderr
-    tracing::trace!("replaying stdout");
-    for (offset, data, is_64bit) in runner.stdout {
-        if is_64bit {
-            JournalEffector::apply_fd_write::<Memory64>(&runner.ctx, 1, offset, data)
-        } else {
-            JournalEffector::apply_fd_write::<Memory32>(&runner.ctx, 1, offset, data)
+    if let Some(stdout) = runner.stdout {
+        tracing::trace!("replaying stdout");
+        for JournalStdIoWrite {
+            offset,
+            data,
+            is_64bit,
+        } in stdout
+        {
+            if is_64bit {
+                JournalEffector::apply_fd_write::<Memory64>(&mut runner.ctx, 1, offset, data)
+            } else {
+                JournalEffector::apply_fd_write::<Memory32>(&mut runner.ctx, 1, offset, data)
+            }
+            .map_err(anyhow_err_to_runtime_err)?;
         }
-        .map_err(anyhow_err_to_runtime_err)?;
     }
 
-    tracing::trace!("replaying stdout");
-    for (offset, data, is_64bit) in runner.stderr {
-        if is_64bit {
-            JournalEffector::apply_fd_write::<Memory64>(&runner.ctx, 2, offset, data)
-        } else {
-            JournalEffector::apply_fd_write::<Memory32>(&runner.ctx, 2, offset, data)
+    if let Some(stderr) = runner.stderr {
+        tracing::trace!("replaying stderr");
+        for JournalStdIoWrite {
+            offset,
+            data,
+            is_64bit,
+        } in stderr
+        {
+            if is_64bit {
+                JournalEffector::apply_fd_write::<Memory64>(&mut runner.ctx, 2, offset, data)
+            } else {
+                JournalEffector::apply_fd_write::<Memory32>(&mut runner.ctx, 2, offset, data)
+            }
+            .map_err(anyhow_err_to_runtime_err)?;
         }
-        .map_err(anyhow_err_to_runtime_err)?;
     }
 
     // Apply the memory changes (if this is in bootstrapping mode we differed them)

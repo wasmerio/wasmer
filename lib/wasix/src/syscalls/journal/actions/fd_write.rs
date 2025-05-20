@@ -11,18 +11,30 @@ impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
     ) -> Result<(), WasiRuntimeError> {
         tracing::trace!(%fd, %offset, "Replay journal - FdWrite");
         if self.stdout_fds.contains(&fd) {
-            self.stdout.push((offset, data, is_64bit));
+            if let Some(x) = self.stdout.as_mut() {
+                x.push(JournalStdIoWrite {
+                    offset,
+                    data,
+                    is_64bit,
+                });
+            }
             return Ok(());
         }
         if self.stderr_fds.contains(&fd) {
-            self.stderr.push((offset, data, is_64bit));
+            if let Some(x) = self.stdout.as_mut() {
+                x.push(JournalStdIoWrite {
+                    offset,
+                    data,
+                    is_64bit,
+                });
+            }
             return Ok(());
         }
 
         if is_64bit {
-            JournalEffector::apply_fd_write::<Memory64>(&self.ctx, fd, offset, data)
+            JournalEffector::apply_fd_write::<Memory64>(&mut self.ctx, fd, offset, data)
         } else {
-            JournalEffector::apply_fd_write::<Memory32>(&self.ctx, fd, offset, data)
+            JournalEffector::apply_fd_write::<Memory32>(&mut self.ctx, fd, offset, data)
         }
         .map_err(anyhow_err_to_runtime_err)?;
         Ok(())

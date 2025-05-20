@@ -56,8 +56,8 @@ gen_tests! {
                 use super:: * ;
                 #[test_log::test]
                 #[cold]
-                #[cfg(feature = "universal")]
-                fn universal() {
+                #[cfg(feature = "singlepass")]
+                fn singlepass() {
                     foo(crate::Config::new(
                         crate::Compiler::Singlepass
                     ))
@@ -69,8 +69,8 @@ gen_tests! {
                 use super:: * ;
                 #[test_log::test]
                 #[cold]
-                #[cfg(feature = "universal")]
-                fn universal() {
+                #[cfg(feature = "cranelift")]
+                fn cranelift() {
                     foo(crate::Config::new(
                         crate::Compiler::Cranelift
                     ))
@@ -82,8 +82,8 @@ gen_tests! {
                 use super:: * ;
                 #[test_log::test]
                 #[cold]
-                #[cfg(feature = "universal")]
-                fn universal() {
+                #[cfg(feature = "llvm")]
+                fn llvm() {
                     foo(crate::Config::new(
                         crate::Compiler::LLVM
                     ))

@@ -20,5 +20,5 @@ Wasmer provides multiple documentations. Here are some pointers:
   environments, each embedding provides its own documentation, book
   etc.,
 * [OS distro packaging
-  notes](https://github.com/wasmerio/wasmer/blob/main/PACKAGING.md)
+  notes](https://github.com/wasmerio/wasmer/blob/main/docs/PACKAGING.md)
   contains notes about how to package Wasmer for OS distributions.

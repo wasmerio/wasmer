@@ -58,17 +58,14 @@ impl DProxyInstanceFactory {
         // DProxy is able to resume execution of the stateful workload using memory
         // snapshots hence the journals it stores are complete journals
         let journals = runtime
-            .journals()
-            .clone()
-            .into_iter()
+            .writable_journals()
             .map(|journal| {
-                let tx = journal.clone();
                 let rx = journal.as_restarted()?;
-                let combined = RecombinedJournal::new(tx, rx);
+                let combined = RecombinedJournal::new(journal, rx);
                 anyhow::Result::Ok(Arc::new(combined) as Arc<DynJournal>)
             })
             .collect::<anyhow::Result<Vec<_>>>()?;
-        let mut runtime = OverriddenRuntime::new(runtime).with_journals(journals);
+        let mut runtime = OverriddenRuntime::new(runtime).with_writable_journals(journals);
 
         // We attach a composite networking to the runtime which includes a loopback
         // networking implementation connected to a socket manager

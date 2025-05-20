@@ -520,7 +520,7 @@ mod tests {
     async fn test_create_dir() {
         let fs = gen_filesystem();
 
-        assert_eq!(fs.create_dir(Path::new("/")), Ok(()),);
+        assert_eq!(fs.create_dir(Path::new("/")), Ok(()));
 
         assert_eq!(fs.create_dir(Path::new("/test_create_dir")), Ok(()));
 
@@ -533,7 +533,7 @@ mod tests {
         let cur_dir = read_dir_names(&fs, "/test_create_dir");
 
         if !cur_dir.contains(&"foo".to_string()) {
-            panic!("cur_dir does not contain foo: {:#?}", cur_dir);
+            panic!("cur_dir does not contain foo: {cur_dir:#?}");
         }
 
         assert!(
@@ -644,7 +644,7 @@ mod tests {
             "renaming to a directory that has no parent",
         );
 
-        assert_eq!(fs.create_dir(Path::new("/test_rename")), Ok(()),);
+        assert_eq!(fs.create_dir(Path::new("/test_rename")), Ok(()));
         assert_eq!(fs.create_dir(Path::new("/test_rename/foo")), Ok(()));
         assert_eq!(fs.create_dir(Path::new("/test_rename/foo/qux")), Ok(()));
 
@@ -699,7 +699,7 @@ mod tests {
         let bar_dir = read_dir_names(&fs, "/test_rename/bar");
 
         if !bar_dir.contains(&"qux".to_string()) {
-            println!("qux does not exist: {:?}", bar_dir)
+            println!("qux does not exist: {bar_dir:?}")
         }
 
         let qux_dir = read_dir_names(&fs, "/test_rename/bar/qux");
@@ -913,7 +913,7 @@ mod tests {
             "creating `b.txt`",
         );
 
-        println!("fs: {:?}", fs);
+        println!("fs: {fs:?}");
 
         let readdir = fs.read_dir(Path::new("/test_readdir"));
 
@@ -923,7 +923,7 @@ mod tests {
 
         let next = readdir.next().unwrap().unwrap();
         assert!(next.path.ends_with("foo"), "checking entry #1");
-        println!("entry 1: {:#?}", next);
+        println!("entry 1: {next:#?}");
         assert!(next.file_type().unwrap().is_dir(), "checking entry #1");
 
         let next = readdir.next().unwrap().unwrap();
@@ -943,7 +943,7 @@ mod tests {
         assert!(next.file_type().unwrap().is_file(), "checking entry #5");
 
         if let Some(s) = readdir.next() {
-            panic!("next: {:?}", s);
+            panic!("next: {s:?}");
         }
 
         let _ = fs_extra::remove_items(&["./test_readdir"]);

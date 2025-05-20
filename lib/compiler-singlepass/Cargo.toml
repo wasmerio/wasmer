@@ -8,21 +8,20 @@ readme = "README.md"
 authors.workspace = true
 edition.workspace = true
 homepage.workspace = true
-license.workspace = true
+license-file = "LICENSE"
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=5.0.2", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=5.0.2", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=6.0.1", features = ["translator", "compiler"], default-features = false }
+wasmer-types = { path = "../types", version = "=6.0.1", default-features = false, features = ["std"] }
 hashbrown = { version = "0.11", optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
 more-asserts = "0.2"
-dynasm = "1.2.3"
-dynasmrt = "1.2.3"
-lazy_static = "1.4"
+dynasm = "3.2.0"
+dynasmrt = "3.2.0"
 byteorder = "1.3"
 smallvec = "1.6"
 

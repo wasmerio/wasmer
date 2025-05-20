@@ -290,7 +290,6 @@
 ;; )
 ;; (assert_return (invoke $Mt "call" (i32.const 7)) (i32.const 0))
 
-
 (module $Mtable_ex
   (table $t1 (export "t-func") 1 funcref)
   (table $t2 (export "t-extern") 1 externref)

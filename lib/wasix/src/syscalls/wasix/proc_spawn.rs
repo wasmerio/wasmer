@@ -53,7 +53,7 @@ pub fn proc_spawn<M: MemorySize>(
         .record("working_dir", working_dir.as_str());
 
     if chroot == Bool::True {
-        warn!("chroot is not currently supported",);
+        warn!("chroot is not currently supported");
         return Ok(Errno::Notsup);
     }
 
@@ -103,9 +103,6 @@ pub fn proc_spawn_internal(
 ) -> WasiResult<(ProcessHandles, FunctionEnvMut<'_, WasiEnv>)> {
     let env = ctx.data();
 
-    // Build a new store that will be passed to the thread
-    let new_store = ctx.data().runtime.new_store();
-
     // Fork the current environment and set the new arguments
     let (mut child_env, handle) = match ctx.data().fork() {
         Ok(x) => x,
@@ -146,37 +143,48 @@ pub fn proc_spawn_internal(
     // Replace the STDIO
     let (stdin, stdout, stderr) = {
         let (child_state, child_inodes) = child_env.get_wasi_state_and_inodes();
-        let mut conv_stdio_mode = |mode: WasiStdioMode, fd: WasiFd| -> Result<OptionFd, Errno> {
+        let mut conv_stdio_mode = |mode: WasiStdioMode,
+                                   fd: WasiFd,
+                                   pipe_towards_child: bool|
+         -> Result<OptionFd, Errno> {
             match mode {
                 WasiStdioMode::Piped => {
-                    let (pipe1, pipe2) = Pipe::channel();
-                    let inode1 = child_state.fs.create_inode_with_default_stat(
+                    let (tx, rx) = Pipe::new().split();
+                    let read_inode = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
-                        Kind::Pipe { pipe: pipe1 },
+                        Kind::PipeRx { rx },
                         false,
                         "pipe".into(),
                     );
-                    let inode2 = child_state.fs.create_inode_with_default_stat(
+                    let write_inode = child_state.fs.create_inode_with_default_stat(
                         child_inodes,
-                        Kind::Pipe { pipe: pipe2 },
+                        Kind::PipeTx { tx },
                         false,
                         "pipe".into(),
                     );
+
+                    let (parent_end, child_end) = if pipe_towards_child {
+                        (write_inode, read_inode)
+                    } else {
+                        (read_inode, write_inode)
+                    };
 
                     let rights = crate::net::socket::all_socket_rights();
                     let pipe = ctx.data().state.fs.create_fd(
                         rights,
                         rights,
                         Fdflags::empty(),
+                        Fdflagsext::empty(),
                         0,
-                        inode1,
+                        parent_end,
                     )?;
                     child_state.fs.create_fd_ext(
                         rights,
                         rights,
                         Fdflags::empty(),
+                        Fdflagsext::empty(),
                         0,
-                        inode2,
+                        child_end,
                         Some(fd),
                         false,
                     )?;
@@ -200,15 +208,17 @@ pub fn proc_spawn_internal(
                 }
             }
         };
-        let stdin = match conv_stdio_mode(stdin, 0) {
+        // TODO: proc_spawn isn't used in WASIX at the time of writing
+        // this code, so the implementation isn't tested at all
+        let stdin = match conv_stdio_mode(stdin, 0, true) {
             Ok(a) => a,
             Err(err) => return Ok(Err(err)),
         };
-        let stdout = match conv_stdio_mode(stdout, 1) {
+        let stdout = match conv_stdio_mode(stdout, 1, false) {
             Ok(a) => a,
             Err(err) => return Ok(Err(err)),
         };
-        let stderr = match conv_stdio_mode(stderr, 2) {
+        let stderr = match conv_stdio_mode(stderr, 2, false) {
             Ok(a) => a,
             Err(err) => return Ok(Err(err)),
         };
@@ -219,30 +229,27 @@ pub fn proc_spawn_internal(
     let bin_factory = Box::new(ctx.data().bin_factory.clone());
     let child_pid = child_env.pid();
 
-    let mut new_store = Some(new_store);
     let mut builder = Some(child_env);
 
     // First we try the built in commands
-    let mut process =
-        match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut new_store, &mut builder) {
-            Ok(a) => a,
-            Err(err) => {
-                if !err.is_not_found() {
-                    error!("builtin failed - {}", err);
-                }
-                // Now we actually spawn the process
-                let child_work =
-                    bin_factory.spawn(name, new_store.take().unwrap(), builder.take().unwrap());
-
-                match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
-                    .map_err(|err| Errno::Unknown)
-                {
-                    Ok(Ok(a)) => a,
-                    Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
-                    Err(err) => return Ok(Err(err)),
-                }
+    let mut process = match bin_factory.try_built_in(name.clone(), Some(&ctx), &mut builder) {
+        Ok(a) => a,
+        Err(err) => {
+            if !err.is_not_found() {
+                error!("builtin failed - {}", err);
             }
-        };
+            // Now we actually spawn the process
+            let child_work = bin_factory.spawn(name, builder.take().unwrap());
+
+            match __asyncify(&mut ctx, None, async move { Ok(child_work.await) })?
+                .map_err(|err| Errno::Unknown)
+            {
+                Ok(Ok(a)) => a,
+                Ok(Err(err)) => return Ok(Err(conv_spawn_err_to_errno(&err))),
+                Err(err) => return Ok(Err(err)),
+            }
+        }
+    };
 
     // Add the process to the environment state
     {

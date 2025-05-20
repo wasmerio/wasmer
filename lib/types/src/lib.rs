@@ -62,6 +62,7 @@ mod serialize;
 mod stack;
 mod store_id;
 mod table;
+pub mod target;
 mod trapcode;
 mod types;
 mod units;
@@ -79,8 +80,8 @@ pub mod entity;
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    SignatureIndex, TableIndex,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
+    MemoryIndex, SignatureIndex, TableIndex, Tag, TagIndex,
 };
 pub use crate::initializers::{
     ArchivedDataInitializerLocation, ArchivedOwnedDataInitializer, DataInitializer,
@@ -90,12 +91,12 @@ pub use crate::initializers::{
 pub use crate::memory::{Memory32, Memory64, MemorySize};
 pub use crate::module::{ExportsIterator, ImportKey, ImportsIterator, ModuleInfo};
 pub use crate::module_hash::{HashAlgorithm, ModuleHash};
+pub use crate::types::{
+    ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
+    Mutability, TableType, TagKind, TagType, Type, V128,
+};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
-};
-pub use types::{
-    ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
-    Mutability, TableType, Type, V128,
 };
 pub use value::{RawValue, ValueType};
 

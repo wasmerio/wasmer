@@ -7,7 +7,7 @@ use crate::{
     SpawnError,
 };
 use virtual_fs::{AsyncReadExt, FileSystem};
-use wasmer::{FunctionEnvMut, Store};
+use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
 
@@ -55,7 +55,6 @@ impl CmdWasmer {
         &self,
         parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
         name: &str,
-        store: &mut Option<Store>,
         config: &mut Option<WasiEnv>,
         what: Option<String>,
         mut args: Vec<String>,
@@ -71,7 +70,6 @@ impl CmdWasmer {
         }
 
         if let Some(what) = what {
-            let store = store.take().ok_or(SpawnError::UnknownError)?;
             let mut env = config.take().ok_or(SpawnError::UnknownError)?;
 
             // Set the arguments of the environment by replacing the state
@@ -136,7 +134,7 @@ impl CmdWasmer {
                     env.use_package_async(&binary).await.unwrap();
 
                     // Now run the module
-                    spawn_exec(binary, name, store, env, &self.runtime).await
+                    spawn_exec(binary, name, env, &self.runtime).await
                 }
                 Executable::Wasm(bytes) => spawn_exec_wasm(&bytes, name, env, &self.runtime).await,
             }
@@ -177,7 +175,6 @@ impl VirtualCommand for CmdWasmer {
         &self,
         parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         name: &str,
-        store: &mut Option<Store>,
         env: &mut Option<WasiEnv>,
     ) -> Result<TaskJoinHandle, SpawnError> {
         // Read the command we want to run
@@ -193,7 +190,7 @@ impl VirtualCommand for CmdWasmer {
                 Some("run") => {
                     let what = args.next().map(|a| a.to_string());
                     let args = args.map(|a| a.to_string()).collect();
-                    self.run(parent_ctx, name, store, env, what, args).await
+                    self.run(parent_ctx, name, env, what, args).await
                 }
                 Some("--help") | None => {
                     unsafe { stderr_write(parent_ctx, HELP.as_bytes()) }
@@ -206,7 +203,7 @@ impl VirtualCommand for CmdWasmer {
                 Some(what) => {
                     let what = Some(what.to_string());
                     let args = args.map(|a| a.to_string()).collect();
-                    self.run(parent_ctx, name, store, env, what, args).await
+                    self.run(parent_ctx, name, env, what, args).await
                 }
             }
         };

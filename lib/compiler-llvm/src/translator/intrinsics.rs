@@ -6,6 +6,7 @@
 
 use crate::abi::Abi;
 use crate::error::err;
+use crate::LLVM;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -49,8 +50,9 @@ pub fn type_to_llvm<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
-        Type::FuncRef => Ok(intrinsics.ptr_ty.as_basic_type_enum()),
-        Type::ExternRef => Ok(intrinsics.ptr_ty.as_basic_type_enum()),
+        Type::FuncRef | Type::ExceptionRef | Type::ExternRef => {
+            Ok(intrinsics.ptr_ty.as_basic_type_enum())
+        }
     }
 }
 
@@ -153,6 +155,8 @@ pub struct Intrinsics<'ctx> {
     pub personality: FunctionValue<'ctx>,
     pub readonly: Attribute,
     pub stack_probe: Attribute,
+    pub uwtable: Attribute,
+    pub frame_pointer: Attribute,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -179,6 +183,7 @@ pub struct Intrinsics<'ctx> {
     pub ptr_ty: PointerType<'ctx>,
 
     pub anyfunc_ty: StructType<'ctx>,
+    pub exc_ty: StructType<'ctx>,
 
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
@@ -238,6 +243,17 @@ pub struct Intrinsics<'ctx> {
 
     pub throw_trap: FunctionValue<'ctx>,
 
+    // EH
+    pub throw: FunctionValue<'ctx>,
+    pub rethrow: FunctionValue<'ctx>,
+    pub alloc_exception: FunctionValue<'ctx>,
+    pub delete_exception: FunctionValue<'ctx>,
+    pub read_exception: FunctionValue<'ctx>,
+
+    // Debug
+    pub debug_ptr: FunctionValue<'ctx>,
+    pub debug_str: FunctionValue<'ctx>,
+
     // VM builtins.
     pub vmfunction_import_ty: StructType<'ctx>,
     pub vmfunction_import_body_element: u32,
@@ -248,12 +264,22 @@ pub struct Intrinsics<'ctx> {
     pub vmmemory_definition_current_length_element: u32,
 }
 
+#[derive(Debug, Hash, PartialEq, Eq)]
+enum MemoryOp {
+    Size,
+    Grow,
+    Wait32,
+    Wait64,
+    Notify,
+}
+
 impl<'ctx> Intrinsics<'ctx> {
     /// Create an [`Intrinsics`] for the given [`Context`].
     pub fn declare(
         module: &Module<'ctx>,
         context: &'ctx Context,
         target_data: &TargetData,
+        binary_fmt: &target_lexicon::BinaryFormat,
     ) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
@@ -674,14 +700,30 @@ impl<'ctx> Intrinsics<'ctx> {
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
             debug_trap: module.add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
             personality: module.add_function(
-                "__gxx_personality_v0",
-                i32_ty.fn_type(&[], false),
-                Some(Linkage::External),
+                if matches!(binary_fmt, target_lexicon::BinaryFormat::Macho) {
+                    // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
+                    // will generate things differently than "normal", wreaking havoc.
+                    "__gxx_personality_v0"
+                } else {
+                    "wasmer_eh_personality"
+                },
+                i32_ty.fn_type(
+                    &[
+                        i32_ty.into(),
+                        i32_ty.into(),
+                        i64_ty.into(),
+                        ptr_ty.into(),
+                        ptr_ty.into(),
+                    ],
+                    false,
+                ),
+                None,
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
-
+            uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
+            frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
             void_ty,
             i1_ty,
             i2_ty,
@@ -705,6 +747,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i32x8_ty,
 
             anyfunc_ty,
+            exc_ty: context.struct_type(&[i32_ty.into(), ptr_ty.into(), i64_ty.into()], false),
             i1_zero,
             i8_zero,
             i32_zero,
@@ -976,6 +1019,43 @@ impl<'ctx> Intrinsics<'ctx> {
                 void_ty.fn_type(&[i32_ty_basic_md], false),
                 None,
             ),
+
+            throw: module.add_function(
+                "wasmer_vm_throw",
+                void_ty.fn_type(&[i64_ty.into(), ptr_ty.into(), i64_ty.into()], false),
+                None,
+            ),
+            rethrow: module.add_function(
+                "wasmer_vm_rethrow",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            alloc_exception: module.add_function(
+                "wasmer_vm_alloc_exception",
+                ptr_ty.fn_type(&[i64_ty.into()], false),
+                None,
+            ),
+            delete_exception: module.add_function(
+                "wasmer_vm_delete_exception",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            read_exception: module.add_function(
+                "wasmer_vm_read_exception",
+                ptr_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+
+            debug_ptr: module.add_function(
+                "wasmer_vm_dbg_usize",
+                void_ty.fn_type(&[ptr_ty.into()], false),
+                None,
+            ),
+            debug_str: module.add_function(
+                "wasmer_vm_dbg_str",
+                void_ty.fn_type(&[ptr_ty.into(), i32_ty.into()], false),
+                None,
+            ),
             memory_wait32: module.add_function(
                 "wasmer_vm_memory32_atomic_wait32",
                 i32_ty.fn_type(
@@ -1147,6 +1227,7 @@ pub struct FunctionCache<'ctx> {
 pub struct CtxType<'ctx, 'a> {
     ctx_ptr_value: PointerValue<'ctx>,
 
+    config: &'a LLVM,
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
     abi: &'a dyn Abi,
@@ -1156,8 +1237,7 @@ pub struct CtxType<'ctx, 'a> {
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
     cached_functions: HashMap<FunctionIndex, FunctionCache<'ctx>>,
-    cached_memory_grow: HashMap<MemoryIndex, PointerValue<'ctx>>,
-    cached_memory_size: HashMap<MemoryIndex, PointerValue<'ctx>>,
+    cached_memory_op: HashMap<(MemoryIndex, MemoryOp), PointerValue<'ctx>>,
 
     offsets: VMOffsets,
 }
@@ -1168,8 +1248,10 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
         abi: &'a dyn Abi,
+        config: &'a LLVM,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
+            config,
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
             wasm_module,
@@ -1181,8 +1263,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_functions: HashMap::new(),
-            cached_memory_grow: HashMap::new(),
-            cached_memory_size: HashMap::new(),
+            cached_memory_op: HashMap::new(),
 
             // TODO: pointer width
             offsets: VMOffsets::new(8, wasm_module),
@@ -1332,7 +1413,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ))
                     };
                     let ptr_to_base_ptr =
-                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, "",))
+                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
                     let offset = intrinsics.i64_ty.const_int(
                         offsets
@@ -1393,7 +1474,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ))
                     };
                     let ptr_to_base_ptr =
-                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, "",))
+                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
                     let offset = intrinsics
                         .i64_ty
@@ -1544,7 +1625,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         ))
                     };
                     let global_ptr_ptr =
-                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, "",))
+                        err!(cache_builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
                             .into_pointer_value();
                     let global_ptr =
                         err!(cache_builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
@@ -1631,9 +1712,17 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 debug_assert!(module.get_function(function_name).is_none());
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(context, intrinsics, Some(offsets), func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    Some(offsets),
+                    func_type,
+                    if self.config.enable_g0m0_opt {
+                        Some(crate::abi::G0M0FunctionKind::Local)
+                    } else {
+                        None
+                    },
+                )?;
                 let func =
                     module.add_function(function_name, llvm_func_type, Some(Linkage::External));
                 for (attr, attr_loc) in &llvm_func_attrs {
@@ -1666,9 +1755,13 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         match cached_functions.entry(function_index) {
             Entry::Occupied(entry) => Ok(entry.into_mut()),
             Entry::Vacant(entry) => {
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(context, intrinsics, Some(offsets), func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    context,
+                    intrinsics,
+                    Some(offsets),
+                    func_type,
+                    None,
+                )?;
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
@@ -1689,7 +1782,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "",
                 ));
                 let body_ptr = err!(cache_builder.build_load(intrinsics.ptr_ty, body_ptr_ptr, ""));
-                let body_ptr = err!(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, "",))
+                let body_ptr = err!(cache_builder.build_bit_cast(body_ptr, intrinsics.ptr_ty, ""))
                     .into_pointer_value();
                 let vmctx_ptr_ptr = err!(cache_builder.build_struct_gep(
                     intrinsics.vmfunction_import_ty,
@@ -1715,14 +1808,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_grow, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_grow,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
-        match cached_memory_grow.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Grow)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (grow_fn, grow_fn_ty) =
@@ -1744,7 +1837,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let grow_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(grow_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
                 let val = err!(cache_builder.build_load(grow_fn_ty, grow_fn_ptr_ptr, ""))
                     .into_pointer_value();
@@ -1760,15 +1853,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
 
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Size)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1790,7 +1883,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let size_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
 
                 let val = err!(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, ""))
@@ -1806,14 +1899,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Wait32)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1835,7 +1928,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let size_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
 
                 let val = err!(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, ""))
@@ -1852,15 +1945,15 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
 
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Wait64)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1898,14 +1991,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
     ) -> Result<PointerValue<'ctx>, CompileError> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
+        let (cached_memory_op, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
+            &mut self.cached_memory_op,
             &self.wasm_module,
             &self.offsets,
             &self.cache_builder,
             &self.ctx_ptr_value,
         );
-        match cached_memory_size.entry(memory_index) {
+        match cached_memory_op.entry((memory_index, MemoryOp::Notify)) {
             Entry::Occupied(entry) => Ok(*entry.get()),
             Entry::Vacant(entry) => {
                 let (size_fn, size_fn_ty) =
@@ -1927,7 +2020,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 };
 
                 let size_fn_ptr_ptr =
-                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, "",))
+                    err!(cache_builder.build_bit_cast(size_fn_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
 
                 let val = err!(cache_builder.build_load(size_fn_ty, size_fn_ptr_ptr, ""))
