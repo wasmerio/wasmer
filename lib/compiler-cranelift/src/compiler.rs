@@ -64,29 +64,10 @@ impl CraneliftCompiler {
     pub fn config(&self) -> &Cranelift {
         &self.config
     }
-}
 
-impl Compiler for CraneliftCompiler {
-    fn name(&self) -> &str {
-        "cranelift"
-    }
-
-    fn get_perfmap_enabled(&self) -> bool {
-        self.config.enable_perfmap
-    }
-
-    fn deterministic_id(&self) -> String {
-        String::from("cranelift")
-    }
-
-    /// Get the middlewares for this compiler
-    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
-        &self.config.middlewares
-    }
-
-    /// Compile the module using Cranelift, producing a compilation result with
-    /// associated relocations.
-    fn compile_module(
+    // Helper function to create an easy scope boundary for the thread pool used
+    // in [`Self::compile_module`].
+    fn compile_module_internal(
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
@@ -438,6 +419,63 @@ impl Compiler for CraneliftCompiler {
             unwind_info,
             got,
         })
+    }
+}
+
+impl Compiler for CraneliftCompiler {
+    fn name(&self) -> &str {
+        "cranelift"
+    }
+
+    fn get_perfmap_enabled(&self) -> bool {
+        self.config.enable_perfmap
+    }
+
+    fn deterministic_id(&self) -> String {
+        String::from("cranelift")
+    }
+
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
+    /// Compile the module using Cranelift, producing a compilation result with
+    /// associated relocations.
+    fn compile_module(
+        &self,
+        target: &Target,
+        compile_info: &CompileModuleInfo,
+        module_translation_state: &ModuleTranslationState,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+    ) -> Result<Compilation, CompileError> {
+        #[cfg(feature = "rayon")]
+        {
+            let num_threads = self.config.num_threads.get();
+            let pool = rayon::ThreadPoolBuilder::new()
+                .num_threads(num_threads)
+                .build()
+                .unwrap();
+
+            pool.install(|| {
+                self.compile_module_internal(
+                    target,
+                    compile_info,
+                    module_translation_state,
+                    function_body_inputs,
+                )
+            })
+        }
+
+        #[cfg(not(feature = "rayon"))]
+        {
+            self.compile_module_internal(
+                target,
+                compile_info,
+                module_translation_state,
+                function_body_inputs,
+            )
+        }
     }
 }
 
