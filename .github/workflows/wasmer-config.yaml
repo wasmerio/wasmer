@@ -46,6 +46,9 @@ jobs:
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
         uses: dsherret/rust-toolchain-file@v1
+      - name: Ensure rustfmt and clippy are installed
+        run: |
+          rustup component add rustfmt clippy
       - name: Check Formatting
         run: |
           cd lib/config && cargo fmt --verbose --check
