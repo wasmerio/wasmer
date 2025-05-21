@@ -1074,11 +1074,11 @@ impl LinkerState {
 
         let global = define_integer_global_import(store, import, value)?;
 
-        if missing {
-            link_state
-                .unresolved_globals
-                .push(global_kind.to_unresolved(import.name().to_owned(), global.clone()));
-        }
+        // if missing {
+        //     link_state
+        //         .unresolved_globals
+        //         .push(global_kind.to_unresolved(import.name().to_owned(), global.clone()));
+        // }
 
         Ok(global)
     }
