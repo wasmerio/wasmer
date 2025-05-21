@@ -226,12 +226,23 @@
 <a href="#226" id="226">226</a>
 <a href="#227" id="227">227</a>
 <a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::compiler::CraneliftCompiler;
 <span class="kw">use </span>cranelift_codegen::{
     isa::{lookup, TargetIsa},
     settings::{<span class="self">self</span>, Configurable},
     CodegenResult,
 };
+<span class="kw">use </span>std::num::NonZero;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 <span class="kw">use </span>wasmer_types::target::{Architecture, CpuFeature, Target};
@@ -264,6 +275,8 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) enable_perfmap: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
+    <span class="doccomment">/// The number of threads to use for compilation.
+    </span><span class="kw">pub </span>num_threads: NonZero&lt;usize&gt;,
     <span class="doccomment">/// The middleware chain.
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) middlewares: Vec&lt;Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;&gt;,
 }
@@ -277,6 +290,7 @@
             enable_verifier: <span class="bool-val">false</span>,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: <span class="bool-val">false</span>,
+            num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(<span class="number">1</span>).unwrap()),
             middlewares: <span class="macro">vec!</span>[],
             enable_perfmap: <span class="bool-val">false</span>,
         }
@@ -288,6 +302,12 @@
     /// deterministically across different architectures.
     </span><span class="kw">pub fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.enable_nan_canonicalization = enable;
+        <span class="self">self
+    </span>}
+
+    <span class="doccomment">/// Set the number of threads to use for compilation.
+    </span><span class="kw">pub fn </span>num_threads(<span class="kw-2">&amp;mut </span><span class="self">self</span>, num_threads: NonZero&lt;usize&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+        <span class="self">self</span>.num_threads = num_threads;
         <span class="self">self
     </span>}
 
