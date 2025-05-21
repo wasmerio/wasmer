@@ -4,6 +4,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
     CodegenResult,
 };
+use std::num::NonZero;
 use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::target::{Architecture, CpuFeature, Target};
@@ -36,6 +37,8 @@ pub struct Cranelift {
     pub(crate) enable_perfmap: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
+    /// The number of threads to use for compilation.
+    pub num_threads: NonZero<usize>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
@@ -49,6 +52,7 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
+            num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
         }
@@ -60,6 +64,12 @@ impl Cranelift {
     /// deterministically across different architectures.
     pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
         self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Set the number of threads to use for compilation.
+    pub fn num_threads(&mut self, num_threads: NonZero<usize>) -> &mut Self {
+        self.num_threads = num_threads;
         self
     }
 

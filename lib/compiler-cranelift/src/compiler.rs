@@ -24,7 +24,7 @@ use cranelift_codegen::{
 use gimli::write::{Address, EhFrame, FrameTable};
 
 #[cfg(feature = "rayon")]
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::{prelude::{IntoParallelRefIterator, ParallelIterator}, ThreadPoolBuilder};
 use std::sync::Arc;
 
 use wasmer_compiler::{
@@ -52,12 +52,14 @@ use wasmer_types::{
 #[derive(Debug)]
 pub struct CraneliftCompiler {
     config: Cranelift,
+    num_threads: usize,
 }
 
 impl CraneliftCompiler {
     /// Creates a new Cranelift compiler
     pub fn new(config: Cranelift) -> Self {
-        Self { config }
+        let num_threads = config.num_threads.get();
+        Self { config, num_threads }
     }
 
     /// Gets the WebAssembly features for this Compiler
@@ -248,13 +250,240 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .unzip();
         #[cfg(feature = "rayon")]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
-            .map_init(FuncTranslator::new, |func_translator, (i, input)| {
-                let func_index = module.func_index(*i);
-                let mut context = Context::new();
+        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = {
+            if self.num_threads == 1 {
+                let mut func_translator = FuncTranslator::new();
+                function_body_inputs
+                    .iter()
+                    .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+                    .into_iter()
+                    .map(|(i, input)| {
+                        let func_index = module.func_index(i);
+                        let mut context = Context::new();
+                        let mut func_env = FuncEnvironment::new(
+                            isa.frontend_config(),
+                            module,
+                            &signatures,
+                            &memory_styles,
+                            table_styles,
+                        );
+                        context.func.name = match get_function_name(func_index) {
+                            ExternalName::User(nameref) => {
+                                if context.func.params.user_named_funcs().is_valid(nameref) {
+                                    let name = &context.func.params.user_named_funcs()[nameref];
+                                    UserFuncName::User(name.clone())
+                                } else {
+                                    UserFuncName::default()
+                                }
+                            }
+                            ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
+                            _ => UserFuncName::default(),
+                        };
+                        context.func.signature = signatures[module.functions[func_index]].clone();
+                        // if generate_debug_info {
+                        //     context.func.collect_debug_info();
+                        // }
+                        let mut reader =
+                            MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                        reader.set_middleware_chain(
+                            self.config
+                                .middlewares
+                                .generate_function_middleware_chain(i),
+                        );
+
+                        func_translator.translate(
+                            module_translation_state,
+                            &mut reader,
+                            &mut context.func,
+                            &mut func_env,
+                            i,
+                        )?;
+
+                        let mut code_buf: Vec<u8> = Vec::new();
+                        context
+                            .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
+                            .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
+
+                        let result = context.compiled_code().unwrap();
+                        let func_relocs = result
+                            .buffer
+                            .relocs()
+                            .into_iter()
+                            .map(|r| mach_reloc_to_reloc(module, r))
+                            .collect::<Vec<_>>();
+
+                        let traps = result
+                            .buffer
+                            .traps()
+                            .into_iter()
+                            .map(mach_trap_to_trap)
+                            .collect::<Vec<_>>();
+
+                        let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
+                            #[cfg(feature = "unwind")]
+                            CraneliftUnwindInfo::Fde(fde) => {
+                                if dwarf_frametable.is_some() {
+                                    let fde = fde.to_fde(Address::Symbol {
+                                        // The symbol is the kind of relocation.
+                                        // "0" is used for functions
+                                        symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                        // We use the addend as a way to specify the
+                                        // function index
+                                        addend: i.index() as _,
+                                    });
+                                    // The unwind information is inserted into the dwarf section
+                                    (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                                } else {
+                                    (None, None)
+                                }
+                            }
+                            #[cfg(feature = "unwind")]
+                            other => (other.maybe_into_to_windows_unwind(), None),
+
+                            // This is a bit hacky, but necessary since gimli is not
+                            // available when the "unwind" feature is disabled.
+                            #[cfg(not(feature = "unwind"))]
+                            other => (other.maybe_into_to_windows_unwind(), None::<()>),
+                        };
+
+                        let range = reader.range();
+                        let address_map = get_function_address_map(&context, range, code_buf.len());
+
+                        Ok((
+                            CompiledFunction {
+                                body: FunctionBody {
+                                    body: code_buf,
+                                    unwind_info,
+                                },
+                                relocations: func_relocs,
+                                frame_info: CompiledFunctionFrameInfo { address_map, traps },
+                            },
+                            fde,
+                        ))
+                    })
+                    .collect::<Result<Vec<_>, CompileError>>()?
+                    .into_iter()
+                    .unzip()
+            } else {
+                let pool = ThreadPoolBuilder::new().num_threads(self.num_threads).build().unwrap();
+                pool.install(|| {
+                    function_body_inputs
+                        .iter()
+                        .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+                        .par_iter()
+                        .map_init(FuncTranslator::new, |func_translator, (i, input)| {
+                            let func_index = module.func_index(*i);
+                            let mut context = Context::new();
+                            let mut func_env = FuncEnvironment::new(
+                                isa.frontend_config(),
+                                module,
+                                &signatures,
+                                memory_styles,
+                                table_styles,
+                            );
+                            context.func.name = match get_function_name(func_index) {
+                                ExternalName::User(nameref) => {
+                                    if context.func.params.user_named_funcs().is_valid(nameref) {
+                                        let name = &context.func.params.user_named_funcs()[nameref];
+                                        UserFuncName::User(name.clone())
+                                    } else {
+                                        UserFuncName::default()
+                                    }
+                                }
+                                ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
+                                _ => UserFuncName::default(),
+                            };
+                            context.func.signature = signatures[module.functions[func_index]].clone();
+                            // if generate_debug_info {
+                            //     context.func.collect_debug_info();
+                            // }
+
+                            let mut reader =
+                                MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                            reader.set_middleware_chain(
+                                self.config
+                                    .middlewares
+                                    .generate_function_middleware_chain(*i),
+                            );
+
+                            func_translator.translate(
+                                module_translation_state,
+                                &mut reader,
+                                &mut context.func,
+                                &mut func_env,
+                                *i,
+                            )?;
+
+                            let mut code_buf: Vec<u8> = Vec::new();
+                            context
+                                .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
+                                .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
+
+                            let result = context.compiled_code().unwrap();
+                            let func_relocs = result
+                                .buffer
+                                .relocs()
+                                .iter()
+                                .map(|r| mach_reloc_to_reloc(module, r))
+                                .collect::<Vec<_>>();
+
+                            let traps = result
+                                .buffer
+                                .traps()
+                                .iter()
+                                .map(mach_trap_to_trap)
+                                .collect::<Vec<_>>();
+
+                            let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
+                                #[cfg(feature = "unwind")]
+                                CraneliftUnwindInfo::Fde(fde) => {
+                                    if dwarf_frametable.is_some() {
+                                        let fde = fde.to_fde(Address::Symbol {
+                                            // The symbol is the kind of relocation.
+                                            // "0" is used for functions
+                                            symbol: WriterRelocate::FUNCTION_SYMBOL,
+                                            // We use the addend as a way to specify the
+                                            // function index
+                                            addend: i.index() as _,
+                                        });
+                                        // The unwind information is inserted into the dwarf section
+                                        (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
+                                    } else {
+                                        (None, None)
+                                    }
+                                }
+                                #[cfg(feature = "unwind")]
+                                other => (other.maybe_into_to_windows_unwind(), None),
+
+                                // This is a bit hacky, but necessary since gimli is not
+                                // available when the "unwind" feature is disabled.
+                                #[cfg(not(feature = "unwind"))]
+                                other => (other.maybe_into_to_windows_unwind(), None::<()>),
+                            };
+
+                            let range = reader.range();
+                            let address_map = get_function_address_map(&context, range, code_buf.len());
+
+                            Ok((
+                                CompiledFunction {
+                                    body: FunctionBody {
+                                        body: code_buf,
+                                        unwind_info,
+                                    },
+                                    relocations: func_relocs,
+                                    frame_info: CompiledFunctionFrameInfo { address_map, traps },
+                                },
+                                fde,
+                            ))
+                        })
+                        .collect::<Result<Vec<_>, CompileError>>()?
+                        .into_iter()
+                        .unzip()
+                })
+            }
+        };
+
+        let mut unwind_info = UnwindInfo::default();
                 let mut func_env = FuncEnvironment::new(
                     isa.frontend_config(),
                     module,
