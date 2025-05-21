@@ -341,9 +341,41 @@ pub enum UnloadError {
     DeallocationError(#[from] MemoryDeallocationError),
 }
 
+#[derive(Debug)]
+pub struct ExportInfo {
+    pub name: String,
+    pub flags: wasmparser::SymbolFlags,
+}
+impl From<&wasmparser::ExportInfo<'_>> for ExportInfo {
+    fn from(info: &wasmparser::ExportInfo<'_>) -> Self {
+        ExportInfo {
+            name: info.name.to_string(),
+            flags: info.flags,
+        }
+    }
+}
+
+#[derive(Debug)]
+pub struct ImportInfo {
+    pub module: String,
+    pub field: String,
+    pub flags: wasmparser::SymbolFlags,
+}
+impl From<&wasmparser::ImportInfo<'_>> for ImportInfo {
+    fn from(info: &wasmparser::ImportInfo<'_>) -> Self {
+        ImportInfo {
+            module: info.module.to_string(),
+            field: info.field.to_string(),
+            flags: info.flags,
+        }
+    }
+}
+
 pub struct DylinkInfo {
     pub mem_info: wasmparser::MemInfo,
     pub needed: Vec<String>,
+    pub import_info: Vec<ImportInfo>,
+    pub export_info: Vec<ExportInfo>,
 }
 
 pub struct LinkedMainModule {
@@ -1458,6 +1490,9 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut mem_info = None;
     let mut needed = None;
 
+    let mut import_info = Vec::new();
+    let mut export_info = Vec::new();
+
     for subsection in reader {
         let subsection = subsection?;
         match subsection {
@@ -1469,11 +1504,15 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
                 needed = Some(n.iter().map(|s| s.to_string()).collect::<Vec<_>>());
             }
 
-            // I haven't seen a single module with import or export info that's at least
-            // consistent with its own imports/exports, so let's skip these
-            wasmparser::Dylink0Subsection::ImportInfo(_)
-            | wasmparser::Dylink0Subsection::ExportInfo(_)
-            | wasmparser::Dylink0Subsection::Unknown { .. } => (),
+            // Import info is used for declaring weak symbols
+            wasmparser::Dylink0Subsection::ImportInfo(i) => {
+                import_info.extend(i.iter().map(|i|ImportInfo::from(i)));
+            }
+            // Export info is used for declaring visibility-hidden symbols
+            wasmparser::Dylink0Subsection::ExportInfo(e) => {
+                export_info.extend(e.iter().map(|e|ExportInfo::from(e)));
+            }
+            wasmparser::Dylink0Subsection::Unknown { .. } => (),
         }
     }
 
@@ -1485,6 +1524,8 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             table_alignment: 0,
         }),
         needed: needed.unwrap_or_default(),
+        import_info: import_info,
+        export_info: export_info,
     })
 }
 
