@@ -37,6 +37,8 @@ hyper-tungstenite = { version = "0.13", optional = true }
 tokio-tungstenite = { version = "0.21", optional = true }
 bytecheck = { version = "0.6.8", optional = true }
 hyper-util = { version = "0.1.5", features = ["tokio"], optional = true }
+# Pin until we bump our MSRV to 1.82.
+idna_adapter = "=1.2.0"
 
 [dependencies.smoltcp]
 version = "0.8"

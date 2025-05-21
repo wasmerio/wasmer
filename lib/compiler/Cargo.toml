@@ -27,7 +27,7 @@ loupe = { workspace = true, optional = true, features = [
 	"enable-indexmap",
 ] }
 
-backtrace = "0.3"
+backtrace = "=0.3.74"
 memmap2 = "0.6"
 more-asserts = "0.2"
 
