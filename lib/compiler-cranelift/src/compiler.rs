@@ -476,10 +476,13 @@ impl Compiler for CraneliftCompiler {
                                 fde,
                             ))
                         })
-                        .collect::<Result<Vec<_>, CompileError>>()?
-                        .into_iter()
-                        .unzip()
-                })
+                        .collect::<Result<Vec<_>, CompileError>>()
+                        .map(|vec_results| vec_results.into_iter().unzip()) // This gives Result<UnzipType, CompileError>
+                }) // pool.install returns std::thread::Result<Result<UnzipType, CompileError>>
+                .map_err(|panic_err| {
+                    CompileError::Codegen(format!("rayon thread pool panicked: {:?}", panic_err))
+                })? // Handles panic from pool.install, giving Result<UnzipType, CompileError>
+                ? // Handles CompileError from the closure's operations
             }
         };
 
