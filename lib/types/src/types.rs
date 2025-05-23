@@ -193,11 +193,12 @@ fn is_memory_compatible(
         shared: imported_shared,
     } = imported;
 
-    imported_minimum.0 <= imported_runtime_size.unwrap_or(exported_minimum.0)
-        && (imported_maximum.is_none()
-            || (!exported_maximum.is_none()
-                && imported_maximum.unwrap() >= exported_maximum.unwrap()))
-        && exported_shared == imported_shared
+    let minimum_size_compatible = imported_minimum.0 <= imported_runtime_size.unwrap_or(exported_minimum.0);
+    let maximum_size_compatible = imported_maximum.is_none() 
+        || (!exported_maximum.is_none() && imported_maximum.unwrap() >= exported_maximum.unwrap());
+    let sharing_mode_compatible = exported_shared == imported_shared;
+    
+    minimum_size_compatible && maximum_size_compatible && sharing_mode_compatible
 }
 
 macro_rules! accessors {
