@@ -433,6 +433,8 @@ struct InProgressLinkState {
     // as the last step, since the init functions may access stub globals or functions
     // which can't be resolved until the entire module tree is loaded in.
     init_callbacks: Vec<Box<ModuleInitCallback>>,
+    reloc_callbacks: Vec<Box<ModuleInitCallback>>,
+    ctor_callbacks: Vec<Box<ModuleInitCallback>>,
 }
 
 /// The linker is responsible for loading and linking dynamic modules at runtime,
@@ -623,6 +625,8 @@ impl Linker {
                 main_instance.clone(),
             ),
         };
+        init_callback(&main_instance, store).map_err(LinkError::InitializationError)?;
+        call_initialization_function(&main_instance, store, "__wasm_apply_data_relocs")?;
 
         func_env
             .initialize_handles_and_layout(
@@ -639,12 +643,10 @@ impl Linker {
             linker.finalize_link_operation(guard, store, link_state)?;
         }
 
-        init_callback(&main_instance, store).map_err(LinkError::InitializationError)?;
 
         // This function is exported from PIE executables, and needs to be run before calling
         // _initialize or _start. More info:
         // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
-        call_initialization_function(&main_instance, store, "__wasm_apply_data_relocs")?;
         call_initialization_function(&main_instance, store, "_initialize")?;
 
         Ok((
@@ -711,6 +713,18 @@ impl Linker {
         let mut store_mut = store.as_store_mut();
 
         for init in link_state.init_callbacks.drain(..) {
+            if let Err(e) = init(&mut store_mut) {
+                result = Err(e);
+                break;
+            }
+        }
+        for init in link_state.reloc_callbacks.drain(..) {
+            if let Err(e) = init(&mut store_mut) {
+                result = Err(e);
+                break;
+            }
+        }
+        for init in link_state.ctor_callbacks.drain(..) {
             if let Err(e) = init(&mut store_mut) {
                 result = Err(e);
                 break;
@@ -1274,13 +1288,37 @@ impl LinkerState {
                 // matter anyway.
                 init(&instance, store).map_err(LinkError::InitializationError)?;
 
-                call_initialization_function(&instance, store, "__wasm_apply_data_relocs")?;
-                call_initialization_function(&instance, store, "__wasm_call_ctors")?;
 
                 Ok(())
             }
         };
+        let reloc = {
+            let instance = instance.clone();
+            move |store: &mut StoreMut| {
+                // No idea at which point this should be called. Also, apparently, there isn't an actual
+                // implementation of the init function that does anything (that I can find?), so it doesn't
+                // matter anyway.
 
+                call_initialization_function(&instance, store, "__wasm_apply_data_relocs")?;
+
+                Result::<(),LinkError>::Ok(())
+            }
+        };
+        let ctor = {
+            let instance = instance.clone();
+            move |store: &mut StoreMut| {
+                // No idea at which point this should be called. Also, apparently, there isn't an actual
+                // implementation of the init function that does anything (that I can find?), so it doesn't
+                // matter anyway.
+
+                call_initialization_function(&instance, store, "__wasm_call_ctors")?;
+
+                Result::<(),LinkError>::Ok(())
+            }
+        };
+
+        link_state.reloc_callbacks.push(Box::new(reloc));
+        link_state.ctor_callbacks.push(Box::new(ctor));
         link_state.init_callbacks.push(Box::new(init));
 
         Ok(handle)
