@@ -692,7 +692,7 @@ impl Linker {
         // Can't have pending modules at this point now, can we?
         assert!(link_state.pending_modules.is_empty());
 
-        guard.finalize_pending_globals(store, &link_state.unresolved_globals)?;
+        guard.finalize_pending_globals(store, &link_state.unresolved_globals);
 
         // The linker must be unlocked for the next step, since modules may need to resolve
         // stub functions and that requires a lock on the linker's state
@@ -1088,11 +1088,11 @@ impl LinkerState {
 
         let global = define_integer_global_import(store, import, value)?;
 
-        // if missing {
-        //     link_state
-        //         .unresolved_globals
-        //         .push(global_kind.to_unresolved(import.name().to_owned(), global.clone()));
-        // }
+        if missing {
+            link_state
+                .unresolved_globals
+                .push(global_kind.to_unresolved(import.name().to_owned(), global.clone()));
+        }
 
         Ok(global)
     }
