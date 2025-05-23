@@ -585,6 +585,10 @@ impl Linker {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
             // guard.resolve_imports.
+            if needed.contains("libc") {
+                // We don't want to load libc again, since it is already loaded in the main module
+                continue;
+            }
             linker_state.load_module(needed, store, &func_env.env, &mut link_state)?;
         }
 
@@ -1225,6 +1229,10 @@ impl LinkerState {
         };
 
         for needed in dylink_info.needed {
+            if needed.contains("libc") {
+                // We don't want to load libc again, since it is already loaded in the main module
+                continue;
+            }
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
             // self.resolve_imports.
