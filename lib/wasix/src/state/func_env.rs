@@ -1,6 +1,7 @@
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory,
+    Module, Store,
 };
 use wasmer_wasix_types::{wasi::ExitCode, wasix::WasiMemoryLayout};
 
@@ -15,6 +16,8 @@ use crate::{
     RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiModuleInstanceHandles,
     WasiRuntimeError, WasiThreadError,
 };
+
+use super::Linker;
 
 /// The default stack size for WASIX - the number itself is the default that compilers
 /// have used in the past when compiling WASM apps.
@@ -43,6 +46,7 @@ impl WasiFunctionEnv {
         spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
         call_initialize: bool,
+        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
     ) -> Result<(Self, Store), WasiThreadError> {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
@@ -72,8 +76,14 @@ impl WasiFunctionEnv {
 
         let mut store = store.unwrap_or_else(|| env.runtime().new_store());
 
-        let (_, ctx) =
-            env.instantiate(module, &mut store, memory, update_layout, call_initialize)?;
+        let (_, ctx) = env.instantiate(
+            module,
+            &mut store,
+            memory,
+            update_layout,
+            call_initialize,
+            parent_linker_and_ctx,
+        )?;
 
         // FIXME: shouldn't this happen _before_ instantiating, so the startup code in the instance
         // has access to the globals?
@@ -309,6 +319,14 @@ impl WasiFunctionEnv {
             self.data(store).pid(),
             self.data(store).tid()
         );
+
+        if let Some(linker) = self.data(store).inner().linker().cloned() {
+            // Note: this call will also process pending dl operations, hence unblocking
+            // other threads that may be waiting for this one to pick the operation up
+            if let Err(e) = linker.shutdown_instance_group(&mut self.env.clone().into_mut(store)) {
+                tracing::warn!("Failed to shutdown linker instance group: {e:?}");
+            }
+        }
 
         // Cleans up all the open files (if this is the main thread)
         self.data(store).blocking_on_exit(process_exit_code);

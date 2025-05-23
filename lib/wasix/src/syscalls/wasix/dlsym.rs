@@ -40,7 +40,7 @@ pub fn dlsym<M: MemorySize>(
     } else {
         Some(ModuleHandle::from(handle))
     };
-    let symbol = linker.resolve_export(&mut store, handle, &symbol);
+    let symbol = linker.resolve_export(&mut ctx, handle, &symbol);
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
@@ -54,27 +54,11 @@ pub fn dlsym<M: MemorySize>(
     );
 
     match symbol {
-        ResolvedExport::Function(func) => {
-            let func_index = linker.append_to_function_table(&mut store, func);
-
-            let (env, mut store) = ctx.data_and_store_mut();
-            let memory = unsafe { env.memory_view(&store) };
-
-            let func_index = wasi_try_dl!(
-                func_index,
-                "failed to grow indirect function table: {}",
-                memory,
-                err_buf,
-                err_buf_len
-            );
-
-            wasi_try_mem_ok!(out_symbol.write(&memory, func_index.into()));
-        }
-        ResolvedExport::Global(address) => {
-            let Ok(address) = address.try_into() else {
-                panic!("Failed to convert address to u64");
+        ResolvedExport::Function { func_ptr: addr } | ResolvedExport::Global { data_ptr: addr } => {
+            let Ok(addr) = addr.try_into() else {
+                panic!("Failed to convert u64 address to M::Offset");
             };
-            wasi_try_mem_ok!(out_symbol.write(&memory, address));
+            wasi_try_mem_ok!(out_symbol.write(&memory, addr));
         }
     }
 

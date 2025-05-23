@@ -120,17 +120,16 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<(), Errno> {
     // We extract the memory which will be passed to the thread
-    let env = ctx.data();
+    let func_env = ctx.as_ref();
+    let mut store = ctx.as_store_mut();
+    let env = func_env.as_ref(&store);
     let tasks = env.tasks().clone();
 
-    // TODO: figure out threads + DL
     let env_inner = env.inner();
-    let Some(module_handles) = env_inner.static_module_instance_handles() else {
-        error!("Thread creation in dynamically-linked modules is not supported");
-        return Err(Errno::Notcapable);
-    };
+    let module_handles = env_inner.main_module_instance_handles();
 
     let thread_memory = module_handles.memory_clone();
+    let linker = env_inner.linker().cloned();
 
     // We capture some local variables
     let state = env.state.clone();
@@ -164,22 +163,23 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
         return Err(Errno::Notcapable);
     }
     let thread_module = module_handles.module_clone();
-    let globals = capture_store_snapshot(&mut ctx.as_store_mut());
-    let spawn_type =
-        crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
+    let globals = capture_store_snapshot(&mut store);
+    let spawn_type = match linker {
+        Some(linker) => crate::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store),
+        None => crate::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
+    };
 
     // Now spawn a thread
     trace!("threading: spawning background thread");
     let run = move |props: TaskWasmRunProperties| {
         execute_module(props.ctx, props.store);
     };
-    tasks
-        .task_wasm(
-            TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
-                .with_globals(globals)
-                .with_memory(spawn_type),
-        )
-        .map_err(Into::<Errno>::into)?;
+
+    let mut task_wasm = TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
+        .with_globals(globals)
+        .with_memory(spawn_type);
+
+    tasks.task_wasm(task_wasm).map_err(Into::<Errno>::into)?;
 
     // Success
     Ok(())
@@ -205,8 +205,7 @@ fn call_module<M: MemorySize>(
         let spawn = env
             .data(&store)
             .inner()
-            .static_module_instance_handles()
-            .unwrap()
+            .main_module_instance_handles()
             .thread_spawn
             .clone()
             .unwrap();

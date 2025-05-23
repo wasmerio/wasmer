@@ -405,6 +405,13 @@ impl WasiThread {
         }
     }
 
+    pub fn signals_subscribe(&self, waker: &Waker) {
+        let mut guard = self.state.signals.lock().unwrap();
+        if !guard.1.iter().any(|w| w.will_wake(waker)) {
+            guard.1.push(waker.clone());
+        }
+    }
+
     /// Returns all the signals that are waiting to be processed
     pub fn has_signals_or_subscribe(&self, waker: &Waker) -> bool {
         let mut guard = self.state.signals.lock().unwrap();

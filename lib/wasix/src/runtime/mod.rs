@@ -3,7 +3,7 @@ pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
 
-pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
+pub use self::task_manager::{SpawnType, VirtualTaskManager};
 use self::{module_cache::CacheError, task_manager::InlineWaker};
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::{

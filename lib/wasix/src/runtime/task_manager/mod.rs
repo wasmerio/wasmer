@@ -7,19 +7,22 @@ use std::task::{Context, Poll};
 use std::{pin::Pin, time::Duration};
 
 use bytes::Bytes;
+use derive_more::Debug;
 use futures::future::BoxFuture;
 use futures::{Future, TryFutureExt};
-use wasmer::{AsStoreMut, AsStoreRef, Memory, MemoryType, Module, Store, StoreMut, StoreRef};
+use wasmer::{
+    AsStoreMut, AsStoreRef, FunctionEnv, Memory, MemoryType, Module, Store, StoreMut, StoreRef,
+};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
-use crate::os::task::thread::WasiThreadError;
 use crate::syscalls::AsyncifyFuture;
 use crate::{capture_store_snapshot, StoreSnapshot, WasiEnv, WasiFunctionEnv, WasiThread};
+use crate::{os::task::thread::WasiThreadError, state::Linker};
 
 pub use virtual_mio::waker::*;
 
 #[derive(Debug)]
-pub enum SpawnMemoryType<'a> {
+pub enum SpawnType<'a> {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
     // TODO: is there a way to get rid of the memory reference
@@ -29,6 +32,8 @@ pub enum SpawnMemoryType<'a> {
     // has been copied, this makes sure its not modified until
     // its been properly copied
     CopyMemory(Memory, StoreRef<'a>),
+    #[debug("NewLinkerInstanceGroup(..)")]
+    NewLinkerInstanceGroup(Linker, FunctionEnv<WasiEnv>, StoreMut<'a>),
 }
 
 /// Describes whether a new memory should be created (and, in case, its type) or if it was already
@@ -94,7 +99,7 @@ pub struct TaskWasm<'a> {
     pub env: WasiEnv,
     pub module: Module,
     pub globals: Option<StoreSnapshot>,
-    pub spawn_type: SpawnMemoryType<'a>,
+    pub spawn_type: SpawnType<'a>,
     pub trigger: Option<Box<WasmResumeTrigger>>,
     pub update_layout: bool,
     pub call_initialize: bool,
@@ -116,8 +121,8 @@ impl<'a> TaskWasm<'a> {
             module,
             globals: None,
             spawn_type: match shared_memory {
-                Some(ty) => SpawnMemoryType::CreateMemoryOfType(ty),
-                None => SpawnMemoryType::CreateMemory,
+                Some(ty) => SpawnType::CreateMemoryOfType(ty),
+                None => SpawnType::CreateMemory,
             },
             trigger: None,
             update_layout,
@@ -127,12 +132,12 @@ impl<'a> TaskWasm<'a> {
         }
     }
 
-    pub fn with_memory(mut self, spawn_type: SpawnMemoryType<'a>) -> Self {
+    pub fn with_memory(mut self, spawn_type: SpawnType<'a>) -> Self {
         self.spawn_type = spawn_type;
         self
     }
 
-    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnMemoryType<'a>>) -> Self {
+    pub fn with_optional_memory(mut self, spawn_type: Option<SpawnType<'a>>) -> Self {
         if let Some(spawn_type) = spawn_type {
             self.spawn_type = spawn_type;
         }
@@ -183,10 +188,11 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     fn build_memory(
         &self,
         mut store: &mut StoreMut,
-        spawn_type: SpawnMemoryType,
+        spawn_type: &SpawnType,
     ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
-            SpawnMemoryType::CreateMemoryOfType(mut ty) => {
+            SpawnType::CreateMemoryOfType(ty) => {
+                let mut ty = ty.clone();
                 ty.shared = true;
 
                 // Note: If memory is shared, maximum needs to be set in the
@@ -203,7 +209,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 })?;
                 Ok(Some(mem))
             }
-            SpawnMemoryType::ShareMemory(mem, old_store) => {
+            SpawnType::ShareMemory(mem, old_store) => {
                 let mem = mem.share_in_store(&old_store, store).map_err(|err| {
                     tracing::warn!(
                         error = &err as &dyn std::error::Error,
@@ -213,7 +219,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 })?;
                 Ok(Some(mem))
             }
-            SpawnMemoryType::CopyMemory(mem, old_store) => {
+            SpawnType::CopyMemory(mem, old_store) => {
                 let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
                     tracing::warn!(
                         error = &err as &dyn std::error::Error,
@@ -223,7 +229,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 })?;
                 Ok(Some(mem))
             }
-            SpawnMemoryType::CreateMemory => Ok(None),
+            SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => Ok(None),
         }
     }
 
@@ -301,7 +307,7 @@ where
     fn build_memory(
         &self,
         store: &mut StoreMut,
-        spawn_type: SpawnMemoryType,
+        spawn_type: &SpawnType,
     ) -> Result<Option<Memory>, WasiThreadError> {
         (**self).build_memory(store, spawn_type)
     }
@@ -410,7 +416,7 @@ impl dyn VirtualTaskManager {
                 false,
                 false,
             )
-            .with_memory(SpawnMemoryType::ShareMemory(memory, store.as_store_ref()))
+            .with_memory(SpawnType::ShareMemory(memory, store.as_store_ref()))
             .with_globals(snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {

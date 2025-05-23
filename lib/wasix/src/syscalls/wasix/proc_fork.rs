@@ -160,7 +160,7 @@ pub fn proc_fork<M: MemorySize>(
         let instance_handles = env_inner.static_module_instance_handles().unwrap();
         let module = instance_handles.module_clone();
         let memory = instance_handles.memory_clone();
-        let spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());
+        let spawn_type = SpawnType::CopyMemory(memory, ctx.as_store_ref());
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());

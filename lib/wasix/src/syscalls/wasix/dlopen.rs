@@ -30,7 +30,7 @@ pub fn dlopen<M: MemorySize>(
     };
     let linker = linker.clone();
 
-    let module_handle = linker.load_module(path, ctx.as_mut());
+    let module_handle = linker.load_module(path, &mut ctx);
 
     // Reborrow to keep rust happy
     let (env, mut store) = ctx.data_and_store_mut();

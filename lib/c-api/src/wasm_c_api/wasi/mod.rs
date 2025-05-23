@@ -553,8 +553,8 @@ unsafe fn wasi_get_imports_inner(
     let shared_memory = module.inner.imports().memories().next().map(|a| *a.ty());
 
     let spawn_type = match shared_memory {
-        Some(ty) => wasmer_wasix::runtime::SpawnMemoryType::CreateMemoryOfType(ty),
-        None => wasmer_wasix::runtime::SpawnMemoryType::CreateMemory,
+        Some(ty) => wasmer_wasix::runtime::SpawnType::CreateMemoryOfType(ty),
+        None => wasmer_wasix::runtime::SpawnType::CreateMemory,
     };
 
     let tasks = wasi_env
@@ -564,7 +564,7 @@ unsafe fn wasi_get_imports_inner(
         .task_manager()
         .clone();
     let memory = tasks
-        .build_memory(&mut store.store_mut(), spawn_type)
+        .build_memory(&mut store.store_mut(), &spawn_type)
         .unwrap();
 
     if let Some(memory) = memory {

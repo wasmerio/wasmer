@@ -765,33 +765,13 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
-pub type InstanceInitializer = Box<
-    dyn (FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>)
-        + Send
-        + Sync,
->;
-
-type ModuleInitializer = Box<
-    dyn (FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>)
-        + Send
-        + Sync,
->;
-
-/// No-op module initializer.
-fn stub_initializer(
-    _instance: &wasmer::Instance,
-    _store: &dyn wasmer::AsStoreRef,
-) -> Result<(), anyhow::Error> {
-    Ok(())
-}
-
 // TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 fn import_object_for_all_wasi_versions(
     _module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
-) -> (Imports, ModuleInitializer) {
+) -> Imports {
     let exports_wasi_generic = wasi_exports_generic(store, env);
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
@@ -808,9 +788,7 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    let init = Box::new(stub_initializer) as ModuleInitializer;
-
-    (imports, init)
+    imports
 }
 
 /// Combines a state generating function with the import list for legacy WASI

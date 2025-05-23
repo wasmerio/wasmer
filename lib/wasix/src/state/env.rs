@@ -415,6 +415,7 @@ impl WasiEnv {
         memory: Option<Memory>,
         update_layout: bool,
         call_initialize: bool,
+        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
         let pid = self.process.pid();
 
@@ -423,9 +424,16 @@ impl WasiEnv {
 
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
-            // TODO: make stack size configurable
-            // TODO: make linker support update_layout and call_initialize when we plan for threads
-            match Linker::new(&module, &mut store, memory, &mut func_env, 8 * 1024 * 1024) {
+            let linker = match parent_linker_and_ctx {
+                Some((linker, ctx)) => linker.create_instance_group(ctx, &mut store, &mut func_env),
+                None => {
+                    // TODO: make stack size configurable
+                    // TODO: make linker support update_layout and call_initialize when we plan for threads
+                    Linker::new(&module, &mut store, memory, &mut func_env, 8 * 1024 * 1024)
+                }
+            };
+
+            match linker {
                 Ok((_, linked_module)) => {
                     return Ok((linked_module.instance, func_env));
                 }
@@ -444,7 +452,7 @@ impl WasiEnv {
         }
 
         // Let's instantiate the module with the imports.
-        let (mut import_object, instance_init_callback) =
+        let mut import_object =
             import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
 
         let imported_memory = if let Some(memory) = memory {
@@ -518,9 +526,6 @@ impl WasiEnv {
             return Err(WasiThreadError::ExportError(err));
         }
 
-        // Run initializers.
-        instance_init_callback(&instance, &store).unwrap();
-
         // If this module exports an _initialize function, run that first.
         if call_initialize {
             if let Ok(initialize) = instance.exports.get_function("_initialize") {
@@ -568,13 +573,21 @@ impl WasiEnv {
     /// Called by most (if not all) syscalls to process pending operations that are
     /// cross-cutting, such as signals, thread/process exit, DL operations, etc.
     pub fn do_pending_operations(ctx: &mut FunctionEnvMut<'_, Self>) -> Result<(), WasiError> {
-        if let Some(linker) = ctx.data().inner().linker() {
-            if let Err(e) = linker.do_pending_link_operations() {
+        Self::do_pending_link_operations(ctx, true)?;
+        _ = Self::process_signals_and_exit(ctx)?;
+        Ok(())
+    }
+
+    pub fn do_pending_link_operations(
+        ctx: &mut FunctionEnvMut<'_, Self>,
+        fast: bool,
+    ) -> Result<(), WasiError> {
+        if let Some(linker) = ctx.data().inner().linker().cloned() {
+            if let Err(e) = linker.do_pending_link_operations(ctx, fast) {
                 tracing::warn!(err = ?e, "Failed to process pending link operations");
                 return Err(WasiError::Exit(Errno::Noexec.into()));
             }
         }
-        _ = Self::process_signals_and_exit(ctx)?;
         Ok(())
     }
 
@@ -679,6 +692,11 @@ impl WasiEnv {
             }
 
             for signal in signals {
+                // Skip over Sigwakeup, which is host-side-only
+                if matches!(signal, Signal::Sigwakeup) {
+                    continue;
+                }
+
                 tracing::trace!(
                     pid=%ctx.data().pid(),
                     ?signal,

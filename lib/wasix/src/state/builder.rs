@@ -1058,7 +1058,7 @@ impl WasiEnvBuilder {
             .map(|ty| wasmer::Memory::new(store, ty))
             .transpose()
             .map_err(WasiThreadError::MemoryCreateFailed)?;
-        Ok(env.instantiate(module, store, memory, true, call_init)?)
+        Ok(env.instantiate(module, store, memory, true, call_init, None)?)
     }
 }
 

@@ -2290,6 +2290,7 @@ pub enum Signal {
     Sigpoll,
     Sigpwr,
     Sigsys,
+    Sigwakeup, // This is a host-side-only signal. Add new guest-side signals before this one.
 }
 impl core::fmt::Debug for Signal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -2326,6 +2327,7 @@ impl core::fmt::Debug for Signal {
             Signal::Sigpoll => f.debug_tuple("Signal::Sigpoll").finish(),
             Signal::Sigpwr => f.debug_tuple("Signal::Sigpwr").finish(),
             Signal::Sigsys => f.debug_tuple("Signal::Sigsys").finish(),
+            Signal::Sigwakeup => f.debug_tuple("Signal::Sigwakeup").finish(),
         }
     }
 }

@@ -110,7 +110,7 @@ pub(crate) use crate::{
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::SpawnMemoryType,
+    runtime::SpawnType,
     state::{
         self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
         WasiFutex, WasiState,
@@ -378,6 +378,8 @@ where
             return Poll::Ready(Ok(res));
         }
 
+        WasiEnv::do_pending_link_operations(self.ctx, false);
+
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
@@ -405,14 +407,17 @@ where
                     .next()
             };
 
-            return match WasiEnv::do_pending_operations(self.ctx) {
-                Ok(()) => {
+            return match WasiEnv::process_signals_and_exit(self.ctx) {
+                Ok(Ok(_)) => {
                     if let Some(exit_code) = has_exit {
                         Poll::Ready(Err(WasiError::Exit(exit_code)))
                     } else {
+                        // Re-subscribe so we get woken up for further signals as well
+                        self.ctx.data().thread.signals_subscribe(cx.waker());
                         Poll::Pending
                     }
                 }
+                Ok(Err(err)) => Poll::Ready(Err(WasiError::Exit(ExitCode::from(err)))),
                 Err(err) => Poll::Ready(Err(err)),
             };
         }
@@ -497,7 +502,9 @@ where
         let env = ctx.data();
 
         // Create the deep sleeper
-        let tasks_for_deep_sleep = if env.enable_deep_sleep {
+        // Deep sleep breaks the linker completely, as it expects other modules to catch the
+        // signal for DL ops
+        let tasks_for_deep_sleep = if env.enable_deep_sleep && env.inner().linker().is_none() {
             Some(env.tasks().clone())
         } else {
             None
