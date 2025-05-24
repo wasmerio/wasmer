@@ -25,7 +25,12 @@ pub fn proc_fork<M: MemorySize>(
     mut copy_memory: Bool,
     pid_ptr: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
+    wasi_try_ok!(ctx.data().ensure_static_module().map_err(|_| {
+        warn!("process forking not supported for dynamically linked modules");
+        Errno::Notsup
+    }));
 
     // If we were just restored then we need to return the value instead
     if let Some(result) = unsafe { handle_rewind::<M, ForkResult>(&mut ctx) } {
@@ -151,9 +156,11 @@ pub fn proc_fork<M: MemorySize>(
         let child_memory_stack = memory_stack.clone();
         let child_rewind_stack = rewind_stack.clone();
 
-        let module = unsafe { ctx.data().inner() }.module_clone();
-        let memory = unsafe { ctx.data().inner() }.memory_clone();
-        let spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());
+        let env_inner = ctx.data().inner();
+        let instance_handles = env_inner.static_module_instance_handles().unwrap();
+        let module = instance_handles.module_clone();
+        let memory = instance_handles.memory_clone();
+        let spawn_type = SpawnType::CopyMemory(memory, ctx.as_store_ref());
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());
@@ -199,7 +206,7 @@ pub fn proc_fork<M: MemorySize>(
 
             tasks_outer
                 .task_wasm(
-                    TaskWasm::new(Box::new(run), child_env, module, false)
+                    TaskWasm::new(Box::new(run), child_env, module, false, false)
                         .with_globals(snapshot)
                         .with_memory(spawn_type),
                 )
@@ -262,11 +269,22 @@ fn run<M: MemorySize>(
     let mut ret: ExitCode = Errno::Success.into();
     let err = if ctx.data(&store).thread.is_main() {
         trace!(%pid, %tid, "re-invoking main");
-        let start = unsafe { ctx.data(&store).inner() }.start.clone().unwrap();
+        let start = ctx
+            .data(&store)
+            .inner()
+            .static_module_instance_handles()
+            .unwrap()
+            .start
+            .clone()
+            .unwrap();
         start.call(&mut store)
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
-        let start = unsafe { ctx.data(&store).inner() }
+        let start = ctx
+            .data(&store)
+            .inner()
+            .static_module_instance_handles()
+            .unwrap()
             .thread_spawn
             .clone()
             .unwrap();

@@ -2290,6 +2290,7 @@ pub enum Signal {
     Sigpoll,
     Sigpwr,
     Sigsys,
+    Sigwakeup, // This is a host-side-only signal. Add new guest-side signals before this one.
 }
 impl core::fmt::Debug for Signal {
     fn fmt(&self, f: &mut core::fmt::Formatter<'_>) -> core::fmt::Result {
@@ -2326,6 +2327,7 @@ impl core::fmt::Debug for Signal {
             Signal::Sigpoll => f.debug_tuple("Signal::Sigpoll").finish(),
             Signal::Sigpwr => f.debug_tuple("Signal::Sigpwr").finish(),
             Signal::Sigsys => f.debug_tuple("Signal::Sigsys").finish(),
+            Signal::Sigwakeup => f.debug_tuple("Signal::Sigwakeup").finish(),
         }
     }
 }
@@ -2414,6 +2416,24 @@ impl<M: MemorySize> core::fmt::Debug for ProcSpawnFdOp<M> {
             .field("fdflags", &self.fdflags)
             .field("fdflagsext", &self.fdflagsext)
             .finish()
+    }
+}
+
+pub type DlHandle = u32;
+
+wai_bindgen_rust::bitflags::bitflags! {
+    pub struct DlFlags : u32 {
+        const LAZY = 1 << 0;
+        const NOW = 1 << 1;
+        const GLOBAL = 1 << 2;
+        const NOLOAD = 1 << 3;
+        const NODELETE = 1 << 4;
+        const DEEPBIND = 1 << 5;
+    }
+}
+impl DlFlags {
+    pub fn from_bits_preserve(bits: u32) -> Self {
+        Self { bits }
     }
 }
 

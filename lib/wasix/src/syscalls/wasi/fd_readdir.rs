@@ -18,21 +18,23 @@ use crate::syscalls::*;
 ///     directory has been read
 #[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_readdir<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     buf: WasmPtr<u8, M>,
     buf_len: M::Offset,
     cookie: Dircookie,
     bufused: WasmPtr<M::Offset, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let (memory, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     // TODO: figure out how this is supposed to work;
     // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 
-    let buf_arr = wasi_try_mem!(buf.slice(&memory, buf_len));
+    let buf_arr = wasi_try_mem_ok!(buf.slice(&memory, buf_len));
     let bufused_ref = bufused.deref(&memory);
-    let working_dir = wasi_try!(state.fs.get_fd(fd));
+    let working_dir = wasi_try_ok!(state.fs.get_fd(fd));
     let mut cur_cookie = cookie;
     let mut buf_idx = 0usize;
 
@@ -45,10 +47,10 @@ pub fn fd_readdir<M: MemorySize>(
                 // we need to support multiple calls,
                 // simple and obviously correct implementation for now:
                 // maintain consistent order via lexacographic sorting
-                let fs_info = wasi_try!(wasi_try!(state.fs_read_dir(path))
+                let fs_info = wasi_try_ok!(wasi_try_ok!(state.fs_read_dir(path))
                     .collect::<Result<Vec<_>, _>>()
                     .map_err(fs_error_into_wasi_err));
-                let mut entry_vec = wasi_try!(fs_info
+                let mut entry_vec = wasi_try_ok!(fs_info
                     .into_iter()
                     .map(|entry| {
                         let filename = entry.file_name().to_string_lossy().to_string();
@@ -108,7 +110,7 @@ pub fn fd_readdir<M: MemorySize>(
             | Kind::PipeTx { .. }
             | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } => return Errno::Notdir,
+            | Kind::Epoll { .. } => return Ok(Errno::Notdir),
         }
     };
 
@@ -129,7 +131,7 @@ pub fn fd_readdir<M: MemorySize>(
             std::mem::size_of::<Dirent>(),
         );
         for (i, b) in dirent_bytes.iter().enumerate().take(upper_limit) {
-            wasi_try_mem!(buf_arr.index((i + buf_idx) as u64).write(*b));
+            wasi_try_mem_ok!(buf_arr.index((i + buf_idx) as u64).write(*b));
         }
         buf_idx += upper_limit;
         if upper_limit != std::mem::size_of::<Dirent>() {
@@ -137,7 +139,7 @@ pub fn fd_readdir<M: MemorySize>(
         }
         let upper_limit = std::cmp::min((buf_len - buf_idx as u64) as usize, namlen);
         for (i, b) in entry_path_str.bytes().take(upper_limit).enumerate() {
-            wasi_try_mem!(buf_arr.index((i + buf_idx) as u64).write(b));
+            wasi_try_mem_ok!(buf_arr.index((i + buf_idx) as u64).write(b));
         }
         buf_idx += upper_limit;
         if upper_limit != namlen {
@@ -145,7 +147,7 @@ pub fn fd_readdir<M: MemorySize>(
         }
     }
 
-    let buf_idx: M::Offset = wasi_try!(buf_idx.try_into().map_err(|_| Errno::Overflow));
-    wasi_try_mem!(bufused_ref.write(buf_idx));
-    Errno::Success
+    let buf_idx: M::Offset = wasi_try_ok!(buf_idx.try_into().map_err(|_| Errno::Overflow));
+    wasi_try_mem_ok!(bufused_ref.write(buf_idx));
+    Ok(Errno::Success)
 }

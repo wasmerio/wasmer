@@ -556,6 +556,11 @@ impl WasiProcess {
         Ok(WasiThreadHandle::new(ctrl, &self.inner))
     }
 
+    pub fn all_threads(&self) -> Vec<WasiThreadId> {
+        let inner = self.inner.0.lock().unwrap();
+        inner.threads.keys().cloned().collect()
+    }
+
     /// Gets a reference to a particular thread
     pub fn get_thread(&self, tid: &WasiThreadId) -> Option<WasiThread> {
         let inner = self.inner.0.lock().unwrap();

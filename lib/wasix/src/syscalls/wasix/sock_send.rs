@@ -25,7 +25,7 @@ pub fn sock_send<M: MemorySize>(
     si_flags: SiFlags,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(fd));

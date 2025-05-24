@@ -42,7 +42,7 @@ pub fn proc_spawn2<M: MemorySize>(
     path_len: M::Offset,
     ret: WasmPtr<Pid, M>,
 ) -> Result<Errno, WasiError> {
-    WasiEnv::process_signals_and_exit(&mut ctx)?;
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
     let memory = unsafe { ctx.data().memory_view(&ctx) };

@@ -14,6 +14,8 @@ pub fn fd_fdstat_set_flags(
     fd: WasiFd,
     flags: Fdflags,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let ret = fd_fdstat_set_flags_internal(&mut ctx, fd, flags)?;
     let env = ctx.data();
 

@@ -10,6 +10,8 @@ pub fn fd_event<M: MemorySize>(
     flags: EventFdFlags,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let fd = wasi_try_ok!(fd_event_internal(&mut ctx, initial_val, flags, None)?);
 
     let env = ctx.data();
