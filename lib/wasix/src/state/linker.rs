@@ -241,7 +241,7 @@
 #![allow(clippy::result_large_err)]
 
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -279,7 +279,7 @@ static MAIN_MODULE_MEMORY_BASE: u64 = 0;
 // Need to keep the zeroth index null to catch null function pointers at runtime
 static MAIN_MODULE_TABLE_BASE: u64 = 1;
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub struct ModuleHandle(u32);
 
 impl From<ModuleHandle> for u32 {
@@ -634,7 +634,14 @@ struct InstanceGroupState {
 
 struct LinkerState {
     main_module: Module,
-    side_modules: HashMap<ModuleHandle, DlModule>,
+    // HACK: We need to ensure each new instance group instantiates modules in
+    // *exactly* the same order as every other instance group; This is because
+    // there appears to be a bug in wasmer where, if you instantiate in a different
+    // order, globals start getting messed up and modules see each other's globals.
+    // To ensure the same order, we use a BTreeMap here, which means when we
+    // iterate over it, we'll get the modules from lowest handle to highest, and
+    // order is preserved.
+    side_modules: BTreeMap<ModuleHandle, DlModule>,
     side_modules_by_name: HashMap<PathBuf, ModuleHandle>,
     next_module_handle: u32,
 
@@ -849,7 +856,7 @@ impl Linker {
 
         let mut linker_state = LinkerState {
             main_module: main_module.clone(),
-            side_modules: HashMap::new(),
+            side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
             next_module_handle: 1,
             memory_allocator: MemoryAllocator::new(),
@@ -860,6 +867,50 @@ impl Linker {
         };
 
         let mut link_state = InProgressLinkState::default();
+
+        let well_known_imports = [
+            ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
+            ("env", "__table_base", MAIN_MODULE_TABLE_BASE),
+            ("GOT.mem", "__stack_high", stack_high),
+            ("GOT.mem", "__stack_low", stack_low),
+            ("GOT.mem", "__heap_base", stack_high),
+        ];
+
+        trace!("Resolving main module's symbols");
+        linker_state.resolve_symbols(
+            &instance_group,
+            store,
+            main_module,
+            MAIN_MODULE_HANDLE,
+            &mut link_state,
+            &well_known_imports,
+        )?;
+
+        trace!("Populating main module's imports object");
+        instance_group.populate_imports_from_link_state(
+            MAIN_MODULE_HANDLE,
+            &mut linker_state,
+            &mut link_state,
+            store,
+            main_module,
+            &mut imports,
+            &func_env.env,
+            &well_known_imports,
+        )?;
+
+        // TODO: figure out which way is faster (stubs in main or stubs in sides),
+        // use that ordering. My *guess* is that, since main exports all the libc
+        // functions and those are called frequently by basically any code, then giving
+        // stubs to main will be faster, but we need numbers before we decide this.
+        let main_instance = Instance::new(store, main_module, &imports)?;
+        instance_group.main_instance = Some(main_instance.clone());
+
+        #[cfg(debug_assertions)]
+        print_table(
+            &instance_group.indirect_function_table,
+            store,
+            &format!("after instantiating main module"),
+        );
 
         for needed in dylink_section.needed {
             // A successful load_module will add the module to the side_modules list,
@@ -897,47 +948,6 @@ impl Linker {
                 &format!("after {module_handle:?}"),
             );
         }
-
-        let well_known_imports = [
-            ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
-            ("env", "__table_base", MAIN_MODULE_TABLE_BASE),
-            ("GOT.mem", "__stack_high", stack_high),
-            ("GOT.mem", "__stack_low", stack_low),
-            ("GOT.mem", "__heap_base", stack_high),
-        ];
-
-        trace!("Resolving main module's symbols");
-        linker_state.resolve_symbols(
-            &instance_group,
-            store,
-            main_module,
-            MAIN_MODULE_HANDLE,
-            &mut link_state,
-            &well_known_imports,
-        )?;
-
-        trace!("Populating main module's imports object");
-        instance_group.populate_imports_from_link_state(
-            MAIN_MODULE_HANDLE,
-            &mut linker_state,
-            &mut link_state,
-            store,
-            main_module,
-            &mut imports,
-            &func_env.env,
-            &well_known_imports,
-        )?;
-
-        let main_instance = Instance::new(store, main_module, &imports)?;
-
-        #[cfg(debug_assertions)]
-        print_table(
-            &instance_group.indirect_function_table,
-            store,
-            &format!("after instantiating main module"),
-        );
-
-        instance_group.main_instance = Some(main_instance.clone());
 
         let linker = Self {
             linker_state: Arc::new(RwLock::new(linker_state)),
@@ -1155,14 +1165,6 @@ impl Linker {
 
         instance_group.main_instance = Some(main_instance.clone());
 
-        // Note, this is different from instantiating a new linker in that side modules
-        // needed by main are instantiated *after* main, rather than before. This has no
-        // observable effect, but causes stubs to be generated for main instead of the
-        // sides.
-        // FIXME: figure out which way is faster (stubs in main or stubs in sides), make
-        // both use that ordering. My *guess* is that, since main exports all the libc
-        // functions and those are called frequently by basically any code, then giving
-        // stubs to main will be faster, but we need numbers before we decide this.
         for side in &linker_state.side_modules {
             trace!(module_handle = ?side.0, "Instantiating existing side module");
             instance_group.instantiate_side_module_from_linker(
