@@ -259,8 +259,8 @@ use virtual_mio::InlineWaker;
 use wasmer::{
     AsEngineRef, AsStoreMut, AsStoreRef, CompileError, ExportError, Exportable, Extern, ExternType,
     Function, FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports,
-    Instance, InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Type,
-    Value, WASM_PAGE_SIZE,
+    Instance, InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag,
+    Type, Value, WASM_PAGE_SIZE,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
@@ -1757,7 +1757,7 @@ impl LinkerState {
 
             // Skip over the memory, function table and stack pointer imports as well
             match import.name() {
-                "memory" | "__indirect_function_table" | "__stack_pointer" => {
+                "memory" | "__indirect_function_table" | "__stack_pointer" | "__c_longjmp" => {
                     trace!(?import, "Skipping resolution of special symbol");
                     continue;
                 }
@@ -2535,6 +2535,24 @@ impl InstanceGroupState {
                         );
                         continue;
                     }
+                    // Clang generates this symbol when building modules that use EH-based sjlj.
+                    "__c_longjmp" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
+                        imports.define(
+                            import.module(),
+                            import.name(),
+                            Tag::new(store, vec![Type::I32]),
+                        );
+                        continue;
+                    }
                     _ => (),
                 }
             }
@@ -2762,6 +2780,23 @@ impl InstanceGroupState {
                             import.module(),
                             import.name(),
                             Extern::Global(self.stack_pointer.clone()),
+                        );
+                        continue;
+                    }
+                    "__c_longjmp" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
+                        imports.define(
+                            import.module(),
+                            import.name(),
+                            Tag::new(store, vec![Type::I32]),
                         );
                         continue;
                     }
