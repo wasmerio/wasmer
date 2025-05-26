@@ -464,10 +464,12 @@ pub enum UnloadError {
     PendingDlOperationFailed(#[from] LinkError),
 }
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct DylinkInfo {
     pub mem_info: wasmparser::MemInfo,
     pub needed: Vec<String>,
+    pub import_metadata: HashMap<(String, String), wasmparser::SymbolFlags>,
+    pub export_metadata: HashMap<String, wasmparser::SymbolFlags>,
 }
 
 pub struct LinkedMainModule {
@@ -485,6 +487,29 @@ enum UnresolvedGlobal {
     // A GOT.func entry, should be resolved to the address of an exported function
     // from another module (e.g. an index into __indirect_function_table).
     Func(NeededSymbolResolutionKey, Global),
+}
+
+impl UnresolvedGlobal {
+    fn key(&self) -> &NeededSymbolResolutionKey {
+        match self {
+            Self::Func(key, _) => key,
+            Self::Mem(key, _) => key,
+        }
+    }
+
+    fn global(&self) -> &Global {
+        match self {
+            Self::Func(_, global) => global,
+            Self::Mem(_, global) => global,
+        }
+    }
+
+    fn import_module(&self) -> &str {
+        match self {
+            Self::Func(..) => "GOT.func",
+            Self::Mem(..) => "GOT.mem",
+        }
+    }
 }
 
 // Used only when processing a module load operation from another instance group.
@@ -603,10 +628,9 @@ enum DlOperation {
 
 struct DlModule {
     module: Module,
+    dylink_info: DylinkInfo,
     memory_base: u64,
     table_base: u64,
-    table_size: u64,
-    table_alignment: u32,
     num_references: u32,
 }
 
@@ -634,6 +658,8 @@ struct InstanceGroupState {
 
 struct LinkerState {
     main_module: Module,
+    main_module_dylink_info: DylinkInfo,
+
     // HACK: We need to ensure each new instance group instantiates modules in
     // *exactly* the same order as every other instance group; This is because
     // there appears to be a bug in wasmer where, if you instantiate in a different
@@ -853,6 +879,7 @@ impl Linker {
 
         let mut linker_state = LinkerState {
             main_module: main_module.clone(),
+            main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
             next_module_handle: 1,
@@ -902,7 +929,7 @@ impl Linker {
         let main_instance = Instance::new(store, main_module, &imports)?;
         instance_group.main_instance = Some(main_instance.clone());
 
-        for needed in dylink_section.needed {
+        for needed in linker_state.main_module_dylink_info.needed.clone() {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
             // guard.resolve_imports.
@@ -1442,7 +1469,7 @@ impl Linker {
 
         trace!("Resolving export");
         let (export, resolved_from) =
-            group_state.resolve_export(&linker_state, &mut store, module_handle, symbol)?;
+            group_state.resolve_export(&linker_state, &mut store, module_handle, symbol, false)?;
 
         trace!(?export, ?resolved_from, "Resolved export");
 
@@ -1682,6 +1709,18 @@ impl LinkerState {
                 .get(&module_handle)
                 .expect("Internal error: bad module handle")
                 .memory_base
+        }
+    }
+
+    fn dylink_info(&self, module_handle: ModuleHandle) -> &DylinkInfo {
+        if module_handle == MAIN_MODULE_HANDLE {
+            &self.main_module_dylink_info
+        } else {
+            &self
+                .side_modules
+                .get(&module_handle)
+                .expect("Internal error: bad module handle")
+                .dylink_info
         }
     }
 
@@ -2139,8 +2178,7 @@ impl InstanceGroupState {
         ];
 
         let module = pending_module.module.clone();
-        let table_size = pending_module.dylink_info.mem_info.table_size as u64;
-        let table_alignment = pending_module.dylink_info.mem_info.table_alignment;
+        let dylink_info = pending_module.dylink_info.clone();
 
         trace!(?module_handle, "Resolving symbols");
         linker_state.resolve_symbols(
@@ -2171,10 +2209,9 @@ impl InstanceGroupState {
 
         let dl_module = DlModule {
             module,
+            dylink_info,
             memory_base,
             table_base,
-            table_size,
-            table_alignment,
             num_references: 1,
         };
 
@@ -2213,8 +2250,8 @@ impl InstanceGroupState {
         let table_base = self
             .allocate_function_table(
                 store,
-                dl_module.table_size as u32,
-                dl_module.table_alignment,
+                dl_module.dylink_info.mem_info.table_size,
+                dl_module.dylink_info.mem_info.table_alignment,
             )
             .map_err(LinkError::TableAllocationError)?;
 
@@ -2579,7 +2616,9 @@ impl InstanceGroupState {
                             *module_handle,
                             import.name(),
                             self.instance(*module_handle),
+                            linker_state.dylink_info(*module_handle),
                             linker_state.memory_base(*module_handle),
+                            true,
                         )
                         .expect("Internal error: bad in-progress symbol resolution");
                     let PartiallyResolvedExport::Global(addr) = export else {
@@ -2890,6 +2929,7 @@ impl InstanceGroupState {
         store: &mut impl AsStoreMut,
         module_handle: Option<ModuleHandle>,
         symbol: &str,
+        allow_hidden: bool,
     ) -> Result<(PartiallyResolvedExport, ModuleHandle), ResolveError> {
         trace!(?module_handle, ?symbol, "Resolving export");
         match module_handle {
@@ -2898,8 +2938,17 @@ impl InstanceGroupState {
                     .try_instance(module_handle)
                     .ok_or(ResolveError::InvalidModuleHandle)?;
                 let memory_base = linker_state.memory_base(module_handle);
+                let dylink_info = linker_state.dylink_info(module_handle);
                 Ok((
-                    self.resolve_export_from(store, module_handle, symbol, instance, memory_base)?,
+                    self.resolve_export_from(
+                        store,
+                        module_handle,
+                        symbol,
+                        instance,
+                        dylink_info,
+                        memory_base,
+                        allow_hidden,
+                    )?,
                     module_handle,
                 ))
             }
@@ -2912,7 +2961,9 @@ impl InstanceGroupState {
                         MAIN_MODULE_HANDLE,
                         symbol,
                         instance,
+                        &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
+                        allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
                         Err(ResolveError::MissingExport) => (),
@@ -2926,7 +2977,9 @@ impl InstanceGroupState {
                         *handle,
                         symbol,
                         &instance.instance,
+                        &linker_state.side_modules[handle].dylink_info,
                         linker_state.memory_base(*handle),
+                        allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, *handle)),
                         Err(ResolveError::MissingExport) => (),
@@ -2950,13 +3003,25 @@ impl InstanceGroupState {
         module_handle: ModuleHandle,
         symbol: &str,
         instance: &Instance,
+        dylink_info: &DylinkInfo,
         memory_base: u64,
+        allow_hidden: bool,
     ) -> Result<PartiallyResolvedExport, ResolveError> {
         trace!(from = ?module_handle, symbol, "Resolving export from instance");
         let export = instance.exports.get_extern(symbol).ok_or_else(|| {
             trace!(from = ?module_handle, symbol, "Not found");
             ResolveError::MissingExport
         })?;
+
+        if !allow_hidden
+            && dylink_info
+                .export_metadata
+                .get(symbol)
+                .map(|flags| flags.contains(wasmparser::SymbolFlags::VISIBILITY_HIDDEN))
+                .unwrap_or(false)
+        {
+            return Err(ResolveError::MissingExport);
+        }
 
         match export.ty(store) {
             ExternType::Function(_) => {
@@ -3175,70 +3240,86 @@ impl InstanceGroupState {
         trace!("Finalizing pending globals");
 
         for unresolved in unresolved_globals {
-            trace!(?unresolved, "Resolving pending global");
-            match unresolved {
-                UnresolvedGlobal::Mem(key, global) => {
-                    let (resolved, _) = self
-                        .resolve_export(linker_state, store, None, &key.import_name)
-                        .map_err(|e| {
-                            LinkError::UnresolvedGlobal(
-                                "GOT.mem".to_string(),
-                                key.import_name.clone(),
-                                Box::new(e),
-                            )
-                        })?;
-                    if let PartiallyResolvedExport::Global(addr) = resolved {
-                        trace!(?unresolved, addr, "Resolved to memory address");
-                        set_integer_global(store, &key.import_name, global, addr)?;
-                        linker_state.symbol_resolution_records.insert(
-                            SymbolResolutionKey::Needed(key.clone()),
-                            SymbolResolutionResult::Memory(addr),
-                        );
-                    } else {
-                        return Err(LinkError::UnresolvedGlobal(
-                            "GOT.mem".to_string(),
-                            key.import_name.clone(),
-                            Box::new(ResolveError::MissingExport),
-                        ));
-                    }
+            let key = unresolved.key();
+            let import_metadata = &linker_state.dylink_info(key.module_handle).import_metadata;
+            let is_weak = import_metadata
+                .get(&(key.import_module.to_owned(), key.import_name.to_owned()))
+                // clang seems to like putting the import-info in the "env" module
+                // sometimes, so try that as well
+                .or_else(|| import_metadata.get(&("env".to_owned(), key.import_name.to_owned())))
+                .map(|flags| flags.contains(wasmparser::SymbolFlags::BINDING_WEAK))
+                .unwrap_or(false);
+            trace!(?unresolved, is_weak, "Resolving pending global");
+
+            match (
+                unresolved,
+                self.resolve_export(linker_state, store, None, &key.import_name, true),
+            ) {
+                (
+                    UnresolvedGlobal::Mem(key, global),
+                    Ok((PartiallyResolvedExport::Global(addr), resolved_from)),
+                ) => {
+                    trace!(
+                        ?unresolved,
+                        ?resolved_from,
+                        addr,
+                        "Resolved to memory address"
+                    );
+                    set_integer_global(store, &key.import_name, global, addr)?;
+                    linker_state.symbol_resolution_records.insert(
+                        SymbolResolutionKey::Needed(key.clone()),
+                        SymbolResolutionResult::Memory(addr),
+                    );
                 }
-                UnresolvedGlobal::Func(key, global) => {
-                    let (resolved, resolved_from) = self
-                        .resolve_export(linker_state, store, None, &key.import_name)
-                        .map_err(|e| {
-                            LinkError::UnresolvedGlobal(
-                                "GOT.func".to_string(),
-                                key.import_name.clone(),
-                                Box::new(e),
-                            )
-                        })?;
-                    if let PartiallyResolvedExport::Function(func) = resolved {
-                        let func_handle = self
-                            .append_to_function_table(store, func)
-                            .map_err(LinkError::TableAllocationError)?;
-                        trace!(
-                            ?unresolved,
-                            ?resolved_from,
-                            function_table_index = ?func_handle,
-                            "Resolved to function pointer"
-                        );
-                        linker_state.symbol_resolution_records.insert(
-                            SymbolResolutionKey::Needed(key.clone()),
-                            SymbolResolutionResult::FunctionPointer {
-                                resolved_from,
-                                function_table_index: func_handle,
-                            },
-                        );
-                        set_integer_global(store, &key.import_name, global, func_handle as u64)?;
-                    } else {
-                        // Note: since all needed modules have been loaded in at this
-                        // point, there's no meaning in generating a stub function.
-                        return Err(LinkError::UnresolvedGlobal(
-                            "GOT.func".to_string(),
-                            key.import_name.clone(),
-                            Box::new(ResolveError::MissingExport),
-                        ));
-                    }
+
+                (
+                    UnresolvedGlobal::Func(key, global),
+                    Ok((PartiallyResolvedExport::Function(func), resolved_from)),
+                ) => {
+                    let func_handle = self
+                        .append_to_function_table(store, func)
+                        .map_err(LinkError::TableAllocationError)?;
+                    trace!(
+                        ?unresolved,
+                        ?resolved_from,
+                        function_table_index = ?func_handle,
+                        "Resolved to function pointer"
+                    );
+                    set_integer_global(store, &key.import_name, global, func_handle as u64)?;
+                    linker_state.symbol_resolution_records.insert(
+                        SymbolResolutionKey::Needed(key.clone()),
+                        SymbolResolutionResult::FunctionPointer {
+                            resolved_from,
+                            function_table_index: func_handle,
+                        },
+                    );
+                }
+
+                // Expected memory address, resolved function or vice-versa
+                (_, Ok(_)) => {
+                    return Err(LinkError::UnresolvedGlobal(
+                        unresolved.import_module().to_string(),
+                        key.import_name.clone(),
+                        Box::new(ResolveError::MissingExport),
+                    ))
+                }
+
+                // Missing weak symbols get resolved to a null address
+                (_, Err(ResolveError::MissingExport)) if is_weak => {
+                    trace!(?unresolved, "Weak global not found");
+                    set_integer_global(store, &key.import_name, unresolved.global(), 0)?;
+                    linker_state.symbol_resolution_records.insert(
+                        SymbolResolutionKey::Needed(key.clone()),
+                        SymbolResolutionResult::Memory(0),
+                    );
+                }
+
+                (_, Err(e)) => {
+                    return Err(LinkError::UnresolvedGlobal(
+                        "GOT.mem".to_string(),
+                        key.import_name.clone(),
+                        Box::new(e),
+                    ))
                 }
             }
         }
@@ -3322,6 +3403,8 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
 
     let mut mem_info = None;
     let mut needed = None;
+    let mut import_metadata = HashMap::new();
+    let mut export_metadata = HashMap::new();
 
     for subsection in reader {
         let subsection = subsection?;
@@ -3334,11 +3417,19 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
                 needed = Some(n.iter().map(|s| s.to_string()).collect::<Vec<_>>());
             }
 
-            // I haven't seen a single module with import or export info that's at least
-            // consistent with its own imports/exports, so let's skip these
-            wasmparser::Dylink0Subsection::ImportInfo(_)
-            | wasmparser::Dylink0Subsection::ExportInfo(_)
-            | wasmparser::Dylink0Subsection::Unknown { .. } => (),
+            wasmparser::Dylink0Subsection::ImportInfo(i) => {
+                for i in i {
+                    import_metadata.insert((i.module.to_owned(), i.field.to_owned()), i.flags);
+                }
+            }
+
+            wasmparser::Dylink0Subsection::ExportInfo(e) => {
+                for e in e {
+                    export_metadata.insert(e.name.to_owned(), e.flags);
+                }
+            }
+
+            wasmparser::Dylink0Subsection::Unknown { .. } => (),
         }
     }
 
@@ -3350,6 +3441,8 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
             table_alignment: 0,
         }),
         needed: needed.unwrap_or_default(),
+        import_metadata,
+        export_metadata,
     })
 }
 
