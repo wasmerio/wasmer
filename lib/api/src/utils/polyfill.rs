@@ -84,6 +84,39 @@ impl ModuleInfoPolyfill {
         Ok(())
     }
 
+    pub(crate) fn declare_tag_import(
+        &mut self,
+        t: wasmparser::TagType,
+        module_name: &str,
+        field_name: &str,
+    ) -> WasmResult<()> {
+        debug_assert_eq!(
+            self.info.tags.len(),
+            self.info.num_imported_tags,
+            "Imported tags must be declared first"
+        );
+
+        let tag = SignatureIndex::from_u32(t.func_type_idx);
+        debug_assert!(
+            self.info
+                .signatures
+                .get(SignatureIndex::from_u32(t.func_type_idx))
+                .is_some(),
+            "Imported tags must mach a declared signature!"
+        );
+
+        self.declare_import(
+            ImportIndex::Tag(TagIndex::from_u32(self.info.num_imported_tags as _)),
+            module_name,
+            field_name,
+        )?;
+
+        self.info.num_imported_tags += 1;
+        self.info.tags.push(tag);
+
+        Ok(())
+    }
+
     pub(crate) fn declare_table_import(
         &mut self,
         table: TableType,
@@ -406,8 +439,8 @@ pub fn parse_import_section(
                     field_name,
                 )?;
             }
-            TypeRef::Tag(_) => {
-                unimplemented!("exception handling not implemented yet")
+            TypeRef::Tag(t) => {
+                module_info.declare_tag_import(t, module_name, field_name)?;
             }
             TypeRef::Memory(WPMemoryType {
                 shared,

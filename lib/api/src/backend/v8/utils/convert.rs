@@ -234,7 +234,22 @@ impl IntoWasmerExternType for *const wasm_externtype_t {
                     })
                 }
                 bindings::wasm_externkind_enum_WASM_EXTERN_TAG => {
-                    todo!()
+                    // let tagtype = wasm_externtype_as_tagtype_const(self);
+                    // let params = wasm_tagtype_params(tagtype);
+                    // let params = if params.is_null() || (*params).size == 0 {
+                    //     vec![]
+                    // } else {
+                    //     std::slice::from_raw_parts((*params).data, (*params).size)
+                    //         .to_vec()
+                    //         .into_iter()
+                    //         .map(|v| v.into_wt())
+                    //         .collect::<Vec<_>>()
+                    // };
+
+                    ExternType::Tag(wasmer_types::TagType {
+                        kind: wasmer_types::TagKind::Exception,
+                        params: vec![].into(),
+                    })
                 }
                 _ => return Err(String::from("Unsupported extern kind!")),
             }
