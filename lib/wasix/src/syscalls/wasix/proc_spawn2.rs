@@ -192,8 +192,26 @@ fn apply_fd_op<M: MemorySize>(
     op: &ProcSpawnFdOp<M>,
 ) -> Result<(), Errno> {
     match op.cmd {
-        ProcSpawnFdOpName::Close => env.state.fs.close_fd(op.fd),
+        ProcSpawnFdOpName::Close => {
+            if let Ok(fd) = env.state.fs.get_fd(op.fd) {
+                if !fd.is_stdio && fd.inode.is_preopened {
+                    trace!("Skipping close FD action for pre-opened FD ({})", op.fd);
+                    return Ok(());
+                }
+            }
+            env.state.fs.close_fd(op.fd)
+        }
         ProcSpawnFdOpName::Dup2 => {
+            if let Ok(fd) = env.state.fs.get_fd(op.fd) {
+                if !fd.is_stdio && fd.inode.is_preopened {
+                    warn!(
+                        "FD {} is a pre-open and should not be closed, \
+                        but will be closed in response to a dup2 FD action. \
+                        This will likely break stuff.",
+                        op.fd
+                    );
+                }
+            }
             if env.state.fs.get_fd(op.fd).is_ok() {
                 env.state.fs.close_fd(op.fd)?;
             }

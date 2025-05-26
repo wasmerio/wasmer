@@ -7,7 +7,11 @@ mod stdio;
 use file::{File, FileHandle, ReadOnlyFile};
 pub use filesystem::FileSystem;
 pub use offloaded_file::OffloadBackingStore;
+#[cfg(not(feature = "js"))]
+use std::time::{SystemTime, UNIX_EPOCH};
 pub use stdio::{Stderr, Stdin, Stdout};
+#[cfg(feature = "js")]
+pub use web_time::{SystemTime, UNIX_EPOCH};
 
 use crate::Metadata;
 use std::{
@@ -155,18 +159,10 @@ impl Node {
 }
 
 fn time() -> u64 {
-    #[cfg(not(feature = "no-time"))]
-    {
-        // SAFETY: It's very unlikely that the system returns a time that
-        // is before `UNIX_EPOCH` :-).
-        std::time::SystemTime::now()
-            .duration_since(std::time::SystemTime::UNIX_EPOCH)
-            .unwrap()
-            .as_nanos() as u64
-    }
-
-    #[cfg(feature = "no-time")]
-    {
-        0
-    }
+    // SAFETY: It's very unlikely that the system returns a time that
+    // is before `UNIX_EPOCH` :-).
+    SystemTime::now()
+        .duration_since(UNIX_EPOCH)
+        .unwrap()
+        .as_nanos() as u64
 }

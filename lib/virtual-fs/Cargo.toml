@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.600.0"
+version = "0.600.1"
 description = "Wasmer Virtual FileSystem"
 authors.workspace = true
 edition.workspace = true
@@ -39,12 +39,8 @@ webc = { workspace = true, optional = true, features = ["v1"] }
 serde = { version = "1.0", default-features = false, features = [
 	"derive",
 ], optional = true }
-
-[target.'cfg(not(all(target_arch = "wasm32", target_os = "unknown")))'.dependencies]
 getrandom = { version = "0.2" }
-
-[target.'cfg(all(target_arch = "wasm32", target_os = "unknown"))'.dependencies]
-getrandom = { version = "0.2", features = ["js"] }
+web-time = { version = "1.1", optional = true}
 
 [dev-dependencies]
 pretty_assertions.workspace = true
@@ -68,7 +64,10 @@ host-fs = [
 webc-fs = ["webc", "anyhow"]
 static-fs = ["webc", "anyhow"]
 enable-serde = ["typetag", "serde"]
-no-time = []
+js = [
+	"dep:web-time",
+	"getrandom/js",
+]
 # Enables memory tracking/limiting functionality for the in-memory filesystem.
 tracking = []
 futures = []

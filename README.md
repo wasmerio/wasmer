@@ -7,6 +7,9 @@
   </a>
 
   <p>
+     <a href="https://github.com/wasmerio/wasmer/releases">
+      <img src="https://shields.io/github/v/tag/wasmerio/wasmer" alt="Github release">
+    </a>
     <a href="https://github.com/wasmerio/wasmer/blob/main/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg" alt="License">
     </a>
@@ -89,8 +92,11 @@ curl https://get.wasmer.io -sSfL | sh
 </details>
 
 > Note: You can also try Wasmer online in [wasmer.sh](https://wasmer.sh/)
-> 
+
 ### Quickstart
+
+> [!Tip]  
+> As part of our commitment to open source, we want to reward all GitHub users. In addition to the free tier, you can get up to $200 in [Wasmer Edge](https://wasmer.io/products/edge) credits for your open-source contributions - [Claim here](https://github.com/wasmerio/wasmer/discussions/5560).
 
 You can start by running
 [Cowsay](https://wasmer.io/syrusakbary/cowsay):

@@ -43,7 +43,18 @@ pub(crate) fn fd_renumber_internal(
     let env = ctx.data();
     let (_, mut state) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
 
-    if state.fs.get_fd(to).is_ok() {
+    if let Ok(fd) = state.fs.get_fd(to) {
+        if !fd.is_stdio && fd.inode.is_preopened {
+            // There isn't a good hack we can do here; the code that made this call
+            // expects its new FD to be the number it asked for. This will, however,
+            // break wasix-libc when it attempts to use the FD to make any fs-related
+            // syscalls. The best we can do is warn people so they can change the code.
+            warn!(
+                "FD ({to}) is a pre-open and should not be closed, \
+                but will be closed in response to an fd_renumber operation. \
+                This will likely break stuff."
+            );
+        }
         match __asyncify_light(env, None, state.fs.flush(to))? {
             Ok(_) | Err(Errno::Isdir) | Err(Errno::Io) | Err(Errno::Access) => {}
             Err(e) => {

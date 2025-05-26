@@ -20,7 +20,7 @@ jobs:
     name: Compile and Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
@@ -41,11 +41,14 @@ jobs:
     name: Linting and Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v4
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
         uses: dsherret/rust-toolchain-file@v1
+      - name: Ensure rustfmt and clippy are installed
+        run: |
+          rustup component add rustfmt clippy
       - name: Check Formatting
         run: |
           cd lib/config && cargo fmt --verbose --check

@@ -47,7 +47,7 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
+            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             use_sccache: false
             use_rustcache: false
@@ -117,7 +117,7 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
@@ -166,7 +166,7 @@ jobs:
         run: |
           brew install llvm
       - name: Install LLVM
-        if: matrix.llvm_url
+        if: ${{ matrix.llvm_url && matrix.enable_llvm == true }}
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -259,7 +259,7 @@ jobs:
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer binary
-        if: ${{ matrix.enable_llvm && !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
+        if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
         run: |
           make build-wasmer
@@ -339,7 +339,7 @@ jobs:
     name: Windows GNU
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -406,7 +406,7 @@ jobs:
     name: macOS aarch64 (JSC)
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-apple-darwin
@@ -439,7 +439,7 @@ jobs:
     name: macOS x86_64 (JSC)
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
@@ -468,7 +468,7 @@ jobs:
     name: Linux riscv64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v3
+      - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu
