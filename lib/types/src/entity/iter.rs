@@ -41,13 +41,13 @@ impl<'a, K: EntityRef, V> Iterator for Iter<'a, K, V> {
     }
 }
 
-impl<'a, K: EntityRef, V> DoubleEndedIterator for Iter<'a, K, V> {
+impl<K: EntityRef, V> DoubleEndedIterator for Iter<'_, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.enumerate.next_back().map(|(i, v)| (K::new(i), v))
     }
 }
 
-impl<'a, K: EntityRef, V> ExactSizeIterator for Iter<'a, K, V> {}
+impl<K: EntityRef, V> ExactSizeIterator for Iter<'_, K, V> {}
 
 /// Iterate over all keys in order.
 pub struct IterMut<'a, K: EntityRef, V>
@@ -81,13 +81,13 @@ impl<'a, K: EntityRef, V> Iterator for IterMut<'a, K, V> {
     }
 }
 
-impl<'a, K: EntityRef, V> DoubleEndedIterator for IterMut<'a, K, V> {
+impl<K: EntityRef, V> DoubleEndedIterator for IterMut<'_, K, V> {
     fn next_back(&mut self) -> Option<Self::Item> {
         self.enumerate.next_back().map(|(i, v)| (K::new(i), v))
     }
 }
 
-impl<'a, K: EntityRef, V> ExactSizeIterator for IterMut<'a, K, V> {}
+impl<K: EntityRef, V> ExactSizeIterator for IterMut<'_, K, V> {}
 
 /// Iterate over all keys in order.
 pub struct IntoIter<K: EntityRef, V> {

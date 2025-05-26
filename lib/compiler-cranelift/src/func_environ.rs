@@ -956,13 +956,13 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     }
 }
 
-impl<'module_environment> TargetEnvironment for FuncEnvironment<'module_environment> {
+impl TargetEnvironment for FuncEnvironment<'_> {
     fn target_config(&self) -> TargetFrontendConfig {
         self.target_config
     }
 }
 
-impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_environment> {
+impl BaseFuncEnvironment for FuncEnvironment<'_> {
     fn is_wasm_parameter(&self, _signature: &ir::Signature, index: usize) -> bool {
         // The first parameter is the vmctx. The rest are the wasm parameters.
         index >= 1

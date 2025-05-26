@@ -149,7 +149,7 @@ impl VirtualTaskManager for TokioTaskManager {
             SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => {
                 SpawnMemoryTypeOrStore::New
             }
-            SpawnType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(t.clone()),
+            SpawnType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(*t),
             SpawnType::ShareMemory(_, _) | SpawnType::CopyMemory(_, _) => {
                 let mut store = env.runtime().new_store();
                 let memory = self.build_memory(&mut store.as_store_mut(), &task.spawn_type)?;

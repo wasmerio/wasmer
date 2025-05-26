@@ -43,7 +43,7 @@ pub fn callback_signal<M: MemorySize>(
         inner.signal_set = true;
     }
 
-    _ = WasiEnv::do_pending_operations(&mut ctx)?;
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     Ok(())
 }

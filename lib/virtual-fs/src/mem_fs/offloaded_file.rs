@@ -136,7 +136,7 @@ pub enum OffloadWrite<'a> {
     Buffer(&'a [u8]),
 }
 
-impl<'a> OffloadWrite<'a> {
+impl OffloadWrite<'_> {
     fn len(&self) -> usize {
         match self {
             OffloadWrite::MmapOffset { size, .. } => *size as usize,

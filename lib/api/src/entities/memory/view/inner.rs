@@ -17,6 +17,7 @@ gen_rt_ty!(MemoryView<'a> @derives Debug, derive_more::From ; @path memory::view
 
 impl<'a> BackendMemoryView<'a> {
     #[inline]
+    #[allow(clippy::needless_return)]
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         match &store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]

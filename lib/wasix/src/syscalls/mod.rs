@@ -233,9 +233,8 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
     Ok(bytes_read)
 }
 
-/// Writes data to the stderr
-
 // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+/// Writes data to the stderr
 #[allow(clippy::await_holding_lock)]
 pub unsafe fn stderr_write<'a>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
@@ -328,7 +327,7 @@ where
         ctx: &'a mut FunctionEnvMut<'b, WasiEnv>,
         pinned_work: Pin<Box<Fut>>,
     }
-    impl<'a, 'b, Fut, T> Future for SignalPoller<'a, 'b, Fut, T>
+    impl<Fut, T> Future for SignalPoller<'_, '_, Fut, T>
     where
         Fut: Future<Output = Result<T, Errno>>,
     {
@@ -367,7 +366,7 @@ where
     ctx: &'b mut FunctionEnvMut<'c, WasiEnv>,
     work: &'a mut Pin<Box<Fut>>,
 }
-impl<'a, 'b, 'c, T, Fut> Future for AsyncifyPoller<'a, 'b, 'c, T, Fut>
+impl<T, Fut> Future for AsyncifyPoller<'_, '_, '_, T, Fut>
 where
     Fut: Future<Output = T> + Send + Sync + 'static,
 {

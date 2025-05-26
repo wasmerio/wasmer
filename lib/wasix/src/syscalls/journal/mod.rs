@@ -57,7 +57,7 @@ pub struct JournalSyscallPlayer<'a, 'c> {
     pub stderr_fds: HashSet<u32>,
 }
 
-impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
+impl<'c> JournalSyscallPlayer<'_, 'c> {
     pub fn new(mut ctx: FunctionEnvMut<'c, WasiEnv>, bootstrapping: bool) -> Self {
         let env = ctx.data();
         let keep_stdio = !env.skip_stdio_during_bootstrap;

@@ -143,7 +143,7 @@ impl<'a> CLIRunner<'a> {
 }
 
 #[async_trait::async_trait]
-impl<'a> Tester for CLIRunner<'a> {
+impl Tester for CLIRunner<'_> {
     async fn run_test(&self) -> anyhow::Result<TestReport> {
         let start_time = time::Instant::now();
         let version = self.get_version().await?;

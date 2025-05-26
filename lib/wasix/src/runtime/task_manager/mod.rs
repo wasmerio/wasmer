@@ -192,7 +192,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     ) -> Result<Option<Memory>, WasiThreadError> {
         match spawn_type {
             SpawnType::CreateMemoryOfType(ty) => {
-                let mut ty = ty.clone();
+                let mut ty = *ty;
                 ty.shared = true;
 
                 // Note: If memory is shared, maximum needs to be set in the

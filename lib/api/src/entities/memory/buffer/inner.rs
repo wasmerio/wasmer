@@ -11,7 +11,7 @@ gen_rt_ty!(MemoryBuffer<'a>
     @path memory
 );
 
-impl<'a> BackendMemoryBuffer<'a> {
+impl BackendMemoryBuffer<'_> {
     #[allow(unused)]
     #[inline]
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {

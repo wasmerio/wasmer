@@ -200,7 +200,7 @@ fn cast_to_u32(sz: usize) -> u32 {
 /// Align an offset used in this module to a specific byte-width by rounding up
 #[inline]
 const fn align(offset: u32, width: u32) -> u32 {
-    (offset + (width - 1)) / width * width
+    offset.div_ceil(width) * width
 }
 
 /// This class computes offsets to fields within VMContext and other

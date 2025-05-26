@@ -191,7 +191,7 @@ impl VMTable {
     pub fn grow(&mut self, delta: u32, init_value: TableElement) -> Option<u32> {
         let size = self.size();
         let new_len = size.checked_add(delta)?;
-        if self.maximum.map_or(false, |max| new_len > max) {
+        if self.maximum.is_some_and(|max| new_len > max) {
             return None;
         }
         if new_len == size {

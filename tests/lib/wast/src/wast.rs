@@ -546,7 +546,7 @@ impl Wast {
             || self
                 .match_trap_messages
                 .get(expected)
-                .map_or(false, |alternative| actual.contains(alternative))
+                .is_some_and(|alternative| actual.contains(alternative))
     }
 
     fn assert_exception(&self, result: Result<Vec<Value>>) -> Result<()> {

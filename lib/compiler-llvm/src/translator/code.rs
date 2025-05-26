@@ -460,7 +460,7 @@ impl FuncTranslator {
     }
 }
 
-impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
+impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     // Create a vector where each lane contains the same value.
     fn splat_vector(
         &self,
@@ -1942,7 +1942,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     binary_fmt: target_lexicon::BinaryFormat,
 }
 
-impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
+impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
     //fn add_fn_to_got(&mut self, func: &FunctionValue<'ctx>, name: &str) {
     //    //let throw_intrinsic = self.intrinsics.throw.as_global_value().as_pointer_value();
     //    if !self.got_cache.contains(name) {

@@ -781,9 +781,6 @@ impl Linker {
             "Indirect function table initial size"
         );
 
-        #[cfg(debug_assertions)]
-        print_table(&indirect_function_table, store, "initially");
-
         let memory_type = main_module
             .imports()
             .memories()
@@ -905,13 +902,6 @@ impl Linker {
         let main_instance = Instance::new(store, main_module, &imports)?;
         instance_group.main_instance = Some(main_instance.clone());
 
-        #[cfg(debug_assertions)]
-        print_table(
-            &instance_group.indirect_function_table,
-            store,
-            &format!("after instantiating main module"),
-        );
-
         for needed in dylink_section.needed {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
@@ -940,13 +930,6 @@ impl Linker {
                 &mut link_state,
                 module_handle,
             )?;
-
-            #[cfg(debug_assertions)]
-            print_table(
-                &instance_group.indirect_function_table,
-                store,
-                &format!("after {module_handle:?}"),
-            );
         }
 
         let linker = Self {
@@ -993,28 +976,8 @@ impl Linker {
             linker.finalize_link_operation(group_guard, &mut linker_state, store, link_state)?;
         }
 
-        #[cfg(debug_assertions)]
-        {
-            let group_guard = linker.instance_group_state.lock().unwrap();
-            print_table(
-                &group_guard.as_ref().unwrap().indirect_function_table,
-                store,
-                &format!("after finalizing link"),
-            );
-        }
-
         trace!("Calling main module's _initialize function");
         call_initialization_function(&main_instance, store, "_initialize")?;
-
-        #[cfg(debug_assertions)]
-        {
-            let group_guard = linker.instance_group_state.lock().unwrap();
-            print_table(
-                &group_guard.as_ref().unwrap().indirect_function_table,
-                store,
-                &format!("after calling init functions"),
-            );
-        }
 
         trace!("Link complete");
 
@@ -1128,17 +1091,10 @@ impl Linker {
             ("GOT.mem", "__heap_base", linker_state.heap_base),
         ];
 
-        #[cfg(debug_assertions)]
-        print_table(
-            &instance_group.indirect_function_table,
-            store,
-            "before first populate",
-        );
-
         trace!("Populating imports object for new instance group's main instance");
         instance_group.populate_imports_from_linker(
             MAIN_MODULE_HANDLE,
-            &mut linker_state,
+            &linker_state,
             store,
             &main_module,
             &mut imports,
@@ -1147,21 +1103,7 @@ impl Linker {
             &mut pending_functions,
         )?;
 
-        #[cfg(debug_assertions)]
-        print_table(
-            &instance_group.indirect_function_table,
-            store,
-            "after first populate",
-        );
-
         let main_instance = Instance::new(store, &main_module, &imports)?;
-
-        #[cfg(debug_assertions)]
-        print_table(
-            &instance_group.indirect_function_table,
-            store,
-            "after instantiating main module",
-        );
 
         instance_group.main_instance = Some(main_instance.clone());
 
@@ -1174,24 +1116,10 @@ impl Linker {
                 *side.0,
                 &mut pending_functions,
             )?;
-
-            #[cfg(debug_assertions)]
-            print_table(
-                &instance_group.indirect_function_table,
-                store,
-                &format!("after instantiating side module {:?}", side.0),
-            );
         }
 
         trace!("Finalizing pending functions");
         instance_group.finalize_pending_functions(&pending_functions, store)?;
-
-        #[cfg(debug_assertions)]
-        print_table(
-            &instance_group.indirect_function_table,
-            store,
-            "after finalizing",
-        );
 
         let linker = Self {
             linker_state: self.linker_state.clone(),
@@ -1914,7 +1842,7 @@ impl LinkerState {
                     return Err(LinkError::ImportTypeMismatch(
                         "GOT.mem".to_string(),
                         import.name().to_string(),
-                        ExternType::Global(global_type.clone()),
+                        ExternType::Global(global_type),
                         export.ty(store).clone(),
                     ));
                 };
@@ -1923,7 +1851,7 @@ impl LinkerState {
                     return Err(LinkError::ImportTypeMismatch(
                         "GOT.mem".to_string(),
                         import.name().to_string(),
-                        ExternType::Global(global_type.clone()),
+                        ExternType::Global(global_type),
                         export.ty(store).clone(),
                     ));
                 }
@@ -3442,7 +3370,7 @@ fn get_integer_global_type_from_import(import: &ImportType) -> Result<GlobalType
         ));
     }
 
-    Ok(ty.clone())
+    Ok(*ty)
 }
 
 fn define_integer_global_import(
@@ -3535,13 +3463,4 @@ fn call_destructor_function(
             Err(UnloadError::DtorFuncWithInvalidSignature(name.to_string()))
         }
     }
-}
-
-#[cfg(debug_assertions)]
-fn print_table(table: &Table, store: &mut impl AsStoreMut, msg: &str) {
-    let size = table.size(store);
-    let values = (0..size)
-        .map(|i| (i, table.get(store, i)))
-        .collect::<Vec<_>>();
-    trace!("{msg} -> table is: {values:?}");
 }

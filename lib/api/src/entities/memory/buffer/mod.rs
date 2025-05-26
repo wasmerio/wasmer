@@ -9,7 +9,7 @@ pub(crate) use inner::*;
 #[derive(Debug, Copy, Clone, derive_more::From)]
 pub(crate) struct MemoryBuffer<'a>(pub(crate) BackendMemoryBuffer<'a>);
 
-impl<'a> MemoryBuffer<'a> {
+impl MemoryBuffer<'_> {
     #[allow(unused)]
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
         self.0.read(offset, buf)

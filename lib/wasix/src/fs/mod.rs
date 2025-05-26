@@ -1308,7 +1308,7 @@ impl WasiFs {
             },
         }
 
-        impl<'a> BaseFdAndRelPath<'a> {
+        impl BaseFdAndRelPath<'_> {
             const fn max_seen(&self) -> usize {
                 match self {
                     Self::None => 0,
