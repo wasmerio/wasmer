@@ -12,6 +12,8 @@ use crate::machine::{
 };
 use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
+#[cfg(feature = "riscv")]
+use crate::machine_riscv::MachineRiscv;
 #[cfg(feature = "unwind")]
 use crate::unwind::{create_systemv_cie, UnwindFrame};
 use enumset::EnumSet;
@@ -81,6 +83,8 @@ impl Compiler for SinglepassCompiler {
         match target.triple().architecture {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
+            #[cfg(feature = "riscv")]
+            Architecture::Riscv32(_) | Architecture::Riscv64(_) => {}
             _ => {
                 return Err(CompileError::UnsupportedTarget(
                     target.triple().architecture.to_string(),
@@ -189,6 +193,28 @@ impl Compiler for SinglepassCompiler {
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            memory_styles,
+                            table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op)?;
+                        }
+
+                        generator.finalize(input)
+                    }
+                    #[cfg(feature = "riscv")]
+                    Architecture::Riscv32(_) | Architecture::Riscv64(_) => {
+                        let machine = MachineRiscv::new(Some(target.clone()));
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,

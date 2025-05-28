@@ -43,6 +43,7 @@ unwind = ["gimli"]
 sse = []
 avx = []
 enable-serde = []
+riscv = []
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]

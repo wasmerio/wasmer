@@ -2,7 +2,11 @@
 [![Build Status](https://github.com/wasmerio/wasmer/actions/workflows/build.yml/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/main/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-compiler-singlepass.svg)](https://crates.io/crates/wasmer-compiler-singlepass)
 
 This crate contains a compiler implementation based on the Singlepass linear compiler.
-
+Supported targets:
+- x86_64
+- aarch64
+- riscv32 (experimental)
+- riscv64 (experimental)
 ## Usage
 
 ```rust
