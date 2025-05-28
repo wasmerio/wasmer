@@ -66,7 +66,7 @@
 //! also means that one call to [`Linker::load_module`], etc. cannot update every
 //! instance group as each one has its own function table. To make the linker work
 //! across threads, we need a "stop-the-world" lock on every instance group. The group
-//! the load/resolve/unload request originates from sets a flag, which other instance
+//! the load/resolve request originates from sets a flag, which other instance
 //! groups are required to check periodically by calling [`Linker::do_pending_link_operations`].
 //! Once all instance groups are stopped in that function, the original can proceed to
 //! perform the operation, and report its results to all other instance groups so they
@@ -151,12 +151,9 @@
 //! store it for use by further calls to the function, and also create a resolution record. This does
 //! create a few hard-to-reach edge cases:
 //!     * If the symbol happens to resolve differently between the two calls to the stub, unpredictable
-//!       behavior can happen.
+//!       behavior can happen; however, this is impossible in the current implementation.
 //!     * If the shared state is locked by a different instance group, then the stub won't store its
 //!       lookup results anyway, even though it could have if it had waited.
-//!
-//! In practice, this isn't expected to cause logic errors, since the symbol must come from a needed
-//! module, and there's no way to unload needed modules individually.
 //!
 //! ## Locating side modules
 //!
@@ -296,12 +293,6 @@ impl From<u32> for ModuleHandle {
 
 const DEFAULT_RUNTIME_PATH: [&str; 3] = ["/lib", "/usr/lib", "/usr/local/lib"];
 
-#[derive(thiserror::Error, Debug)]
-pub enum MemoryDeallocationError {
-    #[error("Invalid base address")]
-    InvalidBaseAddress,
-}
-
 // Used to allocate and manage memory for dynamic modules that are loaded in or
 // out, since each module may request a specific amount of memory to be allocated
 // for it before starting it up.
@@ -327,16 +318,6 @@ impl MemoryAllocator {
         }
         let pages = memory.grow(store, to_grow as u32)?;
         Ok(pages.0 as u64 * WASM_PAGE_SIZE as u64)
-    }
-
-    // TODO: implement this
-    pub fn deallocate(
-        &mut self,
-        _memory: &Memory,
-        _store: &mut impl AsStoreMut,
-        _addr: u64,
-    ) -> Result<(), MemoryDeallocationError> {
-        Ok(())
     }
 }
 
@@ -443,27 +424,6 @@ pub enum ResolveError {
     PendingDlOperationFailed(#[from] LinkError),
 }
 
-#[derive(thiserror::Error, Debug)]
-pub enum UnloadError {
-    #[error("Cannot access linker through a dead instance group")]
-    InstanceGroupIsDead,
-
-    #[error("Invalid module handle")]
-    InvalidModuleHandle,
-
-    #[error("Destructor function has invalid signature: {0}")]
-    DtorFuncWithInvalidSignature(String),
-
-    #[error("Destructor function {0} failed to run: {1}")]
-    DtorFunctionFailed(String, RuntimeError),
-
-    #[error("Failed to deallocate memory: {0}")]
-    DeallocationError(#[from] MemoryDeallocationError),
-
-    #[error("Failed to perform pending DL operation: {0}")]
-    PendingDlOperationFailed(#[from] LinkError),
-}
-
 #[derive(Debug, Clone)]
 pub struct DylinkInfo {
     pub mem_info: wasmparser::MemInfo,
@@ -531,7 +491,6 @@ pub struct NeededSymbolResolutionKey {
     import_name: String,
 }
 
-// TODO: do we need all the types in here?
 #[derive(Debug)]
 enum InProgressSymbolResolution {
     Function(ModuleHandle),
@@ -571,10 +530,6 @@ pub enum SymbolResolutionKey {
     Requested(String),
 }
 
-// TODO: make it impossible to unload needed modules unless their "needing" module
-//       is also unloaded; each needing module should count as one reference.
-// TODO: store needing->needed relationships between modules
-// TODO: "Erase" function table addresses when a module is unloaded
 #[derive(Debug)]
 pub enum SymbolResolutionResult {
     // The symbol was resolved to a global address. We don't resolve again because
@@ -588,13 +543,7 @@ pub enum SymbolResolutionResult {
     // a link operation is complete.
     Memory(u64),
     // The symbol was resolved to a function export with the same name from this module.
-    // it is expected that the symbol resolves to an export of the correct type if the
-    // module handle still exists. If the module handle does not exist any longer:
-    //   * If the request is from a dlsym call, the symbol is resolved again
-    //   * If we're resolving due to a new instance group being spawned, then the new
-    //     instance group gets a "bad" pointer for the symbol; this is fine because
-    //     any existing instance groups will get a bad pointer after the module is
-    //     unloaded anyway.
+    // it is expected that the symbol resolves to an export of the correct type.
     Function {
         ty: FunctionType,
         resolved_from: ModuleHandle,
@@ -607,7 +556,6 @@ pub enum SymbolResolutionResult {
     // The symbol failed to resolve, but it's a function so we can create a stub. The
     // first call to any stub associated with this symbol must update the resolution
     // record to point to the module the function was resolved from.
-    // TODO: the above in impls of stub functions
     StubFunction(FunctionType),
 }
 
@@ -623,7 +571,6 @@ enum DlOperation {
         // minus one. Otherwise, we're out of sync and an error has been encountered.
         function_table_index: u32,
     },
-    UnloadModules(Vec<ModuleHandle>),
 }
 
 struct DlModule {
@@ -631,7 +578,6 @@ struct DlModule {
     dylink_info: DylinkInfo,
     memory_base: u64,
     table_base: u64,
-    num_references: u32,
 }
 
 struct DlInstance {
@@ -841,9 +787,7 @@ impl Linker {
         let stack_high = stack_low + stack_size;
 
         // Allocate memory for the stack. This does not need to go through the memory allocator
-        // because:
-        //   1. It's always placed directly after the module's data
-        //   2. It's never freed, since the main module can't be unloaded
+        // because it's always placed directly after the main module's data
         memory.grow_at_least(store, stack_high)?;
 
         trace!(
@@ -1230,6 +1174,10 @@ impl Linker {
             LinkError::InstanceGroupIsDead
         );
 
+        // TODO: differentiate between an actual link error and an error that occurs as the
+        // result of a pending operation that needs to be applied first. Currently, errors
+        // from pending ops are treated as link errors and just reported to guest code rather
+        // than terminating the process.
         write_linker_state!(linker_state, self, group_state, ctx);
 
         let mut link_state = InProgressLinkState::default();
@@ -1346,79 +1294,6 @@ impl Linker {
         Ok(())
     }
 
-    pub fn unload_module(
-        &self,
-        module_handle: ModuleHandle,
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<(), UnloadError> {
-        trace!(?module_handle, "Unloading module");
-
-        lock_instance_group_state!(
-            group_state_guard,
-            group_state,
-            self,
-            UnloadError::InstanceGroupIsDead
-        );
-
-        write_linker_state!(linker_state, self, group_state, ctx);
-
-        let Some(module) = linker_state.side_modules.get_mut(&module_handle) else {
-            return Err(UnloadError::InvalidModuleHandle);
-        };
-
-        module.num_references -= 1;
-
-        trace!(
-            references = module.num_references,
-            "Live references after unload"
-        );
-
-        // Module has more live references, so we're done
-        if module.num_references > 0 {
-            return Ok(());
-        }
-
-        trace!("No more references, will unload module now");
-
-        let mut store = ctx.as_store_mut();
-
-        // TODO: need to add support for this in wasix-libc, currently it's not
-        // exported from any side modules. Each side module must have its own
-        // __cxa_atexit and friends, and export its own __wasm_call_dtors.
-        trace!("Calling dtor function");
-        call_destructor_function(
-            &group_state.side_instances[&module_handle].instance,
-            &mut store,
-            "__wasm_call_dtors",
-        )?;
-
-        group_state.side_instances.remove(&module_handle);
-        let module = linker_state.side_modules.remove(&module_handle).unwrap();
-        linker_state
-            .side_modules_by_name
-            .retain(|_, handle| *handle != module_handle);
-
-        let memory = group_state.memory.clone();
-        linker_state
-            .memory_allocator
-            .deallocate(&memory, &mut store, module.memory_base)?;
-
-        // TODO: unload modules only needed by this one as well
-        // TODO: set function pointers from this module to invalid functions
-
-        self.synchronize_link_operation(
-            DlOperation::UnloadModules(vec![module_handle]),
-            linker_state,
-            group_state,
-            &ctx.data().process,
-            ctx.data().tid(),
-        );
-
-        trace!("Unload complete");
-
-        Ok(())
-    }
-
     // TODO: Support RTLD_NEXT
     /// Resolves an export from the module corresponding to the given module handle.
     /// Only functions and globals can be resolved.
@@ -1485,7 +1360,11 @@ impl Linker {
                 let func_ptr = group_state
                     .append_to_function_table(&mut store, func.clone())
                     .map_err(ResolveError::TableAllocationError)?;
-                trace!(?func_ptr, "Placed resolved function into table");
+                trace!(
+                    ?func_ptr,
+                    table_size = group_state.indirect_function_table.size(&store),
+                    "Placed resolved function into table"
+                );
                 linker_state.symbol_resolution_records.insert(
                     resolution_key,
                     SymbolResolutionResult::FunctionPointer {
@@ -1511,6 +1390,17 @@ impl Linker {
                 })
             }
         }
+    }
+
+    pub fn is_handle_valid(
+        &self,
+        handle: ModuleHandle,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<bool, LinkError> {
+        // Remember, trying to get a read lock here can deadlock if a dl op is pending
+        lock_instance_group_state!(guard, group_state, self, LinkError::InstanceGroupIsDead);
+        write_linker_state!(linker_state, self, group_state, ctx);
+        Ok(linker_state.side_modules.contains_key(&handle))
     }
 
     // Note: the caller needs to have applied the link operation beforehand to ensure
@@ -1948,18 +1838,8 @@ impl LinkerState {
 
         if let Some(handle) = self.side_modules_by_name.get(module_path) {
             let handle = *handle;
-            let module = self
-                .side_modules
-                .get_mut(&handle)
-                .expect("Internal error: side module names out of sync with side modules");
-            module.num_references += 1;
 
-            trace!(
-                ?module_path,
-                ?handle,
-                num_references = module.num_references,
-                "Module was already loaded, incremented reference count"
-            );
+            trace!(?module_path, ?handle, "Module was already loaded");
 
             return Ok(handle);
         }
@@ -2212,7 +2092,6 @@ impl InstanceGroupState {
             dylink_info,
             memory_base,
             table_base,
-            num_references: 1,
         };
 
         let dl_instance = DlInstance {
@@ -2387,20 +2266,10 @@ impl InstanceGroupState {
         Ok(())
     }
 
-    fn apply_unloaded_module(&mut self, module_handle: ModuleHandle) {
-        trace!(?module_handle, "Applying module unload");
-        if self.side_instances.remove(&module_handle).is_none() {
-            panic!(
-                "Internal error: module with handle {module_handle:?} \
-                does not exist in this group and can't be unloaded"
-            );
-        }
-    }
-
     fn apply_dl_operation(
         &mut self,
         linker_state: &LinkerState,
-        operation: DlOperation, // TODO: ... and a hundred more args
+        operation: DlOperation,
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<WasiEnv>,
     ) -> Result<(), LinkError> {
@@ -2430,11 +2299,6 @@ impl InstanceGroupState {
                 resolved_from,
                 function_table_index,
             } => self.apply_resolved_function(store, name, resolved_from, function_table_index)?,
-            DlOperation::UnloadModules(module_handles) => {
-                for handle in module_handles {
-                    self.apply_unloaded_module(handle);
-                }
-            }
         };
         trace!("Operation applied successfully");
         Ok(())
@@ -3088,10 +2952,6 @@ impl InstanceGroupState {
         requesting_module: ModuleHandle,
         name: String,
     ) -> Function {
-        // TODO: since the instances are kept in the linker, and they can have stub functions,
-        // and the stub functions reference the linker with a strong pointer, this probably
-        // creates a cycle and memory leak. We need to use weak pointers here if that is the case.
-
         // TODO: only search through needed modules for the symbol. This requires the implementation
         // of needing/needed relationships between modules.
         trace!(?requesting_module, name, "Generating stub function");
@@ -3103,7 +2963,6 @@ impl InstanceGroupState {
             env,
             ty.clone(),
             move |mut env: FunctionEnvMut<'_, WasiEnv>, params: &[Value]| {
-                // TODO: take resolution records into account here
                 let mk_error = || {
                     RuntimeError::user(Box::new(WasiError::DlSymbolResolutionFailed(name.clone())))
                 };
@@ -3571,24 +3430,6 @@ fn call_initialization_function(
         Err(ExportError::Missing(_)) => Ok(()),
         Err(ExportError::IncompatibleType) => {
             Err(LinkError::InitFuncWithInvalidSignature(name.to_string()))
-        }
-    }
-}
-
-fn call_destructor_function(
-    instance: &Instance,
-    store: &mut impl AsStoreMut,
-    name: &str,
-) -> Result<(), UnloadError> {
-    match instance.exports.get_typed_function::<(), ()>(store, name) {
-        Ok(f) => {
-            f.call(store)
-                .map_err(|e| UnloadError::DtorFunctionFailed(name.to_string(), e))?;
-            Ok(())
-        }
-        Err(ExportError::Missing(_)) => Ok(()),
-        Err(ExportError::IncompatibleType) => {
-            Err(UnloadError::DtorFuncWithInvalidSignature(name.to_string()))
         }
     }
 }

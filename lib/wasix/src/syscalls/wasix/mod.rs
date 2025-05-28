@@ -1,6 +1,6 @@
 mod callback_signal;
 mod chdir;
-mod dlclose;
+mod dl_invalid_handle;
 mod dlopen;
 mod dlsym;
 mod epoll_create;
@@ -82,7 +82,7 @@ mod tty_set;
 
 pub use callback_signal::*;
 pub use chdir::*;
-pub use dlclose::*;
+pub use dl_invalid_handle::*;
 pub use dlopen::*;
 pub use dlsym::*;
 pub use epoll_create::*;
