@@ -626,10 +626,10 @@ struct LinkerState {
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
 
-    // HACK: We need to ensure each new instance group instantiates modules in
-    // *exactly* the same order as every other instance group; This is because
-    // there appears to be a bug in wasmer where, if you instantiate in a different
-    // order, globals start getting messed up and modules see each other's globals.
+    // We used to have an issue where spawning instances out-of-order in new threads
+    // would break globals. That has since been fixed. However, spawning in the same
+    // order helps with diagnosing potential linker issues, so we're keeping the
+    // hack from back then.
     // To ensure the same order, we use a BTreeMap here, which means when we
     // iterate over it, we'll get the modules from lowest handle to highest, and
     // order is preserved.

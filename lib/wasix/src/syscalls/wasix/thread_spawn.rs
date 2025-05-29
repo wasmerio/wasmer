@@ -4,7 +4,6 @@ use super::*;
 #[cfg(feature = "journal")]
 use crate::journal::JournalEffector;
 use crate::{
-    capture_store_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::{
         task_manager::{TaskWasm, TaskWasmRunProperties},
@@ -163,7 +162,6 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
         return Err(Errno::Notcapable);
     }
     let thread_module = module_handles.module_clone();
-    let globals = capture_store_snapshot(&mut store);
     let spawn_type = match linker {
         Some(linker) => crate::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store),
         None => crate::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
@@ -176,7 +174,6 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     };
 
     let mut task_wasm = TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
-        .with_globals(globals)
         .with_memory(spawn_type);
 
     tasks.task_wasm(task_wasm).map_err(Into::<Errno>::into)?;
