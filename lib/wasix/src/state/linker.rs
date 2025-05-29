@@ -86,16 +86,17 @@
 //!
 //! Each instance of each group gets its own TLS area, so there are 4 cases to consider:
 //!     * Main instance of main module: TLS area will be allocated by the compiler, and be
-//!       placed into the memory region specified by the `dylink.0` section.
+//!       placed at the start of the memory region requested by the `dylink.0` section.
 //!     * Main instance of side modules: Almost same as main module, but tls_base will be
 //!       non-zero because side modules get a non-zero memory_base. It is very important
 //!       to note that the main instance of a side module lives in the instance group
 //!       that initially loads it in. This **does not** have to be the main instance
 //!       group.
-//!     * Worker threads of main module: Each worker thread gets its TLS area allocated
-//!       by the code in pthread_create, and a pointer to the TLS area is passed through
-//!       the thread start args.
-//!     * Worker threads of side modules: This is where the linker comes in. When the
+//!     * Other instances of main module: Each worker thread gets its TLS area
+//!       allocated by the code in pthread_create, and a pointer to the TLS area is passed
+//!       through the thread start args. This pointer is read by the code in thread_spawn,
+//!       and passed through to us as part of the environment's memory layout.
+//!     * Other instances of side modules: This is where the linker comes in. When the
 //!       new instance is created, the linker will call its `__wasix_init_tls` function,
 //!       which is responsible for setting up the TLS area for the thread.
 //!
@@ -277,7 +278,7 @@ use wasmer::{
     AsEngineRef, AsStoreMut, AsStoreRef, CompileError, ExportError, Exportable, Extern, ExternType,
     Function, FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports,
     Instance, InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag,
-    Type, Value, WASM_PAGE_SIZE,
+    Type, Value, WasmTypeList, WASM_PAGE_SIZE,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
@@ -404,18 +405,28 @@ pub enum LinkError {
 
     #[error("Failed to initialize WASI(X) module handles: {0}")]
     MainModuleHandleInitFailed(ExportError),
+
+    #[error("Module does not export a TLS initialization routine")]
+    MissingTlsInitializer,
 }
 
 #[derive(Debug)]
 enum PartiallyResolvedExport {
     Function(Function),
     Global(u64),
+    Tls {
+        // The offset relative to the TLS area of the instance. Kept so we
+        // can re-resolve for other instance groups.
+        offset: u64,
+        // The final address of the symbol for the current instance group.
+        final_addr: u64,
+    },
 }
 
 pub enum ResolvedExport {
     Function { func_ptr: u64 },
 
-    // Contains the offset of the global in memory, with memory_base accounted for
+    // Contains the offset of the global in memory, with memory_base/tls_base accounted for
     // See: https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md#exports
     Global { data_ptr: u64 },
 }
@@ -492,12 +503,25 @@ impl UnresolvedGlobal {
     }
 }
 
-// Used only when processing a module load operation from another instance group.
 #[derive(Debug)]
-struct PendingFunctionFromLoadDlOperation {
+struct PendingFunctionResolutionFromLinkerState {
     resolved_from: ModuleHandle,
     name: String,
     function_table_index: u32,
+}
+
+#[derive(Debug)]
+struct PendingTlsPointer {
+    global: Global,
+    resolved_from: ModuleHandle,
+    offset: u64,
+}
+
+// Used only when processing a module load operation from another instance group.
+#[derive(Debug, Default)]
+struct PendingResolutionsFromLinker {
+    functions: Vec<PendingFunctionResolutionFromLinkerState>,
+    tls: Vec<PendingTlsPointer>,
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
@@ -515,6 +539,7 @@ pub struct NeededSymbolResolutionKey {
 enum InProgressSymbolResolution {
     Function(ModuleHandle),
     StubFunction(FunctionType),
+    // May or may not be a TLS symbol.
     MemGlobal(ModuleHandle),
     FuncGlobal(ModuleHandle),
     UnresolvedMemGlobal,
@@ -562,6 +587,13 @@ pub enum SymbolResolutionResult {
     // The case of unresolved globals is not mentioned here, since it can't exist once
     // a link operation is complete.
     Memory(u64),
+    // The symbol was resolved to a global address, but the global is a TLS variable.
+    // Each instance of each module has a different TLS area, and TLS symbols must be
+    // resolved again every time.
+    Tls {
+        resolved_from: ModuleHandle,
+        offset: u64,
+    },
     // The symbol was resolved to a function export with the same name from this module.
     // it is expected that the symbol resolves to an export of the correct type.
     Function {
@@ -604,10 +636,13 @@ struct DlInstance {
     instance: Instance,
     #[allow(dead_code)]
     instance_handles: WasiModuleInstanceHandles,
+    tls_base: u64,
 }
 
 struct InstanceGroupState {
     main_instance: Option<Instance>,
+    main_instance_tls_base: u64,
+
     side_instances: HashMap<ModuleHandle, DlInstance>,
 
     stack_pointer: Global,
@@ -833,6 +868,9 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
+            // Every main instance's TLS area is at the start of its memory,
+            // which is 0 for the main module's main instance
+            main_instance_tls_base: MAIN_MODULE_MEMORY_BASE,
             side_instances: HashMap::new(),
             stack_pointer,
             memory: memory.clone(),
@@ -934,6 +972,7 @@ impl Linker {
             stack_upper: stack_high,
             stack_size: stack_high - stack_low,
             guard_size: 0,
+            tls_base: Some(MAIN_MODULE_MEMORY_BASE),
         };
         let module_handles = WasiModuleTreeHandles::Dynamic {
             linker: linker.clone(),
@@ -958,7 +997,7 @@ impl Linker {
         // _initialize or _start. More info:
         // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
         trace!("Calling data relocator function for main module");
-        call_initialization_function(&main_instance, store, "__wasm_apply_data_relocs")?;
+        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
 
         {
             let group_guard = linker.instance_group_state.lock().unwrap();
@@ -968,7 +1007,7 @@ impl Linker {
         }
 
         trace!("Calling main module's _initialize function");
-        call_initialization_function(&main_instance, store, "_initialize")?;
+        call_initialization_function::<()>(&main_instance, store, "_initialize")?;
 
         trace!("Link complete");
 
@@ -1041,9 +1080,15 @@ impl Linker {
         // Since threads initialize their own stack space, we can only rely on the layout being
         // initialized beforehand, which is the case with the thread_spawn syscall.
         // FIXME: this needs to become a parameter if we ever decouple the linker from WASIX
-        let (stack_low, stack_high) = {
+        let (stack_low, stack_high, tls_base) = {
             let layout = &func_env.env.as_ref(store).layout;
-            (layout.stack_lower, layout.stack_upper)
+            (
+                layout.stack_lower,
+                layout.stack_upper,
+                layout.tls_base.expect(
+                    "tls_base must be set in memory layout of new instance group's main instance",
+                ),
+            )
         };
 
         trace!(stack_low, stack_high, "Memory layout");
@@ -1064,6 +1109,7 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
+            main_instance_tls_base: tls_base,
             side_instances: HashMap::new(),
             stack_pointer,
             memory: memory.clone(),
@@ -1072,7 +1118,7 @@ impl Linker {
             recv_pending_operation: operation_rx,
         };
 
-        let mut pending_functions = vec![];
+        let mut pending_resolutions = PendingResolutionsFromLinker::default();
 
         let well_known_imports = [
             ("env", "__memory_base", MAIN_MODULE_MEMORY_BASE),
@@ -1091,7 +1137,7 @@ impl Linker {
             &mut imports,
             &func_env.env,
             &well_known_imports,
-            &mut pending_functions,
+            &mut pending_resolutions,
         )?;
 
         let main_instance = Instance::new(store, &main_module, &imports)?;
@@ -1105,12 +1151,12 @@ impl Linker {
                 store,
                 &func_env.env,
                 *side.0,
-                &mut pending_functions,
+                &mut pending_resolutions,
             )?;
         }
 
         trace!("Finalizing pending functions");
-        instance_group.finalize_pending_functions(&pending_functions, store)?;
+        instance_group.finalize_pending_resolutions_from_linker(&pending_resolutions, store)?;
 
         let linker = Self {
             linker_state: self.linker_state.clone(),
@@ -1303,12 +1349,12 @@ impl Linker {
 
         trace!("Calling data relocation functions");
         for instance in &new_instances {
-            call_initialization_function(instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function::<()>(instance, store, "__wasm_apply_data_relocs")?;
         }
 
         trace!("Calling ctor functions");
         for instance in &new_instances {
-            call_initialization_function(instance, store, "__wasm_call_ctors")?;
+            call_initialization_function::<()>(instance, store, "__wasm_call_ctors")?;
         }
 
         Ok(())
@@ -1333,6 +1379,8 @@ impl Linker {
 
         let resolution_key = SymbolResolutionKey::Requested(symbol.to_string());
 
+        lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
+
         if let Ok(linker_state) = self.linker_state.try_read() {
             if let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
                 trace!(?resolution, "Already have a resolution for this symbol");
@@ -1348,6 +1396,15 @@ impl Linker {
                     SymbolResolutionResult::Memory(addr) => {
                         return Ok(ResolvedExport::Global { data_ptr: *addr })
                     }
+                    SymbolResolutionResult::Tls {
+                        resolved_from,
+                        offset,
+                    } => {
+                        let tls_base = group_state.tls_base(*resolved_from);
+                        return Ok(ResolvedExport::Global {
+                            data_ptr: tls_base + offset,
+                        });
+                    }
                     r => panic!(
                         "Internal error: unexpected symbol resolution \
                         {r:?} for requested symbol {symbol}"
@@ -1355,8 +1412,6 @@ impl Linker {
                 }
             }
         }
-
-        lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
         write_linker_state!(linker_state, self, group_state, ctx);
 
@@ -1375,6 +1430,19 @@ impl Linker {
                     .insert(resolution_key, SymbolResolutionResult::Memory(addr));
 
                 Ok(ResolvedExport::Global { data_ptr: addr })
+            }
+            PartiallyResolvedExport::Tls { offset, final_addr } => {
+                linker_state.symbol_resolution_records.insert(
+                    resolution_key,
+                    SymbolResolutionResult::Tls {
+                        resolved_from,
+                        offset,
+                    },
+                );
+
+                Ok(ResolvedExport::Global {
+                    data_ptr: final_addr,
+                })
             }
             PartiallyResolvedExport::Function(func) => {
                 let func_ptr = group_state
@@ -1937,6 +2005,18 @@ impl InstanceGroupState {
         self.main_instance.as_ref()
     }
 
+    fn tls_base(&self, module_handle: ModuleHandle) -> u64 {
+        if module_handle == MAIN_MODULE_HANDLE {
+            // Main's TLS area is at the beginning of its memory
+            self.main_instance_tls_base
+        } else {
+            self.side_instances
+                .get(&module_handle)
+                .expect("Internal error: bad module handle")
+                .tls_base
+        }
+    }
+
     fn try_instance(&self, handle: ModuleHandle) -> Option<&Instance> {
         if handle == MAIN_MODULE_HANDLE {
             self.main_instance.as_ref()
@@ -2117,6 +2197,9 @@ impl InstanceGroupState {
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
+            // The TLS area of a side module's main instance is at the beginning
+            // of its memory
+            tls_base: memory_base,
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -2170,7 +2253,7 @@ impl InstanceGroupState {
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<WasiEnv>,
         module_handle: ModuleHandle,
-        pending_functions: &mut Vec<PendingFunctionFromLoadDlOperation>,
+        pending_resolutions: &mut PendingResolutionsFromLinker,
     ) -> Result<(), LinkError> {
         if self.side_instances.contains_key(&module_handle) {
             panic!(
@@ -2202,13 +2285,17 @@ impl InstanceGroupState {
             &mut imports,
             env,
             &well_known_imports,
-            pending_functions,
+            pending_resolutions,
         )?;
 
         let instance = Instance::new(store, &dl_module.module, &imports)?;
 
         // This is a non-main instance of a side module, so it needs a new TLS area
-        call_initialization_function(&instance, store, "__wasix_init_tls")?;
+        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?;
+
+        let Some(tls_base) = tls_base else {
+            return Err(LinkError::MissingTlsInitializer);
+        };
 
         let instance_handles =
             WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
@@ -2216,6 +2303,7 @@ impl InstanceGroupState {
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
+            tls_base: tls_base as u64,
         };
 
         self.side_instances.insert(module_handle, dl_instance);
@@ -2229,14 +2317,14 @@ impl InstanceGroupState {
         Ok(())
     }
 
-    fn finalize_pending_functions(
+    fn finalize_pending_resolutions_from_linker(
         &self,
-        pending_functions: &Vec<PendingFunctionFromLoadDlOperation>,
+        pending_resolutions: &PendingResolutionsFromLinker,
         store: &mut impl AsStoreMut,
     ) -> Result<(), LinkError> {
         trace!("Finalizing pending functions");
 
-        for pending in pending_functions {
+        for pending in &pending_resolutions.functions {
             let func = self
                 .instance(pending.resolved_from)
                 .exports
@@ -2252,6 +2340,13 @@ impl InstanceGroupState {
                 .map_err(LinkError::TableAllocationError)?;
 
             trace!(?pending, "Placed pending function in table");
+        }
+
+        for tls in &pending_resolutions.tls {
+            let tls_base = self.tls_base(tls.resolved_from);
+            let final_addr = tls_base + tls.offset;
+            set_integer_global(store, "<pending TLS global>", &tls.global, final_addr)?;
+            trace!(?tls, tls_base, final_addr, "Setting pending TLS global");
         }
 
         Ok(())
@@ -2305,7 +2400,7 @@ impl InstanceGroupState {
                 for handle in &module_handles {
                     self.allocate_function_table_for_existing_module(linker_state, store, *handle)?;
                 }
-                let mut pending_functions = vec![];
+                let mut pending_functions = PendingResolutionsFromLinker::default();
                 for handle in module_handles {
                     self.instantiate_side_module_from_linker(
                         linker_state,
@@ -2315,7 +2410,7 @@ impl InstanceGroupState {
                         &mut pending_functions,
                     )?;
                 }
-                self.finalize_pending_functions(&pending_functions, store)?;
+                self.finalize_pending_resolutions_from_linker(&pending_functions, store)?;
             }
             DlOperation::ResolveFunction {
                 name,
@@ -2523,22 +2618,45 @@ impl InstanceGroupState {
                             self.instance(*module_handle),
                             linker_state.dylink_info(*module_handle),
                             linker_state.memory_base(*module_handle),
+                            self.tls_base(*module_handle),
                             true,
                         )
                         .expect("Internal error: bad in-progress symbol resolution");
-                    let PartiallyResolvedExport::Global(addr) = export else {
-                        panic!("Internal error: bad in-progress symbol resolution");
-                    };
 
-                    trace!(?module_handle, ?import, addr, "Memory address");
+                    match export {
+                        PartiallyResolvedExport::Global(addr) => {
+                            trace!(?module_handle, ?import, addr, "Memory address");
 
-                    let global = define_integer_global_import(store, &import, addr).unwrap();
+                            let global =
+                                define_integer_global_import(store, &import, addr).unwrap();
 
-                    imports.define(import.module(), import.name(), global);
-                    linker_state.symbol_resolution_records.insert(
-                        SymbolResolutionKey::Needed(key.clone()),
-                        SymbolResolutionResult::Memory(addr),
-                    );
+                            imports.define(import.module(), import.name(), global);
+                            linker_state.symbol_resolution_records.insert(
+                                SymbolResolutionKey::Needed(key.clone()),
+                                SymbolResolutionResult::Memory(addr),
+                            );
+                        }
+
+                        PartiallyResolvedExport::Tls { offset, final_addr } => {
+                            trace!(?module_handle, ?import, offset, final_addr, "TLS address");
+
+                            let global =
+                                define_integer_global_import(store, &import, final_addr).unwrap();
+
+                            imports.define(import.module(), import.name(), global);
+                            linker_state.symbol_resolution_records.insert(
+                                SymbolResolutionKey::Needed(key.clone()),
+                                SymbolResolutionResult::Tls {
+                                    resolved_from: *module_handle,
+                                    offset,
+                                },
+                            );
+                        }
+
+                        PartiallyResolvedExport::Function(_) => {
+                            panic!("Internal error: bad in-progress symbol resolution")
+                        }
+                    }
                 }
 
                 InProgressSymbolResolution::UnresolvedMemGlobal => {
@@ -2605,7 +2723,7 @@ impl InstanceGroupState {
         imports: &mut Imports,
         env: &FunctionEnv<WasiEnv>,
         well_known_imports: &[(&str, &str, u64)],
-        pending_functions: &mut Vec<PendingFunctionFromLoadDlOperation>,
+        pending_resolutions: &mut PendingResolutionsFromLinker,
     ) -> Result<(), LinkError> {
         trace!(
             ?module_handle,
@@ -2821,11 +2939,13 @@ impl InstanceGroupState {
                             );
                             // Since we know the final value of the global, we can create it
                             // and just fill the function table in later
-                            pending_functions.push(PendingFunctionFromLoadDlOperation {
-                                resolved_from: *resolved_from,
-                                name: import.name().to_string(),
-                                function_table_index: *function_table_index,
-                            });
+                            pending_resolutions.functions.push(
+                                PendingFunctionResolutionFromLinkerState {
+                                    resolved_from: *resolved_from,
+                                    name: import.name().to_string(),
+                                    function_table_index: *function_table_index,
+                                },
+                            );
                         }
                     };
                     let global =
@@ -2834,6 +2954,18 @@ impl InstanceGroupState {
                 }
                 SymbolResolutionResult::Memory(addr) => {
                     let global = define_integer_global_import(store, &import, *addr)?;
+                    imports.define(import.module(), import.name(), global);
+                }
+                SymbolResolutionResult::Tls {
+                    resolved_from,
+                    offset,
+                } => {
+                    let global = define_integer_global_import(store, &import, 0)?;
+                    pending_resolutions.tls.push(PendingTlsPointer {
+                        global: global.clone(),
+                        resolved_from: *resolved_from,
+                        offset: *offset,
+                    });
                     imports.define(import.module(), import.name(), global);
                 }
             }
@@ -2859,6 +2991,7 @@ impl InstanceGroupState {
                 let instance = self
                     .try_instance(module_handle)
                     .ok_or(ResolveError::InvalidModuleHandle)?;
+                let tls_base = self.tls_base(module_handle);
                 let memory_base = linker_state.memory_base(module_handle);
                 let dylink_info = linker_state.dylink_info(module_handle);
                 Ok((
@@ -2869,6 +3002,7 @@ impl InstanceGroupState {
                         instance,
                         dylink_info,
                         memory_base,
+                        tls_base,
                         allow_hidden,
                     )?,
                     module_handle,
@@ -2885,6 +3019,7 @@ impl InstanceGroupState {
                         instance,
                         &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
+                        self.main_instance_tls_base,
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
@@ -2901,6 +3036,7 @@ impl InstanceGroupState {
                         &instance.instance,
                         &linker_state.side_modules[handle].dylink_info,
                         linker_state.memory_base(*handle),
+                        instance.tls_base,
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, *handle)),
@@ -2927,6 +3063,7 @@ impl InstanceGroupState {
         instance: &Instance,
         dylink_info: &DylinkInfo,
         memory_base: u64,
+        tls_base: u64,
         allow_hidden: bool,
     ) -> Result<PartiallyResolvedExport, ResolveError> {
         trace!(from = ?module_handle, symbol, "Resolving export from instance");
@@ -2959,9 +3096,32 @@ impl InstanceGroupState {
                     Value::I64(value) => value as u64,
                     _ => return Err(ResolveError::InvalidExportType(ty.clone())),
                 };
-                let final_value = value + memory_base;
-                trace!(from = ?module_handle, symbol, value, final_value, "Fount global");
-                Ok(PartiallyResolvedExport::Global(final_value))
+
+                let is_tls = dylink_info
+                    .export_metadata
+                    .get(symbol)
+                    .map(|flags| flags.contains(wasmparser::SymbolFlags::TLS))
+                    .unwrap_or(false);
+
+                if is_tls {
+                    let final_value = value + tls_base;
+                    trace!(
+                        from = ?module_handle,
+                        symbol,
+                        value,
+                        offset = value,
+                        final_value,
+                        "Found TLS global"
+                    );
+                    Ok(PartiallyResolvedExport::Tls {
+                        offset: value,
+                        final_addr: final_value,
+                    })
+                } else {
+                    let final_value = value + memory_base;
+                    trace!(from = ?module_handle, symbol, value, final_value, "Found global");
+                    Ok(PartiallyResolvedExport::Global(final_value))
+                }
             }
             ty => Err(ResolveError::InvalidExportType(ty.clone())),
         }
@@ -3186,6 +3346,27 @@ impl InstanceGroupState {
                     linker_state.symbol_resolution_records.insert(
                         SymbolResolutionKey::Needed(key.clone()),
                         SymbolResolutionResult::Memory(addr),
+                    );
+                }
+
+                (
+                    UnresolvedGlobal::Mem(key, global),
+                    Ok((PartiallyResolvedExport::Tls { offset, final_addr }, resolved_from)),
+                ) => {
+                    trace!(
+                        ?unresolved,
+                        ?resolved_from,
+                        offset,
+                        final_addr,
+                        "Resolved to TLS address"
+                    );
+                    set_integer_global(store, &key.import_name, global, final_addr)?;
+                    linker_state.symbol_resolution_records.insert(
+                        SymbolResolutionKey::Needed(key.clone()),
+                        SymbolResolutionResult::Tls {
+                            resolved_from,
+                            offset,
+                        },
                     );
                 }
 
@@ -3439,18 +3620,19 @@ fn set_integer_global(
     Ok(())
 }
 
-fn call_initialization_function(
+fn call_initialization_function<Ret: WasmTypeList>(
     instance: &Instance,
     store: &mut impl AsStoreMut,
     name: &str,
-) -> Result<(), LinkError> {
-    match instance.exports.get_typed_function::<(), ()>(store, name) {
+) -> Result<Option<Ret>, LinkError> {
+    match instance.exports.get_typed_function::<(), Ret>(store, name) {
         Ok(f) => {
-            f.call(store)
+            let ret = f
+                .call(store)
                 .map_err(|e| LinkError::InitFunctionFailed(name.to_string(), e))?;
-            Ok(())
+            Ok(Some(ret))
         }
-        Err(ExportError::Missing(_)) => Ok(()),
+        Err(ExportError::Missing(_)) => Ok(None),
         Err(ExportError::IncompatibleType) => {
             Err(LinkError::InitFuncWithInvalidSignature(name.to_string()))
         }

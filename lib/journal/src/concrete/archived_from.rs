@@ -614,6 +614,7 @@ impl From<JournalWasiMemoryLayout> for WasiMemoryLayout {
             stack_lower: value.stack_lower,
             guard_size: value.guard_size,
             stack_size: value.stack_size,
+            tls_base: None,
         }
     }
 }
@@ -625,6 +626,7 @@ impl From<&'_ ArchivedJournalWasiMemoryLayout> for WasiMemoryLayout {
             stack_lower: value.stack_lower.to_native(),
             guard_size: value.guard_size.to_native(),
             stack_size: value.stack_size.to_native(),
+            tls_base: None,
         }
     }
 }

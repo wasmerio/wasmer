@@ -78,6 +78,7 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
             stack_lower,
             guard_size,
             stack_size,
+            tls_base: Some(tls_base),
         }
     };
     tracing::trace!(

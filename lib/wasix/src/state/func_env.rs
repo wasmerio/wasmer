@@ -177,6 +177,7 @@ impl WasiFunctionEnv {
         let data_end = main_module_handles.data_end.clone();
         let stack_low = main_module_handles.stack_low.clone();
         let stack_high = main_module_handles.stack_high.clone();
+        let tls_base = main_module_handles.tls_base.clone();
 
         let env = self.data_mut(store);
         env.set_inner(new_inner);
@@ -251,11 +252,26 @@ impl WasiFunctionEnv {
                         stack_lower = 0;
                     }
 
+                    // Note: the TLS base global may not be initialized at the point when this
+                    // code runs, so we take a zero value to mean it wasn't initialized and we
+                    // don't know it. It's never actually zero for statically-linked, non-PIE
+                    // modules.
+                    let tls_base = if let Some(tls_base) = tls_base {
+                        match tls_base.get(store) {
+                            wasmer::Value::I32(a) => a as u64,
+                            wasmer::Value::I64(a) => a as u64,
+                            _ => 0,
+                        }
+                    } else {
+                        0
+                    };
+
                     WasiMemoryLayout {
                         stack_lower,
                         stack_upper,
                         stack_size: stack_upper - stack_lower,
                         guard_size: 0,
+                        tls_base: if tls_base == 0 { None } else { Some(tls_base) },
                     }
                 }
             };

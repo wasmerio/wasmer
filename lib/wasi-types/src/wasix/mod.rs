@@ -26,4 +26,9 @@ pub struct WasiMemoryLayout {
     pub guard_size: u64,
     /// Total size of the stack
     pub stack_size: u64,
+    /// Pointer to the thread's TLS (Thread Local Storage) memory, only filled in when it's known.
+    /// This is mainly used by the dynamic linker; especially so since we can't even find the TLS
+    /// area for a non-PIE module that doesn't export its __tls_base. For DL modules, this is the
+    /// TLS base of the main module.
+    pub tls_base: Option<u64>,
 }

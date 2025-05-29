@@ -34,6 +34,9 @@ pub struct WasiModuleInstanceHandles {
     /// Points to the higher end of the stack
     pub(crate) stack_high: Option<Global>,
 
+    /// Points to the start of the TLS area
+    pub(crate) tls_base: Option<Global>,
+
     /// Main function that will be invoked (name = "_start")
     pub(crate) start: Option<TypedFunction<(), ()>>,
 
@@ -114,6 +117,7 @@ impl WasiModuleInstanceHandles {
             data_end: instance.exports.get_global("__data_end").cloned().ok(),
             stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
             stack_high: instance.exports.get_global("__stack_high").cloned().ok(),
+            tls_base: instance.exports.get_global("__tls_base").cloned().ok(),
             start: instance.exports.get_typed_function(store, "_start").ok(),
             initialize: instance
                 .exports
