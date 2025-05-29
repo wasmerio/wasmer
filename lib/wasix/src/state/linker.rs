@@ -82,6 +82,26 @@
 //! [`Signal::Sigwakeup`](wasmer_wasix_types::wasi::Signal::Sigwakeup) signal is sent to
 //! all threads when a DL operation needs to be synchronized.
 //!
+//! # About TLS
+//!
+//! Each instance of each group gets its own TLS area, so there are 4 cases to consider:
+//!     * Main instance of main module: TLS area will be allocated by the compiler, and be
+//!       placed into the memory region specified by the `dylink.0` section.
+//!     * Main instance of side modules: Almost same as main module, but tls_base will be
+//!       non-zero because side modules get a non-zero memory_base. It is very important
+//!       to note that the main instance of a side module lives in the instance group
+//!       that initially loads it in. This **does not** have to be the main instance
+//!       group.
+//!     * Worker threads of main module: Each worker thread gets its TLS area allocated
+//!       by the code in pthread_create, and a pointer to the TLS area is passed through
+//!       the thread start args.
+//!     * Worker threads of side modules: This is where the linker comes in. When the
+//!       new instance is created, the linker will call its `__wasix_init_tls` function,
+//!       which is responsible for setting up the TLS area for the thread.
+//!
+//! Since we only want to call `__wasix_init_tls` for non-main instances of side modules,
+//! it is enough to call it only within [`InstanceGroupState::instantiate_side_module_from_linker`].
+//!
 //! # Module Loading
 //!
 //! Module loading happens as an orchestrated effort between the shared linker state, the
@@ -2186,6 +2206,9 @@ impl InstanceGroupState {
         )?;
 
         let instance = Instance::new(store, &dl_module.module, &imports)?;
+
+        // This is a non-main instance of a side module, so it needs a new TLS area
+        call_initialization_function(&instance, store, "__wasix_init_tls")?;
 
         let instance_handles =
             WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
