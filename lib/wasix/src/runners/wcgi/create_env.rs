@@ -1,8 +1,10 @@
 use virtual_fs::Pipe;
 
 use crate::{
-    capabilities::Capabilities, http::HttpClientCapabilityV1,
-    runners::wcgi::callbacks::CreateEnvResult, WasiEnvBuilder,
+    capabilities::Capabilities,
+    http::{client_builder::ClientBuilderConfig, HttpClientCapabilityV1},
+    runners::wcgi::callbacks::CreateEnvResult,
+    WasiEnvBuilder,
 };
 
 use super::{callbacks::CreateEnvConfig, RecycleEnvConfig};
@@ -21,7 +23,7 @@ pub(crate) async fn default_create_env(conf: CreateEnvConfig) -> anyhow::Result<
     let (res_body_sender, res_body_receiver) = Pipe::channel();
     let (stderr_sender, stderr_receiver) = Pipe::channel();
 
-    let mut builder = WasiEnvBuilder::new(&conf.program_name);
+    let mut builder = WasiEnvBuilder::new(&conf.program_name, &ClientBuilderConfig::default());
 
     (conf.setup_builder)(&mut builder)?;
 
