@@ -27,7 +27,9 @@ pub fn callback_signal<M: MemorySize>(
     };
     Span::current().record("name", name.as_str());
 
-    let funct = unsafe { env.inner() }
+    let funct = env
+        .inner()
+        .main_module_instance_handles()
         .instance
         .exports
         .get_typed_function(&ctx, &name)
@@ -35,12 +37,13 @@ pub fn callback_signal<M: MemorySize>(
     Span::current().record("funct_is_some", funct.is_some());
 
     {
-        let mut inner = ctx.data_mut().try_inner_mut().unwrap();
+        let mut env_inner = ctx.data_mut().inner_mut();
+        let inner = env_inner.main_module_instance_handles_mut();
         inner.signal = funct;
         inner.signal_set = true;
     }
 
-    let _ = unsafe { WasiEnv::process_signals_and_exit(&mut ctx)? };
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     Ok(())
 }

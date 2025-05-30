@@ -1,22 +1,23 @@
-use std::sync::Arc;
-
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory,
+    Module, Store,
 };
-use wasmer_wasix_types::wasi::ExitCode;
+use wasmer_wasix_types::{wasi::ExitCode, wasix::WasiMemoryLayout};
 
 #[allow(unused_imports)]
 use crate::os::task::thread::RewindResultType;
 #[cfg(feature = "journal")]
 use crate::syscalls::restore_snapshot;
 use crate::{
-    import_object_for_all_wasi_versions,
     runtime::task_manager::SpawnMemoryTypeOrStore,
-    state::WasiInstanceHandles,
+    state::WasiModuleTreeHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
-    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiModuleInstanceHandles,
+    WasiRuntimeError, WasiThreadError,
 };
+
+use super::Linker;
 
 /// The default stack size for WASIX - the number itself is the default that compilers
 /// have used in the past when compiling WASM apps.
@@ -44,6 +45,8 @@ impl WasiFunctionEnv {
         store_snapshot: Option<StoreSnapshot>,
         spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
+        call_initialize: bool,
+        parent_linker_and_ctx: Option<(Linker, &mut FunctionEnvMut<WasiEnv>)>,
     ) -> Result<(Self, Store), WasiThreadError> {
         // Create a new store and put the memory object in it
         // (but only if it has imported memory)
@@ -73,31 +76,17 @@ impl WasiFunctionEnv {
 
         let mut store = store.unwrap_or_else(|| env.runtime().new_store());
 
-        // Build the context object and import the memory
-        let mut ctx = WasiFunctionEnv::new(&mut store, env);
-        let (mut import_object, init) =
-            import_object_for_all_wasi_versions(&module, &mut store, &ctx.env);
-        if let Some(memory) = memory.clone() {
-            import_object.define("env", "memory", memory);
-        }
+        let (_, ctx) = env.instantiate(
+            module,
+            &mut store,
+            memory,
+            update_layout,
+            call_initialize,
+            parent_linker_and_ctx,
+        )?;
 
-        let instance = Instance::new(&mut store, &module, &import_object).map_err(|err| {
-            tracing::warn!("failed to create instance - {}", err);
-            WasiThreadError::InstanceCreateFailed(Box::new(err))
-        })?;
-
-        init(&instance, &store).map_err(|err| {
-            tracing::warn!("failed to init instance - {}", err);
-            WasiThreadError::InitFailed(Arc::new(err))
-        })?;
-
-        // Initialize the WASI environment
-        ctx.initialize_with_memory(&mut store, instance, memory, update_layout)
-            .map_err(|err| {
-                tracing::warn!("failed initialize environment - {}", err);
-                WasiThreadError::ExportError(err)
-            })?;
-
+        // FIXME: shouldn't this happen _before_ instantiating, so the startup code in the instance
+        // has access to the globals?
         // Set all the globals
         if let Some(snapshot) = store_snapshot {
             restore_store_snapshot(&mut store, &snapshot);
@@ -134,27 +123,12 @@ impl WasiFunctionEnv {
     /// (this must be executed before attempting to use it)
     /// (as the stores can not by themselves be passed between threads we can store the module
     ///  in a thread-local variables and use it later - for multithreading)
+    // FIXME: this probably doesn't work with WASIX modules, since they import their memories?
     pub fn initialize(
         &mut self,
         store: &mut impl AsStoreMut,
         instance: Instance,
     ) -> Result<(), ExportError> {
-        self.initialize_with_memory(store, instance, None, true)
-    }
-
-    /// Initializes the WasiEnv using the instance exports and a provided optional memory
-    /// (this must be executed before attempting to use it)
-    /// (as the stores can not by themselves be passed between threads we can store the module
-    ///  in a thread-local variables and use it later - for multithreading)
-    pub fn initialize_with_memory(
-        &mut self,
-        store: &mut impl AsStoreMut,
-        instance: Instance,
-        memory: Option<Memory>,
-        update_layout: bool,
-    ) -> Result<(), ExportError> {
-        let is_wasix_module = crate::utils::is_wasix_module(instance.module());
-
         let exported_memory = instance
             .exports
             .iter()
@@ -165,23 +139,45 @@ impl WasiFunctionEnv {
                     None
                 }
             })
-            .next();
-        let memory = match (exported_memory, memory) {
-            (Some(memory), _) => memory,
-            (None, Some(memory)) => memory,
-            (None, None) => {
-                return Err(ExportError::Missing(
-                    "No imported or exported memory found".to_string(),
-                ))
-            }
-        };
+            .next()
+            .ok_or_else(|| ExportError::Missing("No exported memory found".to_string()))?;
 
-        let new_inner = WasiInstanceHandles::new(memory, store, instance);
+        self.initialize_handles_and_layout(
+            store,
+            instance.clone(),
+            WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
+                exported_memory,
+                store,
+                instance,
+            )),
+            None,
+            true,
+        )
+    }
 
-        let stack_pointer = new_inner.stack_pointer.clone();
-        let data_end = new_inner.data_end.clone();
-        let stack_low = new_inner.stack_low.clone();
-        let stack_high = new_inner.stack_high.clone();
+    /// Initializes the WasiEnv using the instance exports and a provided optional memory
+    /// (this must be executed before attempting to use it)
+    /// (as the stores can not by themselves be passed between threads we can store the module
+    ///  in a thread-local variables and use it later - for multithreading)
+    // FIXME: Move this code to somewhere that makes sense (in WasiEnv?)
+    pub fn initialize_handles_and_layout(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        instance: Instance,
+        handles: WasiModuleTreeHandles,
+        stack_layout: Option<WasiMemoryLayout>,
+        update_layout: bool,
+    ) -> Result<(), ExportError> {
+        let is_wasix_module = crate::utils::is_wasix_module(instance.module());
+
+        let new_inner = handles;
+
+        let main_module_handles = new_inner.main_module_instance_handles();
+        let stack_pointer = main_module_handles.stack_pointer.clone();
+        let data_end = main_module_handles.data_end.clone();
+        let stack_low = main_module_handles.stack_low.clone();
+        let stack_high = main_module_handles.stack_high.clone();
+        let tls_base = main_module_handles.tls_base.clone();
 
         let env = self.data_mut(store);
         env.set_inner(new_inner);
@@ -190,74 +186,102 @@ impl WasiFunctionEnv {
 
         // If the stack offset and size is not set then do so
         if update_layout {
-            // Set the base stack
-            let stack_base = if let Some(stack_high) = stack_high {
-                match stack_high.get(store) {
-                    wasmer::Value::I32(a) => a as u64,
-                    wasmer::Value::I64(a) => a as u64,
-                    _ => DEFAULT_STACK_BASE,
+            let new_layout = match stack_layout {
+                Some(layout) => layout,
+                None => {
+                    // Set the base stack
+                    let stack_upper = if let Some(stack_high) = stack_high {
+                        match stack_high.get(store) {
+                            wasmer::Value::I32(a) => a as u64,
+                            wasmer::Value::I64(a) => a as u64,
+                            _ => DEFAULT_STACK_BASE,
+                        }
+                    } else if let Some(stack_pointer) = stack_pointer {
+                        match stack_pointer.get(store) {
+                            wasmer::Value::I32(a) => a as u64,
+                            wasmer::Value::I64(a) => a as u64,
+                            _ => DEFAULT_STACK_BASE,
+                        }
+                    } else {
+                        DEFAULT_STACK_BASE
+                    };
+
+                    if stack_upper == 0 {
+                        return Err(ExportError::Missing(
+                            "stack_high or stack_pointer is not set to the upper stack range"
+                                .to_string(),
+                        ));
+                    }
+
+                    let mut stack_lower = if let Some(stack_low) = stack_low {
+                        match stack_low.get(store) {
+                            wasmer::Value::I32(a) => a as u64,
+                            wasmer::Value::I64(a) => a as u64,
+                            _ => 0,
+                        }
+                    } else if let Some(data_end) = data_end {
+                        let data_end = match data_end.get(store) {
+                            wasmer::Value::I32(a) => a as u64,
+                            wasmer::Value::I64(a) => a as u64,
+                            _ => 0,
+                        };
+                        // It's possible for the data section to be above the stack, we check for that here and
+                        // if it is, we'll assume the stack starts at address 0
+                        if data_end >= stack_upper {
+                            0
+                        } else {
+                            data_end
+                        }
+                    } else {
+                        // clang-16 and higher generate the `__stack_low` global, and it can be exported with
+                        // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
+                        // and can be exported if `__stack_low` is not available.
+                        if self.data(store).will_use_asyncify() {
+                            tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                        }
+                        0
+                    };
+
+                    if stack_lower >= stack_upper {
+                        if self.data(store).will_use_asyncify() {
+                            tracing::warn!(
+                                "Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                                unwinding may cause memory corruption"
+                            );
+                        }
+                        stack_lower = 0;
+                    }
+
+                    // Note: the TLS base global may not be initialized at the point when this
+                    // code runs, so we take a zero value to mean it wasn't initialized and we
+                    // don't know it. It's never actually zero for statically-linked, non-PIE
+                    // modules.
+                    let tls_base = if let Some(tls_base) = tls_base {
+                        match tls_base.get(store) {
+                            wasmer::Value::I32(a) => a as u64,
+                            wasmer::Value::I64(a) => a as u64,
+                            _ => 0,
+                        }
+                    } else {
+                        0
+                    };
+
+                    WasiMemoryLayout {
+                        stack_lower,
+                        stack_upper,
+                        stack_size: stack_upper - stack_lower,
+                        guard_size: 0,
+                        tls_base: if tls_base == 0 { None } else { Some(tls_base) },
+                    }
                 }
-            } else if let Some(stack_pointer) = stack_pointer {
-                match stack_pointer.get(store) {
-                    wasmer::Value::I32(a) => a as u64,
-                    wasmer::Value::I64(a) => a as u64,
-                    _ => DEFAULT_STACK_BASE,
-                }
-            } else {
-                DEFAULT_STACK_BASE
             };
-
-            if stack_base == 0 {
-                return Err(ExportError::Missing(
-                    "stack_high or stack_pointer is not set to the upper stack range".to_string(),
-                ));
-            }
-
-            let mut stack_lower = if let Some(stack_low) = stack_low {
-                match stack_low.get(store) {
-                    wasmer::Value::I32(a) => a as u64,
-                    wasmer::Value::I64(a) => a as u64,
-                    _ => 0,
-                }
-            } else if let Some(data_end) = data_end {
-                let data_end = match data_end.get(store) {
-                    wasmer::Value::I32(a) => a as u64,
-                    wasmer::Value::I64(a) => a as u64,
-                    _ => 0,
-                };
-                // It's possible for the data section to be above the stack, we check for that here and
-                // if it is, we'll assume the stack starts at address 0
-                if data_end >= stack_base {
-                    0
-                } else {
-                    data_end
-                }
-            } else {
-                // clang-16 and higher generate the `__stack_low` global, and it can be exported with
-                // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
-                // and can be exported if `__stack_low` is not available.
-                if self.data(store).will_use_asyncify() {
-                    tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
-                }
-                0
-            };
-
-            if stack_lower >= stack_base {
-                if self.data(store).will_use_asyncify() {
-                    tracing::warn!(
-                        "Detected lower end of stack to be above higher end, ignoring stack_lower; \
-                        unwinding may cause memory corruption"
-                    );
-                }
-                stack_lower = 0;
-            }
 
             // Update the stack layout which is need for asyncify
             let env = self.data_mut(store);
             let tid = env.tid();
             let layout = &mut env.layout;
-            layout.stack_upper = stack_base;
-            layout.stack_lower = stack_lower;
+            layout.stack_upper = new_layout.stack_upper;
+            layout.stack_lower = new_layout.stack_lower;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
 
             // Replace the thread object itself
@@ -311,6 +335,14 @@ impl WasiFunctionEnv {
             self.data(store).pid(),
             self.data(store).tid()
         );
+
+        if let Some(linker) = self.data(store).inner().linker().cloned() {
+            // Note: this call will also process pending dl operations, hence unblocking
+            // other threads that may be waiting for this one to pick the operation up
+            if let Err(e) = linker.shutdown_instance_group(&mut self.env.clone().into_mut(store)) {
+                tracing::warn!("Failed to shutdown linker instance group: {e:?}");
+            }
+        }
 
         // Cleans up all the open files (if this is the main thread)
         self.data(store).blocking_on_exit(process_exit_code);

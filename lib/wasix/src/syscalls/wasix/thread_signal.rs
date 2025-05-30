@@ -20,7 +20,7 @@ pub fn thread_signal(
 
     let env = ctx.data();
 
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     Ok(Errno::Success)
 }

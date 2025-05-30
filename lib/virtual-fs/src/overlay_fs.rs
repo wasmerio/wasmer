@@ -1084,7 +1084,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         struct IterFilesystems<'a, S>(&'a S);
-        impl<'a, S> Debug for IterFilesystems<'a, S>
+        impl<S> Debug for IterFilesystems<'_, S>
         where
             S: for<'b> FileSystems<'b>,
         {

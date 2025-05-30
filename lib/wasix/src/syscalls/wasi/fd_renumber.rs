@@ -14,6 +14,8 @@ pub fn fd_renumber(
     from: WasiFd,
     to: WasiFd,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let ret = fd_renumber_internal(&mut ctx, from, to)?;
     let env = ctx.data();
 

@@ -67,7 +67,7 @@ impl Journal for PrintingJournal {
     }
 }
 
-impl<'a> fmt::Display for JournalEntry<'a> {
+impl fmt::Display for JournalEntry<'_> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             JournalEntry::InitModuleV1 { wasm_hash } => {

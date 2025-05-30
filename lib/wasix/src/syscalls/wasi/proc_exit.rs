@@ -13,6 +13,8 @@ pub fn proc_exit<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     code: ExitCode,
 ) -> Result<(), WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     debug!(%code);
 
     // If we are in a vfork we need to return to the point we left off

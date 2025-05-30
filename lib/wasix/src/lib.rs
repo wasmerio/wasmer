@@ -96,8 +96,8 @@ pub use crate::{
     rewind::*,
     runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
-        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
-        WasiStateCreationError, ALL_RIGHTS,
+        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiModuleInstanceHandles,
+        WasiModuleTreeHandles, WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,
@@ -120,6 +120,8 @@ pub enum WasiError {
     DeepSleep(DeepSleepWork),
     #[error("The WASI version could not be determined")]
     UnknownWasiVersion,
+    #[error("Dynamically-linked symbol not found or has bad type: {0}")]
+    DlSymbolResolutionFailed(String),
 }
 
 pub type WasiResult<T> = Result<Result<T, Errno>, WasiError>;
@@ -251,19 +253,19 @@ impl SpawnError {
 
 #[derive(thiserror::Error, Debug)]
 pub enum WasiRuntimeError {
-    #[error("WASI state setup failed")]
+    #[error("WASI state setup failed: {0}")]
     Init(#[from] WasiStateCreationError),
-    #[error("Loading exports failed")]
+    #[error("Loading exports failed: {0}")]
     Export(#[from] wasmer::ExportError),
-    #[error("Instantiation failed")]
+    #[error("Instantiation failed: {0}")]
     Instantiation(#[from] wasmer::InstantiationError),
-    #[error("WASI error")]
+    #[error("WASI error: {0}")]
     Wasi(#[from] WasiError),
-    #[error("Process manager error")]
+    #[error("Process manager error: {0}")]
     ControlPlane(#[from] ControlPlaneError),
     #[error("{0}")]
     Runtime(#[from] RuntimeError),
-    #[error("Memory access error")]
+    #[error("Memory access error: {0}")]
     Thread(#[from] WasiThreadError),
     #[error("{0}")]
     Anyhow(#[from] Arc<anyhow::Error>),
@@ -566,6 +568,9 @@ fn wasix_exports_32(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "tty_set" => Function::new_typed_with_env(&mut store, env, tty_set::<Memory32>),
         "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd::<Memory32>),
         "chdir" => Function::new_typed_with_env(&mut store, env, chdir::<Memory32>),
+        "dl_invalid_handle" => Function::new_typed_with_env(&mut store, env, dl_invalid_handle),
+        "dlopen" => Function::new_typed_with_env(&mut store, env, dlopen::<Memory32>),
+        "dlsym" => Function::new_typed_with_env(&mut store, env, dlsym::<Memory32>),
         "callback_signal" => Function::new_typed_with_env(&mut store, env, callback_signal::<Memory32>),
         "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory32>),
         "thread_spawn_v2" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory32>),
@@ -698,6 +703,9 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
         "tty_set" => Function::new_typed_with_env(&mut store, env, tty_set::<Memory64>),
         "getcwd" => Function::new_typed_with_env(&mut store, env, getcwd::<Memory64>),
         "chdir" => Function::new_typed_with_env(&mut store, env, chdir::<Memory64>),
+        "dl_invalid_handle" => Function::new_typed_with_env(&mut store, env, dl_invalid_handle),
+        "dlopen" => Function::new_typed_with_env(&mut store, env, dlopen::<Memory64>),
+        "dlsym" => Function::new_typed_with_env(&mut store, env, dlsym::<Memory64>),
         "callback_signal" => Function::new_typed_with_env(&mut store, env, callback_signal::<Memory64>),
         "thread_spawn" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory64>),
         "thread_spawn_v2" => Function::new_typed_with_env(&mut store, env, thread_spawn_v2::<Memory64>),
@@ -757,27 +765,13 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     namespace
 }
 
-pub type InstanceInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
-
-type ModuleInitializer =
-    Box<dyn FnOnce(&wasmer::Instance, &dyn wasmer::AsStoreRef) -> Result<(), anyhow::Error>>;
-
-/// No-op module initializer.
-fn stub_initializer(
-    _instance: &wasmer::Instance,
-    _store: &dyn wasmer::AsStoreRef,
-) -> Result<(), anyhow::Error> {
-    Ok(())
-}
-
 // TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 fn import_object_for_all_wasi_versions(
     _module: &wasmer::Module,
     store: &mut impl AsStoreMut,
     env: &FunctionEnv<WasiEnv>,
-) -> (Imports, ModuleInitializer) {
+) -> Imports {
     let exports_wasi_generic = wasi_exports_generic(store, env);
     let exports_wasi_unstable = wasi_unstable_exports(store, env);
     let exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
@@ -794,9 +788,7 @@ fn import_object_for_all_wasi_versions(
         "wasix_64v1" => exports_wasix_64v1,
     };
 
-    let init = Box::new(stub_initializer) as ModuleInitializer;
-
-    (imports, init)
+    imports
 }
 
 /// Combines a state generating function with the import list for legacy WASI

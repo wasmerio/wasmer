@@ -3,10 +3,9 @@
 use std::{path::PathBuf, sync::Arc};
 
 use anyhow::{Context, Error};
-use futures::future::Either;
 use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
-use wasmer::{Extern, Module};
+use wasmer::{Engine, Module};
 use wasmer_types::ModuleHash;
 use webc::metadata::{annotations::Wasi, Command};
 
@@ -27,6 +26,16 @@ pub struct WasiRunner {
     stdin: Option<ArcBoxFile>,
     stdout: Option<ArcBoxFile>,
     stderr: Option<ArcBoxFile>,
+}
+
+pub enum PackageOrHash<'a> {
+    Package(&'a BinaryPackage),
+    Hash(ModuleHash),
+}
+
+pub enum RuntimeOrEngine {
+    Runtime(Arc<dyn Runtime + Send + Sync>),
+    Engine(Engine),
 }
 
 impl WasiRunner {
@@ -238,31 +247,28 @@ impl WasiRunner {
         self
     }
 
-    /// Add an item to the list of importable items provided to the instance.
-    pub fn with_import(
-        &mut self,
-        namespace: impl Into<String>,
-        name: impl Into<String>,
-        value: impl Into<Extern>,
-    ) -> &mut Self {
-        self.with_imports([((namespace, name), value)])
-    }
+    fn ensure_tokio_runtime() -> Option<tokio::runtime::Runtime> {
+        #[cfg(feature = "sys-thread")]
+        {
+            if tokio::runtime::Handle::try_current().is_ok() {
+                return None;
+            }
 
-    /// Add multiple import functions.
-    ///
-    /// This method will accept a [`&Imports`][wasmer::Imports] object.
-    pub fn with_imports<I, S1, S2, E>(&mut self, imports: I) -> &mut Self
-    where
-        I: IntoIterator<Item = ((S1, S2), E)>,
-        S1: Into<String>,
-        S2: Into<String>,
-        E: Into<Extern>,
-    {
-        let imports = imports
-            .into_iter()
-            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
-        self.wasi.additional_imports.extend(imports);
-        self
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect(
+                    "Failed to build a multi-threaded tokio runtime. This is necessary \
+                for WASIX to work. You can provide a tokio runtime by building one \
+                yourself and entering it before using WasiRunner.",
+                );
+            Some(rt)
+        }
+
+        #[cfg(not(feature = "sys-thread"))]
+        {
+            None
+        }
     }
 
     #[tracing::instrument(level = "debug", skip_all)]
@@ -270,20 +276,29 @@ impl WasiRunner {
         &self,
         program_name: &str,
         wasi: &Wasi,
-        pkg_or_module_hash: Either<&BinaryPackage, ModuleHash>,
-        runtime: Arc<dyn Runtime + Send + Sync>,
+        pkg_or_hash: PackageOrHash,
+        runtime_or_engine: RuntimeOrEngine,
         root_fs: Option<TmpFileSystem>,
     ) -> Result<WasiEnvBuilder, anyhow::Error> {
-        let mut builder = WasiEnvBuilder::new(program_name).runtime(runtime);
+        let mut builder = WasiEnvBuilder::new(program_name);
 
-        let container_fs = match pkg_or_module_hash {
-            Either::Left(pkg) => {
+        match runtime_or_engine {
+            RuntimeOrEngine::Runtime(runtime) => {
+                builder.set_runtime(runtime);
+            }
+            RuntimeOrEngine::Engine(engine) => {
+                builder.set_engine(engine);
+            }
+        }
+
+        let container_fs = match pkg_or_hash {
+            PackageOrHash::Package(pkg) => {
                 builder.add_webc(pkg.clone());
                 builder.set_module_hash(pkg.hash());
                 builder.include_packages(pkg.package_ids.clone());
                 Some(Arc::clone(&pkg.webc_fs))
             }
-            Either::Right(hash) => {
+            PackageOrHash::Hash(hash) => {
                 builder.set_module_hash(hash);
                 None
             }
@@ -319,18 +334,22 @@ impl WasiRunner {
 
     pub fn run_wasm(
         &self,
-        runtime: Arc<dyn Runtime + Send + Sync>,
+        runtime_or_engine: RuntimeOrEngine,
         program_name: &str,
         module: Module,
         module_hash: ModuleHash,
     ) -> Result<(), Error> {
+        // Just keep the runtime and enter guard alive until we're done running the module
+        let tokio_runtime = Self::ensure_tokio_runtime();
+        let _guard = tokio_runtime.as_ref().map(|rt| rt.enter());
+
         let wasi = webc::metadata::annotations::Wasi::new(program_name);
 
         let mut builder = self.prepare_webc_env(
             program_name,
             &wasi,
-            Either::Right(module_hash),
-            runtime.clone(),
+            PackageOrHash::Hash(module_hash),
+            runtime_or_engine,
             None,
         )?;
 
@@ -372,12 +391,124 @@ impl WasiRunner {
         }
 
         let env = builder.build()?;
+        let runtime = env.runtime.clone();
         let tasks = runtime.task_manager().clone();
 
         let exit_code = tasks.spawn_and_block_on(
             async move {
                 let mut task_handle = crate::bin_factory::spawn_exec_module(module, env, &runtime)
                     .context("Spawn failed")?;
+
+                #[cfg(feature = "ctrlc")]
+                task_handle.install_ctrlc_handler();
+
+                task_handle
+                    .wait_finished()
+                    .await
+                    .map_err(|err| {
+                        // We do our best to recover the error
+                        let msg = err.to_string();
+                        let weak = Arc::downgrade(&err);
+                        Arc::into_inner(err).unwrap_or_else(|| {
+                            weak.upgrade()
+                                .map(|err| wasi_runtime_error_to_owned(&err))
+                                .unwrap_or_else(|| {
+                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
+                                        "{}", msg
+                                    )))
+                                })
+                        })
+                    })
+                    .context("Unable to wait for the process to exit")
+            }
+            .in_current_span(),
+        )??;
+
+        if exit_code.raw() == 0 {
+            Ok(())
+        } else {
+            Err(WasiRuntimeError::Wasi(crate::WasiError::Exit(exit_code)).into())
+        }
+    }
+
+    pub fn run_command(
+        &mut self,
+        command_name: &str,
+        pkg: &BinaryPackage,
+        runtime_or_engine: RuntimeOrEngine,
+    ) -> Result<(), Error> {
+        // Just keep the runtime and enter guard alive until we're done running the module
+        let tokio_runtime = Self::ensure_tokio_runtime();
+        let _guard = tokio_runtime.as_ref().map(|rt| rt.enter());
+
+        let cmd = pkg
+            .get_command(command_name)
+            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
+        let wasi = cmd
+            .metadata()
+            .annotation("wasi")?
+            .unwrap_or_else(|| Wasi::new(command_name));
+
+        let exec_name = if let Some(exec_name) = wasi.exec_name.as_ref() {
+            exec_name
+        } else {
+            command_name
+        };
+
+        #[allow(unused_mut)]
+        let mut builder = self
+            .prepare_webc_env(
+                exec_name,
+                &wasi,
+                PackageOrHash::Package(pkg),
+                runtime_or_engine,
+                None,
+            )
+            .context("Unable to prepare the WASI environment")?;
+
+        #[cfg(feature = "journal")]
+        {
+            for journal in self.wasi.read_only_journals.iter().cloned() {
+                builder.add_read_only_journal(journal);
+            }
+            for journal in self.wasi.writable_journals.iter().cloned() {
+                builder.add_writable_journal(journal);
+            }
+
+            if !self.wasi.snapshot_on.is_empty() {
+                for trigger in self.wasi.snapshot_on.iter().cloned() {
+                    builder.add_snapshot_trigger(trigger);
+                }
+            } else if !self.wasi.writable_journals.is_empty() {
+                for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+                    builder.add_snapshot_trigger(on);
+                }
+            }
+
+            if let Some(period) = self.wasi.snapshot_interval {
+                if self.wasi.writable_journals.is_empty() {
+                    return Err(anyhow::format_err!(
+                            "If you specify a snapshot interval then you must also specify a journal file"
+                        ));
+                }
+                builder.with_snapshot_interval(period);
+            }
+
+            builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
+        }
+
+        let env = builder.build()?;
+        let runtime = env.runtime.clone();
+        let command_name = command_name.to_string();
+        let tasks = runtime.task_manager().clone();
+        let pkg = pkg.clone();
+
+        let exit_code = tasks.spawn_and_block_on(
+            async move {
+                let mut task_handle =
+                    crate::bin_factory::spawn_exec(pkg, &command_name, env, &runtime)
+                        .await
+                        .context("Spawn failed")?;
 
                 #[cfg(feature = "ctrlc")]
                 task_handle.install_ctrlc_handler();
@@ -426,104 +557,7 @@ impl crate::runners::Runner for WasiRunner {
         pkg: &BinaryPackage,
         runtime: Arc<dyn Runtime + Send + Sync>,
     ) -> Result<(), Error> {
-        let cmd = pkg
-            .get_command(command_name)
-            .with_context(|| format!("The package doesn't contain a \"{command_name}\" command"))?;
-        let wasi = cmd
-            .metadata()
-            .annotation("wasi")?
-            .unwrap_or_else(|| Wasi::new(command_name));
-
-        let exec_name = if let Some(exec_name) = wasi.exec_name.as_ref() {
-            exec_name
-        } else {
-            command_name
-        };
-
-        #[allow(unused_mut)]
-        let mut builder = self
-            .prepare_webc_env(
-                exec_name,
-                &wasi,
-                Either::Left(pkg),
-                Arc::clone(&runtime),
-                None,
-            )
-            .context("Unable to prepare the WASI environment")?;
-
-        #[cfg(feature = "journal")]
-        {
-            for journal in self.wasi.read_only_journals.iter().cloned() {
-                builder.add_read_only_journal(journal);
-            }
-            for journal in self.wasi.writable_journals.iter().cloned() {
-                builder.add_writable_journal(journal);
-            }
-
-            if !self.wasi.snapshot_on.is_empty() {
-                for trigger in self.wasi.snapshot_on.iter().cloned() {
-                    builder.add_snapshot_trigger(trigger);
-                }
-            } else if !self.wasi.writable_journals.is_empty() {
-                for on in crate::journal::DEFAULT_SNAPSHOT_TRIGGERS {
-                    builder.add_snapshot_trigger(on);
-                }
-            }
-
-            if let Some(period) = self.wasi.snapshot_interval {
-                if self.wasi.writable_journals.is_empty() {
-                    return Err(anyhow::format_err!(
-                            "If you specify a snapshot interval then you must also specify a journal file"
-                        ));
-                }
-                builder.with_snapshot_interval(period);
-            }
-
-            builder.with_stop_running_after_snapshot(self.wasi.stop_running_after_snapshot);
-        }
-
-        let env = builder.build()?;
-        let command_name = command_name.to_string();
-        let tasks = runtime.task_manager().clone();
-        let pkg = pkg.clone();
-
-        let exit_code = tasks.spawn_and_block_on(
-            async move {
-                let mut task_handle =
-                    crate::bin_factory::spawn_exec(pkg, &command_name, env, &runtime)
-                        .await
-                        .context("Spawn failed")?;
-
-                #[cfg(feature = "ctrlc")]
-                task_handle.install_ctrlc_handler();
-
-                task_handle
-                    .wait_finished()
-                    .await
-                    .map_err(|err| {
-                        // We do our best to recover the error
-                        let msg = err.to_string();
-                        let weak = Arc::downgrade(&err);
-                        Arc::into_inner(err).unwrap_or_else(|| {
-                            weak.upgrade()
-                                .map(|err| wasi_runtime_error_to_owned(&err))
-                                .unwrap_or_else(|| {
-                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
-                                        "{}", msg
-                                    )))
-                                })
-                        })
-                    })
-                    .context("Unable to wait for the process to exit")
-            }
-            .in_current_span(),
-        )??;
-
-        if exit_code.raw() == 0 {
-            Ok(())
-        } else {
-            Err(WasiRuntimeError::Wasi(crate::WasiError::Exit(exit_code)).into())
-        }
+        self.run_command(command_name, pkg, RuntimeOrEngine::Runtime(runtime))
     }
 }
 
@@ -541,6 +575,9 @@ fn wasi_runtime_error_to_owned(err: &WasiRuntimeError) -> WasiRuntimeError {
         }
         WasiRuntimeError::Wasi(WasiError::DeepSleep(_)) => {
             WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("deep-sleep")))
+        }
+        WasiRuntimeError::Wasi(WasiError::DlSymbolResolutionFailed(symbol)) => {
+            WasiRuntimeError::Wasi(WasiError::DlSymbolResolutionFailed(symbol.clone()))
         }
         WasiRuntimeError::ControlPlane(a) => WasiRuntimeError::ControlPlane(a.clone()),
         WasiRuntimeError::Runtime(a) => WasiRuntimeError::Runtime(a.clone()),
@@ -567,8 +604,6 @@ mod tests {
     async fn test_volume_mount_without_webcs() {
         use std::sync::Arc;
 
-        use crate::utils::xxhash_random;
-
         let root_fs = virtual_fs::RootFileSystemBuilder::new().build();
 
         let tokrt = tokio::runtime::Handle::current();
@@ -593,8 +628,8 @@ mod tests {
             .prepare_webc_env(
                 "test",
                 &annotations,
-                Either::Right(xxhash_random()),
-                Arc::new(rt),
+                PackageOrHash::Hash(ModuleHash::random()),
+                RuntimeOrEngine::Runtime(Arc::new(rt)),
                 Some(root_fs),
             )
             .unwrap();
@@ -646,8 +681,8 @@ mod tests {
             .prepare_webc_env(
                 "test",
                 &annotations,
-                Either::Left(&binpkg),
-                Arc::new(rt),
+                PackageOrHash::Package(&binpkg),
+                RuntimeOrEngine::Runtime(Arc::new(rt)),
                 Some(root_fs),
             )
             .unwrap();

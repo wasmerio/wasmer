@@ -14,6 +14,8 @@ pub fn fd_fdflags_set(
     fd: WasiFd,
     flags: Fdflagsext,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let ret = fd_fdflags_set_internal(&mut ctx, fd, flags)?;
 
     if ret == Errno::Success {
