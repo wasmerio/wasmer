@@ -314,31 +314,140 @@ impl From<u32> for ModuleHandle {
 
 const DEFAULT_RUNTIME_PATH: [&str; 3] = ["/lib", "/usr/lib", "/usr/local/lib"];
 
+struct AllocatedPage {
+    // The base_ptr is mutable, and will move forward as memory is allocated from the page.
+    base_ptr: u32,
+
+    // The amount of memory remaining until the end of the allocated region. Despite the
+    // name of this struct, the region does not have to be only one page.
+    remaining: u32,
+}
+
 // Used to allocate and manage memory for dynamic modules that are loaded in or
 // out, since each module may request a specific amount of memory to be allocated
 // for it before starting it up.
-struct MemoryAllocator {}
+// TODO: Only supports Memory32, should implement proper Memory64 support
+struct MemoryAllocator {
+    allocated_pages: Vec<AllocatedPage>,
+}
 
 impl MemoryAllocator {
     pub fn new() -> Self {
-        Self {}
+        Self {
+            allocated_pages: vec![],
+        }
     }
 
     pub fn allocate(
         &mut self,
         memory: &Memory,
         store: &mut impl AsStoreMut,
-        size: u64,
-        _alignment: u32,
-    ) -> Result<u64, MemoryError> {
-        // TODO: no need to allocate entire pages of memory, but keeping it simple for now...
-        // also, pages are already aligned, so no need to take the alignment into account
-        let mut to_grow = size / WASM_PAGE_SIZE as u64;
-        if size % WASM_PAGE_SIZE as u64 != 0 {
-            to_grow += 1;
+        size: u32,
+        alignment: u32,
+    ) -> Result<u32, MemoryError> {
+        match self.allocate_in_existing_pages(size, alignment) {
+            Some(base_ptr) => Ok(base_ptr),
+            None => self.allocate_new_page(memory, store, size),
         }
-        let pages = memory.grow(store, to_grow as u32)?;
-        Ok(pages.0 as u64 * WASM_PAGE_SIZE as u64)
+    }
+
+    // Finds a page which has enough free memory for the request, and allocates in it.
+    // Returns the address of the allocated region if one was found.
+    fn allocate_in_existing_pages(&mut self, size: u32, alignment: u32) -> Option<u32> {
+        // A type to hold intermediate search results. The idea is to allocate on the page
+        // that has the least amount of free space, so we can later satisfy larger allocation
+        // requests without having to allocate entire new pages.
+        struct CandidatePage {
+            index: usize,
+            base_ptr: u32,
+            to_add: u32,
+            remaining_free: u32,
+        }
+
+        impl PartialEq for CandidatePage {
+            fn eq(&self, other: &Self) -> bool {
+                self.remaining_free == other.remaining_free
+            }
+        }
+
+        impl Eq for CandidatePage {}
+
+        impl PartialOrd for CandidatePage {
+            fn partial_cmp(&self, other: &Self) -> Option<std::cmp::Ordering> {
+                Some(self.cmp(other))
+            }
+        }
+
+        impl Ord for CandidatePage {
+            fn cmp(&self, other: &Self) -> std::cmp::Ordering {
+                self.remaining_free.cmp(&other.remaining_free)
+            }
+        }
+
+        let mut candidates = std::collections::BinaryHeap::new();
+
+        for (index, page) in self.allocated_pages.iter().enumerate() {
+            // Offset for proper alignment
+            let offset = if page.base_ptr % alignment == 0 {
+                0
+            } else {
+                alignment - (page.base_ptr % alignment)
+            };
+
+            if page.remaining >= offset + size {
+                candidates.push(std::cmp::Reverse(CandidatePage {
+                    index,
+                    base_ptr: page.base_ptr + offset,
+                    to_add: offset + size,
+                    remaining_free: page.remaining - offset - size,
+                }));
+            }
+        }
+
+        candidates.pop().map(|elected| {
+            let page = &mut self.allocated_pages[elected.0.index];
+
+            trace!(
+                free = page.remaining,
+                base_ptr = elected.0.base_ptr,
+                "Found existing memory page with sufficient space"
+            );
+
+            page.base_ptr += elected.0.to_add;
+            page.remaining -= elected.0.to_add;
+            elected.0.base_ptr
+        })
+    }
+
+    fn allocate_new_page(
+        &mut self,
+        memory: &Memory,
+        store: &mut impl AsStoreMut,
+        size: u32,
+    ) -> Result<u32, MemoryError> {
+        // No need to account for alignment here, as pages are already 64k-aligned
+        let to_grow = size.div_ceil(WASM_PAGE_SIZE as u32);
+        let pages = memory.grow(store, to_grow)?;
+
+        let base_ptr = pages.0 * WASM_PAGE_SIZE as u32;
+        let total_allocated = to_grow * WASM_PAGE_SIZE as u32;
+
+        // The initial size bytes are already allocated, rest goes into the list
+        if total_allocated > size {
+            self.allocated_pages.push(AllocatedPage {
+                base_ptr: base_ptr + size,
+                remaining: total_allocated - size,
+            });
+        }
+
+        trace!(
+            page_count = to_grow,
+            size,
+            base_ptr,
+            "Allocated new memory page(s) to accommodate requested memory"
+        );
+
+        Ok(base_ptr)
     }
 }
 
@@ -1672,9 +1781,9 @@ impl LinkerState {
             self.memory_allocator.allocate(
                 memory,
                 store,
-                mem_info.memory_size as u64,
+                mem_info.memory_size,
                 2_u32.pow(mem_info.memory_alignment),
-            )?
+            )? as u64
         };
 
         trace!(new_size, "Final size");
