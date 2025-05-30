@@ -275,7 +275,7 @@ pub fn get_app_config_from_dir(
 
     if !app_config_path.exists() || !app_config_path.is_file() {
         bail!(
-            "Could not find app.yaml at path: '{}'.\nPlease specify an app like 'wasmer app get <namespace>/<name>' or 'wasmer app get <name>`'",
+            "Could not find app.yaml at path: '{}'.\nPlease specify an app like '<namespace>/<name>'",
             app_config_path.display()
         );
     }

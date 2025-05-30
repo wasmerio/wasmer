@@ -149,6 +149,8 @@ impl CmdAppCreate {
             redirect: None,
             extra: IndexMap::new(),
             jobs: None,
+            enable_email: None,
+            vault: None,
         }
     }
 
