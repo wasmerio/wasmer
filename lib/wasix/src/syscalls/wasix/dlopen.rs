@@ -10,6 +10,8 @@ pub fn dlopen<M: MemorySize>(
     flags: DlFlags,
     err_buf: WasmPtr<u8, M>,
     err_buf_len: M::Offset,
+    ld_library_path: WasmPtr<u8, M>,
+    ld_library_path_len: M::Offset,
     out_handle: WasmPtr<DlHandle, M>,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
@@ -17,6 +19,9 @@ pub fn dlopen<M: MemorySize>(
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    let ld_library_path =
+        unsafe { get_input_str_ok!(&memory, ld_library_path, ld_library_path_len) };
+    let ld_library_path = ld_library_path.split(':').collect::<Vec<_>>();
     Span::current().record("path", path.as_str());
 
     let env_inner = unsafe { env.inner() };
@@ -30,7 +35,7 @@ pub fn dlopen<M: MemorySize>(
     };
     let linker = linker.clone();
 
-    let module_handle = linker.load_module(path, &mut ctx);
+    let module_handle = linker.load_module(path, &ld_library_path, &mut ctx);
 
     // Reborrow to keep rust happy
     let (env, mut store) = ctx.data_and_store_mut();

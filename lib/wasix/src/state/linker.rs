@@ -942,6 +942,7 @@ impl Linker {
                 &mut link_state,
                 &engine,
                 &func_env.data(store).state,
+                Option::<&[&str]>::None,
             )?;
         }
 
@@ -1227,6 +1228,7 @@ impl Linker {
     pub fn load_module(
         &self,
         module_path: impl AsRef<Path>,
+        library_path: &Vec<impl AsRef<Path>>,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_path = module_path.as_ref();
@@ -1257,6 +1259,7 @@ impl Linker {
             &mut link_state,
             &engine,
             &env.as_ref(&store).state,
+            Some(&library_path),
         )?;
 
         let new_modules = link_state
@@ -1920,6 +1923,7 @@ impl LinkerState {
         link_state: &mut InProgressLinkState,
         engine: &impl AsEngineRef,
         wasi_state: &WasiState,
+        library_path: Option<&[impl AsRef<Path>]>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_path = module_path.as_ref();
         trace!(?module_path, "Locating and loading module");
@@ -1934,7 +1938,7 @@ impl LinkerState {
 
         // Locate and load the module bytes
         let (full_path, module_bytes) =
-            InlineWaker::block_on(locate_module(module_path, &wasi_state.fs))?;
+            InlineWaker::block_on(locate_module(module_path, library_path, &wasi_state.fs))?;
 
         trace!(?full_path, "Found module file");
 
@@ -1968,7 +1972,7 @@ impl LinkerState {
 
         for needed in &dylink_info.needed {
             trace!(needed, "Loading needed side module");
-            match self.load_module_tree(needed, link_state, engine, wasi_state) {
+            match self.load_module_tree(needed, link_state, engine, wasi_state, library_path) {
                 Ok(_) => (),
                 Err(e) => {
                     pop_pending_module(link_state);
@@ -3426,7 +3430,11 @@ impl InstanceGroupState {
     }
 }
 
-async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
+async fn locate_module(
+    module_path: &Path,
+    library_path: Option<&[impl AsRef<Path>]>,
+    fs: &WasiFs,
+) -> Result<(PathBuf, Vec<u8>), LinkError> {
     async fn try_load(
         fs: &WasiFsRoot,
         path: impl AsRef<Path>,
@@ -3468,6 +3476,15 @@ async fn locate_module(module_path: &Path, fs: &WasiFs) -> Result<(PathBuf, Vec<
             ?module_path,
             "Locating module by name in default runtime path"
         );
+
+        if let Some(library_path) = library_path {
+            for path in library_path {
+                if let Ok(ret) = try_load(&fs.root_fs, path.as_ref().join(module_path)).await {
+                    trace!(?module_path, full_path = ?ret.0, "Located module");
+                    return Ok(ret);
+                }
+            }
+        }
 
         for path in DEFAULT_RUNTIME_PATH {
             if let Ok(ret) = try_load(&fs.root_fs, Path::new(path).join(module_path)).await {
