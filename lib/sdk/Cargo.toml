@@ -1,0 +1,18 @@
+[package]
+name = "wasmer-sdk"
+description = "The Wasmer SDK - provides package publishing and app deployment functionality."
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[dependencies]
+wasmer-backend-api = { path = "../backend-api" }
+wasmer-config = { path = "../config" }
+wasmer-package = { path = "../package" }
+
+reqwest = { workspace = true, default-features = false, features = ["rustls-tls", "json", "multipart", "gzip"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }

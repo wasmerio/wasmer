@@ -7164,6 +7164,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-sdk"
+version = "6.0.1"
+dependencies = [
+ "reqwest",
+ "tokio",
+ "wasmer-backend-api",
+ "wasmer-config",
+ "wasmer-package",
+]
+
+[[package]]
 name = "wasmer-swift"
 version = "0.600.1"
 dependencies = [

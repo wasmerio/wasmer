@@ -56,6 +56,7 @@ members = [
 	"lib/derive",
 	"lib/sys-utils",
 	"lib/types",
+	"lib/sdk",
 	"lib/virtual-io",
 	"lib/virtual-fs",
 	"lib/virtual-net",
@@ -71,7 +72,7 @@ members = [
 	"tests/lib/compiler-test-derive",
 	"tests/lib/wast",
 	"tests/wasi-wast",
-	"tests/wasmer-argus",
+	"tests/wasmer-argus", "lib/sdk",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
@@ -90,6 +91,7 @@ version = "6.0.1"
 wasmer-package = { version = "0.600.1", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
+wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
 webc = "=9.0"
