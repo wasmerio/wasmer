@@ -2,6 +2,12 @@ pub use queries::*;
 
 pub use cynic::Id;
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct Paginated<T> {
+    pub items: Vec<T>,
+    pub next_cursor: Option<String>,
+}
+
 #[cynic::schema_for_derives(file = r#"schema.graphql"#, module = "schema")]
 mod queries {
     use serde::Serialize;
@@ -632,6 +638,7 @@ mod queries {
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetCurrentUserWithAppsVars {
+        pub first: Option<i32>,
         pub after: Option<String>,
         pub sort: Option<DeployAppsSortBy>,
     }
@@ -648,7 +655,7 @@ mod queries {
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
-        #[arguments(after: $after, sortBy: $sort)]
+        #[arguments(after: $after, sortBy: $sort, first: $first)]
         pub apps: DeployAppConnection,
     }
 
