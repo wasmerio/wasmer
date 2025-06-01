@@ -14,5 +14,19 @@ wasmer-backend-api = { path = "../backend-api" }
 wasmer-config = { path = "../config" }
 wasmer-package = { path = "../package" }
 
-reqwest = { workspace = true, default-features = false, features = ["rustls-tls", "json", "multipart", "gzip"] }
+reqwest = { workspace = true, default-features = false, features = ["rustls-tls", "json", "multipart", "gzip", "stream"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+bytes = { workspace = true }
+futures-util = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+sha2 = { workspace = true }
+semver = { workspace = true }
+toml = { workspace = true }
+
+[dev-dependencies]
+rand = "0.9.1"
+tempfile = "3"
+url = "2"
