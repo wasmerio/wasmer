@@ -3764,3 +3764,62 @@ fn call_initialization_function<Ret: WasmTypeList>(
         }
     }
 }
+
+#[cfg(test)]
+mod memory_allocator_tests {
+    use wasmer::{Engine, Memory, Store};
+
+    use super::MemoryAllocator;
+
+    const WASM_PAGE_SIZE: u32 = wasmer::WASM_PAGE_SIZE as u32;
+
+    #[test]
+    fn test_memory_allocator() {
+        let engine = Engine::default();
+        let mut store = Store::new(engine);
+        let memory = Memory::new(
+            &mut store,
+            wasmer::MemoryType {
+                minimum: wasmer::Pages(2),
+                maximum: None,
+                shared: true,
+            },
+        )
+        .unwrap();
+        let mut allocator = MemoryAllocator::new();
+
+        // Small allocation in new page
+        let addr = allocator.allocate(&memory, &mut store, 24, 4).unwrap();
+        assert_eq!(addr, 2 * WASM_PAGE_SIZE);
+        assert_eq!(memory.grow(&mut store, 0).unwrap().0, 3);
+
+        // Small allocation in existing page
+        let addr = allocator.allocate(&memory, &mut store, 16, 4).unwrap();
+        assert_eq!(addr, 2 * WASM_PAGE_SIZE + 24);
+
+        // Small allocation in existing page, with bigger alignment
+        let addr = allocator.allocate(&memory, &mut store, 64, 32).unwrap();
+        assert_eq!(addr, 2 * WASM_PAGE_SIZE + 64);
+        // Should still have 3 pages
+        assert_eq!(memory.grow(&mut store, 0).unwrap().0, 3);
+
+        // Big allocation in new pages
+        let addr = allocator
+            .allocate(&memory, &mut store, 2 * WASM_PAGE_SIZE + 256, 1024)
+            .unwrap();
+        assert_eq!(addr, WASM_PAGE_SIZE * 3);
+        assert_eq!(memory.grow(&mut store, 0).unwrap().0, 6);
+
+        // Small allocation with multiple empty pages
+        // page 2 has 128 bytes allocated, page 5 has 256, allocation should go
+        // to page 5 (we should allocate from the page with the least free space)
+        let addr = allocator
+            .allocate(&memory, &mut store, 1024 * 63, 64)
+            .unwrap();
+        assert_eq!(addr, 5 * WASM_PAGE_SIZE + 256);
+
+        // Another small allocation, but this time it won't fit on page 5
+        let addr = allocator.allocate(&memory, &mut store, 4096, 512).unwrap();
+        assert_eq!(addr, 2 * WASM_PAGE_SIZE + 512);
+    }
+}
