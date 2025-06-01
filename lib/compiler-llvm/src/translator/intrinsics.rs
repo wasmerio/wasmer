@@ -1462,14 +1462,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.offsets,
         );
 
-        let is_growable = wasm_module
-            .is_table_growable(table_index)
-            .ok_or_else(|| {
-                CompileError::Codegen(format!(
-                    "Table index out of bounds: {}",
-                    table_index.as_u32()
-                ))
-            })?;
+        let is_growable = is_table_growable(wasm_module, table_index).ok_or_else(|| {
+            CompileError::Codegen(format!(
+                "Table index out of bounds: {}",
+                table_index.as_u32()
+            ))
+        })?;
 
         // If the table is growable, it may change, so we can't cache the pointers; they need to
         // go directly in the function body at the point where they're needed
@@ -1526,7 +1524,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             self.table_prepare(index, intrinsics, module, body_builder)?;
 
         // Safe to unwrap since an out-of-bounds index will be caught be table_prepare
-        let builder = if self.wasm_module.is_table_growable(index).unwrap() {
+        let builder = if is_table_growable(self.wasm_module, index).unwrap() {
             &body_builder
         } else {
             &self.cache_builder
@@ -2126,4 +2124,8 @@ pub fn tbaa_label<'ctx>(
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
     instruction.set_metadata(type_tbaa, tbaa_kind).unwrap();
+}
+
+fn is_table_growable(module: &WasmerCompilerModule, index: TableIndex) -> Option<bool> {
+    Some(module.tables.get(index)?.maximum.is_none())
 }

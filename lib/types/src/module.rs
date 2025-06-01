@@ -504,12 +504,6 @@ impl ModuleInfo {
         index.index() < self.num_imported_tables
     }
 
-    /// Test whether the given table index is growable. Will return `None` if the
-    /// index is out of bounds.
-    pub fn is_table_growable(&self, index: TableIndex) -> Option<bool> {
-        Some(self.tables.get(index)?.maximum.is_none())
-    }
-
     /// Convert a `LocalMemoryIndex` into a `MemoryIndex`.
     pub fn memory_index(&self, local_memory: LocalMemoryIndex) -> MemoryIndex {
         MemoryIndex::new(self.num_imported_memories + local_memory.index())
