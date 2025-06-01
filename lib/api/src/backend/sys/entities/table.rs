@@ -132,6 +132,45 @@ impl Table {
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{delta}`")))
     }
 
+    pub(crate) fn fill(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        len: u32,
+        value: Value,
+    ) -> Result<(), RuntimeError> {
+        let item = value_to_table_element(store, value)?;
+        let obj_mut = store.objects_mut().as_sys_mut();
+
+        self.handle
+            .get_mut(obj_mut)
+            .fill(index, len, item)
+            .map_err(Into::<RuntimeError>::into)?;
+        Ok(())
+    }
+
+    pub(crate) fn init(
+        &self,
+        store: &mut impl AsStoreMut,
+        dst_index: u32,
+        src_index: u32,
+        len: u32,
+        values: &[Value],
+    ) -> Result<(), RuntimeError> {
+        let mut table_elements = Vec::with_capacity(len as usize);
+        for value in &values[src_index as usize..(src_index + len) as usize] {
+            table_elements.push(value_to_table_element(store, value.clone())?);
+        }
+        let obj_mut = store.objects_mut().as_sys_mut();
+
+        self.handle
+            .get_mut(obj_mut)
+            .init(dst_index, src_index, len, &table_elements)
+            .map_err(Into::<RuntimeError>::into)?;
+
+        Ok(())
+    }
+
     pub(crate) fn copy(
         store: &mut impl AsStoreMut,
         dst_table: &Self,
