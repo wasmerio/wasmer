@@ -7167,8 +7167,20 @@ dependencies = [
 name = "wasmer-sdk"
 version = "6.0.1"
 dependencies = [
+ "anyhow",
+ "bytes",
+ "futures-util",
+ "rand 0.9.1",
  "reqwest",
+ "semver 1.0.26",
+ "serde",
+ "serde_yml",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
  "tokio",
+ "toml 0.8.20",
+ "url",
  "wasmer-backend-api",
  "wasmer-config",
  "wasmer-package",

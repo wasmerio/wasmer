@@ -14,5 +14,19 @@ wasmer-backend-api = { path = "../backend-api" }
 wasmer-config = { path = "../config" }
 wasmer-package = { path = "../package" }
 
-reqwest = { workspace = true, default-features = false, features = ["rustls-tls", "json", "multipart", "gzip"] }
+reqwest = { workspace = true, default-features = false, features = ["rustls-tls", "json", "multipart", "gzip", "stream"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+bytes = "1"
+futures-util = { workspace = true }
+serde = { version = "1", features = ["derive"] }
+serde_yaml = { package = "serde_yml", version = "0.0.12" }
+thiserror = "1"
+anyhow = "1"
+sha2 = "0.10"
+semver = "1"
+toml = { workspace = true }
+
+[dev-dependencies]
+rand = "0.9.1"
+tempfile = "3"
+url = "2"
