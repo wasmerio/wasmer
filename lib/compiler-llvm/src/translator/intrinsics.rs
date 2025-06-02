@@ -2127,5 +2127,9 @@ pub fn tbaa_label<'ctx>(
 }
 
 fn is_table_growable(module: &WasmerCompilerModule, index: TableIndex) -> Option<bool> {
-    Some(module.tables.get(index)?.maximum.is_none())
+    let table = module.tables.get(index)?;
+    match table.maximum {
+        None => Some(true),
+        Some(max) => Some(max > table.minimum),
+    }
 }
