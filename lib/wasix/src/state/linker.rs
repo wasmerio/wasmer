@@ -1337,7 +1337,7 @@ impl Linker {
     pub fn load_module(
         &self,
         module_path: impl AsRef<Path>,
-        library_path: &Vec<impl AsRef<Path>>,
+        library_path: &[impl AsRef<Path>],
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_path = module_path.as_ref();
@@ -1368,7 +1368,7 @@ impl Linker {
             &mut link_state,
             &engine,
             &env.as_ref(&store).state,
-            Some(&library_path),
+            Some(library_path),
         )?;
 
         let new_modules = link_state
