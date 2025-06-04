@@ -10,6 +10,7 @@
 //!
 //! Ready?
 use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, Value};
+use wasmer_compiler_singlepass::Singlepass;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
@@ -24,8 +25,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     "#
         .as_bytes(),
     )?;
-    
-    let mut store = Store::default();
+
+    let compiler = Singlepass::default();
+    let mut store = Store::new(compiler);
     
     println!("Compiling module...");
     let module = Module::new(&store, wasm_bytes)?;
