@@ -11,9 +11,9 @@ use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
 use crate::machine_arm64::MachineARM64;
-use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "riscv")]
 use crate::machine_riscv::MachineRiscv;
+use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{create_systemv_cie, UnwindFrame};
 use enumset::EnumSet;
@@ -85,11 +85,7 @@ impl Compiler for SinglepassCompiler {
             Architecture::Aarch64(_) => {}
             #[cfg(feature = "riscv")]
             Architecture::Riscv32(_) | Architecture::Riscv64(_) => {}
-            _ => {
-                return Err(CompileError::UnsupportedTarget(
-                    target.triple().architecture.to_string(),
-                ))
-            }
+            _ => {}
         }
 
         let calling_convention = match target.triple().default_calling_convention() {
