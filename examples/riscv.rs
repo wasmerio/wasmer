@@ -28,24 +28,24 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let compiler = Singlepass::default();
     let mut store = Store::new(compiler);
-    
+
     println!("Compiling module...");
     let module = Module::new(&store, wasm_bytes)?;
-    
+
     // Create an empty import object.
     let import_object = imports! {};
-    
+
     println!("Instantiating module...");
     let instance = Instance::new(&mut store, &module, &import_object)?;
     let sum = instance.exports.get_function("sum")?;
-    
+
     // Option 1
     println!("Calling `sum` function...");
     let args = [Value::I32(1), Value::I32(2)];
     let result = sum.call(&mut store, &args)?;
     println!("Results: {:?}", result);
     assert_eq!(result.to_vec(), vec![Value::I32(3)]);
-        
+
     // Option 2
     let sum_typed: TypedFunction<(i32, i32), i32> = sum.typed(&mut store)?;
     println!("Calling `sum` function (natively)...");

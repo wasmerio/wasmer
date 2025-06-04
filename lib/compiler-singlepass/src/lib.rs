@@ -20,21 +20,21 @@ mod config;
 #[cfg(feature = "unwind")]
 mod dwarf;
 mod emitter_arm64;
-mod emitter_x64;
 #[cfg(feature = "riscv")]
 mod emitter_riscv;
+mod emitter_x64;
 mod location;
 mod machine;
 mod machine_arm64;
-mod machine_x64;
 #[cfg(feature = "riscv")]
 mod machine_riscv;
+mod machine_x64;
+#[cfg(feature = "riscv")]
+mod riscv_decl;
 mod unwind;
 #[cfg(feature = "unwind")]
 mod unwind_winx64;
 mod x64_decl;
-#[cfg(feature = "riscv")]
-mod riscv_decl;
 
 pub use crate::compiler::SinglepassCompiler;
 pub use crate::config::Singlepass;

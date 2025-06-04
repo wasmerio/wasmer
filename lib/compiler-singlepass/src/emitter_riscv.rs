@@ -1,15 +1,13 @@
 //! RISC-V emitter scaffolding.
 
 use crate::{
-    codegen_error,
-    common_decl::Size,
-    location::Location as AbstractLocation,
+    codegen_error, common_decl::Size, location::Location as AbstractLocation,
     machine_riscv::AssemblerRiscv,
 };
 pub use crate::{
     location::Multiplier,
     machine::{Label, Offset},
-    riscv_decl::{GPR, FPR},
+    riscv_decl::{FPR, GPR},
 };
 use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
