@@ -15,6 +15,24 @@ impl MetadataHeader {
     /// to the format of the serialized data.
     pub const CURRENT_VERSION: u32 = 10;
 
+    /// The size of pointers used for references in the serialized data, in bits.
+    ///
+    /// Can be controlled through the `pointer_width_*` features in the rkyv
+    /// crate, and MUST be included in cache keys to prevent trying to handle
+    /// invalid artifacts.
+    ///
+    /// Normal values: 16/32/64.
+    //
+    // rkvy does not provide a way to get the pointer width directly.
+    // This little trick works because the `FixedIsize` type is the size of a pointer.
+    pub const POINTER_WIDTH_BITS: usize = core::mem::size_of::<rkyv::primitive::FixedIsize>() * 8;
+
+    /// The default bit size of pointers used if no specific pointer width
+    /// features are enabled in the rkyv crate.
+    ///
+    /// See [`Self::POINTER_WIDTH_BITS`].
+    pub const POINTER_WIDTH_BITS_DEFAULT: usize = 32;
+
     /// Magic number to identify wasmer metadata.
     const MAGIC: [u8; 8] = *b"WASMER\0\0";
 
