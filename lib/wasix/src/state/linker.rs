@@ -189,7 +189,7 @@
 //! careful configuration of clang. A PIC sysroot is required. The steps to build a main
 //! module are:
 //!
-//! ```ignore
+//! ```bash
 //! clang-19 \
 //!   --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
 //!   -matomics -mbulk-memory -mmutable-globals -pthread \
@@ -226,7 +226,7 @@
 //!
 //! And the steps to build a side module are:
 //!
-//! ```ignore
+//! ```bash
 //! clang-19 \
 //!   --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
 //!   -matomics -mbulk-memory -mmutable-globals -pthread \
@@ -234,7 +234,7 @@
 //!   -fno-trapping-math -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL \
 //!   -D_WASI_EMULATED_PROCESS_CLOCKS \
 //!   # We need PIC
-//!   -fPIC
+//!   -fPIC \
 //!   # Make it export everything that's not hidden explicitly
 //!   -fvisibility=default \
 //!   -c side.c -o side.o
