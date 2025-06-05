@@ -26,9 +26,10 @@ wasmer-cache = { version = "=6.0.1", path = "lib/cache", optional = true }
 wasmer-types = { version = "=6.0.1", path = "lib/types" }
 wasmer-middlewares = { version = "=6.0.1", path = "lib/middlewares", optional = true }
 
-# Third party dependencies
-cfg-if = "1.0"
 
+# Third party dependencies
+
+cfg-if = "1.0"
 tokio = { version = "1.39", features = [
 	"rt",
 	"rt-multi-thread",
@@ -97,6 +98,7 @@ shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
 # Third-party crates
+num_enum = "0.7.3"
 dashmap = "6.0.1"
 http = "1.0.0"
 hyper = "1"

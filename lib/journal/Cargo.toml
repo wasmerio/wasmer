@@ -38,7 +38,7 @@ serde = { version = "1.0", default-features = false, features = ["derive"] }
 anyhow = "1.0"
 bytecheck = { version = "0.6.8" }
 lz4_flex = { version = "0.11" }
-num_enum = "0.5.7"
+num_enum.workspace = true
 serde_json = { version = "^1" }
 
 [dev-dependencies]

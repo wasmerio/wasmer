@@ -26,7 +26,7 @@ wai-bindgen-gen-rust-wasm = "0.2.1"
 wai-bindgen-gen-core = "0.2.1"
 wai-parser = "0.2.1"
 serde = { version = "1.0", features = ["derive"], optional = true }
-num_enum = "0.5.7"
+num_enum.workspace = true
 bitflags = "1.3.0"
 cfg-if = "1.0.0"
 anyhow = "1.0.66"
