@@ -17,7 +17,8 @@ pub fn fd_dup2<M: MemorySize>(
     cloexec: Bool,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
-    // TODO: clear CLOEXEC flag for `ret_fd`
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let copied_fd = wasi_try_ok!(fd_dup_internal(
         &mut ctx,
         fd,

@@ -4,7 +4,6 @@ use super::*;
 #[cfg(feature = "journal")]
 use crate::journal::JournalEffector;
 use crate::{
-    capture_store_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::{
         task_manager::{TaskWasm, TaskWasmRunProperties},
@@ -35,13 +34,15 @@ pub fn thread_spawn_v2<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     start_ptr: WasmPtr<ThreadStart<M>, M>,
     ret_tid: WasmPtr<Tid, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // Create the thread
-    let tid = wasi_try!(thread_spawn_internal_from_wasi(&mut ctx, start_ptr));
+    let tid = wasi_try_ok!(thread_spawn_internal_from_wasi(&mut ctx, start_ptr));
 
     // Success
     let memory = unsafe { ctx.data().memory_view(&ctx) };
-    wasi_try_mem!(ret_tid.write(&memory, tid));
+    wasi_try_mem_ok!(ret_tid.write(&memory, tid));
 
     tracing::debug!(
         tid,
@@ -49,7 +50,7 @@ pub fn thread_spawn_v2<M: MemorySize>(
         "spawned new thread"
     );
 
-    Errno::Success
+    Ok(Errno::Success)
 }
 
 pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
@@ -77,6 +78,7 @@ pub fn thread_spawn_internal_from_wasi<M: MemorySize>(
             stack_lower,
             guard_size,
             stack_size,
+            tls_base: Some(tls_base),
         }
     };
     tracing::trace!(
@@ -118,9 +120,16 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<(), Errno> {
     // We extract the memory which will be passed to the thread
-    let env = ctx.data();
+    let func_env = ctx.as_ref();
+    let mut store = ctx.as_store_mut();
+    let env = func_env.as_ref(&store);
     let tasks = env.tasks().clone();
-    let thread_memory = unsafe { env.inner() }.memory_clone();
+
+    let env_inner = env.inner();
+    let module_handles = env_inner.main_module_instance_handles();
+
+    let thread_memory = module_handles.memory_clone();
+    let linker = env_inner.linker().cloned();
 
     // We capture some local variables
     let state = env.state.clone();
@@ -149,27 +158,26 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 
     // If the process does not export a thread spawn function then obviously
     // we can't spawn a background thread
-    if unsafe { env.inner() }.thread_spawn.is_none() {
+    if module_handles.thread_spawn.is_none() {
         warn!("thread failed - the program does not export a `wasi_thread_start` function");
         return Err(Errno::Notcapable);
     }
-    let thread_module = unsafe { env.inner() }.module_clone();
-    let globals = capture_store_snapshot(&mut ctx.as_store_mut());
-    let spawn_type =
-        crate::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
+    let thread_module = module_handles.module_clone();
+    let spawn_type = match linker {
+        Some(linker) => crate::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store),
+        None => crate::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
+    };
 
     // Now spawn a thread
     trace!("threading: spawning background thread");
     let run = move |props: TaskWasmRunProperties| {
         execute_module(props.ctx, props.store);
     };
-    tasks
-        .task_wasm(
-            TaskWasm::new(Box::new(run), thread_env, thread_module, false)
-                .with_globals(globals)
-                .with_memory(spawn_type),
-        )
-        .map_err(Into::<Errno>::into)?;
+
+    let mut task_wasm = TaskWasm::new(Box::new(run), thread_env, thread_module, false, false)
+        .with_memory(spawn_type);
+
+    tasks.task_wasm(task_wasm).map_err(Into::<Errno>::into)?;
 
     // Success
     Ok(())
@@ -190,7 +198,12 @@ fn call_module<M: MemorySize>(
     let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
         // We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
-        let spawn = unsafe { env.data(&store).inner() }
+
+        // Note: we ensure both unwraps can happen before getting to this point
+        let spawn = env
+            .data(&store)
+            .inner()
+            .main_module_instance_handles()
             .thread_spawn
             .clone()
             .unwrap();
@@ -235,6 +248,14 @@ fn call_module<M: MemorySize>(
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
+                    exit_code = Some(ExitCode::from(128 + ret as i32));
+                }
+                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+                    debug!("failed as wasi version is unknown");
+                    env.data(&store)
+                        .runtime
+                        .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                    ret = Errno::Nolink;
                     exit_code = Some(ExitCode::from(128 + ret as i32));
                 }
                 Err(err) => {

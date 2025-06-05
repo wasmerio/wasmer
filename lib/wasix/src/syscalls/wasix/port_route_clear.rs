@@ -5,6 +5,8 @@ use crate::syscalls::*;
 /// Clears all the routes in the local port
 #[instrument(level = "trace", skip_all, ret)]
 pub fn port_route_clear(mut ctx: FunctionEnvMut<'_, WasiEnv>) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(port_route_clear_internal(&mut ctx)?);
 
     #[cfg(feature = "journal")]

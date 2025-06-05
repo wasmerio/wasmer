@@ -202,7 +202,7 @@ pub(crate) struct MemoryBuffer<'a> {
     pub(crate) marker: PhantomData<&'a MemoryView<'a>>,
 }
 
-impl<'a> MemoryBuffer<'a> {
+impl MemoryBuffer<'_> {
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
         let end = offset
             .checked_add(buf.len() as u64)

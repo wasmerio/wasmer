@@ -14,6 +14,8 @@ pub fn stack_restore<M: MemorySize>(
     snapshot_ptr: WasmPtr<StackSnapshot, M>,
     mut val: Longsize,
 ) -> Result<(), WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // Read the snapshot from the stack
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

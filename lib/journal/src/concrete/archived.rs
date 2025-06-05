@@ -288,7 +288,7 @@ impl JournalEntryRecordType {
     }
 }
 
-impl<'a> JournalEntry<'a> {
+impl JournalEntry<'_> {
     pub fn archive_record_type(&self) -> JournalEntryRecordType {
         match self {
             Self::InitModuleV1 { .. } => JournalEntryRecordType::InitModuleV1,

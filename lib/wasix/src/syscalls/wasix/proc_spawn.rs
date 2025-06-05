@@ -40,6 +40,8 @@ pub fn proc_spawn<M: MemorySize>(
     working_dir_len: M::Offset,
     ret_handles: WasmPtr<ProcessHandles, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let control_plane = &env.control_plane;
     let memory = unsafe { env.memory_view(&ctx) };

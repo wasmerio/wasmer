@@ -456,7 +456,7 @@ impl InodeSocket {
             nonblocking: bool,
             handler_registered: bool,
         }
-        impl<'a> Drop for SocketAccepter<'a> {
+        impl Drop for SocketAccepter<'_> {
             fn drop(&mut self) {
                 if self.handler_registered {
                     let mut inner = self.sock.inner.protected.write().unwrap();
@@ -464,7 +464,7 @@ impl InodeSocket {
                 }
             }
         }
-        impl<'a> Future for SocketAccepter<'a> {
+        impl Future for SocketAccepter<'_> {
             type Output = Result<(Box<dyn VirtualTcpSocket + Sync>, SocketAddr), Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,
@@ -1078,7 +1078,7 @@ impl InodeSocket {
             nonblocking: bool,
             handler_registered: bool,
         }
-        impl<'a, 'b> Drop for SocketSender<'a, 'b> {
+        impl Drop for SocketSender<'_, '_> {
             fn drop(&mut self) {
                 if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
@@ -1086,7 +1086,7 @@ impl InodeSocket {
                 }
             }
         }
-        impl<'a, 'b> Future for SocketSender<'a, 'b> {
+        impl Future for SocketSender<'_, '_> {
             type Output = Result<usize, Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,
@@ -1166,7 +1166,7 @@ impl InodeSocket {
             nonblocking: bool,
             handler_registered: bool,
         }
-        impl<'a, 'b> Drop for SocketSender<'a, 'b> {
+        impl Drop for SocketSender<'_, '_> {
             fn drop(&mut self) {
                 if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
@@ -1174,7 +1174,7 @@ impl InodeSocket {
                 }
             }
         }
-        impl<'a, 'b> Future for SocketSender<'a, 'b> {
+        impl Future for SocketSender<'_, '_> {
             type Output = Result<usize, Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,
@@ -1248,7 +1248,7 @@ impl InodeSocket {
             nonblocking: bool,
             handler_registered: bool,
         }
-        impl<'a, 'b> Drop for SocketReceiver<'a, 'b> {
+        impl Drop for SocketReceiver<'_, '_> {
             fn drop(&mut self) {
                 if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
@@ -1256,7 +1256,7 @@ impl InodeSocket {
                 }
             }
         }
-        impl<'a, 'b> Future for SocketReceiver<'a, 'b> {
+        impl Future for SocketReceiver<'_, '_> {
             type Output = Result<usize, Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,
@@ -1342,7 +1342,7 @@ impl InodeSocket {
             nonblocking: bool,
             handler_registered: bool,
         }
-        impl<'a, 'b> Drop for SocketReceiver<'a, 'b> {
+        impl Drop for SocketReceiver<'_, '_> {
             fn drop(&mut self) {
                 if self.handler_registered {
                     let mut inner = self.inner.protected.write().unwrap();
@@ -1350,7 +1350,7 @@ impl InodeSocket {
                 }
             }
         }
-        impl<'a, 'b> Future for SocketReceiver<'a, 'b> {
+        impl Future for SocketReceiver<'_, '_> {
             type Output = Result<(usize, SocketAddr), Errno>;
             fn poll(
                 mut self: Pin<&mut Self>,

@@ -34,6 +34,8 @@ pub fn epoll_ctl<M: MemorySize + 'static>(
     fd: WasiFd,
     event_ref: WasmPtr<EpollEvent<M>, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
 
     let memory = unsafe { env.memory_view(&ctx) };

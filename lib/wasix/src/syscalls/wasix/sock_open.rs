@@ -28,6 +28,8 @@ pub fn sock_open<M: MemorySize>(
     pt: SockProto,
     ro_sock: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     // only certain combinations are supported
     match pt {
         SockProto::Tcp => {

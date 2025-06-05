@@ -131,7 +131,7 @@ pub struct FunctionEnvMut<'a, T: 'a> {
     pub(crate) func_env: FunctionEnv<T>,
 }
 
-impl<'a, T> Debug for FunctionEnvMut<'a, T>
+impl<T> Debug for FunctionEnvMut<'_, T>
 where
     T: Send + Debug + 'static,
 {
