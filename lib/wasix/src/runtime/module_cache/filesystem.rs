@@ -4,6 +4,7 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 use tokio::io::AsyncWriteExt;
 use wasmer::{Engine, Module};
+use wasmer_types::MetadataHeader;
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
 use crate::runtime::task_manager::tokio::TokioTaskManager;
@@ -30,9 +31,29 @@ impl FileSystemCache {
     }
 
     fn path(&self, key: ModuleHash, deterministic_id: &str) -> PathBuf {
-        let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
+        use std::fmt::Write;
+
+        // Compute a distinct key prefix for the engine variant.
+        let variant = {
+            let artifact_version = MetadataHeader::CURRENT_VERSION;
+            let mut v = format!("{deterministic_id}-v{artifact_version}");
+
+            // Include rkyv pointer width in the cache key if it differs from the default.
+            // See [`MetadataHeader::POINTER_WIDTH_BITS`] for some details.
+            //
+            // Only done if not the default to avoid invalidting existing cache entries.
+            let ptr_width = MetadataHeader::POINTER_WIDTH_BITS;
+            if ptr_width != MetadataHeader::POINTER_WIDTH_BITS_DEFAULT {
+                // NOTE: .unwrap() is fine here because writing to a string
+                // is infallible.
+                write!(&mut v, "-p{ptr_width}").unwrap();
+            }
+
+            v
+        };
+
         self.cache_dir
-            .join(format!("{deterministic_id}-v{artifact_version}"))
+            .join(variant)
             .join(key.to_string())
             .with_extension("bin")
     }
