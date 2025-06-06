@@ -112,7 +112,7 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
       - name: Install NodeJS
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: 16
       - name: Install wasm-pack
@@ -232,7 +232,7 @@ jobs:
           toolchain: ${{ env.MSRV }}
           target: x86_64-unknown-linux-gnu
       - name: Install NodeJS
-        uses: actions/setup-node@v2
+        uses: actions/setup-node@v4
         with:
           node-version: 16
       - name: Install libjavascriptcoregtk-4.0-dev
