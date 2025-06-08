@@ -397,7 +397,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn get_label(&mut self) -> Label {
-        todo!()
+        self.assembler.new_dynamic_label()
     }
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         todo!()
