@@ -282,7 +282,17 @@ impl Machine for MachineRiscv {
         idx > 7
     }
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
-        todo!()
+        match idx {
+            0 => Location::GPR(GPR::X8),
+            1 => Location::GPR(GPR::X9),
+            2 => Location::GPR(GPR::X18),
+            3 => Location::GPR(GPR::X19),
+            4 => Location::GPR(GPR::X20),
+            5 => Location::GPR(GPR::X21),
+            6 => Location::GPR(GPR::X22),
+            7 => Location::GPR(GPR::X23),
+            _ => todo!(),                  // in fact, we only care about idx=0
+        }
     }
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
         todo!()
