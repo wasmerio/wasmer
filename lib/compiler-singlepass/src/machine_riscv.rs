@@ -239,7 +239,15 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
-        todo!()
+        self.trap_table
+            .offset_to_code
+            .clone()
+            .into_iter()
+            .map(|(offset, code)| TrapInformation {
+                code_offset: offset as u32,
+                trap_code: code,
+            })
+            .collect()
     }
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
         todo!()
