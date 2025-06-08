@@ -2579,7 +2579,7 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<FunctionBody, CompileError> {
-        todo!()
+        gen_std_trampoline_riscv64(sig, calling_convention)
     }
     fn gen_std_dynamic_import_trampoline(
         &self,

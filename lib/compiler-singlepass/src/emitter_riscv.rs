@@ -10,8 +10,21 @@ pub use crate::{
     riscv_decl::{FPR, GPR},
 };
 use dynasm::dynasm;
-use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-use wasmer_types::{target::CpuFeature, CompileError};
+use wasmer_compiler::types::{
+    function::FunctionBody,
+    section::{CustomSection, CustomSectionProtection, SectionBody},
+};
+use wasmer_types::{
+    target::CpuFeature, target::CallingConvention,
+    CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+};
+use dynasmrt::{
+    riscv::RiscvRelocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
+    VecAssembler,
+};
+
+type Assembler = VecAssembler<RiscvRelocation>;
+
 
 /// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
 macro_rules! dynasm {
@@ -49,4 +62,19 @@ pub trait EmitterRiscv {
     fn finalize_function(&mut self) -> Result<(), CompileError>;
 
     // TODO: add methods for emitting RISC-V instructions (e.g., loads, stores, arithmetic, branches, etc.)
+}
+
+pub fn gen_std_trampoline_riscv64(
+    sig: &FunctionType,
+    calling_convention: CallingConvention,
+) -> Result<FunctionBody, CompileError> {
+    let mut a = Assembler::new(0);
+
+    let mut body = a.finalize().unwrap();
+    body.shrink_to_fit();
+
+    Ok(FunctionBody {
+        body,
+        unwind_info: None,
+    })
 }
