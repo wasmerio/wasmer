@@ -368,7 +368,12 @@ impl Machine for MachineRiscv {
         source: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
-        Ok(()) // TODO
+        match (size, dest, source) {
+            (Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X10)) => {
+                 self.assembler.emit_mov(size, source, dest)
+            },
+            _ => todo!(),
+        }
     }
     fn move_location_extend(
         &mut self,

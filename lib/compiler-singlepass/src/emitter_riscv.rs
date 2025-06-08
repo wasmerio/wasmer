@@ -49,8 +49,6 @@ pub enum Condition {
 /// Emitter trait for RISC-V.
 #[allow(unused)]
 pub trait EmitterRiscv {
-    /// Returns the SIMD (FPU) feature if available.
-    fn get_simd_arch(&self) -> Option<&CpuFeature>;
     /// Generates a new internal label.
     fn get_label(&mut self) -> Label;
     /// Gets the current code offset.
@@ -62,6 +60,37 @@ pub trait EmitterRiscv {
     fn finalize_function(&mut self) -> Result<(), CompileError>;
 
     // TODO: add methods for emitting RISC-V instructions (e.g., loads, stores, arithmetic, branches, etc.)
+
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+
+}
+
+impl EmitterRiscv for Assembler {
+    fn get_label(&mut self) -> Label {
+        self.new_dynamic_label()
+    }
+
+    fn get_offset(&self) -> Offset {
+        self.offset()
+    }
+
+    fn get_jmp_instr_size(&self) -> u8 {
+        1
+    }
+
+    fn finalize_function(&mut self) -> Result<(), CompileError> {
+        Ok(())
+    }
+
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, src, dst) {
+            (Size::S64, Location::GPR(GPR::X10), Location::GPR(GPR::X27)) => {
+                dynasm!(self ; add s11, a0, x0);
+            },
+            _ => todo!(),
+        }
+        Ok(())
+    }
 }
 
 pub fn gen_std_trampoline_riscv64(
