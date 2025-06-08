@@ -153,7 +153,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
-        todo!()
+        RegisterIndex(x as usize)
     }
     fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex {
         todo!()
