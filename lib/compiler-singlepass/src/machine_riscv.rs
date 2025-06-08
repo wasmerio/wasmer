@@ -271,7 +271,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn is_local_on_stack(&self, idx: usize) -> bool {
-        todo!()
+        idx > 7
     }
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
         todo!()
