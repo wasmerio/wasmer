@@ -31,67 +31,6 @@ use crate::{
 type Assembler = VecAssembler<RiscvRelocation>;
 type Location = AbstractLocation<GPR, FPR>;
 
-/// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
-macro_rules! dynasm {
-    ($a:expr ; $($tt:tt)*) => {
-        dynasm::dynasm!(
-            $a.inner
-            ; .arch riscv64
-            ; $($tt)*
-        )
-    };
-}
-
-use std::ops::{Deref, DerefMut};
-/// The RISC-V assembler wrapper, providing FPU feature tracking and a dynasmrt assembler.
-pub struct AssemblerRiscv {
-    /// Inner dynasm assembler.
-    pub inner: Assembler,
-    /// Optional FPU (SIMD) feature.
-    pub simd_arch: Option<CpuFeature>,
-    /// Target CPU configuration.
-    pub target: Option<Target>,
-}
-
-impl AssemblerRiscv {
-    /// Create a new RISC-V assembler.
-    pub fn new(base_addr: usize, target: Option<Target>) -> Result<Self, CompileError> {
-        let simd_arch = None; // TODO: detect RISC-V FPU extensions (e.g., F/D)
-        Ok(Self {
-            inner: Assembler::new(base_addr),
-            simd_arch,
-            target,
-        })
-    }
-
-    /// Finalize to machine code bytes.
-    pub fn finalize(mut self) -> Result<Vec<u8>, DynasmError> {
-        // Sum two numbers in RISC-V
-        dynasm!(self
-            ; .arch riscv64
-            ; addi x1, x1, 1
-            ; addi x2, x2, 2
-            ; add x3, x1, x2
-            ; ret
-        );
-        let bytes = self.inner.finalize();
-        bytes
-    }
-}
-
-impl Deref for AssemblerRiscv {
-    type Target = Assembler;
-    fn deref(&self) -> &Self::Target {
-        &self.inner
-    }
-}
-
-impl DerefMut for AssemblerRiscv {
-    fn deref_mut(&mut self) -> &mut Self::Target {
-        &mut self.inner
-    }
-}
-
 #[cfg(feature = "unwind")]
 fn dwarf_index(reg: u16) -> gimli::Register {
     // TODO: map DWARF register numbers for RISC-V.

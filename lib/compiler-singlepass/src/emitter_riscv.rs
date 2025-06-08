@@ -2,7 +2,6 @@
 
 use crate::{
     codegen_error, common_decl::Size, location::Location as AbstractLocation,
-    machine_riscv::AssemblerRiscv,
 };
 pub use crate::{
     location::Multiplier,
