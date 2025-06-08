@@ -70,6 +70,20 @@ pub fn gen_std_trampoline_riscv64(
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
 
+    dynasm!(a
+        ; sd fp, [sp, -16]
+        ; sd ra, [sp, -8]
+        ; addi fp, sp, -16
+        ; addi sp, sp, -16
+    );
+
+    dynasm!(a
+        ; addi sp, fp, 16
+        ; ld ra, [fp, 8]
+        ; ld fp, [fp, 0]
+        ; ret
+    );
+
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
 
