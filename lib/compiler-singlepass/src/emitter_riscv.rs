@@ -30,7 +30,7 @@ type Assembler = VecAssembler<RiscvRelocation>;
 macro_rules! dynasm {
     ($a:expr ; $($tt:tt)*) => {
         dynasm::dynasm!(
-            $a.inner
+            $a
             ; .arch riscv64
             ; $($tt)*
         )
