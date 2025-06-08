@@ -354,7 +354,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn new_machine_state(&self) -> MachineState {
-        todo!()
+        new_machine_state()
     }
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
         todo!()
