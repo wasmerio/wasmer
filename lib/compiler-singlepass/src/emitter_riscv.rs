@@ -62,7 +62,7 @@ pub trait EmitterRiscv {
     // TODO: add methods for emitting RISC-V instructions (e.g., loads, stores, arithmetic, branches, etc.)
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
-
+    fn emit_unimp(&mut self) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -89,6 +89,11 @@ impl EmitterRiscv for Assembler {
             },
             _ => todo!(),
         }
+        Ok(())
+    }
+
+    fn emit_unimp(&mut self) -> Result<(), CompileError> {
+        dynasm!(self; unimp);
         Ok(())
     }
 }
