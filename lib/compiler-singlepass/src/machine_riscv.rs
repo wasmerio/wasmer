@@ -212,8 +212,13 @@ impl Machine for MachineRiscv {
     fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError> {
         todo!()
     }
+    // Return a rounded stack adjustement value (must be multiple of 16bytes on RISCV64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize {
-        todo!()
+        if value & 0xf != 0 {
+            ((value >> 4) + 1) << 4
+        } else {
+            value
+        }
     }
     fn set_srcloc(&mut self, offset: u32) {
         todo!()
