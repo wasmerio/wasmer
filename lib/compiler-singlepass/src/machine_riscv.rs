@@ -347,7 +347,19 @@ impl Machine for MachineRiscv {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        todo!()
+        match calling_convention {
+            _ => match idx {
+                0 => Location::GPR(GPR::X10),
+                1 => Location::GPR(GPR::X11),
+                2 => Location::GPR(GPR::X12),
+                3 => Location::GPR(GPR::X13),
+                4 => Location::GPR(GPR::X14),
+                5 => Location::GPR(GPR::X15),
+                6 => Location::GPR(GPR::X16),
+                7 => Location::GPR(GPR::X17),
+                _ => todo!(), // in fact, we only care about idx=0,1
+            }
+        }
     }
     fn move_location(
         &mut self,
