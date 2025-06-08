@@ -110,6 +110,12 @@ pub fn gen_std_trampoline_riscv64(
         ; addi sp, sp, -16
     );
 
+
+    dynasm!(a
+       ; li t2, 3
+       ; sw t2, [a2, 0]
+    );
+
     dynasm!(a
         ; addi sp, fp, 16
         ; ld ra, [fp, 8]
