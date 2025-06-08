@@ -404,7 +404,9 @@ impl Machine for MachineRiscv {
         new_machine_state()
     }
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        todo!()
+        self.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+        })
     }
     fn get_offset(&self) -> Offset {
         todo!()
