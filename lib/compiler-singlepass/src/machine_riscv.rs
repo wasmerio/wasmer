@@ -89,8 +89,7 @@ impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
     fn assembler_get_offset(&self) -> Offset {
-        // self.assembler.get_offset() TODO
-	dynasmrt::AssemblyOffset(0)
+        self.assembler.get_offset()
     }
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
         RegisterIndex(x as usize)
