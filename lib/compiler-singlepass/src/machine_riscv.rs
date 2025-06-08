@@ -250,7 +250,7 @@ impl Machine for MachineRiscv {
             .collect()
     }
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
-        todo!()
+        self.instructions_address_map.clone()
     }
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         todo!()
