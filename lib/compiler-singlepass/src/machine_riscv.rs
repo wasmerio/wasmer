@@ -389,7 +389,8 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_illegal_op(&mut self, trp: TrapCode) -> Result<(), CompileError> {
-        Ok(()) // TODO
+        self.assembler.emit_unimp();
+        Ok(())
     }
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()
