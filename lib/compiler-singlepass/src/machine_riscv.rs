@@ -358,8 +358,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn finalize_function(&mut self) -> Result<(), CompileError> {
-        // self.assembler.finalize_function(); TODO
-        Ok(())
+        self.assembler.finalize_function()
     }
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
         Ok(()) // TODO
