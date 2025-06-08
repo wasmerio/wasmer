@@ -159,7 +159,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn get_vmctx_reg(&self) -> Self::GPR {
-        todo!()
+        GPR::X27
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
         todo!()
