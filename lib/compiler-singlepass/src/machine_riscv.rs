@@ -535,7 +535,8 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
-        Ok(()) // TODO
+        self.assembler.emit_ret();
+        Ok(())
     }
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         todo!()
@@ -594,7 +595,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        Ok(()) // TODO
+        self.assembler.emit_add(loc_a, loc_b, ret)
     }
     fn emit_binop_sub32(
         &mut self,

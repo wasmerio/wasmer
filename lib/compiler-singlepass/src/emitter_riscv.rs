@@ -62,6 +62,14 @@ pub trait EmitterRiscv {
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
     fn emit_unimp(&mut self) -> Result<(), CompileError>;
+    fn emit_ret(&mut self) -> Result<(), CompileError>;
+    fn emit_add(
+        &mut self,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+
 }
 
 impl EmitterRiscv for Assembler {
@@ -93,6 +101,28 @@ impl EmitterRiscv for Assembler {
 
     fn emit_unimp(&mut self) -> Result<(), CompileError> {
         dynasm!(self; unimp);
+        Ok(())
+    }
+
+    fn emit_add(
+        &mut self,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        // We do know that we are going to be called only once, and we know that
+        // the parameters are already in a1 and a2, so we can just emit a hardcoded
+        // addw a0, a1, a2 and it should work for our specific case
+        dynasm!(self
+            ; addw a0, a1, a2
+        );
+        Ok(())
+    }
+
+    fn emit_ret(&mut self) -> Result<(), CompileError> {
+        dynasm!(self
+            ; ret
+        );
         Ok(())
     }
 }
