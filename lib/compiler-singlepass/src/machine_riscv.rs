@@ -150,7 +150,8 @@ impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
     fn assembler_get_offset(&self) -> Offset {
-        todo!()
+        // self.assembler.get_offset() TODO
+	dynasmrt::AssemblyOffset(0)
     }
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
         RegisterIndex(x as usize)
@@ -162,7 +163,7 @@ impl Machine for MachineRiscv {
         GPR::X27
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
-        todo!()
+        None // TODO
     }
     fn pick_temp_gpr(&self) -> Option<Self::GPR> {
         todo!()
@@ -221,7 +222,7 @@ impl Machine for MachineRiscv {
         }
     }
     fn set_srcloc(&mut self, offset: u32) {
-        todo!()
+        // TODO
     }
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         todo!()
@@ -236,7 +237,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn insert_stackoverflow(&mut self) {
-        todo!()
+	// TODO
     }
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
         self.trap_table
@@ -253,13 +254,13 @@ impl Machine for MachineRiscv {
         self.instructions_address_map.clone()
     }
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
-        todo!()
+        Location::Memory(GPR::X29, -stack_offset) // TODO
     }
     fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         todo!()
@@ -268,7 +269,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn local_pointer(&self) -> Self::GPR {
-        todo!()
+        GPR::X29 // TODO
     }
     fn move_location_for_native(
         &mut self,
@@ -295,10 +296,10 @@ impl Machine for MachineRiscv {
         }
     }
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
-        todo!()
+        vec![]
     }
     fn get_param_location(
         &self,
@@ -367,7 +368,7 @@ impl Machine for MachineRiscv {
         source: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn move_location_extend(
         &mut self,
@@ -377,7 +378,7 @@ impl Machine for MachineRiscv {
         size_op: Size,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn load_address(
         &mut self,
@@ -395,10 +396,10 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn new_machine_state(&self) -> MachineState {
         new_machine_state()
@@ -412,13 +413,14 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn finalize_function(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // self.assembler.finalize_function(); TODO
+        Ok(())
     }
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn emit_function_epilog(&mut self) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn emit_function_return_value(
         &mut self,
@@ -426,7 +428,7 @@ impl Machine for MachineRiscv {
         cannonicalize: bool,
         loc: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         todo!()
@@ -443,13 +445,13 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_illegal_op(&mut self, trp: TrapCode) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn get_label(&mut self) -> Label {
         self.assembler.new_dynamic_label()
     }
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn get_grp_for_call(&self) -> Self::GPR {
         todo!()
@@ -588,7 +590,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         todo!()
@@ -602,7 +604,7 @@ impl Machine for MachineRiscv {
         src: Location,
         dst: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn emit_relaxed_cmp(
         &mut self,
@@ -647,7 +649,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        Ok(()) // TODO
     }
     fn emit_binop_sub32(
         &mut self,
@@ -2597,7 +2599,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
-        todo!()
+	None // TODO
     }
     fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>> {
         todo!()
