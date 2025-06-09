@@ -213,7 +213,7 @@ impl Machine for MachineRiscv {
         }
     }
     fn set_srcloc(&mut self, offset: u32) {
-        // TODO
+        self.src_loc = offset;
     }
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         todo!()
@@ -225,10 +225,18 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn mark_instruction_address_end(&mut self, begin: usize) {
-        todo!()
+        self.instructions_address_map.push(InstructionAddressMap {
+            srcloc: SourceLoc::new(self.src_loc),
+            code_offset: begin,
+            code_len: self.assembler.get_offset().0 - begin,
+        });
     }
     fn insert_stackoverflow(&mut self) {
-	// TODO
+        let offset = 0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::StackOverflow);
+        self.mark_instruction_address_end(offset);
     }
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
         self.trap_table
@@ -408,7 +416,7 @@ impl Machine for MachineRiscv {
         })
     }
     fn get_offset(&self) -> Offset {
-        todo!()
+        self.assembler.get_offset()
     }
     fn finalize_function(&mut self) -> Result<(), CompileError> {
         self.assembler.finalize_function()
@@ -449,7 +457,7 @@ impl Machine for MachineRiscv {
         self.assembler.new_dynamic_label()
     }
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
-        Ok(()) // TODO
+        self.assembler.emit_label(label)
     }
     fn get_grp_for_call(&self) -> Self::GPR {
         todo!()
