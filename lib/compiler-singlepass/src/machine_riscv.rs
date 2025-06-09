@@ -66,14 +66,6 @@ impl AssemblerRiscv {
 
     /// Finalize to machine code bytes.
     pub fn finalize(mut self) -> Result<Vec<u8>, DynasmError> {
-        // Sum two numbers in RISC-V
-        dynasm!(self
-            ; .arch riscv64
-            ; addi x1, x1, 1
-            ; addi x2, x2, 2
-            ; add x3, x1, x2
-            ; ret
-        );
         let bytes = self.inner.finalize();
         bytes
     }
@@ -100,7 +92,7 @@ fn dwarf_index(reg: u16) -> gimli::Register {
 
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
-    assembler: Assembler,
+    assembler: AssemblerRiscv,
     used_gprs: u32,
     used_simd: u32,
     trap_table: TrapTable,
@@ -117,13 +109,13 @@ pub struct MachineRiscv {
 
 impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
-    pub fn new(target: Option<Target>) -> Self {
+    pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
         let has_fpu = match target {
             Some(ref t) => t.cpu_features().contains(CpuFeature::NEON), // TODO: replace with RISC-V FPU feature
             None => false,
         };
-        MachineRiscv {
-            assembler: Assembler::new(0),
+        Ok(MachineRiscv {
+            assembler: AssemblerRiscv::new(0, target)?,
             used_gprs: 0,
             used_simd: 0,
             trap_table: TrapTable::default(),
@@ -131,7 +123,7 @@ impl MachineRiscv {
             src_loc: 0,
             unwind_ops: vec![],
             has_fpu,
-        }
+        })
     }
 }
 
