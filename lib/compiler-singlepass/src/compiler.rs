@@ -210,7 +210,7 @@ impl Compiler for SinglepassCompiler {
                     }
                     #[cfg(feature = "riscv")]
                     Architecture::Riscv32(_) | Architecture::Riscv64(_) => {
-                        let machine = MachineRiscv::new(Some(target.clone()));
+                        let machine = MachineRiscv::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,

@@ -2424,7 +2424,7 @@ pub fn gen_std_trampoline(
             machine.gen_std_trampoline(sig, calling_convention)
         }
         Architecture::Riscv64(_) => {
-            let machine = MachineRiscv::new(Some(target.clone()));
+            let machine = MachineRiscv::new(Some(target.clone()))?;
             machine.gen_std_trampoline(sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
