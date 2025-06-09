@@ -275,16 +275,16 @@ use tracing::trace;
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
 use virtual_mio::InlineWaker;
 use wasmer::{
-    AsEngineRef, AsStoreMut, AsStoreRef, CompileError, ExportError, Exportable, Extern, ExternType,
-    Function, FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports,
-    Instance, InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag,
-    Type, Value, WasmTypeList, WASM_PAGE_SIZE,
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
+    FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
+    InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
+    Value, WasmTypeList, WASM_PAGE_SIZE,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, WasiEnv, WasiError, WasiFs,
-    WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
+    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
+    WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
 };
 
 use super::{WasiModuleInstanceHandles, WasiState};
@@ -459,8 +459,8 @@ pub enum LinkError {
     #[error("Main module is missing a required import: {0}")]
     MissingMainModuleImport(String),
 
-    #[error("Module compilation error: {0}")]
-    CompileError(#[from] CompileError),
+    #[error("Failed to spawn module: {0}")]
+    SpawnError(#[from] SpawnError),
 
     #[error("Failed to instantiate module: {0}")]
     InstantiationError(#[from] InstantiationError),
@@ -1045,12 +1045,12 @@ impl Linker {
             // from which symbols can be resolved in the following call to
             // guard.resolve_imports.
             trace!(name = needed, "Loading module needed by main");
-            let engine = store.engine().clone();
+            let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
                 needed,
                 &mut link_state,
-                &engine,
-                &func_env.data(store).state,
+                &wasi_env.runtime,
+                &wasi_env.state,
                 Option::<&[&str]>::None,
             )?;
         }
@@ -1362,12 +1362,12 @@ impl Linker {
         let mut store = ctx.as_store_mut();
 
         trace!("Loading module tree for requested module");
-        let engine = store.engine().clone();
+        let wasi_env = env.as_ref(&store);
         let module_handle = linker_state.load_module_tree(
             module_path,
             &mut link_state,
-            &engine,
-            &env.as_ref(&store).state,
+            &wasi_env.runtime,
+            &wasi_env.state,
             Some(library_path),
         )?;
 
@@ -2030,7 +2030,7 @@ impl LinkerState {
         &mut self,
         module_path: impl AsRef<Path>,
         link_state: &mut InProgressLinkState,
-        engine: &impl AsEngineRef,
+        runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
         library_path: Option<&[impl AsRef<Path>]>,
     ) -> Result<ModuleHandle, LinkError> {
@@ -2062,7 +2062,7 @@ impl LinkerState {
             return Ok(INVALID_MODULE_HANDLE);
         }
 
-        let module = Module::new(&engine, &*module_bytes)?;
+        let module = runtime.load_module_sync(&*module_bytes)?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
@@ -2081,7 +2081,7 @@ impl LinkerState {
 
         for needed in &dylink_info.needed {
             trace!(needed, "Loading needed side module");
-            match self.load_module_tree(needed, link_state, engine, wasi_state, library_path) {
+            match self.load_module_tree(needed, link_state, runtime, wasi_state, library_path) {
                 Ok(_) => (),
                 Err(e) => {
                     pop_pending_module(link_state);
