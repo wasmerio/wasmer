@@ -295,7 +295,6 @@ impl Machine for MachineRiscv {
         }
     }
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
-        self.assembler.emit_unimp();
         Ok(()) // TODO
     }
     fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
@@ -370,7 +369,6 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         match (size, dest, source) {
             (Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X10)) => {
-                 self.assembler.emit_unimp();
                  self.assembler.emit_mov(size, source, dest)
             },
             _ => todo!(),
