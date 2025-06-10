@@ -2062,7 +2062,7 @@ impl LinkerState {
             return Ok(INVALID_MODULE_HANDLE);
         }
 
-        let module = runtime.load_module_sync(&*module_bytes)?;
+        let module = runtime.load_module_sync(&module_bytes)?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
