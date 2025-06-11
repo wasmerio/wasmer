@@ -1456,7 +1456,7 @@ impl RemoteAdapterSocket {
                 Self::TcpSocket(this) => {
                     let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
-                    match this.try_recv(&mut chunk) {
+                    match this.try_recv(&mut chunk, false) {
                         Ok(0) => {}
                         Ok(amt) => {
                             let chunk_unsafe: &mut [MaybeUninit<u8>] = &mut chunk[..amt];
@@ -1476,7 +1476,7 @@ impl RemoteAdapterSocket {
                 Self::UdpSocket(this) => {
                     let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
-                    match this.try_recv_from(&mut chunk) {
+                    match this.try_recv_from(&mut chunk, false) {
                         Ok((0, _)) => {}
                         Ok((amt, addr)) => {
                             let chunk_unsafe: &mut [MaybeUninit<u8>] = &mut chunk[..amt];
@@ -1497,7 +1497,7 @@ impl RemoteAdapterSocket {
                 Self::IcmpSocket(this) => {
                     let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
-                    match this.try_recv_from(&mut chunk) {
+                    match this.try_recv_from(&mut chunk, false) {
                         Ok((0, _)) => {}
                         Ok((amt, addr)) => {
                             let chunk_unsafe: &mut [MaybeUninit<u8>] = &mut chunk[..amt];
@@ -1518,7 +1518,7 @@ impl RemoteAdapterSocket {
                 Self::RawSocket(this) => {
                     let mut chunk: [MaybeUninit<u8>; 10240] =
                         unsafe { MaybeUninit::uninit().assume_init() };
-                    match this.try_recv(&mut chunk) {
+                    match this.try_recv(&mut chunk, false) {
                         Ok(0) => {}
                         Ok(amt) => {
                             let chunk_unsafe: &mut [MaybeUninit<u8>] = &mut chunk[..amt];

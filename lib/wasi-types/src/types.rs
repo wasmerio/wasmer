@@ -280,6 +280,9 @@ pub mod net {
     pub const __WASI_SOCK_RECV_INPUT_PEEK: RiFlags = 1 << 0;
     pub const __WASI_SOCK_RECV_INPUT_WAITALL: RiFlags = 1 << 1;
     pub const __WASI_SOCK_RECV_INPUT_DATA_TRUNCATED: RiFlags = 1 << 2;
+    pub const __WASI_SOCK_RECV_INPUT_DONT_WAIT: RiFlags = 1 << 3;
+
+    pub const __WASI_SOCK_SEND_INPUT_DONT_WAIT: SiFlags = 1 << 0;
 
     pub const __WASI_SOCK_RECV_OUTPUT_DATA_TRUNCATED: RoFlags = 1 << 0;
 

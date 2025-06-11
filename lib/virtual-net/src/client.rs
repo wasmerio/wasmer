@@ -1195,13 +1195,15 @@ impl VirtualRawSocket for RemoteSocket {
         }
     }
 
-    fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>]) -> Result<usize> {
+    fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>], peek: bool) -> Result<usize> {
         loop {
             if !self.rx_buffer.is_empty() {
                 let amt = self.rx_buffer.len().min(buf.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(&self.rx_buffer[..amt]);
-                self.rx_buffer.advance(amt);
+                if !peek {
+                    self.rx_buffer.advance(amt);
+                }
                 return Ok(amt);
             }
             match self.rx_recv.try_recv() {
@@ -1253,7 +1255,15 @@ impl VirtualConnectionlessSocket for RemoteSocket {
     fn try_recv_from(
         &mut self,
         buf: &mut [std::mem::MaybeUninit<u8>],
+        peek: bool,
     ) -> Result<(usize, SocketAddr)> {
+        // FIXME: A proper peek implementation would require correct use of a
+        // buffer. We don't use this implementation AFAIK, so I'll skip over it
+        // for the time being.
+        if peek {
+            return Err(NetworkError::Unsupported);
+        }
+
         match self.rx_recv_with_addr.try_recv() {
             Ok(received) => {
                 let amt = buf.len().min(received.data.len());
@@ -1421,13 +1431,15 @@ impl VirtualConnectedSocket for RemoteSocket {
         self.io_socket_fire_and_forget(RequestType::Close)
     }
 
-    fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>]) -> Result<usize> {
+    fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>], peek: bool) -> Result<usize> {
         loop {
             if !self.rx_buffer.is_empty() {
                 let amt = self.rx_buffer.len().min(buf.len());
                 let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(&self.rx_buffer[..amt]);
-                self.rx_buffer.advance(amt);
+                if !peek {
+                    self.rx_buffer.advance(amt);
+                }
                 return Ok(amt);
             }
             match self.rx_recv.try_recv() {
