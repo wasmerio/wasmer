@@ -1,3 +1,4 @@
+use thiserror::Error;
 use wasmer_types::{RawValue, Type};
 
 use crate::{
@@ -72,6 +73,20 @@ impl Value {
     /// Returns a null `externref` value.
     pub fn null() -> Self {
         Self::ExternRef(None)
+    }
+
+    /// Creates a new `Value` with the default value for the given type.
+    pub fn default_typed(ty: &Type) -> Self {
+        match ty {
+            Type::I32 => Self::I32(0),
+            Type::I64 => Self::I64(0),
+            Type::F32 => Self::F32(0.0),
+            Type::F64 => Self::F64(0.0),
+            Type::V128 => Self::V128(0),
+            Type::ExternRef => Self::ExternRef(None),
+            Type::FuncRef => Self::FuncRef(None),
+            Type::ExceptionRef => Self::ExceptionRef(None),
+        }
     }
 
     /// Returns the corresponding [`Type`] for this [`Value`].
@@ -260,6 +275,78 @@ impl Value {
             Self::ExternRef(Some(e)) => e.is_from_store(store),
             Self::ExceptionRef(Some(e)) => e.is_from_store(store),
             Self::FuncRef(Some(f)) => f.is_from_store(store),
+        }
+    }
+
+    #[cfg(target_endian = "little")]
+    /// Get a slice to the content of this value if it is a scalar type.
+    ///
+    /// This is useful for writing a value to memory.
+    ///
+    /// Returns `None` if the value is not representable as a byte slice.
+    ///
+    /// Not available on big-endian architectures, because the result of this function
+    /// should be compatible with wasm memory, which is little-endian.
+    pub fn as_slice(&self) -> Option<&[u8]> {
+        match self {
+            Self::I32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const i32 as *const u8, 4) })
+            }
+            Self::I64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const i64 as *const u8, 8) })
+            }
+            Self::F32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const f32 as *const u8, 4) })
+            }
+            Self::F64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const f64 as *const u8, 8) })
+            }
+            Self::V128(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const u128 as *const u8, 16) })
+            }
+            // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+            _ => None,
+        }
+    }
+
+    #[cfg(target_endian = "little")]
+    /// Get a mutable slice to the content of this value if it is a scalar type.
+    ///
+    /// This is useful for reading a Value from memory.
+    ///
+    /// Returns `None` if the value is not representable as a byte slice.
+    ///
+    /// Not available on big-endian architectures, because the result of this function
+    /// should be compatible with wasm memory, which is little-endian.
+    pub fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
+        match self {
+            Self::I32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i32 as *mut u8, 4) })
+            }
+            Self::I64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i64 as *mut u8, 8) })
+            }
+            Self::F32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f32 as *mut u8, 4) })
+            }
+            Self::F64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f64 as *mut u8, 8) })
+            }
+            Self::V128(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut u128 as *mut u8, 16) })
+            }
+            // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+            _ => None,
         }
     }
 
