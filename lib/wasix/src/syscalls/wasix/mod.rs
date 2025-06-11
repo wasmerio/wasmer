@@ -1,3 +1,4 @@
+mod call_dynamic;
 mod callback_signal;
 mod chdir;
 mod dl_invalid_handle;
@@ -80,6 +81,7 @@ mod thread_spawn;
 mod tty_get;
 mod tty_set;
 
+pub use call_dynamic::*;
 pub use callback_signal::*;
 pub use chdir::*;
 pub use dl_invalid_handle::*;
