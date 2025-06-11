@@ -1354,6 +1354,17 @@ impl Linker {
         }
     }
 
+    /// TODO: Arshia told me not to do this but I want to implement the other stuff first.
+    /// This may break horribly when there are multiple instance groups, so yeah, rewrite this, its wrong
+    pub fn access_indirect_function_table(
+        &self,
+    ) -> Option<Table> {
+        
+
+        let group_state = self.instance_group_state.lock().unwrap();
+        group_state.as_ref().map(|group| group.indirect_function_table.clone()).clone()
+    }
+
     /// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].

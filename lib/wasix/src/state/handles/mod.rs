@@ -6,7 +6,7 @@ pub(crate) use global::*;
 #[cfg(feature = "js")]
 pub(crate) use thread_local::*;
 
-use wasmer::{AsStoreRef, Global, Instance, Memory, MemoryView, Module, TypedFunction};
+use wasmer::{AsStoreRef, Global, Instance, Memory, MemoryView, Module, Table, TypedFunction};
 
 use super::Linker;
 
@@ -274,6 +274,15 @@ impl WasiModuleTreeHandles {
         match self {
             Self::Static(_) => None,
             Self::Dynamic { linker, .. } => Some(linker),
+        }
+    }
+
+    pub fn main_module_indirect_function_table(&self) -> Option<Table> {
+        match self {
+            Self::Static(a) => {
+                a.instance.exports.get_table("__indirect_function_table").cloned().ok()
+            },
+            Self::Dynamic { linker, .. } => linker.access_indirect_function_table(),
         }
     }
 }
