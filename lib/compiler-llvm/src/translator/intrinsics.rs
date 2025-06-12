@@ -1532,20 +1532,25 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
 
         let base_ptr = err!(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, "base_ptr"))
             .into_pointer_value();
-        let bounds =
-            err!(builder.build_load(intrinsics.isize_ty, ptr_to_bounds, "bounds")).into_int_value();
         tbaa_label(
             module,
             intrinsics,
             format!("table_base_ptr {}", index.index()),
             base_ptr.as_instruction_value().unwrap(),
         );
-        tbaa_label(
-            module,
-            intrinsics,
-            format!("table_bounds {}", index.index()),
-            bounds.as_instruction_value().unwrap(),
-        );
+
+        let bounds = if let Some(max_size) = self.wasm_module.tables.get(index).unwrap().maximum {
+            intrinsics.i32_ty.const_int(max_size.into(), false)
+        } else {
+            let bounds = err!(builder.build_load(intrinsics.isize_ty, ptr_to_bounds, "bounds")).into_int_value();
+            tbaa_label(
+                module,
+                intrinsics,
+                format!("table_bounds {}", index.index()),
+                bounds.as_instruction_value().unwrap(),
+            );
+            bounds
+        };
         Ok((base_ptr, bounds))
     }
 
