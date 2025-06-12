@@ -50,7 +50,7 @@ loupe = { workspace = true, optional = true, features = [
 	"enable-indexmap",
 ] }
 paste = "1.0.15"
-derive_more = { version = "1.0.0", features = ["from", "debug"] }
+derive_more = { workspace = true, features = ["from", "debug"] }
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

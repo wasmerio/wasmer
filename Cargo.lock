@@ -1415,18 +1415,18 @@ dependencies = [
 
 [[package]]
 name = "derive_more"
-version = "1.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a9b99b9cbbe49445b21764dc0625032a89b145a2642e67603e1c936f5458d05"
+checksum = "093242cf7570c207c83073cf82f79706fe7b8317e98620a47d5be7c3d8497678"
 dependencies = [
  "derive_more-impl",
 ]
 
 [[package]]
 name = "derive_more-impl"
-version = "1.0.0"
+version = "2.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "cb7330aeadfbe296029522e6c40f315320aba36fc43a5b3632f3795348f3bd22"
+checksum = "bda628edc44c4bb645fbe0f758797143e4e07926f7ebf4e9bdfbd3d2ce621df3"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -6174,7 +6174,7 @@ dependencies = [
  "async-trait",
  "bytes",
  "dashmap 6.1.0",
- "derive_more 1.0.0",
+ "derive_more 2.0.1",
  "dunce",
  "filetime",
  "fs_extra",
@@ -6223,7 +6223,7 @@ dependencies = [
  "bincode",
  "bytecheck 0.6.12",
  "bytes",
- "derive_more 1.0.0",
+ "derive_more 2.0.1",
  "futures-util",
  "hyper",
  "hyper-tungstenite",
@@ -6621,7 +6621,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "cmake",
- "derive_more 1.0.0",
+ "derive_more 2.0.1",
  "hashbrown 0.11.2",
  "indexmap 2.9.0",
  "js-sys",
@@ -7106,7 +7106,7 @@ dependencies = [
  "bincode",
  "bytecheck 0.6.12",
  "bytes",
- "derive_more 1.0.0",
+ "derive_more 2.0.1",
  "lz4_flex",
  "num_enum",
  "rkyv",
@@ -7258,7 +7258,7 @@ dependencies = [
  "chrono",
  "cooked-waker",
  "dashmap 6.1.0",
- "derive_more 1.0.0",
+ "derive_more 2.0.1",
  "env_logger",
  "futures",
  "getrandom 0.2.16",
