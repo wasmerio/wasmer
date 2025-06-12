@@ -81,6 +81,9 @@ pub struct VMTable {
 }
 
 impl VMTable {
+    // 1,048,576 elements (~1 million)
+    const DEFAULT_MAX_TABLE_SIZE: u32 = 1 << 20;
+
     /// Create a new linear table instance with specified minimum and maximum number of elements.
     ///
     /// This creates a `Table` with metadata owned by a VM, pointed to by
@@ -191,18 +194,33 @@ impl VMTable {
     pub fn grow(&mut self, delta: u32, init_value: TableElement) -> Option<u32> {
         let size = self.size();
         let new_len = size.checked_add(delta)?;
-        if self.maximum.map_or(false, |max| new_len > max) {
-            return None;
+
+        // Apply the table's maximum or the default if unspecified
+        let max_size = self.maximum.unwrap_or(VMTable::DEFAULT_MAX_TABLE_SIZE);
+        if new_len > max_size {
+            return None; // Fail if new size exceeds limit
         }
+
         if new_len == size {
             debug_assert_eq!(delta, 0);
             return Some(size);
         }
 
-        self.vec
-            .resize(usize::try_from(new_len).unwrap(), init_value.into());
+        // Safe: new_len is u32, fits in usize on 64-bit
+        let new_len_usize = new_len as usize;
+        let additional = new_len_usize
+            .checked_sub(self.vec.len())
+            .expect("new_len should be >= current size");
 
-        // update table definition
+        // Attempt memory reservation; fail on OOM
+        if self.vec.try_reserve_exact(additional).is_err() {
+            return None;
+        }
+
+        // Safe to resize after successful reservation
+        self.vec.resize(new_len_usize, init_value.into());
+
+        // Update table definition
         unsafe {
             let mut td_ptr = self.get_vm_table_definition();
             let td = td_ptr.as_mut();
