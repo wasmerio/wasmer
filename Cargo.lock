@@ -305,7 +305,7 @@ dependencies = [
  "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.2",
+ "tokio-rustls",
  "tungstenite 0.24.0",
 ]
 
@@ -2376,10 +2376,10 @@ dependencies = [
  "http",
  "hyper",
  "hyper-util",
- "rustls 0.23.26",
+ "rustls",
  "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.2",
+ "tokio-rustls",
  "tower-service",
  "webpki-roots",
 ]
@@ -4022,7 +4022,7 @@ dependencies = [
  "quinn-proto",
  "quinn-udp",
  "rustc-hash 2.1.1",
- "rustls 0.23.26",
+ "rustls",
  "socket2",
  "thiserror 2.0.12",
  "tokio",
@@ -4041,7 +4041,7 @@ dependencies = [
  "rand 0.9.1",
  "ring",
  "rustc-hash 2.1.1",
- "rustls 0.23.26",
+ "rustls",
  "rustls-pki-types",
  "slab",
  "thiserror 2.0.12",
@@ -4326,7 +4326,7 @@ dependencies = [
  "percent-encoding",
  "pin-project-lite",
  "quinn",
- "rustls 0.23.26",
+ "rustls",
  "rustls-pemfile",
  "rustls-pki-types",
  "serde",
@@ -4335,7 +4335,7 @@ dependencies = [
  "sync_wrapper",
  "tokio",
  "tokio-native-tls",
- "tokio-rustls 0.26.2",
+ "tokio-rustls",
  "tokio-socks",
  "tokio-util",
  "tower 0.5.2",
@@ -4497,20 +4497,6 @@ dependencies = [
 
 [[package]]
 name = "rustls"
-version = "0.22.4"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bf4ef73721ac7bcd79b2b315da7779d8fc09718c6b3d2d1b2d94850eb8c18432"
-dependencies = [
- "log",
- "ring",
- "rustls-pki-types",
- "rustls-webpki 0.102.8",
- "subtle",
- "zeroize",
-]
-
-[[package]]
-name = "rustls"
 version = "0.23.26"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "df51b5869f3a441595eac5e8ff14d486ff285f7b8c0df8770e49c3b56351f0f0"
@@ -4519,7 +4505,7 @@ dependencies = [
  "once_cell",
  "ring",
  "rustls-pki-types",
- "rustls-webpki 0.103.1",
+ "rustls-webpki",
  "subtle",
  "zeroize",
 ]
@@ -4552,17 +4538,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "917ce264624a4b4db1c364dcc35bfca9ded014d0a958cd47ad3e960e988ea51c"
 dependencies = [
  "web-time",
-]
-
-[[package]]
-name = "rustls-webpki"
-version = "0.102.8"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "64ca1bc8749bd4cf37b5ce386cc146580777b4e8572c7b97baf22c83f444bee9"
-dependencies = [
- "ring",
- "rustls-pki-types",
- "untrusted",
 ]
 
 [[package]]
@@ -5458,22 +5433,11 @@ dependencies = [
 
 [[package]]
 name = "tokio-rustls"
-version = "0.25.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "775e0c0f0adb3a2f22a00c4745d728b479985fc15ee7ca6a2608388c5569860f"
-dependencies = [
- "rustls 0.22.4",
- "rustls-pki-types",
- "tokio",
-]
-
-[[package]]
-name = "tokio-rustls"
 version = "0.26.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "8e727b36a1a0e8b74c376ac2211e40c2c8af09fb4013c60d910495810f008e9b"
 dependencies = [
- "rustls 0.23.26",
+ "rustls",
  "tokio",
 ]
 
@@ -5527,12 +5491,8 @@ checksum = "c83b561d025642014097b66e6c1bb422783339e0909e4429cde4749d1990bc38"
 dependencies = [
  "futures-util",
  "log",
- "rustls 0.22.4",
- "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.25.0",
  "tungstenite 0.21.0",
- "webpki-roots",
 ]
 
 [[package]]
@@ -5543,12 +5503,13 @@ checksum = "edc5f74e248dc973e0dbb7b74c7e0d6fcc301c694ff50049504004ef4d0cdcd9"
 dependencies = [
  "futures-util",
  "log",
- "rustls 0.23.26",
+ "rustls",
  "rustls-native-certs",
  "rustls-pki-types",
  "tokio",
- "tokio-rustls 0.26.2",
+ "tokio-rustls",
  "tungstenite 0.24.0",
+ "webpki-roots",
 ]
 
 [[package]]
@@ -5822,8 +5783,6 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.5",
- "rustls 0.22.4",
- "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
  "url",
@@ -5843,7 +5802,7 @@ dependencies = [
  "httparse",
  "log",
  "rand 0.8.5",
- "rustls 0.23.26",
+ "rustls",
  "rustls-pki-types",
  "sha1",
  "thiserror 1.0.69",
@@ -6091,7 +6050,7 @@ dependencies = [
  "flate2",
  "log",
  "once_cell",
- "rustls 0.23.26",
+ "rustls",
  "rustls-pki-types",
  "url",
  "webpki-roots",
@@ -6241,7 +6200,7 @@ dependencies = [
  "thiserror 1.0.69",
  "tokio",
  "tokio-serde",
- "tokio-tungstenite 0.21.0",
+ "tokio-tungstenite 0.24.0",
  "tokio-util",
  "tracing",
  "tracing-test",
@@ -6859,7 +6818,7 @@ dependencies = [
  "time 0.1.45",
  "time 0.3.41",
  "tokio",
- "tokio-tungstenite 0.21.0",
+ "tokio-tungstenite 0.24.0",
  "toml 0.8.20",
  "tracing",
  "tracing-subscriber",
@@ -6968,7 +6927,7 @@ dependencies = [
  "byteorder",
  "cc",
  "inkwell",
- "itertools 0.10.5",
+ "itertools 0.12.1",
  "libc",
  "object 0.32.2",
  "phf",

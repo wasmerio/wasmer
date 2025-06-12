@@ -160,49 +160,49 @@ time01 = { package = "time", version = "0.1.45", optional = true }
 http.workspace = true
 is-terminal = "0.4.7"
 colored = "2.0"
-anyhow = "1.0"
-bytesize = "1.0"
-cfg-if = "1.0"
-tempfile = "3.6.0"
-serde = { version = "1.0.147", features = ["derive"] }
+anyhow.workspace = true
+bytesize.workspace = true
+cfg-if.workspace = true
+tempfile.workspace = true
+serde.workspace = true
+serde_json.workspace = true
 dirs = "4.0"
-serde_json = { version = "1.0" }
-target-lexicon = { version = "0.12", features = ["std"] }
+target-lexicon = { workspace = true, features = ["std"] }
 indexmap = { workspace = true }
 walkdir = "2.3.2"
 regex = "1.6.0"
 toml.workspace = true
-url = "2.3.1"
+url.workspace = true
 libc.workspace = true
 parking_lot = "0.12"
 dialoguer = "0.11.0"
-hex = "0.4.3"
-flate2 = "1.0.25"
+hex.workspace = true
+flate2.workspace = true
 cargo_metadata = "0.15.2"
-tar = "0.4.40"
-bytes = "1"
-thiserror = "1.0.37"
-log = "0.4.17"
-semver = "1.0.14"
+tar.workspace = true
+bytes.workspace = true
+thiserror.workspace = true
+log.workspace = true
+semver.workspace = true
 pathdiff = "0.2.1"
-sha2 = "0.10.6"
-object = { workspace = true }
+sha2.workspace = true
+object.workspace = true
 wasm-coredump-builder = { version = "0.1.11", optional = true }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3", features = [
+tracing.workspace = true
+tracing-subscriber = { workspace = true, features = [
 	"env-filter",
 	"fmt",
 	"json",
 ] }
 async-trait = "0.1.68"
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
-once_cell = "1.17.1"
+once_cell.workspace = true
 indicatif = "0.17.5"
 opener = "0.6.1"
 normpath = "=1.1.1"
 hyper = { workspace = true, features = ["server"] }
-hyper-util = { version = "0.1.5", features = ["tokio"] }
-http-body-util = "0.1.1"
+hyper-util = { workspace = true, features = ["tokio"] }
+http-body-util.workspace = true
 futures = "0.3.29"
 humantime = "2.1.0"
 interfaces = { version = "0.0.9", optional = true }
@@ -216,7 +216,7 @@ comfy-table = "7.0.1"
 # Used by tuntap and connect
 futures-util = { workspace = true }
 mio = { workspace = true, optional = true }
-tokio-tungstenite = { version = "0.21.0", features = [
+tokio-tungstenite = { workspace = true, features = [
 	"rustls-tls-webpki-roots",
 	"stream",
 ], optional = true }

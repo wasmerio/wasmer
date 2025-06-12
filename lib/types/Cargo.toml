@@ -13,29 +13,26 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-serde = { version = "1.0", features = [
-	"derive",
-	"rc",
-], optional = true, default-features = false }
-serde_bytes = { version = "0.11", optional = true }
-thiserror = "1.0"
-more-asserts = "0.2"
+serde = { workspace = true, features = ["derive", "rc"], optional = true }
+serde_bytes = { workspace = true, optional = true }
+thiserror.workspace = true
+more-asserts.workspace = true
 indexmap = { workspace = true }
 rkyv = { workspace = true }
-enum-iterator = "0.7.0"
+enum-iterator.workspace = true
 target-lexicon = { workspace = true}
 enumset.workspace = true
-bytecheck = "0.6.8"
+bytecheck.workspace = true
 xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
-sha2 = { version = "0.10" }
-hex = { version = "^0.4" }
+sha2.workspace = true
+hex.workspace = true
 loupe = { workspace = true, optional = true }
 wasmparser = { workspace = true, default-features = false, optional = true }
 
 # `rand` uses `getrandom` transitively, and to be able to
 # compile the project for `js`, we need to enable this feature
 [dependencies.getrandom]
-version = "0.2.14"
+workspace = true
 features = ["js"]
 
 [dev-dependencies]

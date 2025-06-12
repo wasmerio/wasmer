@@ -17,26 +17,26 @@ webc.workspace = true
 wasmer-config = { version = "0.600.1", path = "../config" }
 wasmer-types = { version = "6.0.1", path = "../types", features = ["detect-wasm-features"] }
 toml = { workspace = true }
-bytes = "1.8.0"
-sha2 = "0.10.8"
+bytes.workspace = true
+sha2.workspace = true
 shared-buffer.workspace = true
-serde_json = "1.0.132"
-anyhow = "1.0.90"
-thiserror = "1.0.64"
-cfg-if = "1.0.0"
-ciborium = "0.2.2"
-semver = "1.0.23"
-url = "2.5.2"
-serde = "1.0.211"
+serde.workspace = true
+serde_json.workspace = true
+anyhow.workspace = true
+thiserror.workspace = true
+cfg-if.workspace = true
+ciborium.workspace = true
+semver.workspace = true
+url.workspace = true
 insta = { version = "1", features = ["filters", "yaml"] }
-flate2 = "1.0.34"
-tar = "0.4.42"
-tempfile = "3.12.0"
+flate2.workspace = true
+tar.workspace = true
+tempfile.workspace = true
 ignore = "0.4"
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-tempfile = "3.12.0"
+tempfile.workspace = true
 regex = "1.11.0"
 ureq = "2.10.1"
 hexdump = "0.1.2"

@@ -14,9 +14,9 @@ wasmer-package.workspace = true
 dashmap.workspace = true
 derive_more.workspace = true
 dunce = "1.0.4"
-anyhow = { version = "1.0.66", optional = true }
+anyhow = { workspace = true, optional = true }
 async-trait = { version = "^0.1" }
-bytes = "1"
+bytes.workspace = true
 filetime = { version = "0.2.18", optional = true }
 fs_extra = { version = "1.2.0", optional = true }
 futures = { version = "0.3" }
@@ -26,26 +26,26 @@ pin-project-lite = "0.2.9"
 replace_with = "0.1.7"
 shared-buffer = { workspace = true }
 slab = { version = "0.4" }
-thiserror = "1"
+thiserror.workspace = true
 
 tokio = { workspace = true, features = [
 	"io-util",
 	"sync",
 	"macros",
 ], default-features = false }
-tracing = { version = "0.1" }
+tracing.workspace = true
 typetag = { version = "0.1", optional = true }
 webc = { workspace = true, optional = true, features = ["v1"] }
-serde = { version = "1.0", default-features = false, features = [
+serde = { workspace = true, default-features = false, features = [
 	"derive",
 ], optional = true }
-getrandom = { version = "0.2" }
+getrandom.workspace = true
 web-time = { version = "1.1", optional = true}
 
 [dev-dependencies]
 pretty_assertions.workspace = true
-tempfile = "3.6.0"
-tracing-test = "0.2.4"
+tempfile.workspace = true
+tracing-test.workspace = true
 tokio = { workspace = true, features = [
 	"io-util",
 	"rt",

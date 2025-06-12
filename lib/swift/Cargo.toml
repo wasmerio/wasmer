@@ -12,7 +12,7 @@ crate-type = ["staticlib", "lib"]
 name = "wasmer_swift"
 
 [dependencies]
-thiserror = "1"
+thiserror.workspace = true
 tokio = { version = "1.28.1", features = ["rt"], default-features = false }
 uniffi = "0.27"
 virtual-fs = { path = "../virtual-fs", version = "=0.600.1", default-features = false, features = [

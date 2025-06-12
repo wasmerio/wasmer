@@ -31,11 +31,11 @@ version.workspace = true
 [dependencies]
 # - Mandatory shared dependencies.
 indexmap = { workspace = true }
-cfg-if = "1.0"
-thiserror = "1.0"
-more-asserts = "0.2"
-bytes = "1"
-tracing = { version = "0.1" }
+cfg-if.workspace = true
+thiserror.workspace = true
+more-asserts.workspace = true
+bytes.workspace = true
+tracing.workspace = true
 # - Optional shared dependencies.
 wat = { version = "1.216.0", optional = true }
 rustc-demangle = "0.1"
@@ -59,7 +59,7 @@ wasmer-vm = { path = "../vm", version = "=6.0.1", optional = true }
 wasmer-compiler = { path = "../compiler", version = "=6.0.1", optional = true }
 wasmer-derive = { path = "../derive", version = "=6.0.1" }
 wasmer-types = { path = "../types", version = "=6.0.1" }
-target-lexicon = { version = "0.12.2", default-features = false }
+target-lexicon = { workspace = true, default-features = false }
 # - Optional dependencies for `sys`.
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.0.1", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=6.0.1", optional = true }
@@ -76,8 +76,8 @@ windows-sys = "0.59"
 # - Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
 wat = "1.0"
-tempfile = "3.6.0"
-anyhow = "1.0"
+tempfile.workspace = true
+anyhow.workspace = true
 macro-wasmer-universal-test = { version = "6.0.1", path = "./macro-wasmer-universal-test" }
 
 # Dependencies and Develoment Dependencies for `js`.
@@ -92,15 +92,15 @@ wasmer-derive = { path = "../derive", version = "=6.0.1" }
 wasmer-compiler = { path = "../compiler", version = "=6.0.1" }
 # - Optional dependencies for `js`.
 wasmparser = { workspace = true, default-features = false, optional = true }
-hashbrown = { version = "0.11", optional = true }
+hashbrown = { workspace = true, optional = true }
 serde-wasm-bindgen = { version = "0.6.5" }
-serde = { version = "1.0", features = ["derive"] }
+serde.workspace = true
 target-lexicon = { workspace = true }
 
 # - Development Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
 wat = "1.0"
-anyhow = "1.0"
+anyhow.workspace = true
 wasm-bindgen-test = "0.3.0"
 macro-wasmer-universal-test = { version = "6.0.1", path = "./macro-wasmer-universal-test" }
 
@@ -181,7 +181,7 @@ static-artifact-create = ["wasmer-compiler/static-artifact-create"]
 
 [build-dependencies]
 cmake = "0.1.50"
-tar = "0.4.42"
+tar.workspace = true
 ureq = { version = "2.10.1", optional = true }
 which = { version = "7.0.0", optional = true }
 xz = { version = "0.1.0", optional = true }
