@@ -24,7 +24,7 @@ pub fn sock_send_file<M: MemorySize>(
     count: Filesize,
     ret_sent: WasmPtr<Filesize, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     let total_written = wasi_try_ok!(sock_send_file_internal(
         &mut ctx, sock, in_fd, offset, count

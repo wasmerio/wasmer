@@ -51,6 +51,9 @@ pub struct TestSpec {
     #[serde(skip_serializing_if = "is_false")]
     #[serde(default)]
     pub enable_async_threads: bool,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    #[serde(default)]
+    pub mounts: Vec<(PathBuf, PathBuf)>,
 }
 
 fn is_false(b: &bool) -> bool {
@@ -140,6 +143,7 @@ impl TestBuilder {
                 enable_threads: true,
                 enable_network: false,
                 enable_async_threads: false,
+                mounts: vec![],
             },
         }
     }
@@ -217,6 +221,14 @@ impl TestBuilder {
         self
     }
 
+    pub fn mount(mut self, host: impl AsRef<Path>, guest: impl AsRef<Path>) -> Self {
+        let guest = guest.as_ref().to_path_buf();
+        let host = host.as_ref().canonicalize().unwrap();
+        assert!(guest.is_absolute());
+        self.spec.mounts.push((guest, host));
+        self
+    }
+
     pub fn run_file(self, path: impl AsRef<Path>) -> TestSnapshot {
         snapshot_file(path.as_ref(), self.spec)
     }
@@ -251,11 +263,8 @@ impl Default for TestBuilder {
 }
 
 pub fn wasm_dir() -> PathBuf {
-    std::env::current_dir()
-        .unwrap()
-        .parent()
-        .unwrap()
-        .join("wasm")
+    let dir = std::env::var("CARGO_MANIFEST_DIR").unwrap();
+    Path::new(&dir).join("tests").join("wasm")
 }
 
 fn wasmer_path() -> PathBuf {
@@ -310,6 +319,14 @@ pub fn run_test_with(spec: TestSpec, code: &[u8], with: RunWith) -> TestResult {
 
     for pkg in &spec.include_webcs {
         cmd.arg("--include-webc").arg(pkg.webc.path());
+    }
+
+    for mount in &spec.mounts {
+        cmd.arg("--mapdir").arg(format!(
+            "{}:{}",
+            mount.0.to_str().unwrap(),
+            mount.1.to_str().unwrap()
+        ));
     }
 
     cmd.env("RUST_LOG", "off");
@@ -1368,5 +1385,27 @@ fn test_snapshot_mkdir_rename() {
     let snapshot = TestBuilder::new()
         .with_name(function!())
         .run_wasm(include_bytes!("./wasm/mkdir-rename.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_dlopen() {
+    // test sources in tests/c-wasi-tests
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .mount(wasm_dir(), "/lib")
+        .run_wasm(include_bytes!("./wasm/dlopen.wasm"));
+    assert_json_snapshot!(snapshot);
+}
+
+#[cfg_attr(any(target_env = "musl", target_os = "windows"), ignore)]
+#[test]
+fn test_snapshot_dylink_needed() {
+    // test sources in tests/c-wasi-tests
+    let snapshot = TestBuilder::new()
+        .with_name(function!())
+        .mount(wasm_dir(), "/lib")
+        .run_wasm(include_bytes!("./wasm/dylink-needed.wasm"));
     assert_json_snapshot!(snapshot);
 }

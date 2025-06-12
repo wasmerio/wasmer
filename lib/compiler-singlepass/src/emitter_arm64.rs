@@ -3281,6 +3281,7 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
+    #[allow(clippy::unit_arg)]
     fn emit_fmov(
         &mut self,
         src_size: Size,

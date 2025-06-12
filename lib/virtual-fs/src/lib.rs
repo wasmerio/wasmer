@@ -237,7 +237,7 @@ impl OpenOptionsConfig {
     }
 }
 
-impl<'a> fmt::Debug for OpenOptions<'a> {
+impl fmt::Debug for OpenOptions<'_> {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         self.conf.fmt(f)
     }

@@ -8,6 +8,8 @@ pub fn port_route_remove<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ip: WasmPtr<__wasi_addr_t, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 

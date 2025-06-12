@@ -26,6 +26,8 @@ pub fn sock_recv<M: MemorySize>(
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let fd_entry = wasi_try_ok!(env.state.fs.get_fd(sock));
     let guard = fd_entry.inode.read();
@@ -109,8 +111,6 @@ pub(super) fn sock_recv_internal<M: MemorySize>(
     ro_data_len: WasmPtr<M::Offset, M>,
     ro_flags: WasmPtr<RoFlags, M>,
 ) -> WasiResult<usize> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
-
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(ctx) };
 

@@ -83,7 +83,7 @@ edition = "2021"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.81"
+rust-version = "1.84"
 version = "6.0.1"
 
 [workspace.dependencies]
@@ -183,7 +183,7 @@ engine = ["universal"]
 universal = []
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
-wasi = ["wasmer-wasix"]
+wasi = ["wasmer-wasix", "tokio"]
 wat = ["wasmer/wat"]
 compiler = ["wasmer/compiler", "backend", "wasmer-compiler/translator"]
 singlepass = ["compiler", "wasmer-compiler-singlepass", "wasmer/singlepass"]

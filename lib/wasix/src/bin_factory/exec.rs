@@ -136,7 +136,7 @@ pub fn spawn_exec_module(
 
         tasks_outer
             .task_wasm(
-                TaskWasm::new(Box::new(run_exec), env, module, true).with_pre_run(Box::new(
+                TaskWasm::new(Box::new(run_exec), env, module, true, true).with_pre_run(Box::new(
                     |ctx, store| {
                         Box::pin(async move {
                             ctx.data(store).state.fs.close_cloexec_fds().await;
@@ -185,7 +185,10 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     // Perform the initialization
     let ctx = {
         // If this module exports an _initialize function, run that first.
-        if let Ok(initialize) = unsafe { ctx.data(&store).inner() }
+        if let Ok(initialize) = ctx
+            .data(&store)
+            .inner()
+            .main_module_instance_handles()
             .instance
             .exports
             .get_function("_initialize")
@@ -227,7 +230,9 @@ pub fn run_exec(props: TaskWasmRunProperties) {
 }
 
 fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
-    unsafe { ctx.data(store).inner() }
+    ctx.data(store)
+        .inner()
+        .main_module_instance_handles()
         .instance
         .exports
         .get_function("_start")
@@ -348,6 +353,11 @@ fn call_module(
                     runtime.on_taint(TaintReason::UnknownWasiVersion);
                     Ok(Errno::Noexec)
                 }
+                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+                    debug!("failed as a needed DL symbol could not be resolved");
+                    runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                    Err(WasiError::DlSymbolResolutionFailed(symbol).into())
+                }
                 Err(err) => {
                     runtime.on_taint(TaintReason::RuntimeError(err.clone()));
                     Err(WasiRuntimeError::from(err))
@@ -395,6 +405,7 @@ fn resume_vfork(
             Some(WasiError::Exit(code)) => (None, *code),
             Some(WasiError::ThreadExit) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
             Some(WasiError::UnknownWasiVersion) => (None, Errno::Noexec.into()),
+            Some(WasiError::DlSymbolResolutionFailed(_)) => (None, Errno::Nolink.into()),
             None => (
                 Some(WasiRuntimeError::from(err.clone())),
                 Errno::Unknown.into(),

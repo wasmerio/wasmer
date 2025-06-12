@@ -93,7 +93,7 @@ where
 }
 
 #[allow(clippy::from_over_into)]
-impl<'a> Into<Vec<u8>> for AlignedCowVec<'a, u8> {
+impl Into<Vec<u8>> for AlignedCowVec<'_, u8> {
     fn into(self) -> Vec<u8> {
         self.inner.into_owned()
     }
@@ -203,7 +203,7 @@ where
     }
 }
 
-impl<'a, S> rkyv::Serialize<S> for AlignedCowVec<'a, u8>
+impl<S> rkyv::Serialize<S> for AlignedCowVec<'_, u8>
 where
     S: Fallible + WriterExt<S::Error> + Allocator + ?Sized,
     S::Error: rkyv::rancor::Source,

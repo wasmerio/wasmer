@@ -77,7 +77,7 @@ pub fn poll_oneoff<M: MemorySize>(
     nsubscriptions: u32,
     nevents: WasmPtr<u32, Memory32>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+    WasiEnv::do_pending_operations(&mut ctx)?;
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };

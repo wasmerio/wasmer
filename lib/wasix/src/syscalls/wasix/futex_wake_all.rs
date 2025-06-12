@@ -8,10 +8,12 @@ use crate::syscalls::*;
 /// * `futex` - Memory location that holds a futex that others may be waiting on
 #[instrument(level = "trace", skip_all, fields(futex_idx = field::Empty, woken = field::Empty), ret)]
 pub fn futex_wake_all<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     futex_ptr: WasmPtr<u32, M>,
     ret_woken: WasmPtr<Bool, M>,
-) -> Errno {
+) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state.deref();
@@ -41,6 +43,6 @@ pub fn futex_wake_all<M: MemorySize>(
         false => Bool::False,
         true => Bool::True,
     };
-    wasi_try_mem!(ret_woken.write(&memory, woken));
-    Errno::Success
+    wasi_try_mem_ok!(ret_woken.write(&memory, woken));
+    Ok(Errno::Success)
 }
