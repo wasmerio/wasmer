@@ -1241,11 +1241,13 @@ impl InodeSocket {
         buf: &mut [MaybeUninit<u8>],
         timeout: Option<Duration>,
         nonblocking: bool,
+        peek: bool,
     ) -> Result<usize, Errno> {
         struct SocketReceiver<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
+            peek: bool,
             handler_registered: bool,
         }
         impl<'a, 'b> Drop for SocketReceiver<'a, 'b> {
@@ -1263,19 +1265,22 @@ impl InodeSocket {
                 cx: &mut std::task::Context<'_>,
             ) -> Poll<Self::Output> {
                 loop {
+                    let peek = self.peek;
                     let mut inner = self.inner.protected.write().unwrap();
                     let res = match &mut inner.kind {
-                        InodeSocketKind::Raw(socket) => socket.try_recv(self.data),
-                        InodeSocketKind::TcpStream { socket, .. } => socket.try_recv(self.data),
+                        InodeSocketKind::Raw(socket) => socket.try_recv(self.data, peek),
+                        InodeSocketKind::TcpStream { socket, .. } => {
+                            socket.try_recv(self.data, peek)
+                        }
                         InodeSocketKind::UdpSocket { socket, peer } => {
                             if let Some(peer) = peer {
-                                match socket.try_recv_from(self.data) {
+                                match socket.try_recv_from(self.data, peek) {
                                     Ok((amt, addr)) if addr == *peer => Ok(amt),
                                     Ok(_) => Err(NetworkError::WouldBlock),
                                     Err(err) => Err(err),
                                 }
                             } else {
-                                match socket.try_recv_from(self.data) {
+                                match socket.try_recv_from(self.data, peek) {
                                     Ok((amt, _)) => Ok(amt),
                                     Err(err) => Err(err),
                                 }
@@ -1317,6 +1322,7 @@ impl InodeSocket {
             inner: &self.inner,
             data: buf,
             nonblocking,
+            peek,
             handler_registered: false,
         };
         if let Some(timeout) = timeout {
@@ -1335,11 +1341,13 @@ impl InodeSocket {
         buf: &mut [MaybeUninit<u8>],
         timeout: Option<Duration>,
         nonblocking: bool,
+        peek: bool,
     ) -> Result<(usize, SocketAddr), Errno> {
         struct SocketReceiver<'a, 'b> {
             inner: &'a InodeSocketInner,
             data: &'b mut [MaybeUninit<u8>],
             nonblocking: bool,
+            peek: bool,
             handler_registered: bool,
         }
         impl<'a, 'b> Drop for SocketReceiver<'a, 'b> {
@@ -1356,12 +1364,13 @@ impl InodeSocket {
                 mut self: Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> Poll<Self::Output> {
+                let peek = self.peek;
                 let mut inner = self.inner.protected.write().unwrap();
                 loop {
                     let res = match &mut inner.kind {
-                        InodeSocketKind::Icmp(socket) => socket.try_recv_from(self.data),
+                        InodeSocketKind::Icmp(socket) => socket.try_recv_from(self.data, peek),
                         InodeSocketKind::UdpSocket { socket, .. } => {
-                            socket.try_recv_from(self.data)
+                            socket.try_recv_from(self.data, peek)
                         }
                         InodeSocketKind::RemoteSocket {
                             is_dead, peer_addr, ..
@@ -1399,6 +1408,7 @@ impl InodeSocket {
             inner: &self.inner,
             data: buf,
             nonblocking,
+            peek,
             handler_registered: false,
         };
         if let Some(timeout) = timeout {

@@ -146,7 +146,13 @@ pub(crate) fn sock_send_file_internal(
                                         buf.set_len(sub_count as usize);
                                     }
                                     socket
-                                        .recv(tasks.deref(), &mut buf, Some(read_timeout), false)
+                                        .recv(
+                                            tasks.deref(),
+                                            &mut buf,
+                                            Some(read_timeout),
+                                            false,
+                                            false,
+                                        )
                                         .await
                                         .map(|amt| {
                                             unsafe {

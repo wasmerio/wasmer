@@ -563,16 +563,23 @@ impl VirtualConnectedSocket for LocalTcpStream {
         Ok(())
     }
 
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         if !self.buffer.is_empty() {
             let amt = buf.len().min(self.buffer.len());
             buf[..amt].copy_from_slice(&self.buffer[..amt]);
-            self.buffer.advance(amt);
+            if !peek {
+                self.buffer.advance(amt);
+            }
             return Ok(amt);
         }
 
-        self.stream.read(buf).map_err(io_err_into_net_error)
+        if peek {
+            self.stream.peek(buf)
+        } else {
+            self.stream.read(buf)
+        }
+        .map_err(io_err_into_net_error)
     }
 }
 
@@ -861,9 +868,18 @@ impl VirtualConnectionlessSocket for LocalUdpSocket {
         ret
     }
 
-    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+    fn try_recv_from(
+        &mut self,
+        buf: &mut [MaybeUninit<u8>],
+        peek: bool,
+    ) -> Result<(usize, SocketAddr)> {
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
-        self.socket.recv_from(buf).map_err(io_err_into_net_error)
+        if peek {
+            self.socket.peek_from(buf)
+        } else {
+            self.socket.recv_from(buf)
+        }
+        .map_err(io_err_into_net_error)
     }
 }
 

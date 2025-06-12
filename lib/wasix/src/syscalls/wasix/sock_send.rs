@@ -97,12 +97,14 @@ pub(crate) fn sock_send_internal<M: MemorySize>(
     let memory = unsafe { env.memory_view(&ctx) };
     let runtime = env.runtime.clone();
 
+    let nonblocking_flag = (si_flags & __WASI_SOCK_SEND_INPUT_DONT_WAIT) != 0;
+
     let bytes_written = wasi_try_ok_ok!(__sock_asyncify(
         env,
         sock,
         Rights::SOCK_SEND,
         |socket, fd| async move {
-            let nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
+            let nonblocking = nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
             let timeout = socket
                 .opt_time(TimeType::WriteTimeout)
                 .ok()
