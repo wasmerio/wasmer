@@ -27,7 +27,7 @@ pub(crate) struct WasiInstanceGuard<'a> {
     _pointer: &'a WasiInstanceHandlesPointer,
     _inner: Rc<RefCell<WasiInstanceHandles>>,
 }
-impl<'a> Deref for WasiInstanceGuard<'a> {
+impl Deref for WasiInstanceGuard<'_> {
     type Target = WasiInstanceHandles;
     fn deref(&self) -> &Self::Target {
         self.borrow.deref()
@@ -45,14 +45,14 @@ pub(crate) struct WasiInstanceGuardMut<'a> {
     _pointer: &'a WasiInstanceHandlesPointer,
     _inner: Rc<RefCell<WasiInstanceHandles>>,
 }
-impl<'a> Deref for WasiInstanceGuardMut<'a> {
+impl Deref for WasiInstanceGuardMut<'_> {
     type Target = WasiInstanceHandles;
 
     fn deref(&self) -> &Self::Target {
         self.borrow.deref()
     }
 }
-impl<'a> DerefMut for WasiInstanceGuardMut<'a> {
+impl DerefMut for WasiInstanceGuardMut<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.borrow.deref_mut()
     }
@@ -151,7 +151,7 @@ pub(crate) struct WasiInstanceGuardMemory<'a> {
     borrow: &'a Memory,
     _guard: WasiInstanceGuard<'a>,
 }
-impl<'a> Deref for WasiInstanceGuardMemory<'a> {
+impl Deref for WasiInstanceGuardMemory<'_> {
     type Target = Memory;
     fn deref(&self) -> &Self::Target {
         self.borrow

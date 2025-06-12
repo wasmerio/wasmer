@@ -228,7 +228,7 @@ impl<T> AsStoreMut for BackendFunctionEnvMut<'_, T> {
     }
 }
 
-impl<'a, T> std::fmt::Debug for BackendFunctionEnvMut<'a, T>
+impl<T> std::fmt::Debug for BackendFunctionEnvMut<'_, T>
 where
     T: Send + std::fmt::Debug + 'static,
 {

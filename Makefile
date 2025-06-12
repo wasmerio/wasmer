@@ -532,20 +532,24 @@ test-build-docs-rs:
 	done
 
 test-build-docs-rs-ci:
-	@manifest_docs_rs_features_path="package.metadata.docs.rs.features"; \
+	# detect toml in the path
+	if ! command -v toml &> /dev/null; then \
+		echo "toml-cli could not be found. Please install it with `cargo install toml-cli`"; \
+		exit 1; \
+	fi; \
 	for manifest_path in lib/*/Cargo.toml; do \
-		toml get "$$manifest_path" "$$manifest_docs_rs_features_path" >/dev/null 2>&1; \
+		toml get "$$manifest_path" "package.metadata.docs.rs.features" >/dev/null 2>&1; \
+		printf "toml get \"$$manifest_path\" \"package.metadata.docs.rs.features\"\n"; \
 		if [ $$? -ne 0 ]; then \
 			features=""; \
 		else \
-			features=$$(toml get "$$manifest_path" "$$manifest_docs_rs_features_path" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
+			features=$$(toml get "$$manifest_path" "package.metadata.docs.rs.features" | sed 's/\[//; s/\]//; s/"\([^"]*\)"/\1/g'); \
 		fi; \
-		printf "*** Building doc for package with manifest $$manifest_path ***\n\n"; \
+		printf "*** Building doc for package with manifest $$manifest_path and features $$features ***\n\n"; \
 		if [ -z "$$features" ]; then \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2024-08-21  doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2024-11-07  doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
 		else \
-			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2024-08-21 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2024-11-07 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 

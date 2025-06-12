@@ -256,7 +256,7 @@ impl<R: VirtualTcpListener + ?Sized> VirtualTcpListenerExt for R {
         {
             listener: &'a mut R,
         }
-        impl<'a, R> std::future::Future for Poller<'a, R>
+        impl<R> std::future::Future for Poller<'_, R>
         where
             R: VirtualTcpListener + ?Sized,
         {
@@ -358,7 +358,7 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
                 data: &'b [u8],
             }
         }
-        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        impl<R> std::future::Future for Poller<'_, '_, R>
         where
             R: VirtualConnectedSocket + ?Sized,
         {
@@ -391,7 +391,7 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
                 peek: bool,
             }
         }
-        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        impl<R> std::future::Future for Poller<'_, '_, R>
         where
             R: VirtualConnectedSocket + ?Sized,
         {
@@ -425,7 +425,7 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
         {
             socket: &'a mut R,
         }
-        impl<'a, R> std::future::Future for Poller<'a, R>
+        impl<R> std::future::Future for Poller<'_, R>
         where
             R: VirtualConnectedSocket + ?Sized,
         {
@@ -485,7 +485,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
                 addr: SocketAddr,
             }
         }
-        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        impl<R> std::future::Future for Poller<'_, '_, R>
         where
             R: VirtualConnectionlessSocket + ?Sized,
         {
@@ -527,7 +527,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
                 peek: bool,
             }
         }
-        impl<'a, 'b, R> std::future::Future for Poller<'a, 'b, R>
+        impl<R> std::future::Future for Poller<'_, '_, R>
         where
             R: VirtualConnectionlessSocket + ?Sized,
         {

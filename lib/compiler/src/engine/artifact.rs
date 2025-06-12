@@ -672,7 +672,7 @@ pub enum DataInitializerLocationVariant<'a> {
     Archived(&'a ArchivedDataInitializerLocation),
 }
 
-impl<'a> DataInitializerLocationVariant<'a> {
+impl DataInitializerLocationVariant<'_> {
     pub fn clone_to_plain(&self) -> DataInitializerLocation {
         match self {
             Self::Plain(p) => (*p).clone(),
@@ -685,7 +685,7 @@ impl<'a> DataInitializerLocationVariant<'a> {
     }
 }
 
-impl<'a> DataInitializerLocationLike for DataInitializerLocationVariant<'a> {
+impl DataInitializerLocationLike for DataInitializerLocationVariant<'_> {
     fn memory_index(&self) -> MemoryIndex {
         match self {
             Self::Plain(plain) => plain.memory_index(),

@@ -58,7 +58,7 @@ pub enum SingleOrMultiValue<'a> {
     Multi(&'a [wasmparser::ValType]),
 }
 
-impl<'a> SingleOrMultiValue<'a> {
+impl SingleOrMultiValue<'_> {
     /// True if empty.
     pub fn is_empty(&self) -> bool {
         match self {
@@ -120,7 +120,7 @@ impl<'a> Iterator for SingleOrMultiValueIterator<'a> {
     }
 }
 
-impl<'a> PartialEq<[wasmparser::ValType]> for SingleOrMultiValue<'a> {
+impl PartialEq<[wasmparser::ValType]> for SingleOrMultiValue<'_> {
     fn eq(&self, other: &[wasmparser::ValType]) -> bool {
         match self {
             SingleOrMultiValue::Single(ty) => other.len() == 1 && &other[0] == *ty,

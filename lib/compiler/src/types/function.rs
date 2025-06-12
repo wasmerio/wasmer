@@ -65,7 +65,7 @@ pub trait FunctionBodyLike<'a> {
     type UnwindInfo: CompiledFunctionUnwindInfoLike<'a>;
 
     fn body(&'a self) -> &'a [u8];
-    fn unwind_info(&'a self) -> Option<&Self::UnwindInfo>;
+    fn unwind_info(&'a self) -> Option<&'a Self::UnwindInfo>;
 }
 
 impl<'a> FunctionBodyLike<'a> for FunctionBody {
@@ -75,7 +75,7 @@ impl<'a> FunctionBodyLike<'a> for FunctionBody {
         self.body.as_ref()
     }
 
-    fn unwind_info(&'a self) -> Option<&Self::UnwindInfo> {
+    fn unwind_info(&'a self) -> Option<&'a Self::UnwindInfo> {
         self.unwind_info.as_ref()
     }
 }
@@ -87,7 +87,7 @@ impl<'a> FunctionBodyLike<'a> for ArchivedFunctionBody {
         self.body.as_ref()
     }
 
-    fn unwind_info(&'a self) -> Option<&Self::UnwindInfo> {
+    fn unwind_info(&'a self) -> Option<&'a Self::UnwindInfo> {
         match self.unwind_info {
             ArchivedOption::Some(ref x) => Some(x),
             ArchivedOption::None => None,

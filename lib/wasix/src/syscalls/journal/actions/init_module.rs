@@ -1,6 +1,6 @@
 use super::*;
 
-impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
+impl<'a> JournalSyscallPlayer<'a, '_> {
     #[allow(clippy::result_large_err)]
     pub(crate) unsafe fn action_init_module(
         &mut self,

@@ -309,9 +309,10 @@ impl CompactUnwindManager {
             }
         }
 
-        self.num_second_level_pages =
-            (self.compact_unwind_entries.len() + Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE - 1)
-                / Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE;
+        self.num_second_level_pages = self
+            .compact_unwind_entries
+            .len()
+            .div_ceil(Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
 
         self.compact_unwind_entries
             .sort_by(|l, r| l.function_addr.cmp(&r.function_addr));
@@ -357,9 +358,10 @@ impl CompactUnwindManager {
             }
         }
 
-        self.num_second_level_pages =
-            (self.compact_unwind_entries.len() + Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE - 1)
-                / Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE;
+        self.num_second_level_pages = self
+            .compact_unwind_entries
+            .len()
+            .div_ceil(Self::NUM_RECORDS_PER_SECOND_LEVEL_PAGE);
     }
 
     #[inline(always)]

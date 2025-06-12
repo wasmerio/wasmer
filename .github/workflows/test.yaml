@@ -24,7 +24,7 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.81"
+  MSRV: "1.84"
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
@@ -114,7 +114,7 @@ jobs:
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
-          node-version: 16
+          node-version: 22
       - name: Install wasm-pack
         run: |
           curl https://rustwasm.github.io/wasm-pack/installer/init.sh -sSf | sh
@@ -335,7 +335,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2024-08-21"
+          toolchain: "nightly-2024-11-07"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli --locked # toml-cli is required to run `make test-build-docs-rs`
 

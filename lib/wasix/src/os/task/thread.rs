@@ -373,7 +373,7 @@ impl WasiThread {
         struct SignalPoller<'a> {
             thread: &'a WasiThread,
         }
-        impl<'a> std::future::Future for SignalPoller<'a> {
+        impl std::future::Future for SignalPoller<'_> {
             type Output = ();
             fn poll(
                 self: std::pin::Pin<&mut Self>,

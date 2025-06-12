@@ -44,21 +44,21 @@ derive_more.workspace = true
 
 xxhash-rust = { version = "0.8.8", features = ["xxh64"] }
 rusty_pool = { version = "0.7.0", optional = true }
-cfg-if = "1.0"
-thiserror = "1"
-tracing = { version = "0.1.37" }
-getrandom = "0.2"
+cfg-if.workspace = true
+thiserror.workspace = true
+tracing.workspace = true
+getrandom.workspace = true
 typetag = { version = "0.1", optional = true }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde = { workspace = true, default-features = false, features = ["derive"] }
 bincode = { version = "1.3" }
 chrono = { version = "^0.4.38", default-features = false, features = [
 	"wasmbind",
 	"std",
 	"clock",
 ], optional = true }
-bytes = "1"
-anyhow = { version = "1.0.66" }
-sha2 = { version = "0.10" }
+bytes.workspace = true
+anyhow.workspace = true
+sha2.workspace = true
 waker-fn = { version = "1.1" }
 cooked-waker = "^5"
 rand = "0.8"
@@ -74,15 +74,15 @@ futures = { version = "0.3" }
 async-trait = { version = "^0.1" }
 urlencoding = { version = "^2" }
 serde_derive = { version = "^1" }
-serde_json = { version = "^1" }
+serde_json.workspace = true
 weezl = { version = "^0.1" }
-hex = { version = "^0.4" }
+hex.workspace = true
 linked_hash_set = { version = "0.1" }
 heapless = "0.8"
-once_cell = "1.17.0"
+once_cell.workspace = true
 pin-project = "1.0.12"
-semver = "1.0.17"
-tempfile = "3.6.0"
+semver.workspace = true
+tempfile.workspace = true
 num_enum.workspace = true
 # Used by the WCGI runner
 wcgi = { version = "0.3.0", optional = true }
@@ -94,12 +94,12 @@ tower-http = { version = "0.5.0", features = [
 	"cors",
 ], optional = true }
 tower = { version = "0.4.13", features = ["make", "util"], optional = true }
-url = "2.3.1"
-bytecheck = "0.6.8"
-blake3 = "1.0"
+url.workspace = true
+bytecheck.workspace = true
+blake3.workspace = true
 petgraph = "0.7.0"
 lz4_flex = { version = "0.11" }
-rayon = { version = "1.7.0", optional = true }
+rayon = { workspace = true, optional = true }
 wasm-bindgen = { version = "0.2.87", optional = true }
 js-sys = { version = "0.3.64", optional = true }
 wasm-bindgen-futures = { version = "0.4.37", optional = true }
@@ -112,15 +112,15 @@ web-sys = { version = "0.3.64", features = [
 	"Response",
 	"Headers",
 ], optional = true }
-hyper-util = { version = "0.1.5", features = [
+hyper-util = { workspace = true, features = [
 	"server",
 	"server-graceful",
 	"tokio",
 	"service",
 	"client",
 ], optional = true }
-http-body-util = { version = "0.1.1", optional = true }
-toml = { workspace = true }
+http-body-util = { workspace = true, optional = true }
+toml.workspace = true
 pin-utils = "0.1.0"
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
@@ -160,10 +160,10 @@ tokio = { workspace = true, features = [
 	"rt",
 ], default-features = false }
 pretty_assertions.workspace = true
-tracing-test = "0.2.4"
+tracing-test.workspace = true
 wasm-bindgen-test = "0.3.0"
 env_logger = { version = "0.11.5", default-features = false }
-log = "0.4.22"
+log.workspace = true
 assert-panic = "1.0.1"
 
 [target.'cfg(target_arch = "wasm32")'.dev-dependencies]
@@ -171,7 +171,7 @@ wasm-bindgen-test = "0.3.0"
 tracing-wasm = "0.2"
 
 [target.'cfg(not(target_arch = "wasm32"))'.dev-dependencies]
-tracing-subscriber = { version = "^0.3" }
+tracing-subscriber = { workspace = true}
 wasmer = { path = "../api", version = "=6.0.1", default-features = false, features = [
 	"wat",
 	"js-serializable-module",

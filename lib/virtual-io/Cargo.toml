@@ -10,15 +10,15 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-thiserror = "1"
-bytes = "1.1"
+thiserror.workspace = true
+bytes.workspace = true
 async-trait = { version = "^0.1" }
-tracing = "0.1"
+tracing.workspace = true
 
 mio = { workspace = true, features = ["os-poll"], optional = true }
 socket2 = { workspace = true, optional = true }
 futures = { version = "0.3" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
+serde = { workspace = true, default-features = false, features = ["derive"] }
 
 [features]
 sys = ["mio", "socket2"]

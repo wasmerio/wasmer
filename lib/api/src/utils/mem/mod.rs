@@ -127,7 +127,7 @@ impl<'a, T: ValueType> WasmRef<'a, T> {
     }
 }
 
-impl<'a, T: ValueType> std::fmt::Debug for WasmRef<'a, T> {
+impl<T: ValueType> std::fmt::Debug for WasmRef<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -362,7 +362,7 @@ impl<'a, T: ValueType> WasmSlice<'a, T> {
     }
 }
 
-impl<'a, T: ValueType> std::fmt::Debug for WasmSlice<'a, T> {
+impl<T: ValueType> std::fmt::Debug for WasmSlice<'_, T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         write!(
             f,
@@ -395,7 +395,7 @@ impl<'a, T: ValueType> Iterator for WasmSliceIter<'a, T> {
     }
 }
 
-impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
+impl<T: ValueType> DoubleEndedIterator for WasmSliceIter<'_, T> {
     fn next_back(&mut self) -> Option<Self::Item> {
         if !self.slice.is_empty() {
             let elem = self.slice.index(self.slice.len() - 1);
@@ -407,4 +407,4 @@ impl<'a, T: ValueType> DoubleEndedIterator for WasmSliceIter<'a, T> {
     }
 }
 
-impl<'a, T: ValueType> ExactSizeIterator for WasmSliceIter<'a, T> {}
+impl<T: ValueType> ExactSizeIterator for WasmSliceIter<'_, T> {}

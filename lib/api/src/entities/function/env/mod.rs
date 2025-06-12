@@ -101,7 +101,7 @@ impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
     }
 }
 
-impl<'a, T> std::fmt::Debug for FunctionEnvMut<'a, T>
+impl<T> std::fmt::Debug for FunctionEnvMut<'_, T>
 where
     T: Send + std::fmt::Debug + 'static,
 {

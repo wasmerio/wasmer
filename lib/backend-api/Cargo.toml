@@ -22,17 +22,17 @@ webc.workspace = true
 # crates.io dependencies.
 reqwest = { workspace = true, default-features = false, features = ["json"] }
 
-anyhow = "1"
-serde = { version = "1", features = ["derive"] }
+anyhow.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+serde_path_to_error = "0.1.14"
 time = { workspace = true, features = ["formatting", "parsing"] }
-tokio = { workspace = true }
-serde_json = "1"
-url = { version = "2", features = ["serde"] }
+tokio.workspace = true
+url = { workspace = true, features = ["serde"] }
 futures = "0.3"
-tracing = "0.1"
+tracing.workspace = true
 cynic = { version = "3.7.2", features = ["http-reqwest"] }
 pin-project-lite = "0.2.10"
-serde_path_to_error = "0.1.14"
 harsh = "0.2.2"
 merge-streams = "0.1.2"
 
@@ -42,7 +42,7 @@ graphql-ws-client = { version = "0.11.0", features = [
 	"tungstenite",
 	"client-cynic",
 ], optional = true }
-tokio-tungstenite = { version = "0.24.0", features = [
+tokio-tungstenite = { workspace = true, features = [
 	"rustls-tls-native-roots",
 ], optional = true }
 async-tungstenite = { version = "0.28.0", features = [
@@ -51,7 +51,7 @@ async-tungstenite = { version = "0.28.0", features = [
 ], optional = true }
 
 [target.'cfg(target_family = "wasm")'.dependencies.getrandom]
-version = "0.2.14"
+workspace = true
 features = ["js"]
 
 [dev-dependencies]

@@ -395,7 +395,7 @@ pub enum JournalEntry<'a> {
     },
 }
 
-impl<'a> JournalEntry<'a> {
+impl JournalEntry<'_> {
     pub fn into_owned(self) -> JournalEntry<'static> {
         match self {
             Self::InitModuleV1 { wasm_hash } => JournalEntry::InitModuleV1 { wasm_hash },
@@ -795,14 +795,14 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::FileDescriptorWriteV1 { data, .. } => base_size + data.len(),
             JournalEntry::SetClockTimeV1 { .. } => base_size,
             JournalEntry::CloseFileDescriptorV1 { .. } => base_size,
-            JournalEntry::OpenFileDescriptorV1 { path, .. } => base_size + path.as_bytes().len(),
-            JournalEntry::OpenFileDescriptorV2 { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::OpenFileDescriptorV1 { path, .. } => base_size + path.len(),
+            JournalEntry::OpenFileDescriptorV2 { path, .. } => base_size + path.len(),
             JournalEntry::RenumberFileDescriptorV1 { .. } => base_size,
             JournalEntry::DuplicateFileDescriptorV1 { .. } => base_size,
             JournalEntry::DuplicateFileDescriptorV2 { .. } => base_size,
-            JournalEntry::CreateDirectoryV1 { path, .. } => base_size + path.as_bytes().len(),
-            JournalEntry::RemoveDirectoryV1 { path, .. } => base_size + path.as_bytes().len(),
-            JournalEntry::PathSetTimesV1 { path, .. } => base_size + path.as_bytes().len(),
+            JournalEntry::CreateDirectoryV1 { path, .. } => base_size + path.len(),
+            JournalEntry::RemoveDirectoryV1 { path, .. } => base_size + path.len(),
+            JournalEntry::PathSetTimesV1 { path, .. } => base_size + path.len(),
             JournalEntry::FileDescriptorSetTimesV1 { .. } => base_size,
             JournalEntry::FileDescriptorSetFdFlagsV1 { .. } => base_size,
             JournalEntry::FileDescriptorSetFlagsV1 { .. } => base_size,
@@ -812,15 +812,15 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::FileDescriptorAllocateV1 { .. } => base_size,
             JournalEntry::CreateHardLinkV1 {
                 old_path, new_path, ..
-            } => base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
+            } => base_size + old_path.len() + new_path.len(),
             JournalEntry::CreateSymbolicLinkV1 {
                 old_path, new_path, ..
-            } => base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
-            JournalEntry::UnlinkFileV1 { path, .. } => base_size + path.as_bytes().len(),
+            } => base_size + old_path.len() + new_path.len(),
+            JournalEntry::UnlinkFileV1 { path, .. } => base_size + path.len(),
             JournalEntry::PathRenameV1 {
                 old_path, new_path, ..
-            } => base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
-            JournalEntry::ChangeDirectoryV1 { path } => base_size + path.as_bytes().len(),
+            } => base_size + old_path.len() + new_path.len(),
+            JournalEntry::ChangeDirectoryV1 { path } => base_size + path.len(),
             JournalEntry::EpollCreateV1 { .. } => base_size,
             JournalEntry::EpollCtlV1 { .. } => base_size,
             JournalEntry::TtySetV1 { .. } => base_size,
@@ -830,7 +830,7 @@ impl<'a> JournalEntry<'a> {
             JournalEntry::PortDelAddrV1 { .. } => base_size,
             JournalEntry::PortAddrClearV1 => base_size,
             JournalEntry::PortBridgeV1 { network, token, .. } => {
-                base_size + network.as_bytes().len() + token.as_bytes().len()
+                base_size + network.len() + token.len()
             }
             JournalEntry::PortUnbridgeV1 => base_size,
             JournalEntry::PortDhcpAcquireV1 => base_size,

@@ -27,23 +27,23 @@ virtual-fs = { path = "../virtual-fs", version = "0.600.1", default-features = f
 shared-buffer = { workspace = true, optional = true }
 base64.workspace = true
 derive_more.workspace = true
-rkyv = { workspace = true }
+rkyv.workspace = true
 
-thiserror = "1"
-bytes = "1.1"
+thiserror.workspace = true
+bytes.workspace = true
 async-trait = { version = "^0.1" }
-tracing = "0.1"
+tracing.workspace = true
 bincode = { version = "1.3" }
-serde = { version = "1.0", default-features = false, features = ["derive"] }
-anyhow = "1.0"
-bytecheck = { version = "0.6.8" }
+serde = { workspace = true, default-features = false, features = ["derive"] }
+serde_json.workspace = true
+anyhow.workspace = true
+bytecheck.workspace = true
 lz4_flex = { version = "0.11" }
 num_enum.workspace = true
-serde_json = { version = "^1" }
 
 [dev-dependencies]
-tracing-test = "0.2.4"
-tempfile = "3.6.0"
+tracing-test.workspace = true
+tempfile.workspace = true
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys", "wasmer/compiler"]
