@@ -1365,6 +1365,39 @@ impl Linker {
         group_state.as_ref().map(|group| group.indirect_function_table.clone()).clone()
     }
 
+    /// Register a function in the indirect function table
+    /// 
+    /// Returns the index in the table
+    pub fn register_function(
+        &self,
+        func: Function,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<u32, LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+
+        let mut store = ctx.as_store_mut();
+        // We dont need to allocate or append at a specific index, we just need to append somewhere.
+        let function_index = group_state.append_to_function_table(&mut store, func).map_err(LinkError::TableAllocationError)?;
+      
+        // TODO: I am 99% sure there are some extra steps related to having multiple groups
+
+        Ok(function_index)
+    }
+
+    /// Remove a function from the indirect function table
+    ///
+    /// After this it is undefined behavior to call the function at that index.
+    /// The current implementation does nothing, but we should remove them, so we dont accumulate mountains of unused functions.
+    pub fn unregister_function(&self, _function_index: u32) -> Result<(), LinkError> {
+        // TODO: Implement
+        Ok(())
+    }
+    
     /// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].
@@ -2177,6 +2210,7 @@ impl InstanceGroupState {
             .expect("Internal error: bad module handle or not instantiated in this group")
     }
 
+    /// Allocate space on the indirect function table for the given number of functions
     fn allocate_function_table(
         &mut self,
         store: &mut impl AsStoreMut,

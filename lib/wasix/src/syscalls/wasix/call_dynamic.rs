@@ -31,39 +31,50 @@ pub fn call_dynamic<M: MemorySize>(
     function_id: u32,
     values: WasmPtr<u8, M>,
     results: WasmPtr<u8, M>,
-) -> Result<Errno, WasiError> {
+) -> Result<Errno, WasiRuntimeError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
-    
+
     let (env, mut store) = ctx.data_and_store_mut();
 
-    let indirect_function_table = env.inner().main_module_indirect_function_table().unwrap();
-    let function_value = indirect_function_table
-        .get(&mut store, function_id)
-        .unwrap();
-    let function = function_value.unwrap_funcref().as_ref().unwrap();
+    let Some(indirect_function_table) = env.inner().main_module_indirect_function_table() else {
+        // No function table is available, so we cannot call any functions dynamically.
+        // TODO: This should cause a hard crash, but we return an error for now
+        return Ok(Errno::Notsup);
+    };
+    let Some(function_value) = indirect_function_table.get(&mut store, function_id) else {
+        // TODO: This should cause a trap similar to calling a function with an invalid index in the function table.
+        return Ok(Errno::Inval);
+    };
+        
+    let Value::FuncRef(Some(function)) = function_value else {
+        // The table does not contain functions, but something else.
+        // TODO: This should cause a crash 
+        return Ok(Errno::Inval);
+    };
     let function_type = function.ty(&store);
     
     let memory = unsafe { env.memory_view(&store) };
     let mut current_values_offset: u64 = values.offset().into();
     let values_buffer = function_type.params().iter().map(|ty| {
         let mut value = Value::default_typed(ty); // Initialize a default value for the type
-        let buffer = value.as_slice_mut().unwrap();
-        memory.read(current_values_offset, buffer);
+        let buffer = value.as_slice_mut().unwrap(); // This should never fail, because a function's parameters are always valid types
+        memory.read(current_values_offset, buffer).map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
         current_values_offset += buffer.len() as u64; // Move to the next value offset
-        value
-    }).collect::<Vec<_>>();
+        Ok(value)
+    }).collect::<Result<Vec<_>, WasiRuntimeError>>()?;
 
-    let result_values = function.call(&mut store, values_buffer.as_slice()).unwrap();
+    let result_values = function.call(&mut store, values_buffer.as_slice())?;
 
     let memory = unsafe { env.memory_view(&store) };
     let mut current_results_offset: u64 = results.offset().into();
-    result_values.iter().for_each(|result_value| {
+    result_values.iter().try_for_each(|result_value| {
         let Some(bytes) = result_value.as_slice() else {
             panic!("Function returned an unsupported type");
         };
-        memory.write(current_results_offset, &bytes).unwrap();
+        memory.write(current_results_offset, &bytes).map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
         current_results_offset += bytes.len() as u64; // Move to the next result offset
-    });
+        Result::<(), WasiRuntimeError>::Ok(())
+    })?;
 
-    Ok(Errno::Success)
+    Ok((Errno::Success))
 }
