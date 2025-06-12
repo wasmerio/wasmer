@@ -645,7 +645,7 @@ fn wasix_exports_64(mut store: &mut impl AsStoreMut, env: &FunctionEnv<WasiEnv>)
     let namespace = namespace! {
         "args_get" => Function::new_typed_with_env(&mut store, env, args_get::<Memory64>),
         "args_sizes_get" => Function::new_typed_with_env(&mut store, env, args_sizes_get::<Memory64>),
-        "call_dynamic" => Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory32>),
+        "call_dynamic" => Function::new_typed_with_env(&mut store, env, call_dynamic::<Memory64>),
         "clock_res_get" => Function::new_typed_with_env(&mut store, env, clock_res_get::<Memory64>),
         "clock_time_get" => Function::new_typed_with_env(&mut store, env, clock_time_get::<Memory64>),
         "clock_time_set" => Function::new_typed_with_env(&mut store, env, clock_time_set::<Memory64>),
