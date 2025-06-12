@@ -29,7 +29,7 @@ virtual-mio = { path = "../virtual-io", version = "0.600.1", default-features = 
 bincode = { version = "1.3" }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 pin-project-lite = "0.2.9"
-futures-util = { workspace = true }
+futures-util.workspace = true
 anyhow.workspace = true
 tokio-serde = { version = "0.9", features = ["bincode"], optional = true }
 tokio-util = { version = "0.7.8", features = ["codec"], optional = true }

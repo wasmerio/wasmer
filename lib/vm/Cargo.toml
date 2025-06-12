@@ -17,7 +17,7 @@ memoffset.workspace = true
 dashmap.workspace = true
 wasmer-types = { path = "../types", version = "=6.0.1" }
 libc.workspace = true
-indexmap = { workspace = true }
+indexmap.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
 cfg-if.workspace = true

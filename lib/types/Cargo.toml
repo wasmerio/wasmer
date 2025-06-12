@@ -17,8 +17,8 @@ serde = { workspace = true, features = ["derive", "rc"], optional = true }
 serde_bytes = { workspace = true, optional = true }
 thiserror.workspace = true
 more-asserts.workspace = true
-indexmap = { workspace = true }
-rkyv = { workspace = true }
+indexmap.workspace = true
+rkyv.workspace = true
 enum-iterator.workspace = true
 target-lexicon = { workspace = true}
 enumset.workspace = true

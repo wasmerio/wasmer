@@ -37,10 +37,10 @@ enum-iterator.workspace = true
 
 bytes.workspace = true
 self_cell = "1.0"
-rkyv = { workspace = true }
-shared-buffer = { workspace = true }
-libc = { workspace = true }
-target-lexicon = { workspace = true }
+rkyv.workspace = true
+shared-buffer.workspace = true
+libc.workspace = true
+target-lexicon.workspace = true
 object = { workspace = true, features = ["write"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

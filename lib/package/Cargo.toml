@@ -16,7 +16,7 @@ rust-version.workspace = true
 webc.workspace = true
 wasmer-config = { version = "0.600.1", path = "../config" }
 wasmer-types = { version = "6.0.1", path = "../types", features = ["detect-wasm-features"] }
-toml = { workspace = true }
+toml.workspace = true
 bytes.workspace = true
 sha2.workspace = true
 shared-buffer.workspace = true

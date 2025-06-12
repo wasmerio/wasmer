@@ -17,7 +17,7 @@ serde.workspace = true
 serde_json.workspace = true
 serde_yaml.workspace = true
 anyhow.workspace = true
-toml = { workspace = true }
+toml.workspace = true
 thiserror.workspace = true
 semver = { workspace = true, features = ["serde"] }
 indexmap = { workspace = true, features = ["serde"] }

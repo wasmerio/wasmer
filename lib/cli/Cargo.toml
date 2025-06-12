@@ -143,7 +143,7 @@ virtual-mio = { version = "0.600.1", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
-webc = { workspace = true }
+webc.workspace = true
 wasmer-backend-api = { version = "=0.600.1", path = "../backend-api" }
 wasmer-config = { version = "0.600.1", path = "../config" }
 
@@ -168,7 +168,7 @@ serde.workspace = true
 serde_json.workspace = true
 dirs = "4.0"
 target-lexicon = { workspace = true, features = ["std"] }
-indexmap = { workspace = true }
+indexmap.workspace = true
 walkdir = "2.3.2"
 regex = "1.6.0"
 toml.workspace = true
@@ -209,12 +209,12 @@ interfaces = { version = "0.0.9", optional = true }
 
 uuid = { version = "1.3.0", features = ["v4"] }
 time = { workspace = true, features = ["macros"] }
-serde_yaml = { workspace = true }
+serde_yaml.workspace = true
 comfy-table = "7.0.1"
 
 
 # Used by tuntap and connect
-futures-util = { workspace = true }
+futures-util.workspace = true
 mio = { workspace = true, optional = true }
 tokio-tungstenite = { workspace = true, features = [
 	"rustls-tls-webpki-roots",

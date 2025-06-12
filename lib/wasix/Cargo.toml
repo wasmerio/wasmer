@@ -120,7 +120,7 @@ hyper-util = { workspace = true, features = [
 	"client",
 ], optional = true }
 http-body-util = { workspace = true, optional = true }
-toml = { workspace = true }
+toml.workspace = true
 pin-utils = "0.1.0"
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]

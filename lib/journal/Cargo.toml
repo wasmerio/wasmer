@@ -27,7 +27,7 @@ virtual-fs = { path = "../virtual-fs", version = "0.600.1", default-features = f
 shared-buffer = { workspace = true, optional = true }
 base64.workspace = true
 derive_more.workspace = true
-rkyv = { workspace = true }
+rkyv.workspace = true
 
 thiserror.workspace = true
 bytes.workspace = true
