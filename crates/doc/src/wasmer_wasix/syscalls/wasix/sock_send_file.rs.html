@@ -246,6 +246,12 @@
 <a href="#246" id="246">246</a>
 <a href="#247" id="247">247</a>
 <a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::AsyncReadExt;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -394,7 +400,13 @@
                                         buf.set_len(sub_count <span class="kw">as </span>usize);
                                     }
                                     socket
-                                        .recv(tasks.deref(), <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">Some</span>(read_timeout), <span class="bool-val">false</span>)
+                                        .recv(
+                                            tasks.deref(),
+                                            <span class="kw-2">&amp;mut </span>buf,
+                                            <span class="prelude-val">Some</span>(read_timeout),
+                                            <span class="bool-val">false</span>,
+                                            <span class="bool-val">false</span>,
+                                        )
                                         .<span class="kw">await
                                         </span>.map(|amt| {
                                             <span class="kw">unsafe </span>{

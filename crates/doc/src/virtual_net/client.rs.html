@@ -1542,6 +1542,18 @@
 <a href="#1542" id="1542">1542</a>
 <a href="#1543" id="1543">1543</a>
 <a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 <span class="kw">use </span>std::collections::VecDeque;
 <span class="kw">use </span>std::future::Future;
@@ -2739,13 +2751,15 @@
         }
     }
 
-    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="kw">loop </span>{
             <span class="kw">if </span>!<span class="self">self</span>.rx_buffer.is_empty() {
                 <span class="kw">let </span>amt = <span class="self">self</span>.rx_buffer.len().min(buf.len());
                 <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.rx_buffer[..amt]);
-                <span class="self">self</span>.rx_buffer.advance(amt);
+                <span class="kw">if </span>!peek {
+                    <span class="self">self</span>.rx_buffer.advance(amt);
+                }
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(amt);
             }
             <span class="kw">match </span><span class="self">self</span>.rx_recv.try_recv() {
@@ -2797,7 +2811,15 @@
     <span class="kw">fn </span>try_recv_from(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;],
+        peek: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt; {
+        <span class="comment">// FIXME: A proper peek implementation would require correct use of a
+        // buffer. We don't use this implementation AFAIK, so I'll skip over it
+        // for the time being.
+        </span><span class="kw">if </span>peek {
+            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::Unsupported);
+        }
+
         <span class="kw">match </span><span class="self">self</span>.rx_recv_with_addr.try_recv() {
             <span class="prelude-val">Ok</span>(received) =&gt; {
                 <span class="kw">let </span>amt = buf.len().min(received.data.len());
@@ -2965,13 +2987,15 @@
         <span class="self">self</span>.io_socket_fire_and_forget(RequestType::Close)
     }
 
-    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="kw">loop </span>{
             <span class="kw">if </span>!<span class="self">self</span>.rx_buffer.is_empty() {
                 <span class="kw">let </span>amt = <span class="self">self</span>.rx_buffer.len().min(buf.len());
                 <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
                 buf[..amt].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.rx_buffer[..amt]);
-                <span class="self">self</span>.rx_buffer.advance(amt);
+                <span class="kw">if </span>!peek {
+                    <span class="self">self</span>.rx_buffer.advance(amt);
+                }
                 <span class="kw">return </span><span class="prelude-val">Ok</span>(amt);
             }
             <span class="kw">match </span><span class="self">self</span>.rx_recv.try_recv() {

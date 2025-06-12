@@ -144,6 +144,22 @@
 <a href="#144" id="144">144</a>
 <a href="#145" id="145">145</a>
 <a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -190,7 +206,7 @@
     sock: WasiFd,
     ri_data: WasmPtr&lt;__wasi_iovec_t&lt;M&gt;, M&gt;,
     ri_data_len: M::Offset,
-    _ri_flags: RiFlags,
+    ri_flags: RiFlags,
     ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
     ro_addr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
@@ -200,6 +216,9 @@
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(ri_data.slice(<span class="kw-2">&amp;</span>memory, ri_data_len));
+
+    <span class="kw">let </span>peek = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_PEEK) != <span class="number">0</span>;
+    <span class="kw">let </span>nonblocking_flag = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_DONT_WAIT) != <span class="number">0</span>;
 
     <span class="kw">let </span>max_size = {
         <span class="kw">let </span><span class="kw-2">mut </span>max_size = <span class="number">0usize</span>;
@@ -220,14 +239,21 @@
                 sock,
                 Rights::SOCK_RECV,
                 |socket, fd| <span class="kw">async move </span>{
-                    <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
+                    <span class="kw">let </span>nonblocking =
+                        nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
                     <span class="kw">let </span>timeout = socket
                         .opt_time(TimeType::ReadTimeout)
                         .ok()
                         .flatten()
                         .unwrap_or(Duration::from_secs(<span class="number">30</span>));
                     socket
-                        .recv_from(env.tasks().deref(), writer, <span class="prelude-val">Some</span>(timeout), nonblocking)
+                        .recv_from(
+                            env.tasks().deref(),
+                            writer,
+                            <span class="prelude-val">Some</span>(timeout),
+                            nonblocking,
+                            peek,
+                        )
                         .<span class="kw">await
                 </span>},
             ));
@@ -257,7 +283,13 @@
                         buf.set_len(max_size);
                     }
                     socket
-                        .recv_from(env.tasks().deref(), <span class="kw-2">&amp;mut </span>buf, <span class="prelude-val">Some</span>(timeout), nonblocking)
+                        .recv_from(
+                            env.tasks().deref(),
+                            <span class="kw-2">&amp;mut </span>buf,
+                            <span class="prelude-val">Some</span>(timeout),
+                            nonblocking,
+                            peek,
+                        )
                         .<span class="kw">await
                         </span>.map(|(amt, addr)| {
                             <span class="kw">unsafe </span>{

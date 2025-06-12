@@ -294,6 +294,9 @@
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
 <a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
 </pre></div><pre class="rust"><code><span class="attr">#![deny(unused_mut)]
 #![allow(non_camel_case_types, clippy::identity_op)]
 
@@ -576,6 +579,9 @@
     <span class="kw">pub const </span>__WASI_SOCK_RECV_INPUT_PEEK: RiFlags = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
     <span class="kw">pub const </span>__WASI_SOCK_RECV_INPUT_WAITALL: RiFlags = <span class="number">1 </span>&lt;&lt; <span class="number">1</span>;
     <span class="kw">pub const </span>__WASI_SOCK_RECV_INPUT_DATA_TRUNCATED: RiFlags = <span class="number">1 </span>&lt;&lt; <span class="number">2</span>;
+    <span class="kw">pub const </span>__WASI_SOCK_RECV_INPUT_DONT_WAIT: RiFlags = <span class="number">1 </span>&lt;&lt; <span class="number">3</span>;
+
+    <span class="kw">pub const </span>__WASI_SOCK_SEND_INPUT_DONT_WAIT: SiFlags = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
 
     <span class="kw">pub const </span>__WASI_SOCK_RECV_OUTPUT_DATA_TRUNCATED: RoFlags = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
 

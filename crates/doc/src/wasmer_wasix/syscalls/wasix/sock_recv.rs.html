@@ -163,6 +163,8 @@
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
 <a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -280,6 +282,7 @@
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
 
     <span class="kw">let </span>peek = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_PEEK) != <span class="number">0</span>;
+    <span class="kw">let </span>nonblocking_flag = (ri_flags &amp; __WASI_SOCK_RECV_INPUT_DONT_WAIT) != <span class="number">0</span>;
     <span class="kw">let </span>data = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
         env,
         sock,
@@ -298,7 +301,7 @@
                     </span>.access()
                     .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
+                <span class="kw">let </span>nonblocking = nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
                 <span class="kw">let </span>timeout = socket
                     .opt_time(TimeType::ReadTimeout)
                     .ok()
@@ -311,6 +314,7 @@
                         buf.as_mut_uninit(),
                         <span class="prelude-val">Some</span>(timeout),
                         nonblocking,
+                        peek,
                     )
                     .<span class="kw">await
                 </span>{

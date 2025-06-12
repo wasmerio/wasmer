@@ -673,6 +673,15 @@
 <a href="#673" id="673">673</a>
 <a href="#674" id="674">674</a>
 <a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
 </pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     net_error_into_io_err, InterestHandler, NetworkError, SocketStatus, VirtualConnectedSocket,
     VirtualIoSource, VirtualSocket, VirtualTcpSocket,
@@ -912,6 +921,7 @@
     <span class="kw">pub fn </span>try_read(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;],
+        peek: bool,
         waker: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Waker&gt;,
     ) -&gt; <span class="kw">crate</span>::Result&lt;usize&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
@@ -939,7 +949,11 @@
 
         <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
         <span class="kw">let </span>amt = buf.len().min(state.buffer.len());
-        <span class="kw">let </span>amt = state.buffer.dequeue_slice(<span class="kw-2">&amp;mut </span>buf[..amt]);
+        <span class="kw">let </span>amt = <span class="kw">if </span>peek {
+            state.buffer.read_allocated(<span class="number">0</span>, <span class="kw-2">&amp;mut </span>buf[..amt])
+        } <span class="kw">else </span>{
+            state.buffer.dequeue_slice(<span class="kw-2">&amp;mut </span>buf[..amt])
+        };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(handler) = state.pull_handler.as_mut() {
             handler.push_interest(InterestType::Writable);
@@ -999,7 +1013,7 @@
         cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;,
         buf: <span class="kw-2">&amp;mut </span>tokio::io::ReadBuf&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
-        <span class="kw">match </span><span class="self">self</span>.try_read(<span class="kw">unsafe </span>{ buf.unfilled_mut() }, <span class="prelude-val">Some</span>(cx.waker())) {
+        <span class="kw">match </span><span class="self">self</span>.try_read(<span class="kw">unsafe </span>{ buf.unfilled_mut() }, <span class="bool-val">false</span>, <span class="prelude-val">Some</span>(cx.waker())) {
             <span class="prelude-val">Ok</span>(amt) =&gt; {
                 <span class="kw">unsafe </span>{ buf.assume_init(amt) };
                 buf.advance(amt);
@@ -1132,8 +1146,12 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;]) -&gt; <span class="kw">crate</span>::Result&lt;usize&gt; {
-        <span class="self">self</span>.rx.try_read(buf, <span class="prelude-val">None</span>)
+    <span class="kw">fn </span>try_recv(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        buf: <span class="kw-2">&amp;mut </span>[std::mem::MaybeUninit&lt;u8&gt;],
+        peek: bool,
+    ) -&gt; <span class="kw">crate</span>::Result&lt;usize&gt; {
+        <span class="self">self</span>.rx.try_read(buf, peek, <span class="prelude-val">None</span>)
     }
 }
 

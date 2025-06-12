@@ -1000,6 +1000,22 @@
 <a href="#1000" id="1000">1000</a>
 <a href="#1001" id="1001">1001</a>
 <a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
 </pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
 </span><span class="kw">use </span><span class="kw">crate</span>::ruleset::{Direction, Ruleset};
 <span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
@@ -1565,16 +1581,23 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+    <span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
         <span class="kw">if </span>!<span class="self">self</span>.buffer.is_empty() {
             <span class="kw">let </span>amt = buf.len().min(<span class="self">self</span>.buffer.len());
             buf[..amt].copy_from_slice(<span class="kw-2">&amp;</span><span class="self">self</span>.buffer[..amt]);
-            <span class="self">self</span>.buffer.advance(amt);
+            <span class="kw">if </span>!peek {
+                <span class="self">self</span>.buffer.advance(amt);
+            }
             <span class="kw">return </span><span class="prelude-val">Ok</span>(amt);
         }
 
-        <span class="self">self</span>.stream.read(buf).map_err(io_err_into_net_error)
+        <span class="kw">if </span>peek {
+            <span class="self">self</span>.stream.peek(buf)
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.stream.read(buf)
+        }
+        .map_err(io_err_into_net_error)
     }
 }
 
@@ -1863,9 +1886,18 @@
         ret
     }
 
-    <span class="kw">fn </span>try_recv_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt; {
+    <span class="kw">fn </span>try_recv_from(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+        peek: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt; {
         <span class="kw">let </span>buf: <span class="kw-2">&amp;mut </span>[u8] = <span class="kw">unsafe </span>{ std::mem::transmute(buf) };
-        <span class="self">self</span>.socket.recv_from(buf).map_err(io_err_into_net_error)
+        <span class="kw">if </span>peek {
+            <span class="self">self</span>.socket.peek_from(buf)
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.socket.recv_from(buf)
+        }
+        .map_err(io_err_into_net_error)
     }
 }
 

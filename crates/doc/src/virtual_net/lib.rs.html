@@ -918,6 +918,30 @@
 <a href="#918" id="918">918</a>
 <a href="#919" id="919">919</a>
 <a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
 </pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 #![allow(clippy::multiple_bound_locations)]
 #[cfg(feature = <span class="string">"remote"</span>)]
@@ -1254,14 +1278,14 @@
     </span><span class="kw">fn </span>close(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
     <span class="doccomment">/// Tries to read a packet from the socket
-    </span><span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
+    </span><span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 }
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>VirtualConnectedSocketExt: VirtualConnectedSocket {
     <span class="kw">async fn </span>send(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="kw">async fn </span>recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
+    <span class="kw">async fn </span>recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
     <span class="kw">async fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 }
@@ -1300,7 +1324,7 @@
         Poller { socket: <span class="self">self</span>, data }.<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
+    <span class="kw">async fn </span>recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
         <span class="macro">pin_project!</span> {
             <span class="kw">struct </span>Poller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, R: <span class="question-mark">?</span>Sized&gt;
             <span class="kw">where
@@ -1308,6 +1332,7 @@
             {
                 socket: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>R,
                 buf: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+                peek: bool,
             }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, R&gt; std::future::Future <span class="kw">for </span>Poller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, R&gt;
@@ -1322,14 +1347,19 @@
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = this.socket.set_handler(handler) {
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err));
                 }
-                <span class="kw">match </span>this.socket.try_recv(this.buf) {
+                <span class="kw">match </span>this.socket.try_recv(this.buf, <span class="kw-2">*</span>this.peek) {
                     <span class="prelude-val">Ok</span>(ret) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(ret)),
                     <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
                     <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
                 }
             }
         }
-        Poller { socket: <span class="self">self</span>, buf }.<span class="kw">await
+        Poller {
+            socket: <span class="self">self</span>,
+            buf,
+            peek,
+        }
+        .<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt; {
@@ -1368,14 +1398,22 @@
     </span><span class="kw">fn </span>try_send_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8], addr: SocketAddr) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
     <span class="doccomment">/// Recv a packet from the socket
-    </span><span class="kw">fn </span>try_recv_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;;
+    </span><span class="kw">fn </span>try_recv_from(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+        peek: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;;
 }
 
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">pub trait </span>VirtualConnectionlessSocketExt: VirtualConnectionlessSocket {
     <span class="kw">async fn </span>send_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8], addr: SocketAddr) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
-    <span class="kw">async fn </span>recv_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;;
+    <span class="kw">async fn </span>recv_from(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+        peek: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt;;
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -1418,7 +1456,11 @@
         .<span class="kw">await
     </span>}
 
-    <span class="kw">async fn </span>recv_from(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt; {
+    <span class="kw">async fn </span>recv_from(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
+        peek: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr)&gt; {
         <span class="macro">pin_project!</span> {
             <span class="kw">struct </span>Poller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, R: <span class="question-mark">?</span>Sized&gt;
             <span class="kw">where
@@ -1426,6 +1468,7 @@
             {
                 socket: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw-2">mut </span>R,
                 buf: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
+                peek: bool,
             }
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, R&gt; std::future::Future <span class="kw">for </span>Poller&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>, R&gt;
@@ -1440,14 +1483,19 @@
                 <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = this.socket.set_handler(handler) {
                     <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err));
                 }
-                <span class="kw">match </span>this.socket.try_recv_from(this.buf) {
+                <span class="kw">match </span>this.socket.try_recv_from(this.buf, <span class="kw-2">*</span>this.peek) {
                     <span class="prelude-val">Ok</span>(ret) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(ret)),
                     <span class="prelude-val">Err</span>(NetworkError::WouldBlock) =&gt; Poll::Pending,
                     <span class="prelude-val">Err</span>(err) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(err)),
                 }
             }
         }
-        Poller { socket: <span class="self">self</span>, buf }.<span class="kw">await
+        Poller {
+            socket: <span class="self">self</span>,
+            buf,
+            peek,
+        }
+        .<span class="kw">await
     </span>}
 }
 
@@ -1468,7 +1516,7 @@
     </span><span class="kw">fn </span>try_flush(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;()&gt;;
 
     <span class="doccomment">/// Recv a packet from the socket
-    </span><span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
+    </span><span class="kw">fn </span>try_recv(<span class="kw-2">&amp;mut </span><span class="self">self</span>, buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;], peek: bool) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt;;
 
     <span class="doccomment">/// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not

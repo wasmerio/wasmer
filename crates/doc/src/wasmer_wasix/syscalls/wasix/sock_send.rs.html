@@ -160,6 +160,8 @@
 <a href="#160" id="160">160</a>
 <a href="#161" id="161">161</a>
 <a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, task::Waker};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -259,12 +261,14 @@
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>runtime = env.runtime.clone();
 
+    <span class="kw">let </span>nonblocking_flag = (si_flags &amp; __WASI_SOCK_SEND_INPUT_DONT_WAIT) != <span class="number">0</span>;
+
     <span class="kw">let </span>bytes_written = <span class="macro">wasi_try_ok_ok!</span>(__sock_asyncify(
         env,
         sock,
         Rights::SOCK_SEND,
         |socket, fd| <span class="kw">async move </span>{
-            <span class="kw">let </span>nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
+            <span class="kw">let </span>nonblocking = nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
             <span class="kw">let </span>timeout = socket
                 .opt_time(TimeType::WriteTimeout)
                 .ok()

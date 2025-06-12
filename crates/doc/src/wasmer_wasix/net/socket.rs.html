@@ -1541,6 +1541,16 @@
 <a href="#1541" id="1541">1541</a>
 <a href="#1542" id="1542">1542</a>
 <a href="#1543" id="1543">1543</a>
+<a href="#1544" id="1544">1544</a>
+<a href="#1545" id="1545">1545</a>
+<a href="#1546" id="1546">1546</a>
+<a href="#1547" id="1547">1547</a>
+<a href="#1548" id="1548">1548</a>
+<a href="#1549" id="1549">1549</a>
+<a href="#1550" id="1550">1550</a>
+<a href="#1551" id="1551">1551</a>
+<a href="#1552" id="1552">1552</a>
+<a href="#1553" id="1553">1553</a>
 </pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io,
@@ -2784,11 +2794,13 @@
         buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
         nonblocking: bool,
+        peek: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;usize, Errno&gt; {
         <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
             data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
             nonblocking: bool,
+            peek: bool,
             handler_registered: bool,
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
@@ -2806,19 +2818,22 @@
                 cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
                 <span class="kw">loop </span>{
+                    <span class="kw">let </span>peek = <span class="self">self</span>.peek;
                     <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
                     <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                        InodeSocketKind::Raw(socket) =&gt; socket.try_recv(<span class="self">self</span>.data),
-                        InodeSocketKind::TcpStream { socket, .. } =&gt; socket.try_recv(<span class="self">self</span>.data),
+                        InodeSocketKind::Raw(socket) =&gt; socket.try_recv(<span class="self">self</span>.data, peek),
+                        InodeSocketKind::TcpStream { socket, .. } =&gt; {
+                            socket.try_recv(<span class="self">self</span>.data, peek)
+                        }
                         InodeSocketKind::UdpSocket { socket, peer } =&gt; {
                             <span class="kw">if let </span><span class="prelude-val">Some</span>(peer) = peer {
-                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data) {
+                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data, peek) {
                                     <span class="prelude-val">Ok</span>((amt, addr)) <span class="kw">if </span>addr == <span class="kw-2">*</span>peer =&gt; <span class="prelude-val">Ok</span>(amt),
                                     <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="prelude-val">Err</span>(NetworkError::WouldBlock),
                                     <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
                                 }
                             } <span class="kw">else </span>{
-                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data) {
+                                <span class="kw">match </span>socket.try_recv_from(<span class="self">self</span>.data, peek) {
                                     <span class="prelude-val">Ok</span>((amt, <span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(amt),
                                     <span class="prelude-val">Err</span>(err) =&gt; <span class="prelude-val">Err</span>(err),
                                 }
@@ -2860,6 +2875,7 @@
             inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
             data: buf,
             nonblocking,
+            peek,
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
@@ -2878,11 +2894,13 @@
         buf: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;],
         timeout: <span class="prelude-ty">Option</span>&lt;Duration&gt;,
         nonblocking: bool,
+        peek: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(usize, SocketAddr), Errno&gt; {
         <span class="kw">struct </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
             inner: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>InodeSocketInner,
             data: <span class="kw-2">&amp;</span><span class="lifetime">'b </span><span class="kw-2">mut </span>[MaybeUninit&lt;u8&gt;],
             nonblocking: bool,
+            peek: bool,
             handler_registered: bool,
         }
         <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; Drop <span class="kw">for </span>SocketReceiver&lt;<span class="lifetime">'a</span>, <span class="lifetime">'b</span>&gt; {
@@ -2899,12 +2917,13 @@
                 <span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;,
                 cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
             ) -&gt; Poll&lt;<span class="self">Self</span>::Output&gt; {
+                <span class="kw">let </span>peek = <span class="self">self</span>.peek;
                 <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
                 <span class="kw">loop </span>{
                     <span class="kw">let </span>res = <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
-                        InodeSocketKind::Icmp(socket) =&gt; socket.try_recv_from(<span class="self">self</span>.data),
+                        InodeSocketKind::Icmp(socket) =&gt; socket.try_recv_from(<span class="self">self</span>.data, peek),
                         InodeSocketKind::UdpSocket { socket, .. } =&gt; {
-                            socket.try_recv_from(<span class="self">self</span>.data)
+                            socket.try_recv_from(<span class="self">self</span>.data, peek)
                         }
                         InodeSocketKind::RemoteSocket {
                             is_dead, peer_addr, ..
@@ -2942,6 +2961,7 @@
             inner: <span class="kw-2">&amp;</span><span class="self">self</span>.inner,
             data: buf,
             nonblocking,
+            peek,
             handler_registered: <span class="bool-val">false</span>,
         };
         <span class="kw">if let </span><span class="prelude-val">Some</span>(timeout) = timeout {
