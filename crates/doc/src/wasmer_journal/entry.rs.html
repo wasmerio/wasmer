@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/entry.rs`."><title>entry.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-46f98efaafac5295.ttf.woff2,FiraSans-Regular-018c141bf0843ffd.woff2,FiraSans-Medium-8f9a781e4970d388.woff2,SourceCodePro-Regular-562dcc5011b6de7d.ttf.woff2,SourceCodePro-Semibold-d899c5a5c4aeb14a.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-76eba96aa4d2e634.css"><link rel="stylesheet" href="../../static.files/rustdoc-c5d6553a23f1e5a6.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.81.0 (eeb90cda1 2024-09-04)" data-channel="1.81.0" data-search-js="search-d234aafac6c221dd.js" data-settings-js="settings-4313503d2e1961c2.js" ><script src="../../static.files/storage-118b08c4c78b968e.js"></script><script defer src="../../static.files/src-script-e66d777a5a92e9b2.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-d2fab2bf619172d3.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-df360f571f6edeae.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-422f7d1d52889060.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-2c020d218678b618.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers"><a href="#1" id="1">1</a>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/journal/src/entry.rs`."><title>entry.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="wasmer_journal" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../static.files/storage-59e33391.js"></script><script defer src="../../static.files/src-script-56102188.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_journal/</div>entry.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
+<a href="#1" id="1">1</a>
 <a href="#2" id="2">2</a>
 <a href="#3" id="3">3</a>
 <a href="#4" id="4">4</a>
@@ -858,8 +859,7 @@
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
 <a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-</pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href="#861" id="861">861</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
 <span class="kw">use </span>std::net::{Shutdown, SocketAddr};
 <span class="kw">use </span>std::time::{Duration, SystemTime};
@@ -1256,7 +1256,7 @@
     },
 }
 
-<span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; JournalEntry&lt;<span class="lifetime">'a</span>&gt; {
+<span class="kw">impl </span>JournalEntry&lt;<span class="lifetime">'_</span>&gt; {
     <span class="kw">pub fn </span>into_owned(<span class="self">self</span>) -&gt; JournalEntry&lt;<span class="lifetime">'static</span>&gt; {
         <span class="kw">match </span><span class="self">self </span>{
             <span class="self">Self</span>::InitModuleV1 { wasm_hash } =&gt; JournalEntry::InitModuleV1 { wasm_hash },
@@ -1656,14 +1656,14 @@
             JournalEntry::FileDescriptorWriteV1 { data, .. } =&gt; base_size + data.len(),
             JournalEntry::SetClockTimeV1 { .. } =&gt; base_size,
             JournalEntry::CloseFileDescriptorV1 { .. } =&gt; base_size,
-            JournalEntry::OpenFileDescriptorV1 { path, .. } =&gt; base_size + path.as_bytes().len(),
-            JournalEntry::OpenFileDescriptorV2 { path, .. } =&gt; base_size + path.as_bytes().len(),
+            JournalEntry::OpenFileDescriptorV1 { path, .. } =&gt; base_size + path.len(),
+            JournalEntry::OpenFileDescriptorV2 { path, .. } =&gt; base_size + path.len(),
             JournalEntry::RenumberFileDescriptorV1 { .. } =&gt; base_size,
             JournalEntry::DuplicateFileDescriptorV1 { .. } =&gt; base_size,
             JournalEntry::DuplicateFileDescriptorV2 { .. } =&gt; base_size,
-            JournalEntry::CreateDirectoryV1 { path, .. } =&gt; base_size + path.as_bytes().len(),
-            JournalEntry::RemoveDirectoryV1 { path, .. } =&gt; base_size + path.as_bytes().len(),
-            JournalEntry::PathSetTimesV1 { path, .. } =&gt; base_size + path.as_bytes().len(),
+            JournalEntry::CreateDirectoryV1 { path, .. } =&gt; base_size + path.len(),
+            JournalEntry::RemoveDirectoryV1 { path, .. } =&gt; base_size + path.len(),
+            JournalEntry::PathSetTimesV1 { path, .. } =&gt; base_size + path.len(),
             JournalEntry::FileDescriptorSetTimesV1 { .. } =&gt; base_size,
             JournalEntry::FileDescriptorSetFdFlagsV1 { .. } =&gt; base_size,
             JournalEntry::FileDescriptorSetFlagsV1 { .. } =&gt; base_size,
@@ -1673,15 +1673,15 @@
             JournalEntry::FileDescriptorAllocateV1 { .. } =&gt; base_size,
             JournalEntry::CreateHardLinkV1 {
                 old_path, new_path, ..
-            } =&gt; base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
+            } =&gt; base_size + old_path.len() + new_path.len(),
             JournalEntry::CreateSymbolicLinkV1 {
                 old_path, new_path, ..
-            } =&gt; base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
-            JournalEntry::UnlinkFileV1 { path, .. } =&gt; base_size + path.as_bytes().len(),
+            } =&gt; base_size + old_path.len() + new_path.len(),
+            JournalEntry::UnlinkFileV1 { path, .. } =&gt; base_size + path.len(),
             JournalEntry::PathRenameV1 {
                 old_path, new_path, ..
-            } =&gt; base_size + old_path.as_bytes().len() + new_path.as_bytes().len(),
-            JournalEntry::ChangeDirectoryV1 { path } =&gt; base_size + path.as_bytes().len(),
+            } =&gt; base_size + old_path.len() + new_path.len(),
+            JournalEntry::ChangeDirectoryV1 { path } =&gt; base_size + path.len(),
             JournalEntry::EpollCreateV1 { .. } =&gt; base_size,
             JournalEntry::EpollCtlV1 { .. } =&gt; base_size,
             JournalEntry::TtySetV1 { .. } =&gt; base_size,
@@ -1691,7 +1691,7 @@
             JournalEntry::PortDelAddrV1 { .. } =&gt; base_size,
             JournalEntry::PortAddrClearV1 =&gt; base_size,
             JournalEntry::PortBridgeV1 { network, token, .. } =&gt; {
-                base_size + network.as_bytes().len() + token.as_bytes().len()
+                base_size + network.len() + token.len()
             }
             JournalEntry::PortUnbridgeV1 =&gt; base_size,
             JournalEntry::PortDhcpAcquireV1 =&gt; base_size,

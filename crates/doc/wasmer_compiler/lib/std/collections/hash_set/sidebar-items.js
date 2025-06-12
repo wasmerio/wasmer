@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Difference","Drain","ExtractIf","HashSet","Intersection","IntoIter","Iter","SymmetricDifference","Union"]};
+window.SIDEBAR_ITEMS = {"enum":["Entry"],"struct":["Difference","Drain","ExtractIf","HashSet","Intersection","IntoIter","Iter","OccupiedEntry","SymmetricDifference","Union","VacantEntry"]};
