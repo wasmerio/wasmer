@@ -303,7 +303,7 @@ jobs:
         if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2024-07-05"
+          toolchain: "nightly-2024-11-07"
           target: ${{ matrix.target }}
           components: "rust-src"
       - name: Build Minimal Wasmer Headless
@@ -321,7 +321,7 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2024-07-05
+          rustup override set nightly-2024-11-07
           make build-wasmer-headless-minimal
           rustup override unset
       - name: Dist
