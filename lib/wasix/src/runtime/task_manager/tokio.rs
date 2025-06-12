@@ -118,7 +118,7 @@ struct TokioRuntimeGuard<'g> {
     #[allow(unused)]
     inner: tokio::runtime::EnterGuard<'g>,
 }
-impl<'g> Drop for TokioRuntimeGuard<'g> {
+impl Drop for TokioRuntimeGuard<'_> {
     fn drop(&mut self) {}
 }
 

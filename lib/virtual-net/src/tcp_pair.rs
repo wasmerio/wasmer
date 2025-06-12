@@ -213,7 +213,7 @@ impl SocketBuffer {
             this: &'a SocketBuffer,
             data: Bytes,
         }
-        impl<'a> Future for Poller<'a> {
+        impl Future for Poller<'_> {
             type Output = crate::Result<()>;
             fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 loop {

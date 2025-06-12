@@ -3288,37 +3288,44 @@ impl EmitterARM64 for Assembler {
         dst_size: Size,
         dst: Location,
     ) -> Result<(), CompileError> {
-        let res = match (src, dst) {
+        let mut err = false;
+        match (src, dst) {
             (AbstractLocation::GPR(src), AbstractLocation::SIMD(dst)) => {
                 match (src_size, dst_size) {
-                    (Size::S32, Size::S32) => Ok(dynasm!(self ; fmov S(dst as u32), W(src as u32))),
-                    (Size::S64, Size::S64) => Ok(dynasm!(self ; fmov D(dst as u32), X(src as u32))),
-                    _ => Err(()),
+                    (Size::S32, Size::S32) => dynasm!(self ; fmov S(dst as u32), W(src as u32)),
+                    (Size::S64, Size::S64) => dynasm!(self ; fmov D(dst as u32), X(src as u32)),
+                    _ => {
+                        err = true;
+                    }
                 }
             }
             (AbstractLocation::SIMD(src), AbstractLocation::GPR(dst)) => {
                 match (src_size, dst_size) {
-                    (Size::S32, Size::S32) => Ok(dynasm!(self ; fmov W(dst as u32), S(src as u32))),
-                    (Size::S64, Size::S64) => Ok(dynasm!(self ; fmov X(dst as u32), D(src as u32))),
-                    _ => Err(()),
+                    (Size::S32, Size::S32) => dynasm!(self ; fmov W(dst as u32), S(src as u32)),
+                    (Size::S64, Size::S64) => dynasm!(self ; fmov X(dst as u32), D(src as u32)),
+                    _ => {
+                        err = true;
+                    }
                 }
             }
             // (AbstractLocation::SIMD(src), AbstractLocation::SIMD(dst)) => todo!(),
             // (AbstractLocation::SIMD(src), AbstractLocation::Imm32(dst)) => todo!(),
             // (AbstractLocation::SIMD(src), AbstractLocation::Imm64(dst)) => todo!(),
-            _ => Err(()),
+            _ => {
+                err = true;
+            }
         };
 
-        match res {
-            Ok(_) => Ok(()),
-            Err(_) => codegen_error!(
+        if err {
+            codegen_error!(
                 "singlepass can't generate fmov instruction for src_size: {:?}, src: {:?}, dst_size: {:?}, dst: {:?}",
                 src_size,
                 src,
                 dst_size,
                 dst,
-            ),
+            )
         }
+        Ok(())
     }
 }
 

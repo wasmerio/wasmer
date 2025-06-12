@@ -67,7 +67,7 @@ fn using_libunwind() -> bool {
             let looks_like_libunwind = unsafe {
                 !libc::dlsym(
                     std::ptr::null_mut(),
-                    "__unw_add_dynamic_fde\0".as_ptr().cast(),
+                    c"__unw_add_dynamic_fde".as_ptr().cast(),
                 )
                 .is_null()
             };

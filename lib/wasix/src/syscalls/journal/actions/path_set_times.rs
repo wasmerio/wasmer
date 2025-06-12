@@ -1,12 +1,12 @@
 use super::*;
 
-impl<'a, 'c> JournalSyscallPlayer<'a, 'c> {
+impl<'a> JournalSyscallPlayer<'a, '_> {
     #[allow(clippy::result_large_err)]
     pub(crate) unsafe fn action_path_set_times(
         &mut self,
         fd: Fd,
         flags: LookupFlags,
-        path: Cow<'_, str>,
+        path: Cow<'a, str>,
         st_atim: Timestamp,
         st_mtim: Timestamp,
         fst_flags: Fstflags,

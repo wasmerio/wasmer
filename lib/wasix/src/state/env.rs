@@ -1045,7 +1045,7 @@ impl WasiEnv {
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState) {
+    ) -> (MemoryView<'a>, &'a WasiState) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
         (memory, state)
@@ -1060,7 +1060,7 @@ impl WasiEnv {
         &'a self,
         store: &'a impl AsStoreRef,
         _mem_index: u32,
-    ) -> (MemoryView<'a>, &WasiState, &WasiInodes) {
+    ) -> (MemoryView<'a>, &'a WasiState, &'a WasiInodes) {
         let memory = self.memory_view(store);
         let state = self.state.deref();
         let inodes = &state.inodes;

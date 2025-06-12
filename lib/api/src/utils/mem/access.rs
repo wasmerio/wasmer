@@ -13,7 +13,7 @@ pub(crate) enum SliceCow<'a, T> {
     Owned(Vec<T>, bool),
 }
 
-impl<'a, T> AsRef<[T]> for SliceCow<'a, T> {
+impl<T> AsRef<[T]> for SliceCow<'_, T> {
     fn as_ref(&self) -> &[T] {
         match self {
             Self::Borrowed(buf) => buf,
@@ -22,7 +22,7 @@ impl<'a, T> AsRef<[T]> for SliceCow<'a, T> {
     }
 }
 
-impl<'a, T> AsMut<[T]> for SliceCow<'a, T> {
+impl<T> AsMut<[T]> for SliceCow<'_, T> {
     fn as_mut(&mut self) -> &mut [T] {
         // Note: Zero padding is not required here as its a typed copy which does
         //       not leak the bytes into the memory
@@ -47,7 +47,7 @@ where
     pub(crate) buf: SliceCow<'a, T>,
 }
 
-impl<'a, T> AsRef<[T]> for WasmSliceAccess<'a, T>
+impl<T> AsRef<[T]> for WasmSliceAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -56,7 +56,7 @@ where
     }
 }
 
-impl<'a, T> AsMut<[T]> for WasmSliceAccess<'a, T>
+impl<T> AsMut<[T]> for WasmSliceAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -90,7 +90,7 @@ where
     }
 }
 
-impl<'a> WasmSliceAccess<'a, u8> {
+impl WasmSliceAccess<'_, u8> {
     /// Writes to the address pointed to by this `WasmPtr` in a memory.
     #[inline]
     pub fn copy_from_slice(&mut self, src: &[u8]) {
@@ -113,7 +113,7 @@ impl<'a> WasmSliceAccess<'a, u8> {
     }
 }
 
-impl<'a, T> Drop for WasmSliceAccess<'a, T>
+impl<T> Drop for WasmSliceAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -133,7 +133,7 @@ pub(crate) enum RefCow<'a, T> {
     Owned(T, bool),
 }
 
-impl<'a, T> AsRef<T> for RefCow<'a, T> {
+impl<T> AsRef<T> for RefCow<'_, T> {
     fn as_ref(&self) -> &T {
         match self {
             Self::Borrowed(val) => val,
@@ -142,7 +142,7 @@ impl<'a, T> AsRef<T> for RefCow<'a, T> {
     }
 }
 
-impl<'a, T> AsMut<T> for RefCow<'a, T> {
+impl<T> AsMut<T> for RefCow<'_, T> {
     fn as_mut(&mut self) -> &mut T {
         // Note: Zero padding is not required here as its a typed copy which does
         //       not leak the bytes into the memory
@@ -168,7 +168,7 @@ where
     pub(crate) buf: RefCow<'a, T>,
 }
 
-impl<'a, T> AsRef<T> for WasmRefAccess<'a, T>
+impl<T> AsRef<T> for WasmRefAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -177,7 +177,7 @@ where
     }
 }
 
-impl<'a, T> AsMut<T> for WasmRefAccess<'a, T>
+impl<T> AsMut<T> for WasmRefAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -186,7 +186,7 @@ where
     }
 }
 
-impl<'a, T> Drop for WasmRefAccess<'a, T>
+impl<T> Drop for WasmRefAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -199,7 +199,7 @@ where
     }
 }
 
-impl<'a, T> WasmSliceAccess<'a, T>
+impl<T> WasmSliceAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -211,7 +211,7 @@ where
     }
 }
 
-impl<'a, T> WasmRefAccess<'a, T>
+impl<T> WasmRefAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {
@@ -330,7 +330,7 @@ where
     }
 }
 
-impl<'a, T> WasmRefAccess<'a, T>
+impl<T> WasmRefAccess<'_, T>
 where
     T: wasmer_types::ValueType,
 {

@@ -226,7 +226,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuild {
     }
 
     fn set_module_info_name(&mut self, name: String) -> bool {
-        Arc::get_mut(&mut self.serializable.compile_info.module).map_or(false, |module_info| {
+        Arc::get_mut(&mut self.serializable.compile_info.module).is_some_and(|module_info| {
             module_info.name = Some(name.to_string());
             true
         })
@@ -462,7 +462,7 @@ impl<'a> ArtifactCreate<'a> for ArtifactBuildFromArchive {
     }
 
     fn set_module_info_name(&mut self, name: String) -> bool {
-        Arc::get_mut(&mut self.compile_info.module).map_or(false, |module_info| {
+        Arc::get_mut(&mut self.compile_info.module).is_some_and(|module_info| {
             module_info.name = Some(name.to_string());
             true
         })

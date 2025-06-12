@@ -44,7 +44,7 @@ pub struct StoreMut<'a> {
     pub(crate) inner: &'a mut StoreInner,
 }
 
-impl<'a> StoreMut<'a> {
+impl StoreMut<'_> {
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         self.inner.store.engine()

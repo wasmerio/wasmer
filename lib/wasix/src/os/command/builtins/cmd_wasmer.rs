@@ -51,9 +51,9 @@ impl CmdWasmer {
 }
 
 impl CmdWasmer {
-    async fn run<'a>(
+    async fn run(
         &self,
-        parent_ctx: &FunctionEnvMut<'a, WasiEnv>,
+        parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         name: &str,
         config: &mut Option<WasiEnv>,
         what: Option<String>,
