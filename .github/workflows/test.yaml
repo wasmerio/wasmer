@@ -173,26 +173,26 @@ jobs:
           wget https://apt.llvm.org/llvm.sh
           chmod +x llvm.sh
           sudo ./llvm.sh 19 all
-      - name: Build wasix sysroot
+
+      - name: Download wasix-libc
+        uses: dsaltares/fetch-gh-release-asset@1.1.2
+        with:
+          repo: wasix-org/wasix-libc
+          file: sysroot.tar.gz
+          target: sysroot/wasix-libc.tar.gz
+
+      - name: Unpack wasix-libc
         run: |
-          cd ~
-          git clone --recurse-submodules https://github.com/wasix-org/wasix-libc
-          sudo rm -f /usr/bin/clang /usr/bin/clang++ /usr/bin/llvm-ar /usr/bin/llvm-nm /usr/bin/llvm-ranlib
-          sudo ln -s /usr/bin/clang-19 /usr/bin/clang
-          sudo ln -s /usr/bin/clang++-19 /usr/bin/clang++
-          sudo ln -s /usr/bin/llvm-ar-19 /usr/bin/llvm-ar
-          sudo ln -s /usr/bin/llvm-nm-19 /usr/bin/llvm-nm
-          sudo ln -s /usr/bin/llvm-ranlib-19 /usr/bin/llvm-ranlib
-          cd wasix-libc
-          ./build32.sh
-          rm -rf /opt/wasix-sysroot
-          cp -r sysroot32 ~/wasix-sysroot
+          cd sysroot
+          tar xzf wasix-libc.tar.gz
+
       - name: Install wasi-sdk Tools
         run: |
           cd ~
           curl -L "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${{ env.WASI_SDK_VERSION }}/wasi-sdk-${{ env.WASI_SDK_VERSION }}.0-linux.tar.gz" -o wasi-sdk.tar.gz
           tar -xzf wasi-sdk.tar.gz
           cp -r wasi-sdk-${{ env.WASI_SDK_VERSION }}.0 ~/wasi-sdk
+
       - name: Install LLVM 18
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
@@ -205,12 +205,14 @@ jobs:
           echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
+
       - name: Install wasm-opt
         run: |
           sudo apt-get install -y binaryen
+
       - name: make test-wasix
         run: |
-          WASI_SDK=~/wasi-sdk WASIX_SYSROOT=~/wasix-sysroot make test-wasix
+          WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
 
   test_wasm_build:
     name: Test wasm build
