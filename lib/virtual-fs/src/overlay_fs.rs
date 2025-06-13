@@ -975,7 +975,12 @@ where
                 Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                 Poll::Pending => return Poll::Pending,
             }
-            Pin::new(self.state.as_mut()).poll_flush(cx)
+            // The file may actually be read-only and not support flush operations
+            // at all, and there's nothing to flush in read-only state anyway.
+            match self.state {
+                CowState::ReadOnly(_) => Poll::Ready(Ok(())),
+                _ => Pin::new(self.state.as_mut()).poll_flush(cx),
+            }
         }
 
         fn poll_shutdown(
@@ -987,7 +992,11 @@ where
                 Poll::Ready(Err(err)) => return Poll::Ready(Err(err)),
                 Poll::Pending => return Poll::Pending,
             }
-            Pin::new(self.state.as_mut()).poll_shutdown(cx)
+            // Same deal as flush above
+            match self.state {
+                CowState::ReadOnly(_) => Poll::Ready(Ok(())),
+                _ => Pin::new(self.state.as_mut()).poll_shutdown(cx),
+            }
         }
     }
 
