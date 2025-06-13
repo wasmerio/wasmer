@@ -259,7 +259,7 @@
 #![allow(clippy::result_large_err)]
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -517,6 +517,9 @@ pub enum LinkError {
 
     #[error("Module does not export a TLS initialization routine")]
     MissingTlsInitializer,
+
+    #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
+    DynamicFunctionIndexNotAllocated(u32),
 }
 
 #[derive(Debug)]
@@ -804,6 +807,11 @@ struct LinkerState {
     memory_allocator: MemoryAllocator,
     heap_base: u64,
 
+    /// Tracks which indices are currently in use by dynamic functions
+    /// 
+    /// This is used to prevent dynamic function calls from modifying non-dynamic functions. (Which could be a powerful feature, but should be handled with care)
+    dynamic_functions: BTreeSet<u32>,
+
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
 
     send_pending_operation_barrier: bus::Bus<Arc<Barrier>>,
@@ -1015,6 +1023,7 @@ impl Linker {
             side_modules_by_name: HashMap::new(),
             next_module_handle: 1,
             memory_allocator: MemoryAllocator::new(),
+            dynamic_functions: BTreeSet::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
             send_pending_operation_barrier: barrier_tx,
@@ -1353,23 +1362,27 @@ impl Linker {
 
     /// TODO: Arshia told me not to do this but I want to implement the other stuff first.
     /// This may break horribly when there are multiple instance groups, so yeah, rewrite this, its wrong
-    pub fn access_indirect_function_table(
-        &self,
-    ) -> Option<Table> {
-        
-
+    pub fn access_indirect_function_table(&self) -> Option<Table> {
         let group_state = self.instance_group_state.lock().unwrap();
-        group_state.as_ref().map(|group| group.indirect_function_table.clone()).clone()
+        group_state
+            .as_ref()
+            .map(|group| group.indirect_function_table.clone())
+            .clone()
     }
 
-    /// Register a function in the indirect function table
+    /// Populate a previously registered function
     /// 
-    /// Returns the index in the table
-    pub fn register_function(
+    /// You will get an error, if the index was not previously allocated by `allocate_function`
+    /// 
+    /// It is explicitly allowed to prepare a previously allocated dynamic function again using this.
+    /// However, if the old function is already running while calling this, the behavior of that running function is undefined. 
+    pub fn populate_dynamic_function(
         &self,
+        store: &mut impl AsStoreMut,
+        function_index: u32,
         func: Function,
-        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<u32, LinkError> {
+    ) -> Result<(), LinkError> {
+        
         lock_instance_group_state!(
             group_state_guard,
             group_state,
@@ -1377,24 +1390,71 @@ impl Linker {
             LinkError::InstanceGroupIsDead
         );
 
-        let mut store = ctx.as_store_mut();
-        // We dont need to allocate or append at a specific index, we just need to append somewhere.
-        let function_index = group_state.append_to_function_table(&mut store, func).map_err(LinkError::TableAllocationError)?;
-      
-        // TODO: I am 99% sure there are some extra steps related to having multiple groups
+        if !self.linker_state.read().unwrap().dynamic_functions.contains(&function_index) {
+            return Err(LinkError::DynamicFunctionIndexNotAllocated(function_index));
+        }
 
-        Ok(function_index)
+        // We dont need to allocate or append at a specific index, we just need to append somewhere.
+        group_state
+            .indirect_function_table.set(store, function_index, Value::FuncRef(Some(func)))
+            .map_err(LinkError::TableAllocationError)?;
+
+        // TODO: Take care of sync between multiple groups
+
+        Ok(())
     }
 
-    /// Remove a function from the indirect function table
+    // TODO: This needs to be here, as every mutable indirect_function_table belongs to the dynamic
+    // Allocate a pointer to a function
+    pub fn allocate_dynamic_function(&self, store: &mut impl AsStoreMut) -> Result<u32, LinkError> {
+
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        // TODO: Implement caching and allocating in chunks to avoid locking for each allocation
+
+        // TODO: Why does this return a u64? We dont implement table64 afaik
+        let function_index = group_state
+            .allocate_function_table(store, 1, 1)
+            .map_err(LinkError::TableAllocationError)?;
+
+        let mut linker_state = self.linker_state.write().unwrap();
+        linker_state.dynamic_functions.insert(function_index as u32);
+
+        // TODO: Cleanup the previous function when we are overriding something
+
+        // TODO: Take care of sync between multiple groups
+
+        Ok(function_index as u32)
+    }
+    /// Remove a dynamic function from the indirect function table
     ///
     /// After this it is undefined behavior to call the function at that index.
     /// The current implementation does nothing, but we should remove them, so we dont accumulate mountains of unused functions.
-    pub fn unregister_function(&self, _function_index: u32) -> Result<(), LinkError> {
-        // TODO: Implement
+    pub fn free_dynamic_function(
+        &self,
+        _store: &mut impl AsStoreMut,
+        function_id: u32,
+    ) -> Result<(), LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        let mut linker_state = self.linker_state.write().unwrap();
+        linker_state.dynamic_functions.remove(&function_id);
+
+        // TODO: Cleanup the previous function when we are overriding something
+
+        // TODO: Take care of sync between multiple groups
+
         Ok(())
     }
-    
+
     /// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].
