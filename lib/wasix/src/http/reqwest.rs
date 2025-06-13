@@ -1,31 +1,30 @@
-use std::time::Duration;
-
-use anyhow::Context;
+use super::client_builder::{create_client_builder, ClientBuilderConfig};
+use super::{HttpRequest, HttpResponse};
+use anyhow::{Context, Result};
 use futures::{future::BoxFuture, TryStreamExt};
 use std::convert::TryFrom;
+use std::time::Duration;
 use tokio::runtime::Handle;
-
-use super::{HttpRequest, HttpResponse};
 
 #[derive(Clone, Debug)]
 pub struct ReqwestHttpClient {
     handle: Handle,
     connect_timeout: Duration,
     response_body_chunk_timeout: Option<std::time::Duration>,
-}
-
-impl Default for ReqwestHttpClient {
-    fn default() -> Self {
-        Self {
-            handle: Handle::current(),
-            connect_timeout: Self::DEFAULT_CONNECT_TIMEOUT,
-            response_body_chunk_timeout: None,
-        }
-    }
+    config: ClientBuilderConfig,
 }
 
 impl ReqwestHttpClient {
     const DEFAULT_CONNECT_TIMEOUT: Duration = Duration::from_secs(10);
+
+    pub fn new(config: &ClientBuilderConfig) -> Self {
+        Self {
+            handle: Handle::current(),
+            connect_timeout: Self::DEFAULT_CONNECT_TIMEOUT,
+            response_body_chunk_timeout: None,
+            config: config.clone(),
+        }
+    }
 
     pub fn with_connect_timeout(mut self, timeout: Duration) -> Self {
         self.connect_timeout = timeout;
@@ -42,16 +41,16 @@ impl ReqwestHttpClient {
         let method = reqwest::Method::try_from(request.method.as_str())
             .with_context(|| format!("Invalid http method {}", request.method))?;
 
-        // TODO: use persistent client?
         let builder = {
             let _guard = Handle::try_current().map_err(|_| self.handle.enter());
-            let mut builder = reqwest::ClientBuilder::new();
+            let mut builder = create_client_builder(self.config.clone())?; // use the client builder
             #[cfg(not(feature = "js"))]
             {
                 builder = builder.connect_timeout(self.connect_timeout);
             }
             builder
         };
+
         let client = builder.build().context("failed to create reqwest client")?;
 
         tracing::debug!("sending http request");
