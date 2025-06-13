@@ -230,6 +230,9 @@ pub fn closure_prepare<M: MemorySize>(
                 }
             }).collect::<Vec<_>>();
 
+            env.stack_pointer
+                .set(&mut store, Value::I64(previous_stack_pointer as i64));
+
             Ok(results)
         },
     );
