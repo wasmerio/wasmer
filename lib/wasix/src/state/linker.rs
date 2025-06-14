@@ -471,8 +471,8 @@ pub enum LinkError {
     #[error("Failed to allocate function table indices: {0}")]
     TableAllocationError(RuntimeError),
 
-    #[error("File system error: {0}")]
-    FileSystemError(#[from] FsError),
+    #[error("Failed to find shared library {0}: {1}")]
+    SharedLibraryMissing(String, FsErrors),
 
     #[error("Module is not a dynamic library")]
     NotDynamicLibrary,
@@ -517,6 +517,25 @@ pub enum LinkError {
 
     #[error("Module does not export a TLS initialization routine")]
     MissingTlsInitializer,
+}
+
+#[derive(Debug)]
+pub enum FsErrors {
+    SingleError(FsError),
+    MultipleErrors(Vec<(PathBuf, FsError)>),
+}
+impl std::fmt::Display for FsErrors {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            FsErrors::SingleError(e) => std::fmt::Display::fmt(&e, f),
+            FsErrors::MultipleErrors(errors) => {
+                for (path, error) in errors {
+                    write!(f, "\n    {}: {}", path.display(), error)?;
+                }
+                Ok(())
+            }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -3566,14 +3585,25 @@ async fn locate_module(
 
     if module_path.is_absolute() {
         trace!(?module_path, "Locating module with absolute path");
-        Ok(try_load(&fs.root_fs, module_path).await?)
+        try_load(&fs.root_fs, module_path).await.map_err(|e| {
+            LinkError::SharedLibraryMissing(
+                module_path.to_string_lossy().into_owned(),
+                FsErrors::SingleError(e),
+            )
+        })
     } else if module_path.components().count() > 1 {
         trace!(?module_path, "Locating module with relative path");
-        Ok(try_load(
+        try_load(
             &fs.root_fs,
             fs.relative_path_to_absolute(module_path.to_string_lossy().into_owned()),
         )
-        .await?)
+        .await
+        .map_err(|e| {
+            LinkError::SharedLibraryMissing(
+                module_path.to_string_lossy().into_owned(),
+                FsErrors::SingleError(e),
+            )
+        })
     } else {
         // Go through all dynamic library lookup paths
         // Note: a path without a slash does *not* look at the current directory. This is by design.
@@ -3585,25 +3615,30 @@ async fn locate_module(
             ?module_path,
             "Locating module by name in default runtime path"
         );
+        let search_paths = library_path
+            .iter()
+            .flat_map(|paths| paths.iter().map(AsRef::as_ref))
+            // Add default runtime paths
+            .chain(DEFAULT_RUNTIME_PATH.iter().map(|path| Path::new(path)));
 
-        if let Some(library_path) = library_path {
-            for path in library_path {
-                if let Ok(ret) = try_load(&fs.root_fs, path.as_ref().join(module_path)).await {
+        let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
+        for path in search_paths {
+            let full_path = path.join(module_path);
+            trace!(?module_path, full_path = ?full_path, "Searching module");
+            match try_load(&fs.root_fs, &full_path).await {
+                Ok(ret) => {
                     trace!(?module_path, full_path = ?ret.0, "Located module");
                     return Ok(ret);
                 }
-            }
-        }
-
-        for path in DEFAULT_RUNTIME_PATH {
-            if let Ok(ret) = try_load(&fs.root_fs, Path::new(path).join(module_path)).await {
-                trace!(?module_path, full_path = ?ret.0, "Located module");
-                return Ok(ret);
-            }
+                Err(e) => errors.push((full_path, e)),
+            };
         }
 
         trace!(?module_path, "Failed to locate module");
-        Err(FsError::EntryNotFound.into())
+        Err(LinkError::SharedLibraryMissing(
+            module_path.to_string_lossy().into_owned(),
+            FsErrors::MultipleErrors(errors),
+        ))
     }
 }
 
