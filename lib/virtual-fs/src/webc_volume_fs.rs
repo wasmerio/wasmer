@@ -76,6 +76,8 @@ impl FileSystem for WebcVolumeFileSystem {
             });
         }
 
+        println!("{path:?} -> {entries:?}");
+
         Ok(ReadDir::new(entries))
     }
 
@@ -300,12 +302,14 @@ impl AsyncWrite for File {
     }
 }
 
-// HACK: timestamps are not present in webc v2, so we have to return
-// a stub modified time. previously we used to just return 0, but that
-// proved to cause problems with programs that interpret the value 0.
-// to circumvent this problem, we decided to return a non-zero value.
+// HACK: WebC v2 doesn't have timestamps, and WebC v3 files sometimes
+// have directories with a zero timestamp as well. Since some programs
+// interpret a zero timestamp as the absence of a value, we return
+// 1 second past epoch instead.
 fn get_modified(timestamps: Option<webc::Timestamps>) -> u64 {
-    timestamps.map(|t| t.modified()).unwrap_or(1)
+    let modified = timestamps.map(|t| t.modified()).unwrap_or_default();
+    // 1 billion nanoseconds = 1 second
+    modified.max(1_000_000_000)
 }
 
 fn compat_meta(meta: WebcMetadata) -> Metadata {
