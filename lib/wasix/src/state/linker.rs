@@ -961,12 +961,11 @@ impl Linker {
             "Memory layout"
         );
 
-        let stack_pointer_import = main_module
-            .imports()
-            .find(|i| i.module() == "env" && i.name() == "__stack_pointer")
-            .ok_or(LinkError::MissingMainModuleImport(
-                "__stack_pointer".to_string(),
-            ))?;
+        let stack_pointer_import = ImportType::new(
+            "env".into(),
+            "__stack_pointer".into(),
+            ExternType::Global(GlobalType::new(Type::I32, Mutability::Var)),
+        );
 
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, stack_high)?;
 
