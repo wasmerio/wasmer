@@ -1,6 +1,6 @@
 use super::*;
 
-impl JournalSyscallPlayer<'_, '_> {
+impl<'a> JournalSyscallPlayer<'a, '_> {
     #[allow(clippy::result_large_err)]
     pub(crate) unsafe fn action_path_set_times(
         &mut self,

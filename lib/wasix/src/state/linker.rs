@@ -3620,7 +3620,7 @@ async fn locate_module(
             .iter()
             .flat_map(|paths| paths.iter().map(AsRef::as_ref))
             // Add default runtime paths
-            .chain(DEFAULT_RUNTIME_PATH.iter().map(|path| Path::new(path)));
+            .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
 
         let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
         for path in search_paths {
