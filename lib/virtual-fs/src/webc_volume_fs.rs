@@ -76,8 +76,6 @@ impl FileSystem for WebcVolumeFileSystem {
             });
         }
 
-        println!("{path:?} -> {entries:?}");
-
         Ok(ReadDir::new(entries))
     }
 
