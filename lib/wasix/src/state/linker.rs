@@ -472,7 +472,7 @@ pub enum LinkError {
     TableAllocationError(RuntimeError),
 
     #[error("Failed to find shared library {0}: {1}")]
-    SharedLibraryMissing(String, FsErrors),
+    SharedLibraryMissing(String, LocateModuleError),
 
     #[error("Module is not a dynamic library")]
     NotDynamicLibrary,
@@ -520,15 +520,16 @@ pub enum LinkError {
 }
 
 #[derive(Debug)]
-pub enum FsErrors {
-    SingleError(FsError),
-    MultipleErrors(Vec<(PathBuf, FsError)>),
+pub enum LocateModuleError {
+    Single(FsError),
+    Multiple(Vec<(PathBuf, FsError)>),
 }
-impl std::fmt::Display for FsErrors {
+
+impl std::fmt::Display for LocateModuleError {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            FsErrors::SingleError(e) => std::fmt::Display::fmt(&e, f),
-            FsErrors::MultipleErrors(errors) => {
+            LocateModuleError::Single(e) => std::fmt::Display::fmt(&e, f),
+            LocateModuleError::Multiple(errors) => {
                 for (path, error) in errors {
                     write!(f, "\n    {}: {}", path.display(), error)?;
                 }
@@ -3588,7 +3589,7 @@ async fn locate_module(
         try_load(&fs.root_fs, module_path).await.map_err(|e| {
             LinkError::SharedLibraryMissing(
                 module_path.to_string_lossy().into_owned(),
-                FsErrors::SingleError(e),
+                LocateModuleError::Single(e),
             )
         })
     } else if module_path.components().count() > 1 {
@@ -3601,7 +3602,7 @@ async fn locate_module(
         .map_err(|e| {
             LinkError::SharedLibraryMissing(
                 module_path.to_string_lossy().into_owned(),
-                FsErrors::SingleError(e),
+                LocateModuleError::Single(e),
             )
         })
     } else {
@@ -3637,7 +3638,7 @@ async fn locate_module(
         trace!(?module_path, "Failed to locate module");
         Err(LinkError::SharedLibraryMissing(
             module_path.to_string_lossy().into_owned(),
-            FsErrors::MultipleErrors(errors),
+            LocateModuleError::Multiple(errors),
         ))
     }
 }
