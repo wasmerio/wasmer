@@ -26,9 +26,10 @@ wasmer-cache = { version = "=6.0.1", path = "lib/cache", optional = true }
 wasmer-types = { version = "=6.0.1", path = "lib/types" }
 wasmer-middlewares = { version = "=6.0.1", path = "lib/middlewares", optional = true }
 
-# Third party dependencies
-cfg-if = "1.0"
 
+# Third party dependencies
+
+cfg-if = "1.0"
 tokio = { version = "1.39", features = [
 	"rt",
 	"rt-multi-thread",
@@ -97,9 +98,37 @@ shared-buffer = "0.1.4"
 loupe = "0.2.0"
 
 # Third-party crates
+bytes = "1"
+serde_bytes = { version = "0.11" }
+hex = "0.4"
+anyhow = "1.0"
+sha2 = "0.10"
+getrandom = "0.2"
+ciborium = "0.2.2"
+bytesize = "1.3.0"
+semver = "1.0"
+tempfile = "3.6.0"
+cfg-if = "1.0"
+tar = "0.4.40"
+flate2 = "1.0.34"
+log = "0.4.22"
+blake3 = "1.0"
+rayon = "1.7.0"
+itertools = "0.12"
+byteorder = "1.3"
+more-asserts = "0.2"
+enum-iterator = "0.7.0"
+backtrace = "0.3"
+hashbrown = "0.11"
+smallvec = "1.6"
+region = "3.0"
+once_cell = "1.17.1"
+num_enum = "0.7.3"
 dashmap = "6.0.1"
 http = "1.0.0"
 hyper = "1"
+hyper-util = "0.1.5"
+http-body-util = "0.1.1"
 reqwest = { version = "0.12.0", default-features = false }
 enumset = "1.1.0"
 memoffset = "0.9.0"
@@ -112,20 +141,29 @@ rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
 toml = { version = "0.8", features = ["preserve_order"] }
 indexmap = "2"
+serde = { version = "1", features = ["derive"] }
 serde_yaml = { package = "serde_yml", version = "0.0.12" }
+serde_json = { version = "1" }
+bytecheck = { version = "0.6.8" }
 libc = { version = "^0.2", default-features = false }
 gimli = { version = "0.28.1" }
 futures-util = { version = "0.3.31" }
 mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
 tokio = { version = "1.39.0", default-features = false }
+tokio-tungstenite = { version = "0.24.0" }
+tracing = { version = "0.1" }
+tracing-subscriber = { version = "0.3" }
+tracing-test = { version = "0.2" }
 socket2 = "0.5.7"
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 time = "0.3.36"
+url = "2.5"
+thiserror = "1"
 target-lexicon = { version = "0.12.2", default-features = false }
 object = { version = "0.32.0", default-features = true }
-derive_more = { version = "1", features = ["debug"] }
+derive_more = { version = "2.0.1", features = ["debug", "display"] }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

@@ -6,7 +6,7 @@ impl JournalSyscallPlayer<'_, '_> {
         &mut self,
         fd: Fd,
         flags: LookupFlags,
-        path: Cow<'_, str>,
+        path: Cow<'a, str>,
         st_atim: Timestamp,
         st_mtim: Timestamp,
         fst_flags: Fstflags,

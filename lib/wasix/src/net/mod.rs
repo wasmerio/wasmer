@@ -1,5 +1,5 @@
 use std::{
-    intrinsics::transmute,
+    mem::transmute,
     net::{IpAddr, Ipv4Addr, Ipv6Addr},
     time::Duration,
 };

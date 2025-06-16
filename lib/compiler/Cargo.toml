@@ -16,36 +16,36 @@ version.workspace = true
 wasmer-types = { path = "../types", version = "=6.0.1", default-features = false }
 wasmparser = { workspace = true, optional = true, default-features = false }
 enumset.workspace = true
-hashbrown = { version = "0.11", optional = true }
-serde = { version = "1.0", features = ["derive"], optional = true }
-thiserror = "1.0"
-serde_bytes = { version = "0.11", optional = true }
-smallvec = "1.6"
+hashbrown = { workspace = true, optional = true }
+serde = { workspace = true, optional = true }
+thiserror.workspace = true
+serde_bytes = { workspace = true, optional = true }
+smallvec.workspace = true
 xxhash-rust = { version = "0.8.10", features = ["xxh64"] }
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
 ] }
 
-backtrace = "0.3"
-memmap2 = "0.6"
-more-asserts = "0.2"
+backtrace.workspace = true
+memmap2.workspace = true
+more-asserts.workspace = true
 
-cfg-if = "1.0"
+cfg-if.workspace = true
 leb128 = "0.2"
-enum-iterator = "0.7.0"
+enum-iterator.workspace = true
 
-bytes = "1.0"
+bytes.workspace = true
 self_cell = "1.0"
-rkyv = { workspace = true }
-shared-buffer = { workspace = true }
-libc = { workspace = true }
-target-lexicon = { workspace = true }
+rkyv.workspace = true
+shared-buffer.workspace = true
+libc.workspace = true
+target-lexicon.workspace = true
 object = { workspace = true, features = ["write"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-vm = { path = "../vm", version = "=6.0.1" }
-region = { version = "3.0" }
+region.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
 windows-sys = { version = "0.59", features = [

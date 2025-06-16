@@ -334,14 +334,14 @@ pub trait VirtualConnectedSocket: VirtualSocket + fmt::Debug + Send + Sync + 'st
     fn close(&mut self) -> Result<()>;
 
     /// Tries to read a packet from the socket
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize>;
 }
 
 #[async_trait::async_trait]
 pub trait VirtualConnectedSocketExt: VirtualConnectedSocket {
     async fn send(&mut self, data: &[u8]) -> Result<usize>;
 
-    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize>;
 
     async fn flush(&mut self) -> Result<()>;
 }
@@ -380,7 +380,7 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
         Poller { socket: self, data }.await
     }
 
-    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize> {
+    async fn recv(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize> {
         pin_project! {
             struct Poller<'a, 'b, R: ?Sized>
             where
@@ -388,6 +388,7 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
             {
                 socket: &'a mut R,
                 buf: &'b mut [MaybeUninit<u8>],
+                peek: bool,
             }
         }
         impl<R> std::future::Future for Poller<'_, '_, R>
@@ -402,14 +403,19 @@ impl<R: VirtualConnectedSocket + ?Sized> VirtualConnectedSocketExt for R {
                 if let Err(err) = this.socket.set_handler(handler) {
                     return Poll::Ready(Err(err));
                 }
-                match this.socket.try_recv(this.buf) {
+                match this.socket.try_recv(this.buf, *this.peek) {
                     Ok(ret) => Poll::Ready(Ok(ret)),
                     Err(NetworkError::WouldBlock) => Poll::Pending,
                     Err(err) => Poll::Ready(Err(err)),
                 }
             }
         }
-        Poller { socket: self, buf }.await
+        Poller {
+            socket: self,
+            buf,
+            peek,
+        }
+        .await
     }
 
     async fn flush(&mut self) -> Result<()> {
@@ -448,14 +454,22 @@ pub trait VirtualConnectionlessSocket: VirtualSocket + fmt::Debug + Send + Sync 
     fn try_send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
 
     /// Recv a packet from the socket
-    fn try_recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+    fn try_recv_from(
+        &mut self,
+        buf: &mut [MaybeUninit<u8>],
+        peek: bool,
+    ) -> Result<(usize, SocketAddr)>;
 }
 
 #[async_trait::async_trait]
 pub trait VirtualConnectionlessSocketExt: VirtualConnectionlessSocket {
     async fn send_to(&mut self, data: &[u8], addr: SocketAddr) -> Result<usize>;
 
-    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)>;
+    async fn recv_from(
+        &mut self,
+        buf: &mut [MaybeUninit<u8>],
+        peek: bool,
+    ) -> Result<(usize, SocketAddr)>;
 }
 
 #[async_trait::async_trait]
@@ -498,7 +512,11 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
         .await
     }
 
-    async fn recv_from(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<(usize, SocketAddr)> {
+    async fn recv_from(
+        &mut self,
+        buf: &mut [MaybeUninit<u8>],
+        peek: bool,
+    ) -> Result<(usize, SocketAddr)> {
         pin_project! {
             struct Poller<'a, 'b, R: ?Sized>
             where
@@ -506,6 +524,7 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
             {
                 socket: &'a mut R,
                 buf: &'b mut [MaybeUninit<u8>],
+                peek: bool,
             }
         }
         impl<R> std::future::Future for Poller<'_, '_, R>
@@ -520,14 +539,19 @@ impl<R: VirtualConnectionlessSocket + ?Sized> VirtualConnectionlessSocketExt for
                 if let Err(err) = this.socket.set_handler(handler) {
                     return Poll::Ready(Err(err));
                 }
-                match this.socket.try_recv_from(this.buf) {
+                match this.socket.try_recv_from(this.buf, *this.peek) {
                     Ok(ret) => Poll::Ready(Ok(ret)),
                     Err(NetworkError::WouldBlock) => Poll::Pending,
                     Err(err) => Poll::Ready(Err(err)),
                 }
             }
         }
-        Poller { socket: self, buf }.await
+        Poller {
+            socket: self,
+            buf,
+            peek,
+        }
+        .await
     }
 }
 
@@ -548,7 +572,7 @@ pub trait VirtualRawSocket: VirtualSocket + fmt::Debug + Send + Sync + 'static {
     fn try_flush(&mut self) -> Result<()>;
 
     /// Recv a packet from the socket
-    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>]) -> Result<usize>;
+    fn try_recv(&mut self, buf: &mut [MaybeUninit<u8>], peek: bool) -> Result<usize>;
 
     /// Tells the raw socket and its backing switch that all packets
     /// should be received by this socket even if they are not

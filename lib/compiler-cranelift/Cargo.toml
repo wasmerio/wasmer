@@ -28,14 +28,14 @@ cranelift-codegen = { version = "=0.110.2", default-features = false, features =
 	"riscv64",
 ] }
 cranelift-frontend = { version = "=0.110.2", default-features = false }
-itertools = "0.12.0"
-tracing = "0.1"
-hashbrown = { version = "0.11", optional = true }
-rayon = { version = "1.5", optional = true }
-more-asserts = "0.2"
+itertools.workspace = true
+tracing.workspace = true
+hashbrown = { workspace = true, optional = true }
+rayon = { workspace = true, optional = true }
+more-asserts.workspace = true
 gimli = { workspace = true, optional = true }
-smallvec = "1.6"
-target-lexicon = { version = "0.12.2", default-features = false }
+smallvec.workspace = true
+target-lexicon = { workspace = true, default-features = false }
 
 [dev-dependencies]
 cranelift-codegen = { version = "=0.110.2", features = ["all-arch"] }

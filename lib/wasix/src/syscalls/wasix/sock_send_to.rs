@@ -83,11 +83,13 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     si_data: FdWriteSource<'_, M>,
-    _si_flags: SiFlags,
+    si_flags: SiFlags,
     addr: SocketAddr,
 ) -> Result<Result<usize, Errno>, WasiError> {
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
+
+    let nonblocking_flag = (si_flags & __WASI_SOCK_SEND_INPUT_DONT_WAIT) != 0;
 
     let bytes_written = {
         wasi_try_ok_ok!(__sock_asyncify(
@@ -95,7 +97,7 @@ pub(crate) fn sock_send_to_internal<M: MemorySize>(
             sock,
             Rights::SOCK_SEND_TO,
             |socket, fd| async move {
-                let nonblocking = fd.inner.flags.contains(Fdflags::NONBLOCK);
+                let nonblocking = nonblocking_flag || fd.inner.flags.contains(Fdflags::NONBLOCK);
                 let timeout = socket
                     .opt_time(TimeType::WriteTimeout)
                     .ok()

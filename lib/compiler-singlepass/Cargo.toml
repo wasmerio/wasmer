@@ -16,20 +16,20 @@ version.workspace = true
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "=6.0.1", features = ["translator", "compiler"], default-features = false }
 wasmer-types = { path = "../types", version = "=6.0.1", default-features = false, features = ["std"] }
-hashbrown = { version = "0.11", optional = true }
+hashbrown = { workspace = true, optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
-more-asserts = "0.2"
+more-asserts.workspace = true
 dynasm = "3.2.0"
 dynasmrt = "3.2.0"
-byteorder = "1.3"
-smallvec = "1.6"
+byteorder.workspace = true
+smallvec.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
-rayon = { version = "1.5", optional = true }
+rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
-target-lexicon = { version = "0.12.2", default-features = false }
+target-lexicon = { workspace = true, default-features = false }
 
 [badges]
 maintenance = { status = "actively-developed" }

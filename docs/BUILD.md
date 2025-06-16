@@ -172,7 +172,7 @@ This command will generate a `package` directory, that you can then use easily i
 package/
   lib/
     libwasmer.so
-  headers/
+  include/
     wasm.h
     wasmer.h
 ```

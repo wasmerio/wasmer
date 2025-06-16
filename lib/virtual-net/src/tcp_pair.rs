@@ -237,6 +237,7 @@ impl SocketBuffer {
     pub fn try_read(
         &self,
         buf: &mut [std::mem::MaybeUninit<u8>],
+        peek: bool,
         waker: Option<&Waker>,
     ) -> crate::Result<usize> {
         let mut state = self.state.lock().unwrap();
@@ -264,7 +265,11 @@ impl SocketBuffer {
 
         let buf: &mut [u8] = unsafe { std::mem::transmute(buf) };
         let amt = buf.len().min(state.buffer.len());
-        let amt = state.buffer.dequeue_slice(&mut buf[..amt]);
+        let amt = if peek {
+            state.buffer.read_allocated(0, &mut buf[..amt])
+        } else {
+            state.buffer.dequeue_slice(&mut buf[..amt])
+        };
 
         if let Some(handler) = state.pull_handler.as_mut() {
             handler.push_interest(InterestType::Writable);
@@ -324,7 +329,7 @@ impl AsyncRead for SocketBuffer {
         cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        match self.try_read(unsafe { buf.unfilled_mut() }, Some(cx.waker())) {
+        match self.try_read(unsafe { buf.unfilled_mut() }, false, Some(cx.waker())) {
             Ok(amt) => {
                 unsafe { buf.assume_init(amt) };
                 buf.advance(amt);
@@ -457,8 +462,12 @@ impl VirtualConnectedSocket for TcpSocketHalf {
         Ok(())
     }
 
-    fn try_recv(&mut self, buf: &mut [std::mem::MaybeUninit<u8>]) -> crate::Result<usize> {
-        self.rx.try_read(buf, None)
+    fn try_recv(
+        &mut self,
+        buf: &mut [std::mem::MaybeUninit<u8>],
+        peek: bool,
+    ) -> crate::Result<usize> {
+        self.rx.try_read(buf, peek, None)
     }
 }
 

@@ -26,16 +26,16 @@ wasmer-compiler = { version = "=6.0.1", path = "../compiler", features = [
 wasmer-types = { version = "=6.0.1", path = "../types", features = ["detect-wasm-features"] }
 is-terminal = "0.4.7"
 colored = "2.0"
-anyhow = "1.0"
+anyhow.workspace = true
 # For the function names autosuggestion
 distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0"
-cfg-if = "1.0"
+cfg-if.workspace = true
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
-log = { version = "0.4", optional = true }
-target-lexicon = { version = "0.12", features = ["std"] }
+log = { workspace = true, optional = true }
+target-lexicon = { workspace = true, features = ["std"] }
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 wasmer-compiler-singlepass = { version = "=6.0.1", path = "../compiler-singlepass", optional = true }

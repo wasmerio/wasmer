@@ -258,6 +258,7 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
                                         buf.as_mut_uninit(),
                                         Some(timeout),
                                         nonblocking,
+                                        false,
                                     )
                                     .await?;
                                 total_read += local_read;

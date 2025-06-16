@@ -186,7 +186,7 @@ languages** with the Wasmer SDK:
 [js logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/js.svg
 [js integration]: https://github.com/wasmerio/wasmer-js
 [`@wasmerio` npm packages]: https://www.npmjs.com/org/wasmer
-[js docs]: https://docs.wasmer.io/integrations/js/reference-api
+[js docs]: https://docs.wasmer.io/sdk/wasmer-js
 [ruby logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ruby.svg
 [ruby integration]: https://github.com/wasmerio/wasmer-ruby
 [`wasmer` ruby gem]: https://rubygems.org/gems/wasmer

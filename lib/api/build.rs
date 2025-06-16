@@ -235,11 +235,11 @@ fn build_v8() {
             env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
             env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default().as_str(),
         ) {
-            ("macos", "aarch64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-darwin-aarch64.tar.xz",
-            ("macos", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-darwin-amd64.tar.xz",
-            ("linux", "x86_64", "gnu") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-linux-amd64.tar.xz",
-            ("linux", "x86_64", "musl") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-linux-musl-amd64.tar.xz",
-            ("android", "aarch64", _)  => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-android-arm64.tar.xz",
+            ("macos", "aarch64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz",
+            ("macos", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-amd64.tar.xz",
+            ("linux", "x86_64", "gnu") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz",
+            ("linux", "x86_64", "musl") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz",
+            ("android", "aarch64", _)  => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz",
             // Not supported in 6.0.0-alpha1
             //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
             (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),

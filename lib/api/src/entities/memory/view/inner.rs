@@ -21,55 +21,41 @@ impl<'a> BackendMemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         match &store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(s) => {
-                return Self::Sys(
-                    crate::backend::sys::entities::memory::view::MemoryView::new(
-                        memory.as_sys(),
-                        store,
-                    ),
-                )
-            }
+            crate::BackendStore::Sys(s) => Self::Sys(
+                crate::backend::sys::entities::memory::view::MemoryView::new(
+                    memory.as_sys(),
+                    store,
+                ),
+            ),
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => {
-                return Self::Wamr(
-                    crate::backend::wamr::entities::memory::view::MemoryView::new(
-                        memory.as_wamr(),
-                        store,
-                    ),
-                )
-            }
+            crate::BackendStore::Wamr(s) => Self::Wamr(
+                crate::backend::wamr::entities::memory::view::MemoryView::new(
+                    memory.as_wamr(),
+                    store,
+                ),
+            ),
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => {
-                return Self::Wasmi(
-                    crate::backend::wasmi::entities::memory::view::MemoryView::new(
-                        memory.as_wasmi(),
-                        store,
-                    ),
-                )
-            }
+            crate::BackendStore::Wasmi(s) => Self::Wasmi(
+                crate::backend::wasmi::entities::memory::view::MemoryView::new(
+                    memory.as_wasmi(),
+                    store,
+                ),
+            ),
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(s) => {
-                return Self::V8(crate::backend::v8::entities::memory::view::MemoryView::new(
-                    memory.as_v8(),
-                    store,
-                ))
-            }
+            crate::BackendStore::V8(s) => Self::V8(
+                crate::backend::v8::entities::memory::view::MemoryView::new(memory.as_v8(), store),
+            ),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(s) => {
-                return Self::Js(crate::backend::js::entities::memory::view::MemoryView::new(
-                    memory.as_js(),
-                    store,
-                ))
-            }
+            crate::BackendStore::Js(s) => Self::Js(
+                crate::backend::js::entities::memory::view::MemoryView::new(memory.as_js(), store),
+            ),
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => {
-                return Self::Jsc(
-                    crate::backend::jsc::entities::memory::view::MemoryView::new(
-                        memory.as_jsc(),
-                        store,
-                    ),
-                )
-            }
+            crate::BackendStore::Jsc(s) => Self::Jsc(
+                crate::backend::jsc::entities::memory::view::MemoryView::new(
+                    memory.as_jsc(),
+                    store,
+                ),
+            ),
         }
     }
 

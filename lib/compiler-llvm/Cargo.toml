@@ -20,15 +20,15 @@ wasmer-compiler = { path = "../compiler", version = "=6.0.1", features = [
 ] }
 wasmer-vm = { path = "../vm", version = "=6.0.1" }
 wasmer-types = { path = "../types", version = "=6.0.1" }
-target-lexicon = { version = "0.12.2", default-features = false }
-smallvec = "1.6"
+target-lexicon = { workspace = true, default-features = false }
+smallvec.workspace = true
 object = { workspace = true, features = ["read"] }
 libc.workspace = true
-byteorder = "1"
-itertools = "0.10"
-rayon = "1.5"
+byteorder.workspace = true
+itertools.workspace = true
+rayon.workspace = true
 phf = { version = "0.11.2", features = ["macros"] }
-tracing = { version = "0.1", default-features = false, features = ["log"] }
+tracing = { workspace = true, features = ["log"] }
 
 [dependencies.inkwell]
 package = "inkwell"
@@ -45,7 +45,7 @@ features = [
 [build-dependencies]
 cc = "1.0"
 regex = "1.5"
-semver = "1.0"
+semver.workspace = true
 rustc_version = "0.4"
 
 [features]
