@@ -887,7 +887,7 @@ impl std::fmt::Debug for Linker {
 
 /// Contains everything that is required to find a module and load it into memory
 // TODO: Rename me
-pub enum ModuleLoader<'a> {
+pub enum WasmLoader<'a> {
     Filesystem {
         module_name: &'a str,
         ld_library_path: &'a [&'a Path],
@@ -898,13 +898,13 @@ pub enum ModuleLoader<'a> {
         ld_library_path: &'a [&'a Path],
     },
 }
-impl ModuleLoader<'_> {
+impl WasmLoader<'_> {
     // Get the name of the module.
     // This is the import name that was requested by the other shared library
     pub fn module_name(&self) -> &str {
         match self {
-            ModuleLoader::Filesystem { module_name, .. } => module_name,
-            ModuleLoader::Memory { module_name, .. } => module_name,
+            WasmLoader::Filesystem { module_name, .. } => module_name,
+            WasmLoader::Memory { module_name, .. } => module_name,
         }
     }
 
@@ -912,10 +912,10 @@ impl ModuleLoader<'_> {
     // TODO: Move the library path somewhere else
     pub fn ld_library_path(&self) -> &[&Path] {
         match self {
-            ModuleLoader::Filesystem {
+            WasmLoader::Filesystem {
                 ld_library_path, ..
             } => ld_library_path,
-            ModuleLoader::Memory {
+            WasmLoader::Memory {
                 ld_library_path, ..
             } => ld_library_path,
         }
@@ -924,11 +924,11 @@ impl ModuleLoader<'_> {
     // Load the modules code from the filesystem, or from memory if it's a memory module
     async fn load_module(&self, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
         let (module_name, library_path) = match self {
-            ModuleLoader::Filesystem {
+            WasmLoader::Filesystem {
                 module_name,
                 ld_library_path,
             } => (module_name, ld_library_path),
-            ModuleLoader::Memory {
+            WasmLoader::Memory {
                 module_name, bytes, ..
             } => {
                 // TODO: Dont clone here
@@ -1209,7 +1209,7 @@ impl Linker {
             trace!(name = needed, "Loading module needed by main");
             let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                ModuleLoader::Filesystem {
+                WasmLoader::Filesystem {
                     module_name: needed.as_str(),
                     // TODO: Use real ld_library_path
                     ld_library_path: &[],
@@ -1598,7 +1598,7 @@ impl Linker {
     /// [`Linker::resolve_export`].
     pub fn load_module(
         &self,
-        module_location: ModuleLoader,
+        module_location: WasmLoader,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_path = module_location.module_name();
@@ -2288,7 +2288,7 @@ impl LinkerState {
     // it was already loaded, the existing handle is returned.
     fn load_module_tree(
         &mut self,
-        module_location: ModuleLoader,
+        module_location: WasmLoader,
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
@@ -2340,7 +2340,7 @@ impl LinkerState {
         for needed in &dylink_info.needed {
             trace!(needed, "Loading needed side module");
             match self.load_module_tree(
-                ModuleLoader::Filesystem {
+                WasmLoader::Filesystem {
                     module_name: needed.as_str(),
                     ld_library_path: module_location.ld_library_path(),
                 },
