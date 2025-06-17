@@ -119,6 +119,43 @@ impl BackendTable {
         })
     }
 
+    /// Fills `len` elements starting at `index` with the provided `value`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the range is out of bounds for the table.
+    #[inline]
+    pub fn fill(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        len: u32,
+        value: Value,
+    ) -> Result<(), RuntimeError> {
+        match_rt!(on self => s {
+            s.fill(store, index, len, value)
+        })
+    }
+
+    /// Initializes `len` elements at `dst_index` with values from `values[src_index..]`.
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if the range is out of bounds for the table or values.
+    #[inline]
+    pub fn init(
+        &self,
+        store: &mut impl AsStoreMut,
+        dst_index: u32,
+        src_index: u32,
+        len: u32,
+        values: &[Value],
+    ) -> Result<(), RuntimeError> {
+        match_rt!(on self => s {
+            s.init(store, dst_index, src_index, len, values)
+        })
+    }
+
     /// Copies the `len` elements of `src_table` starting at `src_index`
     /// to the destination table `dst_table` at index `dst_index`.
     ///

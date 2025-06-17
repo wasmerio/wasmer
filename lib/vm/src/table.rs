@@ -347,4 +347,46 @@ impl VMTable {
 
         Ok(())
     }
+
+    /// Fill `len` elements starting at `index` with the given `value`.
+    ///
+    /// # Errors
+    /// Returns an error if the range is out of bounds.
+    pub fn fill(&mut self, index: u32, len: u32, value: TableElement) -> Result<(), Trap> {
+        if index.checked_add(len).map_or(true, |n| n > self.size()) {
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
+        for i in index..index + len {
+            self.set(i, value.clone())?;
+        }
+        Ok(())
+    }
+
+    /// Initialize a range of the table with elements from an element segment.
+    ///
+    /// # Errors
+    /// Returns an error if:
+    /// - The range is out of bounds of the table.
+    /// - The segment range is out of bounds of the provided elements.
+    pub fn init(
+        &mut self,
+        dst_index: u32,
+        src_index: u32,
+        len: u32,
+        elements: &[TableElement],
+    ) -> Result<(), Trap> {
+        if dst_index.checked_add(len).map_or(true, |n| n > self.size()) {
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
+        if src_index
+            .checked_add(len)
+            .map_or(true, |n| n > elements.len() as u32)
+        {
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
+        }
+        for (dst, src) in (dst_index..dst_index + len).zip(src_index..src_index + len) {
+            self.set(dst, elements[src as usize].clone())?;
+        }
+        Ok(())
+    }
 }
