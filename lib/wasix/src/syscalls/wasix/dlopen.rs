@@ -1,5 +1,5 @@
 use super::*;
-use crate::syscalls::*;
+use crate::{state::ModuleLoader, syscalls::*};
 
 // TODO: add journal events for dl-related syscalls
 #[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
@@ -35,7 +35,12 @@ pub fn dlopen<M: MemorySize>(
     };
     let linker = linker.clone();
 
-    let module_handle = linker.load_module(path, &ld_library_path, &mut ctx);
+    // TODO: Rework interface
+    let location = ModuleLoader::Filesystem{
+        module_name: path,
+        ld_library_path: ld_library_path.into_iter().map(std::path::PathBuf::from).collect(),
+    };
+    let module_handle = linker.load_module(location, &mut ctx);
 
     // Reborrow to keep rust happy
     let (env, mut store) = ctx.data_and_store_mut();
