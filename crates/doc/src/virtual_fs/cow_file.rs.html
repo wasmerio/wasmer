@@ -236,15 +236,126 @@
 <a href="#235" id="235">235</a>
 <a href="#236" id="236">236</a>
 <a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a></pre></div><pre class="rust"><code><span class="doccomment">//! Used for /dev/zero - infinitely returns zero
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a>
+<a href="#339" id="339">339</a>
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a></pre></div><pre class="rust"><code><span class="doccomment">//! Used for /dev/zero - infinitely returns zero
 //! which is useful for commands like `dd if=/dev/zero of=bigfile.img size=1G`
 
-</span><span class="kw">use </span>replace_with::replace_with_or_abort;
-<span class="kw">use </span>std::io::{<span class="self">self</span>, <span class="kw-2">*</span>};
+</span><span class="kw">use </span>derive_more::Debug;
+<span class="kw">use </span>replace_with::replace_with_or_abort;
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::task::{Context, Poll};
+<span class="kw">use </span>std::{
+    future::Future,
+    io::{<span class="self">self</span>, <span class="kw-2">*</span>},
+};
 
-<span class="kw">use </span>tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
+<span class="kw">use </span>tokio::io::{AsyncRead, AsyncReadExt, AsyncSeek, AsyncSeekExt, AsyncWrite};
 
 <span class="kw">use crate</span>::{BufferFile, VirtualFile};
 
@@ -252,24 +363,21 @@
 </span><span class="kw">enum </span>CowState {
     ReadOnly(Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;),
     Copying {
-        pos: u64,
-        inner: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;,
+        <span class="attr">#[debug(skip)]
+        </span>future: Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = io::Result&lt;BufferFile&gt;&gt; + Send + Sync&gt;&gt;,
+        requested_size: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+        requested_position: <span class="prelude-ty">Option</span>&lt;SeekFrom&gt;,
+        cached_size: u64,
     },
-    Copied,
+    Copied(BufferFile),
 }
+
 <span class="kw">impl </span>CowState {
-    <span class="kw">fn </span>as_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>VirtualFile + Send + Sync)&gt; {
+    <span class="kw">fn </span>inner_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>(<span class="kw">dyn </span>VirtualFile + Send + Sync) {
         <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::ReadOnly(inner) =&gt; <span class="prelude-val">Some</span>(inner.as_ref()),
-            <span class="self">Self</span>::Copying { inner, .. } =&gt; <span class="prelude-val">Some</span>(inner.as_ref()),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-        }
-    }
-    <span class="kw">fn </span>as_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;&gt; {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::ReadOnly(inner) =&gt; <span class="prelude-val">Some</span>(inner),
-            <span class="self">Self</span>::Copying { inner, .. } =&gt; <span class="prelude-val">Some</span>(inner),
-            <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+            <span class="self">Self</span>::ReadOnly(inner) =&gt; inner.as_mut(),
+            <span class="self">Self</span>::Copying { .. } =&gt; <span class="macro">panic!</span>(<span class="string">"Cannot access inner file while copying"</span>),
+            <span class="self">Self</span>::Copied(inner) =&gt; inner,
         }
     }
 }
@@ -280,7 +388,6 @@
     last_modified: u64,
     created_time: u64,
     state: CowState,
-    buf: BufferFile,
 }
 
 <span class="kw">impl </span>CopyOnWriteFile {
@@ -290,68 +397,94 @@
             last_modified: inner.last_modified(),
             created_time: inner.created_time(),
             state: CowState::ReadOnly(inner),
-            buf: BufferFile::default(),
         }
     }
-    <span class="kw">fn </span>poll_copy_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
-        <span class="kw">if let </span>CowState::Copying { <span class="kw-2">ref mut </span>inner, pos } = <span class="kw-2">&amp;mut </span><span class="self">self</span>.state {
-            <span class="kw">let </span><span class="kw-2">mut </span>temp = [<span class="number">0u8</span>; <span class="number">8192</span>];
 
-            <span class="kw">while </span><span class="kw-2">*</span>pos &lt; inner.size() {
-                <span class="kw">let </span><span class="kw-2">mut </span>read_temp = ReadBuf::new(<span class="kw-2">&amp;mut </span>temp);
+    <span class="kw">async fn </span>copy(<span class="kw-2">mut </span>inner: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync&gt;) -&gt; io::Result&lt;BufferFile&gt; {
+        <span class="kw">let </span>initial_position = inner.seek(SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
+        inner.seek(SeekFrom::Start(<span class="number">0</span>)).<span class="kw">await</span><span class="question-mark">?</span>;
 
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = Pin::new(inner.as_mut()).start_seek(SeekFrom::Start(<span class="kw-2">*</span>pos)) {
-                    <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err));
-                }
-                <span class="kw">match </span>Pin::new(inner.as_mut()).poll_complete(cx).map_ok(|<span class="kw">_</span>| ()) {
-                    Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
-                    p =&gt; <span class="kw">return </span>p,
-                }
-                <span class="kw">match </span>Pin::new(inner.as_mut()).poll_read(cx, <span class="kw-2">&amp;mut </span>read_temp) {
-                    Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
-                    Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
-                    Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
-                }
-                <span class="kw">if </span>read_temp.remaining() == <span class="number">0 </span>{
-                    <span class="kw">return </span>Poll::Pending;
-                }
-                <span class="kw-2">*</span>pos += read_temp.remaining() <span class="kw">as </span>u64;
-
-                <span class="self">self</span>.buf.data.write_all(read_temp.filled()).unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0u8</span>; <span class="number">8192</span>];
+        <span class="kw">let </span><span class="kw-2">mut </span>buffer_file = BufferFile::default();
+        <span class="kw">loop </span>{
+            <span class="kw">let </span>read_bytes = inner.read_buf(<span class="kw-2">&amp;mut &amp;mut </span>buffer[..]).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">if </span>read_bytes == <span class="number">0 </span>{
+                <span class="kw">break</span>;
             }
-            <span class="self">self</span>.state = CowState::Copied;
+            buffer_file.data.write_all(<span class="kw-2">&amp;</span>buffer[<span class="number">0</span>..read_bytes])<span class="question-mark">?</span>;
         }
-        Poll::Ready(<span class="prelude-val">Ok</span>(()))
+
+        buffer_file.seek(SeekFrom::Start(initial_position)).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(buffer_file)
     }
-    <span class="kw">fn </span>poll_copy_start_and_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+
+    <span class="kw">fn </span>poll_copy_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="kw">match </span><span class="self">self</span>.state {
+            CowState::Copying {
+                <span class="kw-2">ref mut </span>future,
+                requested_size,
+                requested_position,
+                ..
+            } =&gt; <span class="kw">match </span>future.as_mut().poll(cx) {
+                Poll::Ready(<span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>buf)) =&gt; {
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(requested_size) = requested_size {
+                        buf.set_len(requested_size)<span class="question-mark">?</span>;
+                    }
+                    <span class="kw">if let </span><span class="prelude-val">Some</span>(requested_position) = requested_position {
+                        Pin::new(<span class="kw-2">&amp;mut </span>buf).start_seek(requested_position)<span class="question-mark">?</span>;
+                    }
+                    <span class="self">self</span>.state = CowState::Copied(buf);
+                    Poll::Ready(<span class="prelude-val">Ok</span>(()))
+                }
+                Poll::Ready(<span class="prelude-val">Err</span>(e)) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(e)),
+                Poll::Pending =&gt; Poll::Pending,
+            },
+            <span class="kw">_ </span>=&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
+        }
+    }
+
+    <span class="kw">fn </span>start_copy(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
         replace_with_or_abort(<span class="kw-2">&amp;mut </span><span class="self">self</span>.state, |state| <span class="kw">match </span>state {
-            CowState::ReadOnly(inner) =&gt; CowState::Copying { pos: <span class="number">0</span>, inner },
+            CowState::ReadOnly(inner) =&gt; CowState::Copying {
+                cached_size: inner.size(),
+                requested_size: <span class="prelude-val">None</span>,
+                requested_position: <span class="prelude-val">None</span>,
+                future: Box::pin(<span class="self">Self</span>::copy(inner)),
+            },
             state =&gt; state,
         });
+    }
+
+    <span class="kw">fn </span>poll_copy_start_and_progress(<span class="kw-2">&amp;mut </span><span class="self">self</span>, cx: <span class="kw-2">&amp;mut </span>Context) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
+        <span class="self">self</span>.start_copy();
         <span class="self">self</span>.poll_copy_progress(cx)
     }
 }
 
 <span class="kw">impl </span>AsyncSeek <span class="kw">for </span>CopyOnWriteFile {
     <span class="kw">fn </span>start_seek(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, position: io::SeekFrom) -&gt; io::Result&lt;()&gt; {
-        <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-        data.start_seek(position)<span class="question-mark">?</span>;
+        <span class="kw">match </span><span class="self">self</span>.state {
+            CowState::Copying {
+                <span class="kw-2">ref mut </span>requested_position,
+                ..
+            } =&gt; {
+                <span class="kw-2">*</span>requested_position = <span class="prelude-val">Some</span>(position);
+                <span class="prelude-val">Ok</span>(())
+            }
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(inner) = <span class="self">self</span>.state.as_mut() {
-            Pin::new(inner.as_mut()).start_seek(position)<span class="question-mark">?</span>;
+            <span class="kw">_ </span>=&gt; Pin::new(<span class="self">self</span>.state.inner_mut()).start_seek(position),
         }
-
-        <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>poll_complete(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;u64&gt;&gt; {
-        <span class="kw">match </span><span class="self">self</span>.state.as_mut() {
-            <span class="prelude-val">Some</span>(inner) =&gt; Pin::new(inner.as_mut()).poll_complete(cx),
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-                data.poll_complete(cx)
-            }
+        <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
+            Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
+            Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
+            Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
         }
+
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_complete(cx)
     }
 }
 
@@ -366,8 +499,7 @@
             Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
             Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
         }
-        <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-        data.poll_write(cx, buf)
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_write(cx, buf)
     }
 
     <span class="kw">fn </span>poll_write_vectored(
@@ -380,8 +512,7 @@
             Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
             Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
         }
-        <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-        data.poll_write_vectored(cx, bufs)
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_write_vectored(cx, bufs)
     }
 
     <span class="kw">fn </span>poll_flush(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
@@ -389,8 +520,7 @@
             Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
             p =&gt; <span class="kw">return </span>p,
         }
-        <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-        data.poll_flush(cx)
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_flush(cx)
     }
 
     <span class="kw">fn </span>poll_shutdown(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;()&gt;&gt; {
@@ -398,8 +528,7 @@
             Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
             p =&gt; <span class="kw">return </span>p,
         }
-        <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-        data.poll_shutdown(cx)
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_shutdown(cx)
     }
 }
 
@@ -413,13 +542,7 @@
             Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
             p =&gt; <span class="kw">return </span>p,
         }
-        <span class="kw">match </span><span class="self">self</span>.state.as_mut() {
-            <span class="prelude-val">Some</span>(inner) =&gt; Pin::new(inner.as_mut()).poll_read(cx, buf),
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">let </span>data = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-                data.poll_read(cx, buf)
-            }
-        }
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_read(cx, buf)
     }
 }
 
@@ -427,12 +550,15 @@
     <span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.last_accessed
     }
+
     <span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.last_modified
     }
+
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.created_time
     }
+
     <span class="kw">fn </span>set_times(<span class="kw-2">&amp;mut </span><span class="self">self</span>, atime: <span class="prelude-ty">Option</span>&lt;u64&gt;, mtime: <span class="prelude-ty">Option</span>&lt;u64&gt;) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(atime) = atime {
             <span class="self">self</span>.last_accessed = atime;
@@ -443,35 +569,123 @@
 
         <span class="prelude-val">Ok</span>(())
     }
+
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="kw">match </span><span class="self">self</span>.state.as_ref() {
-            <span class="prelude-val">Some</span>(inner) =&gt; inner.size(),
-            <span class="prelude-val">None </span>=&gt; <span class="self">self</span>.buf.size(),
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.state {
+            CowState::ReadOnly(inner) =&gt; inner.size(),
+            CowState::Copying {
+                requested_size: <span class="prelude-val">Some</span>(size),
+                ..
+            } =&gt; <span class="kw-2">*</span>size,
+            CowState::Copying { cached_size, .. } =&gt; <span class="kw-2">*</span>cached_size,
+            CowState::Copied(buffer_file) =&gt; buffer_file.size(),
         }
     }
+
     <span class="kw">fn </span>set_len(<span class="kw-2">&amp;mut </span><span class="self">self</span>, new_size: u64) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.buf.set_len(new_size)
+        <span class="kw">match </span><span class="self">self</span>.state {
+            CowState::ReadOnly(<span class="kw">_</span>) =&gt; {
+                <span class="self">self</span>.start_copy();
+                <span class="kw">let </span>CowState::Copying {
+                    <span class="kw-2">ref mut </span>requested_size,
+                    ..
+                } = <span class="self">self</span>.state
+                <span class="kw">else </span>{
+                    <span class="macro">unreachable!</span>()
+                };
+                <span class="kw-2">*</span>requested_size = <span class="prelude-val">Some</span>(new_size);
+            }
+
+            CowState::Copying {
+                <span class="kw-2">ref mut </span>requested_size,
+                ..
+            } =&gt; {
+                <span class="kw-2">*</span>requested_size = <span class="prelude-val">Some</span>(new_size);
+            }
+
+            CowState::Copied(<span class="kw-2">ref mut </span>buf) =&gt; {
+                buf.set_len(new_size)<span class="question-mark">?</span>;
+            }
+        }
+
+        <span class="prelude-val">Ok</span>(())
     }
+
     <span class="kw">fn </span>unlink(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw">crate</span>::Result&lt;()&gt; {
-        <span class="self">self</span>.buf.set_len(<span class="number">0</span>)
+        <span class="comment">// TODO: one can imagine interrupting an in-progress copy here
+        </span><span class="self">self</span>.set_len(<span class="number">0</span>)
     }
+
     <span class="kw">fn </span>poll_read_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="kw">match </span><span class="self">self</span>.poll_copy_progress(cx) {
             Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
             Poll::Ready(<span class="prelude-val">Ok</span>(())) =&gt; {}
         }
-        <span class="kw">match </span><span class="self">self</span>.state.as_mut() {
-            <span class="prelude-val">Some</span>(inner) =&gt; Pin::new(inner.as_mut()).poll_read_ready(cx),
-            <span class="prelude-val">None </span>=&gt; {
-                <span class="kw">let </span>data: Pin&lt;<span class="kw-2">&amp;mut </span>BufferFile&gt; = Pin::new(<span class="kw-2">&amp;mut </span><span class="self">self</span>.buf);
-                data.poll_read_ready(cx)
-            }
-        }
+        Pin::new(<span class="self">self</span>.state.inner_mut()).poll_read_ready(cx)
     }
 
     <span class="kw">fn </span>poll_write_ready(<span class="kw-2">mut </span><span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt; {
         <span class="self">self</span>.poll_copy_progress(cx).map_ok(|<span class="kw">_</span>| <span class="number">8192</span>)
+    }
+}
+
+<span class="attr">#[cfg(test)]
+</span><span class="kw">mod </span>tests {
+    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+
+    <span class="comment">// This is as weird a test as it gets, yes, but I'm (unashamedly!) cramming
+    // everything we know was wrong with the impl into this one test to save time.
+    </span><span class="attr">#[tokio::test]
+    </span><span class="kw">async fn </span>cow_file_works() {
+        <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(<span class="number">16385</span>);
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..<span class="number">16385 </span>{
+            data.push(i <span class="kw">as </span>u8);
+        }
+        <span class="kw">let </span>inner = BufferFile {
+            data: Cursor::new(data),
+        };
+        <span class="kw">let </span><span class="kw-2">mut </span>file = CopyOnWriteFile::new(Box::new(inner));
+
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.state, CowState::ReadOnly(<span class="kw">_</span>)));
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">16385</span>);
+        <span class="macro">assert_ne!</span>(file.created_time(), <span class="number">0</span>);
+        <span class="macro">assert_ne!</span>(file.last_accessed(), <span class="number">0</span>);
+        <span class="macro">assert_ne!</span>(file.last_modified(), <span class="number">0</span>);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>buf = [<span class="number">0u8</span>; <span class="number">4</span>];
+        <span class="kw">let </span>read = file.read_exact(buf.as_mut()).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_eq!</span>(read, <span class="number">4</span>);
+        <span class="macro">assert_eq!</span>(buf, [<span class="number">0</span>, <span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]);
+        <span class="macro">assert_eq!</span>(file.seek(SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>.unwrap(), <span class="number">4</span>);
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.state, CowState::ReadOnly { .. }));
+
+        <span class="comment">// After this call, the file will "start" copying, but the actual
+        // future won't be polled until we try to read or write.
+        </span>file.start_copy();
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.state, CowState::Copying { .. }));
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">16385</span>);
+
+        <span class="comment">// The cached length should be returned while copying
+        </span>file.set_len(<span class="number">16400</span>).unwrap();
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.state, CowState::Copying { .. }));
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">16400</span>);
+
+        <span class="comment">// Now try to read from the file, which will trigger the copy
+        </span><span class="kw">let </span>read = file.read_exact(buf.as_mut()).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.state, CowState::Copied { .. }));
+        <span class="macro">assert_eq!</span>(read, <span class="number">4</span>);
+        <span class="macro">assert_eq!</span>(buf, [<span class="number">4</span>, <span class="number">5</span>, <span class="number">6</span>, <span class="number">7</span>]);
+        <span class="macro">assert_eq!</span>(file.seek(SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>.unwrap(), <span class="number">8</span>);
+        <span class="macro">assert_eq!</span>(file.size(), <span class="number">16400</span>);
+
+        file.seek(SeekFrom::Start(<span class="number">16383</span>)).<span class="kw">await</span>.unwrap();
+        <span class="kw">let </span>read = file.read_exact(buf.as_mut()).<span class="kw">await</span>.unwrap();
+        <span class="macro">assert_eq!</span>(read, <span class="number">4</span>);
+        <span class="comment">// set_len should have filled the rest with zeroes
+        </span><span class="macro">assert_eq!</span>(buf, [(<span class="number">16383 </span>% <span class="number">256</span>) <span class="kw">as </span>u8, (<span class="number">16384 </span>% <span class="number">256</span>) <span class="kw">as </span>u8, <span class="number">0</span>, <span class="number">0</span>]);
+        <span class="macro">assert_eq!</span>(file.seek(SeekFrom::Current(<span class="number">0</span>)).<span class="kw">await</span>.unwrap(), <span class="number">16387</span>);
+        <span class="macro">assert!</span>(<span class="macro">matches!</span>(file.state, CowState::Copied { .. }));
     }
 }
 </code></pre></div></section></main></body></html>

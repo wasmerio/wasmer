@@ -172,13 +172,13 @@
 
 <span class="kw">impl </span>VirtualFile <span class="kw">for </span>BufferFile {
     <span class="kw">fn </span>last_accessed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="number">0
+        <span class="number">1_000_000_000 </span><span class="comment">// 1 second after epoch, since zero times are bad!
     </span>}
     <span class="kw">fn </span>last_modified(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="number">0
+        <span class="number">1_000_000_000
     </span>}
     <span class="kw">fn </span>created_time(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
-        <span class="number">0
+        <span class="number">1_000_000_000
     </span>}
     <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u64 {
         <span class="self">self</span>.data.get_ref().len() <span class="kw">as </span>u64

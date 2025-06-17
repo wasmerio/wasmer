@@ -18,7 +18,9 @@
 <a href="#17" id="17">17</a>
 <a href="#18" id="18">18</a>
 <a href="#19" id="19">19</a>
-<a href="#20" id="20">20</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#20" id="20">20</a>
+<a href="#21" id="21">21</a>
+<a href="#22" id="22">22</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 
 <span class="kw">impl </span>JournalEffector {
     <span class="kw">pub fn </span>save_fd_close(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, fd: Fd) -&gt; anyhow::Result&lt;()&gt; {
@@ -28,7 +30,9 @@
     <span class="kw">pub fn </span>apply_fd_close(ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, fd: Fd) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>env = ctx.data();
         <span class="kw">let </span>(<span class="kw">_</span>, state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = state.fs.close_fd(fd) {
+        <span class="comment">// FIXME: the journal should use the same logic as the fd_close syscall,
+        // NOT invent its own!!
+        </span><span class="kw">if let </span><span class="prelude-val">Err</span>(err) = state.fs.close_fd(fd) {
             <span class="macro">bail!</span>(
                 <span class="string">"journal restore error: failed to close descriptor (fd={}) - {}"</span>,
                 fd,

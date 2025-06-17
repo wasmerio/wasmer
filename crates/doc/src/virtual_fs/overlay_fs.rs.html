@@ -1722,7 +1722,16 @@
 <a href="#1721" id="1721">1721</a>
 <a href="#1722" id="1722">1722</a>
 <a href="#1723" id="1723">1723</a>
-<a href="#1724" id="1724">1724</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#1724" id="1724">1724</a>
+<a href="#1725" id="1725">1725</a>
+<a href="#1726" id="1726">1726</a>
+<a href="#1727" id="1727">1727</a>
+<a href="#1728" id="1728">1728</a>
+<a href="#1729" id="1729">1729</a>
+<a href="#1730" id="1730">1730</a>
+<a href="#1731" id="1731">1731</a>
+<a href="#1732" id="1732">1732</a>
+<a href="#1733" id="1733">1733</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashSet,
     fmt::Debug,
     io::{<span class="self">self</span>, SeekFrom},
@@ -2699,7 +2708,12 @@
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
                 Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             }
-            Pin::new(<span class="self">self</span>.state.as_mut()).poll_flush(cx)
+            <span class="comment">// The file may actually be read-only and not support flush operations
+            // at all, and there's nothing to flush in read-only state anyway.
+            </span><span class="kw">match </span><span class="self">self</span>.state {
+                CowState::ReadOnly(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
+                <span class="kw">_ </span>=&gt; Pin::new(<span class="self">self</span>.state.as_mut()).poll_flush(cx),
+            }
         }
 
         <span class="kw">fn </span>poll_shutdown(
@@ -2711,7 +2725,11 @@
                 Poll::Ready(<span class="prelude-val">Err</span>(err)) =&gt; <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(err)),
                 Poll::Pending =&gt; <span class="kw">return </span>Poll::Pending,
             }
-            Pin::new(<span class="self">self</span>.state.as_mut()).poll_shutdown(cx)
+            <span class="comment">// Same deal as flush above
+            </span><span class="kw">match </span><span class="self">self</span>.state {
+                CowState::ReadOnly(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(())),
+                <span class="kw">_ </span>=&gt; Pin::new(<span class="self">self</span>.state.as_mut()).poll_shutdown(cx),
+            }
         }
     }
 
