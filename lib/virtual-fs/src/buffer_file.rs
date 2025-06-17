@@ -69,13 +69,13 @@ impl AsyncRead for BufferFile {
 
 impl VirtualFile for BufferFile {
     fn last_accessed(&self) -> u64 {
-        0
+        1_000_000_000 // 1 second after epoch, since zero times are bad!
     }
     fn last_modified(&self) -> u64 {
-        0
+        1_000_000_000
     }
     fn created_time(&self) -> u64 {
-        0
+        1_000_000_000
     }
     fn size(&self) -> u64 {
         self.data.get_ref().len() as u64
