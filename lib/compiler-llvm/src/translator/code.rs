@@ -2920,10 +2920,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             } => {
                 let sigindex = SignatureIndex::from_u32(type_index);
                 let func_type = &self.wasm_module.signatures[sigindex];
-                let expected_dynamic_sigindex =
-                    self.ctx
-                        .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
-                let (table_base, table_bound) = self.ctx.table(
+                // let expected_dynamic_sigindex =
+                //     self.ctx
+                //         .dynamic_sigindex(sigindex, self.intrinsics, self.module)?;
+                let (table_base, _table_bound) = self.ctx.table(
                     TableIndex::from_u32(table_index),
                     self.intrinsics,
                     self.module,
@@ -2931,52 +2931,52 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 )?;
                 let func_index = self.state.pop1()?.into_int_value();
 
-                let truncated_table_bounds = err!(self.builder.build_int_truncate(
-                    table_bound,
-                    self.intrinsics.i32_ty,
-                    "truncated_table_bounds",
-                ));
+                // let truncated_table_bounds = err!(self.builder.build_int_truncate(
+                //     table_bound,
+                //     self.intrinsics.i32_ty,
+                //     "truncated_table_bounds",
+                // ));
 
-                // First, check if the index is outside of the table bounds.
-                let index_in_bounds = err!(self.builder.build_int_compare(
-                    IntPredicate::ULT,
-                    func_index,
-                    truncated_table_bounds,
-                    "index_in_bounds",
-                ));
+                // // First, check if the index is outside of the table bounds.
+                // let index_in_bounds = err!(self.builder.build_int_compare(
+                //     IntPredicate::ULT,
+                //     func_index,
+                //     truncated_table_bounds,
+                //     "index_in_bounds",
+                // ));
 
-                let index_in_bounds = err!(self.builder.build_call(
-                    self.intrinsics.expect_i1,
-                    &[
-                        index_in_bounds.into(),
-                        self.intrinsics.i1_ty.const_int(1, false).into(),
-                    ],
-                    "index_in_bounds_expect",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                // let index_in_bounds = err!(self.builder.build_call(
+                //     self.intrinsics.expect_i1,
+                //     &[
+                //         index_in_bounds.into(),
+                //         self.intrinsics.i1_ty.const_int(1, false).into(),
+                //     ],
+                //     "index_in_bounds_expect",
+                // ))
+                // .try_as_basic_value()
+                // .left()
+                // .unwrap()
+                // .into_int_value();
 
-                let in_bounds_continue_block = self
-                    .context
-                    .append_basic_block(self.function, "in_bounds_continue_block");
-                let not_in_bounds_block = self
-                    .context
-                    .append_basic_block(self.function, "not_in_bounds_block");
-                err!(self.builder.build_conditional_branch(
-                    index_in_bounds,
-                    in_bounds_continue_block,
-                    not_in_bounds_block,
-                ));
-                self.builder.position_at_end(not_in_bounds_block);
-                err!(self.builder.build_call(
-                    self.intrinsics.throw_trap,
-                    &[self.intrinsics.trap_table_access_oob.into()],
-                    "throw",
-                ));
-                err!(self.builder.build_unreachable());
-                self.builder.position_at_end(in_bounds_continue_block);
+                // let in_bounds_continue_block = self
+                //     .context
+                //     .append_basic_block(self.function, "in_bounds_continue_block");
+                // let not_in_bounds_block = self
+                //     .context
+                //     .append_basic_block(self.function, "not_in_bounds_block");
+                // err!(self.builder.build_conditional_branch(
+                //     index_in_bounds,
+                //     in_bounds_continue_block,
+                //     not_in_bounds_block,
+                // ));
+                // self.builder.position_at_end(not_in_bounds_block);
+                // err!(self.builder.build_call(
+                //     self.intrinsics.throw_trap,
+                //     &[self.intrinsics.trap_table_access_oob.into()],
+                //     "throw",
+                // ));
+                // err!(self.builder.build_unreachable());
+                // self.builder.position_at_end(in_bounds_continue_block);
 
                 // We assume the table has the `funcref` (pointer to `anyfunc`)
                 // element type.
@@ -3003,33 +3003,33 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ))
                 .into_pointer_value();
 
-                // trap if we're trying to call a null funcref
-                {
-                    let funcref_not_null = err!(self
-                        .builder
-                        .build_is_not_null(anyfunc_struct_ptr, "null funcref check"));
+                // // trap if we're trying to call a null funcref
+                // {
+                //     let funcref_not_null = err!(self
+                //         .builder
+                //         .build_is_not_null(anyfunc_struct_ptr, "null funcref check"));
 
-                    let funcref_continue_deref_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_continue deref_block");
+                //     let funcref_continue_deref_block = self
+                //         .context
+                //         .append_basic_block(self.function, "funcref_continue deref_block");
 
-                    let funcref_is_null_block = self
-                        .context
-                        .append_basic_block(self.function, "funcref_is_null_block");
-                    err!(self.builder.build_conditional_branch(
-                        funcref_not_null,
-                        funcref_continue_deref_block,
-                        funcref_is_null_block,
-                    ));
-                    self.builder.position_at_end(funcref_is_null_block);
-                    err!(self.builder.build_call(
-                        self.intrinsics.throw_trap,
-                        &[self.intrinsics.trap_call_indirect_null.into()],
-                        "throw",
-                    ));
-                    err!(self.builder.build_unreachable());
-                    self.builder.position_at_end(funcref_continue_deref_block);
-                }
+                //     let funcref_is_null_block = self
+                //         .context
+                //         .append_basic_block(self.function, "funcref_is_null_block");
+                //     err!(self.builder.build_conditional_branch(
+                //         funcref_not_null,
+                //         funcref_continue_deref_block,
+                //         funcref_is_null_block,
+                //     ));
+                //     self.builder.position_at_end(funcref_is_null_block);
+                //     err!(self.builder.build_call(
+                //         self.intrinsics.throw_trap,
+                //         &[self.intrinsics.trap_call_indirect_null.into()],
+                //         "throw",
+                //     ));
+                //     err!(self.builder.build_unreachable());
+                //     self.builder.position_at_end(funcref_continue_deref_block);
+                // }
 
                 // Load things from the anyfunc data structure.
                 let func_ptr_ptr = self
@@ -3059,7 +3059,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "ctx_ptr_ptr",
                     )
                     .unwrap();
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                let (func_ptr, _found_dynamic_sigindex, ctx_ptr) = (
                     err!(self
                         .builder
                         .build_load(self.intrinsics.ptr_ty, func_ptr_ptr, "func_ptr"))
@@ -3073,65 +3073,65 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_load(self.intrinsics.ptr_ty, ctx_ptr_ptr, "ctx_ptr")),
                 );
 
-                // Next, check if the table element is initialized.
+                // // Next, check if the table element is initialized.
 
-                // TODO: we may not need this check anymore
-                let elem_initialized = err!(self.builder.build_is_not_null(func_ptr, ""));
+                // // TODO: we may not need this check anymore
+                // let elem_initialized = err!(self.builder.build_is_not_null(func_ptr, ""));
 
-                // Next, check if the signature id is correct.
+                // // Next, check if the signature id is correct.
 
-                let sigindices_equal = err!(self.builder.build_int_compare(
-                    IntPredicate::EQ,
-                    expected_dynamic_sigindex,
-                    found_dynamic_sigindex,
-                    "sigindices_equal",
-                ));
+                // let sigindices_equal = err!(self.builder.build_int_compare(
+                //     IntPredicate::EQ,
+                //     expected_dynamic_sigindex,
+                //     found_dynamic_sigindex,
+                //     "sigindices_equal",
+                // ));
 
-                let initialized_and_sigindices_match =
-                    err!(self
-                        .builder
-                        .build_and(elem_initialized, sigindices_equal, ""));
+                // let initialized_and_sigindices_match =
+                //     err!(self
+                //         .builder
+                //         .build_and(elem_initialized, sigindices_equal, ""));
 
-                // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
-                let initialized_and_sigindices_match = err!(self.builder.build_call(
-                    self.intrinsics.expect_i1,
-                    &[
-                        initialized_and_sigindices_match.into(),
-                        self.intrinsics.i1_ty.const_int(1, false).into(),
-                    ],
-                    "initialized_and_sigindices_match_expect",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                // // Tell llvm that `expected_dynamic_sigindex` should equal `found_dynamic_sigindex`.
+                // let initialized_and_sigindices_match = err!(self.builder.build_call(
+                //     self.intrinsics.expect_i1,
+                //     &[
+                //         initialized_and_sigindices_match.into(),
+                //         self.intrinsics.i1_ty.const_int(1, false).into(),
+                //     ],
+                //     "initialized_and_sigindices_match_expect",
+                // ))
+                // .try_as_basic_value()
+                // .left()
+                // .unwrap()
+                // .into_int_value();
 
-                let continue_block = self
-                    .context
-                    .append_basic_block(self.function, "continue_block");
-                let sigindices_notequal_block = self
-                    .context
-                    .append_basic_block(self.function, "sigindices_notequal_block");
-                err!(self.builder.build_conditional_branch(
-                    initialized_and_sigindices_match,
-                    continue_block,
-                    sigindices_notequal_block,
-                ));
+                // let continue_block = self
+                //     .context
+                //     .append_basic_block(self.function, "continue_block");
+                // let sigindices_notequal_block = self
+                //     .context
+                //     .append_basic_block(self.function, "sigindices_notequal_block");
+                // err!(self.builder.build_conditional_branch(
+                //     initialized_and_sigindices_match,
+                //     continue_block,
+                //     sigindices_notequal_block,
+                // ));
 
-                self.builder.position_at_end(sigindices_notequal_block);
-                let trap_code = err!(self.builder.build_select(
-                    elem_initialized,
-                    self.intrinsics.trap_call_indirect_sig,
-                    self.intrinsics.trap_call_indirect_null,
-                    "",
-                ));
-                err!(self.builder.build_call(
-                    self.intrinsics.throw_trap,
-                    &[trap_code.into()],
-                    "throw"
-                ));
-                err!(self.builder.build_unreachable());
-                self.builder.position_at_end(continue_block);
+                // self.builder.position_at_end(sigindices_notequal_block);
+                // let trap_code = err!(self.builder.build_select(
+                //     elem_initialized,
+                //     self.intrinsics.trap_call_indirect_sig,
+                //     self.intrinsics.trap_call_indirect_null,
+                //     "",
+                // ));
+                // err!(self.builder.build_call(
+                //     self.intrinsics.throw_trap,
+                //     &[trap_code.into()],
+                //     "throw"
+                // ));
+                // err!(self.builder.build_unreachable());
+                // self.builder.position_at_end(continue_block);
 
                 if self.g0m0.is_some() {
                     self.build_g0m0_indirect_call(
