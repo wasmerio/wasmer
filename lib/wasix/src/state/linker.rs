@@ -887,26 +887,30 @@ impl std::fmt::Debug for Linker {
 
 /// Contains everything that is required to find a module and load it into memory
 // TODO: Rename me
-// TODO: Make this not owning
-pub enum ModuleLoader {
+pub enum ModuleLoader<'a> {
     Filesystem {
-        module_name: String,
-        ld_library_path: Vec<PathBuf>,
+        module_name: &'a str,
+        ld_library_path: &'a [&'a Path],
     },
     Memory {
-        module_name: String,
-        bytes: Vec<u8>,
-        ld_library_path: Vec<PathBuf>,
+        module_name: &'a str,
+        bytes: &'a [u8],
+        ld_library_path: &'a [&'a Path],
     },
 }
-impl ModuleLoader {
+impl ModuleLoader<'_> {
+    // Get the name of the module.
+    // This is the import name that was requested by the other shared library
     pub fn module_name(&self) -> &str {
         match self {
             ModuleLoader::Filesystem { module_name, .. } => module_name,
             ModuleLoader::Memory { module_name, .. } => module_name,
         }
     }
-    pub fn ld_library_path(&self) -> &Vec<PathBuf> {
+
+    // Get the library path that will be used when loading this module and its dependencies
+    // TODO: Move the library path somewhere else
+    pub fn ld_library_path(&self) -> &[&Path] {
         match self {
             ModuleLoader::Filesystem {
                 ld_library_path, ..
@@ -917,6 +921,7 @@ impl ModuleLoader {
         }
     }
 
+    // Load the modules code from the filesystem, or from memory if it's a memory module
     async fn load_module(&self, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
         let (module_name, library_path) = match self {
             ModuleLoader::Filesystem {
@@ -926,7 +931,8 @@ impl ModuleLoader {
             ModuleLoader::Memory {
                 module_name, bytes, ..
             } => {
-                return Ok((PathBuf::from(module_name), bytes.clone()));
+                // TODO: Dont clone here
+                return Ok((PathBuf::from(module_name), bytes.to_vec()));
             }
         };
 
@@ -1203,10 +1209,10 @@ impl Linker {
             trace!(name = needed, "Loading module needed by main");
             let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                // TODO: ld_library_path
                 ModuleLoader::Filesystem {
-                    module_name: needed,
-                    ld_library_path: vec![],
+                    module_name: needed.as_str(),
+                    // TODO: Use real ld_library_path
+                    ld_library_path: &[],
                 },
                 &mut link_state,
                 &wasi_env.runtime,
@@ -2328,15 +2334,12 @@ impl LinkerState {
             link_state.pending_module_paths.pop().unwrap();
         };
 
-        // TODO: Dont clone here
-        let library_path = module_location.ld_library_path();
         for needed in &dylink_info.needed {
             trace!(needed, "Loading needed side module");
-            // TODO: Dont clone here
             match self.load_module_tree(
                 ModuleLoader::Filesystem {
-                    module_name: needed.clone(),
-                    ld_library_path: library_path.clone(),
+                    module_name: needed.as_str(),
+                    ld_library_path: module_location.ld_library_path(),
                 },
                 link_state,
                 runtime,

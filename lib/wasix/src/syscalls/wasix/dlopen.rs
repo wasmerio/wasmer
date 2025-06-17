@@ -21,7 +21,7 @@ pub fn dlopen<M: MemorySize>(
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
     let ld_library_path =
         unsafe { get_input_str_ok!(&memory, ld_library_path, ld_library_path_len) };
-    let ld_library_path = ld_library_path.split(':').collect::<Vec<_>>();
+    let ld_library_path = ld_library_path.split(':').map(Path::new).collect::<Vec<_>>();
     Span::current().record("path", path.as_str());
 
     let env_inner = unsafe { env.inner() };
@@ -37,8 +37,8 @@ pub fn dlopen<M: MemorySize>(
 
     // TODO: Rework interface
     let location = ModuleLoader::Filesystem{
-        module_name: path,
-        ld_library_path: ld_library_path.into_iter().map(std::path::PathBuf::from).collect(),
+        module_name: &path,
+        ld_library_path: ld_library_path.as_slice(),
     };
     let module_handle = linker.load_module(location, &mut ctx);
 
