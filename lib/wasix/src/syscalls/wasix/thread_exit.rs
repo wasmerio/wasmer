@@ -10,7 +10,7 @@ use crate::syscalls::*;
 ///
 /// This syscall does not return.
 #[instrument(level = "trace", skip_all, fields(%_exitcode), ret)]
-pub fn thread_exit(ctx: FunctionEnvMut<'_, WasiEnv>, _exitcode: ExitCode) -> Result<(), WasiError> {
+pub fn thread_exit(ctx: FunctionEnvMut<'_, WasiEnv>, _exitcode: u32) -> Result<(), WasiError> {
     tracing::debug!(tid=%ctx.data().thread.id(), "thread exit");
     Err(WasiError::ThreadExit)
 }

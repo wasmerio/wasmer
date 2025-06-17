@@ -31,6 +31,7 @@ use crate::{
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
+    runners::wasi::{PackageOrHash, RuntimeOrEngine},
     runtime::task_manager::InlineWaker,
     Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
@@ -230,8 +231,8 @@ impl Console {
             .prepare_webc_env(
                 prog,
                 &wasi_opts,
-                Either::Left(&pkg),
-                self.runtime.clone(),
+                PackageOrHash::Package(&pkg),
+                RuntimeOrEngine::Runtime(self.runtime.clone()),
                 Some(root_fs),
             )
             // TODO: better error conversion
@@ -333,8 +334,7 @@ mod tests {
         let tm = TokioTaskManager::new(tokio_rt);
         let mut rt = PluggableRuntime::new(Arc::new(tm));
         let client = rt.http_client().unwrap().clone();
-        rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+        rt.set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
         let env: HashMap<String, String> = [("MYENV1".to_string(), "VAL1".to_string())]
             .into_iter()
@@ -387,8 +387,7 @@ mod tests {
         let tm = TokioTaskManager::new(tokio_rt);
         let mut rt = PluggableRuntime::new(Arc::new(tm));
         let client = rt.http_client().unwrap().clone();
-        rt.set_engine(Some(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+        rt.set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
         let cmd = "wasmer-tests/python-env-dump --help";
 

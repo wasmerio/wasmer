@@ -3,7 +3,7 @@ name: Run Benchmarks and upload results
 on:
   push:
     branches:
-    - benchmark  # TODO: change it back to main once we really track the results. We commented this as speed.wasmer.io is failing
+      - benchmark # TODO: change it back to main once we really track the results. We commented this as speed.wasmer.io is failing
 
 env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
@@ -72,4 +72,3 @@ jobs:
           git clone https://github.com/wasmerio/wasmer-bench
 
           python3 wasmer-bench/send_metrics.py
-

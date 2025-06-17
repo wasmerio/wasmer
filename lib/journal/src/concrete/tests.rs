@@ -81,6 +81,7 @@ pub fn test_record_set_thread() {
             stack_lower: 1024,
             guard_size: 16,
             stack_size: 1024,
+            tls_base: None,
         },
         start: wasmer_wasix_types::wasix::ThreadStartType::MainThread,
     });

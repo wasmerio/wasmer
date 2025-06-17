@@ -14,6 +14,8 @@ pub fn fd_filestat_set_size(
     fd: WasiFd,
     st_size: Filesize,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(fd_filestat_set_size_internal(&mut ctx, fd, st_size));
     let env = ctx.data();
 

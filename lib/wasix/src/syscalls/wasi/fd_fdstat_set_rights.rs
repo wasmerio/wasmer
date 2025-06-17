@@ -17,6 +17,8 @@ pub fn fd_fdstat_set_rights(
     fs_rights_base: Rights,
     fs_rights_inheriting: Rights,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(fd_fdstat_set_rights_internal(
         &mut ctx,
         fd,

@@ -6,7 +6,7 @@ use tokio::runtime::{Handle, Runtime};
 use virtual_mio::InlineWaker;
 use wasmer::AsStoreMut;
 
-use crate::runtime::SpawnMemoryType;
+use crate::runtime::SpawnType;
 use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
 use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
@@ -113,15 +113,6 @@ impl Default for TokioTaskManager {
     }
 }
 
-#[allow(dead_code)]
-struct TokioRuntimeGuard<'g> {
-    #[allow(unused)]
-    inner: tokio::runtime::EnterGuard<'g>,
-}
-impl Drop for TokioRuntimeGuard<'_> {
-    fn drop(&mut self) {}
-}
-
 impl VirtualTaskManager for TokioTaskManager {
     /// See [`VirtualTaskManager::sleep_now`].
     fn sleep_now(&self, time: Duration) -> Pin<Box<dyn Future<Output = ()> + Send + Sync>> {
@@ -154,14 +145,40 @@ impl VirtualTaskManager for TokioTaskManager {
         let env = task.env;
         let pre_run = task.pre_run;
 
-        let make_memory: SpawnMemoryTypeOrStore = match task.spawn_type {
-            SpawnMemoryType::CreateMemory => SpawnMemoryTypeOrStore::New,
-            SpawnMemoryType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(t),
-            SpawnMemoryType::ShareMemory(_, _) | SpawnMemoryType::CopyMemory(_, _) => {
+        let make_memory: SpawnMemoryTypeOrStore = match &task.spawn_type {
+            SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) => {
+                SpawnMemoryTypeOrStore::New
+            }
+            SpawnType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(*t),
+            SpawnType::ShareMemory(_, _) | SpawnType::CopyMemory(_, _) => {
                 let mut store = env.runtime().new_store();
-                let memory = self.build_memory(&mut store.as_store_mut(), task.spawn_type)?;
+                let memory = self.build_memory(&mut store.as_store_mut(), &task.spawn_type)?;
                 SpawnMemoryTypeOrStore::StoreAndMemory(store, memory)
             }
+        };
+
+        let ret = if let SpawnType::NewLinkerInstanceGroup(linker, func_env, mut store) =
+            task.spawn_type
+        {
+            WasiFunctionEnv::new_with_store(
+                task.module,
+                env,
+                task.globals,
+                make_memory,
+                task.update_layout,
+                task.call_initialize,
+                Some((linker, &mut func_env.into_mut(&mut store))),
+            )
+        } else {
+            WasiFunctionEnv::new_with_store(
+                task.module,
+                env,
+                task.globals,
+                make_memory,
+                task.update_layout,
+                task.call_initialize,
+                None,
+            )
         };
 
         if let Some(trigger) = task.trigger {
@@ -195,13 +212,7 @@ impl VirtualTaskManager for TokioTaskManager {
             // pool's one), and let it fail for runtimes that don't support entities created in a
             // thread that's not the one in which execution happens in; this until we can clone
             // stores.
-            let (mut ctx, mut store) = WasiFunctionEnv::new_with_store(
-                task.module,
-                env,
-                task.globals,
-                make_memory,
-                task.update_layout,
-            )?;
+            let (mut ctx, mut store) = ret?;
 
             let mut trigger = trigger();
             let pool = self.pool.clone();
@@ -214,7 +225,14 @@ impl VirtualTaskManager for TokioTaskManager {
                         _ = env.thread.wait_for_signal() => {
                             tracing::debug!("wait-for-signal(triggered)");
                             let mut ctx = ctx.env.clone().into_mut(&mut store);
-                            if let Err(err) = crate::WasiEnv::process_signals_and_exit(&mut ctx) {
+                            if let Err(err) =
+                                crate::WasiEnv::do_pending_link_operations(
+                                    &mut ctx,
+                                    false
+                                ).and_then(|()|
+                                    crate::WasiEnv::process_signals_and_exit(&mut ctx)
+                                )
+                            {
                                 match err {
                                     crate::WasiError::Exit(code) => Err(code),
                                     err => {
@@ -258,14 +276,6 @@ impl VirtualTaskManager for TokioTaskManager {
             // Run the callback on a dedicated thread
             self.pool.execute(move || {
                 tracing::trace!("task_wasm started in blocking thread");
-                let ret = WasiFunctionEnv::new_with_store(
-                    task.module,
-                    env,
-                    task.globals,
-                    make_memory,
-                    task.update_layout,
-                );
-
                 let (mut ctx, mut store) = match ret {
                     Ok(x) => {
                         sx.send(Ok(())).unwrap();

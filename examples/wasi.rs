@@ -14,10 +14,13 @@
 //!
 //! Ready?
 
-use std::io::Read;
+use std::{io::Read, sync::Arc};
 
-use wasmer::{Module, Store};
-use wasmer_wasix::{Pipe, WasiEnv};
+use wasmer_wasix::{
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
+    runtime::task_manager::tokio::TokioTaskManager,
+    Pipe, PluggableRuntime, Runtime,
+};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_path = concat!(
@@ -27,28 +30,50 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
-    // Create a Store.
-    let mut store = Store::default();
+    // We optionally need a tokio runtime and a WASI runtime. This doesn't need to
+    // happen though; see the wasi-pipes example for an alternate approach. Things
+    // such as the file system or networking can be configured on the runtime.
+    let tokio_runtime = tokio::runtime::Builder::new_multi_thread()
+        .enable_all()
+        .build()
+        .unwrap();
+    let _guard = tokio_runtime.enter();
+    let tokio_task_manager = TokioTaskManager::new(tokio_runtime.handle().clone());
+    let runtime = PluggableRuntime::new(Arc::new(tokio_task_manager));
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = Module::new(&store, wasm_bytes)?;
+    let module = runtime.load_module_sync(&wasm_bytes[..])?;
 
+    // Create a pipe for the module's stdout.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
 
-    // Run the module.
-    WasiEnv::builder("hello")
-        // .args(&["world"])
-        // .env("KEY", "Value")
-        .stdout(Box::new(stdout_tx))
-        .run_with_store(module, &mut store)?;
+    {
+        // Create a WASI runner. We use a scope to make sure the runner is dropped
+        // as soon as we are done with it; otherwise, it will keep the stdout pipe
+        // open.
+        let mut runner = WasiRunner::new();
+        runner.with_stdout(Box::new(stdout_tx));
 
-    eprintln!("Run complete - reading output");
+        println!("Running module...");
+        // Now, run the module.
+        runner.run_wasm(
+            RuntimeOrEngine::Runtime(Arc::new(runtime)),
+            "hello",
+            module,
+            wasmer_types::ModuleHash::xxhash(wasm_bytes),
+        )?;
+    }
+
+    println!("Run complete - reading output");
 
     let mut buf = String::new();
     stdout_rx.read_to_string(&mut buf).unwrap();
 
-    eprintln!("Output: {buf}");
+    println!("Output: {buf}");
+
+    // Verify the module wrote the correct thing, for the test below
+    assert_eq!(buf, "Hello, world!\n");
 
     Ok(())
 }

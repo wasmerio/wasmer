@@ -110,7 +110,7 @@ impl<'a> WasiTest<'a> {
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
         #[cfg(target_arch = "wasm32")]
         let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
-        rt.set_engine(Some(store.engine().clone()));
+        rt.set_engine(store.engine().clone());
 
         let mut pb = PathBuf::from(base_path);
         pb.push(self.wasm_path);

@@ -17,6 +17,8 @@ pub fn fd_allocate(
     offset: Filesize,
     len: Filesize,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     wasi_try_ok!(fd_allocate_internal(&mut ctx, fd, offset, len));
     let env = ctx.data();
 

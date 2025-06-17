@@ -18,6 +18,8 @@ pub fn epoll_create<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let fd = wasi_try_ok!(epoll_create_internal(&mut ctx, None)?);
     let env = ctx.data();
 
@@ -42,8 +44,6 @@ pub fn epoll_create_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     with_fd: Option<WasiFd>,
 ) -> Result<Result<WasiFd, Errno>, WasiError> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
-
     let env = ctx.data();
     let (memory, state, inodes) = unsafe { env.get_memory_and_wasi_state_and_inodes(&ctx, 0) };
 

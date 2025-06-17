@@ -9,11 +9,11 @@ use std::{
 
 use wasmer::Memory;
 
-use crate::WasiInstanceHandles;
+use crate::WasiModuleTreeHandles;
 
 static LOCAL_INSTANCE_SEED: AtomicU64 = AtomicU64::new(1);
 thread_local! {
-    static THREAD_LOCAL_INSTANCE_HANDLES: RefCell<HashMap<u64, Rc<RefCell<WasiInstanceHandles>>>>
+    static THREAD_LOCAL_INSTANCE_HANDLES: RefCell<HashMap<u64, Rc<RefCell<WasiModuleTreeHandles>>>>
         = RefCell::new(HashMap::new());
 }
 
@@ -23,12 +23,12 @@ thread_local! {
 pub(crate) struct WasiInstanceGuard<'a> {
     // the order is very important as the first value is
     // dropped before the reference count is dropped
-    borrow: Ref<'static, WasiInstanceHandles>,
+    borrow: Ref<'static, WasiModuleTreeHandles>,
     _pointer: &'a WasiInstanceHandlesPointer,
-    _inner: Rc<RefCell<WasiInstanceHandles>>,
+    _inner: Rc<RefCell<WasiModuleTreeHandles>>,
 }
 impl Deref for WasiInstanceGuard<'_> {
-    type Target = WasiInstanceHandles;
+    type Target = WasiModuleTreeHandles;
     fn deref(&self) -> &Self::Target {
         self.borrow.deref()
     }
@@ -41,12 +41,12 @@ impl Deref for WasiInstanceGuard<'_> {
 pub(crate) struct WasiInstanceGuardMut<'a> {
     // the order is very important as the first value is
     // dropped before the reference count is dropped
-    borrow: RefMut<'static, WasiInstanceHandles>,
+    borrow: RefMut<'static, WasiModuleTreeHandles>,
     _pointer: &'a WasiInstanceHandlesPointer,
-    _inner: Rc<RefCell<WasiInstanceHandles>>,
+    _inner: Rc<RefCell<WasiModuleTreeHandles>>,
 }
 impl Deref for WasiInstanceGuardMut<'_> {
-    type Target = WasiInstanceHandles;
+    type Target = WasiModuleTreeHandles;
 
     fn deref(&self) -> &Self::Target {
         self.borrow.deref()
@@ -81,8 +81,8 @@ impl WasiInstanceHandlesPointer {
                 THREAD_LOCAL_INSTANCE_HANDLES.with(|map| {
                     let map = map.borrow();
                     if let Some(inner) = map.get(id) {
-                        let borrow: Ref<WasiInstanceHandles> = inner.borrow();
-                        let borrow: Ref<'static, WasiInstanceHandles> =
+                        let borrow: Ref<WasiModuleTreeHandles> = inner.borrow();
+                        let borrow: Ref<'static, WasiModuleTreeHandles> =
                             unsafe { std::mem::transmute(borrow) };
                         Some(WasiInstanceGuard {
                             borrow,
@@ -103,8 +103,8 @@ impl WasiInstanceHandlesPointer {
                 THREAD_LOCAL_INSTANCE_HANDLES.with(|map| {
                     let map = map.borrow_mut();
                     if let Some(inner) = map.get(&id) {
-                        let borrow: RefMut<WasiInstanceHandles> = inner.borrow_mut();
-                        let borrow: RefMut<'static, WasiInstanceHandles> =
+                        let borrow: RefMut<WasiModuleTreeHandles> = inner.borrow_mut();
+                        let borrow: RefMut<'static, WasiModuleTreeHandles> =
                             unsafe { std::mem::transmute(borrow) };
                         Some(WasiInstanceGuardMut {
                             borrow,
@@ -118,7 +118,7 @@ impl WasiInstanceHandlesPointer {
             })
             .next()
     }
-    pub fn set(&mut self, val: WasiInstanceHandles) {
+    pub fn set(&mut self, val: WasiModuleTreeHandles) {
         self.clear();
 
         let id = LOCAL_INSTANCE_SEED.fetch_add(1, Ordering::SeqCst);
@@ -159,7 +159,7 @@ impl Deref for WasiInstanceGuardMemory<'_> {
 }
 impl<'a> WasiInstanceGuard<'a> {
     pub fn memory(self) -> WasiInstanceGuardMemory<'a> {
-        let borrow: &Memory = &self.memory;
+        let borrow: &Memory = (*self).memory();
         let borrow: &'a Memory = unsafe { std::mem::transmute(borrow) };
         WasiInstanceGuardMemory {
             borrow,

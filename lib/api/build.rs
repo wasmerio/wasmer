@@ -56,7 +56,7 @@ fn build_wamr() {
             .expect("failed to extract wamr zip file");
         let _ = std::fs::remove_dir_all(&wamr_dir);
         std::fs::rename(zip_dir.join(ZIP_NAME), &wamr_dir)
-            .expect(&format!("failed to rename wamr dir: {zip_dir:?}"));
+            .unwrap_or_else(|e| panic!("failed to rename wamr dir: {zip_dir:?} due to: {e:?}"));
     } else {
         println!("cargo::rerun-if-changed={}", wamr_dir.display());
     }

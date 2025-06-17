@@ -218,6 +218,13 @@ pub struct Wasi {
     /// Require WASI modules to only import 1 version of WASI.
     #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
+
+    /// Disable the cache for the compiled modules.
+    ///
+    /// Cache is used to speed up the loading of modules, as the
+    /// generated artifacts are cached.
+    #[clap(long = "disable-cache")]
+    disable_cache: bool,
 }
 
 pub struct RunProperties {
@@ -673,14 +680,16 @@ impl Wasi {
 
         let registry = self.prepare_source(env, client, preferred_webc_version)?;
 
-        let cache_dir = env.cache_dir().join("compiled");
-        let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+        if !self.disable_cache {
+            let cache_dir = env.cache_dir().join("compiled");
+            let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
+                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+            rt.set_module_cache(module_cache);
+        }
 
         rt.set_package_loader(package_loader)
-            .set_module_cache(module_cache)
             .set_source(registry)
-            .set_engine(Some(engine));
+            .set_engine(engine);
 
         Ok(rt)
     }

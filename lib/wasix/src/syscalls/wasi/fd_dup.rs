@@ -15,6 +15,8 @@ pub fn fd_dup<M: MemorySize>(
     fd: WasiFd,
     ret_fd: WasmPtr<WasiFd, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let copied_fd = wasi_try_ok!(fd_dup_internal(&mut ctx, fd, 0, false));
     let env = ctx.data();
 

@@ -2927,6 +2927,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     TableIndex::from_u32(table_index),
                     self.intrinsics,
                     self.module,
+                    &self.builder,
                 )?;
                 let func_index = self.state.pop1()?.into_int_value();
 

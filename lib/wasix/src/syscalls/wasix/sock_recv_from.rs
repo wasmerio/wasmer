@@ -18,7 +18,7 @@ use crate::{net::socket::TimeType, syscalls::*};
 /// Number of bytes stored in ri_data and message flags.
 #[instrument(level = "trace", skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret)]
 pub fn sock_recv_from<M: MemorySize>(
-    ctx: FunctionEnvMut<'_, WasiEnv>,
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     sock: WasiFd,
     ri_data: WasmPtr<__wasi_iovec_t<M>, M>,
     ri_data_len: M::Offset,
@@ -27,6 +27,8 @@ pub fn sock_recv_from<M: MemorySize>(
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     sock_recv_from_internal(
         ctx,
         sock,
@@ -49,8 +51,6 @@ pub(super) fn sock_recv_from_internal<M: MemorySize>(
     ro_flags: WasmPtr<RoFlags, M>,
     ro_addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
-    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
-
     let mut env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(ri_data.slice(&memory, ri_data_len));

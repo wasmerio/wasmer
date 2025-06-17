@@ -14,6 +14,8 @@ pub fn clock_time_set<M: MemorySize>(
     clock_id: Snapshot0Clockid,
     time: Timestamp,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let ret = clock_time_set_internal(&mut ctx, clock_id, time);
     let env = ctx.data();
 

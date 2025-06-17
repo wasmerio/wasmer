@@ -28,6 +28,8 @@ pub fn clock_time_get<M: MemorySize>(
     precision: Timestamp,
     time: WasmPtr<Timestamp, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
 
     let env = ctx.data();

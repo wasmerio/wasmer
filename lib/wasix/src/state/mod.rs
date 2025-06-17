@@ -19,7 +19,7 @@ mod builder;
 mod env;
 mod func_env;
 mod handles;
-mod run;
+mod linker;
 mod types;
 
 use std::{
@@ -30,7 +30,6 @@ use std::{
     time::Duration,
 };
 
-use run::*;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
@@ -40,7 +39,7 @@ use wasmer_wasix_types::wasi::{
 
 pub use self::{
     builder::*,
-    env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
+    env::{WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles},
     func_env::WasiFunctionEnv,
     types::*,
 };
@@ -51,6 +50,7 @@ use crate::{
     utils::WasiParkingLot,
 };
 pub(crate) use handles::*;
+pub(crate) use linker::*;
 
 /// all the rights enabled
 pub const ALL_RIGHTS: Rights = Rights::all();

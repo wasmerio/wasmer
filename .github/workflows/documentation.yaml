@@ -3,9 +3,9 @@ name: Documentation
 on:
   push:
     branches:
-      - 'main'
+      - "main"
     paths:
-      - 'lib/**'
+      - "lib/**"
 
 env:
   MSRV: "1.84"
@@ -30,7 +30,7 @@ jobs:
           echo "LLVM_SYS_180_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-18
-          LLVM_URL: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
+          LLVM_URL: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz"
       - name: Build & package documentation
         run: make package-docs
       - name: Publish documentation

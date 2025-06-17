@@ -29,6 +29,8 @@ pub fn resolve<M: MemorySize>(
     naddrs: M::Offset,
     ret_naddrs: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let naddrs: usize = wasi_try_ok!(naddrs.try_into().map_err(|_| Errno::Inval));
     let mut env = ctx.data();
     let host_str = {

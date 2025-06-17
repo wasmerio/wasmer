@@ -17,8 +17,10 @@ pub fn fd_filestat_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
     buf: WasmPtr<Filestat, M>,
-) -> Errno {
-    let stat = wasi_try!(fd_filestat_get_internal(&mut ctx, fd));
+) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
+    let stat = wasi_try_ok!(fd_filestat_get_internal(&mut ctx, fd));
 
     // These two values have proved to be helpful in multiple investigations
     Span::current().record("size", stat.st_size);
@@ -27,9 +29,9 @@ pub fn fd_filestat_get<M: MemorySize>(
     let env = ctx.data();
     let (memory, _) = unsafe { env.get_memory_and_wasi_state(&ctx, 0) };
     let buf = buf.deref(&memory);
-    wasi_try_mem!(buf.write(stat));
+    wasi_try_mem_ok!(buf.write(stat));
 
-    Errno::Success
+    Ok(Errno::Success)
 }
 
 /// ### `fd_filestat_get()`

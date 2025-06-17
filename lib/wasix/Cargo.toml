@@ -122,6 +122,9 @@ hyper-util = { workspace = true, features = [
 http-body-util = { workspace = true, optional = true }
 toml.workspace = true
 pin-utils = "0.1.0"
+wasmparser = { workspace = true }
+crossbeam-channel = "0.5.15"
+bus = "2.4.1"
 
 [target.'cfg(not(any(target_arch = "riscv64", target_arch = "loongarch64")))'.dependencies.reqwest]
 workspace = true

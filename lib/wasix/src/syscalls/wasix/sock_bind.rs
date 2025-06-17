@@ -15,6 +15,8 @@ pub fn sock_bind<M: MemorySize>(
     sock: WasiFd,
     addr: WasmPtr<__wasi_addr_port_t, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 

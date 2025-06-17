@@ -3,7 +3,7 @@ pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
 
-pub use self::task_manager::{SpawnMemoryType, VirtualTaskManager};
+pub use self::task_manager::{SpawnType, VirtualTaskManager};
 use self::{module_cache::CacheError, task_manager::InlineWaker};
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::{
@@ -40,6 +40,7 @@ pub enum TaintReason {
     UnknownWasiVersion,
     NonZeroExitCode(ExitCode),
     RuntimeError(RuntimeError),
+    DlSymbolResolutionFailed(String),
 }
 
 /// Runtime components used when running WebAssembly programs.
@@ -263,7 +264,7 @@ pub struct PluggableRuntime {
     pub http_client: Option<DynHttpClient>,
     pub package_loader: Arc<dyn PackageLoader + Send + Sync>,
     pub source: Arc<dyn Source + Send + Sync>,
-    pub engine: Option<wasmer::Engine>,
+    pub engine: wasmer::Engine,
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
@@ -299,7 +300,7 @@ impl PluggableRuntime {
             rt,
             networking,
             http_client,
-            engine: None,
+            engine: Default::default(),
             tty: None,
             source: Arc::new(source),
             package_loader: Arc::new(loader),
@@ -319,7 +320,7 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_engine(&mut self, engine: Option<wasmer::Engine>) -> &mut Self {
+    pub fn set_engine(&mut self, engine: wasmer::Engine) -> &mut Self {
         self.engine = engine;
         self
     }
@@ -389,14 +390,11 @@ impl Runtime for PluggableRuntime {
     }
 
     fn engine(&self) -> wasmer::Engine {
-        self.engine.clone().unwrap_or_default()
+        self.engine.clone()
     }
 
     fn new_store(&self) -> wasmer::Store {
-        self.engine
-            .clone()
-            .map(wasmer::Store::new)
-            .unwrap_or_default()
+        wasmer::Store::new(self.engine.clone())
     }
 
     fn task_manager(&self) -> &Arc<dyn VirtualTaskManager> {

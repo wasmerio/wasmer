@@ -85,12 +85,12 @@ pub use windows::*;
 
 pub(crate) use self::types::{
     wasi::{
-        Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
-        Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
-        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
-        StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity, Subscription,
-        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Addressfamily, Advice, Clockid, Dircookie, Dirent, DlFlags, DlHandle, Errno, Event,
+        EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd as WasiFd, Fdflags, Fdflagsext,
+        Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid,
+        Prestat, ProcSpawnFdOp, Rights, SignalDisposition, Snapshot0Clockid, Sockoption,
+        Sockstatus, Socktype, StackSnapshot, StdioMode as WasiStdioMode, Streamsecurity,
+        Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     *,
 };
@@ -110,13 +110,13 @@ pub(crate) use crate::{
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::SpawnMemoryType,
+    runtime::SpawnType,
     state::{
         self, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
         WasiFutex, WasiState,
     },
     utils::{self, map_io_err},
-    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles,
+    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
     WasiVFork,
 };
 use crate::{
@@ -233,9 +233,8 @@ pub(crate) fn read_bytes<T: Read, M: MemorySize>(
     Ok(bytes_read)
 }
 
-// Writes data to the stderr
-
 // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+/// Writes data to the stderr
 #[allow(clippy::await_holding_lock)]
 pub unsafe fn stderr_write<'a>(
     ctx: &FunctionEnvMut<'_, WasiEnv>,
@@ -375,6 +374,8 @@ where
             return Poll::Ready(Ok(res));
         }
 
+        WasiEnv::do_pending_link_operations(self.ctx, false);
+
         let env = self.ctx.data();
         if let Some(forced_exit) = env.thread.try_join() {
             return Poll::Ready(Err(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
@@ -407,6 +408,8 @@ where
                     if let Some(exit_code) = has_exit {
                         Poll::Ready(Err(WasiError::Exit(exit_code)))
                     } else {
+                        // Re-subscribe so we get woken up for further signals as well
+                        self.ctx.data().thread.signals_subscribe(cx.waker());
                         Poll::Pending
                     }
                 }
@@ -495,7 +498,9 @@ where
         let env = ctx.data();
 
         // Create the deep sleeper
-        let tasks_for_deep_sleep = if env.enable_deep_sleep {
+        // Deep sleep breaks the linker completely, as it expects other modules to catch the
+        // signal for DL ops
+        let tasks_for_deep_sleep = if env.enable_deep_sleep && env.inner().linker().is_none() {
             Some(env.tasks().clone())
         } else {
             None
@@ -858,14 +863,20 @@ pub(crate) unsafe fn get_memory_stack_pointer(
     // Get the current value of the stack pointer (which we will use
     // to save all of the stack)
     let stack_upper = get_stack_upper(ctx.data());
-    let stack_pointer = if let Some(stack_pointer) = ctx.data().inner().stack_pointer.clone() {
+    let stack_pointer = if let Some(stack_pointer) = ctx
+        .data()
+        .inner()
+        .main_module_instance_handles()
+        .stack_pointer
+        .clone()
+    {
         match stack_pointer.get(ctx) {
             Value::I32(a) => a as u64,
             Value::I64(a) => a as u64,
             _ => stack_upper,
         }
     } else {
-        return Err("failed to save stack: not exported __stack_pointer global".to_string());
+        return Err("failed to save stack: no __stack_pointer global".to_string());
     };
     Ok(stack_pointer)
 }
@@ -887,8 +898,8 @@ pub(crate) fn set_memory_stack_offset(
     let stack_upper = get_stack_upper(env);
     let stack_pointer = stack_upper - offset;
     if let Some(stack_pointer_ptr) = env
-        .try_inner()
-        .ok_or_else(|| "unable to access the stack pointer of the instance".to_string())?
+        .inner()
+        .main_module_instance_handles()
         .stack_pointer
         .clone()
     {
@@ -907,7 +918,7 @@ pub(crate) fn set_memory_stack_offset(
             }
         }
     } else {
-        return Err("failed to save stack: not exported __stack_pointer global".to_string());
+        return Err("failed to save stack: no __stack_pointer global".to_string());
     }
     Ok(())
 }
@@ -921,8 +932,8 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
     // to save all of the stack)
     let stack_base = get_stack_upper(env);
     let stack_pointer = if let Some(stack_pointer) = env
-        .try_inner()
-        .ok_or_else(|| "unable to access the stack pointer of the instance".to_string())?
+        .inner()
+        .main_module_instance_handles()
         .stack_pointer
         .clone()
     {
@@ -932,7 +943,7 @@ pub(crate) fn get_memory_stack<M: MemorySize>(
             _ => stack_base,
         }
     } else {
-        return Err("failed to save stack: not exported __stack_pointer global".to_string());
+        return Err("failed to save stack: no __stack_pointer global".to_string());
     };
     let memory = env
         .try_memory_view(store)
@@ -1137,9 +1148,10 @@ where
     // Invoke the callback that will prepare to unwind
     // We need to start unwinding the stack
     let asyncify_data = wasi_try_ok!(unwind_pointer.try_into().map_err(|_| Errno::Overflow));
-    if let Some(asyncify_start_unwind) = wasi_try_ok!(env.try_inner().ok_or(Errno::Fault))
-        .asyncify_start_unwind
-        .clone()
+    if let Some(asyncify_start_unwind) = env
+        .inner()
+        .static_module_instance_handles()
+        .and_then(|handles| handles.asyncify_start_unwind.clone())
     {
         asyncify_start_unwind.call(&mut ctx, asyncify_data);
     } else {
@@ -1203,10 +1215,9 @@ where
 
         // Notify asyncify that we are no longer unwinding
         if let Some(asyncify_stop_unwind) = env
-            .try_inner()
-            .into_iter()
-            .filter_map(|i| i.asyncify_stop_unwind.clone())
-            .next()
+            .inner()
+            .static_module_instance_handles()
+            .and_then(|i| i.asyncify_stop_unwind.clone())
         {
             asyncify_stop_unwind.call(&mut ctx);
         } else {
@@ -1316,10 +1327,9 @@ pub fn rewind_ext<M: MemorySize>(
     // Invoke the callback that will prepare to rewind
     let asyncify_data = wasi_try!(rewind_pointer.try_into().map_err(|_| Errno::Overflow));
     if let Some(asyncify_start_rewind) = env
-        .try_inner()
-        .into_iter()
-        .filter_map(|a| a.asyncify_start_rewind.clone())
-        .next()
+        .inner()
+        .static_module_instance_handles()
+        .and_then(|a| a.asyncify_start_rewind.clone())
     {
         asyncify_start_rewind.call(ctx, asyncify_data);
     } else {
@@ -1417,7 +1427,11 @@ where
 
         // Notify asyncify that we are no longer rewinding
         let env = ctx.data();
-        if let Some(asyncify_stop_rewind) = env.inner().asyncify_stop_unwind.clone() {
+        if let Some(asyncify_stop_rewind) = env
+            .inner()
+            .static_module_instance_handles()
+            .and_then(|handles| handles.asyncify_stop_unwind.clone())
+        {
             asyncify_stop_rewind.call(ctx);
         } else {
             warn!("failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible");

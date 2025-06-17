@@ -27,6 +27,8 @@ pub fn sock_send_to<M: MemorySize>(
     addr: WasmPtr<__wasi_addr_port_t, M>,
     ret_data_len: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let iovs_arr = wasi_try_mem_ok!(si_data.slice(&memory, si_data_len));

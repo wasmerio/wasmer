@@ -32,6 +32,8 @@ pub fn fd_read<M: MemorySize>(
     iovs_len: M::Offset,
     nread: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
+    WasiEnv::do_pending_operations(&mut ctx)?;
+
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
 
@@ -127,8 +129,6 @@ pub(crate) fn fd_read_internal<M: MemorySize>(
     nread: WasmPtr<M::Offset, M>,
     should_update_cursor: bool,
 ) -> WasiResult<usize> {
-    wasi_try_ok_ok!(WasiEnv::process_signals_and_exit(ctx)?);
-
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
     let state = env.state();

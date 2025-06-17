@@ -102,7 +102,7 @@ impl DProxyInstanceFactory {
             .task_dedicated(Box::new(move || {
                 #[cfg(feature = "sys")]
                 let _guard = handle.enter();
-                if let Err(err) = runner.run_command(&command_name, &pkg, runtime) {
+                if let Err(err) = Runner::run_command(&mut runner, &command_name, &pkg, runtime) {
                     tracing::error!("Instance Exited: {}", err);
                 } else {
                     tracing::info!("Instance Exited: Nominal");

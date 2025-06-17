@@ -1376,11 +1376,83 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         }
     }
 
+    fn build_table_prepare(
+        table_index: TableIndex,
+        intrinsics: &Intrinsics<'ctx>,
+        module: &Module<'ctx>,
+        wasm_module: &WasmerCompilerModule,
+        ctx_ptr_value: PointerValue<'ctx>,
+        offsets: &VMOffsets,
+        builder: &Builder<'ctx>,
+    ) -> Result<(PointerValue<'ctx>, PointerValue<'ctx>), CompileError> {
+        if let Some(local_table_index) = wasm_module.local_table_index(table_index) {
+            let offset = intrinsics.i64_ty.const_int(
+                offsets
+                    .vmctx_vmtable_definition_base(local_table_index)
+                    .into(),
+                false,
+            );
+            let ptr_to_base_ptr =
+                unsafe { err!(builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")) };
+            let ptr_to_base_ptr =
+                err!(builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
+                    .into_pointer_value();
+            let offset = intrinsics.i64_ty.const_int(
+                offsets
+                    .vmctx_vmtable_definition_current_elements(local_table_index)
+                    .into(),
+                false,
+            );
+            let ptr_to_bounds =
+                unsafe { err!(builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")) };
+            let ptr_to_bounds = err!(builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, ""))
+                .into_pointer_value();
+            Ok((ptr_to_base_ptr, ptr_to_bounds))
+        } else {
+            let offset = intrinsics.i64_ty.const_int(
+                offsets.vmctx_vmtable_import_definition(table_index).into(),
+                false,
+            );
+            let definition_ptr_ptr =
+                unsafe { err!(builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, &[offset], "")) };
+            let definition_ptr_ptr =
+                err!(builder.build_bit_cast(definition_ptr_ptr, intrinsics.ptr_ty, "",))
+                    .into_pointer_value();
+            let definition_ptr =
+                err!(builder.build_load(intrinsics.ptr_ty, definition_ptr_ptr, ""))
+                    .into_pointer_value();
+            tbaa_label(
+                module,
+                intrinsics,
+                format!("table {} definition", table_index.as_u32()),
+                definition_ptr.as_instruction_value().unwrap(),
+            );
+
+            let offset = intrinsics
+                .i64_ty
+                .const_int(offsets.vmtable_definition_base().into(), false);
+            let ptr_to_base_ptr =
+                unsafe { err!(builder.build_gep(intrinsics.i8_ty, definition_ptr, &[offset], "")) };
+            let ptr_to_base_ptr =
+                err!(builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
+                    .into_pointer_value();
+            let offset = intrinsics
+                .i64_ty
+                .const_int(offsets.vmtable_definition_current_elements().into(), false);
+            let ptr_to_bounds =
+                unsafe { err!(builder.build_gep(intrinsics.i8_ty, definition_ptr, &[offset], "")) };
+            let ptr_to_bounds = err!(builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, ""))
+                .into_pointer_value();
+            Ok((ptr_to_base_ptr, ptr_to_bounds))
+        }
+    }
+
     fn table_prepare(
         &mut self,
         table_index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
+        body_builder: &Builder<'ctx>,
     ) -> Result<(PointerValue<'ctx>, PointerValue<'ctx>), CompileError> {
         let (cached_tables, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_tables,
@@ -1389,122 +1461,56 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
             &self.offsets,
         );
-        let TableCache {
-            ptr_to_base_ptr,
-            ptr_to_bounds,
-        } = match cached_tables.entry(table_index) {
-            Entry::Occupied(entry) => entry.get().clone(),
-            Entry::Vacant(entry) => {
-                let (ptr_to_base_ptr, ptr_to_bounds) = if let Some(local_table_index) =
-                    wasm_module.local_table_index(table_index)
-                {
-                    let offset = intrinsics.i64_ty.const_int(
-                        offsets
-                            .vmctx_vmtable_definition_base(local_table_index)
-                            .into(),
-                        false,
-                    );
-                    let ptr_to_base_ptr = unsafe {
-                        err!(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            &[offset],
-                            ""
-                        ))
-                    };
-                    let ptr_to_base_ptr =
-                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
-                            .into_pointer_value();
-                    let offset = intrinsics.i64_ty.const_int(
-                        offsets
-                            .vmctx_vmtable_definition_current_elements(local_table_index)
-                            .into(),
-                        false,
-                    );
-                    let ptr_to_bounds = unsafe {
-                        err!(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            &[offset],
-                            ""
-                        ))
-                    };
-                    let ptr_to_bounds =
-                        err!(cache_builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, ""))
-                            .into_pointer_value();
-                    (ptr_to_base_ptr, ptr_to_bounds)
-                } else {
-                    let offset = intrinsics.i64_ty.const_int(
-                        offsets.vmctx_vmtable_import_definition(table_index).into(),
-                        false,
-                    );
-                    let definition_ptr_ptr = unsafe {
-                        err!(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            &[offset],
-                            ""
-                        ))
-                    };
-                    let definition_ptr_ptr = err!(cache_builder.build_bit_cast(
-                        definition_ptr_ptr,
-                        intrinsics.ptr_ty,
-                        "",
-                    ))
-                    .into_pointer_value();
-                    let definition_ptr =
-                        err!(cache_builder.build_load(intrinsics.ptr_ty, definition_ptr_ptr, ""))
-                            .into_pointer_value();
-                    tbaa_label(
-                        module,
+
+        let is_growable = is_table_growable(wasm_module, table_index).ok_or_else(|| {
+            CompileError::Codegen(format!(
+                "Table index out of bounds: {}",
+                table_index.as_u32()
+            ))
+        })?;
+
+        // If the table is growable, it may change, so we can't cache the pointers; they need to
+        // go directly in the function body at the point where they're needed
+        if is_growable {
+            Self::build_table_prepare(
+                table_index,
+                intrinsics,
+                module,
+                wasm_module,
+                ctx_ptr_value,
+                offsets,
+                body_builder,
+            )
+        } else {
+            let TableCache {
+                ptr_to_base_ptr,
+                ptr_to_bounds,
+            } = match cached_tables.entry(table_index) {
+                Entry::Occupied(entry) => entry.get().clone(),
+                Entry::Vacant(entry) => {
+                    let (ptr_to_base_ptr, ptr_to_bounds) = Self::build_table_prepare(
+                        table_index,
                         intrinsics,
-                        format!("table {} definition", table_index.as_u32()),
-                        definition_ptr.as_instruction_value().unwrap(),
-                    );
+                        module,
+                        wasm_module,
+                        ctx_ptr_value,
+                        offsets,
+                        cache_builder,
+                    )?;
 
-                    let offset = intrinsics
-                        .i64_ty
-                        .const_int(offsets.vmtable_definition_base().into(), false);
-                    let ptr_to_base_ptr = unsafe {
-                        err!(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            definition_ptr,
-                            &[offset],
-                            ""
-                        ))
+                    let v = TableCache {
+                        ptr_to_base_ptr,
+                        ptr_to_bounds,
                     };
-                    let ptr_to_base_ptr =
-                        err!(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, ""))
-                            .into_pointer_value();
-                    let offset = intrinsics
-                        .i64_ty
-                        .const_int(offsets.vmtable_definition_current_elements().into(), false);
-                    let ptr_to_bounds = unsafe {
-                        err!(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            definition_ptr,
-                            &[offset],
-                            ""
-                        ))
-                    };
-                    let ptr_to_bounds =
-                        err!(cache_builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, ""))
-                            .into_pointer_value();
-                    (ptr_to_base_ptr, ptr_to_bounds)
-                };
 
-                let v = TableCache {
-                    ptr_to_base_ptr,
-                    ptr_to_bounds,
-                };
+                    entry.insert(v.clone());
 
-                entry.insert(v.clone());
+                    v
+                }
+            };
 
-                v
-            }
-        };
-
-        Ok((ptr_to_base_ptr, ptr_to_bounds))
+            Ok((ptr_to_base_ptr, ptr_to_bounds))
+        }
     }
 
     pub fn table(
@@ -1512,18 +1518,22 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: TableIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
+        body_builder: &Builder<'ctx>,
     ) -> Result<(PointerValue<'ctx>, IntValue<'ctx>), CompileError> {
-        let (ptr_to_base_ptr, ptr_to_bounds) = self.table_prepare(index, intrinsics, module)?;
-        let base_ptr =
-            err!(self
-                .cache_builder
-                .build_load(intrinsics.ptr_ty, ptr_to_base_ptr, "base_ptr"))
+        let (ptr_to_base_ptr, ptr_to_bounds) =
+            self.table_prepare(index, intrinsics, module, body_builder)?;
+
+        // Safe to unwrap since an out-of-bounds index will be caught be table_prepare
+        let builder = if is_table_growable(self.wasm_module, index).unwrap() {
+            &body_builder
+        } else {
+            &self.cache_builder
+        };
+
+        let base_ptr = err!(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, "base_ptr"))
             .into_pointer_value();
         let bounds =
-            err!(self
-                .cache_builder
-                .build_load(intrinsics.isize_ty, ptr_to_bounds, "bounds"))
-            .into_int_value();
+            err!(builder.build_load(intrinsics.isize_ty, ptr_to_bounds, "bounds")).into_int_value();
         tbaa_label(
             module,
             intrinsics,
@@ -2114,4 +2124,12 @@ pub fn tbaa_label<'ctx>(
     // Attach the access tag to the instruction.
     let tbaa_kind = context.get_kind_id("tbaa");
     instruction.set_metadata(type_tbaa, tbaa_kind).unwrap();
+}
+
+fn is_table_growable(module: &WasmerCompilerModule, index: TableIndex) -> Option<bool> {
+    let table = module.tables.get(index)?;
+    match table.maximum {
+        None => Some(true),
+        Some(max) => Some(max > table.minimum),
+    }
 }

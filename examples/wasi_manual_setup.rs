@@ -45,6 +45,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut wasi_env = WasiEnv::builder("hello")
         // .args(&["world"])
         // .env("KEY", "Value")
+        .engine(store.engine().clone())
         .finalize(&mut store)?;
 
     println!("Instantiating module with WASI imports...");

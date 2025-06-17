@@ -8,14 +8,14 @@ env:
 on:
   push:
     branches:
-      - 'main'
+      - "main"
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
-      - '[0-9]+.[0-9]+.[0-9]+*'
+      - "[0-9]+.[0-9]+.[0-9]+*"
   workflow_dispatch:
     inputs:
       release:
-          description: 'Make release'
+        description: "Make release"
 
 jobs:
   setup:
@@ -46,9 +46,9 @@ jobs:
         include:
           - build: linux-arm64
             os: ubuntu-22.04-arm
-            artifact_name: 'wasmer-linux-aarch64'
-            #llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            artifact_name: "wasmer-linux-aarch64"
+            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
+            cross_compilation_artifact_name: "cross_compiled_from_linux"
             use_sccache: false
             use_rustcache: false
             build_wasm: true
@@ -58,46 +58,46 @@ jobs:
             enable_wamr: true
           - build: linux-x64
             os: ubuntu-22.04
-            artifact_name: 'wasmer-linux-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            artifact_name: "wasmer-linux-amd64"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz"
+            cross_compilation_artifact_name: "cross_compiled_from_linux"
             use_sccache: false
             build_wasm: true
             enable_llvm: true
-            enable_v8: true 
+            enable_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: macos-x64
             os: macos-13
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz'
-            artifact_name: 'wasmer-darwin-amd64'
-            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz"
+            artifact_name: "wasmer-darwin-amd64"
+            cross_compilation_artifact_name: "cross_compiled_from_mac"
             use_sccache: false
             build_wasm: false
             enable_llvm: true
-            enable_v8: true 
+            enable_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
             os: macos-14
             target: aarch64-apple-darwin
-            artifact_name: 'wasmer-darwin-arm64'
+            artifact_name: "wasmer-darwin-arm64"
             use_sccache: false
             build_wasm: false
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz'
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
-            enable_v8: true 
+            enable_v8: true
             enable_wasmi: true
             enable_wamr: true
           - build: windows-x64
             os: windows-2022
-            artifact_name: 'wasmer-windows-amd64'
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'
-            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            artifact_name: "wasmer-windows-amd64"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz"
+            cross_compilation_artifact_name: "cross_compiled_from_win"
             build_wasm: false
             use_sccache: false
             enable_llvm: true
-            enable_v8: false 
+            enable_v8: false
             enable_wasmi: true
             enable_wamr: false
             #- build: linux-musl-x64
@@ -141,7 +141,7 @@ jobs:
         shell: bash
         run: |
           choco install ninja
-      - name: Delete unwanted link to stop it from interfering (Windows) 
+      - name: Delete unwanted link to stop it from interfering (Windows)
         if: startsWith(matrix.build, 'windows-')
         shell: bash
         run: rm /usr/bin/link.exe
@@ -258,7 +258,7 @@ jobs:
         shell: bash
         run: |
           LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
-      - name: Build Wasmer binary 
+      - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
         run: |
@@ -268,7 +268,7 @@ jobs:
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
-      - name: Build Wasmer on linux-x64 
+      - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
           RUSTFLAGS="-C linker=clang -C link-arg=-fuse-ld=mold" make build-wasmer
@@ -294,11 +294,11 @@ jobs:
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
-     #- name: Build Wasmer binary on Wasm32-WASI without LLVM
-     #  if: matrix.build_wasm
-     #  shell: bash
-     #  run: |
-     #    make build-wasmer-wasm
+      #- name: Build Wasmer binary on Wasm32-WASI without LLVM
+      #  if: matrix.build_wasm
+      #  shell: bash
+      #  run: |
+      #    make build-wasmer-wasm
       - name: Install Nightly Rust for Headless
         if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         uses: dtolnay/rust-toolchain@master
@@ -397,7 +397,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 'wasmer-windows-gnu64'
+          name: "wasmer-windows-gnu64"
           path: dist
           if-no-files-found: error
           retention-days: 2
@@ -430,7 +430,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 'aarch64-apple-darwin-jsc'
+          name: "aarch64-apple-darwin-jsc"
           path: dist
           if-no-files-found: error
           retention-days: 2
@@ -459,7 +459,7 @@ jobs:
       - name: Upload Artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: 'x86_64-apple-darwin-jsc'
+          name: "x86_64-apple-darwin-jsc"
           path: dist
           if-no-files-found: error
           retention-days: 2
