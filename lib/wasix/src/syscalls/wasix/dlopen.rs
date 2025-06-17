@@ -1,5 +1,5 @@
 use super::*;
-use crate::{state::ModuleLoader, syscalls::*};
+use crate::{state::WasmLoader, syscalls::*};
 
 // TODO: add journal events for dl-related syscalls
 #[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
@@ -36,7 +36,7 @@ pub fn dlopen<M: MemorySize>(
     let linker = linker.clone();
 
     // TODO: Rework interface
-    let location = ModuleLoader::Filesystem{
+    let location = WasmLoader::Filesystem{
         module_name: &path,
         ld_library_path: ld_library_path.as_slice(),
     };
