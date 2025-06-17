@@ -1,10 +1,10 @@
-use super::*;
-use crate::syscalls::*;
-use wasmer::{FunctionType, Table, Type};
+use std::path::PathBuf;
 
-// TODO: Actually use
+use super::*;
+use crate::{state::WasmLoader, syscalls::*};
+use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
+
 // TODO: Move to wasix-types
-// TODO: Maybe expand to cover more types
 #[repr(u8)]
 enum WasmValueType {
     I32 = 0,
@@ -12,6 +12,38 @@ enum WasmValueType {
     F32 = 2,
     F64 = 3,
 }
+impl WasmValueType {
+    fn new(value: u8) -> Result<Self, Errno> {
+        match value {
+            0 => Ok(Self::I32),
+            1 => Ok(Self::I64),
+            2 => Ok(Self::F32),
+            3 => Ok(Self::F64),
+            _ => Err(Errno::Inval),
+        }
+    }
+    fn as_u8(self) -> u8 {
+        self as u8
+    }
+    fn size(&self) -> u64 {
+        match self {
+            Self::I32 => 4,
+            Self::I64 => 8,
+            Self::F32 => 4,
+            Self::F64 => 8,
+        }
+    }
+    fn name(&self) -> &str {
+        match self {
+            Self::I32 => "i32",
+            Self::I64 => "i64",
+            Self::F32 => "f32",
+            Self::F64 => "f64",
+        }
+    }
+}
+
+
 
 /// TODO: write proper documentation for this function
 
@@ -36,220 +68,215 @@ pub fn closure_prepare<M: MemorySize>(
     result_types_length: u32,
     // Pointer to the userdata. Will be passed to the function
     user_data: WasmPtr<u8, M>,
-) -> Result<(), WasiRuntimeError> {
+) -> Result<Errno, WasiRuntimeError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    let Some(stack_pointer) = ctx
-        .data()
-        .inner()
-        .main_module_instance_handles()
-        .stack_pointer
-        .clone()
-    else {
-        return panic!("No __stack_pointer global");
-    };
+    let module_name = format!("__closure_{}_{}", function_id, backing_function_id);
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
-    let mut argument_types_offset: u64 = argument_types_ptr.offset().into();
-    let argument_types = (argument_types_offset
-        ..(argument_types_offset + argument_types_length as u64))
-        .map(|i| {
-            let mut type_value = [0u8; 1];
-            memory
-                .read(argument_types_offset, &mut type_value)
-                .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))
-                .unwrap();
-            argument_types_offset += 1;
-            match type_value[0] {
-                0 => Type::I32,
-                1 => Type::I64,
-                2 => Type::F32,
-                3 => Type::F64,
-                _ => panic!("Invalid value"),
-            }
-        })
-        .collect::<Vec<_>>();
-    let mut result_types_offset: u64 = result_types_ptr.offset().into();
-    let result_types = (result_types_offset..(result_types_offset + result_types_length as u64))
-        .map(|i| {
-            let mut type_value = [0u8; 1];
-            memory
-                .read(result_types_offset, &mut type_value)
-                .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))
-                .unwrap();
-            result_types_offset += 1;
-            match type_value[0] {
-                0 => Type::I32,
-                1 => Type::I64,
-                2 => Type::F32,
-                3 => Type::F64,
-                _ => panic!("Invalid value"),
-            }
-        })
-        .collect::<Vec<_>>();
+    let module_wat = {
+        let mut argument_types_offset: u64 = argument_types_ptr.offset().into();
+        let argument_types = match (argument_types_offset
+            ..(argument_types_offset + argument_types_length as u64))
+            .map(|i| {
+                let mut type_value = [0u8; 1];
+                memory
+                    .read(argument_types_offset, &mut type_value)
+                    .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))
+                    .unwrap();
+                argument_types_offset += 1;
+                WasmValueType::new(type_value[0])
+            })
+            .collect::<Result<Vec<_>, Errno>>() {
+                Ok(types) => types,
+                Err(errno) => return Ok(errno),
+            };
+        
+        let mut result_types_offset: u64 = result_types_ptr.offset().into();
+        let result_types = match (result_types_offset..(result_types_offset + result_types_length as u64))
+            .map(|i| {
+                let mut type_value = [0u8; 1];
+                memory
+                    .read(result_types_offset, &mut type_value)
+                    .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))
+                    .unwrap();
+                result_types_offset += 1;
+                WasmValueType::new(type_value[0])
+            })
+            .collect::<Result<Vec<_>, Errno>>() {
+                Ok(types) => types,
+                Err(errno) => return Ok(errno),
+            };
 
-    fn wasm_type_size(ty: &Type) -> u64 {
-        match ty {
-            Type::I32 => 4,
-            Type::I64 => 8,
-            Type::F32 => 4,
-            Type::F64 => 8,
-            Type::V128 => 16,
-            _ => 0, // Cannot be stored; should never happen
-        }
-    }
+        let user_data_ptr = user_data.offset().into();
 
-    // TODO: Actual memory operations
-    // let memory = unsafe { env.memory() };
-    // let m2 = memory.clone();
-    let Some(indirect_function_table) = env.inner().main_module_indirect_function_table() else {
-        // No function table is available, so we cannot call any functions dynamically.
-        // TODO: This should cause a hard crash, but we return an error for now
-        return panic!("No indirect_function_table");
+        let values_size = argument_types
+            .iter()
+            .map(WasmValueType::size)
+            .sum::<u64>()
+            .next_multiple_of(16);
+        let results_size = result_types
+            .iter()
+            .map(WasmValueType::size)
+            .sum::<u64>()
+            .next_multiple_of(16);
+
+        let required_stack_size = values_size + results_size;
+
+        let signature_params: String = argument_types
+            .iter()
+            .map(|ty| {
+                let name = ty.name();
+                format!("(param {})", name)
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let signature_results = result_types
+            .iter()
+            .map(|ty| {
+                let name = ty.name();
+                format!("(result {})", name)
+            })
+            .collect::<Vec<_>>()
+            .join(" ");
+
+        let store_params = argument_types.iter().enumerate().fold(
+            (0, String::new()),
+            |mut acc, (index, ty)| {
+                let size = ty.size();
+                let typename = ty.name();
+                acc.1.push_str(
+                    format!(
+                        r#"
+            local.get $arguments_base
+            local.get {index}
+            {typename}.store offset={offset}
+            "#,
+                        typename = typename,
+                        index = index,
+                        offset = acc.0
+                    )
+                    .as_str(),
+                );
+                acc.0 += size;
+                acc
+            },
+        );
+
+        let load_results = result_types.iter().fold(
+            (0, String::new()),
+            |mut acc, ty| {
+                let size = ty.size();
+                let typename = ty.name();
+                acc.1.push_str(
+                    format!(
+                        r#"
+            local.get $results_base
+            {typename}.load offset={offset}
+            "#,
+                        typename = typename,
+                        offset = acc.0
+                    )
+                    .as_str(),
+                );
+                acc.0 += size;
+                acc
+            },
+        );
+
+        // TODO: Do this less shitty
+        // TODO: No string interpolation
+        format!(
+            r#"
+    (module
+      (@dylink.0) ;; Required for dynamic libraries
+      (import "env" "memory" (memory (;0;) 1 65536 shared))
+      (import "env" "__indirect_function_table" (table (;0;) {backing_function_id} funcref))
+      (import "env" "__stack_pointer" (global $__stack_pointer (;0;) (mut i32)))
+      (import "GOT.func" "{module_name}" (global $trampoline_function_index (;5;) (mut i32)))
+      (export "{module_name}" (func $closure_trampoline_f))
+      (export "__wasm_call_ctors" (func $link_it))
+      (type $backing_function_t (func (param i32) (param i32) (param i32)))
+      (type $link_it_t (func ))
+      (func $link_it (type $link_it_t)
+        i32.const {function_id}
+        global.get $trampoline_function_index
+        table.get 0
+        table.set 0
+      )
+      (func $closure_trampoline_f {signature_params} {signature_results}
+        (local $original_sp i32)
+        (local $arguments_base i32)
+        (local $results_base i32)
+        global.get $__stack_pointer
+        local.tee $original_sp
+        i32.const {results_size}
+        i32.sub
+        local.tee $results_base
+        i32.const {values_size}
+        i32.sub
+        local.tee $arguments_base
+        global.set $__stack_pointer
+
+        {store_params}
+
+        local.get $arguments_base
+        local.get $results_base
+        i32.const {user_data_ptr}
+
+        i32.const {backing_function_id}
+        call_indirect (type $backing_function_t)
+
+        {load_results}
+
+        local.get $original_sp
+        global.set $__stack_pointer
+      )
+    )
+    "#,
+            backing_function_id = backing_function_id,
+            function_id = function_id,
+            values_size = values_size,
+            results_size = results_size,
+            user_data_ptr = user_data_ptr,
+            signature_params = signature_params,
+            signature_results = signature_results,
+            load_results = load_results.1,
+            store_params = store_params.1,
+            module_name = module_name,
+        )
     };
 
-    let user_data_ptr = user_data.offset().into();
-
-    struct ClosureData {
-        argument_types: Vec<Type>,
-        result_types: Vec<Type>,
-        stack_pointer: Global,
-        indirect_function_table: Table,
-        backing_function_id: u32,
-        // TODO: wasm32/64
-        user_data_ptr: u64,
-    }
-
-    let new_function_env = FunctionEnv::new(
-        &mut store,
-        ClosureData {
-            argument_types: argument_types.clone(),
-            result_types: result_types.clone(),
-            stack_pointer,
-            indirect_function_table,
-            backing_function_id,
-            user_data_ptr,
-        },
-    );
-
-    let cool_fn = Function::new_with_env(
-        &mut store,
-        &new_function_env,
-        FunctionType::new(argument_types, result_types),
-        |mut ctx, arguments| {
-            let (env, mut store) = ctx.data_and_store_mut();
-            // TODO: Care about alignment
-            let values_size = env
-                .argument_types
-                .iter()
-                .map(|ty| wasm_type_size(ty))
-                .sum::<u64>();
-            let results_size = env
-                .result_types
-                .iter()
-                .map(|ty| wasm_type_size(ty))
-                .sum::<u64>();
-
-            let required_stack_size = values_size + results_size;
-
-            // TODO: Figure out if this works with g0m0. Probably not.
-            //       Potential solution: Pass a BIG allocation to register_closure and use that.
-            //                           Won't work with recursive functions.
-            //       Potential solution: Call malloc from the host :party:
-            //       Potential solution: Detect and use g0m0
-            //       Potential solution: in llvm compiler: When calling a host function while in g0m0, sync g0 before and after <- best
-            //       Potential solution: Pass a allocation big enough for one set of arguments and define that the guest must copy that before calling any other function
-            //                           Same for results, the guest is only allowed to write there, if the next thing it does is returning
-            //                           This will have issues with threads
-            let previous_stack_pointer = match env.stack_pointer.get(&mut store) {
-                Value::I32(a) => a as u64,
-                Value::I64(a) => a as u64,
-                _ => panic!("Stack pointer is not an integer"),
-            };
-            let Some(new_stack_pointer) = previous_stack_pointer.checked_sub(required_stack_size)
-            else {
-                // TODO: Actually we need to check against the stack lower bound
-                panic!("Stack overflow");
-            };
-
-            let arguments_ptr = new_stack_pointer + results_size;
-            let results_ptr = new_stack_pointer;
-
-            assert!(env.argument_types.len() == arguments.len());
-
-            for (ty, value) in env.argument_types.iter().zip(arguments.iter()) {
-                assert_eq!(*ty, value.ty());
-                // TODO: Actual memory operations
-            }
-
-            env.stack_pointer
-                .set(&mut store, Value::I64(new_stack_pointer as i64));
-
-            // We need to retrieve the function from the table inside the generated function, because it could have changed
-            let Some(Value::FuncRef(Some(function))) = env
-                .indirect_function_table
-                .get(&mut store, env.backing_function_id)
-            else {
-                panic!(
-                    "Backing function not found in table (or not a function, or not yet prepared)"
-                );
-            };
-
-            // TODO: Handle wasm64
-            let Ok(function) = function.typed::<(u32, u32, u32), ()>(&store) else {
-                panic!("Backing function does not have the correct signature (ptr, ptr, ptr) -> ()")
-            };
-
-            function.call(
-                &mut store,
-                u32::try_from(arguments_ptr).expect("Arguments pointer overflow"),
-                u32::try_from(results_ptr).expect("Results pointer overflow"),
-                u32::try_from(env.user_data_ptr)
-                    .expect("User data pointer overflow (should never happen)"),
-            );
-
-            let results = env.result_types.iter().map(|ty| {
-                match ty {
-                    Type::I32 => {
-                        Value::I32(0)
-                    }
-                    Type::I64 => {
-                        Value::I64(0)
-                    }
-                    Type::F32 => {
-                        Value::F32(0.0)
-                    }
-                    Type::F64 => {
-                        Value::F64(0.0)
-                    }
-                    Type::V128 => {
-                        Value::V128(0)
-                    }
-                    _ => panic!("Invalid result type"),
-                }
-            }).collect::<Vec<_>>();
-
-            env.stack_pointer
-                .set(&mut store, Value::I64(previous_stack_pointer as i64));
-
-            Ok(results)
-        },
-    );
+    let wasm_bytes = wat2wasm(module_wat.as_bytes()).unwrap();
 
     let Some(linker) = env.inner().linker() else {
         panic!("Closures only work for dynamic modules.");
     };
-    linker.populate_dynamic_function(&mut store, function_id, cool_fn).unwrap();
+    let ld_library_path: [&Path; 0] = [];
+    let module_path = PathBuf::from(format!("/proc/closures/{}", module_name));
+    let full_path = PathBuf::from(format!("/proc/closures/{}", module_name));
 
-    return Ok(());
+    let linker = linker.clone();
+    let module_handle = linker.load_module(
+        WasmLoader::Memory{
+            module_name: &module_name,
+            bytes: &wasm_bytes,
+            ld_library_path: ld_library_path.as_slice(),
+        },
+        &mut ctx,
+    ).unwrap();
+
+    return Ok(Errno::Success);
 }
 
 /// Allocate a new entry in the __indirect_function_table for a closure
 #[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
 pub fn closure_allocate<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-) -> Result<u32, WasiRuntimeError> {
+    closure_id: WasmPtr<u32, M>,
+) -> Result<Errno, WasiRuntimeError> {
     // NOTE: The libffi API makes it trivial to pass us a allocated chunk of memory in here.
     WasiEnv::do_pending_operations(&mut ctx)?;
     let (env, mut store) = ctx.data_and_store_mut();
@@ -258,18 +285,20 @@ pub fn closure_allocate<M: MemorySize>(
         panic!("Closures only work for dynamic modules.");
     };
     let function_id = linker.allocate_dynamic_function(&mut store).unwrap();
+    let memory = unsafe { env.memory_view(&store) };
 
-    return Ok(function_id);
+    closure_id.write(&memory, function_id);
+    return Ok(Errno::Success);
 }
 
 /// Free a entry in the indirect_function_table
-/// 
+///
 /// The function_id must have previously been allocated by allocate_closure.
 #[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
 pub fn closure_free<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     function_id: u32,
-) -> Result<(), WasiRuntimeError> {
+) -> Result<Errno, WasiRuntimeError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let (env, mut store) = ctx.data_and_store_mut();
@@ -278,7 +307,9 @@ pub fn closure_free<M: MemorySize>(
         panic!("Closures only work for dynamic modules.");
     };
     // TODO: Dont crash, when the function_id is invalid, but return a proper error.
-    linker.free_dynamic_function(&mut store, function_id).unwrap();
+    linker
+        .free_dynamic_function(&mut store, function_id)
+        .unwrap();
 
-    return Ok(());
+    return Ok(Errno::Success);
 }
