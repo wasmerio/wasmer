@@ -130,7 +130,9 @@
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
-<a href="#132" id="132">132</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `path_link()`
@@ -161,6 +163,8 @@
     new_path: WasmPtr&lt;u8, M&gt;,
     new_path_len: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">if </span>old_flags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0 </span>{
         Span::current().record(<span class="string">"follow_symlinks"</span>, <span class="bool-val">true</span>);
     }

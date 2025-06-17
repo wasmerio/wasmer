@@ -107,6 +107,8 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     ret_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(epoll_create_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>)<span class="question-mark">?</span>);
     <span class="kw">let </span>env = ctx.data();
 
@@ -131,8 +133,6 @@
     ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     with_fd: <span class="prelude-ty">Option</span>&lt;WasiFd&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;WasiFd, Errno&gt;, WasiError&gt; {
-    <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
-
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 

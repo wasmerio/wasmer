@@ -259,7 +259,8 @@
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
 <a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, ops::Range};
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{mem::MaybeUninit, ops::Range};
 <span class="kw">use </span>wasmer_types::Pages;
 
 <span class="kw">use crate</span>::{
@@ -278,6 +279,7 @@
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'a</span>&gt; BackendMemoryView&lt;<span class="lifetime">'a</span>&gt; {
     <span class="attr">#[inline]
+    #[allow(clippy::needless_return)]
     </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new(memory: <span class="kw-2">&amp;</span>Memory, store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>AsStoreRef + <span class="question-mark">?</span>Sized)) -&gt; <span class="self">Self </span>{
         <span class="kw">match </span><span class="kw-2">&amp;</span>store.as_store_ref().inner.store {
             <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]

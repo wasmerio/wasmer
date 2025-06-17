@@ -1221,7 +1221,9 @@
 <a href="#1220" id="1220">1220</a>
 <a href="#1221" id="1221">1221</a>
 <a href="#1222" id="1222">1222</a>
-<a href="#1223" id="1223">1223</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::time::SystemTime;
 <span class="kw">use </span>wasmer_wasix_types::wasi;
 <span class="kw">use </span>wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
@@ -1837,6 +1839,7 @@
             stack_lower: value.stack_lower,
             guard_size: value.guard_size,
             stack_size: value.stack_size,
+            tls_base: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -1848,6 +1851,7 @@
             stack_lower: value.stack_lower.to_native(),
             guard_size: value.guard_size.to_native(),
             stack_size: value.stack_size.to_native(),
+            tls_base: <span class="prelude-val">None</span>,
         }
     }
 }

@@ -44,7 +44,9 @@
 <a href="#43" id="43">43</a>
 <a href="#44" id="44">44</a>
 <a href="#45" id="45">45</a>
-<a href="#46" id="46">46</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#46" id="46">46</a>
+<a href="#47" id="47">47</a>
+<a href="#48" id="48">48</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// Wake up all threads that are waiting on futex_wait on this futex.
@@ -54,10 +56,12 @@
 /// * `futex` - Memory location that holds a futex that others may be waiting on
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(futex_idx = field::Empty, woken = field::Empty), ret)]
 </span><span class="kw">pub fn </span>futex_wake_all&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     futex_ptr: WasmPtr&lt;u32, M&gt;,
     ret_woken: WasmPtr&lt;Bool, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>state = env.state.deref();
@@ -87,7 +91,7 @@
         <span class="bool-val">false </span>=&gt; Bool::False,
         <span class="bool-val">true </span>=&gt; Bool::True,
     };
-    <span class="macro">wasi_try_mem!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, woken));
-    Errno::Success
+    <span class="macro">wasi_try_mem_ok!</span>(ret_woken.write(<span class="kw-2">&amp;</span>memory, woken));
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

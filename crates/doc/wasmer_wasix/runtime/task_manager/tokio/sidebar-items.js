@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["RuntimeOrHandle"],"struct":["SleepNow","ThreadPool","TokioRuntimeGuard","TokioTaskManager"]};
+window.SIDEBAR_ITEMS = {"enum":["RuntimeOrHandle"],"struct":["SleepNow","ThreadPool","TokioTaskManager"]};

@@ -180,7 +180,7 @@
 /// Number of bytes stored in ri_data and message flags.
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%sock, nread = field::Empty, peer = field::Empty), ret)]
 </span><span class="kw">pub fn </span>sock_recv_from&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     sock: WasiFd,
     ri_data: WasmPtr&lt;__wasi_iovec_t&lt;M&gt;, M&gt;,
     ri_data_len: M::Offset,
@@ -189,6 +189,8 @@
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
     ro_addr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     sock_recv_from_internal(
         ctx,
         sock,
@@ -211,8 +213,6 @@
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
     ro_addr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(ri_data.slice(<span class="kw-2">&amp;</span>memory, ri_data_len));

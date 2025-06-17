@@ -550,11 +550,7 @@
 <a href="#549" id="549">549</a>
 <a href="#550" id="550">550</a>
 <a href="#551" id="551">551</a>
-<a href="#552" id="552">552</a>
-<a href="#553" id="553">553</a>
-<a href="#554" id="554">554</a>
-<a href="#555" id="555">555</a>
-<a href="#556" id="556">556</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#552" id="552">552</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     path::{Path, PathBuf},
     sync::Arc,
@@ -564,7 +560,6 @@
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>tokio::runtime::Handle;
 <span class="kw">use </span>virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, TmpFileSystem};
-<span class="kw">use </span>wasmer::Imports;
 <span class="kw">use </span>webc::metadata::annotations::Wasi <span class="kw">as </span>WasiAnnotation;
 
 <span class="kw">use crate</span>::{
@@ -603,7 +598,6 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) stop_running_after_snapshot: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) skip_stdio_during_bootstrap: bool,
     <span class="kw">pub</span>(<span class="kw">crate</span>) current_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) additional_imports: Imports,
 }
 
 <span class="kw">impl </span>CommonWasiOptions {
@@ -650,8 +644,6 @@
         <span class="self">self</span>.populate_args(wasi, builder);
 
         <span class="kw-2">*</span>builder.capabilities_mut() = <span class="self">self</span>.capabilities.clone();
-
-        builder.add_imports(<span class="kw-2">&amp;</span><span class="self">self</span>.additional_imports);
 
         <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
         </span>{

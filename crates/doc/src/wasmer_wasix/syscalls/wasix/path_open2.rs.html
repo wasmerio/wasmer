@@ -428,7 +428,9 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `path_open()`
@@ -469,6 +471,8 @@
     fd_flags: Fdflagsext,
     fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">if </span>dirflags &amp; __WASI_LOOKUP_SYMLINK_FOLLOW != <span class="number">0 </span>{
         Span::current().record(<span class="string">"follow_symlinks"</span>, <span class="bool-val">true</span>);
     }

@@ -403,8 +403,7 @@
 <a href="#402" id="402">402</a>
 <a href="#403" id="403">403</a>
 <a href="#404" id="404">404</a>
-<a href="#405" id="405">405</a>
-<a href="#406" id="406">406</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
+<a href="#405" id="405">405</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused_imports)]
 #![allow(dead_code)]
 
 </span><span class="kw">pub mod </span>cconst;
@@ -437,6 +436,7 @@
     bin_factory::{spawn_exec, BinFactory, BinaryPackage},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
+    runners::wasi::{PackageOrHash, RuntimeOrEngine},
     runtime::task_manager::InlineWaker,
     Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
@@ -636,8 +636,8 @@
             .prepare_webc_env(
                 prog,
                 <span class="kw-2">&amp;</span>wasi_opts,
-                Either::Left(<span class="kw-2">&amp;</span>pkg),
-                <span class="self">self</span>.runtime.clone(),
+                PackageOrHash::Package(<span class="kw-2">&amp;</span>pkg),
+                RuntimeOrEngine::Runtime(<span class="self">self</span>.runtime.clone()),
                 <span class="prelude-val">Some</span>(root_fs),
             )
             <span class="comment">// TODO: better error conversion
@@ -739,8 +739,7 @@
         <span class="kw">let </span>tm = TokioTaskManager::new(tokio_rt);
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(tm));
         <span class="kw">let </span>client = rt.http_client().unwrap().clone();
-        rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+        rt.set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
         <span class="kw">let </span>env: HashMap&lt;String, String&gt; = [(<span class="string">"MYENV1"</span>.to_string(), <span class="string">"VAL1"</span>.to_string())]
             .into_iter()
@@ -793,8 +792,7 @@
         <span class="kw">let </span>tm = TokioTaskManager::new(tokio_rt);
         <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(tm));
         <span class="kw">let </span>client = rt.http_client().unwrap().clone();
-        rt.set_engine(<span class="prelude-val">Some</span>(wasmer::Engine::default()))
-            .set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
+        rt.set_package_loader(BuiltinPackageLoader::new().with_shared_http_client(client));
 
         <span class="kw">let </span>cmd = <span class="string">"wasmer-tests/python-env-dump --help"</span>;
 

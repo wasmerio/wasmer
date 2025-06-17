@@ -360,12 +360,12 @@
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="comment">// If we were just restored the stack then we were woken after a deep sleep
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, i32&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="comment">// We should never get here as the process will be termined
-        // in the `WasiEnv::process_signals_and_exit()` call
+        // in the `WasiEnv::do_pending_operations()` call
         </span><span class="kw">let </span>exit_code = ExitCode::from_native(exit_code);
         ctx.data().process.terminate(exit_code);
         <span class="kw">return </span><span class="prelude-val">Err</span>(WasiError::Exit(exit_code));

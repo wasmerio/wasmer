@@ -31,7 +31,9 @@
 <a href="#30" id="30">30</a>
 <a href="#31" id="31">31</a>
 <a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a>
+<a href="#35" id="35">35</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `fd_tell()`
@@ -44,24 +46,26 @@
 ///     The offset of `fd` relative to the start of the file
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%fd, offset = field::Empty), ret)]
 </span><span class="kw">pub fn </span>fd_tell&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     fd: WasiFd,
     offset: WasmPtr&lt;Filesize, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>offset_ref = offset.deref(<span class="kw-2">&amp;</span>memory);
 
-    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
 
     <span class="kw">if </span>!fd_entry.inner.rights.contains(Rights::FD_TELL) {
-        <span class="kw">return </span>Errno::Access;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
     }
 
     <span class="kw">let </span>offset = fd_entry.inner.offset.load(Ordering::Acquire);
     Span::current().record(<span class="string">"offset"</span>, offset);
-    <span class="macro">wasi_try_mem!</span>(offset_ref.write(offset));
+    <span class="macro">wasi_try_mem_ok!</span>(offset_ref.write(offset));
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

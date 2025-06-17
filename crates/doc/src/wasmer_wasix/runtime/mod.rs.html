@@ -640,14 +640,12 @@
 <a href="#639" id="639">639</a>
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
-<a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a>
-<a href="#644" id="644">644</a></pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
+<a href="#642" id="642">642</a></pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
 <span class="kw">pub mod </span>task_manager;
 
-<span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnMemoryType, VirtualTaskManager};
+<span class="kw">pub use </span><span class="self">self</span>::task_manager::{SpawnType, VirtualTaskManager};
 <span class="kw">use </span><span class="self">self</span>::{module_cache::CacheError, task_manager::InlineWaker};
 <span class="kw">use </span>wasmer_config::package::SuggestedCompilerOptimizations;
 <span class="kw">use </span>wasmer_types::{
@@ -684,6 +682,7 @@
     UnknownWasiVersion,
     NonZeroExitCode(ExitCode),
     RuntimeError(RuntimeError),
+    DlSymbolResolutionFailed(String),
 }
 
 <span class="doccomment">/// Runtime components used when running WebAssembly programs.
@@ -907,7 +906,7 @@
     <span class="kw">pub </span>http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
     <span class="kw">pub </span>package_loader: Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt;,
     <span class="kw">pub </span>source: Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;,
-    <span class="kw">pub </span>engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
+    <span class="kw">pub </span>engine: wasmer::Engine,
     <span class="kw">pub </span>module_cache: Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;,
     <span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -943,7 +942,7 @@
             rt,
             networking,
             http_client,
-            engine: <span class="prelude-val">None</span>,
+            engine: Default::default(),
             tty: <span class="prelude-val">None</span>,
             source: Arc::new(source),
             package_loader: Arc::new(loader),
@@ -963,7 +962,7 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: wasmer::Engine) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.engine = engine;
         <span class="self">self
     </span>}
@@ -1033,14 +1032,11 @@
     }
 
     <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
-        <span class="self">self</span>.engine.clone().unwrap_or_default()
+        <span class="self">self</span>.engine.clone()
     }
 
     <span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {
-        <span class="self">self</span>.engine
-            .clone()
-            .map(wasmer::Store::new)
-            .unwrap_or_default()
+        wasmer::Store::new(<span class="self">self</span>.engine.clone())
     }
 
     <span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>VirtualTaskManager&gt; {

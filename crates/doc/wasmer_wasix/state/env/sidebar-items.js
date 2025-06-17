@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["WasiEnv","WasiEnvInit","WasiInstanceHandles"]};
+window.SIDEBAR_ITEMS = {"struct":["WasiEnv","WasiEnvInit"]};

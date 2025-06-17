@@ -1,0 +1,223 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Linker for loading and linking dynamic modules at runtime. The linker is designed to work with output from clang (version 19 was used at the time of creating this code). Note that dynamic linking of WASM modules is considered unstable in clang/LLVM, so this code may need to be updated for future versions of clang."><title>wasmer_wasix::state::linker - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../../static.files/storage-59e33391.js"></script><script defer src="../sidebar-items.js"></script><script defer src="../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc mod"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><h2><a href="../../../wasmer_wasix/index.html">wasmer_<wbr>wasix</a><span class="version">0.600.1</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">Module linker</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#threading-support" title="Threading Support">Threading Support</a></li><li><a href="#about-tls" title="About TLS">About TLS</a></li><li><a href="#module-loading" title="Module Loading">Module Loading</a><ul><li><a href="#symbol-resolution" title="Symbol resolution">Symbol resolution</a></li><li><a href="#stub-functions" title="Stub functions">Stub functions</a></li><li><a href="#locating-side-modules" title="Locating side modules">Locating side modules</a></li></ul></li><li><a href="#building-dynamically-linked-modules" title="Building dynamically-linked modules">Building dynamically-linked modules</a></li></ul><h3><a href="#macros">Module Items</a></h3><ul class="block"><li><a href="#macros" title="Macros">Macros</a></li><li><a href="#structs" title="Structs">Structs</a></li><li><a href="#enums" title="Enums">Enums</a></li><li><a href="#constants" title="Constants">Constants</a></li><li><a href="#statics" title="Statics">Statics</a></li><li><a href="#functions" title="Functions">Functions</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="../index.html">In wasmer_<wbr>wasix::<wbr>state</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../../index.html">wasmer_wasix</a>::<wbr><a href="../index.html">state</a></span><h1>Module <span>linker</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><a class="src" href="../../../src/wasmer_wasix/state/linker.rs.html#5-3861">Source</a> </span></div><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Linker for loading and linking dynamic modules at runtime. The linker is designed to
+work with output from clang (version 19 was used at the time of creating this code).
+Note that dynamic linking of WASM modules is considered unstable in clang/LLVM, so
+this code may need to be updated for future versions of clang.</p>
+<p>The linker doesn’t care about where code exists and how modules call each other, but
+the way we have found to be most effective is:
+* The main module carries with it all of wasix-libc, and exports everything
+* Side module don’t link wasix-libc in, instead importing it from the main module</p>
+<p>This way, we only need one instance of wasix-libc, and one instance of all the static
+data that it requires to function. Indeed, if there were multiple instances of its
+static data, it would more than likely just break completely; one needs only imagine
+what would happen if there were multiple memory allocators (malloc) running at the same
+time. Emscripten (the only WASM runtime that supports dynamic linking, at the time of
+this writing) takes the same approach.</p>
+<p>While locating modules by relative or absolute paths is possible, it is recommended
+to put every side module into /lib, where they can be located by name as well as by
+path.</p>
+<p>The linker starts from a dynamically-linked main module. It scans the dylink.0 section
+for memory and table-related information and the list of needed modules. The module
+tree requires a memory, an indirect function table, and stack-related parameters
+(including the __stack_pointer global), which are created. Since dynamically-linked
+modules use PIC (position-independent code), the stack is not fixed and can be resized
+at runtime.</p>
+<p>After the memory, function table and stack are created, the linker proceeds to load in
+needed modules. Needed modules are always loaded in and initialized before modules that
+asked for them, since it is expected that the needed module needs to be usable before
+the module that needs it can be initialized.</p>
+<p>However, we also need to support circular dependencies between the modules; the most
+common case is when the main needs a side module and imports function from it, and the
+side imports wasix-libc functions from the main. To support this, the linker generates
+stub functions for all the imports that cannot be resolved when a module is being
+loaded in. The stub functions will then resolve the function once (and only once) at
+runtime when they’re first called. This <em>does</em>, however, mean that link errors can happen
+at runtime, after the linker has reported successful linking of the modules. Such errors
+are turned into a <a href="../../enum.WasiError.html#variant.DlSymbolResolutionFailed" title="variant wasmer_wasix::WasiError::DlSymbolResolutionFailed"><code>WasiError::DlSymbolResolutionFailed</code></a> error and will terminate
+execution completely.</p>
+<h2 id="threading-support"><a class="doc-anchor" href="#threading-support">§</a>Threading Support</h2>
+<p>The linker supports the concept of “Instance Groups”, which are multiple instances
+of the same module tree. This corresponds very closely to WASIX threads, but is
+named an instance group so as to keep the logic decoupled from the threading logic
+in WASIX.</p>
+<p>Each instance group has its own store, indirect function table, and stack pointer,
+but shares its memory with every other instance group. Note that even though the
+underlying memory is the same, we need to create a new <a href="../../syscalls/struct.Memory.html" title="struct wasmer_wasix::syscalls::Memory"><code>Memory</code></a> instance
+for each group via <a href="../../syscalls/struct.Memory.html#method.share_in_store" title="method wasmer_wasix::syscalls::Memory::share_in_store"><code>Memory::share_in_store</code></a>. Also, when placing a symbol
+in the function table, the linker always updates all function tables at the same
+time. This is because function “pointers” can be passed across instance groups
+(read: sent to other threads) by the guest code, so all function tables should
+have exactly the same content at all times.</p>
+<p>One important aspect of instance groups is that they do <em>not</em> share the same store;
+this lets us put different instance groups on different OS threads. However, this
+also means that one call to <a href="struct.Linker.html#method.load_module" title="method wasmer_wasix::state::linker::Linker::load_module"><code>Linker::load_module</code></a>, etc. cannot update every
+instance group as each one has its own function table. To make the linker work
+across threads, we need a “stop-the-world” lock on every instance group. The group
+the load/resolve request originates from sets a flag, which other instance
+groups are required to check periodically by calling <a href="struct.Linker.html#method.do_pending_link_operations" title="method wasmer_wasix::state::linker::Linker::do_pending_link_operations"><code>Linker::do_pending_link_operations</code></a>.
+Once all instance groups are stopped in that function, the original can proceed to
+perform the operation, and report its results to all other instance groups so they
+can make the same changes to their function table as well.</p>
+<p>In WASIX, the periodic check is performed at the start of most (but not all) syscalls.
+This means a thread that doesn’t make any syscalls can potentially block all other
+threads if a DL operation is performed. This also means that two instance groups
+cannot co-exist on the same OS thread, as the first one will block the OS thread
+and the second can’t enter the “lock” again to let the first continue its work.</p>
+<p>To also get cooperation from threads that are waiting in a syscall, a
+<a href="../../types/enum.Signal.html#variant.Sigwakeup" title="variant wasmer_wasix::types::Signal::Sigwakeup"><code>Signal::Sigwakeup</code></a> signal is sent to
+all threads when a DL operation needs to be synchronized.</p>
+<h2 id="about-tls"><a class="doc-anchor" href="#about-tls">§</a>About TLS</h2>
+<p>Each instance of each group gets its own TLS area, so there are 4 cases to consider:
+* Main instance of main module: TLS area will be allocated by the compiler, and be
+placed at the start of the memory region requested by the <code>dylink.0</code> section.
+* Main instance of side modules: Almost same as main module, but tls_base will be
+non-zero because side modules get a non-zero memory_base. It is very important
+to note that the main instance of a side module lives in the instance group
+that initially loads it in. This <strong>does not</strong> have to be the main instance
+group.
+* Other instances of main module: Each worker thread gets its TLS area
+allocated by the code in pthread_create, and a pointer to the TLS area is passed
+through the thread start args. This pointer is read by the code in thread_spawn,
+and passed through to us as part of the environment’s memory layout.
+* Other instances of side modules: This is where the linker comes in. When the
+new instance is created, the linker will call its <code>__wasix_init_tls</code> function,
+which is responsible for setting up the TLS area for the thread.</p>
+<p>Since we only want to call <code>__wasix_init_tls</code> for non-main instances of side modules,
+it is enough to call it only within <a href="struct.InstanceGroupState.html#method.instantiate_side_module_from_linker" title="method wasmer_wasix::state::linker::InstanceGroupState::instantiate_side_module_from_linker"><code>InstanceGroupState::instantiate_side_module_from_linker</code></a>.</p>
+<h2 id="module-loading"><a class="doc-anchor" href="#module-loading">§</a>Module Loading</h2>
+<p>Module loading happens as an orchestrated effort between the shared linker state, the
+state of the instance group that started (or “instigated”) the operation, and other
+instance groups. Access to a set of instances is required for resolution of exports,
+which is why the linker state alone (which only stores modules) is not enough.</p>
+<p>Even though most (if not all) operations require access to both the shared linker state
+and a/the instance group state, they’re separated into three sets:
+* Operations that deal with metadata exist as impls on <a href="struct.LinkerState.html" title="struct wasmer_wasix::state::linker::LinkerState"><code>LinkerState</code></a>. These take
+a (read-only) instance group state for export resolution, as well as a
+<a href="wasmer::StoreRef"><code>StoreRef</code></a>. They’re guaranteed not to alter the store or the
+instance group state.
+* Operations that deal with the actual instances (instantiating, putting symbols in the
+function table, etc.) and are started by the instigating group exist as impls on
+<a href="struct.InstanceGroupState.html" title="struct wasmer_wasix::state::linker::InstanceGroupState"><code>InstanceGroupState</code></a> that also take a mutable reference to the shared linker state, and
+require it to be locked for writing. These operations can and will update the linker state,
+mainly to store symbol resolution records.
+* Operations that deal with replicating changes to instances from another thread also exits
+as impls on <a href="struct.InstanceGroupState.html" title="struct wasmer_wasix::state::linker::InstanceGroupState"><code>InstanceGroupState</code></a>, but take a read-only reference to the shared linker
+state. This is important because all the information needed for replicating the change to
+the instigating group’s instances should already be in the linker state. See
+<a href="struct.InstanceGroupState.html#method.populate_imports_from_linker" title="method wasmer_wasix::state::linker::InstanceGroupState::populate_imports_from_linker"><code>InstanceGroupState::populate_imports_from_linker</code></a> and
+<a href="struct.InstanceGroupState.html#method.instantiate_side_module_from_linker" title="method wasmer_wasix::state::linker::InstanceGroupState::instantiate_side_module_from_linker"><code>InstanceGroupState::instantiate_side_module_from_linker</code></a> for the two most important ones.</p>
+<p>Module loading generally works by going through these steps:
+* <a href="struct.LinkerState.html#method.load_module_tree" title="method wasmer_wasix::state::linker::LinkerState::load_module_tree"><code>LinkerState::load_module_tree</code></a> loads modules (and their needed modules) and assigns
+module handles
+* Then, for each new module:
+* Memory and table space is allocated
+* Imports are resolved (see next section)
+* The module is instantiated
+* After all modules have been instantiated, pending imports (resulting from circular
+dependencies) are resolved
+* Finally, module initializers are called</p>
+<h3 id="symbol-resolution"><a class="doc-anchor" href="#symbol-resolution">§</a>Symbol resolution</h3>
+<p>To support replicating operations from the instigating group to other groups, symbol resolution
+happens in 3 steps:
+* <a href="struct.LinkerState.html#method.resolve_symbols" title="method wasmer_wasix::state::linker::LinkerState::resolve_symbols"><code>LinkerState::resolve_symbols</code></a> goes through the imports of a soon-to-be-loaded module,
+recording the imports as <a href="struct.NeededSymbolResolutionKey.html" title="struct wasmer_wasix::state::linker::NeededSymbolResolutionKey"><code>NeededSymbolResolutionKey</code></a>s and creating
+<a href="enum.InProgressSymbolResolution.html" title="enum wasmer_wasix::state::linker::InProgressSymbolResolution"><code>InProgressSymbolResolution</code></a>s in response to each one.
+* <a href="struct.InstanceGroupState.html#method.populate_imports_from_link_state" title="method wasmer_wasix::state::linker::InstanceGroupState::populate_imports_from_link_state"><code>InstanceGroupState::populate_imports_from_link_state</code></a> then goes through the results
+and resolves each import to its final value, while also recording enough information (in the
+shape of <a href="enum.SymbolResolutionResult.html" title="enum wasmer_wasix::state::linker::SymbolResolutionResult"><code>SymbolResolutionResult</code></a>s) for other groups to resolve the symbol from their own
+instances.
+* Finally, instances are created and finalized, and initializers are called.</p>
+<h3 id="stub-functions"><a class="doc-anchor" href="#stub-functions">§</a>Stub functions</h3>
+<p>As noted above, stub functions are generated in response to circular dependencies. The stub
+functions do take previous symbol resolution records into account, so that the stub corresponding
+to a single import cannot resolve to different exports in different groups. If no such record is
+found, then a new record is created by the stub function. However, there’s a catch.</p>
+<p>It must be noted that, during initialization, the shared linker state has to remain write-locked
+so as to prevent other threads from starting another operation (the replication logic only works
+with one active operation at a time). Stub functions need a write lock on the shared linker state
+to store new resolution records, and as such, they can’t store resolution records if they’re
+called in response to a module’s initialization routines. This can happen easily if:</p>
+<ul>
+<li>A side module is needed by the main</li>
+<li>That side module accesses any libc functions, such as printing something to stdout.</li>
+</ul>
+<p>To work around this, stub functions only <em>try</em> to lock the shared linker state, and if they can’t,
+they won’t store anything. A follow-up call to the stub function can resolve the symbol again,
+store it for use by further calls to the function, and also create a resolution record. This does
+create a few hard-to-reach edge cases:
+* If the symbol happens to resolve differently between the two calls to the stub, unpredictable
+behavior can happen; however, this is impossible in the current implementation.
+* If the shared state is locked by a different instance group, then the stub won’t store its
+lookup results anyway, even though it could have if it had waited.</p>
+<h3 id="locating-side-modules"><a class="doc-anchor" href="#locating-side-modules">§</a>Locating side modules</h3>
+<p>Side modules are located according to these steps:
+* If the name contains a slash (/), it is treated as a relative or absolute path.<br />
+* Otherwise, the name is searched for in <code>/lib</code>, <code>/usr/lib</code> and <code>/usr/local/lib</code>.
+LD_LIBRARY_PATH is not supported yet.</p>
+<h2 id="building-dynamically-linked-modules"><a class="doc-anchor" href="#building-dynamically-linked-modules">§</a>Building dynamically-linked modules</h2>
+<p>Note that building modules that conform the specific requirements of this linker requires
+careful configuration of clang. A PIC sysroot is required. The steps to build a main
+module are:</p>
+<div class="example-wrap"><pre class="language-bash"><code>clang-19 \
+  --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
+  -matomics -mbulk-memory -mmutable-globals -pthread \
+  -mthread-model posix -ftls-model=local-exec \
+  -fno-trapping-math -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL \
+  -D_WASI_EMULATED_PROCESS_CLOCKS \
+  # PIC is required for all modules, main and side
+  -fPIC \
+  # We need to compile to an object file we can manually link in the next step
+  -c main.c -o main.o
+
+wasm-ld-19 \
+  # To link needed side modules, assuming `libsidewasm.so` exists in the current directory:
+  -L. -lsidewasm \
+  -L/path/to/sysroot32-pic/lib \
+  -L/path/to/sysroot32-pic/lib/wasm32-wasi \
+  # Make wasm-ld search everywhere and export everything, needed for wasix-libc functions to
+  # be exported correctly from the main module
+  --whole-archive --export-all \
+  # The object file from the last step
+  main.o \
+  # The crt1.o file contains the _start and _main_void functions
+  /path/to/sysroot32-pic/lib/wasm32-wasi/crt1.o \
+  # Statically link the sysroot&#39;s libraries
+  -lc -lresolv -lrt -lm -lpthread -lwasi-emulated-mman \
+  # The usual linker config for wasix modules
+  --import-memory --shared-memory --extra-features=atomics,bulk-memory,mutable-globals \
+  --export=__wasm_signal --export=__tls_size --export=__tls_align \
+  --export=__tls_base --export=__wasm_call_ctors --export-if-defined=__wasm_apply_data_relocs \
+  # Again, PIC is very important, as well as producing a location-independent executable with -pie
+  --experimental-pic -pie \
+  -o main.wasm</code></pre></div>
+<p>And the steps to build a side module are:</p>
+<div class="example-wrap"><pre class="language-bash"><code>clang-19 \
+  --target=wasm32-wasi --sysroot=/path/to/sysroot32-pic \
+  -matomics -mbulk-memory -mmutable-globals -pthread \
+  -mthread-model posix -ftls-model=local-exec \
+  -fno-trapping-math -D_WASI_EMULATED_MMAN -D_WASI_EMULATED_SIGNAL \
+  -D_WASI_EMULATED_PROCESS_CLOCKS \
+  # We need PIC
+  -fPIC \
+  # Make it export everything that&#39;s not hidden explicitly
+  -fvisibility=default \
+  -c side.c -o side.o
+
+wasm-ld-19 \
+  # Note: we don&#39;t link against wasix-libc, so no -lc etc., because we want
+  # those symbols to be imported.
+  --extra-features=atomics,bulk-memory,mutable-globals \
+  --export=__wasm_call_ctors --export-if-defined=__wasm_apply_data_relocs \
+  # Need PIC
+  --experimental-pic \
+  # Import everything that&#39;s undefined, including wasix-libc functions
+  --unresolved-symbols=import-dynamic \
+  # build a shared library
+  -shared \
+  # Import a shared memory
+  --shared-memory \
+  # Conform to the libxxx.so naming so clang can find it via -lxxx
+  -o libsidewasm.so side.o</code></pre></div></div></details><h2 id="macros" class="section-header">Macros<a href="#macros" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="macro" href="macro.lock_instance_group_state.html" title="macro wasmer_wasix::state::linker::lock_instance_group_state">lock_<wbr>instance_<wbr>group_<wbr>state</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="macro" href="macro.write_linker_state.html" title="macro wasmer_wasix::state::linker::write_linker_state">write_<wbr>linker_<wbr>state</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul><h2 id="structs" class="section-header">Structs<a href="#structs" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="struct" href="struct.AllocatedPage.html" title="struct wasmer_wasix::state::linker::AllocatedPage">Allocated<wbr>Page</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.DlInstance.html" title="struct wasmer_wasix::state::linker::DlInstance">DlInstance</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.DlModule.html" title="struct wasmer_wasix::state::linker::DlModule">DlModule</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.DylinkInfo.html" title="struct wasmer_wasix::state::linker::DylinkInfo">Dylink<wbr>Info</a></div></li><li><div class="item-name"><a class="struct" href="struct.InProgressLinkState.html" title="struct wasmer_wasix::state::linker::InProgressLinkState">InProgress<wbr>Link<wbr>State</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.InProgressModuleLoad.html" title="struct wasmer_wasix::state::linker::InProgressModuleLoad">InProgress<wbr>Module<wbr>Load</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.InstanceGroupState.html" title="struct wasmer_wasix::state::linker::InstanceGroupState">Instance<wbr>Group<wbr>State</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.LinkedMainModule.html" title="struct wasmer_wasix::state::linker::LinkedMainModule">Linked<wbr>Main<wbr>Module</a></div></li><li><div class="item-name"><a class="struct" href="struct.Linker.html" title="struct wasmer_wasix::state::linker::Linker">Linker</a></div><div class="desc docblock-short">The linker is responsible for loading and linking dynamic modules at runtime,
+and managing the shared memory and indirect function table.
+Each linker instance represents a specific instance group. Cloning a linker
+instance does <em>not</em> create a new instance group though; the clone will refer
+to the same group as the original.</div></li><li><div class="item-name"><a class="struct" href="struct.LinkerState.html" title="struct wasmer_wasix::state::linker::LinkerState">Linker<wbr>State</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.MemoryAllocator.html" title="struct wasmer_wasix::state::linker::MemoryAllocator">Memory<wbr>Allocator</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.ModuleHandle.html" title="struct wasmer_wasix::state::linker::ModuleHandle">Module<wbr>Handle</a></div></li><li><div class="item-name"><a class="struct" href="struct.NeededSymbolResolutionKey.html" title="struct wasmer_wasix::state::linker::NeededSymbolResolutionKey">Needed<wbr>Symbol<wbr>Resolution<wbr>Key</a></div></li><li><div class="item-name"><a class="struct" href="struct.PendingFunctionResolutionFromLinkerState.html" title="struct wasmer_wasix::state::linker::PendingFunctionResolutionFromLinkerState">Pending<wbr>Function<wbr>Resolution<wbr>From<wbr>Linker<wbr>State</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.PendingResolutionsFromLinker.html" title="struct wasmer_wasix::state::linker::PendingResolutionsFromLinker">Pending<wbr>Resolutions<wbr>From<wbr>Linker</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="struct" href="struct.PendingTlsPointer.html" title="struct wasmer_wasix::state::linker::PendingTlsPointer">Pending<wbr>TlsPointer</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul><h2 id="enums" class="section-header">Enums<a href="#enums" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="enum" href="enum.DlOperation.html" title="enum wasmer_wasix::state::linker::DlOperation">DlOperation</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="enum" href="enum.InProgressSymbolResolution.html" title="enum wasmer_wasix::state::linker::InProgressSymbolResolution">InProgress<wbr>Symbol<wbr>Resolution</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="enum" href="enum.LinkError.html" title="enum wasmer_wasix::state::linker::LinkError">Link<wbr>Error</a></div></li><li><div class="item-name"><a class="enum" href="enum.LocateModuleError.html" title="enum wasmer_wasix::state::linker::LocateModuleError">Locate<wbr>Module<wbr>Error</a></div></li><li><div class="item-name"><a class="enum" href="enum.PartiallyResolvedExport.html" title="enum wasmer_wasix::state::linker::PartiallyResolvedExport">Partially<wbr>Resolved<wbr>Export</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="enum" href="enum.ResolveError.html" title="enum wasmer_wasix::state::linker::ResolveError">Resolve<wbr>Error</a></div></li><li><div class="item-name"><a class="enum" href="enum.ResolvedExport.html" title="enum wasmer_wasix::state::linker::ResolvedExport">Resolved<wbr>Export</a></div></li><li><div class="item-name"><a class="enum" href="enum.SymbolResolutionKey.html" title="enum wasmer_wasix::state::linker::SymbolResolutionKey">Symbol<wbr>Resolution<wbr>Key</a></div></li><li><div class="item-name"><a class="enum" href="enum.SymbolResolutionResult.html" title="enum wasmer_wasix::state::linker::SymbolResolutionResult">Symbol<wbr>Resolution<wbr>Result</a></div></li><li><div class="item-name"><a class="enum" href="enum.UnresolvedGlobal.html" title="enum wasmer_wasix::state::linker::UnresolvedGlobal">Unresolved<wbr>Global</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul><h2 id="constants" class="section-header">Constants<a href="#constants" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="constant" href="constant.DEFAULT_RUNTIME_PATH.html" title="constant wasmer_wasix::state::linker::DEFAULT_RUNTIME_PATH">DEFAULT_<wbr>RUNTIME_<wbr>PATH</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul><h2 id="statics" class="section-header">Statics<a href="#statics" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="static" href="static.INVALID_MODULE_HANDLE.html" title="static wasmer_wasix::state::linker::INVALID_MODULE_HANDLE">INVALID_<wbr>MODULE_<wbr>HANDLE</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="static" href="static.MAIN_MODULE_HANDLE.html" title="static wasmer_wasix::state::linker::MAIN_MODULE_HANDLE">MAIN_<wbr>MODULE_<wbr>HANDLE</a></div></li><li><div class="item-name"><a class="static" href="static.MAIN_MODULE_MEMORY_BASE.html" title="static wasmer_wasix::state::linker::MAIN_MODULE_MEMORY_BASE">MAIN_<wbr>MODULE_<wbr>MEMORY_<wbr>BASE</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="static" href="static.MAIN_MODULE_TABLE_BASE.html" title="static wasmer_wasix::state::linker::MAIN_MODULE_TABLE_BASE">MAIN_<wbr>MODULE_<wbr>TABLE_<wbr>BASE</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul><h2 id="functions" class="section-header">Functions<a href="#functions" class="anchor">§</a></h2><ul class="item-table"><li><div class="item-name"><a class="fn" href="fn.call_initialization_function.html" title="fn wasmer_wasix::state::linker::call_initialization_function">call_<wbr>initialization_<wbr>function</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="fn" href="fn.define_integer_global_import.html" title="fn wasmer_wasix::state::linker::define_integer_global_import">define_<wbr>integer_<wbr>global_<wbr>import</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="fn" href="fn.get_integer_global_type_from_import.html" title="fn wasmer_wasix::state::linker::get_integer_global_type_from_import">get_<wbr>integer_<wbr>global_<wbr>type_<wbr>from_<wbr>import</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="fn" href="fn.is_dynamically_linked.html" title="fn wasmer_wasix::state::linker::is_dynamically_linked">is_<wbr>dynamically_<wbr>linked</a></div></li><li><div class="item-name"><a class="fn" href="fn.locate_module.html" title="fn wasmer_wasix::state::linker::locate_module">locate_<wbr>module</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li><li><div class="item-name"><a class="fn" href="fn.parse_dylink0_section.html" title="fn wasmer_wasix::state::linker::parse_dylink0_section">parse_<wbr>dylink0_<wbr>section</a></div></li><li><div class="item-name"><a class="fn" href="fn.set_integer_global.html" title="fn wasmer_wasix::state::linker::set_integer_global">set_<wbr>integer_<wbr>global</a><span title="Restricted Visibility">&nbsp;🔒</span> </div></li></ul></section></div></main></body></html>

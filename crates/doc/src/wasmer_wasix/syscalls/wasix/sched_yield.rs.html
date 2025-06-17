@@ -12,7 +12,9 @@
 <a href="#11" id="11">11</a>
 <a href="#12" id="12">12</a>
 <a href="#13" id="13">13</a>
-<a href="#14" id="14">14</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#14" id="14">14</a>
+<a href="#15" id="15">15</a>
+<a href="#16" id="16">16</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `sched_yield()`
@@ -21,6 +23,8 @@
 </span><span class="kw">pub fn </span>sched_yield&lt;M: MemorySize + <span class="lifetime">'static</span>&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     <span class="comment">//trace!("wasi[{}:{}]::sched_yield", ctx.data().pid(), ctx.data().tid());

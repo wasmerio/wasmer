@@ -133,7 +133,9 @@
 <a href="#132" id="132">132</a>
 <a href="#133" id="133">133</a>
 <a href="#134" id="134">134</a>
-<a href="#135" id="135">135</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::atomic::AtomicUsize;
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::atomic::AtomicUsize;
 
 <span class="kw">use </span>virtual_fs::Pipe;
 
@@ -158,6 +160,8 @@
     ro_read_fd: WasmPtr&lt;WasiFd, M&gt;,
     ro_write_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>(read_fd, write_fd) = <span class="macro">wasi_try_ok!</span>(fd_pipe_internal(<span class="kw-2">&amp;mut </span>ctx, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
     <span class="kw">let </span>env = ctx.data();
 

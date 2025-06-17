@@ -238,7 +238,7 @@
     timeout: Timestamp,
     ret_nevents: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);

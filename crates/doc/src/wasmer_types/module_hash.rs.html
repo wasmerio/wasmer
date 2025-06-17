@@ -118,7 +118,14 @@
 <a href="#117" id="117">117</a>
 <a href="#118" id="118">118</a>
 <a href="#119" id="119">119</a>
-<a href="#120" id="120">120</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::{<span class="self">self</span>, Display, Formatter};
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fmt::{<span class="self">self</span>, Display, Formatter};
 
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
@@ -193,7 +200,7 @@
         <span class="prelude-val">Ok</span>(<span class="self">Self</span>::sha256_from_bytes(hash))
     }
 
-    <span class="doccomment">/// Generate a new [`ModuleCache`] based on the XXHash hash of some bytes.
+    <span class="doccomment">/// Generate a new [`ModuleHash`] based on the XXHash hash of some bytes.
     </span><span class="kw">pub fn </span>xxhash(wasm: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>wasm = wasm.as_ref();
 
@@ -202,13 +209,20 @@
         <span class="self">Self</span>::XXHash(hash.to_ne_bytes())
     }
 
-    <span class="doccomment">/// Generate a new [`ModuleCache`] based on the Sha256 hash of some bytes.
+    <span class="doccomment">/// Generate a new [`ModuleHash`] based on the Sha256 hash of some bytes.
     </span><span class="kw">pub fn </span>sha256(wasm: <span class="kw">impl </span>AsRef&lt;[u8]&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>wasm = wasm.as_ref();
 
         <span class="kw">let </span>hash: [u8; <span class="number">32</span>] = sha2::Sha256::digest(wasm).into();
 
         <span class="self">Self</span>::Sha256(hash)
+    }
+
+    <span class="doccomment">/// Generate a random [`ModuleHash`]. For when you don't care about caches.
+    </span><span class="kw">pub fn </span>random() -&gt; <span class="self">Self </span>{
+        <span class="kw">let </span><span class="kw-2">mut </span>bytes = [<span class="number">0_u8</span>; <span class="number">8</span>];
+        getrandom::getrandom(<span class="kw-2">&amp;mut </span>bytes).unwrap();
+        <span class="self">Self</span>::XXHash(bytes)
     }
 
     <span class="doccomment">/// Get the raw hash.

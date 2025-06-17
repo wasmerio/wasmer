@@ -662,15 +662,49 @@
 <a href="#661" id="661">661</a>
 <a href="#662" id="662">662</a>
 <a href="#663" id="663">663</a>
-<a href="#664" id="664">664</a></pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a>
+<a href="#683" id="683">683</a>
+<a href="#684" id="684">684</a>
+<a href="#685" id="685">685</a>
+<a href="#686" id="686">686</a>
+<a href="#687" id="687">687</a>
+<a href="#688" id="688">688</a>
+<a href="#689" id="689">689</a>
+<a href="#690" id="690">690</a>
+<a href="#691" id="691">691</a>
+<a href="#692" id="692">692</a>
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a></pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
 <span class="kw">use </span>anyhow::{Context, Error};
-<span class="kw">use </span>futures::future::Either;
 <span class="kw">use </span>tracing::Instrument;
 <span class="kw">use </span>virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
-<span class="kw">use </span>wasmer::{Extern, Module};
+<span class="kw">use </span>wasmer::{Engine, Module};
 <span class="kw">use </span>wasmer_types::ModuleHash;
 <span class="kw">use </span>webc::metadata::{annotations::Wasi, Command};
 
@@ -691,6 +725,16 @@
     stdin: <span class="prelude-ty">Option</span>&lt;ArcBoxFile&gt;,
     stdout: <span class="prelude-ty">Option</span>&lt;ArcBoxFile&gt;,
     stderr: <span class="prelude-ty">Option</span>&lt;ArcBoxFile&gt;,
+}
+
+<span class="kw">pub enum </span>PackageOrHash&lt;<span class="lifetime">'a</span>&gt; {
+    Package(<span class="kw-2">&amp;</span><span class="lifetime">'a </span>BinaryPackage),
+    Hash(ModuleHash),
+}
+
+<span class="kw">pub enum </span>RuntimeOrEngine {
+    Runtime(Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;),
+    Engine(Engine),
 }
 
 <span class="kw">impl </span>WasiRunner {
@@ -902,52 +946,58 @@
         <span class="self">self
     </span>}
 
-    <span class="doccomment">/// Add an item to the list of importable items provided to the instance.
-    </span><span class="kw">pub fn </span>with_import(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        namespace: <span class="kw">impl </span>Into&lt;String&gt;,
-        name: <span class="kw">impl </span>Into&lt;String&gt;,
-        value: <span class="kw">impl </span>Into&lt;Extern&gt;,
-    ) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-        <span class="self">self</span>.with_imports([((namespace, name), value)])
-    }
+    <span class="kw">fn </span>ensure_tokio_runtime() -&gt; <span class="prelude-ty">Option</span>&lt;tokio::runtime::Runtime&gt; {
+        <span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
+        </span>{
+            <span class="kw">if </span>tokio::runtime::Handle::try_current().is_ok() {
+                <span class="kw">return </span><span class="prelude-val">None</span>;
+            }
 
-    <span class="doccomment">/// Add multiple import functions.
-    ///
-    /// This method will accept a [`&amp;Imports`][wasmer::Imports] object.
-    </span><span class="kw">pub fn </span>with_imports&lt;I, S1, S2, E&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, imports: I) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
-    </span><span class="kw">where
-        </span>I: IntoIterator&lt;Item = ((S1, S2), E)&gt;,
-        S1: Into&lt;String&gt;,
-        S2: Into&lt;String&gt;,
-        E: Into&lt;Extern&gt;,
-    {
-        <span class="kw">let </span>imports = imports
-            .into_iter()
-            .map(|((ns, n), e)| ((ns.into(), n.into()), e.into()));
-        <span class="self">self</span>.wasi.additional_imports.extend(imports);
-        <span class="self">self
-    </span>}
+            <span class="kw">let </span>rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .expect(
+                    <span class="string">"Failed to build a multi-threaded tokio runtime. This is necessary \
+                for WASIX to work. You can provide a tokio runtime by building one \
+                yourself and entering it before using WasiRunner."</span>,
+                );
+            <span class="prelude-val">Some</span>(rt)
+        }
+
+        <span class="attr">#[cfg(not(feature = <span class="string">"sys-thread"</span>))]
+        </span>{
+            <span class="prelude-val">None
+        </span>}
+    }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
     </span><span class="kw">pub fn </span>prepare_webc_env(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         program_name: <span class="kw-2">&amp;</span>str,
         wasi: <span class="kw-2">&amp;</span>Wasi,
-        pkg_or_module_hash: Either&lt;<span class="kw-2">&amp;</span>BinaryPackage, ModuleHash&gt;,
-        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+        pkg_or_hash: PackageOrHash,
+        runtime_or_engine: RuntimeOrEngine,
         root_fs: <span class="prelude-ty">Option</span>&lt;TmpFileSystem&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder, anyhow::Error&gt; {
-        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name).runtime(runtime);
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnvBuilder::new(program_name);
 
-        <span class="kw">let </span>container_fs = <span class="kw">match </span>pkg_or_module_hash {
-            Either::Left(pkg) =&gt; {
+        <span class="kw">match </span>runtime_or_engine {
+            RuntimeOrEngine::Runtime(runtime) =&gt; {
+                builder.set_runtime(runtime);
+            }
+            RuntimeOrEngine::Engine(engine) =&gt; {
+                builder.set_engine(engine);
+            }
+        }
+
+        <span class="kw">let </span>container_fs = <span class="kw">match </span>pkg_or_hash {
+            PackageOrHash::Package(pkg) =&gt; {
                 builder.add_webc(pkg.clone());
                 builder.set_module_hash(pkg.hash());
                 builder.include_packages(pkg.package_ids.clone());
                 <span class="prelude-val">Some</span>(Arc::clone(<span class="kw-2">&amp;</span>pkg.webc_fs))
             }
-            Either::Right(hash) =&gt; {
+            PackageOrHash::Hash(hash) =&gt; {
                 builder.set_module_hash(hash);
                 <span class="prelude-val">None
             </span>}
@@ -983,18 +1033,22 @@
 
     <span class="kw">pub fn </span>run_wasm(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+        runtime_or_engine: RuntimeOrEngine,
         program_name: <span class="kw-2">&amp;</span>str,
         module: Module,
         module_hash: ModuleHash,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="comment">// Just keep the runtime and enter guard alive until we're done running the module
+        </span><span class="kw">let </span>tokio_runtime = <span class="self">Self</span>::ensure_tokio_runtime();
+        <span class="kw">let </span>_guard = tokio_runtime.as_ref().map(|rt| rt.enter());
+
         <span class="kw">let </span>wasi = webc::metadata::annotations::Wasi::new(program_name);
 
         <span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self</span>.prepare_webc_env(
             program_name,
             <span class="kw-2">&amp;</span>wasi,
-            Either::Right(module_hash),
-            runtime.clone(),
+            PackageOrHash::Hash(module_hash),
+            runtime_or_engine,
             <span class="prelude-val">None</span>,
         )<span class="question-mark">?</span>;
 
@@ -1036,12 +1090,124 @@
         }
 
         <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = env.runtime.clone();
         <span class="kw">let </span>tasks = runtime.task_manager().clone();
 
         <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
             <span class="kw">async move </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>task_handle = <span class="kw">crate</span>::bin_factory::spawn_exec_module(module, env, <span class="kw-2">&amp;</span>runtime)
                     .context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
+
+                <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
+                </span>task_handle.install_ctrlc_handler();
+
+                task_handle
+                    .wait_finished()
+                    .<span class="kw">await
+                    </span>.map_err(|err| {
+                        <span class="comment">// We do our best to recover the error
+                        </span><span class="kw">let </span>msg = err.to_string();
+                        <span class="kw">let </span>weak = Arc::downgrade(<span class="kw-2">&amp;</span>err);
+                        Arc::into_inner(err).unwrap_or_else(|| {
+                            weak.upgrade()
+                                .map(|err| wasi_runtime_error_to_owned(<span class="kw-2">&amp;</span>err))
+                                .unwrap_or_else(|| {
+                                    WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
+                                        <span class="string">"{}"</span>, msg
+                                    )))
+                                })
+                        })
+                    })
+                    .context(<span class="string">"Unable to wait for the process to exit"</span>)
+            }
+            .in_current_span(),
+        )<span class="question-mark">??</span>;
+
+        <span class="kw">if </span>exit_code.raw() == <span class="number">0 </span>{
+            <span class="prelude-val">Ok</span>(())
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(<span class="kw">crate</span>::WasiError::Exit(exit_code)).into())
+        }
+    }
+
+    <span class="kw">pub fn </span>run_command(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        command_name: <span class="kw-2">&amp;</span>str,
+        pkg: <span class="kw-2">&amp;</span>BinaryPackage,
+        runtime_or_engine: RuntimeOrEngine,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+        <span class="comment">// Just keep the runtime and enter guard alive until we're done running the module
+        </span><span class="kw">let </span>tokio_runtime = <span class="self">Self</span>::ensure_tokio_runtime();
+        <span class="kw">let </span>_guard = tokio_runtime.as_ref().map(|rt| rt.enter());
+
+        <span class="kw">let </span>cmd = pkg
+            .get_command(command_name)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"The package doesn't contain a \"{command_name}\" command"</span>))<span class="question-mark">?</span>;
+        <span class="kw">let </span>wasi = cmd
+            .metadata()
+            .annotation(<span class="string">"wasi"</span>)<span class="question-mark">?
+            </span>.unwrap_or_else(|| Wasi::new(command_name));
+
+        <span class="kw">let </span>exec_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(exec_name) = wasi.exec_name.as_ref() {
+            exec_name
+        } <span class="kw">else </span>{
+            command_name
+        };
+
+        <span class="attr">#[allow(unused_mut)]
+        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self
+            </span>.prepare_webc_env(
+                exec_name,
+                <span class="kw-2">&amp;</span>wasi,
+                PackageOrHash::Package(pkg),
+                runtime_or_engine,
+                <span class="prelude-val">None</span>,
+            )
+            .context(<span class="string">"Unable to prepare the WASI environment"</span>)<span class="question-mark">?</span>;
+
+        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+        </span>{
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.read_only_journals.iter().cloned() {
+                builder.add_read_only_journal(journal);
+            }
+            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.writable_journals.iter().cloned() {
+                builder.add_writable_journal(journal);
+            }
+
+            <span class="kw">if </span>!<span class="self">self</span>.wasi.snapshot_on.is_empty() {
+                <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
+                    builder.add_snapshot_trigger(trigger);
+                }
+            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.writable_journals.is_empty() {
+                <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
+                    builder.add_snapshot_trigger(on);
+                }
+            }
+
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
+                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
+                            <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
+                        </span>));
+                }
+                builder.with_snapshot_interval(period);
+            }
+
+            builder.with_stop_running_after_snapshot(<span class="self">self</span>.wasi.stop_running_after_snapshot);
+        }
+
+        <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
+        <span class="kw">let </span>runtime = env.runtime.clone();
+        <span class="kw">let </span>command_name = command_name.to_string();
+        <span class="kw">let </span>tasks = runtime.task_manager().clone();
+        <span class="kw">let </span>pkg = pkg.clone();
+
+        <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
+            <span class="kw">async move </span>{
+                <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
+                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, env, <span class="kw-2">&amp;</span>runtime)
+                        .<span class="kw">await
+                        </span>.context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
 
                 <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
                 </span>task_handle.install_ctrlc_handler();
@@ -1090,104 +1256,7 @@
         pkg: <span class="kw-2">&amp;</span>BinaryPackage,
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-        <span class="kw">let </span>cmd = pkg
-            .get_command(command_name)
-            .with_context(|| <span class="macro">format!</span>(<span class="string">"The package doesn't contain a \"{command_name}\" command"</span>))<span class="question-mark">?</span>;
-        <span class="kw">let </span>wasi = cmd
-            .metadata()
-            .annotation(<span class="string">"wasi"</span>)<span class="question-mark">?
-            </span>.unwrap_or_else(|| Wasi::new(command_name));
-
-        <span class="kw">let </span>exec_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(exec_name) = wasi.exec_name.as_ref() {
-            exec_name
-        } <span class="kw">else </span>{
-            command_name
-        };
-
-        <span class="attr">#[allow(unused_mut)]
-        </span><span class="kw">let </span><span class="kw-2">mut </span>builder = <span class="self">self
-            </span>.prepare_webc_env(
-                exec_name,
-                <span class="kw-2">&amp;</span>wasi,
-                Either::Left(pkg),
-                Arc::clone(<span class="kw-2">&amp;</span>runtime),
-                <span class="prelude-val">None</span>,
-            )
-            .context(<span class="string">"Unable to prepare the WASI environment"</span>)<span class="question-mark">?</span>;
-
-        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-        </span>{
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.read_only_journals.iter().cloned() {
-                builder.add_read_only_journal(journal);
-            }
-            <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.wasi.writable_journals.iter().cloned() {
-                builder.add_writable_journal(journal);
-            }
-
-            <span class="kw">if </span>!<span class="self">self</span>.wasi.snapshot_on.is_empty() {
-                <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.wasi.snapshot_on.iter().cloned() {
-                    builder.add_snapshot_trigger(trigger);
-                }
-            } <span class="kw">else if </span>!<span class="self">self</span>.wasi.writable_journals.is_empty() {
-                <span class="kw">for </span>on <span class="kw">in </span><span class="kw">crate</span>::journal::DEFAULT_SNAPSHOT_TRIGGERS {
-                    builder.add_snapshot_trigger(on);
-                }
-            }
-
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(period) = <span class="self">self</span>.wasi.snapshot_interval {
-                <span class="kw">if </span><span class="self">self</span>.wasi.writable_journals.is_empty() {
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow::format_err!</span>(
-                            <span class="string">"If you specify a snapshot interval then you must also specify a journal file"
-                        </span>));
-                }
-                builder.with_snapshot_interval(period);
-            }
-
-            builder.with_stop_running_after_snapshot(<span class="self">self</span>.wasi.stop_running_after_snapshot);
-        }
-
-        <span class="kw">let </span>env = builder.build()<span class="question-mark">?</span>;
-        <span class="kw">let </span>command_name = command_name.to_string();
-        <span class="kw">let </span>tasks = runtime.task_manager().clone();
-        <span class="kw">let </span>pkg = pkg.clone();
-
-        <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
-            <span class="kw">async move </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
-                    <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, env, <span class="kw-2">&amp;</span>runtime)
-                        .<span class="kw">await
-                        </span>.context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
-
-                <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
-                </span>task_handle.install_ctrlc_handler();
-
-                task_handle
-                    .wait_finished()
-                    .<span class="kw">await
-                    </span>.map_err(|err| {
-                        <span class="comment">// We do our best to recover the error
-                        </span><span class="kw">let </span>msg = err.to_string();
-                        <span class="kw">let </span>weak = Arc::downgrade(<span class="kw-2">&amp;</span>err);
-                        Arc::into_inner(err).unwrap_or_else(|| {
-                            weak.upgrade()
-                                .map(|err| wasi_runtime_error_to_owned(<span class="kw-2">&amp;</span>err))
-                                .unwrap_or_else(|| {
-                                    WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
-                                        <span class="string">"{}"</span>, msg
-                                    )))
-                                })
-                        })
-                    })
-                    .context(<span class="string">"Unable to wait for the process to exit"</span>)
-            }
-            .in_current_span(),
-        )<span class="question-mark">??</span>;
-
-        <span class="kw">if </span>exit_code.raw() == <span class="number">0 </span>{
-            <span class="prelude-val">Ok</span>(())
-        } <span class="kw">else </span>{
-            <span class="prelude-val">Err</span>(WasiRuntimeError::Wasi(<span class="kw">crate</span>::WasiError::Exit(exit_code)).into())
-        }
+        <span class="self">self</span>.run_command(command_name, pkg, RuntimeOrEngine::Runtime(runtime))
     }
 }
 
@@ -1205,6 +1274,9 @@
         }
         WasiRuntimeError::Wasi(WasiError::DeepSleep(<span class="kw">_</span>)) =&gt; {
             WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(<span class="string">"deep-sleep"</span>)))
+        }
+        WasiRuntimeError::Wasi(WasiError::DlSymbolResolutionFailed(symbol)) =&gt; {
+            WasiRuntimeError::Wasi(WasiError::DlSymbolResolutionFailed(symbol.clone()))
         }
         WasiRuntimeError::ControlPlane(a) =&gt; WasiRuntimeError::ControlPlane(a.clone()),
         WasiRuntimeError::Runtime(a) =&gt; WasiRuntimeError::Runtime(a.clone()),
@@ -1231,8 +1303,6 @@
     </span><span class="kw">async fn </span>test_volume_mount_without_webcs() {
         <span class="kw">use </span>std::sync::Arc;
 
-        <span class="kw">use </span><span class="kw">crate</span>::utils::xxhash_random;
-
         <span class="kw">let </span>root_fs = virtual_fs::RootFileSystemBuilder::new().build();
 
         <span class="kw">let </span>tokrt = tokio::runtime::Handle::current();
@@ -1257,8 +1327,8 @@
             .prepare_webc_env(
                 <span class="string">"test"</span>,
                 <span class="kw-2">&amp;</span>annotations,
-                Either::Right(xxhash_random()),
-                Arc::new(rt),
+                PackageOrHash::Hash(ModuleHash::random()),
+                RuntimeOrEngine::Runtime(Arc::new(rt)),
                 <span class="prelude-val">Some</span>(root_fs),
             )
             .unwrap();
@@ -1310,8 +1380,8 @@
             .prepare_webc_env(
                 <span class="string">"test"</span>,
                 <span class="kw-2">&amp;</span>annotations,
-                Either::Left(<span class="kw-2">&amp;</span>binpkg),
-                Arc::new(rt),
+                PackageOrHash::Package(<span class="kw-2">&amp;</span>binpkg),
+                RuntimeOrEngine::Runtime(Arc::new(rt)),
                 <span class="prelude-val">Some</span>(root_fs),
             )
             .unwrap();

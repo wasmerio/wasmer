@@ -2115,7 +2115,25 @@
 <a href="#2114" id="2114">2114</a>
 <a href="#2115" id="2115">2115</a>
 <a href="#2116" id="2116">2116</a>
-<a href="#2117" id="2117">2117</a></pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
+<a href="#2117" id="2117">2117</a>
+<a href="#2118" id="2118">2118</a>
+<a href="#2119" id="2119">2119</a>
+<a href="#2120" id="2120">2120</a>
+<a href="#2121" id="2121">2121</a>
+<a href="#2122" id="2122">2122</a>
+<a href="#2123" id="2123">2123</a>
+<a href="#2124" id="2124">2124</a>
+<a href="#2125" id="2125">2125</a>
+<a href="#2126" id="2126">2126</a>
+<a href="#2127" id="2127">2127</a>
+<a href="#2128" id="2128">2128</a>
+<a href="#2129" id="2129">2129</a>
+<a href="#2130" id="2130">2130</a>
+<a href="#2131" id="2131">2131</a>
+<a href="#2132" id="2132">2132</a>
+<a href="#2133" id="2133">2133</a>
+<a href="#2134" id="2134">2134</a>
+<a href="#2135" id="2135">2135</a></pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
 //!
@@ -3493,11 +3511,83 @@
         }
     }
 
+    <span class="kw">fn </span>build_table_prepare(
+        table_index: TableIndex,
+        intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
+        module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+        wasm_module: <span class="kw-2">&amp;</span>WasmerCompilerModule,
+        ctx_ptr_value: PointerValue&lt;<span class="lifetime">'ctx</span>&gt;,
+        offsets: <span class="kw-2">&amp;</span>VMOffsets,
+        builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;), CompileError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(local_table_index) = wasm_module.local_table_index(table_index) {
+            <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
+                offsets
+                    .vmctx_vmtable_definition_base(local_table_index)
+                    .into(),
+                <span class="bool-val">false</span>,
+            );
+            <span class="kw">let </span>ptr_to_base_ptr =
+                <span class="kw">unsafe </span>{ <span class="macro">err!</span>(builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>)) };
+            <span class="kw">let </span>ptr_to_base_ptr =
+                <span class="macro">err!</span>(builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
+                    .into_pointer_value();
+            <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
+                offsets
+                    .vmctx_vmtable_definition_current_elements(local_table_index)
+                    .into(),
+                <span class="bool-val">false</span>,
+            );
+            <span class="kw">let </span>ptr_to_bounds =
+                <span class="kw">unsafe </span>{ <span class="macro">err!</span>(builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>)) };
+            <span class="kw">let </span>ptr_to_bounds = <span class="macro">err!</span>(builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, <span class="string">""</span>))
+                .into_pointer_value();
+            <span class="prelude-val">Ok</span>((ptr_to_base_ptr, ptr_to_bounds))
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
+                offsets.vmctx_vmtable_import_definition(table_index).into(),
+                <span class="bool-val">false</span>,
+            );
+            <span class="kw">let </span>definition_ptr_ptr =
+                <span class="kw">unsafe </span>{ <span class="macro">err!</span>(builder.build_gep(intrinsics.i8_ty, ctx_ptr_value, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>)) };
+            <span class="kw">let </span>definition_ptr_ptr =
+                <span class="macro">err!</span>(builder.build_bit_cast(definition_ptr_ptr, intrinsics.ptr_ty, <span class="string">""</span>,))
+                    .into_pointer_value();
+            <span class="kw">let </span>definition_ptr =
+                <span class="macro">err!</span>(builder.build_load(intrinsics.ptr_ty, definition_ptr_ptr, <span class="string">""</span>))
+                    .into_pointer_value();
+            tbaa_label(
+                module,
+                intrinsics,
+                <span class="macro">format!</span>(<span class="string">"table {} definition"</span>, table_index.as_u32()),
+                definition_ptr.as_instruction_value().unwrap(),
+            );
+
+            <span class="kw">let </span>offset = intrinsics
+                .i64_ty
+                .const_int(offsets.vmtable_definition_base().into(), <span class="bool-val">false</span>);
+            <span class="kw">let </span>ptr_to_base_ptr =
+                <span class="kw">unsafe </span>{ <span class="macro">err!</span>(builder.build_gep(intrinsics.i8_ty, definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>)) };
+            <span class="kw">let </span>ptr_to_base_ptr =
+                <span class="macro">err!</span>(builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
+                    .into_pointer_value();
+            <span class="kw">let </span>offset = intrinsics
+                .i64_ty
+                .const_int(offsets.vmtable_definition_current_elements().into(), <span class="bool-val">false</span>);
+            <span class="kw">let </span>ptr_to_bounds =
+                <span class="kw">unsafe </span>{ <span class="macro">err!</span>(builder.build_gep(intrinsics.i8_ty, definition_ptr, <span class="kw-2">&amp;</span>[offset], <span class="string">""</span>)) };
+            <span class="kw">let </span>ptr_to_bounds = <span class="macro">err!</span>(builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, <span class="string">""</span>))
+                .into_pointer_value();
+            <span class="prelude-val">Ok</span>((ptr_to_base_ptr, ptr_to_bounds))
+        }
+    }
+
     <span class="kw">fn </span>table_prepare(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         table_index: TableIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
         module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+        body_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, PointerValue&lt;<span class="lifetime">'ctx</span>&gt;), CompileError&gt; {
         <span class="kw">let </span>(cached_tables, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             <span class="kw-2">&amp;mut </span><span class="self">self</span>.cached_tables,
@@ -3506,122 +3596,56 @@
             <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder,
             <span class="kw-2">&amp;</span><span class="self">self</span>.offsets,
         );
-        <span class="kw">let </span>TableCache {
-            ptr_to_base_ptr,
-            ptr_to_bounds,
-        } = <span class="kw">match </span>cached_tables.entry(table_index) {
-            Entry::Occupied(entry) =&gt; entry.get().clone(),
-            Entry::Vacant(entry) =&gt; {
-                <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_table_index) =
-                    wasm_module.local_table_index(table_index)
-                {
-                    <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
-                        offsets
-                            .vmctx_vmtable_definition_base(local_table_index)
-                            .into(),
-                        <span class="bool-val">false</span>,
-                    );
-                    <span class="kw">let </span>ptr_to_base_ptr = <span class="kw">unsafe </span>{
-                        <span class="macro">err!</span>(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            <span class="kw-2">&amp;</span>[offset],
-                            <span class="string">""
-                        </span>))
-                    };
-                    <span class="kw">let </span>ptr_to_base_ptr =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
-                            .into_pointer_value();
-                    <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
-                        offsets
-                            .vmctx_vmtable_definition_current_elements(local_table_index)
-                            .into(),
-                        <span class="bool-val">false</span>,
-                    );
-                    <span class="kw">let </span>ptr_to_bounds = <span class="kw">unsafe </span>{
-                        <span class="macro">err!</span>(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            <span class="kw-2">&amp;</span>[offset],
-                            <span class="string">""
-                        </span>))
-                    };
-                    <span class="kw">let </span>ptr_to_bounds =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, <span class="string">""</span>))
-                            .into_pointer_value();
-                    (ptr_to_base_ptr, ptr_to_bounds)
-                } <span class="kw">else </span>{
-                    <span class="kw">let </span>offset = intrinsics.i64_ty.const_int(
-                        offsets.vmctx_vmtable_import_definition(table_index).into(),
-                        <span class="bool-val">false</span>,
-                    );
-                    <span class="kw">let </span>definition_ptr_ptr = <span class="kw">unsafe </span>{
-                        <span class="macro">err!</span>(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            ctx_ptr_value,
-                            <span class="kw-2">&amp;</span>[offset],
-                            <span class="string">""
-                        </span>))
-                    };
-                    <span class="kw">let </span>definition_ptr_ptr = <span class="macro">err!</span>(cache_builder.build_bit_cast(
-                        definition_ptr_ptr,
-                        intrinsics.ptr_ty,
-                        <span class="string">""</span>,
-                    ))
-                    .into_pointer_value();
-                    <span class="kw">let </span>definition_ptr =
-                        <span class="macro">err!</span>(cache_builder.build_load(intrinsics.ptr_ty, definition_ptr_ptr, <span class="string">""</span>))
-                            .into_pointer_value();
-                    tbaa_label(
-                        module,
+
+        <span class="kw">let </span>is_growable = is_table_growable(wasm_module, table_index).ok_or_else(|| {
+            CompileError::Codegen(<span class="macro">format!</span>(
+                <span class="string">"Table index out of bounds: {}"</span>,
+                table_index.as_u32()
+            ))
+        })<span class="question-mark">?</span>;
+
+        <span class="comment">// If the table is growable, it may change, so we can't cache the pointers; they need to
+        // go directly in the function body at the point where they're needed
+        </span><span class="kw">if </span>is_growable {
+            <span class="self">Self</span>::build_table_prepare(
+                table_index,
+                intrinsics,
+                module,
+                wasm_module,
+                ctx_ptr_value,
+                offsets,
+                body_builder,
+            )
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>TableCache {
+                ptr_to_base_ptr,
+                ptr_to_bounds,
+            } = <span class="kw">match </span>cached_tables.entry(table_index) {
+                Entry::Occupied(entry) =&gt; entry.get().clone(),
+                Entry::Vacant(entry) =&gt; {
+                    <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="self">Self</span>::build_table_prepare(
+                        table_index,
                         intrinsics,
-                        <span class="macro">format!</span>(<span class="string">"table {} definition"</span>, table_index.as_u32()),
-                        definition_ptr.as_instruction_value().unwrap(),
-                    );
+                        module,
+                        wasm_module,
+                        ctx_ptr_value,
+                        offsets,
+                        cache_builder,
+                    )<span class="question-mark">?</span>;
 
-                    <span class="kw">let </span>offset = intrinsics
-                        .i64_ty
-                        .const_int(offsets.vmtable_definition_base().into(), <span class="bool-val">false</span>);
-                    <span class="kw">let </span>ptr_to_base_ptr = <span class="kw">unsafe </span>{
-                        <span class="macro">err!</span>(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            definition_ptr,
-                            <span class="kw-2">&amp;</span>[offset],
-                            <span class="string">""
-                        </span>))
+                    <span class="kw">let </span>v = TableCache {
+                        ptr_to_base_ptr,
+                        ptr_to_bounds,
                     };
-                    <span class="kw">let </span>ptr_to_base_ptr =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_base_ptr, intrinsics.ptr_ty, <span class="string">""</span>))
-                            .into_pointer_value();
-                    <span class="kw">let </span>offset = intrinsics
-                        .i64_ty
-                        .const_int(offsets.vmtable_definition_current_elements().into(), <span class="bool-val">false</span>);
-                    <span class="kw">let </span>ptr_to_bounds = <span class="kw">unsafe </span>{
-                        <span class="macro">err!</span>(cache_builder.build_gep(
-                            intrinsics.i8_ty,
-                            definition_ptr,
-                            <span class="kw-2">&amp;</span>[offset],
-                            <span class="string">""
-                        </span>))
-                    };
-                    <span class="kw">let </span>ptr_to_bounds =
-                        <span class="macro">err!</span>(cache_builder.build_bit_cast(ptr_to_bounds, intrinsics.ptr_ty, <span class="string">""</span>))
-                            .into_pointer_value();
-                    (ptr_to_base_ptr, ptr_to_bounds)
-                };
 
-                <span class="kw">let </span>v = TableCache {
-                    ptr_to_base_ptr,
-                    ptr_to_bounds,
-                };
+                    entry.insert(v.clone());
 
-                entry.insert(v.clone());
+                    v
+                }
+            };
 
-                v
-            }
-        };
-
-        <span class="prelude-val">Ok</span>((ptr_to_base_ptr, ptr_to_bounds))
+            <span class="prelude-val">Ok</span>((ptr_to_base_ptr, ptr_to_bounds))
+        }
     }
 
     <span class="kw">pub fn </span>table(
@@ -3629,18 +3653,22 @@
         index: TableIndex,
         intrinsics: <span class="kw-2">&amp;</span>Intrinsics&lt;<span class="lifetime">'ctx</span>&gt;,
         module: <span class="kw-2">&amp;</span>Module&lt;<span class="lifetime">'ctx</span>&gt;,
+        body_builder: <span class="kw-2">&amp;</span>Builder&lt;<span class="lifetime">'ctx</span>&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, IntValue&lt;<span class="lifetime">'ctx</span>&gt;), CompileError&gt; {
-        <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) = <span class="self">self</span>.table_prepare(index, intrinsics, module)<span class="question-mark">?</span>;
-        <span class="kw">let </span>base_ptr =
-            <span class="macro">err!</span>(<span class="self">self
-                </span>.cache_builder
-                .build_load(intrinsics.ptr_ty, ptr_to_base_ptr, <span class="string">"base_ptr"</span>))
+        <span class="kw">let </span>(ptr_to_base_ptr, ptr_to_bounds) =
+            <span class="self">self</span>.table_prepare(index, intrinsics, module, body_builder)<span class="question-mark">?</span>;
+
+        <span class="comment">// Safe to unwrap since an out-of-bounds index will be caught be table_prepare
+        </span><span class="kw">let </span>builder = <span class="kw">if </span>is_table_growable(<span class="self">self</span>.wasm_module, index).unwrap() {
+            <span class="kw-2">&amp;</span>body_builder
+        } <span class="kw">else </span>{
+            <span class="kw-2">&amp;</span><span class="self">self</span>.cache_builder
+        };
+
+        <span class="kw">let </span>base_ptr = <span class="macro">err!</span>(builder.build_load(intrinsics.ptr_ty, ptr_to_base_ptr, <span class="string">"base_ptr"</span>))
             .into_pointer_value();
         <span class="kw">let </span>bounds =
-            <span class="macro">err!</span>(<span class="self">self
-                </span>.cache_builder
-                .build_load(intrinsics.isize_ty, ptr_to_bounds, <span class="string">"bounds"</span>))
-            .into_int_value();
+            <span class="macro">err!</span>(builder.build_load(intrinsics.isize_ty, ptr_to_bounds, <span class="string">"bounds"</span>)).into_int_value();
         tbaa_label(
             module,
             intrinsics,
@@ -4231,5 +4259,13 @@
     <span class="comment">// Attach the access tag to the instruction.
     </span><span class="kw">let </span>tbaa_kind = context.get_kind_id(<span class="string">"tbaa"</span>);
     instruction.set_metadata(type_tbaa, tbaa_kind).unwrap();
+}
+
+<span class="kw">fn </span>is_table_growable(module: <span class="kw-2">&amp;</span>WasmerCompilerModule, index: TableIndex) -&gt; <span class="prelude-ty">Option</span>&lt;bool&gt; {
+    <span class="kw">let </span>table = module.tables.get(index)<span class="question-mark">?</span>;
+    <span class="kw">match </span>table.maximum {
+        <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Some</span>(<span class="bool-val">true</span>),
+        <span class="prelude-val">Some</span>(max) =&gt; <span class="prelude-val">Some</span>(max &gt; table.minimum),
+    }
 }
 </code></pre></div></section></main></body></html>

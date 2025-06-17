@@ -333,7 +333,7 @@
     path_len: M::Offset,
     ret: WasmPtr&lt;Pid, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };

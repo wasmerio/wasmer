@@ -61,7 +61,9 @@
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
 <a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a>
+<a href="#65" id="65">65</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `resolve()`
@@ -92,6 +94,8 @@
     naddrs: M::Offset,
     ret_naddrs: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>naddrs: usize = <span class="macro">wasi_try_ok!</span>(naddrs.try_into().map_err(|<span class="kw">_</span>| Errno::Inval));
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>host_str = {

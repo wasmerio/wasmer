@@ -346,7 +346,17 @@
 <a href="#345" id="345">345</a>
 <a href="#346" id="346">346</a>
 <a href="#347" id="347">347</a>
-<a href="#348" id="348">348</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
+<a href="#348" id="348">348</a>
+<a href="#349" id="349">349</a>
+<a href="#350" id="350">350</a>
+<a href="#351" id="351">351</a>
+<a href="#352" id="352">352</a>
+<a href="#353" id="353">353</a>
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
 <span class="kw">use </span>futures::{future::BoxFuture, Future};
@@ -354,7 +364,7 @@
 <span class="kw">use </span>virtual_mio::InlineWaker;
 <span class="kw">use </span>wasmer::AsStoreMut;
 
-<span class="kw">use </span><span class="kw">crate</span>::runtime::SpawnMemoryType;
+<span class="kw">use </span><span class="kw">crate</span>::runtime::SpawnType;
 <span class="kw">use crate</span>::{os::task::thread::WasiThreadError, WasiFunctionEnv};
 
 <span class="kw">use super</span>::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
@@ -461,15 +471,6 @@
     }
 }
 
-<span class="attr">#[allow(dead_code)]
-</span><span class="kw">struct </span>TokioRuntimeGuard&lt;<span class="lifetime">'g</span>&gt; {
-    <span class="attr">#[allow(unused)]
-    </span>inner: tokio::runtime::EnterGuard&lt;<span class="lifetime">'g</span>&gt;,
-}
-<span class="kw">impl </span>Drop <span class="kw">for </span>TokioRuntimeGuard&lt;<span class="lifetime">'_</span>&gt; {
-    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {}
-}
-
 <span class="kw">impl </span>VirtualTaskManager <span class="kw">for </span>TokioTaskManager {
     <span class="doccomment">/// See [`VirtualTaskManager::sleep_now`].
     </span><span class="kw">fn </span>sleep_now(<span class="kw-2">&amp;</span><span class="self">self</span>, time: Duration) -&gt; Pin&lt;Box&lt;<span class="kw">dyn </span>Future&lt;Output = ()&gt; + Send + Sync&gt;&gt; {
@@ -502,14 +503,40 @@
         <span class="kw">let </span>env = task.env;
         <span class="kw">let </span>pre_run = task.pre_run;
 
-        <span class="kw">let </span>make_memory: SpawnMemoryTypeOrStore = <span class="kw">match </span>task.spawn_type {
-            SpawnMemoryType::CreateMemory =&gt; SpawnMemoryTypeOrStore::New,
-            SpawnMemoryType::CreateMemoryOfType(t) =&gt; SpawnMemoryTypeOrStore::Type(t),
-            SpawnMemoryType::ShareMemory(<span class="kw">_</span>, <span class="kw">_</span>) | SpawnMemoryType::CopyMemory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
+        <span class="kw">let </span>make_memory: SpawnMemoryTypeOrStore = <span class="kw">match </span><span class="kw-2">&amp;</span>task.spawn_type {
+            SpawnType::CreateMemory | SpawnType::NewLinkerInstanceGroup(..) =&gt; {
+                SpawnMemoryTypeOrStore::New
+            }
+            SpawnType::CreateMemoryOfType(t) =&gt; SpawnMemoryTypeOrStore::Type(<span class="kw-2">*</span>t),
+            SpawnType::ShareMemory(<span class="kw">_</span>, <span class="kw">_</span>) | SpawnType::CopyMemory(<span class="kw">_</span>, <span class="kw">_</span>) =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>store = env.runtime().new_store();
-                <span class="kw">let </span>memory = <span class="self">self</span>.build_memory(<span class="kw-2">&amp;mut </span>store.as_store_mut(), task.spawn_type)<span class="question-mark">?</span>;
+                <span class="kw">let </span>memory = <span class="self">self</span>.build_memory(<span class="kw-2">&amp;mut </span>store.as_store_mut(), <span class="kw-2">&amp;</span>task.spawn_type)<span class="question-mark">?</span>;
                 SpawnMemoryTypeOrStore::StoreAndMemory(store, memory)
             }
+        };
+
+        <span class="kw">let </span>ret = <span class="kw">if let </span>SpawnType::NewLinkerInstanceGroup(linker, func_env, <span class="kw-2">mut </span>store) =
+            task.spawn_type
+        {
+            WasiFunctionEnv::new_with_store(
+                task.module,
+                env,
+                task.globals,
+                make_memory,
+                task.update_layout,
+                task.call_initialize,
+                <span class="prelude-val">Some</span>((linker, <span class="kw-2">&amp;mut </span>func_env.into_mut(<span class="kw-2">&amp;mut </span>store))),
+            )
+        } <span class="kw">else </span>{
+            WasiFunctionEnv::new_with_store(
+                task.module,
+                env,
+                task.globals,
+                make_memory,
+                task.update_layout,
+                task.call_initialize,
+                <span class="prelude-val">None</span>,
+            )
         };
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>(trigger) = task.trigger {
@@ -543,13 +570,7 @@
             // pool's one), and let it fail for runtimes that don't support entities created in a
             // thread that's not the one in which execution happens in; this until we can clone
             // stores.
-            </span><span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = WasiFunctionEnv::new_with_store(
-                task.module,
-                env,
-                task.globals,
-                make_memory,
-                task.update_layout,
-            )<span class="question-mark">?</span>;
+            </span><span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = ret<span class="question-mark">?</span>;
 
             <span class="kw">let </span><span class="kw-2">mut </span>trigger = trigger();
             <span class="kw">let </span>pool = <span class="self">self</span>.pool.clone();
@@ -562,7 +583,14 @@
                         <span class="kw">_ </span>= env.thread.wait_for_signal() =&gt; {
                             <span class="macro">tracing::debug!</span>(<span class="string">"wait-for-signal(triggered)"</span>);
                             <span class="kw">let </span><span class="kw-2">mut </span>ctx = ctx.env.clone().into_mut(<span class="kw-2">&amp;mut </span>store);
-                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = <span class="kw">crate</span>::WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx) {
+                            <span class="kw">if let </span><span class="prelude-val">Err</span>(err) =
+                                <span class="kw">crate</span>::WasiEnv::do_pending_link_operations(
+                                    <span class="kw-2">&amp;mut </span>ctx,
+                                    <span class="bool-val">false
+                                </span>).and_then(|()|
+                                    <span class="kw">crate</span>::WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)
+                                )
+                            {
                                 <span class="kw">match </span>err {
                                     <span class="kw">crate</span>::WasiError::Exit(code) =&gt; <span class="prelude-val">Err</span>(code),
                                     err =&gt; {
@@ -606,14 +634,6 @@
             <span class="comment">// Run the callback on a dedicated thread
             </span><span class="self">self</span>.pool.execute(<span class="kw">move </span>|| {
                 <span class="macro">tracing::trace!</span>(<span class="string">"task_wasm started in blocking thread"</span>);
-                <span class="kw">let </span>ret = WasiFunctionEnv::new_with_store(
-                    task.module,
-                    env,
-                    task.globals,
-                    make_memory,
-                    task.update_layout,
-                );
-
                 <span class="kw">let </span>(<span class="kw-2">mut </span>ctx, <span class="kw-2">mut </span>store) = <span class="kw">match </span>ret {
                     <span class="prelude-val">Ok</span>(x) =&gt; {
                         sx.send(<span class="prelude-val">Ok</span>(())).unwrap();

@@ -166,7 +166,7 @@
     }
     <span class="macro">trace!</span>(<span class="string">"capturing"</span>);
 
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="comment">// Set the return value that we will give back to
     // indicate we are a normal function call that has not yet

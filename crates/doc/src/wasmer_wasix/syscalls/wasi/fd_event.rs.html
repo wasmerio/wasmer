@@ -76,7 +76,9 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{fs::NotificationInner, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `fd_event()`
@@ -88,6 +90,8 @@
     flags: EventFdFlags,
     ret_fd: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>fd = <span class="macro">wasi_try_ok!</span>(fd_event_internal(<span class="kw-2">&amp;mut </span>ctx, initial_val, flags, <span class="prelude-val">None</span>)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();

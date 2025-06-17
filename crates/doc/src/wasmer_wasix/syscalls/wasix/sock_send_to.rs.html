@@ -156,7 +156,9 @@
 <a href="#155" id="155">155</a>
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
-<a href="#158" id="158">158</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
@@ -185,6 +187,8 @@
     addr: WasmPtr&lt;__wasi_addr_port_t, M&gt;,
     ret_data_len: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>iovs_arr = <span class="macro">wasi_try_mem_ok!</span>(si_data.slice(<span class="kw-2">&amp;</span>memory, si_data_len));

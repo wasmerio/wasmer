@@ -103,7 +103,33 @@
 <a href="#102" id="102">102</a>
 <a href="#103" id="103">103</a>
 <a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a></pre></div><pre class="rust"><code><span class="doccomment">//! Macros to simplify some common WASI-specific tasks.
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a>
+<a href="#110" id="110">110</a>
+<a href="#111" id="111">111</a>
+<a href="#112" id="112">112</a>
+<a href="#113" id="113">113</a>
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a></pre></div><pre class="rust"><code><span class="doccomment">//! Macros to simplify some common WASI-specific tasks.
 
 /// Like the `try!` macro or `?` syntax: returns the value if the computation
 /// succeeded or returns the error value.
@@ -207,5 +233,31 @@
     (<span class="macro-nonterminal">$memory</span>:expr, <span class="macro-nonterminal">$data</span>:expr, <span class="macro-nonterminal">$len</span>:expr) =&gt; {{
         <span class="macro">wasi_try_mem_bus_ok!</span>(<span class="macro-nonterminal">$data</span>.read_utf8_string(<span class="macro-nonterminal">$memory</span>, <span class="macro-nonterminal">$len</span>))
     }};
+}
+
+<span class="macro">macro_rules!</span> wasi_dl_err {
+    (<span class="macro-nonterminal">$err</span>:expr, <span class="macro-nonterminal">$memory</span>:ident, <span class="macro-nonterminal">$err_buf</span>:ident, <span class="macro-nonterminal">$err_buf_len</span>:ident) =&gt; {
+        <span class="macro">wasi_try_mem_ok!</span>(write_dl_error(
+            <span class="macro-nonterminal">$err</span>,
+            <span class="kw-2">&amp;</span><span class="macro-nonterminal">$memory</span>,
+            <span class="macro-nonterminal">$err_buf</span>,
+            <span class="macro-nonterminal">$err_buf_len</span>.into()
+        ));
+
+        <span class="comment">// Doesn't matter which errno we return, since the actual code is ignored.
+        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Unknown);
+    };
+}
+
+<span class="macro">macro_rules!</span> wasi_try_dl {
+    (<span class="macro-nonterminal">$expr</span>:expr, <span class="macro-nonterminal">$fmt</span>:tt, <span class="macro-nonterminal">$memory</span>:ident, <span class="macro-nonterminal">$err_buf</span>:ident, <span class="macro-nonterminal">$err_buf_len</span>:ident) =&gt; {
+        <span class="kw">match </span><span class="macro-nonterminal">$expr </span>{
+            <span class="prelude-val">Ok</span>(o) =&gt; o,
+            <span class="prelude-val">Err</span>(err) =&gt; {
+                <span class="kw">let </span>err = <span class="macro">format!</span>(<span class="macro-nonterminal">$fmt</span>, err);
+                <span class="macro">wasi_dl_err!</span>(<span class="kw-2">&amp;</span>err, <span class="macro-nonterminal">$memory</span>, <span class="macro-nonterminal">$err_buf</span>, <span class="macro-nonterminal">$err_buf_len</span>);
+            }
+        }
+    };
 }
 </code></pre></div></section></main></body></html>

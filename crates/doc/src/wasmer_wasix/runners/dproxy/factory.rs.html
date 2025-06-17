@@ -227,7 +227,7 @@
             .task_dedicated(Box::new(<span class="kw">move </span>|| {
                 <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
                 </span><span class="kw">let </span>_guard = handle.enter();
-                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = runner.run_command(<span class="kw-2">&amp;</span>command_name, <span class="kw-2">&amp;</span>pkg, runtime) {
+                <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = Runner::run_command(<span class="kw-2">&amp;mut </span>runner, <span class="kw-2">&amp;</span>command_name, <span class="kw-2">&amp;</span>pkg, runtime) {
                     <span class="macro">tracing::error!</span>(<span class="string">"Instance Exited: {}"</span>, err);
                 } <span class="kw">else </span>{
                     <span class="macro">tracing::info!</span>(<span class="string">"Instance Exited: Nominal"</span>);

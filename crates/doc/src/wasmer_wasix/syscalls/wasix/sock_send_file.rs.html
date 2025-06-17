@@ -278,7 +278,7 @@
     count: Filesize,
     ret_sent: WasmPtr&lt;Filesize, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>total_written = <span class="macro">wasi_try_ok!</span>(sock_send_file_internal(
         <span class="kw-2">&amp;mut </span>ctx, sock, in_fd, offset, count

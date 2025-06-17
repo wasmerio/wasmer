@@ -51,7 +51,9 @@
 <a href="#50" id="50">50</a>
 <a href="#51" id="51">51</a>
 <a href="#52" id="52">52</a>
-<a href="#53" id="53">53</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::net::Shutdown;
+<a href="#53" id="53">53</a>
+<a href="#54" id="54">54</a>
+<a href="#55" id="55">55</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::net::Shutdown;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
@@ -69,6 +71,8 @@
     sock: WasiFd,
     how: SdFlags,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>both = __WASI_SHUT_RD | __WASI_SHUT_WR;
     <span class="kw">let </span>shutdown = <span class="kw">match </span>how {
         __WASI_SHUT_RD =&gt; std::net::Shutdown::Read,

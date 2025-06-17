@@ -830,7 +830,16 @@
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
 <a href="#831" id="831">831</a>
-<a href="#832" id="832">832</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     str::FromStr,
@@ -1050,6 +1059,13 @@
     <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.
     </span><span class="attr">#[clap(long = <span class="string">"deny-multiple-wasi-versions"</span>)]
     </span><span class="kw">pub </span>deny_multiple_wasi_versions: bool,
+
+    <span class="doccomment">/// Disable the cache for the compiled modules.
+    ///
+    /// Cache is used to speed up the loading of modules, as the
+    /// generated artifacts are cached.
+    </span><span class="attr">#[clap(long = <span class="string">"disable-cache"</span>)]
+    </span>disable_cache: bool,
 }
 
 <span class="kw">pub struct </span>RunProperties {
@@ -1505,14 +1521,16 @@
 
         <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
-        <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-            .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+        <span class="kw">if </span>!<span class="self">self</span>.disable_cache {
+            <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
+            <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
+                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+            rt.set_module_cache(module_cache);
+        }
 
         rt.set_package_loader(package_loader)
-            .set_module_cache(module_cache)
             .set_source(registry)
-            .set_engine(<span class="prelude-val">Some</span>(engine));
+            .set_engine(engine);
 
         <span class="prelude-val">Ok</span>(rt)
     }

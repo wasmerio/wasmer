@@ -149,7 +149,9 @@
 <a href="#148" id="148">148</a>
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
-<a href="#151" id="151">151</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `fd_readdir()`
@@ -169,21 +171,23 @@
 ///     directory has been read
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%fd), ret)]
 </span><span class="kw">pub fn </span>fd_readdir&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     fd: WasiFd,
     buf: WasmPtr&lt;u8, M&gt;,
     buf_len: M::Offset,
     cookie: Dircookie,
     bufused: WasmPtr&lt;M::Offset, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="comment">// TODO: figure out how this is supposed to work;
     // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 
-    </span><span class="kw">let </span>buf_arr = <span class="macro">wasi_try_mem!</span>(buf.slice(<span class="kw-2">&amp;</span>memory, buf_len));
+    </span><span class="kw">let </span>buf_arr = <span class="macro">wasi_try_mem_ok!</span>(buf.slice(<span class="kw-2">&amp;</span>memory, buf_len));
     <span class="kw">let </span>bufused_ref = bufused.deref(<span class="kw-2">&amp;</span>memory);
-    <span class="kw">let </span>working_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>working_dir = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
     <span class="kw">let </span><span class="kw-2">mut </span>cur_cookie = cookie;
     <span class="kw">let </span><span class="kw-2">mut </span>buf_idx = <span class="number">0usize</span>;
 
@@ -196,10 +200,10 @@
                 // we need to support multiple calls,
                 // simple and obviously correct implementation for now:
                 // maintain consistent order via lexacographic sorting
-                </span><span class="kw">let </span>fs_info = <span class="macro">wasi_try!</span>(<span class="macro">wasi_try!</span>(state.fs_read_dir(path))
+                </span><span class="kw">let </span>fs_info = <span class="macro">wasi_try_ok!</span>(<span class="macro">wasi_try_ok!</span>(state.fs_read_dir(path))
                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()
                     .map_err(fs_error_into_wasi_err));
-                <span class="kw">let </span><span class="kw-2">mut </span>entry_vec = <span class="macro">wasi_try!</span>(fs_info
+                <span class="kw">let </span><span class="kw-2">mut </span>entry_vec = <span class="macro">wasi_try_ok!</span>(fs_info
                     .into_iter()
                     .map(|entry| {
                         <span class="kw">let </span>filename = entry.file_name().to_string_lossy().to_string();
@@ -259,7 +263,7 @@
             | Kind::PipeTx { .. }
             | Kind::DuplexPipe { .. }
             | Kind::EventNotifications { .. }
-            | Kind::Epoll { .. } =&gt; <span class="kw">return </span>Errno::Notdir,
+            | Kind::Epoll { .. } =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Notdir),
         }
     };
 
@@ -280,7 +284,7 @@
             std::mem::size_of::&lt;Dirent&gt;(),
         );
         <span class="kw">for </span>(i, b) <span class="kw">in </span>dirent_bytes.iter().enumerate().take(upper_limit) {
-            <span class="macro">wasi_try_mem!</span>(buf_arr.index((i + buf_idx) <span class="kw">as </span>u64).write(<span class="kw-2">*</span>b));
+            <span class="macro">wasi_try_mem_ok!</span>(buf_arr.index((i + buf_idx) <span class="kw">as </span>u64).write(<span class="kw-2">*</span>b));
         }
         buf_idx += upper_limit;
         <span class="kw">if </span>upper_limit != std::mem::size_of::&lt;Dirent&gt;() {
@@ -288,7 +292,7 @@
         }
         <span class="kw">let </span>upper_limit = std::cmp::min((buf_len - buf_idx <span class="kw">as </span>u64) <span class="kw">as </span>usize, namlen);
         <span class="kw">for </span>(i, b) <span class="kw">in </span>entry_path_str.bytes().take(upper_limit).enumerate() {
-            <span class="macro">wasi_try_mem!</span>(buf_arr.index((i + buf_idx) <span class="kw">as </span>u64).write(b));
+            <span class="macro">wasi_try_mem_ok!</span>(buf_arr.index((i + buf_idx) <span class="kw">as </span>u64).write(b));
         }
         buf_idx += upper_limit;
         <span class="kw">if </span>upper_limit != namlen {
@@ -296,8 +300,8 @@
         }
     }
 
-    <span class="kw">let </span>buf_idx: M::Offset = <span class="macro">wasi_try!</span>(buf_idx.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    <span class="macro">wasi_try_mem!</span>(bufused_ref.write(buf_idx));
-    Errno::Success
+    <span class="kw">let </span>buf_idx: M::Offset = <span class="macro">wasi_try_ok!</span>(buf_idx.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+    <span class="macro">wasi_try_mem_ok!</span>(bufused_ref.write(buf_idx));
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

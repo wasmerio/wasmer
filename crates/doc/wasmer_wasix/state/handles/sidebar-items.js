@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["global","thread_local"]};
+window.SIDEBAR_ITEMS = {"enum":["WasiModuleTreeHandles"],"mod":["global","thread_local"],"struct":["WasiModuleInstanceHandles"]};

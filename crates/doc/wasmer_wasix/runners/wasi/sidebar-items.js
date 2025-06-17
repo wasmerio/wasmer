@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["wasi_runtime_error_to_owned"],"struct":["WasiRunner"]};
+window.SIDEBAR_ITEMS = {"enum":["PackageOrHash","RuntimeOrEngine"],"fn":["wasi_runtime_error_to_owned"],"struct":["WasiRunner"]};

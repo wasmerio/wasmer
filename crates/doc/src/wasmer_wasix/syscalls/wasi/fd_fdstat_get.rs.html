@@ -25,7 +25,9 @@
 <a href="#24" id="24">24</a>
 <a href="#25" id="25">25</a>
 <a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#27" id="27">27</a>
+<a href="#28" id="28">28</a>
+<a href="#29" id="29">29</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `fd_fdstat_get()`
@@ -38,18 +40,20 @@
 ///     The location where the metadata will be written
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%fd), ret)]
 </span><span class="kw">pub fn </span>fd_fdstat_get&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     fd: WasiFd,
     buf_ptr: WasmPtr&lt;Fdstat, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(state.fs.fdstat(fd));
+    <span class="kw">let </span>stat = <span class="macro">wasi_try_ok!</span>(state.fs.fdstat(fd));
 
     <span class="kw">let </span>buf = buf_ptr.deref(<span class="kw-2">&amp;</span>memory);
 
-    <span class="macro">wasi_try_mem!</span>(buf.write(stat));
+    <span class="macro">wasi_try_mem_ok!</span>(buf.write(stat));
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

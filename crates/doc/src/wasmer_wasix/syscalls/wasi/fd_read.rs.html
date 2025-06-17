@@ -495,6 +495,8 @@
     iovs_len: M::Offset,
     nread: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
 
@@ -590,8 +592,6 @@
     nread: WasmPtr&lt;M::Offset, M&gt;,
     should_update_cursor: bool,
 ) -&gt; WasiResult&lt;usize&gt; {
-    <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
-
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
     <span class="kw">let </span>state = env.state();

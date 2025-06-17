@@ -315,7 +315,25 @@
 <a href="#314" id="314">314</a>
 <a href="#315" id="315">315</a>
 <a href="#316" id="316">316</a>
-<a href="#317" id="317">317</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
     capture_store_snapshot,
     os::task::OwnedTaskStatus,
@@ -342,7 +360,12 @@
     <span class="kw-2">mut </span>copy_memory: Bool,
     pid_ptr: WasmPtr&lt;Pid, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
+    <span class="macro">wasi_try_ok!</span>(ctx.data().ensure_static_module().map_err(|<span class="kw">_</span>| {
+        <span class="macro">warn!</span>(<span class="string">"process forking not supported for dynamically linked modules"</span>);
+        Errno::Notsup
+    }));
 
     <span class="comment">// If we were just restored then we need to return the value instead
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>(result) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, ForkResult&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
@@ -468,9 +491,11 @@
         <span class="kw">let </span>child_memory_stack = memory_stack.clone();
         <span class="kw">let </span>child_rewind_stack = rewind_stack.clone();
 
-        <span class="kw">let </span>module = <span class="kw">unsafe </span>{ ctx.data().inner() }.module_clone();
-        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().inner() }.memory_clone();
-        <span class="kw">let </span>spawn_type = SpawnMemoryType::CopyMemory(memory, ctx.as_store_ref());
+        <span class="kw">let </span>env_inner = ctx.data().inner();
+        <span class="kw">let </span>instance_handles = env_inner.static_module_instance_handles().unwrap();
+        <span class="kw">let </span>module = instance_handles.module_clone();
+        <span class="kw">let </span>memory = instance_handles.memory_clone();
+        <span class="kw">let </span>spawn_type = SpawnType::CopyMemory(memory, ctx.as_store_ref());
 
         <span class="comment">// Spawn a new process with this current execution environment
         </span><span class="kw">let </span>signaler = Box::new(child_env.process.clone());
@@ -516,7 +541,7 @@
 
             tasks_outer
                 .task_wasm(
-                    TaskWasm::new(Box::new(run), child_env, module, <span class="bool-val">false</span>)
+                    TaskWasm::new(Box::new(run), child_env, module, <span class="bool-val">false</span>, <span class="bool-val">false</span>)
                         .with_globals(snapshot)
                         .with_memory(spawn_type),
                 )
@@ -579,11 +604,22 @@
     <span class="kw">let </span><span class="kw-2">mut </span>ret: ExitCode = Errno::Success.into();
     <span class="kw">let </span>err = <span class="kw">if </span>ctx.data(<span class="kw-2">&amp;</span>store).thread.is_main() {
         <span class="macro">trace!</span>(%pid, %tid, <span class="string">"re-invoking main"</span>);
-        <span class="kw">let </span>start = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).inner() }.start.clone().unwrap();
+        <span class="kw">let </span>start = ctx
+            .data(<span class="kw-2">&amp;</span>store)
+            .inner()
+            .static_module_instance_handles()
+            .unwrap()
+            .start
+            .clone()
+            .unwrap();
         start.call(<span class="kw-2">&amp;mut </span>store)
     } <span class="kw">else </span>{
         <span class="macro">trace!</span>(%pid, %tid, <span class="string">"re-invoking thread_spawn"</span>);
-        <span class="kw">let </span>start = <span class="kw">unsafe </span>{ ctx.data(<span class="kw-2">&amp;</span>store).inner() }
+        <span class="kw">let </span>start = ctx
+            .data(<span class="kw-2">&amp;</span>store)
+            .inner()
+            .static_module_instance_handles()
+            .unwrap()
             .thread_spawn
             .clone()
             .unwrap();

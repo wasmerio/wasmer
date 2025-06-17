@@ -495,9 +495,7 @@
 <a href="#494" id="494">494</a>
 <a href="#495" id="495">495</a>
 <a href="#496" id="496">496</a>
-<a href="#497" id="497">497</a>
-<a href="#498" id="498">498</a>
-<a href="#499" id="499">499</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href="#497" id="497">497</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -563,7 +561,7 @@
     nsubscriptions: M::Offset,
     nevents: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
@@ -719,8 +717,6 @@
 <span class="kw">where
     </span>After: FnOnce(<span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;, Vec&lt;Event&gt;) -&gt; Errno,
 {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-
     <span class="kw">let </span>pid = ctx.data().pid();
     <span class="kw">let </span>tid = ctx.data().tid();
     <span class="kw">let </span>subs_len = subs.len();

@@ -898,7 +898,12 @@
 <a href="#897" id="897">897</a>
 <a href="#898" id="898">898</a>
 <a href="#899" id="899">899</a>
-<a href="#900" id="900">900</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use crate</span>::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
 <span class="kw">use crate</span>::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -1454,6 +1459,11 @@
         inner.thread_count += <span class="number">1</span>;
 
         <span class="prelude-val">Ok</span>(WasiThreadHandle::new(ctrl, <span class="kw-2">&amp;</span><span class="self">self</span>.inner))
+    }
+
+    <span class="kw">pub fn </span>all_threads(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Vec&lt;WasiThreadId&gt; {
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.<span class="number">0</span>.lock().unwrap();
+        inner.threads.keys().cloned().collect()
     }
 
     <span class="doccomment">/// Gets a reference to a particular thread

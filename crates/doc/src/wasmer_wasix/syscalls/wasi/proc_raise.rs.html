@@ -55,7 +55,7 @@
     <span class="kw">let </span>env = ctx.data();
     env.process.signal_process(sig);
 
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(Errno::Success)
 }
@@ -80,7 +80,7 @@
     <span class="kw">let </span>repeat = <span class="macro">matches!</span>(repeat, Bool::True);
     env.process.signal_interval(sig, interval, repeat);
 
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="prelude-val">Ok</span>(Errno::Success)
 }

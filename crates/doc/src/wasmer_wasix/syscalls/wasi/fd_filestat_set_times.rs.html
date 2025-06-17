@@ -100,7 +100,9 @@
 <a href="#99" id="99">99</a>
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
-<a href="#102" id="102">102</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::BorrowMut;
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::borrow::BorrowMut;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
@@ -122,6 +124,8 @@
     st_mtim: Timestamp,
     fst_flags: Fstflags,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="macro">wasi_try_ok!</span>(fd_filestat_set_times_internal(
         <span class="kw-2">&amp;mut </span>ctx, fd, st_atim, st_mtim, fst_flags
     ));

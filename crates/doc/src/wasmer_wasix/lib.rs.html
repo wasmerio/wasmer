@@ -875,15 +875,7 @@
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a>
-<a href="#878" id="878">878</a>
-<a href="#879" id="879">879</a>
-<a href="#880" id="880">880</a>
-<a href="#881" id="881">881</a>
-<a href="#882" id="882">882</a>
-<a href="#883" id="883">883</a>
-<a href="#884" id="884">884</a>
-<a href="#885" id="885">885</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
+<a href="#877" id="877">877</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
 #![doc(html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>)]
@@ -981,8 +973,8 @@
     rewind::<span class="kw-2">*</span>,
     runtime::{task_manager::VirtualTaskManager, PluggableRuntime, Runtime},
     state::{
-        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiInstanceHandles,
-        WasiStateCreationError, ALL_RIGHTS,
+        WasiEnv, WasiEnvBuilder, WasiEnvInit, WasiFunctionEnv, WasiModuleInstanceHandles,
+        WasiModuleTreeHandles, WasiStateCreationError, ALL_RIGHTS,
     },
     syscalls::{journal::wait_for_snapshot, rewind, rewind_ext, types, unwind},
     utils::is_wasix_module,
@@ -1005,6 +997,8 @@
     </span>DeepSleep(DeepSleepWork),
     <span class="attr">#[error(<span class="string">"The WASI version could not be determined"</span>)]
     </span>UnknownWasiVersion,
+    <span class="attr">#[error(<span class="string">"Dynamically-linked symbol not found or has bad type: {0}"</span>)]
+    </span>DlSymbolResolutionFailed(String),
 }
 
 <span class="kw">pub type </span>WasiResult&lt;T&gt; = <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;T, Errno&gt;, WasiError&gt;;
@@ -1136,19 +1130,19 @@
 
 <span class="attr">#[derive(thiserror::Error, Debug)]
 </span><span class="kw">pub enum </span>WasiRuntimeError {
-    <span class="attr">#[error(<span class="string">"WASI state setup failed"</span>)]
+    <span class="attr">#[error(<span class="string">"WASI state setup failed: {0}"</span>)]
     </span>Init(<span class="attr">#[from] </span>WasiStateCreationError),
-    <span class="attr">#[error(<span class="string">"Loading exports failed"</span>)]
+    <span class="attr">#[error(<span class="string">"Loading exports failed: {0}"</span>)]
     </span>Export(<span class="attr">#[from] </span>wasmer::ExportError),
-    <span class="attr">#[error(<span class="string">"Instantiation failed"</span>)]
+    <span class="attr">#[error(<span class="string">"Instantiation failed: {0}"</span>)]
     </span>Instantiation(<span class="attr">#[from] </span>wasmer::InstantiationError),
-    <span class="attr">#[error(<span class="string">"WASI error"</span>)]
+    <span class="attr">#[error(<span class="string">"WASI error: {0}"</span>)]
     </span>Wasi(<span class="attr">#[from] </span>WasiError),
-    <span class="attr">#[error(<span class="string">"Process manager error"</span>)]
+    <span class="attr">#[error(<span class="string">"Process manager error: {0}"</span>)]
     </span>ControlPlane(<span class="attr">#[from] </span>ControlPlaneError),
     <span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>Runtime(<span class="attr">#[from] </span>RuntimeError),
-    <span class="attr">#[error(<span class="string">"Memory access error"</span>)]
+    <span class="attr">#[error(<span class="string">"Memory access error: {0}"</span>)]
     </span>Thread(<span class="attr">#[from] </span>WasiThreadError),
     <span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>Anyhow(<span class="attr">#[from] </span>Arc&lt;anyhow::Error&gt;),
@@ -1451,6 +1445,9 @@
         <span class="string">"tty_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_set::&lt;Memory32&gt;),
         <span class="string">"getcwd" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, getcwd::&lt;Memory32&gt;),
         <span class="string">"chdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, chdir::&lt;Memory32&gt;),
+        <span class="string">"dl_invalid_handle" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, dl_invalid_handle),
+        <span class="string">"dlopen" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, dlopen::&lt;Memory32&gt;),
+        <span class="string">"dlsym" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, dlsym::&lt;Memory32&gt;),
         <span class="string">"callback_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, callback_signal::&lt;Memory32&gt;),
         <span class="string">"thread_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory32&gt;),
         <span class="string">"thread_spawn_v2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory32&gt;),
@@ -1583,6 +1580,9 @@
         <span class="string">"tty_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, tty_set::&lt;Memory64&gt;),
         <span class="string">"getcwd" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, getcwd::&lt;Memory64&gt;),
         <span class="string">"chdir" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, chdir::&lt;Memory64&gt;),
+        <span class="string">"dl_invalid_handle" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, dl_invalid_handle),
+        <span class="string">"dlopen" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, dlopen::&lt;Memory64&gt;),
+        <span class="string">"dlsym" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, dlsym::&lt;Memory64&gt;),
         <span class="string">"callback_signal" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, callback_signal::&lt;Memory64&gt;),
         <span class="string">"thread_spawn" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory64&gt;),
         <span class="string">"thread_spawn_v2" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, thread_spawn_v2::&lt;Memory64&gt;),
@@ -1642,27 +1642,13 @@
     namespace
 }
 
-<span class="kw">pub type </span>InstanceInitializer =
-    Box&lt;<span class="kw">dyn </span>FnOnce(<span class="kw-2">&amp;</span>wasmer::Instance, <span class="kw-2">&amp;</span><span class="kw">dyn </span>wasmer::AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;&gt;;
-
-<span class="kw">type </span>ModuleInitializer =
-    Box&lt;<span class="kw">dyn </span>FnOnce(<span class="kw-2">&amp;</span>wasmer::Instance, <span class="kw-2">&amp;</span><span class="kw">dyn </span>wasmer::AsStoreRef) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt;&gt;;
-
-<span class="doccomment">/// No-op module initializer.
-</span><span class="kw">fn </span>stub_initializer(
-    _instance: <span class="kw-2">&amp;</span>wasmer::Instance,
-    _store: <span class="kw-2">&amp;</span><span class="kw">dyn </span>wasmer::AsStoreRef,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-    <span class="prelude-val">Ok</span>(())
-}
-
 <span class="comment">// TODO: split function into two variants, one for JS and one for sys.
 // (this will make code less messy)
 </span><span class="kw">fn </span>import_object_for_all_wasi_versions(
     _module: <span class="kw-2">&amp;</span>wasmer::Module,
     store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
     env: <span class="kw-2">&amp;</span>FunctionEnv&lt;WasiEnv&gt;,
-) -&gt; (Imports, ModuleInitializer) {
+) -&gt; Imports {
     <span class="kw">let </span>exports_wasi_generic = wasi_exports_generic(store, env);
     <span class="kw">let </span>exports_wasi_unstable = wasi_unstable_exports(store, env);
     <span class="kw">let </span>exports_wasi_snapshot_preview1 = wasi_snapshot_preview1_exports(store, env);
@@ -1679,9 +1665,7 @@
         <span class="string">"wasix_64v1" </span>=&gt; exports_wasix_64v1,
     };
 
-    <span class="kw">let </span>init = Box::new(stub_initializer) <span class="kw">as </span>ModuleInitializer;
-
-    (imports, init)
+    imports
 }
 
 <span class="doccomment">/// Combines a state generating function with the import list for legacy WASI

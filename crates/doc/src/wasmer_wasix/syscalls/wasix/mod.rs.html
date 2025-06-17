@@ -157,8 +157,17 @@
 <a href="#156" id="156">156</a>
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
-<a href="#159" id="159">159</a></pre></div><pre class="rust"><code><span class="kw">mod </span>callback_signal;
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a></pre></div><pre class="rust"><code><span class="kw">mod </span>callback_signal;
 <span class="kw">mod </span>chdir;
+<span class="kw">mod </span>dl_invalid_handle;
+<span class="kw">mod </span>dlopen;
+<span class="kw">mod </span>dlsym;
 <span class="kw">mod </span>epoll_create;
 <span class="kw">mod </span>epoll_ctl;
 <span class="kw">mod </span>epoll_wait;
@@ -238,6 +247,9 @@
 
 <span class="kw">pub use </span>callback_signal::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>chdir::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>dl_invalid_handle::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>dlopen::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>dlsym::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>epoll_create::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>epoll_ctl::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>epoll_wait::<span class="kw-2">*</span>;

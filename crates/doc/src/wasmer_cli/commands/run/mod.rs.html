@@ -1131,7 +1131,12 @@
 <a href="#1130" id="1130">1130</a>
 <a href="#1131" id="1131">1131</a>
 <a href="#1132" id="1132">1132</a>
-<a href="#1133" id="1133">1133</a></pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a></pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
 <span class="kw">mod </span>wasi;
@@ -1178,7 +1183,7 @@
     runners::{
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
-        wasi::WasiRunner,
+        wasi::{RuntimeOrEngine, WasiRunner},
         wcgi::{<span class="self">self</span>, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
         MappedCommand, MappedDirectory, Runner,
     },
@@ -1526,7 +1531,7 @@
         runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-        runner.run_command(command_name, pkg, runtime)
+        Runner::run_command(<span class="kw-2">&amp;mut </span>runner, command_name, pkg, runtime)
     }
 
     <span class="kw">fn </span>run_wcgi(
@@ -1717,7 +1722,12 @@
         <span class="kw">let </span>program_name = wasm_path.display().to_string();
 
         <span class="kw">let </span>runner = <span class="self">self</span>.build_wasi_runner(<span class="kw-2">&amp;</span>runtime)<span class="question-mark">?</span>;
-        runner.run_wasm(runtime, <span class="kw-2">&amp;</span>program_name, module, module_hash)
+        runner.run_wasm(
+            RuntimeOrEngine::Runtime(runtime),
+            <span class="kw-2">&amp;</span>program_name,
+            module,
+            module_hash,
+        )
     }
 
     <span class="attr">#[allow(unused_variables)]

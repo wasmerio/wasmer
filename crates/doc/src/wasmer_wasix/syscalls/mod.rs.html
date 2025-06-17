@@ -1517,7 +1517,21 @@
 <a href="#1516" id="1516">1516</a>
 <a href="#1517" id="1517">1517</a>
 <a href="#1518" id="1518">1518</a>
-<a href="#1519" id="1519">1519</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
+<a href="#1519" id="1519">1519</a>
+<a href="#1520" id="1520">1520</a>
+<a href="#1521" id="1521">1521</a>
+<a href="#1522" id="1522">1522</a>
+<a href="#1523" id="1523">1523</a>
+<a href="#1524" id="1524">1524</a>
+<a href="#1525" id="1525">1525</a>
+<a href="#1526" id="1526">1526</a>
+<a href="#1527" id="1527">1527</a>
+<a href="#1528" id="1528">1528</a>
+<a href="#1529" id="1529">1529</a>
+<a href="#1530" id="1530">1530</a>
+<a href="#1531" id="1531">1531</a>
+<a href="#1532" id="1532">1532</a>
+<a href="#1533" id="1533">1533</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
 
 </span><span class="kw">pub mod </span>types {
     <span class="kw">pub use </span>wasmer_wasix_types::{types::<span class="kw-2">*</span>, wasi};
@@ -1604,12 +1618,12 @@
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span><span class="self">self</span>::types::{
     wasi::{
-        Addressfamily, Advice, Clockid, Dircookie, Dirent, Errno, Event, EventFdReadwrite,
-        Eventrwflags, Eventtype, ExitCode, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdflagsext, Fdstat, Filesize,
-        Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid, Prestat, ProcSpawnFdOp,
-        Rights, SignalDisposition, Snapshot0Clockid, Sockoption, Sockstatus, Socktype,
-        StackSnapshot, StdioMode <span class="kw">as </span>WasiStdioMode, Streamsecurity, Subscription,
-        SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
+        Addressfamily, Advice, Clockid, Dircookie, Dirent, DlFlags, DlHandle, Errno, Event,
+        EventFdReadwrite, Eventrwflags, Eventtype, ExitCode, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdflagsext,
+        Fdstat, Filesize, Filestat, Filetype, Fstflags, Linkcount, Longsize, OptionFd, Pid,
+        Prestat, ProcSpawnFdOp, Rights, SignalDisposition, Snapshot0Clockid, Sockoption,
+        Sockstatus, Socktype, StackSnapshot, StdioMode <span class="kw">as </span>WasiStdioMode, Streamsecurity,
+        Subscription, SubscriptionFsReadwrite, Tid, Timestamp, TlKey, TlUser, TlVal, Tty, Whence,
     },
     <span class="kw-2">*</span>,
 };
@@ -1629,13 +1643,13 @@
         socket::{InodeHttpSocketType, InodeSocket, InodeSocketKind},
         write_ip_port,
     },
-    runtime::SpawnMemoryType,
+    runtime::SpawnType,
     state::{
         <span class="self">self</span>, iterate_poll_events, InodeGuard, InodeWeakGuard, PollEvent, PollEventBuilder,
         WasiFutex, WasiState,
     },
     utils::{<span class="self">self</span>, map_io_err},
-    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiInstanceHandles,
+    Runtime, VirtualTaskManager, WasiEnv, WasiError, WasiFunctionEnv, WasiModuleTreeHandles,
     WasiVFork,
 };
 <span class="kw">use crate</span>::{
@@ -1752,9 +1766,8 @@
     <span class="prelude-val">Ok</span>(bytes_read)
 }
 
-<span class="comment">// Writes data to the stderr
-
-// TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+<span class="comment">// TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
+</span><span class="doccomment">/// Writes data to the stderr
 </span><span class="attr">#[allow(clippy::await_holding_lock)]
 </span><span class="kw">pub unsafe fn </span>stderr_write&lt;<span class="lifetime">'a</span>&gt;(
     ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
@@ -1894,6 +1907,8 @@
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Ok</span>(res));
         }
 
+        WasiEnv::do_pending_link_operations(<span class="self">self</span>.ctx, <span class="bool-val">false</span>);
+
         <span class="kw">let </span>env = <span class="self">self</span>.ctx.data();
         <span class="kw">if let </span><span class="prelude-val">Some</span>(forced_exit) = env.thread.try_join() {
             <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(forced_exit.unwrap_or_else(|err| {
@@ -1926,6 +1941,8 @@
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(exit_code) = has_exit {
                         Poll::Ready(<span class="prelude-val">Err</span>(WasiError::Exit(exit_code)))
                     } <span class="kw">else </span>{
+                        <span class="comment">// Re-subscribe so we get woken up for further signals as well
+                        </span><span class="self">self</span>.ctx.data().thread.signals_subscribe(cx.waker());
                         Poll::Pending
                     }
                 }
@@ -2014,7 +2031,9 @@
         <span class="kw">let </span>env = ctx.data();
 
         <span class="comment">// Create the deep sleeper
-        </span><span class="kw">let </span>tasks_for_deep_sleep = <span class="kw">if </span>env.enable_deep_sleep {
+        // Deep sleep breaks the linker completely, as it expects other modules to catch the
+        // signal for DL ops
+        </span><span class="kw">let </span>tasks_for_deep_sleep = <span class="kw">if </span>env.enable_deep_sleep &amp;&amp; env.inner().linker().is_none() {
             <span class="prelude-val">Some</span>(env.tasks().clone())
         } <span class="kw">else </span>{
             <span class="prelude-val">None
@@ -2377,14 +2396,20 @@
     <span class="comment">// Get the current value of the stack pointer (which we will use
     // to save all of the stack)
     </span><span class="kw">let </span>stack_upper = get_stack_upper(ctx.data());
-    <span class="kw">let </span>stack_pointer = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = ctx.data().inner().stack_pointer.clone() {
+    <span class="kw">let </span>stack_pointer = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = ctx
+        .data()
+        .inner()
+        .main_module_instance_handles()
+        .stack_pointer
+        .clone()
+    {
         <span class="kw">match </span>stack_pointer.get(ctx) {
             Value::I32(a) =&gt; a <span class="kw">as </span>u64,
             Value::I64(a) =&gt; a <span class="kw">as </span>u64,
             <span class="kw">_ </span>=&gt; stack_upper,
         }
     } <span class="kw">else </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: not exported __stack_pointer global"</span>.to_string());
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: no __stack_pointer global"</span>.to_string());
     };
     <span class="prelude-val">Ok</span>(stack_pointer)
 }
@@ -2406,9 +2431,9 @@
     </span><span class="kw">let </span>stack_upper = get_stack_upper(env);
     <span class="kw">let </span>stack_pointer = stack_upper - offset;
     <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer_ptr) = env
-        .try_inner()
-        .ok_or_else(|| <span class="string">"unable to access the stack pointer of the instance"</span>.to_string())<span class="question-mark">?
-        </span>.stack_pointer
+        .inner()
+        .main_module_instance_handles()
+        .stack_pointer
         .clone()
     {
         <span class="kw">match </span>stack_pointer_ptr.get(store) {
@@ -2426,7 +2451,7 @@
             }
         }
     } <span class="kw">else </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: not exported __stack_pointer global"</span>.to_string());
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: no __stack_pointer global"</span>.to_string());
     }
     <span class="prelude-val">Ok</span>(())
 }
@@ -2440,9 +2465,9 @@
     // to save all of the stack)
     </span><span class="kw">let </span>stack_base = get_stack_upper(env);
     <span class="kw">let </span>stack_pointer = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_pointer) = env
-        .try_inner()
-        .ok_or_else(|| <span class="string">"unable to access the stack pointer of the instance"</span>.to_string())<span class="question-mark">?
-        </span>.stack_pointer
+        .inner()
+        .main_module_instance_handles()
+        .stack_pointer
         .clone()
     {
         <span class="kw">match </span>stack_pointer.get(store) {
@@ -2451,7 +2476,7 @@
             <span class="kw">_ </span>=&gt; stack_base,
         }
     } <span class="kw">else </span>{
-        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: not exported __stack_pointer global"</span>.to_string());
+        <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"failed to save stack: no __stack_pointer global"</span>.to_string());
     };
     <span class="kw">let </span>memory = env
         .try_memory_view(store)
@@ -2656,9 +2681,10 @@
     <span class="comment">// Invoke the callback that will prepare to unwind
     // We need to start unwinding the stack
     </span><span class="kw">let </span>asyncify_data = <span class="macro">wasi_try_ok!</span>(unwind_pointer.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_start_unwind) = <span class="macro">wasi_try_ok!</span>(env.try_inner().ok_or(Errno::Fault))
-        .asyncify_start_unwind
-        .clone()
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_start_unwind) = env
+        .inner()
+        .static_module_instance_handles()
+        .and_then(|handles| handles.asyncify_start_unwind.clone())
     {
         asyncify_start_unwind.call(<span class="kw-2">&amp;mut </span>ctx, asyncify_data);
     } <span class="kw">else </span>{
@@ -2722,10 +2748,9 @@
 
         <span class="comment">// Notify asyncify that we are no longer unwinding
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_unwind) = env
-            .try_inner()
-            .into_iter()
-            .filter_map(|i| i.asyncify_stop_unwind.clone())
-            .next()
+            .inner()
+            .static_module_instance_handles()
+            .and_then(|i| i.asyncify_stop_unwind.clone())
         {
             asyncify_stop_unwind.call(<span class="kw-2">&amp;mut </span>ctx);
         } <span class="kw">else </span>{
@@ -2835,10 +2860,9 @@
     <span class="comment">// Invoke the callback that will prepare to rewind
     </span><span class="kw">let </span>asyncify_data = <span class="macro">wasi_try!</span>(rewind_pointer.try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
     <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_start_rewind) = env
-        .try_inner()
-        .into_iter()
-        .filter_map(|a| a.asyncify_start_rewind.clone())
-        .next()
+        .inner()
+        .static_module_instance_handles()
+        .and_then(|a| a.asyncify_start_rewind.clone())
     {
         asyncify_start_rewind.call(ctx, asyncify_data);
     } <span class="kw">else </span>{
@@ -2936,7 +2960,11 @@
 
         <span class="comment">// Notify asyncify that we are no longer rewinding
         </span><span class="kw">let </span>env = ctx.data();
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_rewind) = env.inner().asyncify_stop_unwind.clone() {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(asyncify_stop_rewind) = env
+            .inner()
+            .static_module_instance_handles()
+            .and_then(|handles| handles.asyncify_stop_unwind.clone())
+        {
             asyncify_stop_rewind.call(ctx);
         } <span class="kw">else </span>{
             <span class="macro">warn!</span>(<span class="string">"failed to handle rewind because the asyncify_start_rewind export is missing or inaccessible"</span>);

@@ -248,12 +248,14 @@
 /// * `timeout` - Timeout should the futex not be triggered in the allocated time
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(futex_idx = field::Empty, poller_idx = field::Empty, %expected, timeout = field::Empty, woken = field::Empty))]
 </span><span class="kw">pub fn </span>futex_wait&lt;M: MemorySize + <span class="lifetime">'static</span>&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     futex_ptr: WasmPtr&lt;u32, M&gt;,
     expected: u32,
     timeout: WasmPtr&lt;OptionTimestamp, M&gt;,
     ret_woken: WasmPtr&lt;Bool, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     futex_wait_internal(ctx, futex_ptr, expected, timeout, ret_woken)
 }
 
@@ -264,8 +266,6 @@
     timeout: WasmPtr&lt;OptionTimestamp, M&gt;,
     ret_woken: WasmPtr&lt;Bool, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_backoff::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 

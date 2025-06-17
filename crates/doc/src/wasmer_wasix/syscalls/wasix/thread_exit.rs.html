@@ -26,7 +26,7 @@
 ///
 /// This syscall does not return.
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%_exitcode), ret)]
-</span><span class="kw">pub fn </span>thread_exit(ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, _exitcode: ExitCode) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
+</span><span class="kw">pub fn </span>thread_exit(ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;, _exitcode: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), WasiError&gt; {
     <span class="macro">tracing::debug!</span>(tid=%ctx.data().thread.id(), <span class="string">"thread exit"</span>);
     <span class="prelude-val">Err</span>(WasiError::ThreadExit)
 }

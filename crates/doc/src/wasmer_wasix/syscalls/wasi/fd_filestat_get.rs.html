@@ -92,7 +92,9 @@
 <a href="#91" id="91">91</a>
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
-<a href="#94" id="94">94</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::types::wasi::Snapshot0Filestat;
 
@@ -111,8 +113,10 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     fd: WasiFd,
     buf: WasmPtr&lt;Filestat, M&gt;,
-) -&gt; Errno {
-    <span class="kw">let </span>stat = <span class="macro">wasi_try!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>stat = <span class="macro">wasi_try_ok!</span>(fd_filestat_get_internal(<span class="kw-2">&amp;mut </span>ctx, fd));
 
     <span class="comment">// These two values have proved to be helpful in multiple investigations
     </span>Span::current().record(<span class="string">"size"</span>, stat.st_size);
@@ -121,9 +125,9 @@
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw">_</span>) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
     <span class="kw">let </span>buf = buf.deref(<span class="kw-2">&amp;</span>memory);
-    <span class="macro">wasi_try_mem!</span>(buf.write(stat));
+    <span class="macro">wasi_try_mem_ok!</span>(buf.write(stat));
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
 <span class="doccomment">/// ### `fd_filestat_get()`

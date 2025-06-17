@@ -129,7 +129,9 @@
 <a href="#128" id="128">128</a>
 <a href="#129" id="129">129</a>
 <a href="#130" id="130">130</a>
-<a href="#131" id="131">131</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{net::socket::SocketProperties, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `sock_open()`
@@ -159,6 +161,8 @@
     pt: SockProto,
     ro_sock: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="comment">// only certain combinations are supported
     </span><span class="kw">match </span>pt {
         SockProto::Tcp =&gt; {

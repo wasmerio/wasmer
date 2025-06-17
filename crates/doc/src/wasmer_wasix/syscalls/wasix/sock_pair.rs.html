@@ -150,7 +150,9 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a></pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a></pre></div><pre class="rust"><code><span class="kw">use </span>virtual_fs::Pipe;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{
@@ -193,6 +195,8 @@
     ro_sock1: WasmPtr&lt;WasiFd, M&gt;,
     ro_sock2: WasmPtr&lt;WasiFd, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="comment">// only certain combinations are supported
     </span><span class="kw">match </span>pt {
         SockProto::Tcp =&gt; {

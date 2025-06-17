@@ -286,7 +286,7 @@
 <span class="kw">mod </span>env;
 <span class="kw">mod </span>func_env;
 <span class="kw">mod </span>handles;
-<span class="kw">mod </span>run;
+<span class="kw">mod </span>linker;
 <span class="kw">mod </span>types;
 
 <span class="kw">use </span>std::{
@@ -297,7 +297,6 @@
     time::Duration,
 };
 
-<span class="kw">use </span>run::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>virtual_fs::{FileOpener, FileSystem, FsError, OpenOptions, VirtualFile};
@@ -307,7 +306,7 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     builder::<span class="kw-2">*</span>,
-    env::{WasiEnv, WasiEnvInit, WasiInstanceHandles},
+    env::{WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles},
     func_env::WasiFunctionEnv,
     types::<span class="kw-2">*</span>,
 };
@@ -318,6 +317,7 @@
     utils::WasiParkingLot,
 };
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>handles::<span class="kw-2">*</span>;
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>linker::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// all the rights enabled
 </span><span class="kw">pub const </span>ALL_RIGHTS: Rights = Rights::all();

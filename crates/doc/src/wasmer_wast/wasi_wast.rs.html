@@ -882,7 +882,7 @@
         </span><span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
         <span class="attr">#[cfg(target_arch = <span class="string">"wasm32"</span>)]
         </span><span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::default()));
-        rt.set_engine(<span class="prelude-val">Some</span>(store.engine().clone()));
+        rt.set_engine(store.engine().clone());
 
         <span class="kw">let </span><span class="kw-2">mut </span>pb = PathBuf::from(base_path);
         pb.push(<span class="self">self</span>.wasm_path);

@@ -27,7 +27,12 @@
 <a href="#26" id="26">26</a>
 <a href="#27" id="27">27</a>
 <a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
+<a href="#29" id="29">29</a>
+<a href="#30" id="30">30</a>
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a>
+<a href="#34" id="34">34</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::<span class="kw-2">*</span>;
 
 <span class="comment">// pub mod wasix_http_client_v1;
@@ -55,5 +60,10 @@
     </span><span class="kw">pub </span>guard_size: u64,
     <span class="doccomment">/// Total size of the stack
     </span><span class="kw">pub </span>stack_size: u64,
+    <span class="doccomment">/// Pointer to the thread's TLS (Thread Local Storage) memory, only filled in when it's known.
+    /// This is mainly used by the dynamic linker; especially so since we can't even find the TLS
+    /// area for a non-PIE module that doesn't export its __tls_base. For DL modules, this is the
+    /// TLS base of the main module.
+    </span><span class="kw">pub </span>tls_base: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 }
 </code></pre></div></section></main></body></html>

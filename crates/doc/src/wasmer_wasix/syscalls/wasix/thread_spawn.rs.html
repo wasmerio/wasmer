@@ -307,13 +307,33 @@
 <a href="#306" id="306">306</a>
 <a href="#307" id="307">307</a>
 <a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::journal::JournalEffector;
 <span class="kw">use crate</span>::{
-    capture_store_snapshot,
     os::task::thread::WasiMemoryLayout,
     runtime::{
         task_manager::{TaskWasm, TaskWasmRunProperties},
@@ -344,13 +364,15 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     start_ptr: WasmPtr&lt;ThreadStart&lt;M&gt;, M&gt;,
     ret_tid: WasmPtr&lt;Tid, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="comment">// Create the thread
-    </span><span class="kw">let </span>tid = <span class="macro">wasi_try!</span>(thread_spawn_internal_from_wasi(<span class="kw-2">&amp;mut </span>ctx, start_ptr));
+    </span><span class="kw">let </span>tid = <span class="macro">wasi_try_ok!</span>(thread_spawn_internal_from_wasi(<span class="kw-2">&amp;mut </span>ctx, start_ptr));
 
     <span class="comment">// Success
     </span><span class="kw">let </span>memory = <span class="kw">unsafe </span>{ ctx.data().memory_view(<span class="kw-2">&amp;</span>ctx) };
-    <span class="macro">wasi_try_mem!</span>(ret_tid.write(<span class="kw-2">&amp;</span>memory, tid));
+    <span class="macro">wasi_try_mem_ok!</span>(ret_tid.write(<span class="kw-2">&amp;</span>memory, tid));
 
     <span class="macro">tracing::debug!</span>(
         tid,
@@ -358,7 +380,7 @@
         <span class="string">"spawned new thread"
     </span>);
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
 <span class="kw">pub fn </span>thread_spawn_internal_from_wasi&lt;M: MemorySize&gt;(
@@ -386,6 +408,7 @@
             stack_lower,
             guard_size,
             stack_size,
+            tls_base: <span class="prelude-val">Some</span>(tls_base),
         }
     };
     <span class="macro">tracing::trace!</span>(
@@ -427,9 +450,16 @@
     rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
     <span class="comment">// We extract the memory which will be passed to the thread
-    </span><span class="kw">let </span>env = ctx.data();
+    </span><span class="kw">let </span>func_env = ctx.as_ref();
+    <span class="kw">let </span><span class="kw-2">mut </span>store = ctx.as_store_mut();
+    <span class="kw">let </span>env = func_env.as_ref(<span class="kw-2">&amp;</span>store);
     <span class="kw">let </span>tasks = env.tasks().clone();
-    <span class="kw">let </span>thread_memory = <span class="kw">unsafe </span>{ env.inner() }.memory_clone();
+
+    <span class="kw">let </span>env_inner = env.inner();
+    <span class="kw">let </span>module_handles = env_inner.main_module_instance_handles();
+
+    <span class="kw">let </span>thread_memory = module_handles.memory_clone();
+    <span class="kw">let </span>linker = env_inner.linker().cloned();
 
     <span class="comment">// We capture some local variables
     </span><span class="kw">let </span>state = env.state.clone();
@@ -458,27 +488,26 @@
 
     <span class="comment">// If the process does not export a thread spawn function then obviously
     // we can't spawn a background thread
-    </span><span class="kw">if unsafe </span>{ env.inner() }.thread_spawn.is_none() {
+    </span><span class="kw">if </span>module_handles.thread_spawn.is_none() {
         <span class="macro">warn!</span>(<span class="string">"thread failed - the program does not export a `wasi_thread_start` function"</span>);
         <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notcapable);
     }
-    <span class="kw">let </span>thread_module = <span class="kw">unsafe </span>{ env.inner() }.module_clone();
-    <span class="kw">let </span>globals = capture_store_snapshot(<span class="kw-2">&amp;mut </span>ctx.as_store_mut());
-    <span class="kw">let </span>spawn_type =
-        <span class="kw">crate</span>::runtime::SpawnMemoryType::ShareMemory(thread_memory, ctx.as_store_ref());
+    <span class="kw">let </span>thread_module = module_handles.module_clone();
+    <span class="kw">let </span>spawn_type = <span class="kw">match </span>linker {
+        <span class="prelude-val">Some</span>(linker) =&gt; <span class="kw">crate</span>::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store),
+        <span class="prelude-val">None </span>=&gt; <span class="kw">crate</span>::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
+    };
 
     <span class="comment">// Now spawn a thread
     </span><span class="macro">trace!</span>(<span class="string">"threading: spawning background thread"</span>);
     <span class="kw">let </span>run = <span class="kw">move </span>|props: TaskWasmRunProperties| {
         execute_module(props.ctx, props.store);
     };
-    tasks
-        .task_wasm(
-            TaskWasm::new(Box::new(run), thread_env, thread_module, <span class="bool-val">false</span>)
-                .with_globals(globals)
-                .with_memory(spawn_type),
-        )
-        .map_err(Into::&lt;Errno&gt;::into)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>task_wasm = TaskWasm::new(Box::new(run), thread_env, thread_module, <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+        .with_memory(spawn_type);
+
+    tasks.task_wasm(task_wasm).map_err(Into::&lt;Errno&gt;::into)<span class="question-mark">?</span>;
 
     <span class="comment">// Success
     </span><span class="prelude-val">Ok</span>(())
@@ -499,7 +528,12 @@
     </span><span class="kw">let </span>call_module_internal = <span class="kw">move </span>|env: <span class="kw-2">&amp;</span>WasiFunctionEnv, store: <span class="kw-2">&amp;mut </span>Store| {
         <span class="comment">// We either call the reactor callback or the thread spawn callback
         //trace!("threading: invoking thread callback (reactor={})", reactor);
-        </span><span class="kw">let </span>spawn = <span class="kw">unsafe </span>{ env.data(<span class="kw-2">&amp;</span>store).inner() }
+
+        // Note: we ensure both unwraps can happen before getting to this point
+        </span><span class="kw">let </span>spawn = env
+            .data(<span class="kw-2">&amp;</span>store)
+            .inner()
+            .main_module_instance_handles()
             .thread_spawn
             .clone()
             .unwrap();
@@ -544,6 +578,14 @@
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
+                    exit_code = <span class="prelude-val">Some</span>(ExitCode::from(<span class="number">128 </span>+ ret <span class="kw">as </span>i32));
+                }
+                <span class="prelude-val">Ok</span>(WasiError::DlSymbolResolutionFailed(symbol)) =&gt; {
+                    <span class="macro">debug!</span>(<span class="string">"failed as wasi version is unknown"</span>);
+                    env.data(<span class="kw-2">&amp;</span>store)
+                        .runtime
+                        .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                    ret = Errno::Nolink;
                     exit_code = <span class="prelude-val">Some</span>(ExitCode::from(<span class="number">128 </span>+ ret <span class="kw">as </span>i32));
                 }
                 <span class="prelude-val">Err</span>(err) =&gt; {

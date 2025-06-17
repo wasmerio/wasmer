@@ -64,7 +64,10 @@
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
 <a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `path_readlink()`
@@ -85,25 +88,27 @@
 ///     The number of bytes written to `buf`
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%dir_fd, path = field::Empty), ret)]
 </span><span class="kw">pub fn </span>path_readlink&lt;M: MemorySize&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     dir_fd: WasiFd,
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
     buf: WasmPtr&lt;u8, M&gt;,
     buf_len: M::Offset,
     buf_used: WasmPtr&lt;M::Offset, M&gt;,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
-    <span class="kw">let </span>base_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(dir_fd));
+    <span class="kw">let </span>base_dir = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(dir_fd));
     <span class="kw">if </span>!base_dir.inner.rights.contains(Rights::PATH_READLINK) {
-        <span class="kw">return </span>Errno::Access;
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Access);
     }
-    <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span><span class="kw-2">mut </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path_str.as_str());
 
-    <span class="kw">let </span>inode = <span class="macro">wasi_try!</span>(state.fs.get_inode_at_path(inodes, dir_fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
+    <span class="kw">let </span>inode = <span class="macro">wasi_try_ok!</span>(state.fs.get_inode_at_path(inodes, dir_fd, <span class="kw-2">&amp;</span>path_str, <span class="bool-val">false</span>));
 
     {
         <span class="kw">let </span>guard = inode.read();
@@ -112,22 +117,23 @@
             <span class="kw">let </span>buf_len: u64 = buf_len.into();
             <span class="kw">let </span>bytes = rel_path_str.bytes();
             <span class="kw">if </span>bytes.len() <span class="kw">as </span>u64 &gt;= buf_len {
-                <span class="kw">return </span>Errno::Overflow;
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Overflow);
             }
             <span class="kw">let </span>bytes: Vec&lt;<span class="kw">_</span>&gt; = bytes.collect();
 
-            <span class="kw">let </span>out = <span class="macro">wasi_try_mem!</span>(buf.slice(<span class="kw-2">&amp;</span>memory, <span class="macro">wasi_try!</span>(to_offset::&lt;M&gt;(bytes.len()))));
-            <span class="macro">wasi_try_mem!</span>(out.write_slice(<span class="kw-2">&amp;</span>bytes));
+            <span class="kw">let </span>out =
+                <span class="macro">wasi_try_mem_ok!</span>(buf.slice(<span class="kw-2">&amp;</span>memory, <span class="macro">wasi_try_ok!</span>(to_offset::&lt;M&gt;(bytes.len()))));
+            <span class="macro">wasi_try_mem_ok!</span>(out.write_slice(<span class="kw-2">&amp;</span>bytes));
             <span class="comment">// should we null terminate this?
 
             </span><span class="kw">let </span>bytes_len: M::Offset =
-                <span class="macro">wasi_try!</span>(bytes.len().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
-            <span class="macro">wasi_try_mem!</span>(buf_used.deref(<span class="kw-2">&amp;</span>memory).write(bytes_len));
+                <span class="macro">wasi_try_ok!</span>(bytes.len().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow));
+            <span class="macro">wasi_try_mem_ok!</span>(buf_used.deref(<span class="kw-2">&amp;</span>memory).write(bytes_len));
         } <span class="kw">else </span>{
-            <span class="kw">return </span>Errno::Inval;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
         }
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 </code></pre></div></section></main></body></html>

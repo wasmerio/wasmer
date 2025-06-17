@@ -3790,7 +3790,8 @@
 <a href="#3789" id="3789">3789</a>
 <a href="#3790" id="3790">3790</a>
 <a href="#3791" id="3791">3791</a>
-<a href="#3792" id="3792">3792</a></pre></div><pre class="rust"><code><span class="kw">pub use crate</span>::{
+<a href="#3792" id="3792">3792</a>
+<a href="#3793" id="3793">3793</a></pre></div><pre class="rust"><code><span class="kw">pub use crate</span>::{
     arm64_decl::{ARM64Register, ArgumentRegisterAllocator, GPR, NEON},
     location::{Multiplier, Reg},
     machine::{Label, Offset},
@@ -7073,7 +7074,8 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>emit_fmov(
+    <span class="attr">#[allow(clippy::unit_arg)]
+    </span><span class="kw">fn </span>emit_fmov(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         src_size: Size,
         src: Location,

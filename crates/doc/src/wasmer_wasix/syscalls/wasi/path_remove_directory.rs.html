@@ -95,7 +95,9 @@
 <a href="#94" id="94">94</a>
 <a href="#95" id="95">95</a>
 <a href="#96" id="96">96</a>
-<a href="#97" id="97">97</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::fs;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
@@ -107,21 +109,23 @@
     fd: WasiFd,
     path: WasmPtr&lt;u8, M&gt;,
     path_len: M::Offset,
-) -&gt; Errno {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="comment">// TODO check if fd is a dir, ensure it's within sandbox, etc.
     </span><span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>(memory, <span class="kw-2">mut </span>state, inodes) = <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
 
-    <span class="kw">let </span>base_dir = <span class="macro">wasi_try!</span>(state.fs.get_fd(fd));
-    <span class="kw">let </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span>base_dir = <span class="macro">wasi_try_ok!</span>(state.fs.get_fd(fd));
+    <span class="kw">let </span>path_str = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
     Span::current().record(<span class="string">"path"</span>, path_str.as_str());
 
-    <span class="macro">wasi_try!</span>(path_remove_directory_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_str));
+    <span class="macro">wasi_try_ok!</span>(path_remove_directory_internal(<span class="kw-2">&amp;mut </span>ctx, fd, <span class="kw-2">&amp;</span>path_str));
     <span class="kw">let </span>env = ctx.data();
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
     </span><span class="kw">if </span>env.enable_journal {
-        <span class="macro">wasi_try!</span>(
+        <span class="macro">wasi_try_ok!</span>(
             JournalEffector::save_path_remove_directory(<span class="kw-2">&amp;mut </span>ctx, fd, path_str).map_err(|err| {
                 <span class="macro">tracing::error!</span>(<span class="string">"failed to save remove directory event - {}"</span>, err);
                 Errno::Fault
@@ -129,7 +133,7 @@
         )
     }
 
-    Errno::Success
+    <span class="prelude-val">Ok</span>(Errno::Success)
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>path_remove_directory_internal(

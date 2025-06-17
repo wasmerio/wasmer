@@ -62,6 +62,8 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     duration: Timestamp,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     thread_sleep_internal::&lt;M&gt;(ctx, duration)
 }
 
@@ -69,8 +71,6 @@
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     duration: Timestamp,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-
     <span class="kw">if let </span><span class="prelude-val">Some</span>(()) = <span class="kw">unsafe </span>{ handle_rewind::&lt;M, <span class="kw">_</span>&gt;(<span class="kw-2">&amp;mut </span>ctx) } {
         <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
     }

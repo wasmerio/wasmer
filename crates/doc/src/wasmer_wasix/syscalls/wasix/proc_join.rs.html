@@ -227,11 +227,13 @@
 /// * `pid` - Handle of the child process to wait on
 </span><span class="comment">//#[instrument(level = "trace", skip_all, fields(pid = ctx.data().process.pid().raw()), ret)]
 </span><span class="kw">pub fn </span>proc_join&lt;M: MemorySize + <span class="lifetime">'static</span>&gt;(
-    ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     pid_ptr: WasmPtr&lt;OptionPid, M&gt;,
     flags: JoinFlags,
     status_ptr: WasmPtr&lt;JoinStatus, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     proc_join_internal(ctx, pid_ptr, flags, status_ptr)
 }
 
@@ -241,8 +243,6 @@
     flags: JoinFlags,
     status_ptr: WasmPtr&lt;JoinStatus, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
-
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot::&lt;M&gt;(ctx)<span class="question-mark">?</span>);
 
     <span class="comment">// This lambda will look at what we wrote in the status variable

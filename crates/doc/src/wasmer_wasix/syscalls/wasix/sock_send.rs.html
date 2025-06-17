@@ -189,7 +189,7 @@
     si_flags: SiFlags,
     ret_data_len: WasmPtr&lt;M::Offset, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
-    <span class="macro">wasi_try_ok!</span>(WasiEnv::process_signals_and_exit(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(fd));

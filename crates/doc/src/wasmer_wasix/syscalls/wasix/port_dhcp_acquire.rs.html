@@ -29,13 +29,17 @@
 <a href="#28" id="28">28</a>
 <a href="#29" id="29">29</a>
 <a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#31" id="31">31</a>
+<a href="#32" id="32">32</a>
+<a href="#33" id="33">33</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 
 <span class="doccomment">/// ### `port_dhcp_acquire()`
 /// Acquires a set of IP addresses using DHCP
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, ret)]
 </span><span class="kw">pub fn </span>port_dhcp_acquire(<span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="macro">wasi_try_ok!</span>(port_dhcp_acquire_internal(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>);
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]

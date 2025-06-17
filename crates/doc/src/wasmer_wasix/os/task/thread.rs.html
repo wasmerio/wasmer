@@ -641,7 +641,18 @@
 <a href="#640" id="640">640</a>
 <a href="#641" id="641">641</a>
 <a href="#642" id="642">642</a>
-<a href="#643" id="643">643</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href="#643" id="643">643</a>
+<a href="#644" id="644">644</a>
+<a href="#645" id="645">645</a>
+<a href="#646" id="646">646</a>
+<a href="#647" id="647">647</a>
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::atomic::{AtomicBool, Ordering};
 <span class="kw">use </span>std::{
     collections::HashMap,
@@ -660,6 +671,7 @@
 
 <span class="kw">use crate</span>::{
     os::task::process::{WasiProcessId, WasiProcessInner},
+    state::LinkError,
     syscalls::HandleRewindType,
     WasiRuntimeError,
 };
@@ -1047,6 +1059,13 @@
         }
     }
 
+    <span class="kw">pub fn </span>signals_subscribe(<span class="kw-2">&amp;</span><span class="self">self</span>, waker: <span class="kw-2">&amp;</span>Waker) {
+        <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.state.signals.lock().unwrap();
+        <span class="kw">if </span>!guard.<span class="number">1</span>.iter().any(|w| w.will_wake(waker)) {
+            guard.<span class="number">1</span>.push(waker.clone());
+        }
+    }
+
     <span class="doccomment">/// Returns all the signals that are waiting to be processed
     </span><span class="kw">pub fn </span>has_signals_or_subscribe(<span class="kw-2">&amp;</span><span class="self">self</span>, waker: <span class="kw-2">&amp;</span>Waker) -&gt; bool {
         <span class="kw">let </span><span class="kw-2">mut </span>guard = <span class="self">self</span>.state.signals.lock().unwrap();
@@ -1261,6 +1280,8 @@
     </span>MemoryCreateFailed(MemoryError),
     <span class="attr">#[error(<span class="string">"{0}"</span>)]
     </span>ExportError(ExportError),
+    <span class="attr">#[error(<span class="string">"Linker error: {0}"</span>)]
+    </span>LinkError(Arc&lt;LinkError&gt;),
     <span class="attr">#[error(<span class="string">"Failed to create the instance - {0}"</span>)]
     </span><span class="comment">// Note: Boxed so we can keep the error size down
     </span>InstanceCreateFailed(Box&lt;InstantiationError&gt;),
@@ -1278,6 +1299,7 @@
             WasiThreadError::MethodNotFound =&gt; Errno::Inval,
             WasiThreadError::MemoryCreateFailed(<span class="kw">_</span>) =&gt; Errno::Nomem,
             WasiThreadError::ExportError(<span class="kw">_</span>) =&gt; Errno::Noexec,
+            WasiThreadError::LinkError(<span class="kw">_</span>) =&gt; Errno::Noexec,
             WasiThreadError::InstanceCreateFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
             WasiThreadError::InitFailed(<span class="kw">_</span>) =&gt; Errno::Noexec,
             WasiThreadError::InvalidWasmContext =&gt; Errno::Noexec,

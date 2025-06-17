@@ -54,7 +54,9 @@
 <a href="#53" id="53">53</a>
 <a href="#54" id="54">54</a>
 <a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#56" id="56">56</a>
+<a href="#57" id="57">57</a>
+<a href="#58" id="58">58</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{journal::SnapshotTrigger, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `sock_listen()`
@@ -75,6 +77,8 @@
     sock: WasiFd,
     backlog: M::Offset,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     ctx = <span class="macro">wasi_try_ok!</span>(maybe_snapshot_once::&lt;M&gt;(ctx, SnapshotTrigger::FirstListen)<span class="question-mark">?</span>);
 
     <span class="kw">let </span>env = ctx.data();

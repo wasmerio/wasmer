@@ -60,7 +60,9 @@
 <a href="#59" id="59">59</a>
 <a href="#60" id="60">60</a>
 <a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#62" id="62">62</a>
+<a href="#63" id="63">63</a>
+<a href="#64" id="64">64</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
 
 <span class="doccomment">/// ### `sock_set_opt_size()
@@ -79,6 +81,8 @@
     opt: Sockoption,
     size: Filesize,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="macro">wasi_try_ok!</span>(sock_set_opt_size_internal(<span class="kw-2">&amp;mut </span>ctx, sock, opt, size)<span class="question-mark">?</span>);
 
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]

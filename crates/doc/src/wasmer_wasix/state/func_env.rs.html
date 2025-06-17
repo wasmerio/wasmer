@@ -428,25 +428,58 @@
 <a href="#427" id="427">427</a>
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
-<a href="#430" id="430">430</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
-
-<span class="kw">use </span>tracing::trace;
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a></pre></div><pre class="rust"><code><span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, Imports, Instance, Memory, Module, Store,
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory,
+    Module, Store,
 };
-<span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
+<span class="kw">use </span>wasmer_wasix_types::{wasi::ExitCode, wasix::WasiMemoryLayout};
 
 <span class="attr">#[allow(unused_imports)]
 </span><span class="kw">use </span><span class="kw">crate</span>::os::task::thread::RewindResultType;
 <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::syscalls::restore_snapshot;
 <span class="kw">use crate</span>::{
-    import_object_for_all_wasi_versions,
     runtime::task_manager::SpawnMemoryTypeOrStore,
-    state::WasiInstanceHandles,
+    state::WasiModuleTreeHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
-    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiRuntimeError, WasiThreadError,
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiModuleInstanceHandles,
+    WasiRuntimeError, WasiThreadError,
 };
+
+<span class="kw">use </span><span class="kw">super</span>::Linker;
 
 <span class="doccomment">/// The default stack size for WASIX - the number itself is the default that compilers
 /// have used in the past when compiling WASM apps.
@@ -474,6 +507,8 @@
         store_snapshot: <span class="prelude-ty">Option</span>&lt;StoreSnapshot&gt;,
         spawn_type: SpawnMemoryTypeOrStore,
         update_layout: bool,
+        call_initialize: bool,
+        parent_linker_and_ctx: <span class="prelude-ty">Option</span>&lt;(Linker, <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;WasiEnv&gt;)&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, Store), WasiThreadError&gt; {
         <span class="comment">// Create a new store and put the memory object in it
         // (but only if it has imported memory)
@@ -503,32 +538,18 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>store = store.unwrap_or_else(|| env.runtime().new_store());
 
-        <span class="comment">// Build the context object and import the memory
-        </span><span class="kw">let </span><span class="kw-2">mut </span>ctx = WasiFunctionEnv::new(<span class="kw-2">&amp;mut </span>store, env);
-        <span class="kw">let </span>(<span class="kw-2">mut </span>import_object, init) =
-            import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>ctx.env);
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory.clone() {
-            import_object.define(<span class="string">"env"</span>, <span class="string">"memory"</span>, memory);
-        }
+        <span class="kw">let </span>(<span class="kw">_</span>, ctx) = env.instantiate(
+            module,
+            <span class="kw-2">&amp;mut </span>store,
+            memory,
+            update_layout,
+            call_initialize,
+            parent_linker_and_ctx,
+        )<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>instance = Instance::new(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>import_object).map_err(|err| {
-            <span class="macro">tracing::warn!</span>(<span class="string">"failed to create instance - {}"</span>, err);
-            WasiThreadError::InstanceCreateFailed(Box::new(err))
-        })<span class="question-mark">?</span>;
-
-        init(<span class="kw-2">&amp;</span>instance, <span class="kw-2">&amp;</span>store).map_err(|err| {
-            <span class="macro">tracing::warn!</span>(<span class="string">"failed to init instance - {}"</span>, err);
-            WasiThreadError::InitFailed(Arc::new(err))
-        })<span class="question-mark">?</span>;
-
-        <span class="comment">// Initialize the WASI environment
-        </span>ctx.initialize_with_memory(<span class="kw-2">&amp;mut </span>store, instance, memory, update_layout)
-            .map_err(|err| {
-                <span class="macro">tracing::warn!</span>(<span class="string">"failed initialize environment - {}"</span>, err);
-                WasiThreadError::ExportError(err)
-            })<span class="question-mark">?</span>;
-
-        <span class="comment">// Set all the globals
+        <span class="comment">// FIXME: shouldn't this happen _before_ instantiating, so the startup code in the instance
+        // has access to the globals?
+        // Set all the globals
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(snapshot) = store_snapshot {
             restore_store_snapshot(<span class="kw-2">&amp;mut </span>store, <span class="kw-2">&amp;</span>snapshot);
         }
@@ -564,27 +585,12 @@
     /// (this must be executed before attempting to use it)
     /// (as the stores can not by themselves be passed between threads we can store the module
     ///  in a thread-local variables and use it later - for multithreading)
+    </span><span class="comment">// FIXME: this probably doesn't work with WASIX modules, since they import their memories?
     </span><span class="kw">pub fn </span>initialize(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         instance: Instance,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExportError&gt; {
-        <span class="self">self</span>.initialize_with_memory(store, instance, <span class="prelude-val">None</span>, <span class="bool-val">true</span>)
-    }
-
-    <span class="doccomment">/// Initializes the WasiEnv using the instance exports and a provided optional memory
-    /// (this must be executed before attempting to use it)
-    /// (as the stores can not by themselves be passed between threads we can store the module
-    ///  in a thread-local variables and use it later - for multithreading)
-    </span><span class="kw">pub fn </span>initialize_with_memory(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-        instance: Instance,
-        memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;,
-        update_layout: bool,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExportError&gt; {
-        <span class="kw">let </span>is_wasix_module = <span class="kw">crate</span>::utils::is_wasix_module(instance.module());
-
         <span class="kw">let </span>exported_memory = instance
             .exports
             .iter()
@@ -595,23 +601,45 @@
                     <span class="prelude-val">None
                 </span>}
             })
-            .next();
-        <span class="kw">let </span>memory = <span class="kw">match </span>(exported_memory, memory) {
-            (<span class="prelude-val">Some</span>(memory), <span class="kw">_</span>) =&gt; memory,
-            (<span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(memory)) =&gt; memory,
-            (<span class="prelude-val">None</span>, <span class="prelude-val">None</span>) =&gt; {
-                <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
-                    <span class="string">"No imported or exported memory found"</span>.to_string(),
-                ))
-            }
-        };
+            .next()
+            .ok_or_else(|| ExportError::Missing(<span class="string">"No exported memory found"</span>.to_string()))<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>new_inner = WasiInstanceHandles::new(memory, store, instance);
+        <span class="self">self</span>.initialize_handles_and_layout(
+            store,
+            instance.clone(),
+            WasiModuleTreeHandles::Static(WasiModuleInstanceHandles::new(
+                exported_memory,
+                store,
+                instance,
+            )),
+            <span class="prelude-val">None</span>,
+            <span class="bool-val">true</span>,
+        )
+    }
 
-        <span class="kw">let </span>stack_pointer = new_inner.stack_pointer.clone();
-        <span class="kw">let </span>data_end = new_inner.data_end.clone();
-        <span class="kw">let </span>stack_low = new_inner.stack_low.clone();
-        <span class="kw">let </span>stack_high = new_inner.stack_high.clone();
+    <span class="doccomment">/// Initializes the WasiEnv using the instance exports and a provided optional memory
+    /// (this must be executed before attempting to use it)
+    /// (as the stores can not by themselves be passed between threads we can store the module
+    ///  in a thread-local variables and use it later - for multithreading)
+    </span><span class="comment">// FIXME: Move this code to somewhere that makes sense (in WasiEnv?)
+    </span><span class="kw">pub fn </span>initialize_handles_and_layout(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        instance: Instance,
+        handles: WasiModuleTreeHandles,
+        stack_layout: <span class="prelude-ty">Option</span>&lt;WasiMemoryLayout&gt;,
+        update_layout: bool,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), ExportError&gt; {
+        <span class="kw">let </span>is_wasix_module = <span class="kw">crate</span>::utils::is_wasix_module(instance.module());
+
+        <span class="kw">let </span>new_inner = handles;
+
+        <span class="kw">let </span>main_module_handles = new_inner.main_module_instance_handles();
+        <span class="kw">let </span>stack_pointer = main_module_handles.stack_pointer.clone();
+        <span class="kw">let </span>data_end = main_module_handles.data_end.clone();
+        <span class="kw">let </span>stack_low = main_module_handles.stack_low.clone();
+        <span class="kw">let </span>stack_high = main_module_handles.stack_high.clone();
+        <span class="kw">let </span>tls_base = main_module_handles.tls_base.clone();
 
         <span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
         env.set_inner(new_inner);
@@ -620,74 +648,102 @@
 
         <span class="comment">// If the stack offset and size is not set then do so
         </span><span class="kw">if </span>update_layout {
-            <span class="comment">// Set the base stack
-            </span><span class="kw">let </span>stack_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_high) = stack_high {
-                <span class="kw">match </span>stack_high.get(store) {
-                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
-                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; DEFAULT_STACK_BASE,
+            <span class="kw">let </span>new_layout = <span class="kw">match </span>stack_layout {
+                <span class="prelude-val">Some</span>(layout) =&gt; layout,
+                <span class="prelude-val">None </span>=&gt; {
+                    <span class="comment">// Set the base stack
+                    </span><span class="kw">let </span>stack_upper = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_high) = stack_high {
+                        <span class="kw">match </span>stack_high.get(store) {
+                            wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                            wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                            <span class="kw">_ </span>=&gt; DEFAULT_STACK_BASE,
+                        }
+                    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(stack_pointer) = stack_pointer {
+                        <span class="kw">match </span>stack_pointer.get(store) {
+                            wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                            wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                            <span class="kw">_ </span>=&gt; DEFAULT_STACK_BASE,
+                        }
+                    } <span class="kw">else </span>{
+                        DEFAULT_STACK_BASE
+                    };
+
+                    <span class="kw">if </span>stack_upper == <span class="number">0 </span>{
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
+                            <span class="string">"stack_high or stack_pointer is not set to the upper stack range"
+                                </span>.to_string(),
+                        ));
+                    }
+
+                    <span class="kw">let </span><span class="kw-2">mut </span>stack_lower = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_low) = stack_low {
+                        <span class="kw">match </span>stack_low.get(store) {
+                            wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                            wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                            <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                        }
+                    } <span class="kw">else if let </span><span class="prelude-val">Some</span>(data_end) = data_end {
+                        <span class="kw">let </span>data_end = <span class="kw">match </span>data_end.get(store) {
+                            wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                            wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                            <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                        };
+                        <span class="comment">// It's possible for the data section to be above the stack, we check for that here and
+                        // if it is, we'll assume the stack starts at address 0
+                        </span><span class="kw">if </span>data_end &gt;= stack_upper {
+                            <span class="number">0
+                        </span>} <span class="kw">else </span>{
+                            data_end
+                        }
+                    } <span class="kw">else </span>{
+                        <span class="comment">// clang-16 and higher generate the `__stack_low` global, and it can be exported with
+                        // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
+                        // and can be exported if `__stack_low` is not available.
+                        </span><span class="kw">if </span><span class="self">self</span>.data(store).will_use_asyncify() {
+                            <span class="macro">tracing::warn!</span>(<span class="string">"Missing both __stack_low and __data_end exports, unwinding may cause memory corruption"</span>);
+                        }
+                        <span class="number">0
+                    </span>};
+
+                    <span class="kw">if </span>stack_lower &gt;= stack_upper {
+                        <span class="kw">if </span><span class="self">self</span>.data(store).will_use_asyncify() {
+                            <span class="macro">tracing::warn!</span>(
+                                <span class="string">"Detected lower end of stack to be above higher end, ignoring stack_lower; \
+                                unwinding may cause memory corruption"
+                            </span>);
+                        }
+                        stack_lower = <span class="number">0</span>;
+                    }
+
+                    <span class="comment">// Note: the TLS base global may not be initialized at the point when this
+                    // code runs, so we take a zero value to mean it wasn't initialized and we
+                    // don't know it. It's never actually zero for statically-linked, non-PIE
+                    // modules.
+                    </span><span class="kw">let </span>tls_base = <span class="kw">if let </span><span class="prelude-val">Some</span>(tls_base) = tls_base {
+                        <span class="kw">match </span>tls_base.get(store) {
+                            wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
+                            wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
+                            <span class="kw">_ </span>=&gt; <span class="number">0</span>,
+                        }
+                    } <span class="kw">else </span>{
+                        <span class="number">0
+                    </span>};
+
+                    WasiMemoryLayout {
+                        stack_lower,
+                        stack_upper,
+                        stack_size: stack_upper - stack_lower,
+                        guard_size: <span class="number">0</span>,
+                        tls_base: <span class="kw">if </span>tls_base == <span class="number">0 </span>{ <span class="prelude-val">None </span>} <span class="kw">else </span>{ <span class="prelude-val">Some</span>(tls_base) },
+                    }
                 }
-            } <span class="kw">else if let </span><span class="prelude-val">Some</span>(stack_pointer) = stack_pointer {
-                <span class="kw">match </span>stack_pointer.get(store) {
-                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
-                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; DEFAULT_STACK_BASE,
-                }
-            } <span class="kw">else </span>{
-                DEFAULT_STACK_BASE
             };
-
-            <span class="kw">if </span>stack_base == <span class="number">0 </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(ExportError::Missing(
-                    <span class="string">"stack_high or stack_pointer is not set to the upper stack range"</span>.to_string(),
-                ));
-            }
-
-            <span class="kw">let </span><span class="kw-2">mut </span>stack_lower = <span class="kw">if let </span><span class="prelude-val">Some</span>(stack_low) = stack_low {
-                <span class="kw">match </span>stack_low.get(store) {
-                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
-                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; <span class="number">0</span>,
-                }
-            } <span class="kw">else if let </span><span class="prelude-val">Some</span>(data_end) = data_end {
-                <span class="kw">let </span>data_end = <span class="kw">match </span>data_end.get(store) {
-                    wasmer::Value::I32(a) =&gt; a <span class="kw">as </span>u64,
-                    wasmer::Value::I64(a) =&gt; a <span class="kw">as </span>u64,
-                    <span class="kw">_ </span>=&gt; <span class="number">0</span>,
-                };
-                <span class="comment">// It's possible for the data section to be above the stack, we check for that here and
-                // if it is, we'll assume the stack starts at address 0
-                </span><span class="kw">if </span>data_end &gt;= stack_base {
-                    <span class="number">0
-                </span>} <span class="kw">else </span>{
-                    data_end
-                }
-            } <span class="kw">else </span>{
-                <span class="comment">// clang-16 and higher generate the `__stack_low` global, and it can be exported with
-                // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
-                // and can be exported if `__stack_low` is not available.
-                </span><span class="kw">if </span><span class="self">self</span>.data(store).will_use_asyncify() {
-                    <span class="macro">tracing::warn!</span>(<span class="string">"Missing both __stack_low and __data_end exports, unwinding may cause memory corruption"</span>);
-                }
-                <span class="number">0
-            </span>};
-
-            <span class="kw">if </span>stack_lower &gt;= stack_base {
-                <span class="kw">if </span><span class="self">self</span>.data(store).will_use_asyncify() {
-                    <span class="macro">tracing::warn!</span>(
-                        <span class="string">"Detected lower end of stack to be above higher end, ignoring stack_lower; \
-                        unwinding may cause memory corruption"
-                    </span>);
-                }
-                stack_lower = <span class="number">0</span>;
-            }
 
             <span class="comment">// Update the stack layout which is need for asyncify
             </span><span class="kw">let </span>env = <span class="self">self</span>.data_mut(store);
             <span class="kw">let </span>tid = env.tid();
             <span class="kw">let </span>layout = <span class="kw-2">&amp;mut </span>env.layout;
-            layout.stack_upper = stack_base;
-            layout.stack_lower = stack_lower;
+            layout.stack_upper = new_layout.stack_upper;
+            layout.stack_lower = new_layout.stack_lower;
             layout.stack_size = layout.stack_upper - layout.stack_lower;
 
             <span class="comment">// Replace the thread object itself
@@ -741,6 +797,14 @@
             <span class="self">self</span>.data(store).pid(),
             <span class="self">self</span>.data(store).tid()
         );
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(linker) = <span class="self">self</span>.data(store).inner().linker().cloned() {
+            <span class="comment">// Note: this call will also process pending dl operations, hence unblocking
+            // other threads that may be waiting for this one to pick the operation up
+            </span><span class="kw">if let </span><span class="prelude-val">Err</span>(e) = linker.shutdown_instance_group(<span class="kw-2">&amp;mut </span><span class="self">self</span>.env.clone().into_mut(store)) {
+                <span class="macro">tracing::warn!</span>(<span class="string">"Failed to shutdown linker instance group: {e:?}"</span>);
+            }
+        }
 
         <span class="comment">// Cleans up all the open files (if this is the main thread)
         </span><span class="self">self</span>.data(store).blocking_on_exit(process_exit_code);

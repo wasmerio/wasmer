@@ -478,7 +478,7 @@
         // threading, etc...
         </span>task_manager
             .task_wasm(
-                TaskWasm::new(Box::new(run_exec), env, module, <span class="bool-val">false</span>)
+                TaskWasm::new(Box::new(run_exec), env, module, <span class="bool-val">false</span>, <span class="bool-val">false</span>)
                     <span class="comment">//.with_optional_memory(spawn_type)
                     </span>.with_recycle(Box::new(recycle)),
             )

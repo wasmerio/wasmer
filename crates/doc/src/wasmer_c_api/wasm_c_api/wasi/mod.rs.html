@@ -1012,7 +1012,7 @@
     <span class="kw">let </span>handle = runtime.handle().clone();
     <span class="kw">let </span>_guard = handle.enter();
     <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-    rt.set_engine(<span class="prelude-val">Some</span>(store_mut.engine().clone()));
+    rt.set_engine(store_mut.engine().clone());
 
     <span class="kw">let </span>slice = <span class="kw">unsafe </span>{ std::slice::from_raw_parts(bytes, len) };
     <span class="kw">let </span>volumes = WebC::parse_volumes_from_fileblock(slice).ok()<span class="question-mark">?</span>;
@@ -1085,7 +1085,7 @@
     <span class="kw">let </span>handle = runtime.handle().clone();
     <span class="kw">let </span>_guard = handle.enter();
     <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-    rt.set_engine(<span class="prelude-val">Some</span>(store_mut.engine().clone()));
+    rt.set_engine(store_mut.engine().clone());
 
     <span class="kw">if </span>!config.inherit_stdout {
         config.builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
@@ -1290,8 +1290,8 @@
     <span class="kw">let </span>shared_memory = module.inner.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
 
     <span class="kw">let </span>spawn_type = <span class="kw">match </span>shared_memory {
-        <span class="prelude-val">Some</span>(ty) =&gt; wasmer_wasix::runtime::SpawnMemoryType::CreateMemoryOfType(ty),
-        <span class="prelude-val">None </span>=&gt; wasmer_wasix::runtime::SpawnMemoryType::CreateMemory,
+        <span class="prelude-val">Some</span>(ty) =&gt; wasmer_wasix::runtime::SpawnType::CreateMemoryOfType(ty),
+        <span class="prelude-val">None </span>=&gt; wasmer_wasix::runtime::SpawnType::CreateMemory,
     };
 
     <span class="kw">let </span>tasks = wasi_env
@@ -1301,7 +1301,7 @@
         .task_manager()
         .clone();
     <span class="kw">let </span>memory = tasks
-        .build_memory(<span class="kw-2">&amp;mut </span>store.store_mut(), spawn_type)
+        .build_memory(<span class="kw-2">&amp;mut </span>store.store_mut(), <span class="kw-2">&amp;</span>spawn_type)
         .unwrap();
 
     <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {

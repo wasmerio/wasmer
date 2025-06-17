@@ -3828,7 +3828,27 @@
 <a href="#3827" id="3827">3827</a>
 <a href="#3828" id="3828">3828</a>
 <a href="#3829" id="3829">3829</a>
-<a href="#3830" id="3830">3830</a></pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
+<a href="#3830" id="3830">3830</a>
+<a href="#3831" id="3831">3831</a>
+<a href="#3832" id="3832">3832</a>
+<a href="#3833" id="3833">3833</a>
+<a href="#3834" id="3834">3834</a>
+<a href="#3835" id="3835">3835</a>
+<a href="#3836" id="3836">3836</a>
+<a href="#3837" id="3837">3837</a>
+<a href="#3838" id="3838">3838</a>
+<a href="#3839" id="3839">3839</a>
+<a href="#3840" id="3840">3840</a>
+<a href="#3841" id="3841">3841</a>
+<a href="#3842" id="3842">3842</a>
+<a href="#3843" id="3843">3843</a>
+<a href="#3844" id="3844">3844</a>
+<a href="#3845" id="3845">3845</a>
+<a href="#3846" id="3846">3846</a>
+<a href="#3847" id="3847">3847</a>
+<a href="#3848" id="3848">3848</a>
+<a href="#3849" id="3849">3849</a>
+<a href="#3850" id="3850">3850</a></pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -6120,7 +6140,8 @@
     Sigpoll,
     Sigpwr,
     Sigsys,
-}
+    Sigwakeup, <span class="comment">// This is a host-side-only signal. Add new guest-side signals before this one.
+</span>}
 <span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>Signal {
     <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
         <span class="kw">match </span><span class="self">self </span>{
@@ -6156,6 +6177,7 @@
             Signal::Sigpoll =&gt; f.debug_tuple(<span class="string">"Signal::Sigpoll"</span>).finish(),
             Signal::Sigpwr =&gt; f.debug_tuple(<span class="string">"Signal::Sigpwr"</span>).finish(),
             Signal::Sigsys =&gt; f.debug_tuple(<span class="string">"Signal::Sigsys"</span>).finish(),
+            Signal::Sigwakeup =&gt; f.debug_tuple(<span class="string">"Signal::Sigwakeup"</span>).finish(),
         }
     }
 }
@@ -6244,6 +6266,24 @@
             .field(<span class="string">"fdflags"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fdflags)
             .field(<span class="string">"fdflagsext"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.fdflagsext)
             .finish()
+    }
+}
+
+<span class="kw">pub type </span>DlHandle = u32;
+
+<span class="macro">wai_bindgen_rust::bitflags::bitflags!</span> {
+    <span class="kw">pub struct </span>DlFlags : u32 {
+        <span class="kw">const </span>LAZY = <span class="number">1 </span>&lt;&lt; <span class="number">0</span>;
+        <span class="kw">const </span>NOW = <span class="number">1 </span>&lt;&lt; <span class="number">1</span>;
+        <span class="kw">const </span>GLOBAL = <span class="number">1 </span>&lt;&lt; <span class="number">2</span>;
+        <span class="kw">const </span>NOLOAD = <span class="number">1 </span>&lt;&lt; <span class="number">3</span>;
+        <span class="kw">const </span>NODELETE = <span class="number">1 </span>&lt;&lt; <span class="number">4</span>;
+        <span class="kw">const </span>DEEPBIND = <span class="number">1 </span>&lt;&lt; <span class="number">5</span>;
+    }
+}
+<span class="kw">impl </span>DlFlags {
+    <span class="kw">pub fn </span>from_bits_preserve(bits: u32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ bits }
     }
 }
 

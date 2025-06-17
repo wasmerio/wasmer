@@ -193,6 +193,8 @@
     ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
+    WasiEnv::do_pending_operations(<span class="kw-2">&amp;mut </span>ctx)<span class="question-mark">?</span>;
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok!</span>(env.state.fs.get_fd(sock));
     <span class="kw">let </span>guard = fd_entry.inode.read();
@@ -276,8 +278,6 @@
     ro_data_len: WasmPtr&lt;M::Offset, M&gt;,
     ro_flags: WasmPtr&lt;RoFlags, M&gt;,
 ) -&gt; WasiResult&lt;usize&gt; {
-    <span class="macro">wasi_try_ok_ok!</span>(WasiEnv::process_signals_and_exit(ctx)<span class="question-mark">?</span>);
-
     <span class="kw">let </span><span class="kw-2">mut </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };
 
