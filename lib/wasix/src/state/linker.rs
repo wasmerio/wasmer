@@ -755,6 +755,11 @@ enum DlOperation {
         // minus one. Otherwise, we're out of sync and an error has been encountered.
         function_table_index: u32,
     },
+    // Allocates slots in the function table
+    AllocateFunctionTable {
+        index: u32,
+        size: u32,
+    },
 }
 
 struct DlModule {
@@ -789,6 +794,7 @@ struct InstanceGroupState {
     recv_pending_operation: bus::BusReader<DlOperation>,
 }
 
+// There is only one LinkerState for all instance groups
 struct LinkerState {
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
@@ -807,10 +813,11 @@ struct LinkerState {
     memory_allocator: MemoryAllocator,
     heap_base: u64,
 
-    /// Tracks which indices are currently in use by dynamic functions
-    /// 
-    /// This is used to prevent dynamic function calls from modifying non-dynamic functions. (Which could be a powerful feature, but should be handled with care)
-    dynamic_functions: BTreeSet<u32>,
+    /// Tracks which slots in the function table are currently used for closures
+    used_closure_functions: BTreeSet<u32>,
+    /// Slots in the indirect function table that were allocated for closures but are currently not in use.
+    /// These can be given out without needing to lock all threads.
+    available_closure_functions: BTreeSet<u32>,
 
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
 
@@ -1156,7 +1163,8 @@ impl Linker {
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
-            dynamic_functions: BTreeSet::new(),
+            used_closure_functions: BTreeSet::new(),
+            available_closure_functions: BTreeSet::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
             send_pending_operation_barrier: barrier_tx,
@@ -1509,86 +1517,82 @@ impl Linker {
             .clone()
     }
 
-    /// Populate a previously registered function
-    /// 
-    /// You will get an error, if the index was not previously allocated by `allocate_function`
-    /// 
-    /// It is explicitly allowed to prepare a previously allocated dynamic function again using this.
-    /// However, if the old function is already running while calling this, the behavior of that running function is undefined. 
-    pub fn populate_dynamic_function(
+    /// Allocate a index for a closure in the indirect function table
+    pub fn allocate_closure_index(
         &self,
-        store: &mut impl AsStoreMut,
-        function_index: u32,
-        func: Function,
-    ) -> Result<(), LinkError> {
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<u32, LinkError> {
         lock_instance_group_state!(
             group_state_guard,
             group_state,
             self,
             LinkError::InstanceGroupIsDead
         );
+        write_linker_state!(linker_state, self, group_state, ctx);
 
-        if !self
-            .linker_state
-            .read()
-            .unwrap()
-            .dynamic_functions
-            .contains(&function_index)
-        {
-            return Err(LinkError::DynamicFunctionIndexNotAllocated(function_index));
+        let mut store = ctx.as_store_mut();
+
+        // Use a previously allocated slot if possible
+        if !linker_state.available_closure_functions.is_empty() {
+            let function_index = linker_state
+                .available_closure_functions
+                .pop_first()
+                .unwrap();
+            linker_state.used_closure_functions.insert(function_index);
+            return Ok(function_index);
         }
 
-        // We dont need to allocate or append at a specific index, we just need to append somewhere.
-        group_state
-            .indirect_function_table
-            .set(store, function_index, Value::FuncRef(Some(func)))
-            .map_err(LinkError::TableAllocationError)?;
-
-        // TODO: Take care of sync between multiple groups
-
-        Ok(())
-    }
-
-    // TODO: This needs to be here, as every mutable indirect_function_table belongs to the dynamic
-    // Allocate a pointer to a function
-    pub fn allocate_dynamic_function(&self, store: &mut impl AsStoreMut) -> Result<u32, LinkError> {
-        lock_instance_group_state!(
-            group_state_guard,
-            group_state,
-            self,
-            LinkError::InstanceGroupIsDead
-        );
-        // TODO: Implement caching and allocating in chunks to avoid locking for each allocation
+        // Allocate more closures than we need to reduce the number of sync operations
+        const CLOSURE_ALLOCATION_SIZE: u32 = 100;
 
         // TODO: Why does this return a u64? We dont implement table64 afaik
         let function_index = group_state
-            .allocate_function_table(store, 1, 1)
-            .map_err(LinkError::TableAllocationError)?;
+            .allocate_function_table(&mut store, CLOSURE_ALLOCATION_SIZE, 1)
+            .map_err(LinkError::TableAllocationError)? as u32;
 
-        let mut linker_state = self.linker_state.write().unwrap();
-        linker_state.dynamic_functions.insert(function_index as u32);
+        for i in 1..CLOSURE_ALLOCATION_SIZE {
+            linker_state
+                .available_closure_functions
+                .insert(function_index + i);
+        }
+        linker_state.used_closure_functions.insert(function_index);
 
+        self.synchronize_link_operation(
+            DlOperation::AllocateFunctionTable {
+                index: function_index,
+                size: CLOSURE_ALLOCATION_SIZE,
+            },
+            linker_state,
+            group_state,
+            &ctx.data().process,
+            ctx.data().tid(),
+        );
         // TODO: Cleanup the previous function when we are overriding something
-
-        // TODO: Take care of sync between multiple groups
 
         Ok(function_index as u32)
     }
-    /// Remove a dynamic function from the indirect function table
+
+    /// Remove a previously allocated slot for a closure in the indirect function table
     ///
-    /// After this it is undefined behavior to call the function at that index.
-    /// The current implementation does nothing, but we should remove them, so we dont accumulate mountains of unused functions.
-    pub fn free_dynamic_function(
+    /// After calling this it is undefined behavior to call the function at the given index.
+    pub fn free_closure_index(
         &self,
-        _store: &mut impl AsStoreMut,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         function_id: u32,
     ) -> Result<(), LinkError> {
-        let mut linker_state = self.linker_state.write().unwrap();
-        linker_state.dynamic_functions.remove(&function_id);
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        write_linker_state!(linker_state, self, group_state, ctx);
 
-        // TODO: Cleanup the previous function when we are overriding something
-
-        // TODO: Take care of sync between multiple groups
+        if !linker_state.used_closure_functions.remove(&function_id) {
+            // Not used, nothing to do
+            return Ok(());
+        }
+        linker_state.available_closure_functions.insert(function_id);
 
         Ok(())
     }
@@ -2296,7 +2300,6 @@ impl LinkerState {
         let module_name = module_location.module_name();
         trace!(?module_name, "Locating and loading module");
 
-        // TODO: Don't clone here
         if let Some(handle) = self.side_modules_by_name.get(module_name) {
             let handle = *handle;
 
@@ -2764,6 +2767,22 @@ impl InstanceGroupState {
         Ok(())
     }
 
+    pub fn apply_function_table_allocation(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        size: u32,
+    ) -> Result<(), LinkError> {
+        trace!(index, "Applying function table allocation");
+        let allocated_index = self
+            .allocate_function_table(store, size, 1)
+            .map_err(LinkError::TableAllocationError)? as u32;
+        if allocated_index != index {
+            panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
+        }
+        Ok(())
+    }
+
     fn apply_dl_operation(
         &mut self,
         linker_state: &LinkerState,
@@ -2797,6 +2816,9 @@ impl InstanceGroupState {
                 resolved_from,
                 function_table_index,
             } => self.apply_resolved_function(store, &name, resolved_from, function_table_index)?,
+            DlOperation::AllocateFunctionTable { index, size } => {
+                self.apply_function_table_allocation(store, index, size)?
+            }
         };
         trace!("Operation applied successfully");
         Ok(())
