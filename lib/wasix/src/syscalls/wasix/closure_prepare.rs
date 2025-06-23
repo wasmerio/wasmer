@@ -1,7 +1,15 @@
-use std::path::PathBuf;
+//! Closures provide a way to generate a WASM function that wraps a generic function and an environment.
+//!
+//! A typical usage of this API is as follows:
+//!
+//! 1. Allocate a function pointer for your closure with [`closure_allocate`]
+//! 2. Prepare the closure with [`closure_prepare`]
+//! 3. Call function pointer
+//! 4. Call [`closure_prepare`] again to redefine the function pointer
+//! 5. Notify wasmer that the closure is no longer needed with [`closure_free`]
 
-use super::*;
 use crate::{state::WasmLoader, syscalls::*};
+use std::path::PathBuf;
 use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
 
 // TODO: Move to wasix-types
@@ -43,74 +51,99 @@ impl WasmValueType {
     }
 }
 
-
-
-/// TODO: write proper documentation for this function
-
-#[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
+/// Prepare a closure so that it can be called with a given signature.
+///
+/// When the closure is called after [`closure_prepare`], the arguments will be decoded and passed to the backing function together with a pointer to the environment.
+///
+/// The backing function needs to conform to the following signature:
+///   uint8_t* values - a pointer to a buffer containing the arguments.
+///   uint8_t* results - a pointer to a buffer where the results will be written.
+///   void* environment - the environment that was passed to closure_prepare
+///
+/// `backing_function` is a pointer (index into `__indirect_function_table`) to the backing function
+///
+/// `closure` is a pointer (index into `__indirect_function_table`) to the closure that was obtained via [`closure_allocate`].
+///
+/// `argument_types_ptr` is a pointer to the argument types as a list of [`WasmValueType`]s
+/// `argument_types_length` is the number of arguments
+///
+/// `result_types_ptr` is a pointer to the result types as a list of [`WasmValueType`]s
+/// `result_types_length` is the number of results
+///
+/// `environment` is the closure environment that will be passed to the backing function alongside the decoded arguments and results
+#[instrument(level = "trace", skip_all, ret)]
 pub fn closure_prepare<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    // The backing function that will receive the serialized parameters
-    // It needs to have the following signature:
-    // * pointer to the values
-    // * pointer to the results
-    // * pointer to the userdata
-    backing_function_id: u32,
-    // The ID of the function that will be registered
-    function_id: u32,
-    // A pointer to the types of the arguments
+    backing_function: u32,
+    closure: u32,
     argument_types_ptr: WasmPtr<u8, M>,
-    // The number of arguments
     argument_types_length: u32,
-    // A pointer to the types of the results
     result_types_ptr: WasmPtr<u8, M>,
-    // The number of results
     result_types_length: u32,
-    // Pointer to the userdata. Will be passed to the function
-    user_data: WasmPtr<u8, M>,
-) -> Result<Errno, WasiRuntimeError> {
+    environment: WasmPtr<u8, M>,
+) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
-
-    let module_name = format!("__closure_{}_{}", function_id, backing_function_id);
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
+
+    let mut argument_types_offset: u64 = argument_types_ptr.offset().into();
+    let mut argument_types_buffer = vec![0u8; argument_types_length as usize];
+    memory
+        .read(argument_types_offset, &mut argument_types_buffer)
+        .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
+    let argument_types = match argument_types_buffer
+        .into_iter()
+        .map(WasmValueType::new)
+        .collect::<Result<Vec<_>, Errno>>()
+    {
+        Ok(types) => types,
+        Err(errno) => return Ok(errno),
+    };
+
+    let mut result_types_offset: u64 = result_types_ptr.offset().into();
+    let mut result_types_buffer = vec![0u8; result_types_length as usize];
+    memory
+        .read(result_types_offset, &mut result_types_buffer)
+        .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
+    let result_types = match result_types_buffer
+        .into_iter()
+        .map(WasmValueType::new)
+        .collect::<Result<Vec<_>, Errno>>()
+    {
+        Ok(types) => types,
+        Err(errno) => return Ok(errno),
+    };
+
+    let concatenated_argument_types =
+        argument_types
+            .iter()
+            .map(|ty| ty.name())
+            .fold(String::new(), |mut acc, ty| {
+                acc.push_str(ty);
+                acc
+            });
+    let concatenated_result_types =
+        result_types
+            .iter()
+            .map(|ty| ty.name())
+            .fold(String::new(), |mut acc, ty| {
+                acc.push_str(ty);
+                acc
+            });
+
+    let user_data_ptr = environment.offset().into();
+
+    let module_name = format!(
+        "__wasix_closure_{}_{}_{}_{}_{}",
+        closure,
+        backing_function,
+        concatenated_argument_types,
+        concatenated_result_types,
+        user_data_ptr
+    );
+
     let module_wat = {
-        let mut argument_types_offset: u64 = argument_types_ptr.offset().into();
-        let argument_types = match (argument_types_offset
-            ..(argument_types_offset + argument_types_length as u64))
-            .map(|i| {
-                let mut type_value = [0u8; 1];
-                memory
-                    .read(argument_types_offset, &mut type_value)
-                    .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))
-                    .unwrap();
-                argument_types_offset += 1;
-                WasmValueType::new(type_value[0])
-            })
-            .collect::<Result<Vec<_>, Errno>>() {
-                Ok(types) => types,
-                Err(errno) => return Ok(errno),
-            };
-        
-        let mut result_types_offset: u64 = result_types_ptr.offset().into();
-        let result_types = match (result_types_offset..(result_types_offset + result_types_length as u64))
-            .map(|i| {
-                let mut type_value = [0u8; 1];
-                memory
-                    .read(result_types_offset, &mut type_value)
-                    .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))
-                    .unwrap();
-                result_types_offset += 1;
-                WasmValueType::new(type_value[0])
-            })
-            .collect::<Result<Vec<_>, Errno>>() {
-                Ok(types) => types,
-                Err(errno) => return Ok(errno),
-            };
-
-        let user_data_ptr = user_data.offset().into();
-
         let values_size = argument_types
             .iter()
             .map(WasmValueType::size)
@@ -142,49 +175,47 @@ pub fn closure_prepare<M: MemorySize>(
             .collect::<Vec<_>>()
             .join(" ");
 
-        let store_params = argument_types.iter().enumerate().fold(
-            (0, String::new()),
-            |mut acc, (index, ty)| {
-                let size = ty.size();
-                let typename = ty.name();
-                acc.1.push_str(
-                    format!(
-                        r#"
+        let store_params =
+            argument_types
+                .iter()
+                .enumerate()
+                .fold((0, String::new()), |mut acc, (index, ty)| {
+                    let size = ty.size();
+                    let typename = ty.name();
+                    acc.1.push_str(
+                        format!(
+                            r#"
             local.get $arguments_base
             local.get {index}
             {typename}.store offset={offset}
             "#,
-                        typename = typename,
-                        index = index,
-                        offset = acc.0
-                    )
-                    .as_str(),
-                );
-                acc.0 += size;
-                acc
-            },
-        );
+                            typename = typename,
+                            index = index,
+                            offset = acc.0
+                        )
+                        .as_str(),
+                    );
+                    acc.0 += size;
+                    acc
+                });
 
-        let load_results = result_types.iter().fold(
-            (0, String::new()),
-            |mut acc, ty| {
-                let size = ty.size();
-                let typename = ty.name();
-                acc.1.push_str(
-                    format!(
-                        r#"
+        let load_results = result_types.iter().fold((0, String::new()), |mut acc, ty| {
+            let size = ty.size();
+            let typename = ty.name();
+            acc.1.push_str(
+                format!(
+                    r#"
             local.get $results_base
             {typename}.load offset={offset}
             "#,
-                        typename = typename,
-                        offset = acc.0
-                    )
-                    .as_str(),
-                );
-                acc.0 += size;
-                acc
-            },
-        );
+                    typename = typename,
+                    offset = acc.0
+                )
+                .as_str(),
+            );
+            acc.0 += size;
+            acc
+        });
 
         // TODO: Do this less shitty
         // TODO: No string interpolation
@@ -193,7 +224,7 @@ pub fn closure_prepare<M: MemorySize>(
     (module
       (@dylink.0) ;; Required for dynamic libraries
       (import "env" "memory" (memory (;0;) 1 65536 shared))
-      (import "env" "__indirect_function_table" (table (;0;) {backing_function_id} funcref))
+      (import "env" "__indirect_function_table" (table (;0;) {backing_function} funcref))
       (import "env" "__stack_pointer" (global $__stack_pointer (;0;) (mut i32)))
       (import "GOT.func" "{module_name}" (global $trampoline_function_index (;5;) (mut i32)))
       (export "{module_name}" (func $closure_trampoline_f))
@@ -201,7 +232,7 @@ pub fn closure_prepare<M: MemorySize>(
       (type $backing_function_t (func (param i32) (param i32) (param i32)))
       (type $link_it_t (func ))
       (func $link_it (type $link_it_t)
-        i32.const {function_id}
+        i32.const {closure}
         global.get $trampoline_function_index
         table.get 0
         table.set 0
@@ -226,7 +257,7 @@ pub fn closure_prepare<M: MemorySize>(
         local.get $results_base
         i32.const {user_data_ptr}
 
-        i32.const {backing_function_id}
+        i32.const {backing_function}
         call_indirect (type $backing_function_t)
 
         {load_results}
@@ -236,8 +267,8 @@ pub fn closure_prepare<M: MemorySize>(
       )
     )
     "#,
-            backing_function_id = backing_function_id,
-            function_id = function_id,
+            backing_function = backing_function,
+            closure = closure,
             values_size = values_size,
             results_size = results_size,
             user_data_ptr = user_data_ptr,
@@ -254,62 +285,83 @@ pub fn closure_prepare<M: MemorySize>(
     let Some(linker) = env.inner().linker() else {
         panic!("Closures only work for dynamic modules.");
     };
+
     let ld_library_path: [&Path; 0] = [];
     let module_path = PathBuf::from(format!("/proc/closures/{}", module_name));
     let full_path = PathBuf::from(format!("/proc/closures/{}", module_name));
 
     let linker = linker.clone();
     let module_handle = linker.load_module(
-        WasmLoader::Memory{
+        WasmLoader::Memory {
             module_name: &module_name,
             bytes: &wasm_bytes,
             ld_library_path: ld_library_path.as_slice(),
         },
         &mut ctx,
-    ).unwrap();
+    );
+    let module_handle = match module_handle {
+        Ok(m) => m,
+        Err(e) => {
+            trace!("Failed to load module: {}", e);
+            return Err(WasiError::Exit(Errno::Noexec.into()));
+        }
+    };
 
     return Ok(Errno::Success);
 }
 
-/// Allocate a new entry in the __indirect_function_table for a closure
-#[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
+/// Allocate a new slot in the __indirect_function_table for a closure
+///
+/// Until the slot is prepared with [`closure_prepare`], it is undefined behavior to call the function at the given index.
+///
+/// The slot should be freed with [`closure_free`] when it is no longer needed.
+#[instrument(level = "trace", skip_all, ret)]
 pub fn closure_allocate<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     closure_id: WasmPtr<u32, M>,
-) -> Result<Errno, WasiRuntimeError> {
-    // NOTE: The libffi API makes it trivial to pass us a allocated chunk of memory in here.
+) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
-    let (env, mut store) = ctx.data_and_store_mut();
 
-    let Some(linker) = env.inner().linker() else {
+    let (env, mut store) = ctx.data_and_store_mut();
+    let Some(linker) = env.inner().linker().cloned() else {
         panic!("Closures only work for dynamic modules.");
     };
-    let function_id = linker.allocate_dynamic_function(&mut store).unwrap();
-    let memory = unsafe { env.memory_view(&store) };
 
+    let function_id = match linker.allocate_closure_index(&mut ctx) {
+        Ok(f) => f,
+        Err(e) => {
+            trace!("Failed to allocate closure index: {}", e);
+            return Err(WasiError::Exit(Errno::Noexec.into()));
+        }
+    };
+
+    let (env, mut store) = ctx.data_and_store_mut();
+    let memory = unsafe { env.memory_view(&store) };
     closure_id.write(&memory, function_id);
     return Ok(Errno::Success);
 }
 
-/// Free a entry in the indirect_function_table
+/// Free a previously allocated slot for a closure in the `__indirect_function_table`
 ///
-/// The function_id must have previously been allocated by allocate_closure.
-#[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
+/// After calling this it is undefined behavior to call the function at the given index.
+#[instrument(level = "trace", skip_all, ret)]
 pub fn closure_free<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    function_id: u32,
-) -> Result<Errno, WasiRuntimeError> {
+    closure: u32,
+) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let (env, mut store) = ctx.data_and_store_mut();
 
-    let Some(linker) = env.inner().linker() else {
+    let Some(linker) = env.inner().linker().cloned() else {
         panic!("Closures only work for dynamic modules.");
     };
-    // TODO: Dont crash, when the function_id is invalid, but return a proper error.
-    linker
-        .free_dynamic_function(&mut store, function_id)
-        .unwrap();
+
+    let free_result = linker.free_closure_index(&mut ctx, closure);
+    if let Err(e) = free_result {
+        trace!("Failed to free closure index: {}", e);
+        return Err(WasiError::Exit(Errno::Noexec.into()));
+    }
 
     return Ok(Errno::Success);
 }
