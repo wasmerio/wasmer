@@ -101,6 +101,11 @@ pub fn closure_prepare<M: MemorySize>(
         Err(errno) => return Ok(errno),
     };
 
+    let Some(linker) = env.inner().linker() else {
+        trace!("Closures only work for dynamic modules.");
+        return Ok(Errno::Notsup);
+    };
+
     let mut result_types_offset: u64 = result_types_ptr.offset().into();
     let mut result_types_buffer = vec![0u8; result_types_length as usize];
     memory
@@ -134,6 +139,7 @@ pub fn closure_prepare<M: MemorySize>(
 
     let user_data_ptr = environment.offset().into();
 
+    // TODO: Actually use random or incrementing names
     let module_name = format!(
         "__wasix_closure_{}_{}_{}_{}_{}",
         closure,
@@ -282,10 +288,6 @@ pub fn closure_prepare<M: MemorySize>(
 
     let wasm_bytes = wat2wasm(module_wat.as_bytes()).unwrap();
 
-    let Some(linker) = env.inner().linker() else {
-        panic!("Closures only work for dynamic modules.");
-    };
-
     let ld_library_path: [&Path; 0] = [];
     let module_path = PathBuf::from(format!("/proc/closures/{}", module_name));
     let full_path = PathBuf::from(format!("/proc/closures/{}", module_name));
@@ -302,8 +304,8 @@ pub fn closure_prepare<M: MemorySize>(
     let module_handle = match module_handle {
         Ok(m) => m,
         Err(e) => {
-            trace!("Failed to load module: {}", e);
-            return Err(WasiError::Exit(Errno::Noexec.into()));
+            // Should never happen
+            panic!("Failed to load module: {}", e);
         }
     };
 
@@ -324,14 +326,15 @@ pub fn closure_allocate<M: MemorySize>(
 
     let (env, mut store) = ctx.data_and_store_mut();
     let Some(linker) = env.inner().linker().cloned() else {
-        panic!("Closures only work for dynamic modules.");
+        trace!("Closures only work for dynamic modules.");
+        return Ok(Errno::Notsup);
     };
 
     let function_id = match linker.allocate_closure_index(&mut ctx) {
         Ok(f) => f,
         Err(e) => {
-            trace!("Failed to allocate closure index: {}", e);
-            return Err(WasiError::Exit(Errno::Noexec.into()));
+            // Should never happen
+            panic!("Failed to allocate closure index: {}", e);
         }
     };
 
@@ -354,13 +357,14 @@ pub fn closure_free<M: MemorySize>(
     let (env, mut store) = ctx.data_and_store_mut();
 
     let Some(linker) = env.inner().linker().cloned() else {
-        panic!("Closures only work for dynamic modules.");
+        trace!("Closures only work for dynamic modules.");
+        return Ok(Errno::Notsup);
     };
 
     let free_result = linker.free_closure_index(&mut ctx, closure);
     if let Err(e) = free_result {
-        trace!("Failed to free closure index: {}", e);
-        return Err(WasiError::Exit(Errno::Noexec.into()));
+        // Should never happen
+        panic!("Failed to free closure index: {}", e);
     }
 
     return Ok(Errno::Success);
