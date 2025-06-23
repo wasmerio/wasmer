@@ -808,7 +808,7 @@ struct LinkerState {
     heap_base: u64,
 
     /// Tracks which indices are currently in use by dynamic functions
-    /// 
+    ///
     /// This is used to prevent dynamic function calls from modifying non-dynamic functions. (Which could be a powerful feature, but should be handled with care)
     dynamic_functions: BTreeSet<u32>,
 
@@ -1507,11 +1507,11 @@ impl Linker {
     }
 
     /// Populate a previously registered function
-    /// 
+    ///
     /// You will get an error, if the index was not previously allocated by `allocate_function`
-    /// 
+    ///
     /// It is explicitly allowed to prepare a previously allocated dynamic function again using this.
-    /// However, if the old function is already running while calling this, the behavior of that running function is undefined. 
+    /// However, if the old function is already running while calling this, the behavior of that running function is undefined.
     pub fn populate_dynamic_function(
         &self,
         store: &mut impl AsStoreMut,
@@ -2104,7 +2104,11 @@ impl LinkerState {
 
             // Skip over the memory, function table and stack pointer imports as well
             match import.name() {
-                "memory" | "__indirect_function_table" | "__stack_pointer" | "__c_longjmp" => {
+                "memory"
+                | "__indirect_function_table"
+                | "__stack_pointer"
+                | "__cpp_exception"
+                | "__c_longjmp" => {
                     trace!(?import, "Skipping resolution of special symbol");
                     continue;
                 }
@@ -2894,6 +2898,24 @@ impl InstanceGroupState {
                         );
                         continue;
                     }
+                    // Clang generates this symbol // TODO: figure out conditions.
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "cpp exception tag");
+                        imports.define(
+                            import.module(),
+                            import.name(),
+                            Tag::new(store, vec![Type::I32]),
+                        );
+                        continue;
+                    }
                     // Clang generates this symbol when building modules that use EH-based sjlj.
                     "__c_longjmp" => {
                         if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
@@ -3162,6 +3184,23 @@ impl InstanceGroupState {
                             import.module(),
                             import.name(),
                             Extern::Global(self.stack_pointer.clone()),
+                        );
+                        continue;
+                    }
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "cpp exception tag");
+                        imports.define(
+                            import.module(),
+                            import.name(),
+                            Tag::new(store, vec![Type::I32]),
                         );
                         continue;
                     }
