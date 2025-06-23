@@ -818,7 +818,6 @@ struct LinkerState {
     /// Slots in the indirect function table that were allocated for closures but are currently not in use.
     /// These can be given out without needing to lock all threads.
     available_closure_functions: BTreeSet<u32>,
-    
 
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
 
@@ -1516,7 +1515,10 @@ impl Linker {
     }
 
     /// Allocate a index for a closure in the indirect function table
-    pub fn allocate_closure_index(&self, ctx: &mut FunctionEnvMut<'_, WasiEnv>) -> Result<u32, LinkError> {
+    pub fn allocate_closure_index(
+        &self,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<u32, LinkError> {
         lock_instance_group_state!(
             group_state_guard,
             group_state,
@@ -1529,7 +1531,10 @@ impl Linker {
 
         // Use a previously allocated slot if possible
         if !linker_state.available_closure_functions.is_empty() {
-            let function_index = linker_state.available_closure_functions.pop_first().unwrap();
+            let function_index = linker_state
+                .available_closure_functions
+                .pop_first()
+                .unwrap();
             linker_state.used_closure_functions.insert(function_index);
             return Ok(function_index);
         }
@@ -1543,16 +1548,21 @@ impl Linker {
             .map_err(LinkError::TableAllocationError)? as u32;
 
         for i in 1..CLOSURE_ALLOCATION_SIZE {
-            linker_state.available_closure_functions.insert(function_index + i);
+            linker_state
+                .available_closure_functions
+                .insert(function_index + i);
         }
         linker_state.used_closure_functions.insert(function_index);
 
         self.synchronize_link_operation(
-            DlOperation::AllocateFunctionTable{index: function_index, size: CLOSURE_ALLOCATION_SIZE},
+            DlOperation::AllocateFunctionTable {
+                index: function_index,
+                size: CLOSURE_ALLOCATION_SIZE,
+            },
             linker_state,
             group_state,
             &ctx.data().process,
-            ctx.data().tid()
+            ctx.data().tid(),
         );
         // TODO: Cleanup the previous function when we are overriding something
 
@@ -1564,7 +1574,7 @@ impl Linker {
     /// After calling this it is undefined behavior to call the function at the given index.
     pub fn free_closure_index(
         &self,
-        ctx: &mut FunctionEnvMut<'_, WasiEnv> ,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
         function_id: u32,
     ) -> Result<(), LinkError> {
         lock_instance_group_state!(
@@ -1574,7 +1584,7 @@ impl Linker {
             LinkError::InstanceGroupIsDead
         );
         write_linker_state!(linker_state, self, group_state, ctx);
-        
+
         if !linker_state.used_closure_functions.remove(&function_id) {
             // Not used, nothing to do
             return Ok(());
@@ -2754,12 +2764,16 @@ impl InstanceGroupState {
         Ok(())
     }
 
-    pub fn apply_function_table_allocation(&mut self, store: &mut impl AsStoreMut, index: u32, size: u32) -> Result<(), LinkError> {
-        trace!(
-            index,
-            "Applying function table allocation"
-        );
-        let allocated_index = self.allocate_function_table(store, size, 1).map_err(LinkError::TableAllocationError)? as u32;
+    pub fn apply_function_table_allocation(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        size: u32,
+    ) -> Result<(), LinkError> {
+        trace!(index, "Applying function table allocation");
+        let allocated_index = self
+            .allocate_function_table(store, size, 1)
+            .map_err(LinkError::TableAllocationError)? as u32;
         if allocated_index != index {
             panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
         }
@@ -2799,7 +2813,9 @@ impl InstanceGroupState {
                 resolved_from,
                 function_table_index,
             } => self.apply_resolved_function(store, name, resolved_from, function_table_index)?,
-            DlOperation::AllocateFunctionTable { index  , size } => self.apply_function_table_allocation(store, index, size)?,
+            DlOperation::AllocateFunctionTable { index, size } => {
+                self.apply_function_table_allocation(store, index, size)?
+            }
         };
         trace!("Operation applied successfully");
         Ok(())
