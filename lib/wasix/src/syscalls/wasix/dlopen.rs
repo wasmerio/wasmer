@@ -43,7 +43,6 @@ pub fn dlopen<M: MemorySize>(
 
     let linker = linker.clone();
 
-    // TODO: Rework interface
     let location = WasmLoader::Filesystem{
         module_name: &path,
         ld_library_path: ld_library_path.as_slice(),
