@@ -2,28 +2,31 @@ use super::*;
 use crate::syscalls::*;
 use wasmer::Type;
 
-/// TODO: write proper documentation for this function
-/// Calls a function from the indirect function table with the given values.
+/// Call a function from the `__indirect_function_table` with parameters and results from memory.
 ///
-/// This function can be used to call functions whose types are not known at compile time of the caller.
+/// This function can be used to call functions whose types are not known at compile time of the caller. It is the callers responsibility to ensure that the passed parameters and results match the signature of the function beeing called.
 ///
-/// As the caller it is you responsibility
-///  need to pass the correct number of values and with the correct types.
+/// ### Format of the values and results buffer
 ///
-/// function_id:
-/// The ID of the function to call
-/// This is an index into the indirect function table
+/// The buffers contain all values sequentially. i32, and f32 are 4 bytes, i64 and f64 are 8 bytes, v128 is 16 bytes.
+///     
+/// For example if the function takes an i32 and an i64, the values buffer will be 12 bytes long, with the first 4 bytes being the i32 and the next 8 bytes being the i64.
 ///
-/// values:
-/// Pointer to a sequence of pointers to the values that should be passed to the function
-/// If the function does not take any values, this can be a nullptr (0).
-/// As the user of this function, you need to ensure that the values are in matching the actual function signature.
-/// If they dont match, its undefined behavior.
+/// ### Parameters
 ///
-/// return_value:
-/// Pointer to a location where the return value of the function will be written.
-/// If the function does not return a value, this can be a nullptr (0).
-/// As the user of this function, its your responsibility to ensure that the return buffer is large enough to hold the return value.
+/// * function_id: The indirect function table index of the function to call
+///
+/// * values: Pointer to a sequence of values that will be passed to the function.
+///   
+///   The buffer will be interpreted as described above
+///
+///   If the function does not have any parameters, this can be a nullptr (0).
+///
+/// * results: Pointer to a sequence of values
+///   
+///   If the function does not return a value, this can be a nullptr (0).
+///
+///   The buffer needs to be large enough to hold all return values.
 ///
 #[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
 pub fn call_dynamic<M: MemorySize>(
@@ -36,20 +39,10 @@ pub fn call_dynamic<M: MemorySize>(
 
     let (env, mut store) = ctx.data_and_store_mut();
 
-    let Some(indirect_function_table) = env.inner().main_module_indirect_function_table() else {
-        // No function table is available, so we cannot call any functions dynamically.
-        trace!("No function table available");
-        return Ok(Errno::Notsup);
-    };
-    let Some(function_value) = indirect_function_table.get(&mut store, function_id) else {
-        // Invalid function ID
-        trace!(function_id, "Invalid function ID");
-        return Ok(Errno::Inval);
-    };
+    let function = wasi_try_ok!(env
+        .inner()
+        .main_module_indirect_function_table_lookup(&mut store, function_id));
 
-    let Value::FuncRef(Some(function)) = function_value else {
-        panic!("Function table contains something other than a funcref. At this point this should never happen");
-    };
     let function_type = function.ty(&store);
 
     let memory = unsafe { env.memory_view(&store) };
