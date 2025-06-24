@@ -1547,7 +1547,6 @@ impl Linker {
         // Allocate more closures than we need to reduce the number of sync operations
         const CLOSURE_ALLOCATION_SIZE: u32 = 100;
 
-        // TODO: Why does this return a u64? We dont implement table64 afaik
         let function_index = group_state
             .allocate_function_table(&mut store, CLOSURE_ALLOCATION_SIZE, 1)
             .map_err(LinkError::TableAllocationError)? as u32;
