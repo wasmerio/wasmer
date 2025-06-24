@@ -234,10 +234,9 @@ pub fn closure_prepare<M: MemorySize>(
       (import "env" "__stack_pointer" (global $__stack_pointer (;0;) (mut i32)))
       (import "GOT.func" "{module_name}" (global $trampoline_function_index (;5;) (mut i32)))
       (export "{module_name}" (func $closure_trampoline_f))
-      (export "__wasm_call_ctors" (func $link_it))
+      (export "__wasix_on_load_hook" (func $__wasix_on_load_hook))
       (type $backing_function_t (func (param i32) (param i32) (param i32)))
-      (type $link_it_t (func ))
-      (func $link_it (type $link_it_t)
+      (func $__wasix_on_load_hook
         i32.const {closure}
         global.get $trampoline_function_index
         table.get 0

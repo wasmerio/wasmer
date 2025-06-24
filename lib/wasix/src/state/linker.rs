@@ -1733,6 +1733,13 @@ impl Linker {
             call_initialization_function::<()>(instance, store, "__wasm_call_ctors")?;
         }
 
+        trace!("Calling wasix on load hook");
+        for instance in &new_instances {
+            // A wasix specific initialization function, that will run on every existing thread
+            // For now this is only used by the wasix closure API
+            call_initialization_function::<()>(instance, store, "__wasix_on_load_hook")?;
+        }
+
         Ok(())
     }
 
