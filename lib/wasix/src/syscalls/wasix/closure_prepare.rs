@@ -10,7 +10,10 @@
 
 use crate::{state::WasmLoader, syscalls::*};
 use std::{path::PathBuf, sync::atomic::AtomicUsize};
-use wasm_encoder::{InstructionSink, MemArg, ValType};
+use wasm_encoder::{
+    CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
+    ImportSection, InstructionSink, MemArg, MemoryType, RefType, TableType, TypeSection, ValType,
+};
 use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
 
 // TODO: Move to wasix-types
@@ -20,6 +23,7 @@ enum WasmValueType {
     I64 = 1,
     F32 = 2,
     F64 = 3,
+    V128 = 4,
 }
 impl WasmValueType {
     fn new(value: u8) -> Result<Self, Errno> {
@@ -28,29 +32,45 @@ impl WasmValueType {
             1 => Ok(Self::I64),
             2 => Ok(Self::F32),
             3 => Ok(Self::F64),
+            4 => Ok(Self::V128),
             _ => Err(Errno::Inval),
         }
     }
     fn as_u8(self) -> u8 {
         self as u8
     }
+}
+
+impl From<WasmValueType> for ValType {
+    fn from(value: WasmValueType) -> Self {
+        match value {
+            WasmValueType::I32 => Self::I32,
+            WasmValueType::I64 => Self::I64,
+            WasmValueType::F32 => Self::F32,
+            WasmValueType::F64 => Self::F64,
+            WasmValueType::V128 => Self::V128,
+        }
+    }
+}
+
+trait ValTypeOps {
+    fn size(&self) -> u64;
+    fn store(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32);
+    fn load(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32);
+}
+impl ValTypeOps for ValType {
     fn size(&self) -> u64 {
         match self {
             Self::I32 => 4,
             Self::I64 => 8,
             Self::F32 => 4,
             Self::F64 => 8,
+            Self::V128 => 16,
+            // Not supported in closures
+            Self::Ref(_) => panic!("Cannot get size of reference type"),
         }
     }
-    fn name(&self) -> &str {
-        match self {
-            Self::I32 => "i32",
-            Self::I64 => "i64",
-            Self::F32 => "f32",
-            Self::F64 => "f64",
-        }
-    }
-    fn store(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32){
+    fn store(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32) {
         match self {
             Self::I32 => sink.i32_store(MemArg {
                 offset: offset,
@@ -72,9 +92,16 @@ impl WasmValueType {
                 align: 0,
                 memory_index: memory_index,
             }),
+            Self::V128 => sink.v128_store(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            // Not supported in closures
+            Self::Ref(_) => panic!("Cannot store reference type"),
         };
     }
-    fn load(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32){
+    fn load(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32) {
         match self {
             Self::I32 => sink.i32_load(MemArg {
                 offset: offset,
@@ -96,23 +123,191 @@ impl WasmValueType {
                 align: 0,
                 memory_index: memory_index,
             }),
+            Self::V128 => sink.v128_load(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            // Not supported in closures
+            Self::Ref(_) => panic!("Cannot load reference type"),
         };
-    }
-}
-
-impl From<&WasmValueType> for wasm_encoder::ValType {
-    fn from(value: &WasmValueType) -> Self {
-        match value {
-            WasmValueType::I32 => wasm_encoder::ValType::I32,
-            WasmValueType::I64 => wasm_encoder::ValType::I64,
-            WasmValueType::F32 => wasm_encoder::ValType::F32,
-            WasmValueType::F64 => wasm_encoder::ValType::F64,
-        }
     }
 }
 
 // Monotonic incrementing id for closures
 static CLOSURE_ID: AtomicUsize = AtomicUsize::new(0);
+
+fn build_closure(
+    module_name: &str,
+    closure: u32,
+    backing_function: u32,
+    environment_offset: u64,
+    argument_types: &[ValType],
+    result_types: &[ValType],
+) -> Vec<u8> {
+    let mut wasm_module = wasm_encoder::Module::new();
+
+    // Add dylink section
+    let dylink = CustomSection {
+        name: Cow::Borrowed("dylink.0"),
+        data: Cow::Borrowed(&[]),
+    };
+    wasm_module.section(&dylink);
+
+    // Add types section
+    let mut types = TypeSection::new();
+    types.ty().function(vec![], vec![]);
+    let on_load_function_type_index = 0;
+    let mut trampoline_function_params = argument_types.to_vec();
+    let mut trampoline_function_results = result_types.to_vec();
+    types
+        .ty()
+        .function(trampoline_function_params, trampoline_function_results);
+    let trampoline_function_type_index = 1;
+    types
+        .ty()
+        .function(vec![ValType::I32, ValType::I32, ValType::I32], vec![]);
+    let backing_function_type_index = 2;
+    wasm_module.section(&types);
+
+    // Add a imports section
+    let mut imports = ImportSection::new();
+    imports.import(
+        "env",
+        "memory",
+        MemoryType {
+            minimum: 1,
+            maximum: Some(65536),
+            shared: true,
+            memory64: false,
+            page_size_log2: None,
+        },
+    );
+    let main_memory_index = 0;
+    imports.import(
+        "env",
+        "__indirect_function_table",
+        TableType {
+            element_type: RefType::FUNCREF,
+            minimum: 1,
+            maximum: None,
+            shared: false,
+            table64: false,
+        },
+    );
+    let indirect_function_table_index = 0;
+    imports.import(
+        "env",
+        "__stack_pointer",
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+    );
+    let stack_pointer_index = 0;
+    imports.import(
+        "GOT.func",
+        &module_name,
+        GlobalType {
+            val_type: ValType::I32,
+            mutable: true,
+            shared: false,
+        },
+    );
+    let trampoline_function_pointer_index = 1;
+    wasm_module.section(&imports);
+
+    let mut functions = FunctionSection::new();
+    functions.function(on_load_function_type_index);
+    let on_load_function_index = 0;
+    functions.function(trampoline_function_type_index);
+    let trampoline_function_index = 1;
+    wasm_module.section(&functions);
+
+    // Add an export section
+    let mut exports = ExportSection::new();
+    exports.export(
+        "__wasix_on_load_hook",
+        ExportKind::Func,
+        on_load_function_index,
+    );
+    exports.export(&module_name, ExportKind::Func, trampoline_function_index);
+    wasm_module.section(&exports);
+
+    let mut code = CodeSection::new();
+    let mut on_load_function = wasm_encoder::Function::new(vec![]);
+    on_load_function
+        .instructions()
+        .i32_const(closure as i32)
+        .global_get(trampoline_function_pointer_index)
+        .table_get(indirect_function_table_index)
+        .table_set(indirect_function_table_index)
+        .end();
+    code.function(&on_load_function);
+
+    let mut trampoline_function = wasm_encoder::Function::new(vec![(3, ValType::I32)]);
+    let original_stackpointer_local: u32 = argument_types.len() as u32 + 0;
+    let arguments_base_local: u32 = argument_types.len() as u32 + 1;
+    let results_base_local: u32 = argument_types.len() as u32 + 2;
+    let mut trampoline_function_instructions = trampoline_function.instructions();
+    let values_size = argument_types
+        .iter()
+        .map(ValType::size)
+        .sum::<u64>()
+        .next_multiple_of(16);
+    let results_size = result_types
+        .iter()
+        .map(ValType::size)
+        .sum::<u64>()
+        .next_multiple_of(16);
+    trampoline_function_instructions
+        .global_get(stack_pointer_index)
+        .local_tee(original_stackpointer_local)
+        .i32_const(results_size as i32)
+        .i32_sub()
+        .local_tee(results_base_local)
+        .i32_const(values_size as i32)
+        .i32_sub()
+        .local_tee(arguments_base_local)
+        .global_set(stack_pointer_index);
+    argument_types.iter().enumerate().fold(
+        (0, &mut trampoline_function_instructions),
+        |mut acc, (index, ty)| {
+            let size = ty.size();
+            acc.1
+                .local_get(arguments_base_local)
+                .local_get(index as u32);
+            ty.store(&mut acc.1, acc.0, main_memory_index);
+            acc.0 += size;
+            acc
+        },
+    );
+    trampoline_function_instructions
+        .local_get(arguments_base_local)
+        .local_get(results_base_local)
+        .i32_const(environment_offset as i32)
+        .i32_const(backing_function as i32)
+        .call_indirect(indirect_function_table_index, backing_function_type_index);
+    result_types.iter().enumerate().fold(
+        (0, &mut trampoline_function_instructions),
+        |mut acc, (index, ty)| {
+            let size = ty.size();
+            acc.1.local_get(results_base_local);
+            ty.load(&mut acc.1, acc.0, main_memory_index);
+            acc.0 += size;
+            acc
+        },
+    );
+    trampoline_function_instructions
+        .local_get(original_stackpointer_local)
+        .global_set(stack_pointer_index)
+        .end();
+    code.function(&trampoline_function);
+    wasm_module.section(&code);
+
+    wasm_module.finish()
+}
 
 /// Prepare a closure so that it can be called with a given signature.
 ///
@@ -150,233 +345,58 @@ pub fn closure_prepare<M: MemorySize>(
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
 
-    let Some(linker) = env.inner().linker() else {
+    let Some(linker) = env.inner().linker().cloned() else {
         trace!("Closures only work for dynamic modules.");
         return Ok(Errno::Notsup);
     };
 
-    let mut argument_types_offset: u64 = argument_types_ptr.offset().into();
-    let mut argument_types_buffer = vec![0u8; argument_types_length as usize];
-    memory
-        .read(argument_types_offset, &mut argument_types_buffer)
-        .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
-    let argument_types = match argument_types_buffer
-        .into_iter()
-        .map(WasmValueType::new)
-        .collect::<Result<Vec<_>, Errno>>()
-    {
-        Ok(types) => types,
-        Err(errno) => return Ok(errno),
+    let argument_types = {
+        let arg_offset = argument_types_ptr.offset().into();
+        let arguments_slice =
+            wasi_try_mem_ok!(
+                WasmSlice::new(&memory, arg_offset, argument_types_length as u64)
+                    .and_then(WasmSlice::access)
+            );
+        wasi_try_ok!(arguments_slice
+            .iter()
+            .map(|t| WasmValueType::new(*t).map(Into::into))
+            .collect::<Result<Vec<_>, Errno>>())
     };
 
-    let mut result_types_offset: u64 = result_types_ptr.offset().into();
-    let mut result_types_buffer = vec![0u8; result_types_length as usize];
-    memory
-        .read(result_types_offset, &mut result_types_buffer)
-        .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
-    let result_types = match result_types_buffer
-        .into_iter()
-        .map(WasmValueType::new)
-        .collect::<Result<Vec<_>, Errno>>()
-    {
-        Ok(types) => types,
-        Err(errno) => return Ok(errno),
+    let result_types = {
+        let res_offset = result_types_ptr.offset().into();
+        let result_slice =
+            wasi_try_mem_ok!(
+                WasmSlice::new(&memory, res_offset, result_types_length as u64)
+                    .and_then(WasmSlice::access)
+            );
+        wasi_try_ok!(result_slice
+            .iter()
+            .map(|t| WasmValueType::new(*t).map(Into::into))
+            .collect::<Result<Vec<_>, Errno>>())
     };
-
-    let user_data_ptr = environment.offset().into();
 
     let module_name = format!(
         "__wasix_closure_{}",
         CLOSURE_ID.fetch_add(1, Ordering::SeqCst),
     );
 
-    let wasm_bytes = {
-        let mut wasm_module = wasm_encoder::Module::new();
-
-        // Add dylink section
-        let dylink = wasm_encoder::CustomSection {
-            name: Cow::Borrowed("dylink.0"),
-            data: Cow::Borrowed(&[]),
-        };
-        wasm_module.section(&dylink);
-
-        // Add types section
-        let mut types = wasm_encoder::TypeSection::new();
-        types.ty().function(vec![], vec![]);
-        let on_load_function_type_index = 0;
-        let mut trampoline_function_params =
-            argument_types.iter().map(ValType::from).collect::<Vec<_>>();
-        let mut trampoline_function_results =
-            result_types.iter().map(ValType::from).collect::<Vec<_>>();
-        types
-            .ty()
-            .function(trampoline_function_params, trampoline_function_results);
-        let trampoline_function_type_index = 1;
-        types
-            .ty()
-            .function(vec![ValType::I32, ValType::I32, ValType::I32], vec![]);
-        let backing_function_type_index = 2;
-        wasm_module.section(&types);
-
-        // Add a imports section
-        let mut imports = wasm_encoder::ImportSection::new();
-        imports.import(
-            "env",
-            "memory",
-            wasm_encoder::MemoryType {
-                minimum: 1,
-                maximum: Some(65536),
-                shared: true,
-                memory64: false,
-                page_size_log2: None,
-            },
-        );
-        let main_memory_index = 0;
-        imports.import(
-            "env",
-            "__indirect_function_table",
-            wasm_encoder::TableType {
-                element_type: wasm_encoder::RefType::FUNCREF,
-                minimum: 1,
-                maximum: None,
-                shared: false,
-                table64: false,
-            },
-        );
-        let indirect_function_table_index = 0;
-        imports.import(
-            "env",
-            "__stack_pointer",
-            wasm_encoder::GlobalType {
-                val_type: wasm_encoder::ValType::I32,
-                mutable: true,
-                shared: false,
-            },
-        );
-        let stack_pointer_index = 0;
-        imports.import(
-            "GOT.func",
-            &module_name,
-            wasm_encoder::GlobalType {
-                val_type: wasm_encoder::ValType::I32,
-                mutable: true,
-                shared: false,
-            },
-        );
-        let trampoline_function_pointer_index = 1;
-        wasm_module.section(&imports);
-
-        let mut functions = wasm_encoder::FunctionSection::new();
-functions.function(on_load_function_type_index);
-let on_load_function_index = 0;
-functions.function(trampoline_function_type_index);
-let trampoline_function_index = 1;
-wasm_module.section(&functions);
-
-        // Add an export section
-        let mut exports = wasm_encoder::ExportSection::new();
-        exports.export("__wasix_on_load_hook", wasm_encoder::ExportKind::Func, on_load_function_index);
-        exports.export(&module_name, wasm_encoder::ExportKind::Func, trampoline_function_index);
-        wasm_module.section(&exports);
-
-
-        let mut code = wasm_encoder::CodeSection::new();
-        let mut on_load_function = wasm_encoder::Function::new(vec![]);
-        on_load_function
-            .instructions()
-            .i32_const(closure as i32)
-            .global_get(trampoline_function_pointer_index)
-            .table_get(indirect_function_table_index)
-            .table_set(indirect_function_table_index)
-            .end();
-        code.function(&on_load_function);
-
-        let mut trampoline_function = wasm_encoder::Function::new(vec![(3, ValType::I32)]);
-        let original_stackpointer_local: u32 = argument_types.len() as u32 + 0;
-        let arguments_base_local: u32 = argument_types.len() as u32 + 1;
-        let results_base_local: u32 = argument_types.len() as u32 + 2;
-        let mut trampoline_function_instructions = trampoline_function.instructions();
-        let values_size = argument_types
-        .iter()
-        .map(WasmValueType::size)
-        .sum::<u64>()
-        .next_multiple_of(16);
-    let results_size = result_types
-        .iter()
-        .map(WasmValueType::size)
-        .sum::<u64>()
-        .next_multiple_of(16);
-        trampoline_function_instructions
-            .global_get(stack_pointer_index)
-            .local_tee(original_stackpointer_local)
-            .i32_const(results_size as i32)
-            .i32_sub()
-            .local_tee(results_base_local)
-            .i32_const(values_size as i32)
-            .i32_sub()
-            .local_tee(arguments_base_local)
-            .global_set(stack_pointer_index);
-        argument_types.iter().enumerate().fold(
-            (0, &mut trampoline_function_instructions),
-            |mut acc, (index, ty)| {
-                let size = ty.size();
-                acc.1
-                    .local_get(arguments_base_local)
-                    .local_get(index as u32);
-                ty.store(
-                    &mut acc.1,
-                    acc.0,
-                    main_memory_index,
-                );
-                acc.0 += size;
-                acc
-            },
-        );
-        trampoline_function_instructions
-        .local_get(arguments_base_local)
-        .local_get(results_base_local)
-        .i32_const(user_data_ptr as i32)
-        .i32_const(backing_function as i32)
-        .call_indirect(indirect_function_table_index, backing_function_type_index);
-        result_types.iter().enumerate().fold(
-            (0, &mut trampoline_function_instructions),
-            |mut acc, (index, ty)| {
-                let size = ty.size();
-                acc.1
-                    .local_get(results_base_local);
-                ty.load(
-                    &mut acc.1,
-                    acc.0,
-                    main_memory_index,
-                );
-                acc.0 += size;
-                acc
-            },
-        );
-        trampoline_function_instructions
-        .local_get(original_stackpointer_local)
-        .global_set(stack_pointer_index)
-        .end();
-        code.function(&trampoline_function);
-        wasm_module.section(&code);
-
-        wasm_module.finish()
-    };
+    let wasm_bytes = build_closure(
+        &module_name,
+        closure,
+        backing_function,
+        environment.offset().into(),
+        &argument_types,
+        &result_types,
+    );
 
     let ld_library_path: [&Path; 0] = [];
-    let module_path = PathBuf::from(format!("/proc/closures/{}", module_name));
-    let full_path = PathBuf::from(format!("/proc/closures/{}", module_name));
-
-    let linker = linker.clone();
-    let module_handle = linker.load_module(
-        WasmLoader::Memory {
-            module_name: &module_name,
-            bytes: &wasm_bytes,
-            ld_library_path: ld_library_path.as_slice(),
-        },
-        &mut ctx,
-    );
-    let module_handle = match module_handle {
+    let wasm_loader = WasmLoader::Memory {
+        module_name: &module_name,
+        bytes: &wasm_bytes,
+        ld_library_path: ld_library_path.as_slice(),
+    };
+    let module_handle = match linker.load_module(wasm_loader, &mut ctx) {
         Ok(m) => m,
         Err(e) => {
             // Should never happen
