@@ -1507,14 +1507,19 @@ impl Linker {
         }
     }
 
-    /// TODO: Arshia told me not to do this but I want to implement the other stuff first.
-    /// This may break horribly when there are multiple instance groups, so yeah, rewrite this, its wrong
-    pub fn access_indirect_function_table(&self) -> Option<Table> {
-        let group_state = self.instance_group_state.lock().unwrap();
-        group_state
-            .as_ref()
-            .map(|group| group.indirect_function_table.clone())
-            .clone()
+    /// Perform a lookup in the indirect function table
+    pub fn lookup_indirect_function_table(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Result<Option<Value>, LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        Ok(group_state.indirect_function_table.get(store, index))
     }
 
     /// Allocate a index for a closure in the indirect function table
