@@ -15,50 +15,29 @@ use wasm_encoder::{
     ImportSection, InstructionSink, MemArg, MemoryType, RefType, TableType, TypeSection, ValType,
 };
 use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
+use wasmer_wasix_types::wasi::WasmValueType;
 
-// TODO: Move to wasix-types
-#[repr(u8)]
-enum WasmValueType {
-    I32 = 0,
-    I64 = 1,
-    F32 = 2,
-    F64 = 3,
-    V128 = 4,
-}
-impl WasmValueType {
-    fn new(value: u8) -> Result<Self, Errno> {
-        match value {
-            0 => Ok(Self::I32),
-            1 => Ok(Self::I64),
-            2 => Ok(Self::F32),
-            3 => Ok(Self::F64),
-            4 => Ok(Self::V128),
-            _ => Err(Errno::Inval),
-        }
-    }
-    fn as_u8(self) -> u8 {
-        self as u8
-    }
-}
-
-impl From<WasmValueType> for ValType {
-    fn from(value: WasmValueType) -> Self {
-        match value {
-            WasmValueType::I32 => Self::I32,
-            WasmValueType::I64 => Self::I64,
-            WasmValueType::F32 => Self::F32,
-            WasmValueType::F64 => Self::F64,
-            WasmValueType::V128 => Self::V128,
-        }
-    }
-}
-
-trait ValTypeOps {
+// Implement helper functions for ValType
+trait ValTypeOps
+where
+    Self: Sized,
+{
+    fn from_u8(value: u8) -> Result<Self, Errno>;
     fn size(&self) -> u64;
     fn store(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32);
     fn load(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32);
 }
 impl ValTypeOps for ValType {
+    fn from_u8(value: u8) -> Result<Self, Errno> {
+        let wasix_type = WasmValueType::try_from(value).map_err(|_| Errno::Inval)?;
+        match wasix_type {
+            WasmValueType::I32 => Ok(Self::I32),
+            WasmValueType::I64 => Ok(Self::I64),
+            WasmValueType::F32 => Ok(Self::F32),
+            WasmValueType::F64 => Ok(Self::F64),
+            WasmValueType::V128 => Ok(Self::V128),
+        }
+    }
     fn size(&self) -> u64 {
         match self {
             Self::I32 => 4,
@@ -66,7 +45,7 @@ impl ValTypeOps for ValType {
             Self::F32 => 4,
             Self::F64 => 8,
             Self::V128 => 16,
-            // Not supported in closures
+            // Not supported in closures.
             Self::Ref(_) => panic!("Cannot get size of reference type"),
         }
     }
@@ -134,10 +113,8 @@ impl ValTypeOps for ValType {
     }
 }
 
-// Monotonic incrementing id for closures
-static CLOSURE_ID: AtomicUsize = AtomicUsize::new(0);
-
-fn build_closure(
+/// Build a dynamically linkable WASM module for the given closure.
+fn build_closure_wasm_bytes(
     module_name: &str,
     closure: u32,
     backing_function: u32,
@@ -309,6 +286,9 @@ fn build_closure(
     wasm_module.finish()
 }
 
+// Monotonically incrementing id for closures
+static CLOSURE_ID: AtomicUsize = AtomicUsize::new(0);
+
 /// Prepare a closure so that it can be called with a given signature.
 ///
 /// When the closure is called after [`closure_prepare`], the arguments will be decoded and passed to the backing function together with a pointer to the environment.
@@ -359,7 +339,7 @@ pub fn closure_prepare<M: MemorySize>(
             );
         wasi_try_ok!(arguments_slice
             .iter()
-            .map(|t| WasmValueType::new(*t).map(Into::into))
+            .map(|t: &u8| ValType::from_u8(*t))
             .collect::<Result<Vec<_>, Errno>>())
     };
 
@@ -372,7 +352,7 @@ pub fn closure_prepare<M: MemorySize>(
             );
         wasi_try_ok!(result_slice
             .iter()
-            .map(|t| WasmValueType::new(*t).map(Into::into))
+            .map(|t: &u8| ValType::from_u8(*t))
             .collect::<Result<Vec<_>, Errno>>())
     };
 
@@ -381,7 +361,7 @@ pub fn closure_prepare<M: MemorySize>(
         CLOSURE_ID.fetch_add(1, Ordering::SeqCst),
     );
 
-    let wasm_bytes = build_closure(
+    let wasm_bytes = build_closure_wasm_bytes(
         &module_name,
         closure,
         backing_function,
