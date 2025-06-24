@@ -8,8 +8,7 @@ pub(crate) use thread_local::*;
 
 use tracing::trace;
 use wasmer::{
-    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, TypedFunction,
-    Value,
+    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, Table, TypedFunction, Value
 };
 use wasmer_wasix_types::wasi::Errno;
 
@@ -26,6 +25,9 @@ pub struct WasiModuleInstanceHandles {
     /// Represents a reference to the memory
     pub(crate) memory: Memory,
     pub(crate) instance: wasmer::Instance,
+    
+    /// Points to the indirect function table
+    pub(crate) indirect_function_table: Option<Table>,
 
     /// Points to the current location of the memory stack pointer
     pub(crate) stack_pointer: Option<Global>,
@@ -118,6 +120,7 @@ impl WasiModuleInstanceHandles {
             .any(|f| f.name() == "stack_checkpoint");
         Self {
             memory,
+            indirect_function_table: instance.exports.get_table("__indirect_function_table").cloned().ok(),
             stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
             data_end: instance.exports.get_global("__data_end").cloned().ok(),
             stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
@@ -289,10 +292,9 @@ impl WasiModuleTreeHandles {
     ) -> Result<Function, Errno> {
         let value = match self {
             Self::Static(a) => a
-                .instance
-                .exports
-                .get_table("__indirect_function_table")
-                .map_err(|_| Errno::Notsup)?
+                .indirect_function_table
+                .as_ref()
+                .ok_or(Errno::Notsup)?
                 .get(store, index),
             Self::Dynamic { linker, .. } => linker
                 .lookup_indirect_function_table(store, index)
