@@ -6,7 +6,12 @@ pub(crate) use global::*;
 #[cfg(feature = "js")]
 pub(crate) use thread_local::*;
 
-use wasmer::{AsStoreRef, Global, Instance, Memory, MemoryView, Module, Table, TypedFunction};
+use tracing::trace;
+use wasmer::{
+    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, TypedFunction,
+    Value,
+};
+use wasmer_wasix_types::wasi::Errno;
 
 use super::Linker;
 
@@ -277,12 +282,36 @@ impl WasiModuleTreeHandles {
         }
     }
 
-    pub fn main_module_indirect_function_table(&self) -> Option<Table> {
-        match self {
-            Self::Static(a) => {
-                a.instance.exports.get_table("__indirect_function_table").cloned().ok()
-            },
-            Self::Dynamic { linker, .. } => linker.access_indirect_function_table(),
-        }
+    pub fn main_module_indirect_function_table_lookup(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Result<Function, Errno> {
+        let value = match self {
+            Self::Static(a) => a
+                .instance
+                .exports
+                .get_table("__indirect_function_table")
+                .map_err(|_| Errno::Notsup)?
+                .get(store, index),
+            Self::Dynamic { linker, .. } => linker
+                .lookup_indirect_function_table(store, index)
+                .map_err(|_| Errno::Notsup)?,
+        };
+        let Some(value) = value else {
+            trace!(
+                function_id = index,
+                "Function not found in indirect function table"
+            );
+            return Err(Errno::Inval);
+        };
+        let Value::FuncRef(funcref) = value else {
+            unreachable!("Function table contains something other than a funcref. At this point this should never happen");
+        };
+        let Some(funcref) = funcref else {
+            trace!(function_id = index, "No function at the supplied index");
+            return Err(Errno::Inval);
+        };
+        Ok(funcref)
     }
 }
