@@ -9,7 +9,8 @@
 //! 5. Notify wasmer that the closure is no longer needed with [`closure_free`]
 
 use crate::{state::WasmLoader, syscalls::*};
-use std::path::PathBuf;
+use std::{path::PathBuf, sync::atomic::AtomicUsize};
+use wasm_encoder::{InstructionSink, MemArg, ValType};
 use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
 
 // TODO: Move to wasix-types
@@ -49,7 +50,69 @@ impl WasmValueType {
             Self::F64 => "f64",
         }
     }
+    fn store(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32){
+        match self {
+            Self::I32 => sink.i32_store(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            Self::I64 => sink.i64_store(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            Self::F32 => sink.f32_store(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            Self::F64 => sink.f64_store(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+        };
+    }
+    fn load(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32){
+        match self {
+            Self::I32 => sink.i32_load(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            Self::I64 => sink.i64_load(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            Self::F32 => sink.f32_load(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+            Self::F64 => sink.f64_load(MemArg {
+                offset: offset,
+                align: 0,
+                memory_index: memory_index,
+            }),
+        };
+    }
 }
+
+impl From<&WasmValueType> for wasm_encoder::ValType {
+    fn from(value: &WasmValueType) -> Self {
+        match value {
+            WasmValueType::I32 => wasm_encoder::ValType::I32,
+            WasmValueType::I64 => wasm_encoder::ValType::I64,
+            WasmValueType::F32 => wasm_encoder::ValType::F32,
+            WasmValueType::F64 => wasm_encoder::ValType::F64,
+        }
+    }
+}
+
+// Monotonic incrementing id for closures
+static CLOSURE_ID: AtomicUsize = AtomicUsize::new(0);
 
 /// Prepare a closure so that it can be called with a given signature.
 ///
@@ -87,6 +150,11 @@ pub fn closure_prepare<M: MemorySize>(
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
 
+    let Some(linker) = env.inner().linker() else {
+        trace!("Closures only work for dynamic modules.");
+        return Ok(Errno::Notsup);
+    };
+
     let mut argument_types_offset: u64 = argument_types_ptr.offset().into();
     let mut argument_types_buffer = vec![0u8; argument_types_length as usize];
     memory
@@ -99,11 +167,6 @@ pub fn closure_prepare<M: MemorySize>(
     {
         Ok(types) => types,
         Err(errno) => return Ok(errno),
-    };
-
-    let Some(linker) = env.inner().linker() else {
-        trace!("Closures only work for dynamic modules.");
-        return Ok(Errno::Notsup);
     };
 
     let mut result_types_offset: u64 = result_types_ptr.offset().into();
@@ -120,172 +183,185 @@ pub fn closure_prepare<M: MemorySize>(
         Err(errno) => return Ok(errno),
     };
 
-    let concatenated_argument_types =
-        argument_types
-            .iter()
-            .map(|ty| ty.name())
-            .fold(String::new(), |mut acc, ty| {
-                acc.push_str(ty);
-                acc
-            });
-    let concatenated_result_types =
-        result_types
-            .iter()
-            .map(|ty| ty.name())
-            .fold(String::new(), |mut acc, ty| {
-                acc.push_str(ty);
-                acc
-            });
-
     let user_data_ptr = environment.offset().into();
 
-    // TODO: Actually use random or incrementing names
     let module_name = format!(
-        "__wasix_closure_{}_{}_{}_{}_{}",
-        closure,
-        backing_function,
-        concatenated_argument_types,
-        concatenated_result_types,
-        user_data_ptr
+        "__wasix_closure_{}",
+        CLOSURE_ID.fetch_add(1, Ordering::SeqCst),
     );
 
-    let module_wat = {
+    let wasm_bytes = {
+        let mut wasm_module = wasm_encoder::Module::new();
+
+        // Add dylink section
+        let dylink = wasm_encoder::CustomSection {
+            name: Cow::Borrowed("dylink.0"),
+            data: Cow::Borrowed(&[]),
+        };
+        wasm_module.section(&dylink);
+
+        // Add types section
+        let mut types = wasm_encoder::TypeSection::new();
+        types.ty().function(vec![], vec![]);
+        let on_load_function_type_index = 0;
+        let mut trampoline_function_params =
+            argument_types.iter().map(ValType::from).collect::<Vec<_>>();
+        let mut trampoline_function_results =
+            result_types.iter().map(ValType::from).collect::<Vec<_>>();
+        types
+            .ty()
+            .function(trampoline_function_params, trampoline_function_results);
+        let trampoline_function_type_index = 1;
+        types
+            .ty()
+            .function(vec![ValType::I32, ValType::I32, ValType::I32], vec![]);
+        let backing_function_type_index = 2;
+        wasm_module.section(&types);
+
+        // Add a imports section
+        let mut imports = wasm_encoder::ImportSection::new();
+        imports.import(
+            "env",
+            "memory",
+            wasm_encoder::MemoryType {
+                minimum: 1,
+                maximum: Some(65536),
+                shared: true,
+                memory64: false,
+                page_size_log2: None,
+            },
+        );
+        let main_memory_index = 0;
+        imports.import(
+            "env",
+            "__indirect_function_table",
+            wasm_encoder::TableType {
+                element_type: wasm_encoder::RefType::FUNCREF,
+                minimum: 1,
+                maximum: None,
+                shared: false,
+                table64: false,
+            },
+        );
+        let indirect_function_table_index = 0;
+        imports.import(
+            "env",
+            "__stack_pointer",
+            wasm_encoder::GlobalType {
+                val_type: wasm_encoder::ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+        );
+        let stack_pointer_index = 0;
+        imports.import(
+            "GOT.func",
+            &module_name,
+            wasm_encoder::GlobalType {
+                val_type: wasm_encoder::ValType::I32,
+                mutable: true,
+                shared: false,
+            },
+        );
+        let trampoline_function_pointer_index = 1;
+        wasm_module.section(&imports);
+
+        let mut functions = wasm_encoder::FunctionSection::new();
+functions.function(on_load_function_type_index);
+let on_load_function_index = 0;
+functions.function(trampoline_function_type_index);
+let trampoline_function_index = 1;
+wasm_module.section(&functions);
+
+        // Add an export section
+        let mut exports = wasm_encoder::ExportSection::new();
+        exports.export("__wasix_on_load_hook", wasm_encoder::ExportKind::Func, on_load_function_index);
+        exports.export(&module_name, wasm_encoder::ExportKind::Func, trampoline_function_index);
+        wasm_module.section(&exports);
+
+
+        let mut code = wasm_encoder::CodeSection::new();
+        let mut on_load_function = wasm_encoder::Function::new(vec![]);
+        on_load_function
+            .instructions()
+            .i32_const(closure as i32)
+            .global_get(trampoline_function_pointer_index)
+            .table_get(indirect_function_table_index)
+            .table_set(indirect_function_table_index)
+            .end();
+        code.function(&on_load_function);
+
+        let mut trampoline_function = wasm_encoder::Function::new(vec![(3, ValType::I32)]);
+        let original_stackpointer_local: u32 = argument_types.len() as u32 + 0;
+        let arguments_base_local: u32 = argument_types.len() as u32 + 1;
+        let results_base_local: u32 = argument_types.len() as u32 + 2;
+        let mut trampoline_function_instructions = trampoline_function.instructions();
         let values_size = argument_types
-            .iter()
-            .map(WasmValueType::size)
-            .sum::<u64>()
-            .next_multiple_of(16);
-        let results_size = result_types
-            .iter()
-            .map(WasmValueType::size)
-            .sum::<u64>()
-            .next_multiple_of(16);
+        .iter()
+        .map(WasmValueType::size)
+        .sum::<u64>()
+        .next_multiple_of(16);
+    let results_size = result_types
+        .iter()
+        .map(WasmValueType::size)
+        .sum::<u64>()
+        .next_multiple_of(16);
+        trampoline_function_instructions
+            .global_get(stack_pointer_index)
+            .local_tee(original_stackpointer_local)
+            .i32_const(results_size as i32)
+            .i32_sub()
+            .local_tee(results_base_local)
+            .i32_const(values_size as i32)
+            .i32_sub()
+            .local_tee(arguments_base_local)
+            .global_set(stack_pointer_index);
+        argument_types.iter().enumerate().fold(
+            (0, &mut trampoline_function_instructions),
+            |mut acc, (index, ty)| {
+                let size = ty.size();
+                acc.1
+                    .local_get(arguments_base_local)
+                    .local_get(index as u32);
+                ty.store(
+                    &mut acc.1,
+                    acc.0,
+                    main_memory_index,
+                );
+                acc.0 += size;
+                acc
+            },
+        );
+        trampoline_function_instructions
+        .local_get(arguments_base_local)
+        .local_get(results_base_local)
+        .i32_const(user_data_ptr as i32)
+        .i32_const(backing_function as i32)
+        .call_indirect(indirect_function_table_index, backing_function_type_index);
+        result_types.iter().enumerate().fold(
+            (0, &mut trampoline_function_instructions),
+            |mut acc, (index, ty)| {
+                let size = ty.size();
+                acc.1
+                    .local_get(results_base_local);
+                ty.load(
+                    &mut acc.1,
+                    acc.0,
+                    main_memory_index,
+                );
+                acc.0 += size;
+                acc
+            },
+        );
+        trampoline_function_instructions
+        .local_get(original_stackpointer_local)
+        .global_set(stack_pointer_index)
+        .end();
+        code.function(&trampoline_function);
+        wasm_module.section(&code);
 
-        let required_stack_size = values_size + results_size;
-
-        let signature_params: String = argument_types
-            .iter()
-            .map(|ty| {
-                let name = ty.name();
-                format!("(param {})", name)
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
-
-        let signature_results = result_types
-            .iter()
-            .map(|ty| {
-                let name = ty.name();
-                format!("(result {})", name)
-            })
-            .collect::<Vec<_>>()
-            .join(" ");
-
-        let store_params =
-            argument_types
-                .iter()
-                .enumerate()
-                .fold((0, String::new()), |mut acc, (index, ty)| {
-                    let size = ty.size();
-                    let typename = ty.name();
-                    acc.1.push_str(
-                        format!(
-                            r#"
-            local.get $arguments_base
-            local.get {index}
-            {typename}.store offset={offset}
-            "#,
-                            typename = typename,
-                            index = index,
-                            offset = acc.0
-                        )
-                        .as_str(),
-                    );
-                    acc.0 += size;
-                    acc
-                });
-
-        let load_results = result_types.iter().fold((0, String::new()), |mut acc, ty| {
-            let size = ty.size();
-            let typename = ty.name();
-            acc.1.push_str(
-                format!(
-                    r#"
-            local.get $results_base
-            {typename}.load offset={offset}
-            "#,
-                    typename = typename,
-                    offset = acc.0
-                )
-                .as_str(),
-            );
-            acc.0 += size;
-            acc
-        });
-
-        // TODO: Do this less shitty
-        // TODO: No string interpolation
-        format!(
-            r#"
-    (module
-      (@dylink.0) ;; Required for dynamic libraries
-      (import "env" "memory" (memory (;0;) 1 65536 shared))
-      (import "env" "__indirect_function_table" (table (;0;) {backing_function} funcref))
-      (import "env" "__stack_pointer" (global $__stack_pointer (;0;) (mut i32)))
-      (import "GOT.func" "{module_name}" (global $trampoline_function_index (;5;) (mut i32)))
-      (export "{module_name}" (func $closure_trampoline_f))
-      (export "__wasix_on_load_hook" (func $__wasix_on_load_hook))
-      (type $backing_function_t (func (param i32) (param i32) (param i32)))
-      (func $__wasix_on_load_hook
-        i32.const {closure}
-        global.get $trampoline_function_index
-        table.get 0
-        table.set 0
-      )
-      (func $closure_trampoline_f {signature_params} {signature_results}
-        (local $original_sp i32)
-        (local $arguments_base i32)
-        (local $results_base i32)
-        global.get $__stack_pointer
-        local.tee $original_sp
-        i32.const {results_size}
-        i32.sub
-        local.tee $results_base
-        i32.const {values_size}
-        i32.sub
-        local.tee $arguments_base
-        global.set $__stack_pointer
-
-        {store_params}
-
-        local.get $arguments_base
-        local.get $results_base
-        i32.const {user_data_ptr}
-
-        i32.const {backing_function}
-        call_indirect (type $backing_function_t)
-
-        {load_results}
-
-        local.get $original_sp
-        global.set $__stack_pointer
-      )
-    )
-    "#,
-            backing_function = backing_function,
-            closure = closure,
-            values_size = values_size,
-            results_size = results_size,
-            user_data_ptr = user_data_ptr,
-            signature_params = signature_params,
-            signature_results = signature_results,
-            load_results = load_results.1,
-            store_params = store_params.1,
-            module_name = module_name,
-        )
+        wasm_module.finish()
     };
-
-    let wasm_bytes = wat2wasm(module_wat.as_bytes()).unwrap();
 
     let ld_library_path: [&Path; 0] = [];
     let module_path = PathBuf::from(format!("/proc/closures/{}", module_name));

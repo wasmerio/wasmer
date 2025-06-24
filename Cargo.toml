@@ -126,6 +126,7 @@ time = "0.3.36"
 target-lexicon = { version = "0.12.2", default-features = false }
 object = { version = "0.32.0", default-features = true }
 derive_more = { version = "1", features = ["debug"] }
+wasm-encoder = {version = "0.235.0", default-features = false, features = ["std"]}
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
