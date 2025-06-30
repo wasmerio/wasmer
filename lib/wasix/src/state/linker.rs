@@ -585,6 +585,11 @@ pub enum ResolveError {
 
     #[error("Failed to perform pending DL operation: {0}")]
     PendingDlOperationFailed(#[from] LinkError),
+
+    #[error(
+        "Tried to resolve a tls symbol from a module that did not initialize thread local storage"
+    )]
+    TlsSymbolWithoutTls,
 }
 
 #[derive(Debug, Clone)]
@@ -773,7 +778,7 @@ struct DlInstance {
     instance: Instance,
     #[allow(dead_code)]
     instance_handles: WasiModuleInstanceHandles,
-    tls_base: u64,
+    tls_base: Option<u64>,
 }
 
 struct InstanceGroupState {
@@ -1784,7 +1789,9 @@ impl Linker {
                         resolved_from,
                         offset,
                     } => {
-                        let tls_base = group_state.tls_base(*resolved_from);
+                        let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+                            return Err(ResolveError::TlsSymbolWithoutTls);
+                        };
                         return Ok(ResolvedExport::Global {
                             data_ptr: tls_base + offset,
                         });
@@ -2395,10 +2402,10 @@ impl InstanceGroupState {
         self.main_instance.as_ref()
     }
 
-    fn tls_base(&self, module_handle: ModuleHandle) -> u64 {
+    fn tls_base(&self, module_handle: ModuleHandle) -> Option<u64> {
         if module_handle == MAIN_MODULE_HANDLE {
             // Main's TLS area is at the beginning of its memory
-            self.main_instance_tls_base
+            Some(self.main_instance_tls_base)
         } else {
             self.side_instances
                 .get(&module_handle)
@@ -2590,7 +2597,7 @@ impl InstanceGroupState {
             instance_handles,
             // The TLS area of a side module's main instance is at the beginning
             // of its memory
-            tls_base: memory_base,
+            tls_base: Some(memory_base),
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -2682,11 +2689,8 @@ impl InstanceGroupState {
         let instance = Instance::new(store, &dl_module.module, &imports)?;
 
         // This is a non-main instance of a side module, so it needs a new TLS area
-        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?;
-
-        let Some(tls_base) = tls_base else {
-            return Err(LinkError::MissingTlsInitializer);
-        };
+        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?
+            .map(|v| v as u64);
 
         let instance_handles =
             WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
@@ -2694,7 +2698,7 @@ impl InstanceGroupState {
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            tls_base: tls_base as u64,
+            tls_base,
         };
 
         self.side_instances.insert(module_handle, dl_instance);
@@ -2734,7 +2738,10 @@ impl InstanceGroupState {
         }
 
         for tls in &pending_resolutions.tls {
-            let tls_base = self.tls_base(tls.resolved_from);
+            let Some(tls_base) = self.tls_base(tls.resolved_from) else {
+                panic!("Internal error: Tried to import TLS symbol from module {} that has no TLS base", tls.resolved_from.0);
+            };
+
             let final_addr = tls_base + tls.offset;
             set_integer_global(store, "<pending TLS global>", &tls.global, final_addr)?;
             trace!(?tls, tls_base, final_addr, "Setting pending TLS global");
@@ -3429,7 +3436,7 @@ impl InstanceGroupState {
                         instance,
                         &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
-                        self.main_instance_tls_base,
+                        Some(self.main_instance_tls_base),
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
@@ -3473,7 +3480,7 @@ impl InstanceGroupState {
         instance: &Instance,
         dylink_info: &DylinkInfo,
         memory_base: u64,
-        tls_base: u64,
+        tls_base: Option<u64>,
         allow_hidden: bool,
     ) -> Result<PartiallyResolvedExport, ResolveError> {
         trace!(from = ?module_handle, symbol, "Resolving export from instance");
@@ -3514,6 +3521,9 @@ impl InstanceGroupState {
                     .unwrap_or(false);
 
                 if is_tls {
+                    let Some(tls_base) = tls_base else {
+                        return Err(ResolveError::TlsSymbolWithoutTls);
+                    };
                     let final_value = value + tls_base;
                     trace!(
                         from = ?module_handle,
