@@ -203,6 +203,7 @@ fn build_closure_wasm_bytes(
     wasm_module.section(&functions);
 
     // Add an export section
+    // FIXME: Look into replacing this with the wasm start function
     let mut exports = ExportSection::new();
     exports.export(
         "__wasix_on_load_hook",
