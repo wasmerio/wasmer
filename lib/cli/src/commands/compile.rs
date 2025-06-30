@@ -66,9 +66,7 @@ impl Compile {
             bail!("`wasmer compile` only compiles WebAssembly files");
         }
 
-        let mut engine = self
-            .rt
-            .get_engine_for_module(&module_contents, &Target::default())?;
+        let mut engine = self.rt.get_engine_for_module(&module_contents, &target)?;
 
         let hash_algorithm = self.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(Some(hash_algorithm));
