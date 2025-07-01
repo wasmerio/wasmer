@@ -310,7 +310,7 @@ static CLOSURE_ID: AtomicUsize = AtomicUsize::new(0);
 /// `result_types_length` is the number of results
 ///
 /// `environment` is the closure environment that will be passed to the backing function alongside the decoded arguments and results
-#[instrument(level = "trace", skip_all, ret)]
+#[instrument(level = "trace", fields(%backing_function, %closure), ret)]
 pub fn closure_prepare<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     backing_function: u32,
@@ -396,7 +396,7 @@ pub fn closure_prepare<M: MemorySize>(
 #[instrument(level = "trace", skip_all, ret)]
 pub fn closure_allocate<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    closure_id: WasmPtr<u32, M>,
+    closure: WasmPtr<u32, M>,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
@@ -416,14 +416,14 @@ pub fn closure_allocate<M: MemorySize>(
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
-    closure_id.write(&memory, function_id);
+    closure.write(&memory, function_id);
     return Ok(Errno::Success);
 }
 
 /// Free a previously allocated slot for a closure in the `__indirect_function_table`
 ///
 /// After calling this it is undefined behavior to call the function at the given index.
-#[instrument(level = "trace", skip_all, ret)]
+#[instrument(level = "trace", fields(%closure), ret)]
 pub fn closure_free<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     closure: u32,
