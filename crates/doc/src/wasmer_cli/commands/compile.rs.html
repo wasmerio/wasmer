@@ -101,9 +101,7 @@
 <a href="#100" id="100">100</a>
 <a href="#101" id="101">101</a>
 <a href="#102" id="102">102</a>
-<a href="#103" id="103">103</a>
-<a href="#104" id="104">104</a>
-<a href="#105" id="105">105</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
+<a href="#103" id="103">103</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::path::PathBuf;
 
 <span class="kw">use </span>anyhow::{bail, Context, <span class="prelude-ty">Result</span>};
 <span class="kw">use </span>clap::Parser;
@@ -171,9 +169,7 @@
             <span class="macro">bail!</span>(<span class="string">"`wasmer compile` only compiles WebAssembly files"</span>);
         }
 
-        <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self
-            </span>.rt
-            .get_engine_for_module(<span class="kw-2">&amp;</span>module_contents, <span class="kw-2">&amp;</span>Target::default())<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self</span>.rt.get_engine_for_module(<span class="kw-2">&amp;</span>module_contents, <span class="kw-2">&amp;</span>target)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>hash_algorithm = <span class="self">self</span>.hash_algorithm.unwrap_or_default().into();
         engine.set_hash_algorithm(<span class="prelude-val">Some</span>(hash_algorithm));
