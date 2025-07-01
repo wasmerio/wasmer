@@ -8,7 +8,7 @@ pub(crate) mod buffer;
 pub(crate) use buffer::*;
 
 use wasm_bindgen::JsCast;
-use wasmer_types::{MemoryError, MemoryType, Pages};
+use wasmer_types::{MemoryError, MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
     js::vm::memory::VMMemory,
@@ -86,6 +86,24 @@ impl Memory {
     /// read and write
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
+    }
+
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
+        let js_memory = &self.handle.memory;
+        let our_js_memory: &JSMemory = JsCast::unchecked_from_js_ref(js_memory);
+        let buffer = our_js_memory.buffer();
+
+        let byte_length = match buffer.dyn_into::<js_sys::ArrayBuffer>() {
+            Ok(array_buffer) => array_buffer.byte_length(),
+            Err(buffer) => match buffer.dyn_into::<js_sys::SharedArrayBuffer>() {
+                Ok(array_buffer) => array_buffer.byte_length(),
+                Err(_) => {
+                    unreachable!("Memory.buffer should be an array buffer or a shared array buffer")
+                }
+            },
+        };
+
+        Pages(byte_length.div_ceil(WASM_PAGE_SIZE as u32))
     }
 
     pub fn grow<IntoPages>(

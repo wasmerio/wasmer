@@ -125,6 +125,13 @@ impl BackendMemory {
         })
     }
 
+    /// Retrieve the size of the memory in pages.
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
+        match_rt!(on self => s {
+            s.size(store)
+        })
+    }
+
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
     /// the previous memory size.
     ///

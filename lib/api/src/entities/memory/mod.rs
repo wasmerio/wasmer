@@ -79,6 +79,11 @@ impl Memory {
         MemoryView::new(self, store)
     }
 
+    /// Retrieve the size of the memory in pages.
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
+        self.0.size(store)
+    }
+
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
     /// the previous memory size.
     ///

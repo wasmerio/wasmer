@@ -88,6 +88,23 @@ impl Memory {
         MemoryView::new(self, store)
     }
 
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
+        let store_ref = store.as_store_ref();
+        let engine = store_ref.engine();
+        let context = engine.as_jsc().context();
+
+        let js_memory = &self.handle.memory;
+        let buffer = js_memory
+            .get_property(context, "buffer")
+            .to_object(context)
+            .unwrap();
+        let byte_length = buffer
+            .get_property(context, "byteLength")
+            .to_number(context)
+            .unwrap() as u32;
+        Pages(byte_length.div_ceil(wasmer_types::WASM_PAGE_SIZE as u32))
+    }
+
     pub fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
