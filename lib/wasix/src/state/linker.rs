@@ -2602,14 +2602,21 @@ impl InstanceGroupState {
             if import.module() == "env" {
                 match import.name() {
                     "memory" => {
-                        if !matches!(import.ty(), ExternType::Memory(_)) {
+                        let ExternType::Memory(memory_ty) = import.ty() else {
                             return Err(LinkError::BadImport(
                                 import.module().to_string(),
                                 import.name().to_string(),
                                 import.ty().clone(),
                             ));
-                        }
+                        };
                         trace!(?module_handle, ?import, "Main memory");
+
+                        // Make sure the memory is big enough for the module being instantiated
+                        let current_size = self.memory.grow(store, 0)?;
+                        if current_size < memory_ty.minimum {
+                            self.memory.grow(store, memory_ty.minimum - current_size)?;
+                        }
+
                         imports.define(
                             import.module(),
                             import.name(),
