@@ -941,7 +941,7 @@ jobs:
             os: ubuntu-22.04
             container: alpine:latest
           - build: windows-x64
-            os: windows-2019
+            os: windows-latest
             target: x86_64-pc-windows-msvc
             # For now, disable LLVM in `windows-x64.`
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz'

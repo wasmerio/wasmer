@@ -1288,6 +1288,9 @@ impl Linker {
         trace!("Finalizing pending functions");
         instance_group.finalize_pending_resolutions_from_linker(&pending_resolutions, store)?;
 
+        trace!("Applying externally-requested function table entries");
+        instance_group.apply_requested_symbols_from_linker(store, &linker_state)?;
+
         let linker = Self {
             linker_state: self.linker_state.clone(),
             instance_group_state: Arc::new(Mutex::new(Some(instance_group))),
@@ -2486,9 +2489,9 @@ impl InstanceGroupState {
     }
 
     fn apply_resolved_function(
-        &mut self,
+        &self,
         store: &mut impl AsStoreMut,
-        name: String,
+        name: &str,
         resolved_from: ModuleHandle,
         function_table_index: u32,
     ) -> Result<(), LinkError> {
@@ -2507,7 +2510,7 @@ impl InstanceGroupState {
             })
             .instance;
 
-        let func = instance.exports.get_function(&name).unwrap_or_else(|e| {
+        let func = instance.exports.get_function(name).unwrap_or_else(|e| {
             panic!("Internal error: failed to resolve exported function {name}: {e:?}")
         });
 
@@ -2549,9 +2552,33 @@ impl InstanceGroupState {
                 name,
                 resolved_from,
                 function_table_index,
-            } => self.apply_resolved_function(store, name, resolved_from, function_table_index)?,
+            } => self.apply_resolved_function(store, &name, resolved_from, function_table_index)?,
         };
         trace!("Operation applied successfully");
+        Ok(())
+    }
+
+    fn apply_requested_symbols_from_linker(
+        &self,
+        store: &mut impl AsStoreMut,
+        linker_state: &LinkerState,
+    ) -> Result<(), LinkError> {
+        for (key, val) in &linker_state.symbol_resolution_records {
+            if let SymbolResolutionKey::Requested(name) = key {
+                if let SymbolResolutionResult::FunctionPointer {
+                    resolved_from,
+                    function_table_index,
+                } = val
+                {
+                    self.apply_resolved_function(
+                        store,
+                        name,
+                        *resolved_from,
+                        *function_table_index,
+                    )?;
+                }
+            }
+        }
         Ok(())
     }
 
@@ -2602,14 +2629,21 @@ impl InstanceGroupState {
             if import.module() == "env" {
                 match import.name() {
                     "memory" => {
-                        if !matches!(import.ty(), ExternType::Memory(_)) {
+                        let ExternType::Memory(memory_ty) = import.ty() else {
                             return Err(LinkError::BadImport(
                                 import.module().to_string(),
                                 import.name().to_string(),
                                 import.ty().clone(),
                             ));
-                        }
+                        };
                         trace!(?module_handle, ?import, "Main memory");
+
+                        // Make sure the memory is big enough for the module being instantiated
+                        let current_size = self.memory.grow(store, 0)?;
+                        if current_size < memory_ty.minimum {
+                            self.memory.grow(store, memory_ty.minimum - current_size)?;
+                        }
+
                         imports.define(
                             import.module(),
                             import.name(),
