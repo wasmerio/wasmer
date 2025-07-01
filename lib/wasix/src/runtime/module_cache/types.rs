@@ -26,6 +26,9 @@ pub trait ModuleCache: Debug {
     /// Load a module based on its hash.
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError>;
 
+    /// Check if a module is present in the cache.
+    async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError>;
+
     /// Save a module so it can be retrieved with [`ModuleCache::load()`] at a
     /// later time.
     ///
@@ -77,6 +80,10 @@ where
 {
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         (**self).load(key, engine).await
+    }
+
+    async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
+        (**self).contains(key, engine).await
     }
 
     async fn save(

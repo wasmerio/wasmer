@@ -32,6 +32,11 @@ impl ModuleCache for SharedCache {
         }
     }
 
+    async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
+        let key = (key, engine.deterministic_id().to_string());
+        Ok(self.modules.contains_key(&key))
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn save(
         &self,
