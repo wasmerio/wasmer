@@ -3859,7 +3859,41 @@
 <a href="#3858" id="3858">3858</a>
 <a href="#3859" id="3859">3859</a>
 <a href="#3860" id="3860">3860</a>
-<a href="#3861" id="3861">3861</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#3861" id="3861">3861</a>
+<a href="#3862" id="3862">3862</a>
+<a href="#3863" id="3863">3863</a>
+<a href="#3864" id="3864">3864</a>
+<a href="#3865" id="3865">3865</a>
+<a href="#3866" id="3866">3866</a>
+<a href="#3867" id="3867">3867</a>
+<a href="#3868" id="3868">3868</a>
+<a href="#3869" id="3869">3869</a>
+<a href="#3870" id="3870">3870</a>
+<a href="#3871" id="3871">3871</a>
+<a href="#3872" id="3872">3872</a>
+<a href="#3873" id="3873">3873</a>
+<a href="#3874" id="3874">3874</a>
+<a href="#3875" id="3875">3875</a>
+<a href="#3876" id="3876">3876</a>
+<a href="#3877" id="3877">3877</a>
+<a href="#3878" id="3878">3878</a>
+<a href="#3879" id="3879">3879</a>
+<a href="#3880" id="3880">3880</a>
+<a href="#3881" id="3881">3881</a>
+<a href="#3882" id="3882">3882</a>
+<a href="#3883" id="3883">3883</a>
+<a href="#3884" id="3884">3884</a>
+<a href="#3885" id="3885">3885</a>
+<a href="#3886" id="3886">3886</a>
+<a href="#3887" id="3887">3887</a>
+<a href="#3888" id="3888">3888</a>
+<a href="#3889" id="3889">3889</a>
+<a href="#3890" id="3890">3890</a>
+<a href="#3891" id="3891">3891</a>
+<a href="#3892" id="3892">3892</a>
+<a href="#3893" id="3893">3893</a>
+<a href="#3894" id="3894">3894</a>
+<a href="#3895" id="3895">3895</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -5149,6 +5183,9 @@
         <span class="macro">trace!</span>(<span class="string">"Finalizing pending functions"</span>);
         instance_group.finalize_pending_resolutions_from_linker(<span class="kw-2">&amp;</span>pending_resolutions, store)<span class="question-mark">?</span>;
 
+        <span class="macro">trace!</span>(<span class="string">"Applying externally-requested function table entries"</span>);
+        instance_group.apply_requested_symbols_from_linker(store, <span class="kw-2">&amp;</span>linker_state)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>linker = <span class="self">Self </span>{
             linker_state: <span class="self">self</span>.linker_state.clone(),
             instance_group_state: Arc::new(Mutex::new(<span class="prelude-val">Some</span>(instance_group))),
@@ -6347,9 +6384,9 @@
     }
 
     <span class="kw">fn </span>apply_resolved_function(
-        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-        name: String,
+        name: <span class="kw-2">&amp;</span>str,
         resolved_from: ModuleHandle,
         function_table_index: u32,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), LinkError&gt; {
@@ -6368,7 +6405,7 @@
             })
             .instance;
 
-        <span class="kw">let </span>func = instance.exports.get_function(<span class="kw-2">&amp;</span>name).unwrap_or_else(|e| {
+        <span class="kw">let </span>func = instance.exports.get_function(name).unwrap_or_else(|e| {
             <span class="macro">panic!</span>(<span class="string">"Internal error: failed to resolve exported function {name}: {e:?}"</span>)
         });
 
@@ -6410,9 +6447,33 @@
                 name,
                 resolved_from,
                 function_table_index,
-            } =&gt; <span class="self">self</span>.apply_resolved_function(store, name, resolved_from, function_table_index)<span class="question-mark">?</span>,
+            } =&gt; <span class="self">self</span>.apply_resolved_function(store, <span class="kw-2">&amp;</span>name, resolved_from, function_table_index)<span class="question-mark">?</span>,
         };
         <span class="macro">trace!</span>(<span class="string">"Operation applied successfully"</span>);
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">fn </span>apply_requested_symbols_from_linker(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        linker_state: <span class="kw-2">&amp;</span>LinkerState,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), LinkError&gt; {
+        <span class="kw">for </span>(key, val) <span class="kw">in </span><span class="kw-2">&amp;</span>linker_state.symbol_resolution_records {
+            <span class="kw">if let </span>SymbolResolutionKey::Requested(name) = key {
+                <span class="kw">if let </span>SymbolResolutionResult::FunctionPointer {
+                    resolved_from,
+                    function_table_index,
+                } = val
+                {
+                    <span class="self">self</span>.apply_resolved_function(
+                        store,
+                        name,
+                        <span class="kw-2">*</span>resolved_from,
+                        <span class="kw-2">*</span>function_table_index,
+                    )<span class="question-mark">?</span>;
+                }
+            }
+        }
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -6463,14 +6524,21 @@
             </span><span class="kw">if </span>import.module() == <span class="string">"env" </span>{
                 <span class="kw">match </span>import.name() {
                     <span class="string">"memory" </span>=&gt; {
-                        <span class="kw">if </span>!<span class="macro">matches!</span>(import.ty(), ExternType::Memory(<span class="kw">_</span>)) {
+                        <span class="kw">let </span>ExternType::Memory(memory_ty) = import.ty() <span class="kw">else </span>{
                             <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::BadImport(
                                 import.module().to_string(),
                                 import.name().to_string(),
                                 import.ty().clone(),
                             ));
-                        }
+                        };
                         <span class="macro">trace!</span>(<span class="question-mark">?</span>module_handle, <span class="question-mark">?</span>import, <span class="string">"Main memory"</span>);
+
+                        <span class="comment">// Make sure the memory is big enough for the module being instantiated
+                        </span><span class="kw">let </span>current_size = <span class="self">self</span>.memory.grow(store, <span class="number">0</span>)<span class="question-mark">?</span>;
+                        <span class="kw">if </span>current_size &lt; memory_ty.minimum {
+                            <span class="self">self</span>.memory.grow(store, memory_ty.minimum - current_size)<span class="question-mark">?</span>;
+                        }
+
                         imports.define(
                             import.module(),
                             import.name(),
