@@ -2491,7 +2491,7 @@ impl InstanceGroupState {
     fn apply_resolved_function(
         &self,
         store: &mut impl AsStoreMut,
-        name: &String,
+        name: &str,
         resolved_from: ModuleHandle,
         function_table_index: u32,
     ) -> Result<(), LinkError> {
