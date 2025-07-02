@@ -203,7 +203,12 @@
 <a href="#202" id="202">202</a>
 <a href="#203" id="203">203</a>
 <a href="#204" id="204">204</a>
-<a href="#205" id="205">205</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>shared::SharedMemory;
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>shared::SharedMemory;
 <span class="kw">use </span>wasmer_types::{MemoryError, MemoryType, Pages};
 
 <span class="kw">use crate</span>::{
@@ -282,6 +287,11 @@
     /// read and write
     </span><span class="kw">pub fn </span>view&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>(<span class="kw">impl </span>AsStoreRef + <span class="question-mark">?</span>Sized)) -&gt; MemoryView&lt;<span class="lifetime">'a</span>&gt; {
         MemoryView::new(<span class="self">self</span>, store)
+    }
+
+    <span class="doccomment">/// Retrieve the size of the memory in pages.
+    </span><span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; Pages {
+        <span class="self">self</span>.<span class="number">0</span>.size(store)
     }
 
     <span class="doccomment">/// Grow memory by the specified amount of WebAssembly [`Pages`] and return

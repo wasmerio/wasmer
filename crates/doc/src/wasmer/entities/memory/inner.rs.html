@@ -372,7 +372,14 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{shared::SharedMemory, view::<span class="kw-2">*</span>};
+<a href="#374" id="374">374</a>
+<a href="#375" id="375">375</a>
+<a href="#376" id="376">376</a>
+<a href="#377" id="377">377</a>
+<a href="#378" id="378">378</a>
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{shared::SharedMemory, view::<span class="kw-2">*</span>};
 <span class="kw">use </span>wasmer_types::{MemoryError, MemoryType, Pages};
 
 <span class="kw">use crate</span>::{
@@ -496,6 +503,13 @@
     </span><span class="kw">pub fn </span>ty(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; MemoryType {
         <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
             s.ty(store)
+        })
+    }
+
+    <span class="doccomment">/// Retrieve the size of the memory in pages.
+    </span><span class="kw">pub fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; Pages {
+        <span class="macro">match_rt!</span>(on <span class="self">self </span>=&gt; s {
+            s.size(store)
         })
     }
 

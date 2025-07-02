@@ -352,7 +352,13 @@
 <a href="#351" id="351">351</a>
 <a href="#352" id="352">352</a>
 <a href="#353" id="353">353</a>
-<a href="#354" id="354">354</a></pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Memory` implementation.
+<a href="#354" id="354">354</a>
+<a href="#355" id="355">355</a>
+<a href="#356" id="356">356</a>
+<a href="#357" id="357">357</a>
+<a href="#358" id="358">358</a>
+<a href="#359" id="359">359</a>
+<a href="#360" id="360">360</a></pre></div><pre class="rust"><code><span class="doccomment">//! Data types, functions and traits for `sys` runtime's `Memory` implementation.
 </span><span class="kw">use </span>std::{
     convert::TryInto,
     marker::PhantomData,
@@ -405,6 +411,12 @@
         <span class="self">self</span>.handle
             .get(store.as_store_ref().objects().as_sys())
             .ty()
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>size(<span class="kw-2">&amp;</span><span class="self">self</span>, store: <span class="kw-2">&amp;</span><span class="kw">impl </span>AsStoreRef) -&gt; Pages {
+        <span class="self">self</span>.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .size()
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>grow&lt;IntoPages&gt;(
