@@ -78,6 +78,11 @@ impl Memory {
         }
     }
 
+    pub fn size(&self, store: &impl AsStoreRef) -> Pages {
+        let size = unsafe { wasm_memory_size(self.handle) };
+        Pages(size)
+    }
+
     pub fn view<'a>(&self, store: &'a impl AsStoreRef) -> MemoryView<'a> {
         MemoryView::new(self, store)
     }

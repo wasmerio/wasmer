@@ -8,6 +8,12 @@ extern "C" {
     #[derive(Clone, Debug, PartialEq, Eq)]
     pub type JSMemory;
 
+    /// The `buffer` property of the `Memory` object, which is an `ArrayBuffer` or `SharedArrayBuffer`.
+    ///
+    /// [MDN documentation](https://developer.mozilla.org/en-US/docs/WebAssembly/Reference/JavaScript_interface/Memory/buffer)
+    #[wasm_bindgen(method, getter, js_name = buffer, js_namespace = WebAssembly)]
+    pub fn buffer(this: &JSMemory) -> JsValue;
+
     /// The `grow()` protoype method of the `Memory` object increases the
     /// size of the memory instance by a specified number of WebAssembly
     /// pages.

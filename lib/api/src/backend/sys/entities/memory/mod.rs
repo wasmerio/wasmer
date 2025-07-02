@@ -53,6 +53,12 @@ impl Memory {
             .ty()
     }
 
+    pub(crate) fn size(&self, store: &impl AsStoreRef) -> Pages {
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .size()
+    }
+
     pub(crate) fn grow<IntoPages>(
         &self,
         store: &mut impl AsStoreMut,
