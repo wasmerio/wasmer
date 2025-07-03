@@ -6,6 +6,7 @@ use crate::{
         TaskJoinHandle,
     },
     runtime::{
+        module_cache::HashedModuleData,
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
@@ -43,7 +44,7 @@ pub async fn spawn_exec(
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name))]
 pub async fn spawn_exec_wasm(
-    wasm: &[u8],
+    wasm: HashedModuleData,
     name: &str,
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
@@ -85,7 +86,7 @@ pub fn package_command_by_name<'a>(
 
 pub async fn spawn_load_module(
     name: &str,
-    wasm: &[u8],
+    wasm: HashedModuleData,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<Module, SpawnError> {
     match runtime.load_module(wasm).await {

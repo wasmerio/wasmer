@@ -251,6 +251,10 @@ impl VirtualFile for File {
     ) -> Poll<std::io::Result<usize>> {
         Poll::Ready(Err(std::io::ErrorKind::PermissionDenied.into()))
     }
+
+    fn as_owned_buffer(&self) -> Option<SharedBytes> {
+        Some(self.content.get_ref().clone())
+    }
 }
 
 impl AsyncRead for File {
