@@ -1,3 +1,4 @@
+mod call_dynamic;
 mod callback_signal;
 mod chdir;
 mod dl_invalid_handle;
@@ -41,6 +42,7 @@ mod proc_signals_sizes_get;
 mod proc_snapshot;
 mod proc_spawn;
 mod proc_spawn2;
+mod closure_prepare;
 mod resolve;
 mod sched_yield;
 mod sock_accept;
@@ -80,6 +82,7 @@ mod thread_spawn;
 mod tty_get;
 mod tty_set;
 
+pub use call_dynamic::*;
 pub use callback_signal::*;
 pub use chdir::*;
 pub use dl_invalid_handle::*;
@@ -123,6 +126,7 @@ pub use proc_signals_sizes_get::*;
 pub use proc_snapshot::*;
 pub use proc_spawn::*;
 pub use proc_spawn2::*;
+pub use closure_prepare::*;
 pub use resolve::*;
 pub use sched_yield::*;
 pub use sock_accept::*;

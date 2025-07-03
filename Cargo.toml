@@ -164,6 +164,7 @@ thiserror = "1"
 target-lexicon = { version = "0.12.2", default-features = false }
 object = { version = "0.32.0", default-features = true }
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
+wasm-encoder = {version = "0.235.0", default-features = false, features = ["std"]}
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
