@@ -289,8 +289,8 @@ use crate::{
 
 use super::{WasiModuleInstanceHandles, WasiState};
 
-// Module handle 0 is always the main module. Side modules get handles starting from 1.
-pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(0);
+// Module handle 1 is always the main module. Side modules get handles starting from the next one after the main module.
+pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(1);
 static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
 static MAIN_MODULE_MEMORY_BASE: u64 = 0;
@@ -1013,7 +1013,7 @@ impl Linker {
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
-            next_module_handle: 1,
+            next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
