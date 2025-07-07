@@ -203,7 +203,7 @@ webc_runner_rt_dproxy = [
 	"journal",
 ]
 # the minimal wasip1 implementation
-wasi-common = ["wasmer/sys", "sys-thread", "tokio/fs"]
+sys-minimal = ["wasmer/sys", "sys-thread", "tokio/fs"]
 sys = [
 	"webc/mmap",
 	"time",

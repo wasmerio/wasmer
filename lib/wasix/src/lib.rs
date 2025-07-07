@@ -17,15 +17,18 @@
 #[cfg(all(
     not(feature = "sys"),
     not(feature = "js"),
-    not(feature = "wasi-common")
+    not(feature = "sys-minimal")
 ))]
 compile_error!(
-    "At least the `sys` or the `js` or `wasi-common` feature must be enabled. Please, pick one."
+    "At least the `sys` or the `js` or `sys-minimal` feature must be enabled. Please, pick one."
 );
 
-#[cfg(all(feature = "sys", feature = "js", feature = "wasi-common"))]
+#[cfg(any(
+    all(feature = "js", feature = "sys"),
+    all(feature = "js", feature = "sys-minimal")
+))]
 compile_error!(
-    "Cannot have both `sys` and `js` and `wasi-common`features enabled at the same time. Please, pick one."
+    "Cannot have both `sys` and `js` or `sys-minimal` and `sys` features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
