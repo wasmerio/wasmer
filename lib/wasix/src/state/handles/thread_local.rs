@@ -1,4 +1,4 @@
-#![cfg_attr(feature = "sys", allow(unused))]
+#![cfg_attr(any(feature = "sys", feature = "sys-minimal"), allow(unused))]
 use std::cell::{Ref, RefCell, RefMut};
 use std::ops::{Deref, DerefMut};
 use std::{

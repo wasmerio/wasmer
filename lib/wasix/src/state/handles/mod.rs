@@ -1,7 +1,7 @@
 mod global;
 mod thread_local;
 
-#[cfg(feature = "sys")]
+#[cfg(any(feature = "sys", feature = "sys-minimal"))]
 pub(crate) use global::*;
 #[cfg(feature = "js")]
 pub(crate) use thread_local::*;

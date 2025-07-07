@@ -205,7 +205,8 @@ webc_runner_rt_dproxy = [
 	"tower-http",
 	"journal",
 ]
-
+# the minimal sys implementation
+sys-minimal = ["wasmer/sys", "sys-thread", "tokio/fs"]
 sys = [
 	"webc/mmap",
 	"time",
