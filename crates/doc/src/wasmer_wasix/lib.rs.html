@@ -875,7 +875,16 @@
 <a href="#874" id="874">874</a>
 <a href="#875" id="875">875</a>
 <a href="#876" id="876">876</a>
-<a href="#877" id="877">877</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
 #![doc(html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>)]
@@ -891,12 +900,21 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
-</span><span class="attr">#[cfg(all(not(feature = <span class="string">"sys"</span>), not(feature = <span class="string">"js"</span>)))]
-</span><span class="macro">compile_error!</span>(<span class="string">"At least the `sys` or the `js` feature must be enabled. Please, pick one."</span>);
-
-<span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, feature = <span class="string">"js"</span>))]
+</span><span class="attr">#[cfg(all(
+    not(feature = <span class="string">"sys"</span>),
+    not(feature = <span class="string">"js"</span>),
+    not(feature = <span class="string">"sys-minimal"</span>)
+))]
 </span><span class="macro">compile_error!</span>(
-    <span class="string">"Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
+    <span class="string">"At least the `sys` or the `js` or `sys-minimal` feature must be enabled. Please, pick one."
+</span>);
+
+<span class="attr">#[cfg(any(
+    all(feature = <span class="string">"js"</span>, feature = <span class="string">"sys"</span>),
+    all(feature = <span class="string">"js"</span>, feature = <span class="string">"sys-minimal"</span>)
+))]
+</span><span class="macro">compile_error!</span>(
+    <span class="string">"Cannot have both `sys` and `js` or `sys-minimal` and `sys` features enabled at the same time. Please, pick one."
 </span>);
 
 <span class="attr">#[cfg(all(feature = <span class="string">"sys"</span>, target_arch = <span class="string">"wasm32"</span>))]

@@ -167,7 +167,7 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a></pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(feature = <span class="string">"sys"</span>, allow(unused))]
+<a href="#169" id="169">169</a></pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(any(feature = <span class="string">"sys"</span>, feature = <span class="string">"sys-minimal"</span>), allow(unused))]
 </span><span class="kw">use </span>std::cell::{Ref, RefCell, RefMut};
 <span class="kw">use </span>std::ops::{Deref, DerefMut};
 <span class="kw">use </span>std::{

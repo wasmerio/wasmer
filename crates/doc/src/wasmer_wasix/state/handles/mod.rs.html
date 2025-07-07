@@ -280,7 +280,7 @@
 <a href="#279" id="279">279</a></pre></div><pre class="rust"><code><span class="kw">mod </span>global;
 <span class="kw">mod </span>thread_local;
 
-<span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<span class="attr">#[cfg(any(feature = <span class="string">"sys"</span>, feature = <span class="string">"sys-minimal"</span>))]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>global::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>thread_local::<span class="kw-2">*</span>;
