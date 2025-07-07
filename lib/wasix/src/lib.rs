@@ -14,12 +14,18 @@
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/main/examples/plugin.rs)
 //! for an example of how to extend WASI using the WASI FS API.
 
-#[cfg(all(not(feature = "sys"), not(feature = "js")))]
-compile_error!("At least the `sys` or the `js` feature must be enabled. Please, pick one.");
-
-#[cfg(all(feature = "sys", feature = "js"))]
+#[cfg(all(
+    not(feature = "sys"),
+    not(feature = "js"),
+    not(feature = "wasi-common")
+))]
 compile_error!(
-    "Cannot have both `sys` and `js` features enabled at the same time. Please, pick one."
+    "At least the `sys` or the `js` or `wasi-common` feature must be enabled. Please, pick one."
+);
+
+#[cfg(all(feature = "sys", feature = "js", feature = "wasi-common"))]
+compile_error!(
+    "Cannot have both `sys` and `js` and `wasi-common`features enabled at the same time. Please, pick one."
 );
 
 #[cfg(all(feature = "sys", target_arch = "wasm32"))]
