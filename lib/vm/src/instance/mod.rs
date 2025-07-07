@@ -1298,7 +1298,7 @@ impl VMInstance {
     /// Specifically, it provides access to the key-value pairs, where the keys
     /// are export names, and the values are export declarations which can be
     /// resolved `lookup_by_declaration`.
-    pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
+    pub fn exports(&self) -> indexmap::map::Iter<'_, String, ExportIndex> {
         self.module().exports.iter()
     }
 
