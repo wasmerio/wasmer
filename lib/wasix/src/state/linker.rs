@@ -1066,6 +1066,10 @@ impl Linker {
                 "env.__indirect_function_table".to_string(),
             ))?;
 
+        trace!(
+            minimum_size = ?function_table_type.minimum,
+            "Creating indirect function table"
+        );
         let indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(None))
             .map_err(LinkError::TableAllocationError)?;
 
@@ -1076,12 +1080,11 @@ impl Linker {
             dylink_section.mem_info.table_size + MAIN_MODULE_TABLE_BASE as u32;
         // Make sure the function table is as big as the dylink.0 section expects it to be
         if indirect_function_table.size(store) < expected_table_length {
+            let current_size = indirect_function_table.size(store);
+            let delta = expected_table_length - current_size;
+            trace!(?current_size, ?delta, "Growing indirect function table");
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(None),
-                )
+                .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
         }
 
@@ -1339,24 +1342,27 @@ impl Linker {
 
         let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
-        let indirect_function_table = Table::new(
-            store,
-            parent_group_state.indirect_function_table.ty(&parent_store),
-            Value::FuncRef(None),
-        )
-        .map_err(LinkError::TableAllocationError)?;
+        let indirect_function_table_type =
+            parent_group_state.indirect_function_table.ty(&parent_store);
+        trace!(
+            minimum_size = ?indirect_function_table_type.minimum,
+            "Creating indirect function table"
+        );
+
+        let indirect_function_table =
+            Table::new(store, indirect_function_table_type, Value::FuncRef(None))
+                .map_err(LinkError::TableAllocationError)?;
 
         let expected_table_length = parent_group_state
             .indirect_function_table
             .size(&parent_store);
         // Grow the table to be as big as the parent's
         if indirect_function_table.size(store) < expected_table_length {
+            let current_size = indirect_function_table.size(store);
+            let delta = expected_table_length - current_size;
+            trace!(?current_size, ?delta, "Growing indirect function table");
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(None),
-                )
+                .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
         }
 
@@ -2451,11 +2457,11 @@ impl InstanceGroupState {
                 0
             };
 
-            let start = self.indirect_function_table.grow(
-                store,
-                table_size + offset,
-                Value::FuncRef(None),
-            )?;
+            let delta = table_size + offset;
+            trace!(?current_size, ?delta, "Growing indirect function table");
+            let start = self
+                .indirect_function_table
+                .grow(store, delta, Value::FuncRef(None))?;
 
             (start + offset) as u64
         };
@@ -2476,6 +2482,13 @@ impl InstanceGroupState {
     ) -> Result<u32, RuntimeError> {
         let table = &self.indirect_function_table;
 
+        let signature = func.ty(store).to_string();
+        let index: u32 = table
+            .size(store)
+            .try_into()
+            .expect("Internal error: function table size exceeds u32::MAX");
+        trace!(?index, ?signature, "Appending function in table");
+
         table.grow(store, 1, func.into())
     }
 
@@ -2485,18 +2498,19 @@ impl InstanceGroupState {
         func: Function,
         index: u32,
     ) -> Result<(), RuntimeError> {
-        trace!(
-            ?index,
-            ?func,
-            "Placing function into table at pre-defined index"
-        );
+        trace!(?index, ?func, "Appending function in table at pre-defined index");
 
         let table = &self.indirect_function_table;
         let size = table.size(store);
 
         if size <= index {
-            table.grow(store, index - size + 1, Value::FuncRef(None))?;
-            trace!(new_table_size = ?table.size(store), "Growing table");
+            let delta = index - size + 1;
+            trace!(
+                current_size = ?size,
+                ?delta,
+                "Growing indirect function table"
+            );
+            table.grow(store, delta, Value::FuncRef(None))?;
         } else {
             let existing = table.get(store, index).unwrap();
             if let Value::FuncRef(Some(_)) = existing {
@@ -2504,6 +2518,8 @@ impl InstanceGroupState {
             }
         }
 
+        let signature = func.ty(store).to_string();
+        trace!(?index, ?signature, "Appending function in table at index");
         table.set(store, index, Value::FuncRef(Some(func)))
     }
 
