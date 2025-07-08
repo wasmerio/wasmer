@@ -269,6 +269,9 @@ pub struct InternalStoreHandle<T, Object = Box<dyn std::any::Any + Send>> {
     marker: PhantomData<fn(Object) -> (T, Object)>,
 }
 
+unsafe impl<Object> Send for InternalStoreHandle<Object> {}
+unsafe impl<Object> Sync for InternalStoreHandle<Object> {}
+
 #[cfg(feature = "artifact-size")]
 impl<T, Object> loupe::MemoryUsage for InternalStoreHandle<T, Object> {
     fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {

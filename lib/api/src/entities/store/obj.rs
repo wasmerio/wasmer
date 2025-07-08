@@ -2,9 +2,6 @@ use wasmer_types::StoreId;
 
 use crate::{macros::backend::match_rt, BackendStore};
 
-/// Set of `?Send` objects managed by a context.
-pub type LocalStoreObjects = StoreObjects<Box<dyn std::any::Any>>;
-
 /// Set of objects managed by a context.
 pub enum StoreObjects<Object = Box<dyn std::any::Any + Send>> {
     #[cfg(feature = "sys")]

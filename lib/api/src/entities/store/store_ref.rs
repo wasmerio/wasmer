@@ -9,9 +9,14 @@ use wasmer_types::{ExternType, OnCalledAction};
 use wasmer_vm::TrapHandlerFn;
 
 /// A temporary handle to a [`crate::Store`].
-#[derive(Debug)]
 pub struct StoreRef<'a, Object = Box<dyn std::any::Any + Send>> {
     pub(crate) inner: &'a StoreInner<Object>,
+}
+
+impl<Object> std::fmt::Debug for StoreRef<'_, Object> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("StoreRef").field("inner", &self.inner).finish()
+    }
 }
 
 impl<'a, Object> StoreRef<'a, Object> {
