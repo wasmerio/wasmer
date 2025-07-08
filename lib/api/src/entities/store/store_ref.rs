@@ -10,12 +10,12 @@ use wasmer_vm::TrapHandlerFn;
 
 /// A temporary handle to a [`crate::Store`].
 #[derive(Debug)]
-pub struct StoreRef<'a> {
-    pub(crate) inner: &'a StoreInner,
+pub struct StoreRef<'a, Object = Box<dyn std::any::Any + Send>> {
+    pub(crate) inner: &'a StoreInner<Object>,
 }
 
-impl<'a> StoreRef<'a> {
-    pub(crate) fn objects(&self) -> &'a StoreObjects {
+impl<'a, Object> StoreRef<'a, Object> {
+    pub(crate) fn objects(&self) -> &'a StoreObjects<Object> {
         &self.inner.objects
     }
 
@@ -27,7 +27,7 @@ impl<'a> StoreRef<'a> {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        StoreObjects::same(&a.inner.objects, &b.inner.objects)
+        StoreObjects::<Object>::same(&a.inner.objects, &b.inner.objects)
     }
 
     /// The signal handler
@@ -40,11 +40,11 @@ impl<'a> StoreRef<'a> {
 }
 
 /// A temporary handle to a [`crate::Store`].
-pub struct StoreMut<'a> {
-    pub(crate) inner: &'a mut StoreInner,
+pub struct StoreMut<'a, Object = Box<dyn std::any::Any + Send>> {
+    pub(crate) inner: &'a mut StoreInner<Object>,
 }
 
-impl StoreMut<'_> {
+impl<Object> StoreMut<'_, Object> {
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         self.inner.store.engine()
@@ -53,21 +53,21 @@ impl StoreMut<'_> {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        StoreObjects::same(&a.inner.objects, &b.inner.objects)
+        StoreObjects::<Object>::same(&a.inner.objects, &b.inner.objects)
     }
 
     #[allow(unused)]
-    pub(crate) fn as_raw(&self) -> *mut StoreInner {
-        self.inner as *const StoreInner as *mut StoreInner
+    pub(crate) fn as_raw(&self) -> *mut StoreInner<Object> {
+        self.inner as *const StoreInner<Object> as *mut StoreInner<Object>
     }
 
     #[allow(unused)]
-    pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
+    pub(crate) unsafe fn from_raw(raw: *mut StoreInner<Object>) -> Self {
         Self { inner: &mut *raw }
     }
 
     #[allow(unused)]
-    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
+    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects<Object>) {
         (self.inner.store.engine(), &mut self.inner.objects)
     }
 
@@ -85,72 +85,72 @@ impl StoreMut<'_> {
 }
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].
-pub trait AsStoreRef {
+pub trait AsStoreRef<Object = Box<dyn std::any::Any + Send>> {
     /// Returns a `StoreRef` pointing to the underlying context.
-    fn as_store_ref(&self) -> StoreRef<'_>;
+    fn as_store_ref(&self) -> StoreRef<'_, Object>;
 }
 
 /// Helper trait for a value that is convertible to a [`StoreMut`].
-pub trait AsStoreMut: AsStoreRef {
+pub trait AsStoreMut<Object = Box<dyn std::any::Any + Send>>: AsStoreRef<Object> {
     /// Returns a `StoreMut` pointing to the underlying context.
-    fn as_store_mut(&mut self) -> StoreMut<'_>;
+    fn as_store_mut(&mut self) -> StoreMut<'_, Object>;
 
     /// Returns the ObjectMutable
-    fn objects_mut(&mut self) -> &mut StoreObjects;
+    fn objects_mut(&mut self) -> &mut StoreObjects<Object>;
 }
 
-impl AsStoreRef for StoreRef<'_> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<Object> AsStoreRef<Object> for StoreRef<'_, Object> {
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: self.inner }
     }
 }
 
-impl AsEngineRef for StoreRef<'_> {
+impl<Object> AsEngineRef for StoreRef<'_, Object> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }
 }
 
-impl AsStoreRef for StoreMut<'_> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<Object> AsStoreRef<Object> for StoreMut<'_, Object> {
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: self.inner }
     }
 }
-impl AsStoreMut for StoreMut<'_> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+impl<Object> AsStoreMut<Object> for StoreMut<'_, Object> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Object> {
         StoreMut { inner: self.inner }
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects {
+    fn objects_mut(&mut self) -> &mut StoreObjects<Object> {
         &mut self.inner.objects
     }
 }
 
-impl<P> AsStoreRef for P
+impl<P, Object> AsStoreRef<Object> for P
 where
     P: Deref,
-    P::Target: AsStoreRef,
+    P::Target: AsStoreRef<Object>,
 {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         (**self).as_store_ref()
     }
 }
 
-impl<P> AsStoreMut for P
+impl<P, Object> AsStoreMut<Object> for P
 where
     P: DerefMut,
-    P::Target: AsStoreMut,
+    P::Target: AsStoreMut<Object>,
 {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Object> {
         (**self).as_store_mut()
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects {
+    fn objects_mut(&mut self) -> &mut StoreObjects<Object> {
         (**self).objects_mut()
     }
 }
 
-impl AsEngineRef for StoreMut<'_> {
+impl<Object> AsEngineRef for StoreMut<'_, Object> {
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }

@@ -2,12 +2,14 @@ use wasmer_types::StoreId;
 
 use crate::{macros::backend::match_rt, BackendStore};
 
+/// Set of `?Send` objects managed by a context.
+pub type LocalStoreObjects = StoreObjects<Box<dyn std::any::Any>>;
+
 /// Set of objects managed by a context.
-#[derive(Debug)]
-pub enum StoreObjects {
+pub enum StoreObjects<Object = Box<dyn std::any::Any + Send>> {
     #[cfg(feature = "sys")]
     /// Store objects for the `sys` runtime.
-    Sys(crate::backend::sys::store::StoreObjects),
+    Sys(crate::backend::sys::store::StoreObjects<Object>),
 
     #[cfg(feature = "wamr")]
     /// Store objects for the `wamr` runtime.
@@ -30,7 +32,28 @@ pub enum StoreObjects {
     Jsc(crate::backend::jsc::store::StoreObjects),
 }
 
-impl StoreObjects {
+impl<Object> std::fmt::Debug for StoreObjects<Object> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        use StoreObjects::*;
+
+        match self {
+            #[cfg(feature = "sys")]
+            Sys(store) => f.debug_tuple("Sys").field(&store).finish(),
+            #[cfg(feature = "wamr")]
+            Wamr(store) => f.debug_tuple("Wamr").field(&store).finish(),
+            #[cfg(feature = "wasmi")]
+            Wasmi(store) => f.debug_tuple("Wasmi").field(&store).finish(),
+            #[cfg(feature = "v8")]
+            V8(store) => f.debug_tuple("V8").field(&store).finish(),
+            #[cfg(feature = "js")]
+            Js(store) => f.debug_tuple("Js").field(&store).finish(),
+            #[cfg(feature = "jsc")]
+            Jsc(store) => f.debug_tuple("Jsc").field(&store).finish(),
+        }
+    }
+}
+
+impl<Object> StoreObjects<Object> {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
     #[inline]

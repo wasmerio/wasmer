@@ -1,15 +1,15 @@
 use std::any::Any;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
-pub struct VMFunctionEnvironment {
+pub struct VMFunctionEnvironment<Object = Box<dyn Any + Send>> {
     /// The contents of the environment.
-    pub contents: Box<dyn Any + Send + 'static>,
+    pub contents: Object,
 }
 
-impl std::fmt::Debug for VMFunctionEnvironment {
+impl<Object> std::fmt::Debug for VMFunctionEnvironment<Object> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         f.debug_struct("VMFunctionEnvironment")
-            .field("contents", &(&*self.contents as *const _))
+            .field("contents", &"...")
             .finish()
     }
 }
@@ -21,16 +21,18 @@ impl VMFunctionEnvironment {
             contents: Box::new(val),
         }
     }
+}
 
+impl<Object> VMFunctionEnvironment<Object> {
     #[allow(clippy::should_implement_trait)]
     /// Returns a reference to the underlying value.
-    pub fn as_ref(&self) -> &(dyn Any + Send + 'static) {
-        &*self.contents
+    pub fn as_ref(&self) -> &Object {
+        &self.contents
     }
 
     #[allow(clippy::should_implement_trait)]
     /// Returns a mutable reference to the underlying value.
-    pub fn as_mut(&mut self) -> &mut (dyn Any + Send + 'static) {
-        &mut *self.contents
+    pub fn as_mut(&mut self) -> &mut Object {
+        &mut self.contents
     }
 }

@@ -28,8 +28,8 @@ use wasmer_vm::TrapHandlerFn;
 ///
 /// For more informations, check out the [related WebAssembly specification]
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
-pub struct Store {
-    pub(crate) inner: Box<StoreInner>,
+pub struct Store<Object = Box<dyn std::any::Any + Send>> {
+    pub(crate) inner: Box<StoreInner<Object>>,
 }
 
 impl Store {
