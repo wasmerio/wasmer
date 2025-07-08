@@ -1,0 +1,52 @@
+[package]
+name = "wasmer-wasi-light"
+version = "0.600.1"
+description = "Lightweight WASI implementation for Wasmer WebAssembly runtime"
+categories = ["wasm", "os"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
+readme = "README.md"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+
+[dependencies]
+wasmer-package.workspace = true
+wasmer-wasix-types = { path = "../wasi-types", version = "0.600.1", features = [
+	"enable-serde",
+] }
+wasmer-types = { path = "../types", version = "=6.0.1", default-features = false }
+wasmer = { path = "../api", version = "=6.0.1", default-features = false, features = [
+	"wat",
+	"js-serializable-module",
+] }
+
+thiserror.workspace = true
+tracing.workspace = true
+getrandom.workspace = true
+serde = { workspace = true, default-features = false, features = ["derive"] }
+bytes.workspace = true
+anyhow.workspace = true
+chrono = { version = "^0.4.38", default-features = false, features = [
+	"wasmbind",
+	"std",
+	"clock",
+] }
+
+[dev-dependencies]
+wasmer = { path = "../api", version = "=6.0.1", default-features = false, features = [
+	"wat",
+	"js-serializable-module",
+	"cranelift",
+] }
+tokio = { workspace = true, features = [
+	"sync",
+	"macros",
+	"rt",
+], default-features = false }
+pretty_assertions.workspace = true
+tracing-test.workspace = true
+env_logger = { version = "0.11.5", default-features = false }
+log.workspace = true 

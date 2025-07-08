@@ -64,6 +64,7 @@ members = [
 	"lib/wai-bindgen-wasmer",
 	"lib/wasi-types",
 	"lib/wasix",
+	"lib/wasi-light",
 	"lib/journal",
 	"lib/swift",
 	"lib/package",
@@ -91,6 +92,7 @@ version = "6.0.1"
 wasmer-package = { version = "0.600.1", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
+wasmer-wasi-light = { path = "./lib/wasi-light" }
 
 # Wasmer-owned crates
 webc = "=9.0"
@@ -436,3 +438,5 @@ required-features = ["cranelift"]
 name = "http-dynamic-size"
 path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]
+
+

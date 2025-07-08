@@ -7205,6 +7205,28 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-wasi-light"
+version = "0.600.1"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "chrono",
+ "env_logger",
+ "getrandom 0.2.16",
+ "log",
+ "pretty_assertions",
+ "serde",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "tracing-test",
+ "wasmer",
+ "wasmer-package",
+ "wasmer-types",
+ "wasmer-wasix-types",
+]
+
+[[package]]
 name = "wasmer-wasix"
 version = "0.600.1"
 dependencies = [
