@@ -7,21 +7,26 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tracing::debug;
 
-use wasmer::{FunctionEnvMut, Memory32, MemorySize, MemoryView, WasmPtr, WasmSlice};
+use wasmer::{FunctionEnvMut, Memory32, MemorySize, WasmPtr};
 use wasmer_wasix_types::wasi::{Clockid, Errno, Filesize, Timestamp};
 
 use crate::{WasiLightEnv, WasiLightError};
 
-// Type aliases for WASI types
+// WASI type aliases - using allow to suppress naming convention warnings
+#[allow(non_camel_case_types)]
 type __wasi_clockid_t = Clockid;
+#[allow(non_camel_case_types)]
 type __wasi_errno_t = Errno;
+#[allow(non_camel_case_types)]
 type __wasi_exitcode_t = u32;
+#[allow(non_camel_case_types)]
 type __wasi_filesize_t = Filesize;
+#[allow(non_camel_case_types)]
 type __wasi_timestamp_t = Timestamp;
 
 /// Get command line arguments
 pub fn args_get<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
+    ctx: FunctionEnvMut<WasiLightEnv>,
     argv: WasmPtr<WasmPtr<u8, M>, M>,
     argv_buf: WasmPtr<u8, M>,
 ) -> Result<Errno, WasiLightError> {
@@ -63,9 +68,9 @@ pub fn args_get<M: MemorySize>(
     Ok(Errno::Success)
 }
 
-/// Get command line argument sizes
+/// Get argument sizes
 pub fn args_sizes_get<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
+    ctx: FunctionEnvMut<WasiLightEnv>,
     argc: WasmPtr<u32, M>,
     argv_buf_size: WasmPtr<u32, M>,
 ) -> Result<Errno, WasiLightError> {
@@ -85,7 +90,7 @@ pub fn args_sizes_get<M: MemorySize>(
     // Calculate total buffer size
     let mut total_size = 0u32;
     for arg in args {
-        total_size += arg.as_bytes().len() as u32 + 1; // +1 for null terminator
+        total_size += arg.len() as u32 + 1; // +1 for null terminator
     }
 
     // Write buffer size
@@ -97,7 +102,7 @@ pub fn args_sizes_get<M: MemorySize>(
 
 /// Get environment variables
 pub fn environ_get<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
+    ctx: FunctionEnvMut<WasiLightEnv>,
     environ: WasmPtr<WasmPtr<u8, M>, M>,
     environ_buf: WasmPtr<u8, M>,
 ) -> Result<Errno, WasiLightError> {
@@ -113,7 +118,7 @@ pub fn environ_get<M: MemorySize>(
     let mut environ_offset = 0u32;
 
     for (key, value) in envs {
-        let env_var = format!("{}={}", key, value);
+        let env_var = format!("{key}={value}");
         let env_bytes = env_var.as_bytes();
 
         // Write environment variable to buffer
@@ -142,7 +147,7 @@ pub fn environ_get<M: MemorySize>(
 
 /// Get environment variable sizes
 pub fn environ_sizes_get<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
+    ctx: FunctionEnvMut<WasiLightEnv>,
     environ_count: WasmPtr<u32, M>,
     environ_buf_size: WasmPtr<u32, M>,
 ) -> Result<Errno, WasiLightError> {
@@ -162,7 +167,7 @@ pub fn environ_sizes_get<M: MemorySize>(
     // Calculate total buffer size
     let mut total_size = 0u32;
     for (key, value) in envs {
-        total_size += format!("{}={}", key, value).as_bytes().len() as u32 + 1; // +1 for null terminator
+        total_size += format!("{key}={value}").as_bytes().len() as u32 + 1; // +1 for null terminator
     }
 
     // Write buffer size
@@ -174,7 +179,7 @@ pub fn environ_sizes_get<M: MemorySize>(
 
 /// Get clock resolution
 pub fn clock_res_get<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
+    ctx: FunctionEnvMut<WasiLightEnv>,
     id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t, M>,
 ) -> Result<Errno, WasiLightError> {
@@ -202,15 +207,14 @@ pub fn clock_res_get<M: MemorySize>(
             Ok(Errno::Success)
         }
         _ => {
-            // Invalid clock ID - return error immediately without memory access
-            Ok(Errno::Inval)
+            return Ok(Errno::Inval);
         }
     }
 }
 
 /// Get clock time
 pub fn clock_time_get<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
+    ctx: FunctionEnvMut<WasiLightEnv>,
     id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t, M>,
@@ -264,8 +268,7 @@ pub fn clock_time_get<M: MemorySize>(
             Ok(Errno::Success)
         }
         _ => {
-            // Invalid clock ID - return error immediately without memory access
-            Ok(Errno::Inval)
+            return Ok(Errno::Inval);
         }
     }
 }
@@ -292,32 +295,33 @@ pub fn random_get<M: MemorySize>(
 
 /// Exit process
 pub fn proc_exit<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
-    rval: __wasi_exitcode_t,
-) -> Result<(), WasiLightError> {
-    debug!("proc_exit called with exit code: {}", rval);
-    Err(WasiLightError::Exit(rval))
+    _ctx: FunctionEnvMut<WasiLightEnv>,
+    exit_code: __wasi_exitcode_t,
+) -> Result<Errno, WasiLightError> {
+    debug!("proc_exit called with exit_code: {}", exit_code);
+    Err(WasiLightError::Exit(exit_code))
+}
+
+/// Yield to scheduler
+pub fn sched_yield<M: MemorySize>(
+    _ctx: FunctionEnvMut<WasiLightEnv>,
+) -> Result<Errno, WasiLightError> {
+    debug!("sched_yield called");
+    // In a lightweight implementation, we just return success
+    Ok(Errno::Success)
 }
 
 /// Raise signal
-pub fn proc_raise(mut ctx: FunctionEnvMut<WasiLightEnv>, sig: u8) -> Result<Errno, WasiLightError> {
+pub fn proc_raise(_ctx: FunctionEnvMut<WasiLightEnv>, sig: u8) -> Result<Errno, WasiLightError> {
     debug!("proc_raise called with signal: {}", sig);
     // Not supported in lightweight WASI
     Ok(Errno::Notsup)
 }
 
-/// Yield execution
-pub fn sched_yield<M: MemorySize>(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
-) -> Result<Errno, WasiLightError> {
-    debug!("sched_yield called");
-    // Simple yield - just return success
-    Ok(Errno::Success)
-}
-
 #[cfg(test)]
 mod tests {
     use super::*;
+    use std::time::Duration;
     use wasmer::{FunctionEnv, Store};
 
     #[test]
@@ -371,7 +375,7 @@ mod tests {
         // Test invalid clock - should succeed (returns Inval)
         let result = clock_time_get::<Memory32>(
             func_env.into_mut(&mut store),
-            Clockid::Unknown,
+            Clockid::Unknown, // Invalid clock ID
             0,
             WasmPtr::new(0),
         );
