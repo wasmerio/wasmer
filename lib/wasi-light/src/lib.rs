@@ -16,9 +16,9 @@ use bytes::{Buf, BufMut, Bytes, BytesMut};
 use thiserror::Error;
 use tracing::{debug, trace, warn};
 use wasmer::{
-    imports, namespace, AsStoreMut, Extern, Function, FunctionEnv, Imports, Memory32, Memory64,
-    MemoryAccessError, MemorySize, MemoryView, RuntimeError, Store, Value, WasmPtr, WasmSlice,
-    FunctionEnvMut,
+    imports, namespace, AsStoreMut, Extern, Function, FunctionEnv, FunctionEnvMut, Imports,
+    Memory32, Memory64, MemoryAccessError, MemorySize, MemoryView, RuntimeError, Store, Value,
+    WasmPtr, WasmSlice,
 };
 use wasmer_wasix_types::wasi::{Clockid, Errno, Filesize, Timestamp};
 
@@ -124,7 +124,10 @@ impl WasiLightEnv {
         let mut bytes = Vec::with_capacity(len);
         for _ in 0..len {
             // Simple linear congruential generator for deterministic randomness
-            self.random_seed = self.random_seed.wrapping_mul(1103515245).wrapping_add(12345);
+            self.random_seed = self
+                .random_seed
+                .wrapping_mul(1103515245)
+                .wrapping_add(12345);
             bytes.push((self.random_seed >> 16) as u8);
         }
         bytes
@@ -145,7 +148,7 @@ impl WasiLightEnv {
 mod tests {
     use super::*;
     use std::collections::HashMap;
-    use wasmer::{Instance, Module, Store, wat2wasm};
+    use wasmer::{wat2wasm, Instance, Module, Store};
 
     #[test]
     fn test_wasi_light_env_creation() {
@@ -183,11 +186,11 @@ mod tests {
         let mut env = WasiLightEnv::new().random_seed(42);
         let bytes1 = env.random_bytes(10);
         let bytes2 = env.random_bytes(10);
-        
+
         // Should be deterministic with same seed
         assert_eq!(bytes1.len(), 10);
         assert_eq!(bytes2.len(), 10);
-        
+
         // Should be different with different seeds
         let mut env2 = WasiLightEnv::new().random_seed(43);
         let bytes3 = env2.random_bytes(10);
@@ -199,16 +202,19 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new()
             .args(vec!["test_arg".to_string()])
-            .envs(HashMap::from([
-                ("TEST_KEY".to_string(), "TEST_VALUE".to_string()),
-            ]));
+            .envs(HashMap::from([(
+                "TEST_KEY".to_string(),
+                "TEST_VALUE".to_string(),
+            )]));
 
         let result = generate_import_object(&mut store, &env);
         assert!(result.is_ok());
-        
+
         let import_object = result.unwrap();
         // Check that wasi_snapshot_preview1 namespace exists
-        assert!(import_object.get_namespace_exports("wasi_snapshot_preview1").is_some());
+        assert!(import_object
+            .get_namespace_exports("wasi_snapshot_preview1")
+            .is_some());
     }
 
     #[test]
@@ -224,24 +230,26 @@ mod tests {
   )
 )
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut store = Store::default();
         let module = Module::new(&store, wasm_bytes).unwrap();
-        
+
         let wasi_env = WasiLightEnv::new()
             .args(vec!["arg1".to_string(), "arg2".to_string()])
-            .envs(HashMap::from([
-                ("TEST_KEY".to_string(), "TEST_VALUE".to_string()),
-            ]))
+            .envs(HashMap::from([(
+                "TEST_KEY".to_string(),
+                "TEST_VALUE".to_string(),
+            )]))
             .random_seed(42);
 
         let import_object = generate_import_object(&mut store, &wasi_env).unwrap();
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
-        
+
         let test_func = instance.exports.get_function("test_wasi").unwrap();
         let result = test_func.call(&mut store, &[]).unwrap();
-        
+
         assert_eq!(result[0].unwrap_i32(), 42);
     }
 
@@ -258,29 +266,30 @@ mod tests {
   )
 )
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         let mut store = Store::default();
         let module = Module::new(&store, wasm_bytes).unwrap();
-        
+
         // Create multiple instances with different configurations
         let mut instances = Vec::new();
-        
+
         for i in 0..10 {
             let wasi_env = WasiLightEnv::new()
                 .args(vec![format!("instance_{}", i)])
                 .random_seed(i as u64);
-            
+
             let import_object = generate_import_object(&mut store, &wasi_env).unwrap();
             let instance = Instance::new(&mut store, &module, &import_object).unwrap();
             instances.push(instance);
         }
-        
+
         // Test that all instances work correctly
         for (_i, instance) in instances.iter().enumerate() {
             let test_yield = instance.exports.get_function("test_yield").unwrap();
             let result = test_yield.call(&mut store, &[]).unwrap();
-            
+
             // Each instance should return 42
             assert_eq!(result[0].unwrap_i32(), 42);
         }
@@ -289,7 +298,7 @@ mod tests {
     #[test]
     fn test_error_handling() {
         let mut store = Store::default();
-        
+
         // Test with a simple function that should work
         let wasm_bytes = wat2wasm(
             br#"
@@ -302,16 +311,17 @@ mod tests {
   )
 )
 "#,
-        ).unwrap();
+        )
+        .unwrap();
 
         let module = Module::new(&store, wasm_bytes).unwrap();
         let wasi_env = WasiLightEnv::new().args(vec!["test".to_string()]);
         let import_object = generate_import_object(&mut store, &wasi_env).unwrap();
-        
+
         // This should not panic
         let instance = Instance::new(&mut store, &module, &import_object).unwrap();
         let test_func = instance.exports.get_function("test_proc_raise").unwrap();
-        
+
         // The function should return successfully
         let result = test_func.call(&mut store, &[]);
         assert!(result.is_ok());
@@ -325,7 +335,7 @@ pub fn generate_import_object(
 ) -> Result<Imports, WasiLightError> {
     let env = FunctionEnv::new(store, env.clone());
     let exports = wasi_snapshot_preview1_exports(store, &env);
-    
+
     let imports = imports! {
         "wasi_snapshot_preview1" => exports,
     };
@@ -339,7 +349,7 @@ pub fn generate_import_object_with_env(
     env: FunctionEnv<WasiLightEnv>,
 ) -> Result<Imports, WasiLightError> {
     let exports = wasi_snapshot_preview1_exports(store, &env);
-    
+
     let imports = imports! {
         "wasi_snapshot_preview1" => exports,
     };
@@ -353,7 +363,7 @@ fn wasi_snapshot_preview1_exports(
     env: &FunctionEnv<WasiLightEnv>,
 ) -> wasmer::Exports {
     use syscalls::*;
-    
+
     namespace! {
         "args_get" => Function::new_typed_with_env(store, env, args_get::<Memory32>),
         "args_sizes_get" => Function::new_typed_with_env(store, env, args_sizes_get::<Memory32>),
@@ -384,5 +394,3 @@ fn wasi_error_to_runtime(err: Errno) -> RuntimeError {
         Box::new(err),
     ))))
 }
-
- 

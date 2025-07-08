@@ -7,9 +7,7 @@ use std::time::{Duration, SystemTime, UNIX_EPOCH};
 
 use tracing::debug;
 
-use wasmer::{
-    FunctionEnvMut, Memory32, MemorySize, MemoryView, WasmPtr, WasmSlice,
-};
+use wasmer::{FunctionEnvMut, Memory32, MemorySize, MemoryView, WasmPtr, WasmSlice};
 use wasmer_wasix_types::wasi::{Clockid, Errno, Filesize, Timestamp};
 
 use crate::{WasiLightEnv, WasiLightError};
@@ -28,38 +26,40 @@ pub fn args_get<M: MemorySize>(
     argv_buf: WasmPtr<u8, M>,
 ) -> Result<Errno, WasiLightError> {
     debug!("args_get called");
-    
-    let memory_view = ctx.data().memory_view(&ctx)
+
+    let memory_view = ctx
+        .data()
+        .memory_view(&ctx)
         .ok_or(WasiLightError::MemoryNotAvailable)?;
-    
+
     let args = &ctx.data().args;
     let mut argv_buf_offset = 0u32;
     let mut argv_offset = 0u32;
-    
+
     for arg in args {
         let arg_bytes = arg.as_bytes();
-        
+
         // Write argument string to buffer
         let arg_ptr = argv_buf.add_offset(argv_buf_offset.into())?;
         let arg_slice = arg_ptr.slice(&memory_view, (arg_bytes.len() as u32).into())?;
         arg_slice.write_slice(arg_bytes)?;
-        
+
         // Write null terminator
         let null_ptr = arg_ptr.add_offset((arg_bytes.len() as u32).into())?;
         null_ptr.write(&memory_view, 0)?;
-        
+
         // Write pointer to argv array
         let argv_ptr = argv.add_offset(argv_offset.into())?;
         argv_ptr.write(&memory_view, arg_ptr)?;
-        
+
         argv_buf_offset += arg_bytes.len() as u32 + 1;
         argv_offset += std::mem::size_of::<WasmPtr<u8, M>>() as u32;
     }
-    
+
     // Write null terminator to argv array
     let null_argv_ptr = argv.add_offset(argv_offset.into())?;
     null_argv_ptr.write(&memory_view, WasmPtr::<u8, M>::null())?;
-    
+
     Ok(Errno::Success)
 }
 
@@ -70,26 +70,28 @@ pub fn args_sizes_get<M: MemorySize>(
     argv_buf_size: WasmPtr<u32, M>,
 ) -> Result<Errno, WasiLightError> {
     debug!("args_sizes_get called");
-    
-    let memory_view = ctx.data().memory_view(&ctx)
+
+    let memory_view = ctx
+        .data()
+        .memory_view(&ctx)
         .ok_or(WasiLightError::MemoryNotAvailable)?;
-    
+
     let args = &ctx.data().args;
-    
+
     // Write argument count
     let argc_ref = argc.deref(&memory_view);
     argc_ref.write(args.len() as u32)?;
-    
+
     // Calculate total buffer size
     let mut total_size = 0u32;
     for arg in args {
         total_size += arg.as_bytes().len() as u32 + 1; // +1 for null terminator
     }
-    
+
     // Write buffer size
     let argv_buf_size_ref = argv_buf_size.deref(&memory_view);
     argv_buf_size_ref.write(total_size)?;
-    
+
     Ok(Errno::Success)
 }
 
@@ -100,39 +102,41 @@ pub fn environ_get<M: MemorySize>(
     environ_buf: WasmPtr<u8, M>,
 ) -> Result<Errno, WasiLightError> {
     debug!("environ_get called");
-    
-    let memory_view = ctx.data().memory_view(&ctx)
+
+    let memory_view = ctx
+        .data()
+        .memory_view(&ctx)
         .ok_or(WasiLightError::MemoryNotAvailable)?;
-    
+
     let envs = &ctx.data().envs;
     let mut environ_buf_offset = 0u32;
     let mut environ_offset = 0u32;
-    
+
     for (key, value) in envs {
         let env_var = format!("{}={}", key, value);
         let env_bytes = env_var.as_bytes();
-        
+
         // Write environment variable to buffer
         let env_ptr = environ_buf.add_offset(environ_buf_offset.into())?;
         let env_slice = env_ptr.slice(&memory_view, (env_bytes.len() as u32).into())?;
         env_slice.write_slice(env_bytes)?;
-        
+
         // Write null terminator
         let null_ptr = env_ptr.add_offset((env_bytes.len() as u32).into())?;
         null_ptr.write(&memory_view, 0)?;
-        
+
         // Write pointer to environ array
         let environ_ptr = environ.add_offset(environ_offset.into())?;
         environ_ptr.write(&memory_view, env_ptr)?;
-        
+
         environ_buf_offset += env_bytes.len() as u32 + 1;
         environ_offset += std::mem::size_of::<WasmPtr<u8, M>>() as u32;
     }
-    
+
     // Write null terminator to environ array
     let null_environ_ptr = environ.add_offset(environ_offset.into())?;
     null_environ_ptr.write(&memory_view, WasmPtr::<u8, M>::null())?;
-    
+
     Ok(Errno::Success)
 }
 
@@ -143,26 +147,28 @@ pub fn environ_sizes_get<M: MemorySize>(
     environ_buf_size: WasmPtr<u32, M>,
 ) -> Result<Errno, WasiLightError> {
     debug!("environ_sizes_get called");
-    
-    let memory_view = ctx.data().memory_view(&ctx)
+
+    let memory_view = ctx
+        .data()
+        .memory_view(&ctx)
         .ok_or(WasiLightError::MemoryNotAvailable)?;
-    
+
     let envs = &ctx.data().envs;
-    
+
     // Write environment variable count
     let environ_count_ref = environ_count.deref(&memory_view);
     environ_count_ref.write(envs.len() as u32)?;
-    
+
     // Calculate total buffer size
     let mut total_size = 0u32;
     for (key, value) in envs {
         total_size += format!("{}={}", key, value).as_bytes().len() as u32 + 1; // +1 for null terminator
     }
-    
+
     // Write buffer size
     let environ_buf_size_ref = environ_buf_size.deref(&memory_view);
     environ_buf_size_ref.write(total_size)?;
-    
+
     Ok(Errno::Success)
 }
 
@@ -173,10 +179,12 @@ pub fn clock_res_get<M: MemorySize>(
     resolution: WasmPtr<__wasi_timestamp_t, M>,
 ) -> Result<Errno, WasiLightError> {
     debug!("clock_res_get called with id: {:?}", id);
-    
+
     match id {
         Clockid::Realtime | Clockid::Monotonic => {
-            let memory_view = ctx.data().memory_view(&ctx)
+            let memory_view = ctx
+                .data()
+                .memory_view(&ctx)
                 .ok_or(WasiLightError::MemoryNotAvailable)?;
             let resolution_ref = resolution.deref(&memory_view);
             // Nanosecond resolution
@@ -184,7 +192,9 @@ pub fn clock_res_get<M: MemorySize>(
             Ok(Errno::Success)
         }
         Clockid::ProcessCputimeId | Clockid::ThreadCputimeId => {
-            let memory_view = ctx.data().memory_view(&ctx)
+            let memory_view = ctx
+                .data()
+                .memory_view(&ctx)
                 .ok_or(WasiLightError::MemoryNotAvailable)?;
             let resolution_ref = resolution.deref(&memory_view);
             // Microsecond resolution
@@ -205,13 +215,18 @@ pub fn clock_time_get<M: MemorySize>(
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t, M>,
 ) -> Result<Errno, WasiLightError> {
-    debug!("clock_time_get called with id: {:?}, precision: {}", id, precision);
-    
+    debug!(
+        "clock_time_get called with id: {:?}, precision: {}",
+        id, precision
+    );
+
     let env = ctx.data();
-    
+
     match id {
         Clockid::Realtime => {
-            let memory_view = ctx.data().memory_view(&ctx)
+            let memory_view = ctx
+                .data()
+                .memory_view(&ctx)
                 .ok_or(WasiLightError::MemoryNotAvailable)?;
             let time_ref = time.deref(&memory_view);
             let now = SystemTime::now()
@@ -222,7 +237,9 @@ pub fn clock_time_get<M: MemorySize>(
             Ok(Errno::Success)
         }
         Clockid::Monotonic => {
-            let memory_view = ctx.data().memory_view(&ctx)
+            let memory_view = ctx
+                .data()
+                .memory_view(&ctx)
                 .ok_or(WasiLightError::MemoryNotAvailable)?;
             let time_ref = time.deref(&memory_view);
             let now = SystemTime::now()
@@ -233,7 +250,9 @@ pub fn clock_time_get<M: MemorySize>(
             Ok(Errno::Success)
         }
         Clockid::ProcessCputimeId | Clockid::ThreadCputimeId => {
-            let memory_view = ctx.data().memory_view(&ctx)
+            let memory_view = ctx
+                .data()
+                .memory_view(&ctx)
                 .ok_or(WasiLightError::MemoryNotAvailable)?;
             let time_ref = time.deref(&memory_view);
             // For now, return the same as monotonic
@@ -258,14 +277,16 @@ pub fn random_get<M: MemorySize>(
     buf_len: u32,
 ) -> Result<Errno, WasiLightError> {
     debug!("random_get called with buf_len: {}", buf_len);
-    
+
     let random_bytes = ctx.data_mut().random_bytes(buf_len as usize);
-    let memory_view = ctx.data().memory_view(&ctx)
+    let memory_view = ctx
+        .data()
+        .memory_view(&ctx)
         .ok_or(WasiLightError::MemoryNotAvailable)?;
-    
+
     let buf_slice = buf.slice(&memory_view, buf_len.into())?;
     buf_slice.write_slice(&random_bytes)?;
-    
+
     Ok(Errno::Success)
 }
 
@@ -279,10 +300,7 @@ pub fn proc_exit<M: MemorySize>(
 }
 
 /// Raise signal
-pub fn proc_raise(
-    mut ctx: FunctionEnvMut<WasiLightEnv>,
-    sig: u8,
-) -> Result<Errno, WasiLightError> {
+pub fn proc_raise(mut ctx: FunctionEnvMut<WasiLightEnv>, sig: u8) -> Result<Errno, WasiLightError> {
     debug!("proc_raise called with signal: {}", sig);
     // Not supported in lightweight WASI
     Ok(Errno::Notsup)
@@ -307,7 +325,7 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new();
         let func_env = FunctionEnv::new(&mut store, env);
-        
+
         // Test realtime clock - should fail due to no memory
         let result = clock_res_get::<Memory32>(
             func_env.clone().into_mut(&mut store),
@@ -315,7 +333,7 @@ mod tests {
             WasmPtr::new(0),
         );
         assert!(result.is_err());
-        
+
         // Test invalid clock - should succeed (returns Inval)
         let result = clock_res_get::<Memory32>(
             func_env.into_mut(&mut store),
@@ -324,7 +342,7 @@ mod tests {
         );
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Errno::Inval);
-        
+
         // Test monotonic clock - should fail due to no memory
         let func_env2 = FunctionEnv::new(&mut store, WasiLightEnv::new());
         let result = clock_res_get::<Memory32>(
@@ -340,7 +358,7 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new().clock_offset(Duration::from_secs(3600));
         let func_env = FunctionEnv::new(&mut store, env);
-        
+
         // Test realtime clock - should fail due to no memory
         let result = clock_time_get::<Memory32>(
             func_env.clone().into_mut(&mut store),
@@ -349,7 +367,7 @@ mod tests {
             WasmPtr::new(0),
         );
         assert!(result.is_err());
-        
+
         // Test invalid clock - should succeed (returns Inval)
         let result = clock_time_get::<Memory32>(
             func_env.into_mut(&mut store),
@@ -359,9 +377,12 @@ mod tests {
         );
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Errno::Inval);
-        
+
         // Test monotonic clock - should fail due to no memory
-        let func_env2 = FunctionEnv::new(&mut store, WasiLightEnv::new().clock_offset(Duration::from_secs(3600)));
+        let func_env2 = FunctionEnv::new(
+            &mut store,
+            WasiLightEnv::new().clock_offset(Duration::from_secs(3600)),
+        );
         let result = clock_time_get::<Memory32>(
             func_env2.into_mut(&mut store),
             Clockid::Monotonic,
@@ -376,12 +397,9 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new().random_seed(42);
         let func_env = FunctionEnv::new(&mut store, env);
-        
-        let result = random_get::<Memory32>(
-            func_env.clone().into_mut(&mut store),
-            WasmPtr::new(0),
-            10,
-        );
+
+        let result =
+            random_get::<Memory32>(func_env.clone().into_mut(&mut store), WasmPtr::new(0), 10);
         // This should fail because there's no memory available
         assert!(result.is_err());
     }
@@ -391,13 +409,10 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new();
         let func_env = FunctionEnv::new(&mut store, env);
-        
-        let result = proc_exit::<Memory32>(
-            func_env.clone().into_mut(&mut store),
-            42,
-        );
+
+        let result = proc_exit::<Memory32>(func_env.clone().into_mut(&mut store), 42);
         assert!(result.is_err());
-        
+
         if let Err(WasiLightError::Exit(code)) = result {
             assert_eq!(code, 42);
         } else {
@@ -410,7 +425,7 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new();
         let func_env = FunctionEnv::new(&mut store, env);
-        
+
         let result = proc_raise(
             func_env.clone().into_mut(&mut store),
             1, // SIGINT
@@ -424,11 +439,9 @@ mod tests {
         let mut store = Store::default();
         let env = WasiLightEnv::new();
         let func_env = FunctionEnv::new(&mut store, env);
-        
-        let result = sched_yield::<Memory32>(
-            func_env.clone().into_mut(&mut store),
-        );
+
+        let result = sched_yield::<Memory32>(func_env.clone().into_mut(&mut store));
         assert!(result.is_ok());
         assert_eq!(result.unwrap(), Errno::Success);
     }
-} 
+}
