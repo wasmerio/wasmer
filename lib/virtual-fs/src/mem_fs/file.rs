@@ -507,6 +507,17 @@ impl VirtualFile for FileHandle {
         self.cursor = cursor;
         Ok(())
     }
+
+    fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
+        let fs = self.filesystem.inner.read().ok()?;
+
+        let inode = fs.storage.get(self.inode)?;
+        match inode {
+            Node::ReadOnlyFile(f) => Some(f.file.buffer.clone()),
+            Node::CustomFile(f) => f.file.lock().ok()?.as_owned_buffer(),
+            _ => None,
+        }
+    }
 }
 
 #[cfg(test)]

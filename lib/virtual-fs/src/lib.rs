@@ -412,6 +412,16 @@ pub trait VirtualFile:
         })
     }
 
+    /// Get the full contents of this file as an [`OwnedBuffer`].
+    ///
+    /// **NOTE**: Only implement this if the file is already available in-memory
+    /// and can be cloned cheaply!
+    ///
+    /// Allows consumers to do zero-copy cloning of the underlying data.
+    fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
+        None
+    }
+
     /// Polls the file for when there is data to be read
     fn poll_read_ready(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<usize>>;
 
