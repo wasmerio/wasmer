@@ -28,7 +28,7 @@ use wasmer::Type;
 ///
 ///   The buffer needs to be large enough to hold all return values.
 ///
-#[instrument(level = "trace", skip_all, fields(%function_id), ret)]
+#[instrument(level = "trace", skip_all, fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()), ret)]
 pub fn call_dynamic<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     function_id: u32,
