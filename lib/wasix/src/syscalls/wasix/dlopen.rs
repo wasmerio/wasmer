@@ -2,7 +2,7 @@ use super::*;
 use crate::{state::WasmLoader, syscalls::*};
 
 // TODO: add journal events for dl-related syscalls
-#[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
+#[instrument(level = "trace", skip_all, fields(path = field::Empty, flags), ret)]
 pub fn dlopen<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,
