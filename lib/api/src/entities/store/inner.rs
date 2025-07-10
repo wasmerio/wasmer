@@ -13,8 +13,9 @@ use wasmer_vm::TrapHandlerFn;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-pub(crate) struct StoreInner<Object = Box<dyn std::any::Any + Send>> {
+pub(crate) struct StoreInner<Object = wasmer_types::BoxStoreObject> {
     pub(crate) objects: StoreObjects<Object>,
+
     pub(crate) store: BackendStore,
     pub(crate) on_called: Option<OnCalledHandler>,
 }

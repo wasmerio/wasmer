@@ -4,11 +4,11 @@ use crate::{
 };
 use core::slice::Iter;
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
-use wasmer_types::StoreId;
+use wasmer_types::{BoxStoreObject, StoreId};
 
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
-pub trait StoreObject<Object = Box<dyn std::any::Any + Send>>: Sized {
+pub trait StoreObject<Object = BoxStoreObject>: Sized {
     /// List the objects in the store.
     fn list(ctx: &StoreObjects<Object>) -> &Vec<Self>;
 
@@ -42,7 +42,7 @@ impl_context_object! {
 }
 
 /// Set of objects managed by a context.
-pub struct StoreObjects<Object = Box<dyn std::any::Any + Send>> {
+pub struct StoreObjects<Object = BoxStoreObject> {
     id: StoreId,
     memories: Vec<VMMemory>,
     tables: Vec<VMTable>,
@@ -175,7 +175,7 @@ impl<Object> StoreObjects<Object> {
 /// Internally this is just an integer index into a context. A reference to the
 /// context must be passed in separately to access the actual object.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct StoreHandle<T, Object = Box<dyn std::any::Any + Send>> {
+pub struct StoreHandle<T, Object = BoxStoreObject> {
     id: StoreId,
     internal: InternalStoreHandle<T, Object>,
 }
