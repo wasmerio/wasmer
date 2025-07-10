@@ -5,7 +5,7 @@ use crate::{
 use colored::Colorize;
 use is_terminal::IsTerminal;
 
-/// Log out from a registry
+/// Log out from Wasmer
 #[derive(Debug, Clone, clap::Parser)]
 pub struct Logout {
     #[clap(flatten)]
