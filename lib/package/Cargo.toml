@@ -34,6 +34,9 @@ tar.workspace = true
 tempfile.workspace = true
 ignore = "0.4"
 
+[target.'cfg(all(target_family = "wasm", target_os = "wasi"))'.dependencies]
+libc.workspace = true
+
 [dev-dependencies]
 pretty_assertions.workspace = true
 tempfile.workspace = true
