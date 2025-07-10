@@ -284,7 +284,7 @@ impl WasmerCmd {
 #[allow(clippy::large_enum_variant)]
 /// The options for the wasmer Command Line Interface
 enum Cmd {
-    /// Login into a wasmer.io-like registry
+    /// Login into Wasmer
     Login(Login),
 
     #[clap(subcommand)]
