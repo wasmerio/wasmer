@@ -40,6 +40,11 @@ impl ModuleCache for ThreadLocalCache {
         }
     }
 
+    async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
+        let exists = self.lookup(key, &engine.deterministic_id()).is_some();
+        Ok(exists)
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(%key))]
     async fn save(
         &self,

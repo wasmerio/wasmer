@@ -85,6 +85,14 @@ where
         Err(primary_error)
     }
 
+    async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
+        if self.primary.contains(key, engine).await? {
+            return Ok(true);
+        }
+
+        self.fallback.contains(key, engine).await
+    }
+
     async fn save(
         &self,
         key: ModuleHash,
@@ -154,6 +162,10 @@ mod tests {
                     Err(e)
                 }
             }
+        }
+
+        async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
+            self.inner.contains(key, engine).await
         }
 
         async fn save(

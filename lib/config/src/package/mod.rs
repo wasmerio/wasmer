@@ -515,7 +515,7 @@ pub struct UserAnnotations {
 }
 
 /// Suggested optimization that might be operated on the module when (and if) compiled.
-#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
 pub struct SuggestedCompilerOptimizations {
     pub pass_params: Option<bool>,
 }
