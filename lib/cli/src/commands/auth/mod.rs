@@ -7,7 +7,7 @@ pub use whoami::*;
 
 use super::AsyncCliCommand;
 
-/// Manage authentication with the Wasmer registry
+/// Manage authentication in Wasmer
 #[derive(clap::Subcommand, Debug)]
 pub enum CmdAuth {
     Login(login::Login),
