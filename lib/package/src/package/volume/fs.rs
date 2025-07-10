@@ -316,7 +316,7 @@ impl FsVolume {
             Ok(root)
         } else {
             let paths: Vec<_> = self.mapped_directories.iter().cloned().collect();
-            directory_tree(paths, &self.base_dir, strictness)
+            directory_tree(paths, &self.base_dir)
         }
     }
 }
@@ -359,7 +359,6 @@ fn resolve(base_dir: &Path, path: &PathSegments) -> PathBuf {
 fn directory_tree(
     paths: impl IntoIterator<Item = PathBuf>,
     base_dir: &Path,
-    strictness: Strictness,
 ) -> Result<Directory<'static>, Error> {
     let paths: Vec<_> = paths.into_iter().collect();
     let mut root = Directory::default();
@@ -374,20 +373,14 @@ fn directory_tree(
                 println!("Warning: {path:?} already exists. Overriding the old entry");
             }
         } else {
-            match webc::v3::write::Directory::from_path_with_ignore(&path) {
-                Ok(dir) => {
-                    for (path, child) in dir.children {
-                        root.children.insert(path.clone(), child);
-                    }
-                }
-                Err(e) => {
-                    let e = Error::from(e);
-                    let error = e.context(format!(
-                        "Unable to add \"{}\" to the directory tree",
-                        path.display()
-                    ));
-                    strictness.on_error(&path, error)?;
-                }
+            let dir = webc::v3::write::Directory::from_path_with_ignore(&path).map_err(|e| {
+                Error::from(e).context(format!(
+                    "Unable to add \"{}\" to the directory tree",
+                    path.display()
+                ))
+            })?;
+            for (path, child) in dir.children {
+                root.children.insert(path.clone(), child);
             }
         }
     }
