@@ -6,7 +6,7 @@ use crate::config::WasmerEnv;
 use super::AsyncCliCommand;
 
 #[derive(Debug, Parser)]
-/// The options for the `wasmer whoami` subcommand
+/// Print the current user and which registry they are logged into
 pub struct Whoami {
     #[clap(flatten)]
     env: WasmerEnv,

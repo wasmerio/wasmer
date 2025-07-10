@@ -20,7 +20,7 @@ enum AuthorizationState {
     UnknownMethod,
 }
 
-/// Subcommand for log in a user into Wasmer (using a browser or provided a token)
+/// Login into a wasmer.io-like registry (using a browser or by providing a token)
 #[derive(Debug, Clone, clap::Parser)]
 pub struct Login {
     /// Variable to login without opening a browser
