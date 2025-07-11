@@ -52,29 +52,29 @@ impl ValTypeOps for ValType {
     fn store(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32) {
         match self {
             Self::I32 => sink.i32_store(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::I64 => sink.i64_store(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::F32 => sink.f32_store(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::F64 => sink.f64_store(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::V128 => sink.v128_store(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             // Not supported in closures
             Self::Ref(_) => panic!("Cannot store reference type"),
@@ -83,29 +83,29 @@ impl ValTypeOps for ValType {
     fn load(&self, sink: &mut InstructionSink<'_>, offset: u64, memory_index: u32) {
         match self {
             Self::I32 => sink.i32_load(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::I64 => sink.i64_load(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::F32 => sink.f32_load(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::F64 => sink.f64_load(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             Self::V128 => sink.v128_load(MemArg {
-                offset: offset,
+                offset,
                 align: 0,
-                memory_index: memory_index,
+                memory_index,
             }),
             // Not supported in closures
             Self::Ref(_) => panic!("Cannot load reference type"),
@@ -185,7 +185,7 @@ fn build_closure_wasm_bytes(
     let stack_pointer_index = 0;
     imports.import(
         "GOT.func",
-        &module_name,
+        module_name,
         GlobalType {
             val_type: ValType::I32,
             mutable: true,
@@ -210,7 +210,7 @@ fn build_closure_wasm_bytes(
         ExportKind::Func,
         on_load_function_index,
     );
-    exports.export(&module_name, ExportKind::Func, trampoline_function_index);
+    exports.export(module_name, ExportKind::Func, trampoline_function_index);
     wasm_module.section(&exports);
 
     let mut code = CodeSection::new();
@@ -225,7 +225,7 @@ fn build_closure_wasm_bytes(
     code.function(&on_load_function);
 
     let mut trampoline_function = wasm_encoder::Function::new(vec![(3, ValType::I32)]);
-    let original_stackpointer_local: u32 = argument_types.len() as u32 + 0;
+    let original_stackpointer_local: u32 = argument_types.len() as u32;
     let arguments_base_local: u32 = argument_types.len() as u32 + 1;
     let results_base_local: u32 = argument_types.len() as u32 + 2;
     let mut trampoline_function_instructions = trampoline_function.instructions();
@@ -256,7 +256,7 @@ fn build_closure_wasm_bytes(
             acc.1
                 .local_get(arguments_base_local)
                 .local_get(index as u32);
-            ty.store(&mut acc.1, acc.0, main_memory_index);
+            ty.store(acc.1, acc.0, main_memory_index);
             acc.0 += size;
             acc
         },
@@ -272,7 +272,7 @@ fn build_closure_wasm_bytes(
         |mut acc, (index, ty)| {
             let size = ty.size();
             acc.1.local_get(results_base_local);
-            ty.load(&mut acc.1, acc.0, main_memory_index);
+            ty.load(acc.1, acc.0, main_memory_index);
             acc.0 += size;
             acc
         },
@@ -381,7 +381,7 @@ pub fn closure_prepare<M: MemorySize>(
         Ok(m) => m,
         Err(e) => {
             // Should never happen
-            panic!("Failed to load module: {}", e);
+            panic!("Failed to load module: {e}");
         }
     };
 
@@ -410,7 +410,7 @@ pub fn closure_allocate<M: MemorySize>(
         Ok(f) => f,
         Err(e) => {
             // Should never happen
-            panic!("Failed to allocate closure index: {}", e);
+            panic!("Failed to allocate closure index: {e}");
         }
     };
 
@@ -440,7 +440,7 @@ pub fn closure_free<M: MemorySize>(
     let free_result = linker.free_closure_index(&mut ctx, closure);
     if let Err(e) = free_result {
         // Should never happen
-        panic!("Failed to free closure index: {}", e);
+        panic!("Failed to free closure index: {e}");
     }
 
     return Ok(Errno::Success);

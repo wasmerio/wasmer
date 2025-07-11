@@ -140,11 +140,11 @@ pub fn call_dynamic<M: MemorySize>(
     result_values.iter().try_for_each(|result_value| {
         let bytes = value_as_bytes(result_value).unwrap();
         memory
-            .write(current_results_offset, &bytes)
+            .write(current_results_offset, bytes)
             .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
         current_results_offset += bytes.len() as u64; // Move to the next result offset
         Result::<(), WasiRuntimeError>::Ok(())
     })?;
 
-    Ok((Errno::Success))
+    Ok(Errno::Success)
 }

@@ -1006,7 +1006,7 @@ impl WasmLoader<'_> {
                 .iter()
                 .flat_map(|paths| paths.iter().map(AsRef::as_ref))
                 // Add default runtime paths
-                .chain(DEFAULT_RUNTIME_PATH.iter().map(|path| Path::new(path)));
+                .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
 
             let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
             for path in search_paths {
@@ -1584,7 +1584,7 @@ impl Linker {
         );
         // TODO: Cleanup the previous function when we are overriding something
 
-        Ok(function_index as u32)
+        Ok(function_index)
     }
 
     /// Remove a previously allocated slot for a closure in the indirect function table
@@ -2483,10 +2483,7 @@ impl InstanceGroupState {
         let table = &self.indirect_function_table;
 
         let signature = func.ty(store).to_string();
-        let index: u32 = table
-            .size(store)
-            .try_into()
-            .expect("Internal error: function table size exceeds u32::MAX");
+        let index: u32 = table.size(store);
         trace!(?index, ?signature, "Appending function in table");
 
         table.grow(store, 1, func.into())
