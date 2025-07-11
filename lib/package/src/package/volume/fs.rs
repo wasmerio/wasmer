@@ -501,4 +501,32 @@ mod tests {
             "man page"
         );
     }
+
+    #[test]
+    fn directory_tree_propagates_errors() {
+        let temp = TempDir::new().unwrap();
+
+        // Create a directory that will be used as the base directory
+        let base_dir = temp.path().to_path_buf();
+
+        // Create a non-existent path that will cause `from_path_with_ignore` to fail
+        let non_existent_path = base_dir.join("non_existent_dir");
+
+        // Try to create a directory tree with a non-existent path
+        let result = directory_tree(std::iter::once(non_existent_path.clone()), &base_dir);
+
+        // Verify that the error is propagated
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("Unable to add"),
+            "Error message should indicate failure to add path: {}",
+            error
+        );
+        assert!(
+            error.to_string().contains("non_existent_dir"),
+            "Error message should include the problematic path: {}",
+            error
+        );
+    }
 }
