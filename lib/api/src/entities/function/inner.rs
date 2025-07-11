@@ -87,8 +87,8 @@ impl BackendFunction {
     /// });
     /// ```
     #[inline]
-    pub fn new_with_env<FT, F, T: Send + 'static>(
-        store: &mut impl AsStoreMut,
+    pub fn new_with_env<Object, FT, F, T>(
+        store: &mut impl AsStoreMut<Object>,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
@@ -197,8 +197,8 @@ impl BackendFunction {
     /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
     #[inline]
-    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
+    pub fn new_typed_with_env<Object, T, F, Args, Rets>(
+        store: &mut impl AsStoreMut<Object>,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self

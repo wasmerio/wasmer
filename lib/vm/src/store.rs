@@ -263,7 +263,7 @@ impl<Object, T: StoreObject<Object>> StoreHandle<T, Object> {
 /// Unlike `StoreHandle` this does not track the context ID: it is only
 /// intended to be used within objects already owned by a context.
 #[repr(transparent)]
-pub struct InternalStoreHandle<T, Object = Box<dyn std::any::Any + Send>> {
+pub struct InternalStoreHandle<T, Object = BoxStoreObject> {
     // Use a NonZero here to reduce the size of Option<InternalStoreHandle>.
     idx: NonZeroUsize,
     marker: PhantomData<fn(Object) -> (T, Object)>,

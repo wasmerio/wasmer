@@ -473,9 +473,9 @@ where
 /// Represents a low-level Wasm static host function. See
 /// [`crate::Function::new_typed`] and
 /// [`crate::Function::new_typed_with_env`] to learn more.
-pub(crate) struct StaticFunction<F, T> {
+pub(crate) struct StaticFunction<F, T, Object> {
     pub(crate) raw_store: *mut u8,
-    pub(crate) env: FunctionEnv<T>,
+    pub(crate) env: FunctionEnv<T, Object>,
     pub(crate) func: F,
 }
 

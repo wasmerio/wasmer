@@ -90,9 +90,9 @@ impl Function {
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
-    pub fn new_with_env<FT, F, T: Send + 'static>(
-        store: &mut impl AsStoreMut,
-        env: &FunctionEnv<T>,
+    pub fn new_with_env<FT, F, T: Send + 'static, S: AsStoreMut>(
+        store: &mut S,
+        env: &FunctionEnv<T, S::Object>,
         ty: FT,
         func: F,
     ) -> Self

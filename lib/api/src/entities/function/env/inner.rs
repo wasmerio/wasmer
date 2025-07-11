@@ -1,34 +1,17 @@
 use crate::{
-    macros::backend::match_rt, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut,
-    StoreRef,
+    macros::backend::{gen_rt_ty, match_rt}, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut,
+    StoreMut, StoreRef,
 };
 use std::{any::Any, marker::PhantomData};
 
-#[derive(Debug, derive_more::From)]
-/// An opaque reference to a function environment.
-/// The function environment data is owned by the `Store`.
-pub enum BackendFunctionEnv<T> {
-    #[cfg(feature = "sys")]
-    /// The function environment for the `sys` runtime.
-    Sys(crate::backend::sys::function::env::FunctionEnv<T>),
-    #[cfg(feature = "wamr")]
-    /// The function environment for the `wamr` runtime.
-    Wamr(crate::backend::wamr::function::env::FunctionEnv<T>),
-    #[cfg(feature = "wasmi")]
-    /// The function environment for the `wasmi` runtime.
-    Wasmi(crate::backend::wasmi::function::env::FunctionEnv<T>),
-    #[cfg(feature = "v8")]
-    /// The function environment for the `v8` runtime.
-    V8(crate::backend::v8::function::env::FunctionEnv<T>),
-    #[cfg(feature = "js")]
-    /// The function environment for the `js` runtime.
-    Js(crate::backend::js::function::env::FunctionEnv<T>),
-    #[cfg(feature = "jsc")]
-    /// The function environment for the `jsc` runtime.
-    Jsc(crate::backend::jsc::function::env::FunctionEnv<T>),
+gen_rt_ty! {
+    /// An opaque reference to a function environment.
+    /// The function environment data is owned by the `Store`.
+    #[derive(Debug, derive_more::From)]
+    pub BackendFunctionEnv<T, Object>(function::env::FunctionEnv<T, Object>);
 }
 
-impl<T> Clone for BackendFunctionEnv<T> {
+impl<T, Object> Clone for BackendFunctionEnv<T, Object> {
     fn clone(&self) -> Self {
         match self {
             #[cfg(feature = "sys")]
@@ -48,9 +31,9 @@ impl<T> Clone for BackendFunctionEnv<T> {
     }
 }
 
-impl<T> BackendFunctionEnv<T> {
+impl<T, Object> BackendFunctionEnv<T, Object> {
     /// Make a new FunctionEnv
-    pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
+    pub fn new(store: &mut impl AsStoreMut<Object = Object>, value: T) -> Self
     where
         T: Any + Send + 'static + Sized,
     {
@@ -111,7 +94,8 @@ impl<T> BackendFunctionEnv<T> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
+    // TODO consider taking the `AsStoreMut` directly
+    pub fn into_mut<S: AsStoreMut>(self, store: &mut S) -> FunctionEnvMut<'_, T, S::Object>
     where
         T: Any + Send + 'static + Sized,
     {
@@ -121,33 +105,13 @@ impl<T> BackendFunctionEnv<T> {
     }
 }
 
-/// A temporary handle to a [`FunctionEnv`].
-#[derive(derive_more::From)]
-pub enum BackendFunctionEnvMut<'a, T: 'a> {
-    #[cfg(feature = "sys")]
-    /// The function environment for the `sys` runtime.
-    Sys(crate::backend::sys::function::env::FunctionEnvMut<'a, T>),
-    #[cfg(feature = "wamr")]
-    /// The function environment for the `wamr` runtime.
-    Wamr(crate::backend::wamr::function::env::FunctionEnvMut<'a, T>),
-
-    #[cfg(feature = "wasmi")]
-    /// The function environment for the `wasmi` runtime.
-    Wasmi(crate::backend::wasmi::function::env::FunctionEnvMut<'a, T>),
-    #[cfg(feature = "v8")]
-    /// The function environment for the `v8` runtime.
-    V8(crate::backend::v8::function::env::FunctionEnvMut<'a, T>),
-
-    #[cfg(feature = "js")]
-    /// The function environment for the `js` runtime.
-    Js(crate::backend::js::function::env::FunctionEnvMut<'a, T>),
-
-    #[cfg(feature = "jsc")]
-    /// The function environment for the `jsc` runtime.
-    Jsc(crate::backend::jsc::function::env::FunctionEnvMut<'a, T>),
+gen_rt_ty! {
+    /// A temporary handle to a [`FunctionEnv`].
+    #[derive(derive_more::From)]
+    pub BackendFunctionEnvMut<'a, T, Object>(function::env::FunctionEnvMut<'a, T, Object>);
 }
 
-impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
+impl<T: Send + 'static, Object> BackendFunctionEnvMut<'_, T, Object> {
     /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         match_rt!(on self => f {
@@ -206,29 +170,31 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
     }
 }
 
-impl<T> AsStoreRef for BackendFunctionEnvMut<'_, T> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<T, Object> AsStoreRef for BackendFunctionEnvMut<'_, T, Object> {
+    type Object = Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         match_rt!(on &self => f {
             f.as_store_ref()
         })
     }
 }
 
-impl<T> AsStoreMut for BackendFunctionEnvMut<'_, T> {
+impl<T, Object> AsStoreMut for BackendFunctionEnvMut<'_, T, Object> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         match_rt!(on self => s {
             s.as_store_mut()
         })
     }
 
-    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects<Object> {
         match_rt!(on self => s {
             s.objects_mut()
         })
     }
 }
 
-impl<T> std::fmt::Debug for BackendFunctionEnvMut<'_, T>
+impl<T, Object> std::fmt::Debug for BackendFunctionEnvMut<'_, T, Object>
 where
     T: Send + std::fmt::Debug + 'static,
 {

@@ -7,15 +7,15 @@ use std::{any::Any, fmt::Debug, marker::PhantomData};
 #[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
-pub struct FunctionEnv<T>(pub(crate) BackendFunctionEnv<T>);
+pub struct FunctionEnv<T, Object>(pub(crate) BackendFunctionEnv<T, Object>);
 
-impl<T> Clone for FunctionEnv<T> {
+impl<T, Object> Clone for FunctionEnv<T, Object> {
     fn clone(&self) -> Self {
         Self(self.0.clone())
     }
 }
 
-impl<T> FunctionEnv<T> {
+impl<T, Object> FunctionEnv<T, Object> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
@@ -30,7 +30,7 @@ impl<T> FunctionEnv<T> {
     //}
 
     /// Get the data as reference
-    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef<Object = Object>) -> &'a T
     where
         T: Any + Send + 'static + Sized,
     {
@@ -38,7 +38,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the data as mutable
-    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
+    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut<Object = Object>) -> &'a mut T
     where
         T: Any + Send + 'static + Sized,
     {
@@ -46,7 +46,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
+    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T, Object>
     where
         T: Any + Send + 'static + Sized,
     {

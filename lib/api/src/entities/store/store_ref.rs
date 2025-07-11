@@ -2,14 +2,14 @@ use std::ops::{Deref, DerefMut};
 
 use super::{inner::StoreInner, StoreObjects};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
-use wasmer_types::{ExternType, OnCalledAction};
+use wasmer_types::{BoxStoreObject, ExternType, OnCalledAction};
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
 #[cfg(feature = "sys")]
 use wasmer_vm::TrapHandlerFn;
 
 /// A temporary handle to a [`crate::Store`].
-pub struct StoreRef<'a, Object = Box<dyn std::any::Any + Send>> {
+pub struct StoreRef<'a, Object = BoxStoreObject> {
     pub(crate) inner: &'a StoreInner<Object>,
 }
 
@@ -45,7 +45,7 @@ impl<'a, Object> StoreRef<'a, Object> {
 }
 
 /// A temporary handle to a [`crate::Store`].
-pub struct StoreMut<'a, Object = Box<dyn std::any::Any + Send>> {
+pub struct StoreMut<'a, Object = BoxStoreObject> {
     pub(crate) inner: &'a mut StoreInner<Object>,
 }
 
@@ -90,38 +90,46 @@ impl<Object> StoreMut<'_, Object> {
 }
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].
-pub trait AsStoreRef<Object = Box<dyn std::any::Any + Send>> {
+pub trait AsStoreRef {
+    type Object;
+
     /// Returns a `StoreRef` pointing to the underlying context.
-    fn as_store_ref(&self) -> StoreRef<'_, Object>;
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Object>;
 }
 
 /// Helper trait for a value that is convertible to a [`StoreMut`].
-pub trait AsStoreMut<Object = Box<dyn std::any::Any + Send>>: AsStoreRef<Object> {
+pub trait AsStoreMut: AsStoreRef {
     /// Returns a `StoreMut` pointing to the underlying context.
-    fn as_store_mut(&mut self) -> StoreMut<'_, Object>;
+    fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object>;
 
     /// Returns the ObjectMutable
-    fn objects_mut(&mut self) -> &mut StoreObjects<Object>;
+    fn objects_mut(&mut self) -> &mut StoreObjects<Self::Object>;
 }
 
-impl<Object> AsStoreRef<Object> for StoreRef<'_, Object> {
+impl<Object> AsStoreRef for StoreRef<'_, Object> {
+    type Object = Object;
+
     fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: self.inner }
     }
 }
 
 impl<Object> AsEngineRef for StoreRef<'_, Object> {
+    type Object = ();
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }
 }
 
-impl<Object> AsStoreRef<Object> for StoreMut<'_, Object> {
+impl<Object> AsStoreRef for StoreMut<'_, Object> {
+    type Object = Object;
+
     fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: self.inner }
     }
 }
-impl<Object> AsStoreMut<Object> for StoreMut<'_, Object> {
+impl<Object> AsStoreMut for StoreMut<'_, Object> {
     fn as_store_mut(&mut self) -> StoreMut<'_, Object> {
         StoreMut { inner: self.inner }
     }
@@ -131,31 +139,35 @@ impl<Object> AsStoreMut<Object> for StoreMut<'_, Object> {
     }
 }
 
-impl<P, Object> AsStoreRef<Object> for P
+impl<P> AsStoreRef for P
 where
     P: Deref,
-    P::Target: AsStoreRef<Object>,
+    P::Target: AsStoreRef,
 {
-    fn as_store_ref(&self) -> StoreRef<'_, Object> {
+    type Object = <P::Target as AsStoreRef>::Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Object> {
         (**self).as_store_ref()
     }
 }
 
-impl<P, Object> AsStoreMut<Object> for P
+impl<P> AsStoreMut for P
 where
     P: DerefMut,
-    P::Target: AsStoreMut<Object>,
+    P::Target: AsStoreMut,
 {
-    fn as_store_mut(&mut self) -> StoreMut<'_, Object> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object> {
         (**self).as_store_mut()
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects<Object> {
+    fn objects_mut(&mut self) -> &mut StoreObjects<Self::Object> {
         (**self).objects_mut()
     }
 }
 
 impl<Object> AsEngineRef for StoreMut<'_, Object> {
+    type Object = std::convert::Infallible;
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }

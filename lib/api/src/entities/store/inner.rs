@@ -13,7 +13,7 @@ use wasmer_vm::TrapHandlerFn;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-pub(crate) struct StoreInner<Object = wasmer_types::BoxStoreObject> {
+pub(crate) struct StoreInner<Object> {
     pub(crate) objects: StoreObjects<Object>,
 
     pub(crate) store: BackendStore,
@@ -61,6 +61,8 @@ impl BackendStore {
 }
 
 impl AsEngineRef for BackendStore {
+    type Object = ();
+
     #[inline]
     fn as_engine_ref(&self) -> crate::EngineRef<'_> {
         match_rt!(on self => s {

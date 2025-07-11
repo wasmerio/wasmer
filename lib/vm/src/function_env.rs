@@ -1,7 +1,7 @@
 use std::any::Any;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
-pub struct VMFunctionEnvironment<Object = Box<dyn Any + Send>> {
+pub struct VMFunctionEnvironment<Object = wasmer_types::BoxStoreObject> {
     /// The contents of the environment.
     pub contents: Object,
 }
