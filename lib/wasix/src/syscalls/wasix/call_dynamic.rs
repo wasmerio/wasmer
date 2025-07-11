@@ -52,7 +52,7 @@ pub fn call_dynamic<M: MemorySize>(
         .iter()
         .map(|ty| {
             let mut value = Value::default_typed(ty); // Initialize a default value for the type
-            let buffer = value.as_slice_mut().unwrap(); // This should never fail, because a function's parameters are always valid types
+            let buffer = value.as_bytes_mut().unwrap(); // This should never fail, because a function's parameters are always valid types
             memory
                 .read(current_values_offset, buffer)
                 .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
@@ -66,7 +66,7 @@ pub fn call_dynamic<M: MemorySize>(
     let memory = unsafe { env.memory_view(&store) };
     let mut current_results_offset: u64 = results.offset().into();
     result_values.iter().try_for_each(|result_value| {
-        let bytes = result_value.as_slice().unwrap();
+        let bytes = result_value.as_bytes().unwrap();
         memory
             .write(current_results_offset, &bytes)
             .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;

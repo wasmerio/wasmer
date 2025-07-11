@@ -281,13 +281,12 @@ impl Value {
     #[cfg(target_endian = "little")]
     /// Get a slice to the content of this value if it is a scalar type.
     ///
-    /// This is useful for writing a value to memory.
-    ///
+    /// Returns `None` for Value that can not be freely shared between contexts.
     /// Returns `None` if the value is not representable as a byte slice.
     ///
     /// Not available on big-endian architectures, because the result of this function
     /// should be compatible with wasm memory, which is little-endian.
-    pub fn as_slice(&self) -> Option<&[u8]> {
+    pub fn as_bytes(&self) -> Option<&[u8]> {
         match self {
             Self::I32(value) => {
                 // Safety: This function is only enabled on little-endian architectures,
@@ -317,13 +316,12 @@ impl Value {
     #[cfg(target_endian = "little")]
     /// Get a mutable slice to the content of this value if it is a scalar type.
     ///
-    /// This is useful for reading a Value from memory.
-    ///
+    /// Returns `None` for Value that can not be freely shared between contexts.
     /// Returns `None` if the value is not representable as a byte slice.
     ///
     /// Not available on big-endian architectures, because the result of this function
     /// should be compatible with wasm memory, which is little-endian.
-    pub fn as_slice_mut(&mut self) -> Option<&mut [u8]> {
+    pub fn as_bytes_mut(&mut self) -> Option<&mut [u8]> {
         match self {
             Self::I32(value) => {
                 // Safety: This function is only enabled on little-endian architectures,
