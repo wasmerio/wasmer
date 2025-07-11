@@ -34,15 +34,16 @@ impl From<StoreHandle<VMFunction>> for Function {
 }
 
 impl Function {
-    pub(crate) fn new_with_env<FT, F, T: Send + 'static>(
-        store: &mut impl AsStoreMut,
+    pub(crate) fn new_with_env<FT, F, T: Send + 'static, S>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
+        S: AsStoreMut,
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        F: Fn(FunctionEnvMut<T, S::Object>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
             + Send
             + Sync,
@@ -125,9 +126,10 @@ impl Function {
     }
 
     /// Creates a new host `Function` from a native function.
-    pub(crate) fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    pub(crate) fn new_typed<F, Args, Rets, S>(store: &mut S, func: F) -> Self
     where
-        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        S: AsStoreMut,
+        F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -168,13 +170,14 @@ impl Function {
         }
     }
 
-    pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
+    pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets, S>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
+        S: AsStoreMut,
+        F: HostFunction<T, S::Object, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -473,9 +476,9 @@ where
 /// Represents a low-level Wasm static host function. See
 /// [`crate::Function::new_typed`] and
 /// [`crate::Function::new_typed_with_env`] to learn more.
-pub(crate) struct StaticFunction<F, T, Object> {
+pub(crate) struct StaticFunction<F, T> {
     pub(crate) raw_store: *mut u8,
-    pub(crate) env: FunctionEnv<T, Object>,
+    pub(crate) env: FunctionEnv<T>,
     pub(crate) func: F,
 }
 
@@ -573,17 +576,17 @@ macro_rules! impl_host_function {
 
         #[allow(non_snake_case)]
         pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower>]
-            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static,  Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static>
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static, Object, Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static>
             (this: &Func) -> crate::backend::sys::vm::VMFunctionCallback {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T: Send + 'static, Object, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                 where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
+                Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static,
             {
 
                 let mut store = StoreMut::from_raw(env.raw_store as *mut _);

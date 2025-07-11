@@ -42,6 +42,8 @@ impl Store {
 }
 
 impl AsEngineRef for Store {
+    type Object = std::convert::Infallible;
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.engine)
     }

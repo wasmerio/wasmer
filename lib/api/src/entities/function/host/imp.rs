@@ -12,12 +12,12 @@ use wasmer_types::{NativeWasmType, RawValue};
 macro_rules! impl_host_function {
     ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* ), Rets, WithEnv> for Func where
+        impl< $( $x, )* Rets, RetsAsResult, T, Func, Object> crate::HostFunction<T, Object, ( $( $x ),* ), Rets, WithEnv> for Func where
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
             RetsAsResult: IntoResult<Rets>,
             T: Send + 'static,
-            Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+            Func: Fn(FunctionEnvMut<'_, T, Object>, $( $x , )*) -> RetsAsResult + 'static,
         {
             #[allow(non_snake_case)]
             fn function_callback(&self, rt: crate::backend::BackendKind) -> crate::vm::VMFunctionCallback {
@@ -70,8 +70,8 @@ macro_rules! impl_host_function {
 
         // Implement `HostFunction` for a function that has the same arity than the tuple.
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, RetsAsResult, Func >
-            crate::HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
+        impl< $( $x, )* Rets, RetsAsResult, Func, Object >
+            crate::HostFunction<(), Object, ( $( $x ),* ), Rets, WithoutEnv>
         for
             Func
         where

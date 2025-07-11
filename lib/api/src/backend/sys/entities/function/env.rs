@@ -12,11 +12,11 @@ use wasmer_vm::{StoreHandle, StoreObject, StoreObjects, VMFunctionEnvironment};
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
 pub struct FunctionEnv<T, Object> {
-    pub(crate) handle: StoreHandle<VMFunctionEnvironment, Object>,
+    pub(crate) handle: StoreHandle<VMFunctionEnvironment<Object>>,
     marker: PhantomData<T>,
 }
 
-impl<T, Object> FunctionEnv<T, Object> {
+impl<T> FunctionEnv<T> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
@@ -64,8 +64,9 @@ impl<T, Object> FunctionEnv<T, Object> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
+    pub fn into_mut<S>(self, store: &mut S) -> FunctionEnvMut<'_, T, S::Object>
     where
+        S: AsStoreMut,
         T: Any + Send + 'static + Sized,
     {
         FunctionEnvMut {
@@ -116,7 +117,7 @@ impl<T> std::hash::Hash for FunctionEnv<T> {
     }
 }
 
-impl<T, Object> Clone for FunctionEnv<T, Object> {
+impl<T> Clone for FunctionEnv<T> {
     fn clone(&self) -> Self {
         Self {
             handle: self.handle.clone(),
@@ -126,12 +127,12 @@ impl<T, Object> Clone for FunctionEnv<T, Object> {
 }
 
 /// A temporary handle to a [`FunctionEnv`].
-pub struct FunctionEnvMut<'a, T: 'a, Object> {
+pub struct FunctionEnvMut<'a, T, Object> {
     pub(crate) store_mut: StoreMut<'a, Object>,
-    pub(crate) func_env: FunctionEnv<T, Object>,
+    pub(crate) func_env: FunctionEnv<T>,
 }
 
-impl<T> Debug for FunctionEnvMut<'_, T>
+impl<T, Object> Debug for FunctionEnvMut<'_, T, Object>
 where
     T: Send + Debug + 'static,
 {
@@ -140,7 +141,7 @@ where
     }
 }
 
-impl<T: Send + 'static> FunctionEnvMut<'_, T> {
+impl<T: Send + 'static, Object> FunctionEnvMut<'_, T, Object> {
     /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.store_mut)
@@ -157,7 +158,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
+    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T, Object> {
         FunctionEnvMut {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
@@ -165,7 +166,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_, Object>) {
         let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
@@ -204,8 +205,8 @@ impl<'a, T, Object> From<FunctionEnvMut<'a, T, Object>> for crate::FunctionEnvMu
     }
 }
 
-impl<T, Object> From<FunctionEnv<T, Object>> for crate::FunctionEnv<T, Object> {
-    fn from(value: FunctionEnv<T, Object>) -> Self {
+impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
+    fn from(value: FunctionEnv<T>) -> Self {
         Self(crate::BackendFunctionEnv::Sys(value))
     }
 }

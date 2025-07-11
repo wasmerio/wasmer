@@ -43,7 +43,7 @@ impl BackendFunction {
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
         let env = FunctionEnv::new(&mut store.as_store_mut(), ());
-        let wrapped_func = move |_env: FunctionEnvMut<()>,
+        let wrapped_func = move |_env: FunctionEnvMut<(), _>,
                                  args: &[Value]|
               -> Result<Vec<Value>, RuntimeError> { func(args) };
         Self::new_with_env(store, &env, ty, wrapped_func)
@@ -87,15 +87,16 @@ impl BackendFunction {
     /// });
     /// ```
     #[inline]
-    pub fn new_with_env<Object, FT, F, T>(
-        store: &mut impl AsStoreMut<Object>,
+    pub fn new_with_env<S, FT, F, T: Send + 'static>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
+        S: AsStoreMut,
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        F: Fn(FunctionEnvMut<T, S::Object>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
             + Send
             + Sync,
@@ -142,9 +143,10 @@ impl BackendFunction {
 
     /// Creates a new host `Function` from a native function.
     #[inline]
-    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    pub fn new_typed<S, F, Args, Rets>(store: &mut S, func: F) -> Self
     where
-        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        S: AsStoreMut,
+        F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -197,13 +199,14 @@ impl BackendFunction {
     /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
     #[inline]
-    pub fn new_typed_with_env<Object, T, F, Args, Rets>(
-        store: &mut impl AsStoreMut<Object>,
+    pub fn new_typed_with_env<S, T: Send + 'static, F, Args, Rets>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
+        S: AsStoreMut,
+        F: HostFunction<T, S::Object, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {

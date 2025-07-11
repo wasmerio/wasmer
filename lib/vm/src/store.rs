@@ -38,7 +38,7 @@ impl_context_object! {
     extern_objs => VMExternObj,
     exceptions => VMExceptionObj,
     tags => VMTag,
-    function_environments => VMFunctionEnvironment<Object>,
+    function_environments => VMFunctionEnvironment,
 }
 
 /// Set of objects managed by a context.
@@ -133,8 +133,8 @@ impl<Object> StoreObjects<Object> {
     /// Panics if both handles point to the same object.
     pub fn get_2_mut<T: StoreObject<Object>>(
         &mut self,
-        a: InternalStoreHandle<T, Object>,
-        b: InternalStoreHandle<T, Object>,
+        a: InternalStoreHandle<T>,
+        b: InternalStoreHandle<T>,
     ) -> (&mut T, &mut T) {
         assert_ne!(a.index(), b.index());
         let list = T::list_mut(self);
@@ -175,12 +175,12 @@ impl<Object> StoreObjects<Object> {
 /// Internally this is just an integer index into a context. A reference to the
 /// context must be passed in separately to access the actual object.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
-pub struct StoreHandle<T, Object = BoxStoreObject> {
+pub struct StoreHandle<T> {
     id: StoreId,
-    internal: InternalStoreHandle<T, Object>,
+    internal: InternalStoreHandle<T>,
 }
 
-impl<T, Object> Clone for StoreHandle<T, Object> {
+impl<T> Clone for StoreHandle<T> {
     fn clone(&self) -> Self {
         Self {
             id: self.id,
@@ -189,14 +189,14 @@ impl<T, Object> Clone for StoreHandle<T, Object> {
     }
 }
 
-impl<T, Object> std::hash::Hash for StoreHandle<T, Object> {
+impl<T> std::hash::Hash for StoreHandle<T> {
     fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
         self.id.hash(state);
         self.internal.idx.hash(state);
     }
 }
 
-impl<Object, T: StoreObject<Object>> fmt::Debug for StoreHandle<T, Object> {
+impl<T> fmt::Debug for StoreHandle<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("StoreHandle")
             .field("id", &self.id)
@@ -205,17 +205,20 @@ impl<Object, T: StoreObject<Object>> fmt::Debug for StoreHandle<T, Object> {
     }
 }
 
-impl<Object, T: StoreObject<Object>> PartialEq for StoreHandle<T, Object> {
+impl<T> PartialEq for StoreHandle<T> {
     fn eq(&self, other: &Self) -> bool {
         self.id == other.id && self.internal == other.internal
     }
 }
 
-impl<Object, T: StoreObject<Object>> Eq for StoreHandle<T, Object> {}
+impl<T> Eq for StoreHandle<T> {}
 
-impl<Object, T: StoreObject<Object>> StoreHandle<T, Object> {
+impl<T> StoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
-    pub fn new(ctx: &mut StoreObjects<Object>, val: T) -> Self {
+    pub fn new<Object>(ctx: &mut StoreObjects<Object>, val: T) -> Self
+    where
+        T: StoreObject<Object>,
+    {
         Self {
             id: ctx.id,
             internal: InternalStoreHandle::new(ctx, val),
@@ -223,19 +226,25 @@ impl<Object, T: StoreObject<Object>> StoreHandle<T, Object> {
     }
 
     /// Returns a reference to the object that this handle points to.
-    pub fn get<'a>(&self, ctx: &'a StoreObjects<Object>) -> &'a T {
+    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T
+    where
+        T: StoreObject<Object>,
+    {
         assert_eq!(self.id, ctx.id, "object used with the wrong context");
         self.internal.get(ctx)
     }
 
     /// Returns a mutable reference to the object that this handle points to.
-    pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T {
+    pub fn get_mut<'a, Object>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T
+    where
+        T: StoreObject<Object>,
+    {
         assert_eq!(self.id, ctx.id, "object used with the wrong context");
         self.internal.get_mut(ctx)
     }
 
     /// Returns the internal handle contains within this handle.
-    pub fn internal_handle(&self) -> InternalStoreHandle<T, Object> {
+    pub fn internal_handle(&self) -> InternalStoreHandle<T> {
         self.internal
     }
 
@@ -253,7 +262,7 @@ impl<Object, T: StoreObject<Object>> StoreHandle<T, Object> {
     ///
     /// # Safety
     /// Handling `InternalStoreHandle` values is unsafe because they do not track context ID.
-    pub unsafe fn from_internal(id: StoreId, internal: InternalStoreHandle<T, Object>) -> Self {
+    pub unsafe fn from_internal(id: StoreId, internal: InternalStoreHandle<T>) -> Self {
         Self { id, internal }
     }
 }
@@ -263,46 +272,49 @@ impl<Object, T: StoreObject<Object>> StoreHandle<T, Object> {
 /// Unlike `StoreHandle` this does not track the context ID: it is only
 /// intended to be used within objects already owned by a context.
 #[repr(transparent)]
-pub struct InternalStoreHandle<T, Object = BoxStoreObject> {
+pub struct InternalStoreHandle<T> {
     // Use a NonZero here to reduce the size of Option<InternalStoreHandle>.
     idx: NonZeroUsize,
-    marker: PhantomData<fn(Object) -> (T, Object)>,
+    marker: PhantomData<fn() -> T>,
 }
 
-unsafe impl<Object> Send for InternalStoreHandle<Object> {}
-unsafe impl<Object> Sync for InternalStoreHandle<Object> {}
+unsafe impl<T> Send for InternalStoreHandle<T> {}
+unsafe impl<T> Sync for InternalStoreHandle<T> {}
 
 #[cfg(feature = "artifact-size")]
-impl<T, Object> loupe::MemoryUsage for InternalStoreHandle<T, Object> {
+impl<T> loupe::MemoryUsage for InternalStoreHandle<T> {
     fn size_of_val(&self, _tracker: &mut dyn loupe::MemoryUsageTracker) -> usize {
         std::mem::size_of_val(&self)
     }
 }
 
-impl<T, Object> Clone for InternalStoreHandle<T, Object> {
+impl<T> Clone for InternalStoreHandle<T> {
     fn clone(&self) -> Self {
         *self
     }
 }
-impl<T, Object> Copy for InternalStoreHandle<T, Object> {}
+impl<T> Copy for InternalStoreHandle<T> {}
 
-impl<T, Object> fmt::Debug for InternalStoreHandle<T, Object> {
+impl<T> fmt::Debug for InternalStoreHandle<T> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("InternalStoreHandle")
             .field("idx", &self.idx)
             .finish()
     }
 }
-impl<T, Object> PartialEq for InternalStoreHandle<T, Object> {
+impl<T> PartialEq for InternalStoreHandle<T> {
     fn eq(&self, other: &Self) -> bool {
         self.idx == other.idx
     }
 }
-impl<T, Object> Eq for InternalStoreHandle<T, Object> {}
+impl<T> Eq for InternalStoreHandle<T> {}
 
-impl<Object, T: StoreObject<Object>> InternalStoreHandle<T, Object> {
+impl<T> InternalStoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
-    pub fn new(ctx: &mut StoreObjects<Object>, val: T) -> Self {
+    pub fn new<Object>(ctx: &mut StoreObjects<Object>, val: T) -> Self
+    where
+        T: StoreObject<Object>,
+    {
         let list = T::list_mut(ctx);
         let idx = NonZeroUsize::new(list.len() + 1).unwrap();
         list.push(val);
@@ -313,12 +325,18 @@ impl<Object, T: StoreObject<Object>> InternalStoreHandle<T, Object> {
     }
 
     /// Returns a reference to the object that this handle points to.
-    pub fn get<'a>(&self, ctx: &'a StoreObjects<Object>) -> &'a T {
+    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T
+    where
+        T: StoreObject<Object>,
+    {
         &T::list(ctx)[self.idx.get() - 1]
     }
 
     /// Returns a mutable reference to the object that this handle points to.
-    pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T {
+    pub fn get_mut<'a, Object>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T
+    where
+        T: StoreObject<Object>,
+    {
         &mut T::list_mut(ctx)[self.idx.get() - 1]
     }
 

@@ -8,10 +8,10 @@ gen_rt_ty! {
     /// An opaque reference to a function environment.
     /// The function environment data is owned by the `Store`.
     #[derive(Debug, derive_more::From)]
-    pub BackendFunctionEnv<T, Object>(function::env::FunctionEnv<T, Object>);
+    pub BackendFunctionEnv<T>(function::env::FunctionEnv<T>);
 }
 
-impl<T, Object> Clone for BackendFunctionEnv<T, Object> {
+impl<T> Clone for BackendFunctionEnv<T> {
     fn clone(&self) -> Self {
         match self {
             #[cfg(feature = "sys")]
@@ -31,9 +31,9 @@ impl<T, Object> Clone for BackendFunctionEnv<T, Object> {
     }
 }
 
-impl<T, Object> BackendFunctionEnv<T, Object> {
+impl<T> BackendFunctionEnv<T> {
     /// Make a new FunctionEnv
-    pub fn new(store: &mut impl AsStoreMut<Object = Object>, value: T) -> Self
+    pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
     where
         T: Any + Send + 'static + Sized,
     {
@@ -145,7 +145,7 @@ impl<T: Send + 'static, Object> BackendFunctionEnvMut<'_, T, Object> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
+    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T, Object> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(ref mut f) => BackendFunctionEnvMut::Sys(f.as_mut()).into(),
@@ -163,7 +163,7 @@ impl<T: Send + 'static, Object> BackendFunctionEnvMut<'_, T, Object> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_, Object>) {
         match_rt!(on self => f {
             f.data_and_store_mut()
         })
@@ -181,7 +181,7 @@ impl<T, Object> AsStoreRef for BackendFunctionEnvMut<'_, T, Object> {
 }
 
 impl<T, Object> AsStoreMut for BackendFunctionEnvMut<'_, T, Object> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Object> {
         match_rt!(on self => s {
             s.as_store_mut()
         })
