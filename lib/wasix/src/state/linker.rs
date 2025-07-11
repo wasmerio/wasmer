@@ -2498,7 +2498,11 @@ impl InstanceGroupState {
         func: Function,
         index: u32,
     ) -> Result<(), RuntimeError> {
-        trace!(?index, ?func, "Appending function in table at pre-defined index");
+        trace!(
+            ?index,
+            ?func,
+            "Appending function in table at pre-defined index"
+        );
 
         let table = &self.indirect_function_table;
         let size = table.size(store);

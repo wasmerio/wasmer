@@ -38,12 +38,15 @@ pub fn dlopen<M: MemorySize>(
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
     let ld_library_path =
         unsafe { get_input_str_ok!(&memory, ld_library_path, ld_library_path_len) };
-    let ld_library_path = ld_library_path.split(':').map(Path::new).collect::<Vec<_>>();
+    let ld_library_path = ld_library_path
+        .split(':')
+        .map(Path::new)
+        .collect::<Vec<_>>();
     Span::current().record("path", path.as_str());
 
     let linker = linker.clone();
 
-    let location = WasmLoader::Filesystem{
+    let location = WasmLoader::Filesystem {
         module_name: &path,
         ld_library_path: ld_library_path.as_slice(),
     };
