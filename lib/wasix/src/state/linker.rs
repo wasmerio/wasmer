@@ -259,7 +259,7 @@
 #![allow(clippy::result_large_err)]
 
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -289,8 +289,8 @@ use crate::{
 
 use super::{WasiModuleInstanceHandles, WasiState};
 
-// Module handle 0 is always the main module. Side modules get handles starting from 1.
-pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(0);
+// Module handle 1 is always the main module. Side modules get handles starting from the next one after the main module.
+pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(1);
 static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
 static MAIN_MODULE_MEMORY_BASE: u64 = 0;
@@ -517,6 +517,9 @@ pub enum LinkError {
 
     #[error("Module does not export a TLS initialization routine")]
     MissingTlsInitializer,
+
+    #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
+    DynamicFunctionIndexNotAllocated(u32),
 }
 
 #[derive(Debug)]
@@ -582,6 +585,11 @@ pub enum ResolveError {
 
     #[error("Failed to perform pending DL operation: {0}")]
     PendingDlOperationFailed(#[from] LinkError),
+
+    #[error(
+        "Tried to resolve a tls symbol from a module that did not initialize thread local storage"
+    )]
+    TlsSymbolWithoutTls,
 }
 
 #[derive(Debug, Clone)]
@@ -752,6 +760,11 @@ enum DlOperation {
         // minus one. Otherwise, we're out of sync and an error has been encountered.
         function_table_index: u32,
     },
+    // Allocates slots in the function table
+    AllocateFunctionTable {
+        index: u32,
+        size: u32,
+    },
 }
 
 struct DlModule {
@@ -765,7 +778,7 @@ struct DlInstance {
     instance: Instance,
     #[allow(dead_code)]
     instance_handles: WasiModuleInstanceHandles,
-    tls_base: u64,
+    tls_base: Option<u64>,
 }
 
 struct InstanceGroupState {
@@ -786,6 +799,7 @@ struct InstanceGroupState {
     recv_pending_operation: bus::BusReader<DlOperation>,
 }
 
+// There is only one LinkerState for all instance groups
 struct LinkerState {
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
@@ -798,11 +812,17 @@ struct LinkerState {
     // iterate over it, we'll get the modules from lowest handle to highest, and
     // order is preserved.
     side_modules: BTreeMap<ModuleHandle, DlModule>,
-    side_modules_by_name: HashMap<PathBuf, ModuleHandle>,
+    side_modules_by_name: HashMap<String, ModuleHandle>,
     next_module_handle: u32,
 
     memory_allocator: MemoryAllocator,
     heap_base: u64,
+
+    /// Tracks which slots in the function table are currently used for closures
+    used_closure_functions: BTreeSet<u32>,
+    /// Slots in the indirect function table that were allocated for closures but are currently not in use.
+    /// These can be given out without needing to lock all threads.
+    available_closure_functions: BTreeSet<u32>,
 
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
 
@@ -877,6 +897,139 @@ impl std::fmt::Debug for Linker {
     }
 }
 
+/// Contains everything that is required to find a module and load it into memory
+// TODO: Rename me
+pub enum WasmLoader<'a> {
+    Filesystem {
+        module_name: &'a str,
+        ld_library_path: &'a [&'a Path],
+    },
+    Memory {
+        module_name: &'a str,
+        bytes: &'a [u8],
+        ld_library_path: &'a [&'a Path],
+    },
+}
+impl WasmLoader<'_> {
+    // Get the name of the module.
+    // This is the import name that was requested by the other shared library
+    pub fn module_name(&self) -> &str {
+        match self {
+            WasmLoader::Filesystem { module_name, .. } => module_name,
+            WasmLoader::Memory { module_name, .. } => module_name,
+        }
+    }
+
+    // Get the library path that will be used when loading this module and its dependencies
+    // TODO: Move the library path somewhere else
+    pub fn ld_library_path(&self) -> &[&Path] {
+        match self {
+            WasmLoader::Filesystem {
+                ld_library_path, ..
+            } => ld_library_path,
+            WasmLoader::Memory {
+                ld_library_path, ..
+            } => ld_library_path,
+        }
+    }
+
+    // Load the modules code from the filesystem, or from memory if it's a memory module
+    async fn load_module(&self, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
+        let (module_name, library_path) = match self {
+            WasmLoader::Filesystem {
+                module_name,
+                ld_library_path,
+            } => (module_name, ld_library_path),
+            WasmLoader::Memory {
+                module_name, bytes, ..
+            } => {
+                // TODO: Dont clone here
+                return Ok((PathBuf::from(module_name), bytes.to_vec()));
+            }
+        };
+
+        let module_path = Path::new(module_name);
+
+        async fn try_load(
+            fs: &WasiFsRoot,
+            path: impl AsRef<Path>,
+        ) -> Result<(PathBuf, Vec<u8>), FsError> {
+            let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
+                Ok(f) => f,
+                // Fallback for cases where the module thinks it's running on unix,
+                // but the compiled side module is a .wasm file
+                Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
+                    .new_open_options()
+                    .read(true)
+                    .open(path.as_ref().with_extension("wasm"))?,
+                Err(e) => return Err(e),
+            };
+
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).await?;
+            Ok((path.as_ref().to_owned(), buf))
+        }
+
+        if module_path.is_absolute() {
+            trace!(?module_path, "Locating module with absolute path");
+            try_load(&fs.root_fs, module_path).await.map_err(|e| {
+                LinkError::SharedLibraryMissing(
+                    module_path.to_string_lossy().into_owned(),
+                    LocateModuleError::Single(e),
+                )
+            })
+        } else if module_path.components().count() > 1 {
+            trace!(?module_path, "Locating module with relative path");
+            try_load(
+                &fs.root_fs,
+                fs.relative_path_to_absolute(module_path.to_string_lossy().into_owned()),
+            )
+            .await
+            .map_err(|e| {
+                LinkError::SharedLibraryMissing(
+                    module_path.to_string_lossy().into_owned(),
+                    LocateModuleError::Single(e),
+                )
+            })
+        } else {
+            // Go through all dynamic library lookup paths
+            // Note: a path without a slash does *not* look at the current directory. This is by design.
+
+            // TODO: implement RUNPATH once it's supported by clang and wasmparser
+            // TODO: support $ORIGIN and ${ORIGIN} in RUNPATH
+
+            trace!(
+                ?module_path,
+                "Locating module by name in default runtime path"
+            );
+            let search_paths = library_path
+                .iter()
+                .flat_map(|paths| paths.iter().map(AsRef::as_ref))
+                // Add default runtime paths
+                .chain(DEFAULT_RUNTIME_PATH.iter().map(|path| Path::new(path)));
+
+            let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
+            for path in search_paths {
+                let full_path = path.join(module_path);
+                trace!(?module_path, full_path = ?full_path, "Searching module");
+                match try_load(&fs.root_fs, &full_path).await {
+                    Ok(ret) => {
+                        trace!(?module_path, full_path = ?ret.0, "Located module");
+                        return Ok(ret);
+                    }
+                    Err(e) => errors.push((full_path, e)),
+                };
+            }
+
+            trace!(?module_path, "Failed to locate module");
+            Err(LinkError::SharedLibraryMissing(
+                module_path.to_string_lossy().into_owned(),
+                LocateModuleError::Multiple(errors),
+            ))
+        }
+    }
+}
+
 impl Linker {
     /// Creates a new linker for the given main module. The module is expected to be a
     /// PIE executable. Imports for the module will be fulfilled, so that it can start
@@ -913,6 +1066,10 @@ impl Linker {
                 "env.__indirect_function_table".to_string(),
             ))?;
 
+        trace!(
+            minimum_size = ?function_table_type.minimum,
+            "Creating indirect function table"
+        );
         let indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(None))
             .map_err(LinkError::TableAllocationError)?;
 
@@ -923,12 +1080,11 @@ impl Linker {
             dylink_section.mem_info.table_size + MAIN_MODULE_TABLE_BASE as u32;
         // Make sure the function table is as big as the dylink.0 section expects it to be
         if indirect_function_table.size(store) < expected_table_length {
+            let current_size = indirect_function_table.size(store);
+            let delta = expected_table_length - current_size;
+            trace!(?current_size, ?delta, "Growing indirect function table");
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(None),
-                )
+                .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
         }
 
@@ -1013,8 +1169,10 @@ impl Linker {
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
-            next_module_handle: 1,
+            next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
+            used_closure_functions: BTreeSet::new(),
+            available_closure_functions: BTreeSet::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
             send_pending_operation_barrier: barrier_tx,
@@ -1067,11 +1225,14 @@ impl Linker {
             trace!(name = needed, "Loading module needed by main");
             let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                needed,
+                WasmLoader::Filesystem {
+                    module_name: needed.as_str(),
+                    // TODO: Use real ld_library_path
+                    ld_library_path: &[],
+                },
                 &mut link_state,
                 &wasi_env.runtime,
                 &wasi_env.state,
-                Option::<&[&str]>::None,
             )?;
         }
 
@@ -1181,24 +1342,27 @@ impl Linker {
 
         let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
-        let indirect_function_table = Table::new(
-            store,
-            parent_group_state.indirect_function_table.ty(&parent_store),
-            Value::FuncRef(None),
-        )
-        .map_err(LinkError::TableAllocationError)?;
+        let indirect_function_table_type =
+            parent_group_state.indirect_function_table.ty(&parent_store);
+        trace!(
+            minimum_size = ?indirect_function_table_type.minimum,
+            "Creating indirect function table"
+        );
+
+        let indirect_function_table =
+            Table::new(store, indirect_function_table_type, Value::FuncRef(None))
+                .map_err(LinkError::TableAllocationError)?;
 
         let expected_table_length = parent_group_state
             .indirect_function_table
             .size(&parent_store);
         // Grow the table to be as big as the parent's
         if indirect_function_table.size(store) < expected_table_length {
+            let current_size = indirect_function_table.size(store);
+            let delta = expected_table_length - current_size;
+            trace!(?current_size, ?delta, "Growing indirect function table");
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(None),
-                )
+                .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
         }
 
@@ -1354,16 +1518,109 @@ impl Linker {
         }
     }
 
+    /// Perform a lookup in the indirect function table
+    pub fn lookup_indirect_function_table(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Result<Option<Value>, LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        Ok(group_state.indirect_function_table.get(store, index))
+    }
+
+    /// Allocate a index for a closure in the indirect function table
+    pub fn allocate_closure_index(
+        &self,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<u32, LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        write_linker_state!(linker_state, self, group_state, ctx);
+
+        let mut store = ctx.as_store_mut();
+
+        // Use a previously allocated slot if possible
+        if !linker_state.available_closure_functions.is_empty() {
+            let function_index = linker_state
+                .available_closure_functions
+                .pop_first()
+                .unwrap();
+            linker_state.used_closure_functions.insert(function_index);
+            return Ok(function_index);
+        }
+
+        // Allocate more closures than we need to reduce the number of sync operations
+        const CLOSURE_ALLOCATION_SIZE: u32 = 100;
+
+        let function_index = group_state
+            .allocate_function_table(&mut store, CLOSURE_ALLOCATION_SIZE, 1)
+            .map_err(LinkError::TableAllocationError)? as u32;
+
+        for i in 1..CLOSURE_ALLOCATION_SIZE {
+            linker_state
+                .available_closure_functions
+                .insert(function_index + i);
+        }
+        linker_state.used_closure_functions.insert(function_index);
+
+        self.synchronize_link_operation(
+            DlOperation::AllocateFunctionTable {
+                index: function_index,
+                size: CLOSURE_ALLOCATION_SIZE,
+            },
+            linker_state,
+            group_state,
+            &ctx.data().process,
+            ctx.data().tid(),
+        );
+        // TODO: Cleanup the previous function when we are overriding something
+
+        Ok(function_index as u32)
+    }
+
+    /// Remove a previously allocated slot for a closure in the indirect function table
+    ///
+    /// After calling this it is undefined behavior to call the function at the given index.
+    pub fn free_closure_index(
+        &self,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        function_id: u32,
+    ) -> Result<(), LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        write_linker_state!(linker_state, self, group_state, ctx);
+
+        if !linker_state.used_closure_functions.remove(&function_id) {
+            // Not used, nothing to do
+            return Ok(());
+        }
+        linker_state.available_closure_functions.insert(function_id);
+
+        Ok(())
+    }
+
     /// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].
     pub fn load_module(
         &self,
-        module_path: impl AsRef<Path>,
-        library_path: &[impl AsRef<Path>],
+        module_location: WasmLoader,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
-        let module_path = module_path.as_ref();
+        let module_path = module_location.module_name();
 
         trace!(?module_path, "Loading module");
 
@@ -1387,11 +1644,10 @@ impl Linker {
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
         let module_handle = linker_state.load_module_tree(
-            module_path,
+            module_location,
             &mut link_state,
             &wasi_env.runtime,
             &wasi_env.state,
-            Some(library_path),
         )?;
 
         let new_modules = link_state
@@ -1492,6 +1748,13 @@ impl Linker {
             call_initialization_function::<()>(instance, store, "__wasm_call_ctors")?;
         }
 
+        trace!("Calling wasix on load hook");
+        for instance in &new_instances {
+            // A wasix specific initialization function, that will run on every existing thread
+            // For now this is only used by the wasix closure API
+            call_initialization_function::<()>(instance, store, "__wasix_on_load_hook")?;
+        }
+
         Ok(())
     }
 
@@ -1535,7 +1798,9 @@ impl Linker {
                         resolved_from,
                         offset,
                     } => {
-                        let tls_base = group_state.tls_base(*resolved_from);
+                        let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+                            return Err(ResolveError::TlsSymbolWithoutTls);
+                        };
                         return Ok(ResolvedExport::Global {
                             data_ptr: tls_base + offset,
                         });
@@ -2051,28 +2316,25 @@ impl LinkerState {
     // it was already loaded, the existing handle is returned.
     fn load_module_tree(
         &mut self,
-        module_path: impl AsRef<Path>,
+        module_location: WasmLoader,
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
-        library_path: Option<&[impl AsRef<Path>]>,
     ) -> Result<ModuleHandle, LinkError> {
-        let module_path = module_path.as_ref();
-        trace!(?module_path, "Locating and loading module");
+        let module_name = module_location.module_name();
+        trace!(?module_name, "Locating and loading module");
 
-        if let Some(handle) = self.side_modules_by_name.get(module_path) {
+        if let Some(handle) = self.side_modules_by_name.get(module_name) {
             let handle = *handle;
 
-            trace!(?module_path, ?handle, "Module was already loaded");
+            trace!(?module_name, ?handle, "Module was already loaded");
 
             return Ok(handle);
         }
 
         // Locate and load the module bytes
         let (full_path, module_bytes) =
-            InlineWaker::block_on(locate_module(module_path, library_path, &wasi_state.fs))?;
-
-        trace!(?full_path, "Found module file");
+            InlineWaker::block_on(module_location.load_module(&wasi_state.fs))?;
 
         // TODO: this can be optimized by detecting early if the module is already
         // pending without loading its bytes
@@ -2104,7 +2366,15 @@ impl LinkerState {
 
         for needed in &dylink_info.needed {
             trace!(needed, "Loading needed side module");
-            match self.load_module_tree(needed, link_state, runtime, wasi_state, library_path) {
+            match self.load_module_tree(
+                WasmLoader::Filesystem {
+                    module_name: needed.as_str(),
+                    ld_library_path: module_location.ld_library_path(),
+                },
+                link_state,
+                runtime,
+                wasi_state,
+            ) {
                 Ok(_) => (),
                 Err(e) => {
                     pop_pending_module(link_state);
@@ -2116,7 +2386,7 @@ impl LinkerState {
         let handle = ModuleHandle(self.next_module_handle);
         self.next_module_handle += 1;
 
-        trace!(?module_path, ?handle, "Assigned handle to module");
+        trace!(?module_name, ?handle, "Assigned handle to module");
 
         pop_pending_module(link_state);
 
@@ -2130,7 +2400,7 @@ impl LinkerState {
         // allocated for the module.
         // TODO: allocate table here (at least logically)?
         self.side_modules_by_name
-            .insert(module_path.to_owned(), handle);
+            .insert(module_name.to_owned(), handle);
 
         Ok(handle)
     }
@@ -2141,10 +2411,10 @@ impl InstanceGroupState {
         self.main_instance.as_ref()
     }
 
-    fn tls_base(&self, module_handle: ModuleHandle) -> u64 {
+    fn tls_base(&self, module_handle: ModuleHandle) -> Option<u64> {
         if module_handle == MAIN_MODULE_HANDLE {
             // Main's TLS area is at the beginning of its memory
-            self.main_instance_tls_base
+            Some(self.main_instance_tls_base)
         } else {
             self.side_instances
                 .get(&module_handle)
@@ -2166,6 +2436,7 @@ impl InstanceGroupState {
             .expect("Internal error: bad module handle or not instantiated in this group")
     }
 
+    /// Allocate space on the indirect function table for the given number of functions
     fn allocate_function_table(
         &mut self,
         store: &mut impl AsStoreMut,
@@ -2186,11 +2457,11 @@ impl InstanceGroupState {
                 0
             };
 
-            let start = self.indirect_function_table.grow(
-                store,
-                table_size + offset,
-                Value::FuncRef(None),
-            )?;
+            let delta = table_size + offset;
+            trace!(?current_size, ?delta, "Growing indirect function table");
+            let start = self
+                .indirect_function_table
+                .grow(store, delta, Value::FuncRef(None))?;
 
             (start + offset) as u64
         };
@@ -2211,6 +2482,13 @@ impl InstanceGroupState {
     ) -> Result<u32, RuntimeError> {
         let table = &self.indirect_function_table;
 
+        let signature = func.ty(store).to_string();
+        let index: u32 = table
+            .size(store)
+            .try_into()
+            .expect("Internal error: function table size exceeds u32::MAX");
+        trace!(?index, ?signature, "Appending function in table");
+
         table.grow(store, 1, func.into())
     }
 
@@ -2223,15 +2501,20 @@ impl InstanceGroupState {
         trace!(
             ?index,
             ?func,
-            "Placing function into table at pre-defined index"
+            "Appending function in table at pre-defined index"
         );
 
         let table = &self.indirect_function_table;
         let size = table.size(store);
 
         if size <= index {
-            table.grow(store, index - size + 1, Value::FuncRef(None))?;
-            trace!(new_table_size = ?table.size(store), "Growing table");
+            let delta = index - size + 1;
+            trace!(
+                current_size = ?size,
+                ?delta,
+                "Growing indirect function table"
+            );
+            table.grow(store, delta, Value::FuncRef(None))?;
         } else {
             let existing = table.get(store, index).unwrap();
             if let Value::FuncRef(Some(_)) = existing {
@@ -2239,6 +2522,8 @@ impl InstanceGroupState {
             }
         }
 
+        let signature = func.ty(store).to_string();
+        trace!(?index, ?signature, "Appending function in table at index");
         table.set(store, index, Value::FuncRef(Some(func)))
     }
 
@@ -2335,7 +2620,7 @@ impl InstanceGroupState {
             instance_handles,
             // The TLS area of a side module's main instance is at the beginning
             // of its memory
-            tls_base: memory_base,
+            tls_base: Some(memory_base),
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -2427,11 +2712,8 @@ impl InstanceGroupState {
         let instance = Instance::new(store, &dl_module.module, &imports)?;
 
         // This is a non-main instance of a side module, so it needs a new TLS area
-        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?;
-
-        let Some(tls_base) = tls_base else {
-            return Err(LinkError::MissingTlsInitializer);
-        };
+        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?
+            .map(|v| v as u64);
 
         let instance_handles =
             WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
@@ -2439,7 +2721,7 @@ impl InstanceGroupState {
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            tls_base: tls_base as u64,
+            tls_base,
         };
 
         self.side_instances.insert(module_handle, dl_instance);
@@ -2479,7 +2761,10 @@ impl InstanceGroupState {
         }
 
         for tls in &pending_resolutions.tls {
-            let tls_base = self.tls_base(tls.resolved_from);
+            let Some(tls_base) = self.tls_base(tls.resolved_from) else {
+                panic!("Internal error: Tried to import TLS symbol from module {} that has no TLS base", tls.resolved_from.0);
+            };
+
             let final_addr = tls_base + tls.offset;
             set_integer_global(store, "<pending TLS global>", &tls.global, final_addr)?;
             trace!(?tls, tls_base, final_addr, "Setting pending TLS global");
@@ -2520,6 +2805,22 @@ impl InstanceGroupState {
         Ok(())
     }
 
+    pub fn apply_function_table_allocation(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        size: u32,
+    ) -> Result<(), LinkError> {
+        trace!(index, "Applying function table allocation");
+        let allocated_index = self
+            .allocate_function_table(store, size, 1)
+            .map_err(LinkError::TableAllocationError)? as u32;
+        if allocated_index != index {
+            panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
+        }
+        Ok(())
+    }
+
     fn apply_dl_operation(
         &mut self,
         linker_state: &LinkerState,
@@ -2553,6 +2854,9 @@ impl InstanceGroupState {
                 resolved_from,
                 function_table_index,
             } => self.apply_resolved_function(store, &name, resolved_from, function_table_index)?,
+            DlOperation::AllocateFunctionTable { index, size } => {
+                self.apply_function_table_allocation(store, index, size)?
+            }
         };
         trace!("Operation applied successfully");
         Ok(())
@@ -3186,7 +3490,7 @@ impl InstanceGroupState {
                         instance,
                         &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
-                        self.main_instance_tls_base,
+                        Some(self.main_instance_tls_base),
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
@@ -3230,7 +3534,7 @@ impl InstanceGroupState {
         instance: &Instance,
         dylink_info: &DylinkInfo,
         memory_base: u64,
-        tls_base: u64,
+        tls_base: Option<u64>,
         allow_hidden: bool,
     ) -> Result<PartiallyResolvedExport, ResolveError> {
         trace!(from = ?module_handle, symbol, "Resolving export from instance");
@@ -3271,6 +3575,9 @@ impl InstanceGroupState {
                     .unwrap_or(false);
 
                 if is_tls {
+                    let Some(tls_base) = tls_base else {
+                        return Err(ResolveError::TlsSymbolWithoutTls);
+                    };
                     let final_value = value + tls_base;
                     trace!(
                         from = ?module_handle,
@@ -3590,90 +3897,6 @@ impl InstanceGroupState {
         }
 
         Ok(())
-    }
-}
-
-async fn locate_module(
-    module_path: &Path,
-    library_path: Option<&[impl AsRef<Path>]>,
-    fs: &WasiFs,
-) -> Result<(PathBuf, Vec<u8>), LinkError> {
-    async fn try_load(
-        fs: &WasiFsRoot,
-        path: impl AsRef<Path>,
-    ) -> Result<(PathBuf, Vec<u8>), FsError> {
-        let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
-            Ok(f) => f,
-            // Fallback for cases where the module thinks it's running on unix,
-            // but the compiled side module is a .wasm file
-            Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
-                .new_open_options()
-                .read(true)
-                .open(path.as_ref().with_extension("wasm"))?,
-            Err(e) => return Err(e),
-        };
-
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).await?;
-        Ok((path.as_ref().to_owned(), buf))
-    }
-
-    if module_path.is_absolute() {
-        trace!(?module_path, "Locating module with absolute path");
-        try_load(&fs.root_fs, module_path).await.map_err(|e| {
-            LinkError::SharedLibraryMissing(
-                module_path.to_string_lossy().into_owned(),
-                LocateModuleError::Single(e),
-            )
-        })
-    } else if module_path.components().count() > 1 {
-        trace!(?module_path, "Locating module with relative path");
-        try_load(
-            &fs.root_fs,
-            fs.relative_path_to_absolute(module_path.to_string_lossy().into_owned()),
-        )
-        .await
-        .map_err(|e| {
-            LinkError::SharedLibraryMissing(
-                module_path.to_string_lossy().into_owned(),
-                LocateModuleError::Single(e),
-            )
-        })
-    } else {
-        // Go through all dynamic library lookup paths
-        // Note: a path without a slash does *not* look at the current directory. This is by design.
-
-        // TODO: implement RUNPATH once it's supported by clang and wasmparser
-        // TODO: support $ORIGIN and ${ORIGIN} in RUNPATH
-
-        trace!(
-            ?module_path,
-            "Locating module by name in default runtime path"
-        );
-        let search_paths = library_path
-            .iter()
-            .flat_map(|paths| paths.iter().map(AsRef::as_ref))
-            // Add default runtime paths
-            .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
-
-        let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
-        for path in search_paths {
-            let full_path = path.join(module_path);
-            trace!(?module_path, full_path = ?full_path, "Searching module");
-            match try_load(&fs.root_fs, &full_path).await {
-                Ok(ret) => {
-                    trace!(?module_path, full_path = ?ret.0, "Located module");
-                    return Ok(ret);
-                }
-                Err(e) => errors.push((full_path, e)),
-            };
-        }
-
-        trace!(?module_path, "Failed to locate module");
-        Err(LinkError::SharedLibraryMissing(
-            module_path.to_string_lossy().into_owned(),
-            LocateModuleError::Multiple(errors),
-        ))
     }
 }
 

@@ -6550,6 +6550,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasm-encoder"
+version = "0.235.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b3bc393c395cb621367ff02d854179882b9a351b4e0c93d1397e6090b53a5c2a"
+dependencies = [
+ "leb128fmt",
+ "wasmparser 0.235.0",
+]
+
+[[package]]
 name = "wasm-smith"
 version = "0.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -7279,6 +7289,7 @@ dependencies = [
  "wasm-bindgen",
  "wasm-bindgen-futures",
  "wasm-bindgen-test",
+ "wasm-encoder 0.235.0",
  "wasmer",
  "wasmer-config",
  "wasmer-journal",
@@ -7474,6 +7485,16 @@ dependencies = [
  "bitflags 2.9.0",
  "indexmap 2.9.0",
  "semver 1.0.26",
+]
+
+[[package]]
+name = "wasmparser"
+version = "0.235.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "161296c618fa2d63f6ed5fffd1112937e803cb9ec71b32b01a76321555660917"
+dependencies = [
+ "bitflags 2.9.0",
+ "indexmap 2.9.0",
 ]
 
 [[package]]

@@ -6,7 +6,12 @@ pub(crate) use global::*;
 #[cfg(feature = "js")]
 pub(crate) use thread_local::*;
 
-use wasmer::{AsStoreRef, Global, Instance, Memory, MemoryView, Module, TypedFunction};
+use tracing::trace;
+use wasmer::{
+    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, Table,
+    TypedFunction, Value,
+};
+use wasmer_wasix_types::wasi::Errno;
 
 use super::Linker;
 
@@ -21,6 +26,9 @@ pub struct WasiModuleInstanceHandles {
     /// Represents a reference to the memory
     pub(crate) memory: Memory,
     pub(crate) instance: wasmer::Instance,
+
+    /// Points to the indirect function table
+    pub(crate) indirect_function_table: Option<Table>,
 
     /// Points to the current location of the memory stack pointer
     pub(crate) stack_pointer: Option<Global>,
@@ -113,6 +121,11 @@ impl WasiModuleInstanceHandles {
             .any(|f| f.name() == "stack_checkpoint");
         Self {
             memory,
+            indirect_function_table: instance
+                .exports
+                .get_table("__indirect_function_table")
+                .cloned()
+                .ok(),
             stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
             data_end: instance.exports.get_global("__data_end").cloned().ok(),
             stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
@@ -275,5 +288,37 @@ impl WasiModuleTreeHandles {
             Self::Static(_) => None,
             Self::Dynamic { linker, .. } => Some(linker),
         }
+    }
+
+    pub fn main_module_indirect_function_table_lookup(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Result<Function, Errno> {
+        let value = match self {
+            Self::Static(a) => a
+                .indirect_function_table
+                .as_ref()
+                .ok_or(Errno::Notsup)?
+                .get(store, index),
+            Self::Dynamic { linker, .. } => linker
+                .lookup_indirect_function_table(store, index)
+                .map_err(|_| Errno::Notsup)?,
+        };
+        let Some(value) = value else {
+            trace!(
+                function_id = index,
+                "Function not found in indirect function table"
+            );
+            return Err(Errno::Inval);
+        };
+        let Value::FuncRef(funcref) = value else {
+            unreachable!("Function table contains something other than a funcref. At this point this should never happen");
+        };
+        let Some(funcref) = funcref else {
+            trace!(function_id = index, "No function at the supplied index");
+            return Err(Errno::Inval);
+        };
+        Ok(funcref)
     }
 }
