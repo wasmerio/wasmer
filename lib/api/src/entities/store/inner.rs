@@ -39,7 +39,10 @@ pub type OnCalledHandler = Box<
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
 
-gen_rt_ty!(Store @derives derive_more::From, Debug; @path store);
+gen_rt_ty! {
+    #[derive(derive_more::From, Debug)]
+    pub(crate) BackendStore(store::Store);
+}
 
 impl BackendStore {
     #[inline]

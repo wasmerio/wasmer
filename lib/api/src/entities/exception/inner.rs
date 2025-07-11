@@ -10,10 +10,11 @@ use crate::{
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-gen_rt_ty!(Exception
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub(crate) BackendException(exception::Exception);
+}
 
 impl BackendException {
     /// Create a new exception with the given tag type and payload.

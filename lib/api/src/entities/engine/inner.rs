@@ -12,7 +12,10 @@ use crate::{
     BackendKind, IntoBytes, Store,
 };
 
-gen_rt_ty!(Engine @derives Debug, Clone);
+gen_rt_ty! {
+    #[derive(Debug, Clone)]
+    pub(crate) BackendEngine(engine::Engine);
+}
 
 impl BackendEngine {
     /// Returns the deterministic id of this engine.

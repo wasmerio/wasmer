@@ -25,10 +25,11 @@ use crate::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-gen_rt_ty!(Function
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub(crate) BackendFunction(function::Function);
+}
 
 impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.

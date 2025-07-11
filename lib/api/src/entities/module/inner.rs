@@ -26,10 +26,11 @@ use crate::{
 ///
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
-gen_rt_ty!(Module
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Clone, PartialEq, Eq, derive_more::From)]
+    pub(crate) BackendModule(module::Module);
+}
 
 impl BackendModule {
     #[inline]
