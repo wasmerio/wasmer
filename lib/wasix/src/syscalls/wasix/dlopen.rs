@@ -18,11 +18,6 @@ pub fn dlopen<M: MemorySize>(
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
-    let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
-    let ld_library_path =
-        unsafe { get_input_str_ok!(&memory, ld_library_path, ld_library_path_len) };
-    let ld_library_path = ld_library_path.split(':').collect::<Vec<_>>();
-    Span::current().record("path", path.as_str());
 
     let env_inner = unsafe { env.inner() };
     let Some(linker) = env_inner.linker() else {
@@ -33,6 +28,19 @@ pub fn dlopen<M: MemorySize>(
             err_buf_len
         );
     };
+
+    if path.is_null() {
+        // A null file name symbolizes the main module, which has a static handle
+        wasi_try_mem_ok!(out_handle.write(&memory, crate::state::MAIN_MODULE_HANDLE.into()));
+        return Ok(Errno::Success);
+    }
+
+    let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    let ld_library_path =
+        unsafe { get_input_str_ok!(&memory, ld_library_path, ld_library_path_len) };
+    let ld_library_path = ld_library_path.split(':').collect::<Vec<_>>();
+    Span::current().record("path", path.as_str());
+
     let linker = linker.clone();
 
     let module_handle = linker.load_module(path, &ld_library_path, &mut ctx);
