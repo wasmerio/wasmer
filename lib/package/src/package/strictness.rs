@@ -1,7 +1,5 @@
 use std::{fmt::Debug, path::Path};
 
-use anyhow::Error;
-
 use super::ManifestError;
 
 /// The strictness to use when working with a
@@ -22,13 +20,6 @@ pub enum Strictness {
 impl Strictness {
     pub(crate) fn is_strict(self) -> bool {
         matches!(self, Strictness::Strict)
-    }
-
-    pub(crate) fn on_error(&self, _path: &Path, error: Error) -> Result<(), Error> {
-        match self {
-            Strictness::Lossy => Ok(()),
-            Strictness::Strict => Err(error),
-        }
     }
 
     pub(crate) fn outside_base_directory(
