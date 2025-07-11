@@ -2,6 +2,78 @@ use super::*;
 use crate::syscalls::*;
 use wasmer::Type;
 
+// TODO: Decide on whether to move this back into Value or not.
+#[cfg(target_endian = "little")]
+/// Get a slice to the content of this value if it is a scalar type.
+///
+/// Returns `None` for Value that can not be freely shared between contexts.
+/// Returns `None` if the value is not representable as a byte slice.
+///
+/// Not available on big-endian architectures, because the result of this function
+/// should be compatible with wasm memory, which is little-endian.
+fn value_as_bytes(value: &Value) -> Option<&[u8]> {
+    match value {
+        Value::I32(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts(value as *const i32 as *const u8, 4) })
+        }
+        Value::I64(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts(value as *const i64 as *const u8, 8) })
+        }
+        Value::F32(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts(value as *const f32 as *const u8, 4) })
+        }
+        Value::F64(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts(value as *const f64 as *const u8, 8) })
+        }
+        Value::V128(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts(value as *const u128 as *const u8, 16) })
+        }
+        // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+        _ => None,
+    }
+}
+
+// TODO: Decide on whether to move this back into Value or not.
+#[cfg(target_endian = "little")]
+/// Get a mutable slice to the content of this value if it is a scalar type.
+///
+/// Returns `None` for Value that can not be freely shared between contexts.
+/// Returns `None` if the value is not representable as a byte slice.
+///
+/// Not available on big-endian architectures, because the result of this function
+/// should be compatible with wasm memory, which is little-endian.
+fn value_as_bytes_mut(value: &mut Value) -> Option<&mut [u8]> {
+    match value {
+        Value::I32(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i32 as *mut u8, 4) })
+        }
+        Value::I64(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i64 as *mut u8, 8) })
+        }
+        Value::F32(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f32 as *mut u8, 4) })
+        }
+        Value::F64(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f64 as *mut u8, 8) })
+        }
+        Value::V128(value) => {
+            // Safety: This function is only enabled on little-endian architectures,
+            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut u128 as *mut u8, 16) })
+        }
+        // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+        _ => None,
+    }
+}
+
 /// Call a function from the `__indirect_function_table` with parameters and results from memory.
 ///
 /// This function can be used to call functions whose types are not known at compile time of the caller. It is the callers responsibility to ensure that the passed parameters and results match the signature of the function beeing called.
@@ -52,7 +124,7 @@ pub fn call_dynamic<M: MemorySize>(
         .iter()
         .map(|ty| {
             let mut value = Value::default_typed(ty); // Initialize a default value for the type
-            let buffer = value.as_bytes_mut().unwrap(); // This should never fail, because a function's parameters are always valid types
+            let buffer = value_as_bytes_mut(&mut value).unwrap(); // This should never fail, because a function's parameters are always valid types
             memory
                 .read(current_values_offset, buffer)
                 .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
@@ -66,7 +138,7 @@ pub fn call_dynamic<M: MemorySize>(
     let memory = unsafe { env.memory_view(&store) };
     let mut current_results_offset: u64 = results.offset().into();
     result_values.iter().try_for_each(|result_value| {
-        let bytes = result_value.as_bytes().unwrap();
+        let bytes = value_as_bytes(result_value).unwrap();
         memory
             .write(current_results_offset, &bytes)
             .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
