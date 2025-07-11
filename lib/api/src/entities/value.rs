@@ -278,6 +278,76 @@ impl Value {
         }
     }
 
+    #[cfg(target_endian = "little")]
+    /// Get a slice to the content of this value if it is a scalar type.
+    ///
+    /// Returns `None` for Value that can not be freely shared between contexts.
+    /// Returns `None` if the value is not representable as a byte slice.
+    ///
+    /// Not available on big-endian architectures, because the result of this function
+    /// should be compatible with wasm memory, which is little-endian.
+    pub fn as_bytes(&self) -> Option<&[u8]> {
+        match self {
+            Self::I32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const i32 as *const u8, 4) })
+            }
+            Self::I64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const i64 as *const u8, 8) })
+            }
+            Self::F32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const f32 as *const u8, 4) })
+            }
+            Self::F64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const f64 as *const u8, 8) })
+            }
+            Self::V128(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts(value as *const u128 as *const u8, 16) })
+            }
+            // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+            _ => None,
+        }
+    }
+
+    #[cfg(target_endian = "little")]
+    /// Get a mutable slice to the content of this value if it is a scalar type.
+    ///
+    /// Returns `None` for Value that can not be freely shared between contexts.
+    /// Returns `None` if the value is not representable as a byte slice.
+    ///
+    /// Not available on big-endian architectures, because the result of this function
+    /// should be compatible with wasm memory, which is little-endian.
+    pub fn as_bytes_mut(&mut self) -> Option<&mut [u8]> {
+        match self {
+            Self::I32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i32 as *mut u8, 4) })
+            }
+            Self::I64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i64 as *mut u8, 8) })
+            }
+            Self::F32(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f32 as *mut u8, 4) })
+            }
+            Self::F64(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f64 as *mut u8, 8) })
+            }
+            Self::V128(value) => {
+                // Safety: This function is only enabled on little-endian architectures,
+                Some(unsafe { std::slice::from_raw_parts_mut(value as *mut u128 as *mut u8, 16) })
+            }
+            // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+            _ => None,
+        }
+    }
+
     accessors! {
         e
         (I32(i32) i32 unwrap_i32 *e)
