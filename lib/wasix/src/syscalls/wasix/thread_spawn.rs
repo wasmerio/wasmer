@@ -237,7 +237,7 @@ fn handle_thread_result(
         Ok(WasiError::Exit(code)) => {
             trace!(exit_code = ?code, "thread requested exit");
             if !code.is_success() {
-                // TODO: Is this sound? Why do we need this?
+                // TODO: Why do we need to taint the runtime on a non-zero exit code? Why not also for zero?
                 env.data(&store)
                     .runtime
                     .on_taint(TaintReason::NonZeroExitCode(code));
@@ -250,7 +250,7 @@ fn handle_thread_result(
         }
         Ok(WasiError::UnknownWasiVersion) => {
             eprintln!(
-                "Thread {tid} of process {pid} failed because it has a unknown wasix version"
+                "Thread {tid} of process {pid} failed because it has an unknown wasix version"
             );
             env.data(&store)
                 .runtime
