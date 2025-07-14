@@ -243,28 +243,37 @@ fn call_module<M: MemorySize>(
                     return Err(deep);
                 }
                 Ok(WasiError::UnknownWasiVersion) => {
-                    debug!("failed as wasi version is unknown");
+                    eprintln!(
+                        "Thread {} of process {} failed because it has a unknown wasix version",
+                        tid, pid
+                    );
                     env.data(&store)
                         .runtime
                         .on_taint(TaintReason::UnknownWasiVersion);
                     ret = Errno::Noexec;
-                    exit_code = Some(ExitCode::from(128 + ret as i32));
+                    exit_code = Some(ExitCode::from(129));
                 }
                 Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
-                    debug!("failed as wasi version is unknown");
+                    eprintln!(
+                        "Thread {} of process {} failed to find required symbol: {}",
+                        tid, pid, symbol
+                    );
                     env.data(&store)
                         .runtime
                         .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
                     ret = Errno::Nolink;
-                    exit_code = Some(ExitCode::from(128 + ret as i32));
+                    exit_code = Some(ExitCode::from(129));
                 }
                 Err(err) => {
-                    debug!("failed with runtime error: {}", err);
+                    eprintln!(
+                        "Thread {} of process {} failed with runtime error: {}",
+                        tid, pid, err
+                    );
                     env.data(&store)
                         .runtime
                         .on_taint(TaintReason::RuntimeError(err));
                     ret = Errno::Noexec;
-                    exit_code = Some(ExitCode::from(128 + ret as i32));
+                    exit_code = Some(ExitCode::from(129));
                 }
             }
         } else {
