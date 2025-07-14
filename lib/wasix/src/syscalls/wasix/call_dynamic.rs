@@ -1,74 +1,64 @@
 use super::*;
 use crate::syscalls::*;
 use wasmer::Type;
+use wasmer::ValueType;
 
-#[cfg(target_endian = "little")]
-/// Get a slice to the content of this value if it is a scalar type.
-///
-/// Returns `None` for Value that can not be freely shared between contexts.
-/// Returns `None` if the value is not representable as a byte slice.
-///
-/// Not available on big-endian architectures, because the result of this function
-/// should be compatible with wasm memory, which is little-endian.
-fn value_as_bytes(value: &Value) -> Option<&[u8]> {
-    match value {
-        Value::I32(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts(value as *const i32 as *const u8, 4) })
+macro_rules! write_value {
+    ($memory:expr, $offset:expr, $max:expr, $value:expr) => {{
+        let bytes = $value.to_le_bytes();
+        if $offset + bytes.len() as u64 <= $max {
+            $memory.write($offset, &bytes)?;
+            $offset += bytes.len() as u64;
         }
-        Value::I64(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts(value as *const i64 as *const u8, 8) })
-        }
-        Value::F32(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts(value as *const f32 as *const u8, 4) })
-        }
-        Value::F64(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts(value as *const f64 as *const u8, 8) })
-        }
-        Value::V128(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts(value as *const u128 as *const u8, 16) })
-        }
-        // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
-        _ => None,
-    }
+    }};
 }
 
-#[cfg(target_endian = "little")]
-/// Get a mutable slice to the content of this value if it is a scalar type.
-///
-/// Returns `None` for Value that can not be freely shared between contexts.
-/// Returns `None` if the value is not representable as a byte slice.
-///
-/// Not available on big-endian architectures, because the result of this function
-/// should be compatible with wasm memory, which is little-endian.
-fn value_as_bytes_mut(value: &mut Value) -> Option<&mut [u8]> {
+fn write_value(
+    memory: &MemoryView,
+    offset: &mut u64,
+    max: u64,
+    value: &Value,
+) -> Result<(), MemoryAccessError> {
     match value {
-        Value::I32(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i32 as *mut u8, 4) })
-        }
-        Value::I64(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut i64 as *mut u8, 8) })
-        }
-        Value::F32(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f32 as *mut u8, 4) })
-        }
-        Value::F64(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut f64 as *mut u8, 8) })
-        }
-        Value::V128(value) => {
-            // Safety: This function is only enabled on little-endian architectures,
-            Some(unsafe { std::slice::from_raw_parts_mut(value as *mut u128 as *mut u8, 16) })
-        }
+        Value::I32(value) => write_value!(memory, *offset, max, value),
+        Value::I64(value) => write_value!(memory, *offset, max, value),
+        Value::F32(value) => write_value!(memory, *offset, max, value),
+        Value::F64(value) => write_value!(memory, *offset, max, value),
+        Value::V128(value) => write_value!(memory, *offset, max, value),
         // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
-        _ => None,
+        _ => panic!("Cannot write non-scalar value as bytes"),
+    };
+
+    Ok(())
+}
+
+macro_rules! read_value {
+    ($memory:expr, $offset:expr, $max:expr, $ty:ident, $val:ident, $len:expr) => {{
+        if $offset + $len > $max {
+            Ok(Value::$val($ty::default()))
+        } else {
+            let mut buffer = [0u8; $len];
+            $memory.read($offset, &mut buffer)?;
+            $offset += $len;
+            Ok(Value::$val($ty::from_le_bytes(buffer)))
+        }
+    }};
+}
+
+fn read_value(
+    memory: &MemoryView,
+    offset: &mut u64,
+    max: u64,
+    ty: &Type,
+) -> Result<Value, MemoryAccessError> {
+    match ty {
+        Type::I32 => read_value!(memory, *offset, max, i32, I32, 4),
+        Type::I64 => read_value!(memory, *offset, max, i64, I64, 8),
+        Type::F32 => read_value!(memory, *offset, max, f32, F32, 4),
+        Type::F64 => read_value!(memory, *offset, max, f64, F64, 8),
+        Type::V128 => read_value!(memory, *offset, max, u128, V128, 16),
+        // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
+        _ => panic!("Cannot read non-scalar value from memory"),
     }
 }
 
@@ -93,31 +83,27 @@ fn value_as_bytes_mut(value: &mut Value) -> Option<&mut [u8]> {
 /// * function_id: The indirect function table index of the function to call
 ///
 /// * values: Pointer to a sequence of values that will be passed to the function.
-///   
-///   The buffer will be interpreted as described above
-///
+///   The buffer will be interpreted as described above.
 ///   If the function does not have any parameters, this can be a nullptr (0).
 ///
-/// * results: Pointer to a sequence of values
-///   
+/// * results: Pointer to a sequence of values.
 ///   If the function does not return a value, this can be a nullptr (0).
-///
 ///   The buffer needs to be large enough to hold all return values.
 ///
 #[instrument(
     level = "trace",
-    skip_all, fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
+    skip_all,
+    fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
     ret
 )]
 pub fn call_dynamic<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     function_id: u32,
     values: WasmPtr<u8, M>,
+    values_len: M::Offset,
     results: WasmPtr<u8, M>,
+    results_len: M::Offset,
 ) -> Result<Errno, WasiRuntimeError> {
-    // // Our do_pending_operations implementation is quite slow, so we don't call it here.
-    // WasiEnv::do_pending_operations(&mut ctx)?;
-
     let (env, mut store) = ctx.data_and_store_mut();
 
     let function = wasi_try_ok!(env
@@ -129,32 +115,30 @@ pub fn call_dynamic<M: MemorySize>(
 
     let memory = unsafe { env.memory_view(&store) };
     let mut current_values_offset: u64 = values.offset().into();
-    let values_buffer = function_type
-        .params()
-        .iter()
-        .map(|ty| {
-            let mut value = Value::default_typed(ty); // Initialize a default value for the type
-            let buffer = value_as_bytes_mut(&mut value).unwrap(); // This should never fail, because a function's parameters are always valid types
-            memory
-                .read(current_values_offset, buffer)
-                .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
-            current_values_offset += buffer.len() as u64; // Move to the next value offset
-            Ok(value)
-        })
-        .collect::<Result<Vec<_>, WasiRuntimeError>>()?;
+    let max_values_offset = current_values_offset + values_len.into();
+    let mut values_buffer = vec![];
+    for ty in function_type.params() {
+        values_buffer.push(wasi_try_mem_ok!(read_value(
+            &memory,
+            &mut current_values_offset,
+            max_values_offset,
+            ty
+        )));
+    }
 
     let result_values = function.call(&mut store, values_buffer.as_slice())?;
 
     let memory = unsafe { env.memory_view(&store) };
     let mut current_results_offset: u64 = results.offset().into();
-    result_values.iter().try_for_each(|result_value| {
-        let bytes = value_as_bytes(result_value).unwrap();
-        memory
-            .write(current_results_offset, bytes)
-            .map_err(|e| WasiError::Exit(crate::mem_error_to_wasi(e).into()))?;
-        current_results_offset += bytes.len() as u64; // Move to the next result offset
-        Result::<(), WasiRuntimeError>::Ok(())
-    })?;
+    let max_results_offset = current_results_offset + results_len.into();
+    for result_value in result_values {
+        wasi_try_mem_ok!(write_value(
+            &memory,
+            &mut current_results_offset,
+            max_results_offset,
+            &result_value
+        ));
+    }
 
     Ok(Errno::Success)
 }

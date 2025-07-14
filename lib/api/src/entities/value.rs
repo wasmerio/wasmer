@@ -74,20 +74,6 @@ impl Value {
         Self::ExternRef(None)
     }
 
-    /// Creates a new `Value` with the default value for the given type.
-    pub fn default_typed(ty: &Type) -> Self {
-        match ty {
-            Type::I32 => Self::I32(0),
-            Type::I64 => Self::I64(0),
-            Type::F32 => Self::F32(0.0),
-            Type::F64 => Self::F64(0.0),
-            Type::V128 => Self::V128(0),
-            Type::ExternRef => Self::ExternRef(None),
-            Type::FuncRef => Self::FuncRef(None),
-            Type::ExceptionRef => Self::ExceptionRef(None),
-        }
-    }
-
     /// Returns the corresponding [`Type`] for this [`Value`].
     pub fn ty(&self) -> Type {
         match self {

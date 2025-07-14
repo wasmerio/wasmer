@@ -259,6 +259,7 @@
 #![allow(clippy::result_large_err)]
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, BTreeSet, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
@@ -514,9 +515,6 @@ pub enum LinkError {
 
     #[error("Failed to initialize WASI(X) module handles: {0}")]
     MainModuleHandleInitFailed(ExportError),
-
-    #[error("Module does not export a TLS initialization routine")]
-    MissingTlsInitializer,
 
     #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
     DynamicFunctionIndexNotAllocated(u32),
@@ -812,7 +810,7 @@ struct LinkerState {
     // iterate over it, we'll get the modules from lowest handle to highest, and
     // order is preserved.
     side_modules: BTreeMap<ModuleHandle, DlModule>,
-    side_modules_by_name: HashMap<String, ModuleHandle>,
+    side_modules_by_name: HashMap<PathBuf, ModuleHandle>,
     next_module_handle: u32,
 
     memory_allocator: MemoryAllocator,
@@ -897,134 +895,28 @@ impl std::fmt::Debug for Linker {
     }
 }
 
-/// Locates and loads a file that looks like a WASM module into memory.
-pub enum DynamicLibraryFetcher<'a> {
-    Filesystem {
-        module_name: &'a str,
+pub enum DlModuleSpec<'a> {
+    FileSystem {
+        module_spec: &'a Path,
         ld_library_path: &'a [&'a Path],
     },
     Memory {
         module_name: &'a str,
         bytes: &'a [u8],
-        ld_library_path: &'a [&'a Path],
     },
 }
-impl DynamicLibraryFetcher<'_> {
-    // Get the name of the module.
-    // This is the import name that was requested by the other shared library
-    pub fn module_name(&self) -> &str {
+
+impl<'a> std::fmt::Debug for DlModuleSpec<'a> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            DynamicLibraryFetcher::Filesystem { module_name, .. } => module_name,
-            DynamicLibraryFetcher::Memory { module_name, .. } => module_name,
-        }
-    }
-
-    // Get the library path that will be used when loading this module and its dependencies
-    // TODO: Move the library path somewhere else
-    pub fn ld_library_path(&self) -> &[&Path] {
-        match self {
-            DynamicLibraryFetcher::Filesystem {
-                ld_library_path, ..
-            } => ld_library_path,
-            DynamicLibraryFetcher::Memory {
-                ld_library_path, ..
-            } => ld_library_path,
-        }
-    }
-
-    // Load the modules code from the filesystem, or from memory if it's a memory module
-    async fn load_module(&self, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
-        let (module_name, library_path) = match self {
-            DynamicLibraryFetcher::Filesystem {
-                module_name,
-                ld_library_path,
-            } => (module_name, ld_library_path),
-            DynamicLibraryFetcher::Memory {
-                module_name, bytes, ..
-            } => {
-                // TODO: Dont clone here
-                return Ok((PathBuf::from(module_name), bytes.to_vec()));
-            }
-        };
-
-        let module_path = Path::new(module_name);
-
-        async fn try_load(
-            fs: &WasiFsRoot,
-            path: impl AsRef<Path>,
-        ) -> Result<(PathBuf, Vec<u8>), FsError> {
-            let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
-                Ok(f) => f,
-                // Fallback for cases where the module thinks it's running on unix,
-                // but the compiled side module is a .wasm file
-                Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
-                    .new_open_options()
-                    .read(true)
-                    .open(path.as_ref().with_extension("wasm"))?,
-                Err(e) => return Err(e),
-            };
-
-            let mut buf = Vec::new();
-            file.read_to_end(&mut buf).await?;
-            Ok((path.as_ref().to_owned(), buf))
-        }
-
-        if module_path.is_absolute() {
-            trace!(?module_path, "Locating module with absolute path");
-            try_load(&fs.root_fs, module_path).await.map_err(|e| {
-                LinkError::SharedLibraryMissing(
-                    module_path.to_string_lossy().into_owned(),
-                    LocateModuleError::Single(e),
-                )
-            })
-        } else if module_path.components().count() > 1 {
-            trace!(?module_path, "Locating module with relative path");
-            try_load(
-                &fs.root_fs,
-                fs.relative_path_to_absolute(module_path.to_string_lossy().into_owned()),
-            )
-            .await
-            .map_err(|e| {
-                LinkError::SharedLibraryMissing(
-                    module_path.to_string_lossy().into_owned(),
-                    LocateModuleError::Single(e),
-                )
-            })
-        } else {
-            // Go through all dynamic library lookup paths
-            // Note: a path without a slash does *not* look at the current directory. This is by design.
-
-            // TODO: implement RUNPATH once it's supported by clang and wasmparser
-            // TODO: support $ORIGIN and ${ORIGIN} in RUNPATH
-
-            trace!(
-                ?module_path,
-                "Locating module by name in default runtime path"
-            );
-            let search_paths = library_path
-                .iter()
-                .flat_map(|paths| paths.iter().map(AsRef::as_ref))
-                // Add default runtime paths
-                .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
-
-            let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
-            for path in search_paths {
-                let full_path = path.join(module_path);
-                trace!(?module_path, full_path = ?full_path, "Searching module");
-                match try_load(&fs.root_fs, &full_path).await {
-                    Ok(ret) => {
-                        trace!(?module_path, full_path = ?ret.0, "Located module");
-                        return Ok(ret);
-                    }
-                    Err(e) => errors.push((full_path, e)),
-                };
-            }
-
-            trace!(?module_path, "Failed to locate module");
-            Err(LinkError::SharedLibraryMissing(
-                module_path.to_string_lossy().into_owned(),
-                LocateModuleError::Multiple(errors),
-            ))
+            Self::FileSystem { module_spec, .. } => f
+                .debug_struct("FileSystem")
+                .field("module_spec", module_spec)
+                .finish(),
+            Self::Memory { module_name, .. } => f
+                .debug_struct("Memory")
+                .field("module_name", module_name)
+                .finish(),
         }
     }
 }
@@ -1040,6 +932,7 @@ impl Linker {
         memory: Option<Memory>,
         func_env: &mut WasiFunctionEnv,
         stack_size: u64,
+        ld_library_path: &[&Path],
     ) -> Result<(Self, LinkedMainModule), LinkError> {
         let dylink_section = parse_dylink0_section(main_module)?;
 
@@ -1224,10 +1117,9 @@ impl Linker {
             trace!(name = needed, "Loading module needed by main");
             let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                DynamicLibraryFetcher::Filesystem {
-                    module_name: needed.as_str(),
-                    // TODO: Use real ld_library_path
-                    ld_library_path: &[],
+                DlModuleSpec::FileSystem {
+                    module_spec: Path::new(needed.as_str()),
+                    ld_library_path,
                 },
                 &mut link_state,
                 &wasi_env.runtime,
@@ -1270,6 +1162,7 @@ impl Linker {
                 memory.clone(),
                 store,
                 main_instance.clone(),
+                Some(indirect_function_table.clone()),
             ),
         };
 
@@ -1466,6 +1359,7 @@ impl Linker {
                 memory.clone(),
                 store,
                 main_instance.clone(),
+                Some(indirect_function_table.clone()),
             ),
         };
 
@@ -1515,21 +1409,6 @@ impl Linker {
                 Ok(())
             }
         }
-    }
-
-    /// Perform a lookup in the indirect function table
-    pub fn lookup_indirect_function_table(
-        &self,
-        store: &mut impl AsStoreMut,
-        index: u32,
-    ) -> Result<Option<Value>, LinkError> {
-        lock_instance_group_state!(
-            group_state_guard,
-            group_state,
-            self,
-            LinkError::InstanceGroupIsDead
-        );
-        Ok(group_state.indirect_function_table.get(store, index))
     }
 
     /// Allocate a index for a closure in the indirect function table
@@ -1614,12 +1493,10 @@ impl Linker {
     /// [`Linker::resolve_export`].
     pub fn load_module(
         &self,
-        module_location: DynamicLibraryFetcher,
+        module_spec: DlModuleSpec,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
-        let module_path = module_location.module_name();
-
-        trace!(?module_path, "Loading module");
+        trace!(?module_spec, "Loading module");
 
         lock_instance_group_state!(
             group_state_guard,
@@ -1641,7 +1518,7 @@ impl Linker {
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
         let module_handle = linker_state.load_module_tree(
-            module_location,
+            module_spec,
             &mut link_state,
             &wasi_env.runtime,
             &wasi_env.state,
@@ -1743,13 +1620,6 @@ impl Linker {
         trace!("Calling ctor functions");
         for instance in &new_instances {
             call_initialization_function::<()>(instance, store, "__wasm_call_ctors")?;
-        }
-
-        trace!("Calling wasix on load hook");
-        for instance in &new_instances {
-            // A wasix specific initialization function, that will run on every existing thread
-            // For now this is only used by the wasix closure API
-            call_initialization_function::<()>(instance, store, "__wasix_on_load_hook")?;
         }
 
         Ok(())
@@ -2313,15 +2183,20 @@ impl LinkerState {
     // it was already loaded, the existing handle is returned.
     fn load_module_tree(
         &mut self,
-        module_location: DynamicLibraryFetcher,
+        module_spec: DlModuleSpec,
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
     ) -> Result<ModuleHandle, LinkError> {
-        let module_name = module_location.module_name();
+        let module_name = match module_spec {
+            DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
+            DlModuleSpec::Memory { module_name, .. } => {
+                Cow::Owned(PathBuf::from(format!("::in-memory::{module_name}")))
+            }
+        };
         trace!(?module_name, "Locating and loading module");
 
-        if let Some(handle) = self.side_modules_by_name.get(module_name) {
+        if let Some(handle) = self.side_modules_by_name.get(module_name.as_ref()) {
             let handle = *handle;
 
             trace!(?module_name, ?handle, "Module was already loaded");
@@ -2330,53 +2205,76 @@ impl LinkerState {
         }
 
         // Locate and load the module bytes
-        let (full_path, module_bytes) =
-            InlineWaker::block_on(module_location.load_module(&wasi_state.fs))?;
+        let (module_bytes, paths) = match module_spec {
+            DlModuleSpec::FileSystem {
+                module_spec,
+                ld_library_path,
+            } => {
+                let (full_path, bytes) = InlineWaker::block_on(locate_module(
+                    module_spec,
+                    ld_library_path,
+                    &wasi_state.fs,
+                ))?;
+                // TODO: this can be optimized by detecting early if the module is already
+                // pending without loading its bytes
+                if link_state.pending_module_paths.contains(&full_path) {
+                    trace!("Module is already pending, won't load again");
+                    // This is fine, since a non-empty pending_modules list means we are
+                    // recursively resolving needed modules. We don't use the handle
+                    // returned from this function for anything when running recursively
+                    // (see self.load_module call below).
+                    return Ok(INVALID_MODULE_HANDLE);
+                }
 
-        // TODO: this can be optimized by detecting early if the module is already
-        // pending without loading its bytes
-        if link_state.pending_module_paths.contains(&full_path) {
-            trace!("Module is already pending, won't load again");
-            // This is fine, since a non-empty pending_modules list means we are
-            // recursively resolving needed modules. We don't use the handle
-            // returned from this function for anything when running recursively
-            // (see self.load_module call below).
-            return Ok(INVALID_MODULE_HANDLE);
-        }
+                (Cow::Owned(bytes), Some((full_path, ld_library_path)))
+            }
+            DlModuleSpec::Memory { bytes, .. } => (Cow::Borrowed(bytes), None),
+        };
 
-        let module = runtime.load_module_sync(&module_bytes)?;
+        let module = runtime.load_module_sync(module_bytes.as_ref())?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
         trace!(?dylink_info, "Loading side module");
 
-        link_state.pending_module_paths.push(full_path);
-        let num_pending_modules = link_state.pending_module_paths.len();
-        let pop_pending_module = |link_state: &mut InProgressLinkState| {
-            assert_eq!(
-                num_pending_modules,
-                link_state.pending_module_paths.len(),
-                "Internal error: pending modules not maintained correctly"
-            );
-            link_state.pending_module_paths.pop().unwrap();
-        };
+        if let Some((full_path, ld_library_path)) = paths {
+            link_state.pending_module_paths.push(full_path);
+            let num_pending_modules = link_state.pending_module_paths.len();
+            let pop_pending_module = |link_state: &mut InProgressLinkState| {
+                assert_eq!(
+                    num_pending_modules,
+                    link_state.pending_module_paths.len(),
+                    "Internal error: pending modules not maintained correctly"
+                );
+                link_state.pending_module_paths.pop().unwrap();
+            };
 
-        for needed in &dylink_info.needed {
-            trace!(needed, "Loading needed side module");
-            match self.load_module_tree(
-                DynamicLibraryFetcher::Filesystem {
-                    module_name: needed.as_str(),
-                    ld_library_path: module_location.ld_library_path(),
-                },
-                link_state,
-                runtime,
-                wasi_state,
-            ) {
-                Ok(_) => (),
-                Err(e) => {
-                    pop_pending_module(link_state);
-                    return Err(e);
+            for needed in &dylink_info.needed {
+                trace!(needed, "Loading needed side module");
+                match self.load_module_tree(
+                    DlModuleSpec::FileSystem {
+                        module_spec: Path::new(needed.as_str()),
+                        ld_library_path,
+                    },
+                    link_state,
+                    runtime,
+                    wasi_state,
+                ) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        pop_pending_module(link_state);
+                        return Err(e);
+                    }
                 }
+            }
+
+            pop_pending_module(link_state);
+        } else {
+            if !dylink_info.needed.is_empty() {
+                unreachable!(
+                    "Internal error: in-memory modules with further needed modules not \
+                    supported and no code paths can create such a module"
+                );
             }
         }
 
@@ -2384,8 +2282,6 @@ impl LinkerState {
         self.next_module_handle += 1;
 
         trace!(?module_name, ?handle, "Assigned handle to module");
-
-        pop_pending_module(link_state);
 
         link_state.new_modules.push(InProgressModuleLoad {
             handle,
@@ -2397,7 +2293,7 @@ impl LinkerState {
         // allocated for the module.
         // TODO: allocate table here (at least logically)?
         self.side_modules_by_name
-            .insert(module_name.to_owned(), handle);
+            .insert(module_name.into_owned(), handle);
 
         Ok(handle)
     }
@@ -2481,14 +2377,14 @@ impl InstanceGroupState {
     ) -> Result<u32, RuntimeError> {
         let table = &self.indirect_function_table;
 
-        let signature = func.ty(store).to_string();
+        let ty = func.ty(store).to_string();
         let index: u32 = table.size(store);
-        trace!(?index, ?signature, "Appending function in table");
+        trace!(?index, ?ty, "Appending function in table");
 
         table.grow(store, 1, func.into())
     }
 
-    fn append_to_function_table_at(
+    fn place_in_function_table_at(
         &self,
         store: &mut impl AsStoreMut,
         func: Function,
@@ -2497,7 +2393,7 @@ impl InstanceGroupState {
         trace!(
             ?index,
             ?func,
-            "Appending function in table at pre-defined index"
+            "Placing function in table at pre-defined index"
         );
 
         let table = &self.indirect_function_table;
@@ -2518,8 +2414,8 @@ impl InstanceGroupState {
             }
         }
 
-        let signature = func.ty(store).to_string();
-        trace!(?index, ?signature, "Appending function in table at index");
+        let ty = func.ty(store).to_string();
+        trace!(?index, ?ty, "Placing function in table at index");
         table.set(store, index, Value::FuncRef(Some(func)))
     }
 
@@ -2601,8 +2497,12 @@ impl InstanceGroupState {
 
         let instance = Instance::new(store, &module, &imports)?;
 
-        let instance_handles =
-            WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
+        let instance_handles = WasiModuleInstanceHandles::new(
+            self.memory.clone(),
+            store,
+            instance.clone(),
+            Some(self.indirect_function_table.clone()),
+        );
 
         let dl_module = DlModule {
             module,
@@ -2711,8 +2611,12 @@ impl InstanceGroupState {
         let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?
             .map(|v| v as u64);
 
-        let instance_handles =
-            WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
+        let instance_handles = WasiModuleInstanceHandles::new(
+            self.memory.clone(),
+            store,
+            instance.clone(),
+            Some(self.indirect_function_table.clone()),
+        );
 
         let dl_instance = DlInstance {
             instance: instance.clone(),
@@ -2750,7 +2654,7 @@ impl InstanceGroupState {
                     )
                 });
 
-            self.append_to_function_table_at(store, func.clone(), pending.function_table_index)
+            self.place_in_function_table_at(store, func.clone(), pending.function_table_index)
                 .map_err(LinkError::TableAllocationError)?;
 
             trace!(?pending, "Placed pending function in table");
@@ -2758,7 +2662,14 @@ impl InstanceGroupState {
 
         for tls in &pending_resolutions.tls {
             let Some(tls_base) = self.tls_base(tls.resolved_from) else {
-                panic!("Internal error: Tried to import TLS symbol from module {} that has no TLS base", tls.resolved_from.0);
+                // This is a panic since this error should have been caught when the symbol
+                // was originally resolved by the instigating instance group. We're just replaying
+                // the changes.
+                panic!(
+                    "Internal error: Tried to import TLS symbol from module {} that \
+                    has no TLS base",
+                    tls.resolved_from.0
+                );
             };
 
             let final_addr = tls_base + tls.offset;
@@ -2795,7 +2706,7 @@ impl InstanceGroupState {
             panic!("Internal error: failed to resolve exported function {name}: {e:?}")
         });
 
-        self.append_to_function_table_at(store, func.clone(), function_table_index)
+        self.place_in_function_table_at(store, func.clone(), function_table_index)
             .map_err(LinkError::TableAllocationError)?;
 
         Ok(())
@@ -3390,7 +3301,7 @@ impl InstanceGroupState {
                                 function_table_index,
                                 "Placing function pointer into table"
                             );
-                            self.append_to_function_table_at(
+                            self.place_in_function_table_at(
                                 store,
                                 func.clone(),
                                 *function_table_index,
@@ -3893,6 +3804,90 @@ impl InstanceGroupState {
         }
 
         Ok(())
+    }
+}
+
+async fn locate_module(
+    module_path: &Path,
+    library_path: &[impl AsRef<Path>],
+    fs: &WasiFs,
+) -> Result<(PathBuf, Vec<u8>), LinkError> {
+    async fn try_load(
+        fs: &WasiFsRoot,
+        path: impl AsRef<Path>,
+    ) -> Result<(PathBuf, Vec<u8>), FsError> {
+        let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
+            Ok(f) => f,
+            // Fallback for cases where the module thinks it's running on unix,
+            // but the compiled side module is a .wasm file
+            Err(_) if path.as_ref().extension() == Some(OsStr::new("so")) => fs
+                .new_open_options()
+                .read(true)
+                .open(path.as_ref().with_extension("wasm"))?,
+            Err(e) => return Err(e),
+        };
+
+        let mut buf = Vec::new();
+        file.read_to_end(&mut buf).await?;
+        Ok((path.as_ref().to_owned(), buf))
+    }
+
+    if module_path.is_absolute() {
+        trace!(?module_path, "Locating module with absolute path");
+        try_load(&fs.root_fs, module_path).await.map_err(|e| {
+            LinkError::SharedLibraryMissing(
+                module_path.to_string_lossy().into_owned(),
+                LocateModuleError::Single(e),
+            )
+        })
+    } else if module_path.components().count() > 1 {
+        trace!(?module_path, "Locating module with relative path");
+        try_load(
+            &fs.root_fs,
+            fs.relative_path_to_absolute(module_path.to_string_lossy().into_owned()),
+        )
+        .await
+        .map_err(|e| {
+            LinkError::SharedLibraryMissing(
+                module_path.to_string_lossy().into_owned(),
+                LocateModuleError::Single(e),
+            )
+        })
+    } else {
+        // Go through all dynamic library lookup paths
+        // Note: a path without a slash does *not* look at the current directory. This is by design.
+
+        // TODO: implement RUNPATH once it's supported by clang and wasmparser
+        // TODO: support $ORIGIN and ${ORIGIN} in RUNPATH
+
+        trace!(
+            ?module_path,
+            "Locating module by name in default runtime path"
+        );
+        let search_paths = library_path
+            .iter()
+            .map(|path| path.as_ref())
+            // Add default runtime paths
+            .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
+
+        let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
+        for path in search_paths {
+            let full_path = path.join(module_path);
+            trace!(?module_path, full_path = ?full_path, "Searching module");
+            match try_load(&fs.root_fs, &full_path).await {
+                Ok(ret) => {
+                    trace!(?module_path, full_path = ?ret.0, "Located module");
+                    return Ok(ret);
+                }
+                Err(e) => errors.push((full_path, e)),
+            };
+        }
+
+        trace!(?module_path, "Failed to locate module");
+        Err(LinkError::SharedLibraryMissing(
+            module_path.to_string_lossy().into_owned(),
+            LocateModuleError::Multiple(errors),
+        ))
     }
 }
 

@@ -1,5 +1,5 @@
 use super::*;
-use crate::{state::DynamicLibraryFetcher, syscalls::*};
+use crate::{state::DlModuleSpec, syscalls::*};
 
 // TODO: add journal events for dl-related syscalls
 #[instrument(level = "trace", skip_all, fields(path = field::Empty, flags), ret)]
@@ -46,8 +46,8 @@ pub fn dlopen<M: MemorySize>(
 
     let linker = linker.clone();
 
-    let location = DynamicLibraryFetcher::Filesystem {
-        module_name: &path,
+    let location = DlModuleSpec::FileSystem {
+        module_spec: Path::new(&path),
         ld_library_path: ld_library_path.as_slice(),
     };
     let module_handle = linker.load_module(location, &mut ctx);

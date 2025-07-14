@@ -8,7 +8,7 @@
 //! 4. Call [`closure_prepare`] again to redefine the function pointer
 //! 5. Notify wasmer that the closure is no longer needed with [`closure_free`]
 
-use crate::{state::DynamicLibraryFetcher, syscalls::*};
+use crate::{state::DlModuleSpec, syscalls::*};
 use std::{path::PathBuf, sync::atomic::AtomicUsize};
 use wasm_encoder::{
     CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
@@ -17,7 +17,7 @@ use wasm_encoder::{
 use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
 use wasmer_wasix_types::wasi::WasmValueType;
 
-// Implement helper functions for ValType
+// Implement helper functions for wasm_encoder::ValType
 trait ValTypeOps
 where
     Self: Sized,
@@ -206,7 +206,7 @@ fn build_closure_wasm_bytes(
     // FIXME: Look into replacing this with the wasm start function
     let mut exports = ExportSection::new();
     exports.export(
-        "__wasix_on_load_hook",
+        "__wasm_call_ctors",
         ExportKind::Func,
         on_load_function_index,
     );
@@ -372,77 +372,17 @@ pub fn closure_prepare<M: MemorySize>(
     );
 
     let ld_library_path: [&Path; 0] = [];
-    let wasm_loader = DynamicLibraryFetcher::Memory {
+    let wasm_loader = DlModuleSpec::Memory {
         module_name: &module_name,
         bytes: &wasm_bytes,
-        ld_library_path: ld_library_path.as_slice(),
     };
     let module_handle = match linker.load_module(wasm_loader, &mut ctx) {
         Ok(m) => m,
         Err(e) => {
             // Should never happen
-            panic!("Failed to load module: {e}");
+            panic!("Failed to load newly built in-memory module: {e}");
         }
     };
-
-    return Ok(Errno::Success);
-}
-
-/// Allocate a new slot in the __indirect_function_table for a closure
-///
-/// Until the slot is prepared with [`closure_prepare`], it is undefined behavior to call the function at the given index.
-///
-/// The slot should be freed with [`closure_free`] when it is no longer needed.
-#[instrument(level = "trace", skip_all, ret)]
-pub fn closure_allocate<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    closure: WasmPtr<u32, M>,
-) -> Result<Errno, WasiError> {
-    WasiEnv::do_pending_operations(&mut ctx)?;
-
-    let (env, mut store) = ctx.data_and_store_mut();
-    let Some(linker) = env.inner().linker().cloned() else {
-        error!("Closures only work for dynamic modules.");
-        return Ok(Errno::Notsup);
-    };
-
-    let function_id = match linker.allocate_closure_index(&mut ctx) {
-        Ok(f) => f,
-        Err(e) => {
-            // Should never happen
-            error!("Failed to allocate closure index: {e}");
-            return Ok(Errno::Memviolation);
-        }
-    };
-
-    let (env, mut store) = ctx.data_and_store_mut();
-    let memory = unsafe { env.memory_view(&store) };
-    closure.write(&memory, function_id);
-    return Ok(Errno::Success);
-}
-
-/// Free a previously allocated slot for a closure in the `__indirect_function_table`
-///
-/// After calling this it is undefined behavior to call the function at the given index.
-#[instrument(level = "trace", fields(%closure), ret)]
-pub fn closure_free<M: MemorySize>(
-    mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    closure: u32,
-) -> Result<Errno, WasiError> {
-    WasiEnv::do_pending_operations(&mut ctx)?;
-
-    let (env, mut store) = ctx.data_and_store_mut();
-
-    let Some(linker) = env.inner().linker().cloned() else {
-        error!("Closures only work for dynamic modules.");
-        return Ok(Errno::Notsup);
-    };
-
-    let free_result = linker.free_closure_index(&mut ctx, closure);
-    if let Err(e) = free_result {
-        // Should never happen
-        panic!("Failed to free closure index: {e}");
-    }
 
     return Ok(Errno::Success);
 }

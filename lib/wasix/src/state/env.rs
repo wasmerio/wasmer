@@ -2,6 +2,7 @@ use std::{
     collections::HashMap,
     ops::Deref,
     path::{Path, PathBuf},
+    str,
     sync::Arc,
     time::Duration,
 };
@@ -427,9 +428,36 @@ impl WasiEnv {
             let linker = match parent_linker_and_ctx {
                 Some((linker, ctx)) => linker.create_instance_group(ctx, &mut store, &mut func_env),
                 None => {
+                    // FIXME: should we be storing envs as raw byte arrays?
+                    let ld_library_path_owned;
+                    let ld_library_path = {
+                        let envs = func_env.data(&store).state.envs.lock().unwrap();
+                        ld_library_path_owned = match envs
+                            .iter()
+                            .find_map(|env| env.strip_prefix(b"LD_LIBRARY_PATH="))
+                        {
+                            Some(path) => path
+                                .split(|b| *b == b':')
+                                .filter_map(|p| str::from_utf8(p).ok())
+                                .map(PathBuf::from)
+                                .collect::<Vec<_>>(),
+                            None => vec![],
+                        };
+                        ld_library_path_owned
+                            .iter()
+                            .map(AsRef::as_ref)
+                            .collect::<Vec<_>>()
+                    };
+
                     // TODO: make stack size configurable
-                    // TODO: make linker support update_layout and call_initialize when we plan for threads
-                    Linker::new(&module, &mut store, memory, &mut func_env, 8 * 1024 * 1024)
+                    Linker::new(
+                        &module,
+                        &mut store,
+                        memory,
+                        &mut func_env,
+                        8 * 1024 * 1024,
+                        &ld_library_path,
+                    )
                 }
             };
 
@@ -483,6 +511,7 @@ impl WasiEnv {
                 memory,
                 &store,
                 instance.clone(),
+                None,
             )),
             None => {
                 let exported_memory = instance
@@ -503,6 +532,7 @@ impl WasiEnv {
                     exported_memory,
                     &store,
                     instance.clone(),
+                    None,
                 ))
             }
         };

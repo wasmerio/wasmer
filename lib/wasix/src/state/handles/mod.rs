@@ -6,7 +6,7 @@ pub(crate) use global::*;
 #[cfg(feature = "js")]
 pub(crate) use thread_local::*;
 
-use tracing::trace;
+use tracing::{error, trace};
 use wasmer::{
     AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, Table,
     TypedFunction, Value,
@@ -114,18 +114,25 @@ pub struct WasiModuleInstanceHandles {
 }
 
 impl WasiModuleInstanceHandles {
-    pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
+    pub fn new(
+        memory: Memory,
+        store: &impl AsStoreRef,
+        instance: Instance,
+        indirect_function_table: Option<Table>,
+    ) -> Self {
         let has_stack_checkpoint = instance
             .module()
             .imports()
             .any(|f| f.name() == "stack_checkpoint");
         Self {
             memory,
-            indirect_function_table: instance
-                .exports
-                .get_table("__indirect_function_table")
-                .cloned()
-                .ok(),
+            indirect_function_table: indirect_function_table.or_else(|| {
+                instance
+                    .exports
+                    .get_table("__indirect_function_table")
+                    .cloned()
+                    .ok()
+            }),
             stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
             data_end: instance.exports.get_global("__data_end").cloned().ok(),
             stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
@@ -295,16 +302,12 @@ impl WasiModuleTreeHandles {
         store: &mut impl AsStoreMut,
         index: u32,
     ) -> Result<Option<Function>, Errno> {
-        let value = match self {
-            Self::Static(a) => a
-                .indirect_function_table
-                .as_ref()
-                .ok_or(Errno::Notsup)?
-                .get(store, index),
-            Self::Dynamic { linker, .. } => linker
-                .lookup_indirect_function_table(store, index)
-                .map_err(|_| Errno::Notsup)?,
-        };
+        let value = self
+            .main_module_instance_handles()
+            .indirect_function_table
+            .as_ref()
+            .ok_or(Errno::Notsup)?
+            .get(store, index);
         let Some(value) = value else {
             trace!(
                 function_id = index,
@@ -313,7 +316,7 @@ impl WasiModuleTreeHandles {
             return Ok(None);
         };
         let Value::FuncRef(funcref) = value else {
-            error!("Function table contains something other than a funcref. At this point this should never happen");
+            error!("Function table contains something other than a funcref");
             return Err(Errno::Inval);
         };
         let Some(funcref) = funcref else {

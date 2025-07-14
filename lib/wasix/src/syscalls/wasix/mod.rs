@@ -1,6 +1,8 @@
 mod call_dynamic;
 mod callback_signal;
 mod chdir;
+mod closure_allocate;
+mod closure_free;
 mod closure_prepare;
 mod dl_invalid_handle;
 mod dlopen;
@@ -85,6 +87,8 @@ mod tty_set;
 pub use call_dynamic::*;
 pub use callback_signal::*;
 pub use chdir::*;
+pub use closure_allocate::*;
+pub use closure_free::*;
 pub use closure_prepare::*;
 pub use dl_invalid_handle::*;
 pub use dlopen::*;
