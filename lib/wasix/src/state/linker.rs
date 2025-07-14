@@ -822,7 +822,7 @@ struct LinkerState {
     used_closure_functions: BTreeSet<u32>,
     /// Slots in the indirect function table that were allocated for closures but are currently not in use.
     /// These can be given out without needing to lock all threads.
-    available_closure_functions: BTreeSet<u32>,
+    available_closure_functions: Vec<u32>,
 
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
 
@@ -897,9 +897,8 @@ impl std::fmt::Debug for Linker {
     }
 }
 
-/// Contains everything that is required to find a module and load it into memory
-// TODO: Rename me
-pub enum WasmLoader<'a> {
+/// Locates and loads a file that looks like a WASM module into memory.
+pub enum DynamicLibraryFetcher<'a> {
     Filesystem {
         module_name: &'a str,
         ld_library_path: &'a [&'a Path],
@@ -910,13 +909,13 @@ pub enum WasmLoader<'a> {
         ld_library_path: &'a [&'a Path],
     },
 }
-impl WasmLoader<'_> {
+impl DynamicLibraryFetcher<'_> {
     // Get the name of the module.
     // This is the import name that was requested by the other shared library
     pub fn module_name(&self) -> &str {
         match self {
-            WasmLoader::Filesystem { module_name, .. } => module_name,
-            WasmLoader::Memory { module_name, .. } => module_name,
+            DynamicLibraryFetcher::Filesystem { module_name, .. } => module_name,
+            DynamicLibraryFetcher::Memory { module_name, .. } => module_name,
         }
     }
 
@@ -924,10 +923,10 @@ impl WasmLoader<'_> {
     // TODO: Move the library path somewhere else
     pub fn ld_library_path(&self) -> &[&Path] {
         match self {
-            WasmLoader::Filesystem {
+            DynamicLibraryFetcher::Filesystem {
                 ld_library_path, ..
             } => ld_library_path,
-            WasmLoader::Memory {
+            DynamicLibraryFetcher::Memory {
                 ld_library_path, ..
             } => ld_library_path,
         }
@@ -936,11 +935,11 @@ impl WasmLoader<'_> {
     // Load the modules code from the filesystem, or from memory if it's a memory module
     async fn load_module(&self, fs: &WasiFs) -> Result<(PathBuf, Vec<u8>), LinkError> {
         let (module_name, library_path) = match self {
-            WasmLoader::Filesystem {
+            DynamicLibraryFetcher::Filesystem {
                 module_name,
                 ld_library_path,
             } => (module_name, ld_library_path),
-            WasmLoader::Memory {
+            DynamicLibraryFetcher::Memory {
                 module_name, bytes, ..
             } => {
                 // TODO: Dont clone here
@@ -1172,7 +1171,7 @@ impl Linker {
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
             used_closure_functions: BTreeSet::new(),
-            available_closure_functions: BTreeSet::new(),
+            available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
             send_pending_operation_barrier: barrier_tx,
@@ -1225,7 +1224,7 @@ impl Linker {
             trace!(name = needed, "Loading module needed by main");
             let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                WasmLoader::Filesystem {
+                DynamicLibraryFetcher::Filesystem {
                     module_name: needed.as_str(),
                     // TODO: Use real ld_library_path
                     ld_library_path: &[],
@@ -1549,11 +1548,7 @@ impl Linker {
         let mut store = ctx.as_store_mut();
 
         // Use a previously allocated slot if possible
-        if !linker_state.available_closure_functions.is_empty() {
-            let function_index = linker_state
-                .available_closure_functions
-                .pop_first()
-                .unwrap();
+        if let Some(function_index) = linker_state.available_closure_functions.pop() {
             linker_state.used_closure_functions.insert(function_index);
             return Ok(function_index);
         }
@@ -1562,13 +1557,16 @@ impl Linker {
         const CLOSURE_ALLOCATION_SIZE: u32 = 100;
 
         let function_index = group_state
-            .allocate_function_table(&mut store, CLOSURE_ALLOCATION_SIZE, 1)
+            .allocate_function_table(&mut store, CLOSURE_ALLOCATION_SIZE, 0)
             .map_err(LinkError::TableAllocationError)? as u32;
 
+        linker_state
+            .available_closure_functions
+            .reserve(CLOSURE_ALLOCATION_SIZE as usize - 1);
         for i in 1..CLOSURE_ALLOCATION_SIZE {
             linker_state
                 .available_closure_functions
-                .insert(function_index + i);
+                .push(function_index + i);
         }
         linker_state.used_closure_functions.insert(function_index);
 
@@ -1582,7 +1580,6 @@ impl Linker {
             &ctx.data().process,
             ctx.data().tid(),
         );
-        // TODO: Cleanup the previous function when we are overriding something
 
         Ok(function_index)
     }
@@ -1607,7 +1604,7 @@ impl Linker {
             // Not used, nothing to do
             return Ok(());
         }
-        linker_state.available_closure_functions.insert(function_id);
+        linker_state.available_closure_functions.push(function_id);
 
         Ok(())
     }
@@ -1617,7 +1614,7 @@ impl Linker {
     /// [`Linker::resolve_export`].
     pub fn load_module(
         &self,
-        module_location: WasmLoader,
+        module_location: DynamicLibraryFetcher,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_path = module_location.module_name();
@@ -2316,7 +2313,7 @@ impl LinkerState {
     // it was already loaded, the existing handle is returned.
     fn load_module_tree(
         &mut self,
-        module_location: WasmLoader,
+        module_location: DynamicLibraryFetcher,
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
@@ -2367,7 +2364,7 @@ impl LinkerState {
         for needed in &dylink_info.needed {
             trace!(needed, "Loading needed side module");
             match self.load_module_tree(
-                WasmLoader::Filesystem {
+                DynamicLibraryFetcher::Filesystem {
                     module_name: needed.as_str(),
                     ld_library_path: module_location.ld_library_path(),
                 },
@@ -2437,6 +2434,8 @@ impl InstanceGroupState {
     }
 
     /// Allocate space on the indirect function table for the given number of functions
+    ///
+    /// table_alignment is the alignment of the table as a power of two.
     fn allocate_function_table(
         &mut self,
         store: &mut impl AsStoreMut,
@@ -2810,7 +2809,7 @@ impl InstanceGroupState {
     ) -> Result<(), LinkError> {
         trace!(index, "Applying function table allocation");
         let allocated_index = self
-            .allocate_function_table(store, size, 1)
+            .allocate_function_table(store, size, 0)
             .map_err(LinkError::TableAllocationError)? as u32;
         if allocated_index != index {
             panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");

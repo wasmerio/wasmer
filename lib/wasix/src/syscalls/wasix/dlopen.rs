@@ -1,5 +1,5 @@
 use super::*;
-use crate::{state::WasmLoader, syscalls::*};
+use crate::{state::DynamicLibraryFetcher, syscalls::*};
 
 // TODO: add journal events for dl-related syscalls
 #[instrument(level = "trace", skip_all, fields(path = field::Empty, flags), ret)]
@@ -46,7 +46,7 @@ pub fn dlopen<M: MemorySize>(
 
     let linker = linker.clone();
 
-    let location = WasmLoader::Filesystem {
+    let location = DynamicLibraryFetcher::Filesystem {
         module_name: &path,
         ld_library_path: ld_library_path.as_slice(),
     };

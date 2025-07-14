@@ -290,11 +290,11 @@ impl WasiModuleTreeHandles {
         }
     }
 
-    pub fn main_module_indirect_function_table_lookup(
+    pub fn indirect_function_table_lookup(
         &self,
         store: &mut impl AsStoreMut,
         index: u32,
-    ) -> Result<Function, Errno> {
+    ) -> Result<Option<Function>, Errno> {
         let value = match self {
             Self::Static(a) => a
                 .indirect_function_table
@@ -310,15 +310,16 @@ impl WasiModuleTreeHandles {
                 function_id = index,
                 "Function not found in indirect function table"
             );
-            return Err(Errno::Inval);
+            return Ok(None);
         };
         let Value::FuncRef(funcref) = value else {
-            unreachable!("Function table contains something other than a funcref. At this point this should never happen");
+            error!("Function table contains something other than a funcref. At this point this should never happen");
+            return Err(Errno::Inval);
         };
         let Some(funcref) = funcref else {
             trace!(function_id = index, "No function at the supplied index");
-            return Err(Errno::Inval);
+            return Ok(None);
         };
-        Ok(funcref)
+        Ok(Some(funcref))
     }
 }

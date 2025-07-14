@@ -1,4 +1,3 @@
-use thiserror::Error;
 use wasmer_types::{RawValue, Type};
 
 use crate::{

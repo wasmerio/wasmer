@@ -2,7 +2,6 @@ use super::*;
 use crate::syscalls::*;
 use wasmer::Type;
 
-// TODO: Decide on whether to move this back into Value or not.
 #[cfg(target_endian = "little")]
 /// Get a slice to the content of this value if it is a scalar type.
 ///
@@ -38,7 +37,6 @@ fn value_as_bytes(value: &Value) -> Option<&[u8]> {
     }
 }
 
-// TODO: Decide on whether to move this back into Value or not.
 #[cfg(target_endian = "little")]
 /// Get a mutable slice to the content of this value if it is a scalar type.
 ///
@@ -76,13 +74,19 @@ fn value_as_bytes_mut(value: &mut Value) -> Option<&mut [u8]> {
 
 /// Call a function from the `__indirect_function_table` with parameters and results from memory.
 ///
-/// This function can be used to call functions whose types are not known at compile time of the caller. It is the callers responsibility to ensure that the passed parameters and results match the signature of the function beeing called.
+/// This function can be used to call functions whose types are not known at
+/// compile time of the caller. It is the callers responsibility to ensure
+/// that the passed parameters and results match the signature of the function
+/// beeing called.
 ///
 /// ### Format of the values and results buffer
 ///
-/// The buffers contain all values sequentially. i32, and f32 are 4 bytes, i64 and f64 are 8 bytes, v128 is 16 bytes.
+/// The buffers contain all values sequentially. i32, and f32 are 4 bytes,
+/// i64 and f64 are 8 bytes, v128 is 16 bytes.
 ///     
-/// For example if the function takes an i32 and an i64, the values buffer will be 12 bytes long, with the first 4 bytes being the i32 and the next 8 bytes being the i64.
+/// For example if the function takes an i32 and an i64, the values buffer will
+/// be 12 bytes long, with the first 4 bytes being the i32 and the next 8
+/// bytes being the i64.
 ///
 /// ### Parameters
 ///
@@ -100,20 +104,26 @@ fn value_as_bytes_mut(value: &mut Value) -> Option<&mut [u8]> {
 ///
 ///   The buffer needs to be large enough to hold all return values.
 ///
-#[instrument(level = "trace", skip_all, fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()), ret)]
+#[instrument(
+    level = "trace",
+    skip_all, fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
+    ret
+)]
 pub fn call_dynamic<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     function_id: u32,
     values: WasmPtr<u8, M>,
     results: WasmPtr<u8, M>,
 ) -> Result<Errno, WasiRuntimeError> {
-    WasiEnv::do_pending_operations(&mut ctx)?;
+    // // Our do_pending_operations implementation is quite slow, so we don't call it here.
+    // WasiEnv::do_pending_operations(&mut ctx)?;
 
     let (env, mut store) = ctx.data_and_store_mut();
 
     let function = wasi_try_ok!(env
         .inner()
-        .main_module_indirect_function_table_lookup(&mut store, function_id));
+        .indirect_function_table_lookup(&mut store, function_id)
+        .and_then(|f| f.ok_or(Errno::Inval)));
 
     let function_type = function.ty(&store);
 

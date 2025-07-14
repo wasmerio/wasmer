@@ -8,7 +8,7 @@
 //! 4. Call [`closure_prepare`] again to redefine the function pointer
 //! 5. Notify wasmer that the closure is no longer needed with [`closure_free`]
 
-use crate::{state::WasmLoader, syscalls::*};
+use crate::{state::DynamicLibraryFetcher, syscalls::*};
 use std::{path::PathBuf, sync::atomic::AtomicUsize};
 use wasm_encoder::{
     CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
@@ -154,7 +154,7 @@ fn build_closure_wasm_bytes(
         "memory",
         MemoryType {
             minimum: 1,
-            maximum: Some(65536),
+            maximum: None,
             shared: true,
             memory64: false,
             page_size_log2: None,
@@ -327,7 +327,7 @@ pub fn closure_prepare<M: MemorySize>(
     let memory = unsafe { env.memory_view(&store) };
 
     let Some(linker) = env.inner().linker().cloned() else {
-        trace!("Closures only work for dynamic modules.");
+        error!("Closures only work for dynamic modules.");
         return Ok(Errno::Notsup);
     };
 
@@ -372,7 +372,7 @@ pub fn closure_prepare<M: MemorySize>(
     );
 
     let ld_library_path: [&Path; 0] = [];
-    let wasm_loader = WasmLoader::Memory {
+    let wasm_loader = DynamicLibraryFetcher::Memory {
         module_name: &module_name,
         bytes: &wasm_bytes,
         ld_library_path: ld_library_path.as_slice(),
@@ -402,7 +402,7 @@ pub fn closure_allocate<M: MemorySize>(
 
     let (env, mut store) = ctx.data_and_store_mut();
     let Some(linker) = env.inner().linker().cloned() else {
-        trace!("Closures only work for dynamic modules.");
+        error!("Closures only work for dynamic modules.");
         return Ok(Errno::Notsup);
     };
 
@@ -410,7 +410,8 @@ pub fn closure_allocate<M: MemorySize>(
         Ok(f) => f,
         Err(e) => {
             // Should never happen
-            panic!("Failed to allocate closure index: {e}");
+            error!("Failed to allocate closure index: {e}");
+            return Ok(Errno::Memviolation);
         }
     };
 
@@ -433,7 +434,7 @@ pub fn closure_free<M: MemorySize>(
     let (env, mut store) = ctx.data_and_store_mut();
 
     let Some(linker) = env.inner().linker().cloned() else {
-        trace!("Closures only work for dynamic modules.");
+        error!("Closures only work for dynamic modules.");
         return Ok(Errno::Notsup);
     };
 
