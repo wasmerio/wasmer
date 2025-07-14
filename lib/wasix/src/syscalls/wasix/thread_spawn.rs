@@ -183,6 +183,97 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     Ok(())
 }
 
+// This function calls into the module
+fn call_module_internal<M: MemorySize>(
+    env: &WasiFunctionEnv,
+    store: &mut Store,
+    start_ptr_offset: M::Offset,
+) -> Result<(), DeepSleepWork> {
+    // We either call the reactor callback or the thread spawn callback
+    //trace!("threading: invoking thread callback (reactor={})", reactor);
+
+    // Note: we ensure both unwraps can happen before getting to this point
+    let spawn = env
+        .data(&store)
+        .inner()
+        .main_module_instance_handles()
+        .thread_spawn
+        .clone()
+        .unwrap();
+    let tid = env.data(&store).tid();
+    let thread_result = spawn.call(
+        store,
+        tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap(),
+        start_ptr_offset
+            .try_into()
+            .map_err(|_| Errno::Overflow)
+            .unwrap(),
+    );
+    trace!("callback finished (ret={:?})", thread_result);
+
+    let exit_code = handle_thread_result(env, store, thread_result)?;
+
+    // Clean up the environment on exit
+    env.on_exit(store, exit_code);
+    Ok(())
+}
+
+fn handle_thread_result(
+    env: &WasiFunctionEnv,
+    store: &mut Store,
+    err: Result<(), RuntimeError>,
+) -> Result<Option<ExitCode>, DeepSleepWork> {
+    let tid = env.data(&store).tid();
+    let pid = env.data(&store).pid();
+    let Err(err) = err else {
+        trace!("thread exited cleanly without calling thread_exit");
+        return Ok(None);
+    };
+    match err.downcast::<WasiError>() {
+        Ok(WasiError::ThreadExit) => {
+            trace!("thread exited cleanly");
+            Ok(None)
+        }
+        Ok(WasiError::Exit(code)) => {
+            trace!(exit_code = ?code, "thread requested exit");
+            if !code.is_success() {
+                // TODO: Is this sound? Why do we need this?
+                env.data(&store)
+                    .runtime
+                    .on_taint(TaintReason::NonZeroExitCode(code));
+            };
+            Ok(Some(code))
+        }
+        Ok(WasiError::DeepSleep(deep)) => {
+            trace!("entered a deep sleep");
+            Err(deep)
+        }
+        Ok(WasiError::UnknownWasiVersion) => {
+            eprintln!(
+                "Thread {tid} of process {pid} failed because it has a unknown wasix version"
+            );
+            env.data(&store)
+                .runtime
+                .on_taint(TaintReason::UnknownWasiVersion);
+            Ok(Some(ExitCode::from(129)))
+        }
+        Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+            eprintln!("Thread {tid} of process {pid} failed to find required symbol: {symbol}");
+            env.data(&store)
+                .runtime
+                .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+            Ok(Some(ExitCode::from(129)))
+        }
+        Err(err) => {
+            eprintln!("Thread {tid} of process {pid} failed with runtime error: {err}");
+            env.data(&store)
+                .runtime
+                .on_taint(TaintReason::RuntimeError(err));
+            Ok(Some(ExitCode::from(129)))
+        }
+    }
+}
+
 /// Calls the module
 fn call_module<M: MemorySize>(
     mut ctx: WasiFunctionEnv,
@@ -190,102 +281,9 @@ fn call_module<M: MemorySize>(
     start_ptr_offset: M::Offset,
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<(RewindState, RewindResultType)>,
-) -> Result<Tid, Errno> {
+) {
     let env = ctx.data(&store);
     let tasks = env.tasks().clone();
-
-    // This function calls into the module
-    let call_module_internal = move |env: &WasiFunctionEnv, store: &mut Store| {
-        // We either call the reactor callback or the thread spawn callback
-        //trace!("threading: invoking thread callback (reactor={})", reactor);
-
-        // Note: we ensure both unwraps can happen before getting to this point
-        let spawn = env
-            .data(&store)
-            .inner()
-            .main_module_instance_handles()
-            .thread_spawn
-            .clone()
-            .unwrap();
-        let tid = env.data(&store).tid();
-        let call_ret = spawn.call(
-            store,
-            tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap(),
-            start_ptr_offset
-                .try_into()
-                .map_err(|_| Errno::Overflow)
-                .unwrap(),
-        );
-        trace!("callback finished (ret={:?})", call_ret);
-
-        let mut ret = Errno::Success;
-        let mut exit_code = None;
-        if let Err(err) = call_ret {
-            match err.downcast::<WasiError>() {
-                Ok(WasiError::ThreadExit) => {
-                    trace!("thread exited cleanly");
-                    ret = Errno::Success;
-                }
-                Ok(WasiError::Exit(code)) => {
-                    trace!(exit_code = ?code, "thread requested exit");
-                    exit_code = Some(code);
-                    ret = if code.is_success() {
-                        Errno::Success
-                    } else {
-                        env.data(&store)
-                            .runtime
-                            .on_taint(TaintReason::NonZeroExitCode(code));
-                        Errno::Noexec
-                    };
-                }
-                Ok(WasiError::DeepSleep(deep)) => {
-                    trace!("entered a deep sleep");
-                    return Err(deep);
-                }
-                Ok(WasiError::UnknownWasiVersion) => {
-                    eprintln!(
-                        "Thread {} of process {} failed because it has a unknown wasix version",
-                        tid, pid
-                    );
-                    env.data(&store)
-                        .runtime
-                        .on_taint(TaintReason::UnknownWasiVersion);
-                    ret = Errno::Noexec;
-                    exit_code = Some(ExitCode::from(129));
-                }
-                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
-                    eprintln!(
-                        "Thread {} of process {} failed to find required symbol: {}",
-                        tid, pid, symbol
-                    );
-                    env.data(&store)
-                        .runtime
-                        .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
-                    ret = Errno::Nolink;
-                    exit_code = Some(ExitCode::from(129));
-                }
-                Err(err) => {
-                    eprintln!(
-                        "Thread {} of process {} failed with runtime error: {}",
-                        tid, pid, err
-                    );
-                    env.data(&store)
-                        .runtime
-                        .on_taint(TaintReason::RuntimeError(err));
-                    ret = Errno::Noexec;
-                    exit_code = Some(ExitCode::from(129));
-                }
-            }
-        } else {
-            debug!("thread exited cleanly without calling thread_exit");
-        }
-
-        // Clean up the environment
-        env.on_exit(store, exit_code);
-
-        // Return the result
-        Ok(ret as u32)
-    };
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
@@ -298,42 +296,37 @@ fn call_module<M: MemorySize>(
             rewind_result,
         );
         if res != Errno::Success {
-            return Err(res);
+            return;
         }
     }
 
     // Now invoke the module
-    let ret = call_module_internal(&ctx, &mut store);
+    let ret = call_module_internal::<M>(&ctx, &mut store, start_ptr_offset);
 
     // If it went to deep sleep then we need to handle that
-    match ret {
-        Ok(ret) => {
-            // Frees the handle so that it closes
-            drop(thread_handle);
-            Ok(ret as Pid)
-        }
-        Err(deep) => {
-            // Create the callback that will be invoked when the thread respawns after a deep sleep
-            let rewind = deep.rewind;
-            let respawn = {
-                let tasks = tasks.clone();
-                move |ctx, store, trigger_res| {
-                    // Call the thread
-                    call_module::<M>(
-                        ctx,
-                        store,
-                        start_ptr_offset,
-                        thread_handle,
-                        Some((rewind, RewindResultType::RewindWithResult(trigger_res))),
-                    );
-                }
-            };
+    if let Err(deep) = ret {
+        // Create the callback that will be invoked when the thread respawns after a deep sleep
+        let rewind = deep.rewind;
+        let respawn = {
+            let tasks = tasks.clone();
+            move |ctx, store, trigger_res| {
+                // Call the thread
+                call_module::<M>(
+                    ctx,
+                    store,
+                    start_ptr_offset,
+                    thread_handle,
+                    Some((rewind, RewindResultType::RewindWithResult(trigger_res))),
+                );
+            }
+        };
 
-            /// Spawns the WASM process after a trigger
-            unsafe {
-                tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-            };
-            Err(Errno::Unknown)
-        }
-    }
+        /// Spawns the WASM process after a trigger
+        unsafe {
+            tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+        };
+        return;
+    };
+    // I don't think we need to do this explicitly, but it was done before refactoring so we keep it for now.
+    drop(thread_handle);
 }
