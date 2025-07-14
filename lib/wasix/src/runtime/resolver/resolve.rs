@@ -449,7 +449,7 @@ mod tests {
         summary: PackageSummary,
     }
 
-    impl<'builder> AddPackageVersion<'builder> {
+    impl AddPackageVersion<'_> {
         fn with_dependency(&mut self, name: &str, version_constraint: &str) -> &mut Self {
             self.with_aliased_dependency(name, name, version_constraint)
         }
@@ -520,7 +520,7 @@ mod tests {
         }
     }
 
-    impl<'builder> Drop for AddPackageVersion<'builder> {
+    impl Drop for AddPackageVersion<'_> {
         fn drop(&mut self) {
             let summary = self.summary.clone();
             self.builder.add(summary);
@@ -592,7 +592,7 @@ mod tests {
         dependencies: BTreeMap<String, PackageId>,
     }
 
-    impl<'source, 'builder> DependencyGraphEntryBuilder<'source, 'builder> {
+    impl DependencyGraphEntryBuilder<'_, '_> {
         fn with_dependency(&mut self, id: &PackageId) -> &mut Self {
             let name = &id.as_named().unwrap().full_name;
             self.with_aliased_dependency(name, id)
@@ -605,7 +605,7 @@ mod tests {
         }
     }
 
-    impl<'source, 'builder> Drop for DependencyGraphEntryBuilder<'source, 'builder> {
+    impl Drop for DependencyGraphEntryBuilder<'_, '_> {
         fn drop(&mut self) {
             self.builder
                 .dependencies
