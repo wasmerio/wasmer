@@ -154,7 +154,7 @@ fn build_closure_wasm_bytes(
         "memory",
         MemoryType {
             minimum: 1,
-            maximum: None,
+            maximum: Some(65536),
             shared: true,
             memory64: false,
             page_size_log2: None,
@@ -167,7 +167,7 @@ fn build_closure_wasm_bytes(
         TableType {
             element_type: RefType::FUNCREF,
             minimum: 1,
-            maximum: Some(65535),
+            maximum: None,
             shared: false,
             table64: false,
         },
