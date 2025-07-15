@@ -3848,7 +3848,36 @@
 <a href="#3847" id="3847">3847</a>
 <a href="#3848" id="3848">3848</a>
 <a href="#3849" id="3849">3849</a>
-<a href="#3850" id="3850">3850</a></pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
+<a href="#3850" id="3850">3850</a>
+<a href="#3851" id="3851">3851</a>
+<a href="#3852" id="3852">3852</a>
+<a href="#3853" id="3853">3853</a>
+<a href="#3854" id="3854">3854</a>
+<a href="#3855" id="3855">3855</a>
+<a href="#3856" id="3856">3856</a>
+<a href="#3857" id="3857">3857</a>
+<a href="#3858" id="3858">3858</a>
+<a href="#3859" id="3859">3859</a>
+<a href="#3860" id="3860">3860</a>
+<a href="#3861" id="3861">3861</a>
+<a href="#3862" id="3862">3862</a>
+<a href="#3863" id="3863">3863</a>
+<a href="#3864" id="3864">3864</a>
+<a href="#3865" id="3865">3865</a>
+<a href="#3866" id="3866">3866</a>
+<a href="#3867" id="3867">3867</a>
+<a href="#3868" id="3868">3868</a>
+<a href="#3869" id="3869">3869</a>
+<a href="#3870" id="3870">3870</a>
+<a href="#3871" id="3871">3871</a>
+<a href="#3872" id="3872">3872</a>
+<a href="#3873" id="3873">3873</a>
+<a href="#3874" id="3874">3874</a>
+<a href="#3875" id="3875">3875</a>
+<a href="#3876" id="3876">3876</a>
+<a href="#3877" id="3877">3877</a>
+<a href="#3878" id="3878">3878</a>
+<a href="#3879" id="3879">3879</a></pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -6284,6 +6313,35 @@
 <span class="kw">impl </span>DlFlags {
     <span class="kw">pub fn </span>from_bits_preserve(bits: u32) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{ bits }
+    }
+}
+
+<span class="attr">#[doc = <span class="string">" The type of a WASM value represented at runtime for use with the wasix closures API."</span>]
+#[doc = <span class="string">""</span>]
+#[doc = <span class="string">" For now only number types are supported, but this may be extended in the future to include references"</span>]
+#[repr(u8)]
+#[derive(Clone, Copy, PartialEq, Eq, num_enum :: TryFromPrimitive, Hash)]
+</span><span class="kw">pub enum </span>WasmValueType {
+    <span class="attr">#[doc = <span class="string">" A i32 parameter."</span>]
+    </span>I32,
+    <span class="attr">#[doc = <span class="string">" A i64 parameter."</span>]
+    </span>I64,
+    <span class="attr">#[doc = <span class="string">" A f32 parameter."</span>]
+    </span>F32,
+    <span class="attr">#[doc = <span class="string">" A f64 parameter."</span>]
+    </span>F64,
+    <span class="attr">#[doc = <span class="string">" A v128 parameter."</span>]
+    </span>V128,
+}
+<span class="kw">impl </span>core::fmt::Debug <span class="kw">for </span>WasmValueType {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            WasmValueType::I32 =&gt; f.debug_tuple(<span class="string">"WasmValueType::I32"</span>).finish(),
+            WasmValueType::I64 =&gt; f.debug_tuple(<span class="string">"WasmValueType::I64"</span>).finish(),
+            WasmValueType::F32 =&gt; f.debug_tuple(<span class="string">"WasmValueType::F32"</span>).finish(),
+            WasmValueType::F64 =&gt; f.debug_tuple(<span class="string">"WasmValueType::F64"</span>).finish(),
+            WasmValueType::V128 =&gt; f.debug_tuple(<span class="string">"WasmValueType::V128"</span>).finish(),
+        }
     }
 }
 

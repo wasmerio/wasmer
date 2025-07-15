@@ -78,11 +78,26 @@
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
-<span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<span class="kw">use crate</span>::{state::DlModuleSpec, syscalls::<span class="kw-2">*</span>};
 
 <span class="comment">// TODO: add journal events for dl-related syscalls
-</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(path = field::Empty), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(path = field::Empty, flags), ret)]
 </span><span class="kw">pub fn </span>dlopen&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     path: WasmPtr&lt;u8, M&gt;,
@@ -98,11 +113,6 @@
 
     <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
-    <span class="kw">let </span>path = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
-    <span class="kw">let </span>ld_library_path =
-        <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, ld_library_path, ld_library_path_len) };
-    <span class="kw">let </span>ld_library_path = ld_library_path.split(<span class="string">':'</span>).collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-    Span::current().record(<span class="string">"path"</span>, path.as_str());
 
     <span class="kw">let </span>env_inner = <span class="kw">unsafe </span>{ env.inner() };
     <span class="kw">let </span><span class="prelude-val">Some</span>(linker) = env_inner.linker() <span class="kw">else </span>{
@@ -113,9 +123,29 @@
             err_buf_len
         );
     };
+
+    <span class="kw">if </span>path.is_null() {
+        <span class="comment">// A null file name symbolizes the main module, which has a static handle
+        </span><span class="macro">wasi_try_mem_ok!</span>(out_handle.write(<span class="kw-2">&amp;</span>memory, <span class="kw">crate</span>::state::MAIN_MODULE_HANDLE.into()));
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Success);
+    }
+
+    <span class="kw">let </span>path = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    <span class="kw">let </span>ld_library_path =
+        <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, ld_library_path, ld_library_path_len) };
+    <span class="kw">let </span>ld_library_path = ld_library_path
+        .split(<span class="string">':'</span>)
+        .map(Path::new)
+        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+    Span::current().record(<span class="string">"path"</span>, path.as_str());
+
     <span class="kw">let </span>linker = linker.clone();
 
-    <span class="kw">let </span>module_handle = linker.load_module(path, <span class="kw-2">&amp;</span>ld_library_path, <span class="kw-2">&amp;mut </span>ctx);
+    <span class="kw">let </span>location = DlModuleSpec::FileSystem {
+        module_spec: Path::new(<span class="kw-2">&amp;</span>path),
+        ld_library_path: ld_library_path.as_slice(),
+    };
+    <span class="kw">let </span>module_handle = linker.load_module(location, <span class="kw-2">&amp;mut </span>ctx);
 
     <span class="comment">// Reborrow to keep rust happy
     </span><span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();

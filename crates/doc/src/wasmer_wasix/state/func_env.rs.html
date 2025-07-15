@@ -460,7 +460,8 @@
 <a href="#459" id="459">459</a>
 <a href="#460" id="460">460</a>
 <a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a></pre></div><pre class="rust"><code><span class="kw">use </span>tracing::trace;
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a></pre></div><pre class="rust"><code><span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnv, FunctionEnvMut, Imports, Instance, Memory,
     Module, Store,
@@ -611,6 +612,7 @@
                 exported_memory,
                 store,
                 instance,
+                <span class="prelude-val">None</span>,
             )),
             <span class="prelude-val">None</span>,
             <span class="bool-val">true</span>,

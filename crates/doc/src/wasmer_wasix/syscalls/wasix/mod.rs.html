@@ -163,8 +163,20 @@
 <a href="#162" id="162">162</a>
 <a href="#163" id="163">163</a>
 <a href="#164" id="164">164</a>
-<a href="#165" id="165">165</a></pre></div><pre class="rust"><code><span class="kw">mod </span>callback_signal;
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a></pre></div><pre class="rust"><code><span class="kw">mod </span>call_dynamic;
+<span class="kw">mod </span>callback_signal;
 <span class="kw">mod </span>chdir;
+<span class="kw">mod </span>closure_allocate;
+<span class="kw">mod </span>closure_free;
+<span class="kw">mod </span>closure_prepare;
 <span class="kw">mod </span>dl_invalid_handle;
 <span class="kw">mod </span>dlopen;
 <span class="kw">mod </span>dlsym;
@@ -245,8 +257,12 @@
 <span class="kw">mod </span>tty_get;
 <span class="kw">mod </span>tty_set;
 
+<span class="kw">pub use </span>call_dynamic::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>callback_signal::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>chdir::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>closure_allocate::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>closure_free::<span class="kw-2">*</span>;
+<span class="kw">pub use </span>closure_prepare::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>dl_invalid_handle::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>dlopen::<span class="kw-2">*</span>;
 <span class="kw">pub use </span>dlsym::<span class="kw-2">*</span>;

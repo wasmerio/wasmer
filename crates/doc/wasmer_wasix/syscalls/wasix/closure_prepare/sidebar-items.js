@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["build_closure_wasm_bytes","closure_prepare"],"static":["CLOSURE_ID"],"trait":["ValTypeOps"]};

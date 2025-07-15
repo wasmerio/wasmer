@@ -3893,7 +3893,219 @@
 <a href="#3892" id="3892">3892</a>
 <a href="#3893" id="3893">3893</a>
 <a href="#3894" id="3894">3894</a>
-<a href="#3895" id="3895">3895</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#3895" id="3895">3895</a>
+<a href="#3896" id="3896">3896</a>
+<a href="#3897" id="3897">3897</a>
+<a href="#3898" id="3898">3898</a>
+<a href="#3899" id="3899">3899</a>
+<a href="#3900" id="3900">3900</a>
+<a href="#3901" id="3901">3901</a>
+<a href="#3902" id="3902">3902</a>
+<a href="#3903" id="3903">3903</a>
+<a href="#3904" id="3904">3904</a>
+<a href="#3905" id="3905">3905</a>
+<a href="#3906" id="3906">3906</a>
+<a href="#3907" id="3907">3907</a>
+<a href="#3908" id="3908">3908</a>
+<a href="#3909" id="3909">3909</a>
+<a href="#3910" id="3910">3910</a>
+<a href="#3911" id="3911">3911</a>
+<a href="#3912" id="3912">3912</a>
+<a href="#3913" id="3913">3913</a>
+<a href="#3914" id="3914">3914</a>
+<a href="#3915" id="3915">3915</a>
+<a href="#3916" id="3916">3916</a>
+<a href="#3917" id="3917">3917</a>
+<a href="#3918" id="3918">3918</a>
+<a href="#3919" id="3919">3919</a>
+<a href="#3920" id="3920">3920</a>
+<a href="#3921" id="3921">3921</a>
+<a href="#3922" id="3922">3922</a>
+<a href="#3923" id="3923">3923</a>
+<a href="#3924" id="3924">3924</a>
+<a href="#3925" id="3925">3925</a>
+<a href="#3926" id="3926">3926</a>
+<a href="#3927" id="3927">3927</a>
+<a href="#3928" id="3928">3928</a>
+<a href="#3929" id="3929">3929</a>
+<a href="#3930" id="3930">3930</a>
+<a href="#3931" id="3931">3931</a>
+<a href="#3932" id="3932">3932</a>
+<a href="#3933" id="3933">3933</a>
+<a href="#3934" id="3934">3934</a>
+<a href="#3935" id="3935">3935</a>
+<a href="#3936" id="3936">3936</a>
+<a href="#3937" id="3937">3937</a>
+<a href="#3938" id="3938">3938</a>
+<a href="#3939" id="3939">3939</a>
+<a href="#3940" id="3940">3940</a>
+<a href="#3941" id="3941">3941</a>
+<a href="#3942" id="3942">3942</a>
+<a href="#3943" id="3943">3943</a>
+<a href="#3944" id="3944">3944</a>
+<a href="#3945" id="3945">3945</a>
+<a href="#3946" id="3946">3946</a>
+<a href="#3947" id="3947">3947</a>
+<a href="#3948" id="3948">3948</a>
+<a href="#3949" id="3949">3949</a>
+<a href="#3950" id="3950">3950</a>
+<a href="#3951" id="3951">3951</a>
+<a href="#3952" id="3952">3952</a>
+<a href="#3953" id="3953">3953</a>
+<a href="#3954" id="3954">3954</a>
+<a href="#3955" id="3955">3955</a>
+<a href="#3956" id="3956">3956</a>
+<a href="#3957" id="3957">3957</a>
+<a href="#3958" id="3958">3958</a>
+<a href="#3959" id="3959">3959</a>
+<a href="#3960" id="3960">3960</a>
+<a href="#3961" id="3961">3961</a>
+<a href="#3962" id="3962">3962</a>
+<a href="#3963" id="3963">3963</a>
+<a href="#3964" id="3964">3964</a>
+<a href="#3965" id="3965">3965</a>
+<a href="#3966" id="3966">3966</a>
+<a href="#3967" id="3967">3967</a>
+<a href="#3968" id="3968">3968</a>
+<a href="#3969" id="3969">3969</a>
+<a href="#3970" id="3970">3970</a>
+<a href="#3971" id="3971">3971</a>
+<a href="#3972" id="3972">3972</a>
+<a href="#3973" id="3973">3973</a>
+<a href="#3974" id="3974">3974</a>
+<a href="#3975" id="3975">3975</a>
+<a href="#3976" id="3976">3976</a>
+<a href="#3977" id="3977">3977</a>
+<a href="#3978" id="3978">3978</a>
+<a href="#3979" id="3979">3979</a>
+<a href="#3980" id="3980">3980</a>
+<a href="#3981" id="3981">3981</a>
+<a href="#3982" id="3982">3982</a>
+<a href="#3983" id="3983">3983</a>
+<a href="#3984" id="3984">3984</a>
+<a href="#3985" id="3985">3985</a>
+<a href="#3986" id="3986">3986</a>
+<a href="#3987" id="3987">3987</a>
+<a href="#3988" id="3988">3988</a>
+<a href="#3989" id="3989">3989</a>
+<a href="#3990" id="3990">3990</a>
+<a href="#3991" id="3991">3991</a>
+<a href="#3992" id="3992">3992</a>
+<a href="#3993" id="3993">3993</a>
+<a href="#3994" id="3994">3994</a>
+<a href="#3995" id="3995">3995</a>
+<a href="#3996" id="3996">3996</a>
+<a href="#3997" id="3997">3997</a>
+<a href="#3998" id="3998">3998</a>
+<a href="#3999" id="3999">3999</a>
+<a href="#4000" id="4000">4000</a>
+<a href="#4001" id="4001">4001</a>
+<a href="#4002" id="4002">4002</a>
+<a href="#4003" id="4003">4003</a>
+<a href="#4004" id="4004">4004</a>
+<a href="#4005" id="4005">4005</a>
+<a href="#4006" id="4006">4006</a>
+<a href="#4007" id="4007">4007</a>
+<a href="#4008" id="4008">4008</a>
+<a href="#4009" id="4009">4009</a>
+<a href="#4010" id="4010">4010</a>
+<a href="#4011" id="4011">4011</a>
+<a href="#4012" id="4012">4012</a>
+<a href="#4013" id="4013">4013</a>
+<a href="#4014" id="4014">4014</a>
+<a href="#4015" id="4015">4015</a>
+<a href="#4016" id="4016">4016</a>
+<a href="#4017" id="4017">4017</a>
+<a href="#4018" id="4018">4018</a>
+<a href="#4019" id="4019">4019</a>
+<a href="#4020" id="4020">4020</a>
+<a href="#4021" id="4021">4021</a>
+<a href="#4022" id="4022">4022</a>
+<a href="#4023" id="4023">4023</a>
+<a href="#4024" id="4024">4024</a>
+<a href="#4025" id="4025">4025</a>
+<a href="#4026" id="4026">4026</a>
+<a href="#4027" id="4027">4027</a>
+<a href="#4028" id="4028">4028</a>
+<a href="#4029" id="4029">4029</a>
+<a href="#4030" id="4030">4030</a>
+<a href="#4031" id="4031">4031</a>
+<a href="#4032" id="4032">4032</a>
+<a href="#4033" id="4033">4033</a>
+<a href="#4034" id="4034">4034</a>
+<a href="#4035" id="4035">4035</a>
+<a href="#4036" id="4036">4036</a>
+<a href="#4037" id="4037">4037</a>
+<a href="#4038" id="4038">4038</a>
+<a href="#4039" id="4039">4039</a>
+<a href="#4040" id="4040">4040</a>
+<a href="#4041" id="4041">4041</a>
+<a href="#4042" id="4042">4042</a>
+<a href="#4043" id="4043">4043</a>
+<a href="#4044" id="4044">4044</a>
+<a href="#4045" id="4045">4045</a>
+<a href="#4046" id="4046">4046</a>
+<a href="#4047" id="4047">4047</a>
+<a href="#4048" id="4048">4048</a>
+<a href="#4049" id="4049">4049</a>
+<a href="#4050" id="4050">4050</a>
+<a href="#4051" id="4051">4051</a>
+<a href="#4052" id="4052">4052</a>
+<a href="#4053" id="4053">4053</a>
+<a href="#4054" id="4054">4054</a>
+<a href="#4055" id="4055">4055</a>
+<a href="#4056" id="4056">4056</a>
+<a href="#4057" id="4057">4057</a>
+<a href="#4058" id="4058">4058</a>
+<a href="#4059" id="4059">4059</a>
+<a href="#4060" id="4060">4060</a>
+<a href="#4061" id="4061">4061</a>
+<a href="#4062" id="4062">4062</a>
+<a href="#4063" id="4063">4063</a>
+<a href="#4064" id="4064">4064</a>
+<a href="#4065" id="4065">4065</a>
+<a href="#4066" id="4066">4066</a>
+<a href="#4067" id="4067">4067</a>
+<a href="#4068" id="4068">4068</a>
+<a href="#4069" id="4069">4069</a>
+<a href="#4070" id="4070">4070</a>
+<a href="#4071" id="4071">4071</a>
+<a href="#4072" id="4072">4072</a>
+<a href="#4073" id="4073">4073</a>
+<a href="#4074" id="4074">4074</a>
+<a href="#4075" id="4075">4075</a>
+<a href="#4076" id="4076">4076</a>
+<a href="#4077" id="4077">4077</a>
+<a href="#4078" id="4078">4078</a>
+<a href="#4079" id="4079">4079</a>
+<a href="#4080" id="4080">4080</a>
+<a href="#4081" id="4081">4081</a>
+<a href="#4082" id="4082">4082</a>
+<a href="#4083" id="4083">4083</a>
+<a href="#4084" id="4084">4084</a>
+<a href="#4085" id="4085">4085</a>
+<a href="#4086" id="4086">4086</a>
+<a href="#4087" id="4087">4087</a>
+<a href="#4088" id="4088">4088</a>
+<a href="#4089" id="4089">4089</a>
+<a href="#4090" id="4090">4090</a>
+<a href="#4091" id="4091">4091</a>
+<a href="#4092" id="4092">4092</a>
+<a href="#4093" id="4093">4093</a>
+<a href="#4094" id="4094">4094</a>
+<a href="#4095" id="4095">4095</a>
+<a href="#4096" id="4096">4096</a>
+<a href="#4097" id="4097">4097</a>
+<a href="#4098" id="4098">4098</a>
+<a href="#4099" id="4099">4099</a>
+<a href="#4100" id="4100">4100</a>
+<a href="#4101" id="4101">4101</a>
+<a href="#4102" id="4102">4102</a>
+<a href="#4103" id="4103">4103</a>
+<a href="#4104" id="4104">4104</a>
+<a href="#4105" id="4105">4105</a>
+<a href="#4106" id="4106">4106</a>
+<a href="#4107" id="4107">4107</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4154,7 +4366,8 @@
 </span><span class="attr">#![allow(clippy::result_large_err)]
 
 </span><span class="kw">use </span>std::{
-    collections::{BTreeMap, HashMap},
+    borrow::Cow,
+    collections::{BTreeMap, BTreeSet, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -4184,8 +4397,8 @@
 
 <span class="kw">use super</span>::{WasiModuleInstanceHandles, WasiState};
 
-<span class="comment">// Module handle 0 is always the main module. Side modules get handles starting from 1.
-</span><span class="kw">pub static </span>MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(<span class="number">0</span>);
+<span class="comment">// Module handle 1 is always the main module. Side modules get handles starting from the next one after the main module.
+</span><span class="kw">pub static </span>MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(<span class="number">1</span>);
 <span class="kw">static </span>INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
 <span class="kw">static </span>MAIN_MODULE_MEMORY_BASE: u64 = <span class="number">0</span>;
@@ -4410,8 +4623,8 @@
     <span class="attr">#[error(<span class="string">"Failed to initialize WASI(X) module handles: {0}"</span>)]
     </span>MainModuleHandleInitFailed(ExportError),
 
-    <span class="attr">#[error(<span class="string">"Module does not export a TLS initialization routine"</span>)]
-    </span>MissingTlsInitializer,
+    <span class="attr">#[error(<span class="string">"Dynamic function index {0} was not allocated via `allocate_function`"</span>)]
+    </span>DynamicFunctionIndexNotAllocated(u32),
 }
 
 <span class="attr">#[derive(Debug)]
@@ -4477,6 +4690,11 @@
 
     <span class="attr">#[error(<span class="string">"Failed to perform pending DL operation: {0}"</span>)]
     </span>PendingDlOperationFailed(<span class="attr">#[from] </span>LinkError),
+
+    <span class="attr">#[error(
+        <span class="string">"Tried to resolve a tls symbol from a module that did not initialize thread local storage"
+    </span>)]
+    </span>TlsSymbolWithoutTls,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -4647,6 +4865,11 @@
         // minus one. Otherwise, we're out of sync and an error has been encountered.
         </span>function_table_index: u32,
     },
+    <span class="comment">// Allocates slots in the function table
+    </span>AllocateFunctionTable {
+        index: u32,
+        size: u32,
+    },
 }
 
 <span class="kw">struct </span>DlModule {
@@ -4660,7 +4883,7 @@
     instance: Instance,
     <span class="attr">#[allow(dead_code)]
     </span>instance_handles: WasiModuleInstanceHandles,
-    tls_base: u64,
+    tls_base: <span class="prelude-ty">Option</span>&lt;u64&gt;,
 }
 
 <span class="kw">struct </span>InstanceGroupState {
@@ -4681,7 +4904,8 @@
     </span>recv_pending_operation: bus::BusReader&lt;DlOperation&gt;,
 }
 
-<span class="kw">struct </span>LinkerState {
+<span class="comment">// There is only one LinkerState for all instance groups
+</span><span class="kw">struct </span>LinkerState {
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
 
@@ -4698,6 +4922,12 @@
 
     memory_allocator: MemoryAllocator,
     heap_base: u64,
+
+    <span class="doccomment">/// Tracks which slots in the function table are currently used for closures
+    </span>used_closure_functions: BTreeSet&lt;u32&gt;,
+    <span class="doccomment">/// Slots in the indirect function table that were allocated for closures but are currently not in use.
+    /// These can be given out without needing to lock all threads.
+    </span>available_closure_functions: Vec&lt;u32&gt;,
 
     symbol_resolution_records: HashMap&lt;SymbolResolutionKey, SymbolResolutionResult&gt;,
 
@@ -4772,6 +5002,32 @@
     }
 }
 
+<span class="kw">pub enum </span>DlModuleSpec&lt;<span class="lifetime">'a</span>&gt; {
+    FileSystem {
+        module_spec: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path,
+        ld_library_path: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[<span class="kw-2">&amp;</span><span class="lifetime">'a </span>Path],
+    },
+    Memory {
+        module_name: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+        bytes: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8],
+    },
+}
+
+<span class="kw">impl </span>std::fmt::Debug <span class="kw">for </span>DlModuleSpec&lt;<span class="lifetime">'_</span>&gt; {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::FileSystem { module_spec, .. } =&gt; f
+                .debug_struct(<span class="string">"FileSystem"</span>)
+                .field(<span class="string">"module_spec"</span>, module_spec)
+                .finish(),
+            <span class="self">Self</span>::Memory { module_name, .. } =&gt; f
+                .debug_struct(<span class="string">"Memory"</span>)
+                .field(<span class="string">"module_name"</span>, module_name)
+                .finish(),
+        }
+    }
+}
+
 <span class="kw">impl </span>Linker {
     <span class="doccomment">/// Creates a new linker for the given main module. The module is expected to be a
     /// PIE executable. Imports for the module will be fulfilled, so that it can start
@@ -4783,6 +5039,7 @@
         memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;,
         func_env: <span class="kw-2">&amp;mut </span>WasiFunctionEnv,
         stack_size: u64,
+        ld_library_path: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>Path],
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(<span class="self">Self</span>, LinkedMainModule), LinkError&gt; {
         <span class="kw">let </span>dylink_section = parse_dylink0_section(main_module)<span class="question-mark">?</span>;
 
@@ -4808,6 +5065,10 @@
                 <span class="string">"env.__indirect_function_table"</span>.to_string(),
             ))<span class="question-mark">?</span>;
 
+        <span class="macro">trace!</span>(
+            minimum_size = <span class="question-mark">?</span>function_table_type.minimum,
+            <span class="string">"Creating indirect function table"
+        </span>);
         <span class="kw">let </span>indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(<span class="prelude-val">None</span>))
             .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
 
@@ -4818,12 +5079,11 @@
             dylink_section.mem_info.table_size + MAIN_MODULE_TABLE_BASE <span class="kw">as </span>u32;
         <span class="comment">// Make sure the function table is as big as the dylink.0 section expects it to be
         </span><span class="kw">if </span>indirect_function_table.size(store) &lt; expected_table_length {
+            <span class="kw">let </span>current_size = indirect_function_table.size(store);
+            <span class="kw">let </span>delta = expected_table_length - current_size;
+            <span class="macro">trace!</span>(<span class="question-mark">?</span>current_size, <span class="question-mark">?</span>delta, <span class="string">"Growing indirect function table"</span>);
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(<span class="prelude-val">None</span>),
-                )
+                .grow(store, delta, Value::FuncRef(<span class="prelude-val">None</span>))
                 .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
         }
 
@@ -4908,8 +5168,10 @@
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
-            next_module_handle: <span class="number">1</span>,
+            next_module_handle: MAIN_MODULE_HANDLE.<span class="number">0 </span>+ <span class="number">1</span>,
             memory_allocator: MemoryAllocator::new(),
+            used_closure_functions: BTreeSet::new(),
+            available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
             send_pending_operation_barrier: barrier_tx,
@@ -4962,11 +5224,13 @@
             </span><span class="macro">trace!</span>(name = needed, <span class="string">"Loading module needed by main"</span>);
             <span class="kw">let </span>wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                needed,
+                DlModuleSpec::FileSystem {
+                    module_spec: Path::new(needed.as_str()),
+                    ld_library_path,
+                },
                 <span class="kw-2">&amp;mut </span>link_state,
                 <span class="kw-2">&amp;</span>wasi_env.runtime,
                 <span class="kw-2">&amp;</span>wasi_env.state,
-                <span class="prelude-ty">Option</span>::&lt;<span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span>str]&gt;::None,
             )<span class="question-mark">?</span>;
         }
 
@@ -5005,6 +5269,7 @@
                 memory.clone(),
                 store,
                 main_instance.clone(),
+                <span class="prelude-val">Some</span>(indirect_function_table.clone()),
             ),
         };
 
@@ -5076,24 +5341,27 @@
 
         <span class="kw">let </span><span class="kw-2">mut </span>imports = import_object_for_all_wasi_versions(<span class="kw-2">&amp;</span>main_module, store, <span class="kw-2">&amp;</span>func_env.env);
 
-        <span class="kw">let </span>indirect_function_table = Table::new(
-            store,
-            parent_group_state.indirect_function_table.ty(<span class="kw-2">&amp;</span>parent_store),
-            Value::FuncRef(<span class="prelude-val">None</span>),
-        )
-        .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
+        <span class="kw">let </span>indirect_function_table_type =
+            parent_group_state.indirect_function_table.ty(<span class="kw-2">&amp;</span>parent_store);
+        <span class="macro">trace!</span>(
+            minimum_size = <span class="question-mark">?</span>indirect_function_table_type.minimum,
+            <span class="string">"Creating indirect function table"
+        </span>);
+
+        <span class="kw">let </span>indirect_function_table =
+            Table::new(store, indirect_function_table_type, Value::FuncRef(<span class="prelude-val">None</span>))
+                .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>expected_table_length = parent_group_state
             .indirect_function_table
             .size(<span class="kw-2">&amp;</span>parent_store);
         <span class="comment">// Grow the table to be as big as the parent's
         </span><span class="kw">if </span>indirect_function_table.size(store) &lt; expected_table_length {
+            <span class="kw">let </span>current_size = indirect_function_table.size(store);
+            <span class="kw">let </span>delta = expected_table_length - current_size;
+            <span class="macro">trace!</span>(<span class="question-mark">?</span>current_size, <span class="question-mark">?</span>delta, <span class="string">"Growing indirect function table"</span>);
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(<span class="prelude-val">None</span>),
-                )
+                .grow(store, delta, Value::FuncRef(<span class="prelude-val">None</span>))
                 .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
         }
 
@@ -5198,6 +5466,7 @@
                 memory.clone(),
                 store,
                 main_instance.clone(),
+                <span class="prelude-val">Some</span>(indirect_function_table.clone()),
             ),
         };
 
@@ -5249,18 +5518,92 @@
         }
     }
 
+    <span class="doccomment">/// Allocate a index for a closure in the indirect function table
+    </span><span class="kw">pub fn </span>allocate_closure_index(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, LinkError&gt; {
+        <span class="macro">lock_instance_group_state!</span>(
+            group_state_guard,
+            group_state,
+            <span class="self">self</span>,
+            LinkError::InstanceGroupIsDead
+        );
+        <span class="macro">write_linker_state!</span>(linker_state, <span class="self">self</span>, group_state, ctx);
+
+        <span class="kw">let </span><span class="kw-2">mut </span>store = ctx.as_store_mut();
+
+        <span class="comment">// Use a previously allocated slot if possible
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(function_index) = linker_state.available_closure_functions.pop() {
+            linker_state.used_closure_functions.insert(function_index);
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(function_index);
+        }
+
+        <span class="comment">// Allocate more closures than we need to reduce the number of sync operations
+        </span><span class="kw">const </span>CLOSURE_ALLOCATION_SIZE: u32 = <span class="number">100</span>;
+
+        <span class="kw">let </span>function_index = group_state
+            .allocate_function_table(<span class="kw-2">&amp;mut </span>store, CLOSURE_ALLOCATION_SIZE, <span class="number">0</span>)
+            .map_err(LinkError::TableAllocationError)<span class="question-mark">? </span><span class="kw">as </span>u32;
+
+        linker_state
+            .available_closure_functions
+            .reserve(CLOSURE_ALLOCATION_SIZE <span class="kw">as </span>usize - <span class="number">1</span>);
+        <span class="kw">for </span>i <span class="kw">in </span><span class="number">1</span>..CLOSURE_ALLOCATION_SIZE {
+            linker_state
+                .available_closure_functions
+                .push(function_index + i);
+        }
+        linker_state.used_closure_functions.insert(function_index);
+
+        <span class="self">self</span>.synchronize_link_operation(
+            DlOperation::AllocateFunctionTable {
+                index: function_index,
+                size: CLOSURE_ALLOCATION_SIZE,
+            },
+            linker_state,
+            group_state,
+            <span class="kw-2">&amp;</span>ctx.data().process,
+            ctx.data().tid(),
+        );
+
+        <span class="prelude-val">Ok</span>(function_index)
+    }
+
+    <span class="doccomment">/// Remove a previously allocated slot for a closure in the indirect function table
+    ///
+    /// After calling this it is undefined behavior to call the function at the given index.
+    </span><span class="kw">pub fn </span>free_closure_index(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+        function_id: u32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), LinkError&gt; {
+        <span class="macro">lock_instance_group_state!</span>(
+            group_state_guard,
+            group_state,
+            <span class="self">self</span>,
+            LinkError::InstanceGroupIsDead
+        );
+        <span class="macro">write_linker_state!</span>(linker_state, <span class="self">self</span>, group_state, ctx);
+
+        <span class="kw">if </span>!linker_state.used_closure_functions.remove(<span class="kw-2">&amp;</span>function_id) {
+            <span class="comment">// Not used, nothing to do
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
+        linker_state.available_closure_functions.push(function_id);
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="doccomment">/// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].
     </span><span class="kw">pub fn </span>load_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
-        module_path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
-        library_path: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;Path&gt;],
+        module_spec: DlModuleSpec,
         ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ModuleHandle, LinkError&gt; {
-        <span class="kw">let </span>module_path = module_path.as_ref();
-
-        <span class="macro">trace!</span>(<span class="question-mark">?</span>module_path, <span class="string">"Loading module"</span>);
+        <span class="macro">trace!</span>(<span class="question-mark">?</span>module_spec, <span class="string">"Loading module"</span>);
 
         <span class="macro">lock_instance_group_state!</span>(
             group_state_guard,
@@ -5282,11 +5625,10 @@
         <span class="macro">trace!</span>(<span class="string">"Loading module tree for requested module"</span>);
         <span class="kw">let </span>wasi_env = env.as_ref(<span class="kw-2">&amp;</span>store);
         <span class="kw">let </span>module_handle = linker_state.load_module_tree(
-            module_path,
+            module_spec,
             <span class="kw-2">&amp;mut </span>link_state,
             <span class="kw-2">&amp;</span>wasi_env.runtime,
             <span class="kw-2">&amp;</span>wasi_env.state,
-            <span class="prelude-val">Some</span>(library_path),
         )<span class="question-mark">?</span>;
 
         <span class="kw">let </span>new_modules = link_state
@@ -5430,7 +5772,9 @@
                         resolved_from,
                         offset,
                     } =&gt; {
-                        <span class="kw">let </span>tls_base = group_state.tls_base(<span class="kw-2">*</span>resolved_from);
+                        <span class="kw">let </span><span class="prelude-val">Some</span>(tls_base) = group_state.tls_base(<span class="kw-2">*</span>resolved_from) <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(ResolveError::TlsSymbolWithoutTls);
+                        };
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(ResolvedExport::Global {
                             data_ptr: tls_base + offset,
                         });
@@ -5946,74 +6290,103 @@
     // it was already loaded, the existing handle is returned.
     </span><span class="kw">fn </span>load_module_tree(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        module_path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+        module_spec: DlModuleSpec,
         link_state: <span class="kw-2">&amp;mut </span>InProgressLinkState,
         runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
         wasi_state: <span class="kw-2">&amp;</span>WasiState,
-        library_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;Path&gt;]&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ModuleHandle, LinkError&gt; {
-        <span class="kw">let </span>module_path = module_path.as_ref();
-        <span class="macro">trace!</span>(<span class="question-mark">?</span>module_path, <span class="string">"Locating and loading module"</span>);
+        <span class="kw">let </span>module_name = <span class="kw">match </span>module_spec {
+            DlModuleSpec::FileSystem { module_spec, .. } =&gt; Cow::Borrowed(module_spec),
+            DlModuleSpec::Memory { module_name, .. } =&gt; {
+                Cow::Owned(PathBuf::from(<span class="macro">format!</span>(<span class="string">"::in-memory::{module_name}"</span>)))
+            }
+        };
+        <span class="macro">trace!</span>(<span class="question-mark">?</span>module_name, <span class="string">"Locating and loading module"</span>);
 
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.side_modules_by_name.get(module_path) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(handle) = <span class="self">self</span>.side_modules_by_name.get(module_name.as_ref()) {
             <span class="kw">let </span>handle = <span class="kw-2">*</span>handle;
 
-            <span class="macro">trace!</span>(<span class="question-mark">?</span>module_path, <span class="question-mark">?</span>handle, <span class="string">"Module was already loaded"</span>);
+            <span class="macro">trace!</span>(<span class="question-mark">?</span>module_name, <span class="question-mark">?</span>handle, <span class="string">"Module was already loaded"</span>);
 
             <span class="kw">return </span><span class="prelude-val">Ok</span>(handle);
         }
 
         <span class="comment">// Locate and load the module bytes
-        </span><span class="kw">let </span>(full_path, module_bytes) =
-            InlineWaker::block_on(locate_module(module_path, library_path, <span class="kw-2">&amp;</span>wasi_state.fs))<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>(module_bytes, paths) = <span class="kw">match </span>module_spec {
+            DlModuleSpec::FileSystem {
+                module_spec,
+                ld_library_path,
+            } =&gt; {
+                <span class="kw">let </span>(full_path, bytes) = InlineWaker::block_on(locate_module(
+                    module_spec,
+                    ld_library_path,
+                    <span class="kw-2">&amp;</span>wasi_state.fs,
+                ))<span class="question-mark">?</span>;
+                <span class="comment">// TODO: this can be optimized by detecting early if the module is already
+                // pending without loading its bytes
+                </span><span class="kw">if </span>link_state.pending_module_paths.contains(<span class="kw-2">&amp;</span>full_path) {
+                    <span class="macro">trace!</span>(<span class="string">"Module is already pending, won't load again"</span>);
+                    <span class="comment">// This is fine, since a non-empty pending_modules list means we are
+                    // recursively resolving needed modules. We don't use the handle
+                    // returned from this function for anything when running recursively
+                    // (see self.load_module call below).
+                    </span><span class="kw">return </span><span class="prelude-val">Ok</span>(INVALID_MODULE_HANDLE);
+                }
 
-        <span class="macro">trace!</span>(<span class="question-mark">?</span>full_path, <span class="string">"Found module file"</span>);
+                (Cow::Owned(bytes), <span class="prelude-val">Some</span>((full_path, ld_library_path)))
+            }
+            DlModuleSpec::Memory { bytes, .. } =&gt; (Cow::Borrowed(bytes), <span class="prelude-val">None</span>),
+        };
 
-        <span class="comment">// TODO: this can be optimized by detecting early if the module is already
-        // pending without loading its bytes
-        </span><span class="kw">if </span>link_state.pending_module_paths.contains(<span class="kw-2">&amp;</span>full_path) {
-            <span class="macro">trace!</span>(<span class="string">"Module is already pending, won't load again"</span>);
-            <span class="comment">// This is fine, since a non-empty pending_modules list means we are
-            // recursively resolving needed modules. We don't use the handle
-            // returned from this function for anything when running recursively
-            // (see self.load_module call below).
-            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(INVALID_MODULE_HANDLE);
-        }
-
-        <span class="kw">let </span>module = runtime.load_module_sync(<span class="kw-2">&amp;</span>module_bytes)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = runtime.load_module_sync(module_bytes.as_ref())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>dylink_info = parse_dylink0_section(<span class="kw-2">&amp;</span>module)<span class="question-mark">?</span>;
 
         <span class="macro">trace!</span>(<span class="question-mark">?</span>dylink_info, <span class="string">"Loading side module"</span>);
 
-        link_state.pending_module_paths.push(full_path);
-        <span class="kw">let </span>num_pending_modules = link_state.pending_module_paths.len();
-        <span class="kw">let </span>pop_pending_module = |link_state: <span class="kw-2">&amp;mut </span>InProgressLinkState| {
-            <span class="macro">assert_eq!</span>(
-                num_pending_modules,
-                link_state.pending_module_paths.len(),
-                <span class="string">"Internal error: pending modules not maintained correctly"
-            </span>);
-            link_state.pending_module_paths.pop().unwrap();
-        };
+        <span class="kw">if let </span><span class="prelude-val">Some</span>((full_path, ld_library_path)) = paths {
+            link_state.pending_module_paths.push(full_path);
+            <span class="kw">let </span>num_pending_modules = link_state.pending_module_paths.len();
+            <span class="kw">let </span>pop_pending_module = |link_state: <span class="kw-2">&amp;mut </span>InProgressLinkState| {
+                <span class="macro">assert_eq!</span>(
+                    num_pending_modules,
+                    link_state.pending_module_paths.len(),
+                    <span class="string">"Internal error: pending modules not maintained correctly"
+                </span>);
+                link_state.pending_module_paths.pop().unwrap();
+            };
 
-        <span class="kw">for </span>needed <span class="kw">in </span><span class="kw-2">&amp;</span>dylink_info.needed {
-            <span class="macro">trace!</span>(needed, <span class="string">"Loading needed side module"</span>);
-            <span class="kw">match </span><span class="self">self</span>.load_module_tree(needed, link_state, runtime, wasi_state, library_path) {
-                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; (),
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    pop_pending_module(link_state);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(e);
+            <span class="kw">for </span>needed <span class="kw">in </span><span class="kw-2">&amp;</span>dylink_info.needed {
+                <span class="macro">trace!</span>(needed, <span class="string">"Loading needed side module"</span>);
+                <span class="kw">match </span><span class="self">self</span>.load_module_tree(
+                    DlModuleSpec::FileSystem {
+                        module_spec: Path::new(needed.as_str()),
+                        ld_library_path,
+                    },
+                    link_state,
+                    runtime,
+                    wasi_state,
+                ) {
+                    <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; (),
+                    <span class="prelude-val">Err</span>(e) =&gt; {
+                        pop_pending_module(link_state);
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(e);
+                    }
                 }
             }
+
+            pop_pending_module(link_state);
+        } <span class="kw">else if </span>!dylink_info.needed.is_empty() {
+            <span class="macro">unreachable!</span>(
+                <span class="string">"Internal error: in-memory modules with further needed modules not \
+                    supported and no code paths can create such a module"
+            </span>);
         }
 
         <span class="kw">let </span>handle = ModuleHandle(<span class="self">self</span>.next_module_handle);
         <span class="self">self</span>.next_module_handle += <span class="number">1</span>;
 
-        <span class="macro">trace!</span>(<span class="question-mark">?</span>module_path, <span class="question-mark">?</span>handle, <span class="string">"Assigned handle to module"</span>);
-
-        pop_pending_module(link_state);
+        <span class="macro">trace!</span>(<span class="question-mark">?</span>module_name, <span class="question-mark">?</span>handle, <span class="string">"Assigned handle to module"</span>);
 
         link_state.new_modules.push(InProgressModuleLoad {
             handle,
@@ -6025,7 +6398,7 @@
         // allocated for the module.
         // TODO: allocate table here (at least logically)?
         </span><span class="self">self</span>.side_modules_by_name
-            .insert(module_path.to_owned(), handle);
+            .insert(module_name.into_owned(), handle);
 
         <span class="prelude-val">Ok</span>(handle)
     }
@@ -6036,10 +6409,10 @@
         <span class="self">self</span>.main_instance.as_ref()
     }
 
-    <span class="kw">fn </span>tls_base(<span class="kw-2">&amp;</span><span class="self">self</span>, module_handle: ModuleHandle) -&gt; u64 {
+    <span class="kw">fn </span>tls_base(<span class="kw-2">&amp;</span><span class="self">self</span>, module_handle: ModuleHandle) -&gt; <span class="prelude-ty">Option</span>&lt;u64&gt; {
         <span class="kw">if </span>module_handle == MAIN_MODULE_HANDLE {
             <span class="comment">// Main's TLS area is at the beginning of its memory
-            </span><span class="self">self</span>.main_instance_tls_base
+            </span><span class="prelude-val">Some</span>(<span class="self">self</span>.main_instance_tls_base)
         } <span class="kw">else </span>{
             <span class="self">self</span>.side_instances
                 .get(<span class="kw-2">&amp;</span>module_handle)
@@ -6061,7 +6434,10 @@
             .expect(<span class="string">"Internal error: bad module handle or not instantiated in this group"</span>)
     }
 
-    <span class="kw">fn </span>allocate_function_table(
+    <span class="doccomment">/// Allocate space on the indirect function table for the given number of functions
+    ///
+    /// table_alignment is the alignment of the table as a power of two.
+    </span><span class="kw">fn </span>allocate_function_table(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         table_size: u32,
@@ -6081,11 +6457,11 @@
                 <span class="number">0
             </span>};
 
-            <span class="kw">let </span>start = <span class="self">self</span>.indirect_function_table.grow(
-                store,
-                table_size + offset,
-                Value::FuncRef(<span class="prelude-val">None</span>),
-            )<span class="question-mark">?</span>;
+            <span class="kw">let </span>delta = table_size + offset;
+            <span class="macro">trace!</span>(<span class="question-mark">?</span>current_size, <span class="question-mark">?</span>delta, <span class="string">"Growing indirect function table"</span>);
+            <span class="kw">let </span>start = <span class="self">self
+                </span>.indirect_function_table
+                .grow(store, delta, Value::FuncRef(<span class="prelude-val">None</span>))<span class="question-mark">?</span>;
 
             (start + offset) <span class="kw">as </span>u64
         };
@@ -6106,10 +6482,14 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, RuntimeError&gt; {
         <span class="kw">let </span>table = <span class="kw-2">&amp;</span><span class="self">self</span>.indirect_function_table;
 
+        <span class="kw">let </span>ty = func.ty(store).to_string();
+        <span class="kw">let </span>index: u32 = table.size(store);
+        <span class="macro">trace!</span>(<span class="question-mark">?</span>index, <span class="question-mark">?</span>ty, <span class="string">"Appending function in table"</span>);
+
         table.grow(store, <span class="number">1</span>, func.into())
     }
 
-    <span class="kw">fn </span>append_to_function_table_at(
+    <span class="kw">fn </span>place_in_function_table_at(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
         func: Function,
@@ -6118,15 +6498,20 @@
         <span class="macro">trace!</span>(
             <span class="question-mark">?</span>index,
             <span class="question-mark">?</span>func,
-            <span class="string">"Placing function into table at pre-defined index"
+            <span class="string">"Placing function in table at pre-defined index"
         </span>);
 
         <span class="kw">let </span>table = <span class="kw-2">&amp;</span><span class="self">self</span>.indirect_function_table;
         <span class="kw">let </span>size = table.size(store);
 
         <span class="kw">if </span>size &lt;= index {
-            table.grow(store, index - size + <span class="number">1</span>, Value::FuncRef(<span class="prelude-val">None</span>))<span class="question-mark">?</span>;
-            <span class="macro">trace!</span>(new_table_size = <span class="question-mark">?</span>table.size(store), <span class="string">"Growing table"</span>);
+            <span class="kw">let </span>delta = index - size + <span class="number">1</span>;
+            <span class="macro">trace!</span>(
+                current_size = <span class="question-mark">?</span>size,
+                <span class="question-mark">?</span>delta,
+                <span class="string">"Growing indirect function table"
+            </span>);
+            table.grow(store, delta, Value::FuncRef(<span class="prelude-val">None</span>))<span class="question-mark">?</span>;
         } <span class="kw">else </span>{
             <span class="kw">let </span>existing = table.get(store, index).unwrap();
             <span class="kw">if let </span>Value::FuncRef(<span class="prelude-val">Some</span>(<span class="kw">_</span>)) = existing {
@@ -6134,6 +6519,8 @@
             }
         }
 
+        <span class="kw">let </span>ty = func.ty(store).to_string();
+        <span class="macro">trace!</span>(<span class="question-mark">?</span>index, <span class="question-mark">?</span>ty, <span class="string">"Placing function in table at index"</span>);
         table.set(store, index, Value::FuncRef(<span class="prelude-val">Some</span>(func)))
     }
 
@@ -6215,8 +6602,12 @@
 
         <span class="kw">let </span>instance = Instance::new(store, <span class="kw-2">&amp;</span>module, <span class="kw-2">&amp;</span>imports)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>instance_handles =
-            WasiModuleInstanceHandles::new(<span class="self">self</span>.memory.clone(), store, instance.clone());
+        <span class="kw">let </span>instance_handles = WasiModuleInstanceHandles::new(
+            <span class="self">self</span>.memory.clone(),
+            store,
+            instance.clone(),
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.indirect_function_table.clone()),
+        );
 
         <span class="kw">let </span>dl_module = DlModule {
             module,
@@ -6230,7 +6621,7 @@
             instance_handles,
             <span class="comment">// The TLS area of a side module's main instance is at the beginning
             // of its memory
-            </span>tls_base: memory_base,
+            </span>tls_base: <span class="prelude-val">Some</span>(memory_base),
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -6322,19 +6713,20 @@
         <span class="kw">let </span>instance = Instance::new(store, <span class="kw-2">&amp;</span>dl_module.module, <span class="kw-2">&amp;</span>imports)<span class="question-mark">?</span>;
 
         <span class="comment">// This is a non-main instance of a side module, so it needs a new TLS area
-        </span><span class="kw">let </span>tls_base = call_initialization_function::&lt;i32&gt;(<span class="kw-2">&amp;</span>instance, store, <span class="string">"__wasix_init_tls"</span>)<span class="question-mark">?</span>;
+        </span><span class="kw">let </span>tls_base = call_initialization_function::&lt;i32&gt;(<span class="kw-2">&amp;</span>instance, store, <span class="string">"__wasix_init_tls"</span>)<span class="question-mark">?
+            </span>.map(|v| v <span class="kw">as </span>u64);
 
-        <span class="kw">let </span><span class="prelude-val">Some</span>(tls_base) = tls_base <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::MissingTlsInitializer);
-        };
-
-        <span class="kw">let </span>instance_handles =
-            WasiModuleInstanceHandles::new(<span class="self">self</span>.memory.clone(), store, instance.clone());
+        <span class="kw">let </span>instance_handles = WasiModuleInstanceHandles::new(
+            <span class="self">self</span>.memory.clone(),
+            store,
+            instance.clone(),
+            <span class="prelude-val">Some</span>(<span class="self">self</span>.indirect_function_table.clone()),
+        );
 
         <span class="kw">let </span>dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            tls_base: tls_base <span class="kw">as </span>u64,
+            tls_base,
         };
 
         <span class="self">self</span>.side_instances.insert(module_handle, dl_instance);
@@ -6367,14 +6759,24 @@
                     )
                 });
 
-            <span class="self">self</span>.append_to_function_table_at(store, func.clone(), pending.function_table_index)
+            <span class="self">self</span>.place_in_function_table_at(store, func.clone(), pending.function_table_index)
                 .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
 
             <span class="macro">trace!</span>(<span class="question-mark">?</span>pending, <span class="string">"Placed pending function in table"</span>);
         }
 
         <span class="kw">for </span>tls <span class="kw">in </span><span class="kw-2">&amp;</span>pending_resolutions.tls {
-            <span class="kw">let </span>tls_base = <span class="self">self</span>.tls_base(tls.resolved_from);
+            <span class="kw">let </span><span class="prelude-val">Some</span>(tls_base) = <span class="self">self</span>.tls_base(tls.resolved_from) <span class="kw">else </span>{
+                <span class="comment">// This is a panic since this error should have been caught when the symbol
+                // was originally resolved by the instigating instance group. We're just replaying
+                // the changes.
+                </span><span class="macro">panic!</span>(
+                    <span class="string">"Internal error: Tried to import TLS symbol from module {} that \
+                    has no TLS base"</span>,
+                    tls.resolved_from.<span class="number">0
+                </span>);
+            };
+
             <span class="kw">let </span>final_addr = tls_base + tls.offset;
             set_integer_global(store, <span class="string">"&lt;pending TLS global&gt;"</span>, <span class="kw-2">&amp;</span>tls.global, final_addr)<span class="question-mark">?</span>;
             <span class="macro">trace!</span>(<span class="question-mark">?</span>tls, tls_base, final_addr, <span class="string">"Setting pending TLS global"</span>);
@@ -6409,9 +6811,25 @@
             <span class="macro">panic!</span>(<span class="string">"Internal error: failed to resolve exported function {name}: {e:?}"</span>)
         });
 
-        <span class="self">self</span>.append_to_function_table_at(store, func.clone(), function_table_index)
+        <span class="self">self</span>.place_in_function_table_at(store, func.clone(), function_table_index)
             .map_err(LinkError::TableAllocationError)<span class="question-mark">?</span>;
 
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">pub fn </span>apply_function_table_allocation(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        index: u32,
+        size: u32,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), LinkError&gt; {
+        <span class="macro">trace!</span>(index, <span class="string">"Applying function table allocation"</span>);
+        <span class="kw">let </span>allocated_index = <span class="self">self
+            </span>.allocate_function_table(store, size, <span class="number">0</span>)
+            .map_err(LinkError::TableAllocationError)<span class="question-mark">? </span><span class="kw">as </span>u32;
+        <span class="kw">if </span>allocated_index != index {
+            <span class="macro">panic!</span>(<span class="string">"Internal error: allocated index {allocated_index} does not match expected index {index}"</span>);
+        }
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -6448,6 +6866,9 @@
                 resolved_from,
                 function_table_index,
             } =&gt; <span class="self">self</span>.apply_resolved_function(store, <span class="kw-2">&amp;</span>name, resolved_from, function_table_index)<span class="question-mark">?</span>,
+            DlOperation::AllocateFunctionTable { index, size } =&gt; {
+                <span class="self">self</span>.apply_function_table_allocation(store, index, size)<span class="question-mark">?
+            </span>}
         };
         <span class="macro">trace!</span>(<span class="string">"Operation applied successfully"</span>);
         <span class="prelude-val">Ok</span>(())
@@ -6985,7 +7406,7 @@
                                 function_table_index,
                                 <span class="string">"Placing function pointer into table"
                             </span>);
-                            <span class="self">self</span>.append_to_function_table_at(
+                            <span class="self">self</span>.place_in_function_table_at(
                                 store,
                                 func.clone(),
                                 <span class="kw-2">*</span>function_table_index,
@@ -7081,7 +7502,7 @@
                         instance,
                         <span class="kw-2">&amp;</span>linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
-                        <span class="self">self</span>.main_instance_tls_base,
+                        <span class="prelude-val">Some</span>(<span class="self">self</span>.main_instance_tls_base),
                         allow_hidden,
                     ) {
                         <span class="prelude-val">Ok</span>(export) =&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>((export, MAIN_MODULE_HANDLE)),
@@ -7125,7 +7546,7 @@
         instance: <span class="kw-2">&amp;</span>Instance,
         dylink_info: <span class="kw-2">&amp;</span>DylinkInfo,
         memory_base: u64,
-        tls_base: u64,
+        tls_base: <span class="prelude-ty">Option</span>&lt;u64&gt;,
         allow_hidden: bool,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;PartiallyResolvedExport, ResolveError&gt; {
         <span class="macro">trace!</span>(from = <span class="question-mark">?</span>module_handle, symbol, <span class="string">"Resolving export from instance"</span>);
@@ -7166,6 +7587,9 @@
                     .unwrap_or(<span class="bool-val">false</span>);
 
                 <span class="kw">if </span>is_tls {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(tls_base) = tls_base <span class="kw">else </span>{
+                        <span class="kw">return </span><span class="prelude-val">Err</span>(ResolveError::TlsSymbolWithoutTls);
+                    };
                     <span class="kw">let </span>final_value = value + tls_base;
                     <span class="macro">trace!</span>(
                         from = <span class="question-mark">?</span>module_handle,
@@ -7490,7 +7914,7 @@
 
 <span class="kw">async fn </span>locate_module(
     module_path: <span class="kw-2">&amp;</span>Path,
-    library_path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;Path&gt;]&gt;,
+    library_path: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;Path&gt;],
     fs: <span class="kw-2">&amp;</span>WasiFs,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(PathBuf, Vec&lt;u8&gt;), LinkError&gt; {
     <span class="kw">async fn </span>try_load(
@@ -7547,7 +7971,7 @@
         </span>);
         <span class="kw">let </span>search_paths = library_path
             .iter()
-            .flat_map(|paths| paths.iter().map(AsRef::as_ref))
+            .map(|path| path.as_ref())
             <span class="comment">// Add default runtime paths
             </span>.chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
 

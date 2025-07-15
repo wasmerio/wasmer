@@ -884,7 +884,15 @@
 <a href="#883" id="883">883</a>
 <a href="#884" id="884">884</a>
 <a href="#885" id="885">885</a>
-<a href="#886" id="886">886</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
 #![doc(html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>)]
@@ -1395,9 +1403,13 @@
     <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
         <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
         <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
+        <span class="string">"call_dynamic" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, call_dynamic::&lt;Memory32&gt;),
         <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
         <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
         <span class="string">"clock_time_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory32&gt;),
+        <span class="string">"closure_prepare" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, closure_prepare::&lt;Memory32&gt;),
+        <span class="string">"closure_allocate" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, closure_allocate::&lt;Memory32&gt;),
+        <span class="string">"closure_free" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, closure_free::&lt;Memory32&gt;),
         <span class="string">"environ_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory32&gt;),
         <span class="string">"environ_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory32&gt;),
         <span class="string">"epoll_create" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory32&gt;),
@@ -1530,9 +1542,13 @@
     <span class="kw">let </span>namespace = <span class="macro">namespace!</span> {
         <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory64&gt;),
         <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory64&gt;),
+        <span class="string">"call_dynamic" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, call_dynamic::&lt;Memory64&gt;),
         <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory64&gt;),
         <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory64&gt;),
         <span class="string">"clock_time_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set::&lt;Memory64&gt;),
+        <span class="string">"closure_prepare" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, closure_prepare::&lt;Memory64&gt;),
+        <span class="string">"closure_allocate" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, closure_allocate::&lt;Memory64&gt;),
+        <span class="string">"closure_free" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, closure_free::&lt;Memory64&gt;),
         <span class="string">"environ_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_get::&lt;Memory64&gt;),
         <span class="string">"environ_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, environ_sizes_get::&lt;Memory64&gt;),
         <span class="string">"epoll_create" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, epoll_create::&lt;Memory64&gt;),
