@@ -4,11 +4,14 @@ use wasmer::Type;
 use wasmer::ValueType;
 
 macro_rules! write_value {
-    ($memory:expr, $offset:expr, $max:expr, $value:expr) => {{
+    ($memory:expr, $offset:expr, $max:expr, $strict:expr, $value:expr) => {{
         let bytes = $value.to_le_bytes();
         if $offset + bytes.len() as u64 <= $max {
             $memory.write($offset, &bytes)?;
             $offset += bytes.len() as u64;
+            Ok(true)
+        } else {
+            Ok(!$strict)
         }
     }};
 }
@@ -17,30 +20,33 @@ fn write_value(
     memory: &MemoryView,
     offset: &mut u64,
     max: u64,
+    strict: bool,
     value: &Value,
-) -> Result<(), MemoryAccessError> {
+) -> Result<bool, MemoryAccessError> {
     match value {
-        Value::I32(value) => write_value!(memory, *offset, max, value),
-        Value::I64(value) => write_value!(memory, *offset, max, value),
-        Value::F32(value) => write_value!(memory, *offset, max, value),
-        Value::F64(value) => write_value!(memory, *offset, max, value),
-        Value::V128(value) => write_value!(memory, *offset, max, value),
+        Value::I32(value) => write_value!(memory, *offset, max, strict, value),
+        Value::I64(value) => write_value!(memory, *offset, max, strict, value),
+        Value::F32(value) => write_value!(memory, *offset, max, strict, value),
+        Value::F64(value) => write_value!(memory, *offset, max, strict, value),
+        Value::V128(value) => write_value!(memory, *offset, max, strict, value),
         // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
         _ => panic!("Cannot write non-scalar value as bytes"),
-    };
-
-    Ok(())
+    }
 }
 
 macro_rules! read_value {
-    ($memory:expr, $offset:expr, $max:expr, $ty:ident, $val:ident, $len:expr) => {{
+    ($memory:expr, $offset:expr, $max:expr, $strict:expr, $ty:ident, $val:ident, $len:expr) => {{
         if $offset + $len > $max {
-            Ok(Value::$val($ty::default()))
+            Ok(if $strict {
+                None
+            } else {
+                Some(Value::$val($ty::default()))
+            })
         } else {
             let mut buffer = [0u8; $len];
             $memory.read($offset, &mut buffer)?;
             $offset += $len;
-            Ok(Value::$val($ty::from_le_bytes(buffer)))
+            Ok(Some(Value::$val($ty::from_le_bytes(buffer))))
         }
     }};
 }
@@ -49,14 +55,15 @@ fn read_value(
     memory: &MemoryView,
     offset: &mut u64,
     max: u64,
+    strict: bool,
     ty: &Type,
-) -> Result<Value, MemoryAccessError> {
+) -> Result<Option<Value>, MemoryAccessError> {
     match ty {
-        Type::I32 => read_value!(memory, *offset, max, i32, I32, 4),
-        Type::I64 => read_value!(memory, *offset, max, i64, I64, 8),
-        Type::F32 => read_value!(memory, *offset, max, f32, F32, 4),
-        Type::F64 => read_value!(memory, *offset, max, f64, F64, 8),
-        Type::V128 => read_value!(memory, *offset, max, u128, V128, 16),
+        Type::I32 => read_value!(memory, *offset, max, strict, i32, I32, 4),
+        Type::I64 => read_value!(memory, *offset, max, strict, i64, I64, 8),
+        Type::F32 => read_value!(memory, *offset, max, strict, f32, F32, 4),
+        Type::F64 => read_value!(memory, *offset, max, strict, f64, F64, 8),
+        Type::V128 => read_value!(memory, *offset, max, strict, u128, V128, 16),
         // ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
         _ => panic!("Cannot read non-scalar value from memory"),
     }
@@ -103,8 +110,11 @@ pub fn call_dynamic<M: MemorySize>(
     values_len: M::Offset,
     results: WasmPtr<u8, M>,
     results_len: M::Offset,
+    strict: Bool,
 ) -> Result<Errno, WasiRuntimeError> {
     let (env, mut store) = ctx.data_and_store_mut();
+
+    let strict = matches!(strict, Bool::True);
 
     let function = wasi_try_ok!(env
         .inner()
@@ -118,12 +128,21 @@ pub fn call_dynamic<M: MemorySize>(
     let max_values_offset = current_values_offset + values_len.into();
     let mut values_buffer = vec![];
     for ty in function_type.params() {
-        values_buffer.push(wasi_try_mem_ok!(read_value(
+        let Some(value) = wasi_try_mem_ok!(read_value(
             &memory,
             &mut current_values_offset,
             max_values_offset,
+            strict,
             ty
-        )));
+        )) else {
+            return Ok(Errno::Inval);
+        };
+        values_buffer.push(value);
+    }
+
+    if strict && current_values_offset != max_values_offset {
+        // If strict is true, we expect to have read all values
+        return Ok(Errno::Inval);
     }
 
     let result_values = function.call(&mut store, values_buffer.as_slice())?;
@@ -136,8 +155,14 @@ pub fn call_dynamic<M: MemorySize>(
             &memory,
             &mut current_results_offset,
             max_results_offset,
+            strict,
             &result_value
         ));
+    }
+
+    if strict && current_results_offset != max_results_offset {
+        // If strict is true, we expect to have written all results
+        return Ok(Errno::Inval);
     }
 
     Ok(Errno::Success)
