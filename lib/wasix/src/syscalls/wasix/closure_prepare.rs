@@ -167,7 +167,7 @@ fn build_closure_wasm_bytes(
         TableType {
             element_type: RefType::FUNCREF,
             minimum: 1,
-            maximum: None,
+            maximum: Some(65535),
             shared: false,
             table64: false,
         },
