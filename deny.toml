@@ -109,6 +109,7 @@ allow = [
 	# NOTE: not to be confused with business source license!
 	"BSL-1.0",
 	"Unicode-3.0",
+	"CDLA-Permissive-2.0",
 ]
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
