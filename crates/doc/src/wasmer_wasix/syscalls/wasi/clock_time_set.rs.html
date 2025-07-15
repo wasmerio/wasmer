@@ -60,7 +60,7 @@
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(<span class="question-mark">?</span>clock_id, %time), ret)]
-</span><span class="kw">pub fn </span>clock_time_set&lt;M: MemorySize&gt;(
+</span><span class="kw">pub fn </span>clock_time_set(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     clock_id: Snapshot0Clockid,
     time: Timestamp,

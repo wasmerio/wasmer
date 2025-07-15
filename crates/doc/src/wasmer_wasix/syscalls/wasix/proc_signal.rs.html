@@ -37,7 +37,7 @@
 /// * `pid` - Handle of the child process to wait on
 /// * `sig` - Signal to send the child process
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(%pid, <span class="question-mark">?</span>sig), ret)]
-</span><span class="kw">pub fn </span>proc_signal&lt;M: MemorySize&gt;(
+</span><span class="kw">pub fn </span>proc_signal(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     pid: Pid,
     sig: Signal,

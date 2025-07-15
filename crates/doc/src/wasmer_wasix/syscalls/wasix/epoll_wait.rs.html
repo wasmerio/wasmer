@@ -230,8 +230,8 @@
 <span class="doccomment">/// ### `epoll_wait()`
 /// Wait for an I/O event on an epoll file descriptor
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
-</span><span class="kw">pub fn </span>epoll_wait&lt;<span class="lifetime">'a</span>, M: MemorySize + <span class="lifetime">'static</span>&gt;(
-    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;,
+</span><span class="kw">pub fn </span>epoll_wait&lt;M: MemorySize + <span class="lifetime">'static</span>&gt;(
+    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     epfd: WasiFd,
     events: WasmPtr&lt;EpollEvent&lt;M&gt;, M&gt;,
     maxevents: i32,
@@ -358,7 +358,7 @@
     // which will interpret the error codes
     </span><span class="kw">let </span>process_events = {
         <span class="kw">let </span>events_out = events;
-        <span class="kw">move </span>|ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'a</span>, WasiEnv&gt;,
+        <span class="kw">move </span>|ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
               events: <span class="prelude-ty">Result</span>&lt;Vec&lt;(EpollFd, EpollType)&gt;, Errno&gt;| {
             <span class="kw">let </span>env = ctx.data();
             <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(ctx) };

@@ -167,7 +167,8 @@
 <a href="#166" id="166">166</a>
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
-<a href="#169" id="169">169</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer::Type;
 <span class="kw">use </span>wasmer::ValueType;
@@ -272,6 +273,7 @@
     fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
     ret
 )]
+#[allow(clippy::result_large_err)]
 </span><span class="kw">pub fn </span>call_dynamic&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     function_id: u32,

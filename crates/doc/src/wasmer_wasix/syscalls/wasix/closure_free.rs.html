@@ -31,7 +31,7 @@
 ///
 /// After calling this it is undefined behavior to call the function at the given index.
 </span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, fields(%closure), ret)]
-</span><span class="kw">pub fn </span>closure_free&lt;M: MemorySize&gt;(
+</span><span class="kw">pub fn </span>closure_free(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     closure: u32,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiError&gt; {
