@@ -8,6 +8,54 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.1.0-rc.1 - 15/07/2025
+
+## Added
+
+  - [#5638](https://github.com/wasmerio/wasmer/pull/5638) Add a maximum size for shared memories in closure modules
+  - [#5637](https://github.com/wasmerio/wasmer/pull/5637) Add a maximum memory size for closure modules
+  - [#5598](https://github.com/wasmerio/wasmer/pull/5598) Add syscalls required to support libffi
+  - [#5578](https://github.com/wasmerio/wasmer/pull/5578) feat(cranelift): Add num_threads setting for Cranelift
+  - [#5500](https://github.com/wasmerio/wasmer/pull/5500) docs: added a new tag badge
+  - [#5561](https://github.com/wasmerio/wasmer/pull/5561) Add support for proper time in virtual-fs when targeting js
+
+## Changed
+
+  - [#5636](https://github.com/wasmerio/wasmer/pull/5636) Implement strict mode switch in call_dynamic
+  - [#5628](https://github.com/wasmerio/wasmer/pull/5628) Improve help messages for auth commands
+  - [#5621](https://github.com/wasmerio/wasmer/pull/5621) feat: support sys-minimal feature
+  - [#5617](https://github.com/wasmerio/wasmer/pull/5617) Implement Memory::size function
+  - [#5615](https://github.com/wasmerio/wasmer/pull/5615) The cli binary should use correct target triple when compiling a wasm module
+  - [#5581](https://github.com/wasmerio/wasmer/pull/5581) Dynamic linking with support for threads
+  - [#5570](https://github.com/wasmerio/wasmer/pull/5570) Return 1 second past epoch even when an explicit zero timestamp exist…
+  - [#5607](https://github.com/wasmerio/wasmer/pull/5607) Make error messages for missing shared libraries more helpful
+  - [#5606](https://github.com/wasmerio/wasmer/pull/5606) docs: update js sdk docs url
+  - [#5605](https://github.com/wasmerio/wasmer/pull/5605) Use pre-built wasix-libc artifacts instead of building them from scratch
+  - [#5603](https://github.com/wasmerio/wasmer/pull/5603) Update most shared dependencies to be workspace defined
+  - [#5600](https://github.com/wasmerio/wasmer/pull/5600) Implement MSG_PEEK and MSG_DONTWAIT functionality for send*/recv* syscalls
+  - [#5601](https://github.com/wasmerio/wasmer/pull/5601) Update derive_more to version 2
+  - [#5588](https://github.com/wasmerio/wasmer/pull/5588) Update BUILD.md
+  - [#5592](https://github.com/wasmerio/wasmer/pull/5592) build: update setup-node to v4
+  - [#5590](https://github.com/wasmerio/wasmer/pull/5590) chore(deps): Upgrade some dependencies
+  - [#5589](https://github.com/wasmerio/wasmer/pull/5589) Change intrinsics::transmute to mem::transmute
+  - [#5586](https://github.com/wasmerio/wasmer/pull/5586) V8 full exceptions support
+  - [#5583](https://github.com/wasmerio/wasmer/pull/5583) feat(wasix): Extend BuiltinPackageLoader with cache scanning and purging
+  - [#5572](https://github.com/wasmerio/wasmer/pull/5572) Update C API examples link in README to current documentation
+  - [#5564](https://github.com/wasmerio/wasmer/pull/5564) build: Make `ureq` optional (build) dependency
+  - [#5566](https://github.com/wasmerio/wasmer/pull/5566) Always preserve preopened FDs when doing proc_spawn2 + warn when dup2…
+  - [#5520](https://github.com/wasmerio/wasmer/pull/5520) ci: bump actions/checkout to v4
+
+## Fixed
+
+  - [#5620](https://github.com/wasmerio/wasmer/pull/5620) Fix missing dependency in `wasmer-package` for `wasm` targets
+  - [#5616](https://github.com/wasmerio/wasmer/pull/5616) Fix threads breaking when dlsym is called before thread spawn
+  - [#5569](https://github.com/wasmerio/wasmer/pull/5569) Fix a couple of webc FS issues
+  - [#5604](https://github.com/wasmerio/wasmer/pull/5604) This fixes #5565
+  - [#5585](https://github.com/wasmerio/wasmer/pull/5585) fix(lib/vm): update `corosensei` to `0.2.2` to fix UB on Windows
+  - [#5568](https://github.com/wasmerio/wasmer/pull/5568) Fix the WASIX FS failing to union with a WEBC's volumes when running …
+
+
+
 ## 6.0.1 - 09/05/2025
 This patch release fixes an error in cached memory operations in LLVM, adds CLI
 commands to list databases tied to an app, and provides miscellaneous QoL
