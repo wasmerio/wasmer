@@ -142,17 +142,45 @@
 <a href="#141" id="141">141</a>
 <a href="#142" id="142">142</a>
 <a href="#143" id="143">143</a>
-<a href="#144" id="144">144</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer::Type;
 <span class="kw">use </span>wasmer::ValueType;
 
 <span class="macro">macro_rules!</span> write_value {
-    (<span class="macro-nonterminal">$memory</span>:expr, <span class="macro-nonterminal">$offset</span>:expr, <span class="macro-nonterminal">$max</span>:expr, <span class="macro-nonterminal">$value</span>:expr) =&gt; {{
+    (<span class="macro-nonterminal">$memory</span>:expr, <span class="macro-nonterminal">$offset</span>:expr, <span class="macro-nonterminal">$max</span>:expr, <span class="macro-nonterminal">$strict</span>:expr, <span class="macro-nonterminal">$value</span>:expr) =&gt; {{
         <span class="kw">let </span>bytes = <span class="macro-nonterminal">$value</span>.to_le_bytes();
         <span class="kw">if </span><span class="macro-nonterminal">$offset </span>+ bytes.len() <span class="kw">as </span>u64 &lt;= <span class="macro-nonterminal">$max </span>{
             <span class="macro-nonterminal">$memory</span>.write(<span class="macro-nonterminal">$offset</span>, <span class="kw-2">&amp;</span>bytes)<span class="question-mark">?</span>;
             <span class="macro-nonterminal">$offset </span>+= bytes.len() <span class="kw">as </span>u64;
+            <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(!<span class="macro-nonterminal">$strict</span>)
         }
     }};
 }
@@ -161,30 +189,33 @@
     memory: <span class="kw-2">&amp;</span>MemoryView,
     offset: <span class="kw-2">&amp;mut </span>u64,
     max: u64,
+    strict: bool,
     value: <span class="kw-2">&amp;</span>Value,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryAccessError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;bool, MemoryAccessError&gt; {
     <span class="kw">match </span>value {
-        Value::I32(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, value),
-        Value::I64(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, value),
-        Value::F32(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, value),
-        Value::F64(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, value),
-        Value::V128(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, value),
+        Value::I32(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, value),
+        Value::I64(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, value),
+        Value::F32(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, value),
+        Value::F64(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, value),
+        Value::V128(value) =&gt; <span class="macro">write_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, value),
         <span class="comment">// ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
         </span><span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Cannot write non-scalar value as bytes"</span>),
-    };
-
-    <span class="prelude-val">Ok</span>(())
+    }
 }
 
 <span class="macro">macro_rules!</span> read_value {
-    (<span class="macro-nonterminal">$memory</span>:expr, <span class="macro-nonterminal">$offset</span>:expr, <span class="macro-nonterminal">$max</span>:expr, <span class="macro-nonterminal">$ty</span>:ident, <span class="macro-nonterminal">$val</span>:ident, <span class="macro-nonterminal">$len</span>:expr) =&gt; {{
+    (<span class="macro-nonterminal">$memory</span>:expr, <span class="macro-nonterminal">$offset</span>:expr, <span class="macro-nonterminal">$max</span>:expr, <span class="macro-nonterminal">$strict</span>:expr, <span class="macro-nonterminal">$ty</span>:ident, <span class="macro-nonterminal">$val</span>:ident, <span class="macro-nonterminal">$len</span>:expr) =&gt; {{
         <span class="kw">if </span><span class="macro-nonterminal">$offset </span>+ <span class="macro-nonterminal">$len </span>&gt; <span class="macro-nonterminal">$max </span>{
-            <span class="prelude-val">Ok</span>(Value::<span class="macro-nonterminal">$val</span>(<span class="macro-nonterminal">$ty::default</span>()))
+            <span class="prelude-val">Ok</span>(<span class="kw">if </span><span class="macro-nonterminal">$strict </span>{
+                <span class="prelude-val">None
+            </span>} <span class="kw">else </span>{
+                <span class="prelude-val">Some</span>(Value::<span class="macro-nonterminal">$val</span>(<span class="macro-nonterminal">$ty::default</span>()))
+            })
         } <span class="kw">else </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>buffer = [<span class="number">0u8</span>; <span class="macro-nonterminal">$len</span>];
             <span class="macro-nonterminal">$memory</span>.read(<span class="macro-nonterminal">$offset</span>, <span class="kw-2">&amp;mut </span>buffer)<span class="question-mark">?</span>;
             <span class="macro-nonterminal">$offset </span>+= <span class="macro-nonterminal">$len</span>;
-            <span class="prelude-val">Ok</span>(Value::<span class="macro-nonterminal">$val</span>(<span class="macro-nonterminal">$ty::from_le_bytes</span>(buffer)))
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Value::<span class="macro-nonterminal">$val</span>(<span class="macro-nonterminal">$ty::from_le_bytes</span>(buffer))))
         }
     }};
 }
@@ -193,14 +224,15 @@
     memory: <span class="kw-2">&amp;</span>MemoryView,
     offset: <span class="kw-2">&amp;mut </span>u64,
     max: u64,
+    strict: bool,
     ty: <span class="kw-2">&amp;</span>Type,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Value, MemoryAccessError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Value&gt;, MemoryAccessError&gt; {
     <span class="kw">match </span>ty {
-        Type::I32 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, i32, I32, <span class="number">4</span>),
-        Type::I64 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, i64, I64, <span class="number">8</span>),
-        Type::F32 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, f32, F32, <span class="number">4</span>),
-        Type::F64 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, f64, F64, <span class="number">8</span>),
-        Type::V128 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, u128, V128, <span class="number">16</span>),
+        Type::I32 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, i32, I32, <span class="number">4</span>),
+        Type::I64 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, i64, I64, <span class="number">8</span>),
+        Type::F32 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, f32, F32, <span class="number">4</span>),
+        Type::F64 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, f64, F64, <span class="number">8</span>),
+        Type::V128 =&gt; <span class="macro">read_value!</span>(memory, <span class="kw-2">*</span>offset, max, strict, u128, V128, <span class="number">16</span>),
         <span class="comment">// ExternRef, FuncRef, and ExceptionRef cannot be represented as byte slices
         </span><span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Cannot read non-scalar value from memory"</span>),
     }
@@ -247,8 +279,11 @@
     values_len: M::Offset,
     results: WasmPtr&lt;u8, M&gt;,
     results_len: M::Offset,
+    strict: Bool,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiRuntimeError&gt; {
     <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
+
+    <span class="kw">let </span>strict = <span class="macro">matches!</span>(strict, Bool::True);
 
     <span class="kw">let </span>function = <span class="macro">wasi_try_ok!</span>(env
         .inner()
@@ -262,12 +297,21 @@
     <span class="kw">let </span>max_values_offset = current_values_offset + values_len.into();
     <span class="kw">let </span><span class="kw-2">mut </span>values_buffer = <span class="macro">vec!</span>[];
     <span class="kw">for </span>ty <span class="kw">in </span>function_type.params() {
-        values_buffer.push(<span class="macro">wasi_try_mem_ok!</span>(read_value(
+        <span class="kw">let </span><span class="prelude-val">Some</span>(value) = <span class="macro">wasi_try_mem_ok!</span>(read_value(
             <span class="kw-2">&amp;</span>memory,
             <span class="kw-2">&amp;mut </span>current_values_offset,
             max_values_offset,
+            strict,
             ty
-        )));
+        )) <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
+        };
+        values_buffer.push(value);
+    }
+
+    <span class="kw">if </span>strict &amp;&amp; current_values_offset != max_values_offset {
+        <span class="comment">// If strict is true, we expect to have read all values
+        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
     }
 
     <span class="kw">let </span>result_values = function.call(<span class="kw-2">&amp;mut </span>store, values_buffer.as_slice())<span class="question-mark">?</span>;
@@ -280,8 +324,14 @@
             <span class="kw-2">&amp;</span>memory,
             <span class="kw-2">&amp;mut </span>current_results_offset,
             max_results_offset,
+            strict,
             <span class="kw-2">&amp;</span>result_value
         ));
+    }
+
+    <span class="kw">if </span>strict &amp;&amp; current_results_offset != max_results_offset {
+        <span class="comment">// If strict is true, we expect to have written all results
+        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
     }
 
     <span class="prelude-val">Ok</span>(Errno::Success)
