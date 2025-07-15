@@ -9,7 +9,7 @@ use crate::syscalls::*;
 /// - `Timestamp *time`
 ///     The value of the clock in nanoseconds
 #[instrument(level = "trace", skip_all, fields(?clock_id, %time), ret)]
-pub fn clock_time_set<M: MemorySize>(
+pub fn clock_time_set(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     clock_id: Snapshot0Clockid,
     time: Timestamp,

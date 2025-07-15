@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "6.0.1"
+version = "6.1.0-rc.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
@@ -11,10 +11,10 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../../../lib/types", version = "=6.0.1" }
-wasmer-wasix = { path = "../../../lib/wasix", version = "=0.600.1" }
-wasmer = { path = "../../../lib/api", version = "=6.0.1", default-features = false }
-virtual-fs = { path = "../../../lib/virtual-fs", version = "0.600.1" }
+wasmer-types = { path = "../../../lib/types", version = "=6.1.0-rc.1" }
+wasmer-wasix = { path = "../../../lib/wasix", version = "=0.601.0-rc.1" }
+wasmer = { path = "../../../lib/api", version = "=6.1.0-rc.1", default-features = false }
+virtual-fs = { path = "../../../lib/virtual-fs", version = "0.601.0-rc.1" }
 
 anyhow.workspace = true
 wast = "221.0.2"

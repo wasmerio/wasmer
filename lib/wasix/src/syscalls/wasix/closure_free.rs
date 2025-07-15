@@ -4,7 +4,7 @@ use crate::syscalls::*;
 ///
 /// After calling this it is undefined behavior to call the function at the given index.
 #[instrument(level = "trace", fields(%closure), ret)]
-pub fn closure_free<M: MemorySize>(
+pub fn closure_free(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     closure: u32,
 ) -> Result<Errno, WasiError> {

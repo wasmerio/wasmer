@@ -103,6 +103,7 @@ fn read_value(
     fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
     ret
 )]
+#[allow(clippy::result_large_err)]
 pub fn call_dynamic<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     function_id: u32,
