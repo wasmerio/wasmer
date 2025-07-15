@@ -1,6 +1,6 @@
 [package]
 name = "virtual-net"
-version = "0.600.1"
+version = "0.601.0-rc.1"
 description = "Wasmer Virtual Networking"
 authors.workspace = true
 edition.workspace = true
@@ -25,7 +25,7 @@ libc = { workspace = true, optional = true }
 mio = { workspace = true, optional = true }
 socket2 = { workspace = true, optional = true }
 derive_more.workspace = true
-virtual-mio = { path = "../virtual-io", version = "0.600.1", default-features = false }
+virtual-mio = { path = "../virtual-io", version = "0.601.0-rc.1", default-features = false }
 bincode = { version = "1.3" }
 serde = { workspace = true, default-features = false, features = ["derive"] }
 pin-project-lite = "0.2.9"

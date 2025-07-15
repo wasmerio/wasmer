@@ -1,6 +1,6 @@
 [package]
 name = "virtual-fs"
-version = "0.600.1"
+version = "0.601.0-rc.1"
 description = "Wasmer Virtual FileSystem"
 authors.workspace = true
 edition.workspace = true
