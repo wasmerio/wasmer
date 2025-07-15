@@ -542,7 +542,7 @@
         <span class="string">"memory"</span>,
         MemoryType {
             minimum: <span class="number">1</span>,
-            maximum: <span class="prelude-val">None</span>,
+            maximum: <span class="prelude-val">Some</span>(<span class="number">65536</span>),
             shared: <span class="bool-val">true</span>,
             memory64: <span class="bool-val">false</span>,
             page_size_log2: <span class="prelude-val">None</span>,
@@ -555,7 +555,7 @@
         TableType {
             element_type: RefType::FUNCREF,
             minimum: <span class="number">1</span>,
-            maximum: <span class="prelude-val">Some</span>(<span class="number">65535</span>),
+            maximum: <span class="prelude-val">None</span>,
             shared: <span class="bool-val">false</span>,
             table64: <span class="bool-val">false</span>,
         },
