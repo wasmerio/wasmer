@@ -906,7 +906,7 @@ pub enum DlModuleSpec<'a> {
     },
 }
 
-impl<'a> std::fmt::Debug for DlModuleSpec<'a> {
+impl std::fmt::Debug for DlModuleSpec<'_> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
             Self::FileSystem { module_spec, .. } => f
@@ -2269,13 +2269,11 @@ impl LinkerState {
             }
 
             pop_pending_module(link_state);
-        } else {
-            if !dylink_info.needed.is_empty() {
-                unreachable!(
-                    "Internal error: in-memory modules with further needed modules not \
+        } else if !dylink_info.needed.is_empty() {
+            unreachable!(
+                "Internal error: in-memory modules with further needed modules not \
                     supported and no code paths can create such a module"
-                );
-            }
+            );
         }
 
         let handle = ModuleHandle(self.next_module_handle);
