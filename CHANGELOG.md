@@ -8,6 +8,21 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.1.0-rc.2 - 16/07/2025
+
+## Added
+
+
+## Changed
+
+  - [#5641](https://github.com/wasmerio/wasmer/pull/5641) Work around wasmer-headless build failure by switching away from Xargo
+
+## Fixed
+
+  - [#5642](https://github.com/wasmerio/wasmer/pull/5642) Fix exiting in call_dynamic
+
+
+
 ## 6.1.0-rc.1 - 15/07/2025
 This is the first release of the linker, adding support for dynamic linking in WASIX.
 The linker, paired with [wasixcc](https://github.com/wasix-org/wasixcc), can load DL modules
