@@ -168,7 +168,28 @@
 <a href="#167" id="167">167</a>
 <a href="#168" id="168">168</a>
 <a href="#169" id="169">169</a>
-<a href="#170" id="170">170</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use </span><span class="kw">crate</span>::syscalls::<span class="kw-2">*</span>;
 <span class="kw">use </span>wasmer::Type;
 <span class="kw">use </span>wasmer::ValueType;
@@ -239,6 +260,25 @@
     }
 }
 
+<span class="kw">fn </span>flatten_runtime_error(err: RuntimeError) -&gt; RuntimeError {
+    <span class="kw">let </span>e_ref = err.downcast_ref::&lt;WasiRuntimeError&gt;();
+    <span class="kw">match </span>e_ref {
+        <span class="prelude-val">Some</span>(WasiRuntimeError::Wasi(<span class="kw">_</span>)) =&gt; {
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Wasi(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
+                <span class="macro">unreachable!</span>()
+            };
+            RuntimeError::user(Box::new(err))
+        }
+        <span class="prelude-val">Some</span>(WasiRuntimeError::Runtime(<span class="kw">_</span>)) =&gt; {
+            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Runtime(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
+                <span class="macro">unreachable!</span>()
+            };
+            flatten_runtime_error(err)
+        }
+        <span class="kw">_ </span>=&gt; err,
+    }
+}
+
 <span class="doccomment">/// Call a function from the `__indirect_function_table` with parameters and results from memory.
 ///
 /// This function can be used to call functions whose types are not known at
@@ -282,7 +322,7 @@
     results: WasmPtr&lt;u8, M&gt;,
     results_len: M::Offset,
     strict: Bool,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, WasiRuntimeError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, RuntimeError&gt; {
     <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
 
     <span class="kw">let </span>strict = <span class="macro">matches!</span>(strict, Bool::True);
@@ -316,7 +356,9 @@
         </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
     }
 
-    <span class="kw">let </span>result_values = function.call(<span class="kw-2">&amp;mut </span>store, values_buffer.as_slice())<span class="question-mark">?</span>;
+    <span class="kw">let </span>result_values = function
+        .call(<span class="kw-2">&amp;mut </span>store, values_buffer.as_slice())
+        .map_err(flatten_runtime_error)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
     <span class="kw">let </span><span class="kw-2">mut </span>current_results_offset: u64 = results.offset().into();
