@@ -1,6 +1,6 @@
 [package]
 name = "virtual-mio"
-version = "0.601.0-rc.1"
+version = "0.601.0-rc.2"
 description = "Wasmer Virtual IO Engine powered by mio"
 authors.workspace = true
 edition.workspace = true

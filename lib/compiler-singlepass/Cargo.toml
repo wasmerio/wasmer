@@ -14,8 +14,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.1", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.1", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.2", features = ["translator", "compiler"], default-features = false }
+wasmer-types = { path = "../types", version = "=6.1.0-rc.2", default-features = false, features = ["std"] }
 hashbrown = { workspace = true, optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
