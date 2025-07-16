@@ -1,7 +1,7 @@
 #!/usr/bin/python
 
-PREVIOUS_VERSION='6.0.1'
-NEXT_VERSION='6.1.0-rc.1'
+PREVIOUS_VERSION='6.1.0-rc.1'
+NEXT_VERSION='6.1.0-rc.2'
 
 def make_prerelease_version(version: str) -> str:
     parts = version.split('.', 2)

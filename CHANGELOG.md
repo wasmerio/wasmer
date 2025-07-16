@@ -8,7 +8,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
-## 6.1.0-rc.1 - 15/07/2025
+## 6.1.0-rc.2 - 16/07/2025
 This is the first release of the linker, adding support for dynamic linking in WASIX.
 The linker, paired with [wasixcc](https://github.com/wasix-org/wasixcc), can load DL modules
 at runtime.

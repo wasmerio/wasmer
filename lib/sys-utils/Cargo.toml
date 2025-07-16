@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-sys-utils"
-version = "0.601.0-rc.1"
+version = "0.601.0-rc.2"
 description = "Wasmer utilities for a sys environment."
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
@@ -12,9 +12,9 @@ repository.workspace = true
 rust-version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=6.1.0-rc.1", default-features = false, features = ["sys", "compiler"] }
-wasmer-vm = { path = "../vm", version = "=6.1.0-rc.1" }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.1" }
+wasmer = { path = "../api", version = "=6.1.0-rc.2", default-features = false, features = ["sys", "compiler"] }
+wasmer-vm = { path = "../vm", version = "=6.1.0-rc.2" }
+wasmer-types = { path = "../types", version = "=6.1.0-rc.2" }
 region.workspace = true
 tracing.workspace = true
 
@@ -23,7 +23,7 @@ libc.workspace = true
 
 [dev-dependencies]
 wasmer-wasix.workspace = true
-wasmer = { path = "../api", version = "=6.1.0-rc.1", default-features = false, features = ["sys", "compiler", "cranelift"] }
+wasmer = { path = "../api", version = "=6.1.0-rc.2", default-features = false, features = ["sys", "compiler", "cranelift"] }
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 tracing.workspace = true
 
