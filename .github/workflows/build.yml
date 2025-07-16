@@ -309,7 +309,6 @@ jobs:
       - name: Build Minimal Wasmer Headless
         if: ${{ !startsWith(matrix.build, 'linux-musl-x64') }}
         run: |
-          cargo install xargo
           echo "" >> Cargo.toml
           echo "[profile.release]" >> Cargo.toml
           echo "opt-level = 'z'" >> Cargo.toml
@@ -321,9 +320,7 @@ jobs:
           echo "incremental = false" >> Cargo.toml
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
-          rustup override set nightly-2024-11-07
           make build-wasmer-headless-minimal
-          rustup override unset
       - name: Dist
         run: |
           make distribution
