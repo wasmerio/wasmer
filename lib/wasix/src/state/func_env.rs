@@ -149,6 +149,7 @@ impl WasiFunctionEnv {
                 exported_memory,
                 store,
                 instance,
+                None,
             )),
             None,
             true,
