@@ -18,10 +18,7 @@ wasmer-wasix-types = { path = "../wasi-types", version = "0.601.0-rc.2", feature
 	"enable-serde",
 ] }
 wasmer-types = { path = "../types", version = "=6.1.0-rc.2", default-features = false }
-wasmer = { path = "../api", version = "=6.1.0-rc.2", default-features = false, features = [
-	"wat",
-	"js-serializable-module",
-] }
+wasmer = { path = "../api", version = "=6.1.0-rc.2", default-features = false }
 virtual-mio = { path = "../virtual-io", version = "0.601.0-rc.2", default-features = false }
 virtual-fs = { path = "../virtual-fs", version = "0.601.0-rc.2", default-features = false, features = [
 	"webc-fs",
@@ -221,6 +218,8 @@ sys = [
 	"host-threads",
 	"host-reqwest",
 	"ctrlc",
+	"wasmer/wat",
+	"wasmer/js-serializable-module",
 ]
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
@@ -241,6 +240,8 @@ js = [
 	"web-sys",
 	"wasmer/js-default",
 	"wasmer/wasm-types-polyfill",
+	"wasmer/wat",
+	"wasmer/js-serializable-module",
 ]
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
