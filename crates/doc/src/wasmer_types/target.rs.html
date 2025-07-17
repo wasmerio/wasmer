@@ -475,7 +475,7 @@
 ///
 </span><span class="comment">// Note: This type is a copy of `wasmer_config::package::SuggestedCompilerOptimizations`, so to
 // avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
-</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Default)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
 </span><span class="kw">pub struct </span>UserCompilerOptimizations {
     <span class="doccomment">/// Suggest the `pass_params` (also known as g0m0) optimization pass.
     </span><span class="kw">pub </span>pass_params: <span class="prelude-ty">Option</span>&lt;bool&gt;,

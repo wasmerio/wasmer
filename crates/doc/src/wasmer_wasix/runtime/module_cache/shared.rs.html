@@ -77,7 +77,12 @@
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
 <a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a></pre></div><pre class="rust"><code><span class="kw">use </span>dashmap::DashMap;
+<a href="#79" id="79">79</a>
+<a href="#80" id="80">80</a>
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a></pre></div><pre class="rust"><code><span class="kw">use </span>dashmap::DashMap;
 <span class="kw">use </span>wasmer::{Engine, Module};
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::{CacheError, ModuleCache};
@@ -109,6 +114,11 @@
 
             <span class="prelude-val">None </span>=&gt; <span class="prelude-val">Err</span>(CacheError::NotFound),
         }
+    }
+
+    <span class="kw">async fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;bool, CacheError&gt; {
+        <span class="kw">let </span>key = (key, engine.deterministic_id().to_string());
+        <span class="prelude-val">Ok</span>(<span class="self">self</span>.modules.contains_key(<span class="kw-2">&amp;</span>key))
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(%key))]

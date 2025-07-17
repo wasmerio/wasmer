@@ -150,7 +150,14 @@
 <a href="#149" id="149">149</a>
 <a href="#150" id="150">150</a>
 <a href="#151" id="151">151</a>
-<a href="#152" id="152">152</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, ops::Deref, path::PathBuf};
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{fmt::Debug, ops::Deref, path::PathBuf};
 
 <span class="kw">use </span>wasmer::{Engine, Module};
 <span class="kw">use </span>wasmer_types::ModuleHash;
@@ -177,6 +184,9 @@
 </span><span class="kw">pub trait </span>ModuleCache: Debug {
     <span class="doccomment">/// Load a module based on its hash.
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt;;
+
+    <span class="doccomment">/// Check if a module is present in the cache.
+    </span><span class="kw">async fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;bool, CacheError&gt;;
 
     <span class="doccomment">/// Save a module so it can be retrieved with [`ModuleCache::load()`] at a
     /// later time.
@@ -229,6 +239,10 @@
 {
     <span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
         (<span class="kw-2">**</span><span class="self">self</span>).load(key, engine).<span class="kw">await
+    </span>}
+
+    <span class="kw">async fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;bool, CacheError&gt; {
+        (<span class="kw-2">**</span><span class="self">self</span>).contains(key, engine).<span class="kw">await
     </span>}
 
     <span class="kw">async fn </span>save(

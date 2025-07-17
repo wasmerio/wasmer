@@ -2037,7 +2037,7 @@
 }
 
 <span class="doccomment">/// Suggested optimization that might be operated on the module when (and if) compiled.
-</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Deserialize, Serialize, Default)]
+</span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash, Deserialize, Serialize, Default)]
 </span><span class="kw">pub struct </span>SuggestedCompilerOptimizations {
     <span class="kw">pub </span>pass_params: <span class="prelude-ty">Option</span>&lt;bool&gt;,
 }
