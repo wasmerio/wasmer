@@ -509,7 +509,28 @@
 <a href="#508" id="508">508</a>
 <a href="#509" id="509">509</a>
 <a href="#510" id="510">510</a>
-<a href="#511" id="511">511</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#511" id="511">511</a>
+<a href="#512" id="512">512</a>
+<a href="#513" id="513">513</a>
+<a href="#514" id="514">514</a>
+<a href="#515" id="515">515</a>
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, BTreeSet},
     fs::File,
     io::Read,
@@ -827,7 +848,7 @@
             <span class="prelude-val">Ok</span>(root)
         } <span class="kw">else </span>{
             <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self</span>.mapped_directories.iter().cloned().collect();
-            directory_tree(paths, <span class="kw-2">&amp;</span><span class="self">self</span>.base_dir, strictness)
+            directory_tree(paths, <span class="kw-2">&amp;</span><span class="self">self</span>.base_dir)
         }
     }
 }
@@ -870,7 +891,6 @@
 </span><span class="kw">fn </span>directory_tree(
     paths: <span class="kw">impl </span>IntoIterator&lt;Item = PathBuf&gt;,
     base_dir: <span class="kw-2">&amp;</span>Path,
-    strictness: Strictness,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Directory&lt;<span class="lifetime">'static</span>&gt;, Error&gt; {
     <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = paths.into_iter().collect();
     <span class="kw">let </span><span class="kw-2">mut </span>root = Directory::default();
@@ -885,20 +905,14 @@
                 <span class="macro">println!</span>(<span class="string">"Warning: {path:?} already exists. Overriding the old entry"</span>);
             }
         } <span class="kw">else </span>{
-            <span class="kw">match </span>webc::v3::write::Directory::from_path_with_ignore(<span class="kw-2">&amp;</span>path) {
-                <span class="prelude-val">Ok</span>(dir) =&gt; {
-                    <span class="kw">for </span>(path, child) <span class="kw">in </span>dir.children {
-                        root.children.insert(path.clone(), child);
-                    }
-                }
-                <span class="prelude-val">Err</span>(e) =&gt; {
-                    <span class="kw">let </span>e = Error::from(e);
-                    <span class="kw">let </span>error = e.context(<span class="macro">format!</span>(
-                        <span class="string">"Unable to add \"{}\" to the directory tree"</span>,
-                        path.display()
-                    ));
-                    strictness.on_error(<span class="kw-2">&amp;</span>path, error)<span class="question-mark">?</span>;
-                }
+            <span class="kw">let </span>dir = webc::v3::write::Directory::from_path_with_ignore(<span class="kw-2">&amp;</span>path).map_err(|e| {
+                Error::from(e).context(<span class="macro">format!</span>(
+                    <span class="string">"Unable to add \"{}\" to the directory tree"</span>,
+                    path.display()
+                ))
+            })<span class="question-mark">?</span>;
+            <span class="kw">for </span>(path, child) <span class="kw">in </span>dir.children {
+                root.children.insert(path.clone(), child);
             }
         }
     }
@@ -1018,6 +1032,34 @@
             String::from_utf8(volume.read_file(<span class="kw-2">&amp;</span>man_page).unwrap().into()).unwrap(),
             <span class="string">"man page"
         </span>);
+    }
+
+    <span class="attr">#[test]
+    </span><span class="kw">fn </span>directory_tree_propagates_errors() {
+        <span class="kw">let </span>temp = TempDir::new().unwrap();
+
+        <span class="comment">// Create a directory that will be used as the base directory
+        </span><span class="kw">let </span>base_dir = temp.path().to_path_buf();
+
+        <span class="comment">// Create a non-existent path that will cause `from_path_with_ignore` to fail
+        </span><span class="kw">let </span>non_existent_path = base_dir.join(<span class="string">"non_existent_dir"</span>);
+
+        <span class="comment">// Try to create a directory tree with a non-existent path
+        </span><span class="kw">let </span>result = directory_tree(std::iter::once(non_existent_path.clone()), <span class="kw-2">&amp;</span>base_dir);
+
+        <span class="comment">// Verify that the error is propagated
+        </span><span class="macro">assert!</span>(result.is_err());
+        <span class="kw">let </span>error = result.unwrap_err();
+        <span class="macro">assert!</span>(
+            error.to_string().contains(<span class="string">"Unable to add"</span>),
+            <span class="string">"Error message should indicate failure to add path: {}"</span>,
+            error
+        );
+        <span class="macro">assert!</span>(
+            error.to_string().contains(<span class="string">"non_existent_dir"</span>),
+            <span class="string">"Error message should include the problematic path: {}"</span>,
+            error
+        );
     }
 }
 </code></pre></div></section></main></body></html>
