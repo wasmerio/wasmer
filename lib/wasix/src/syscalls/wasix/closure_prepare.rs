@@ -14,7 +14,8 @@ use wasm_encoder::{
     CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
     ImportSection, InstructionSink, MemArg, MemoryType, RefType, TableType, TypeSection, ValType,
 };
-use wasmer::{imports, wat2wasm, FunctionType, Table, Type};
+use wasmer::{imports, FunctionType, Table, Type};
+
 use wasmer_wasix_types::wasi::WasmValueType;
 
 // Implement helper functions for wasm_encoder::ValType
