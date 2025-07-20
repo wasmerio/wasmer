@@ -386,7 +386,8 @@
 <a href="#385" id="385">385</a>
 <a href="#386" id="386">386</a>
 <a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a></pre></div><pre class="rust"><code><span class="doccomment">//! Closures provide a way to generate a WASM function that wraps a generic function and an environment.
+<a href="#388" id="388">388</a>
+<a href="#389" id="389">389</a></pre></div><pre class="rust"><code><span class="doccomment">//! Closures provide a way to generate a WASM function that wraps a generic function and an environment.
 //!
 //! A typical usage of this API is as follows:
 //!
@@ -402,7 +403,8 @@
     CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
     ImportSection, InstructionSink, MemArg, MemoryType, RefType, TableType, TypeSection, ValType,
 };
-<span class="kw">use </span>wasmer::{imports, wat2wasm, FunctionType, Table, Type};
+<span class="kw">use </span>wasmer::{imports, FunctionType, Table, Type};
+
 <span class="kw">use </span>wasmer_wasix_types::wasi::WasmValueType;
 
 <span class="comment">// Implement helper functions for wasm_encoder::ValType
