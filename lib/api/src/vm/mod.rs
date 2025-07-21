@@ -26,48 +26,6 @@ macro_rules! define_vm_like {
             Jsc(crate::backend::jsc::vm::[<VM $name>]),
         }
 
-        #[cfg(feature = "sys")]
-        impl From<crate::backend::sys::vm::[<VM $name>]> for [<VM $name>] {
-            fn from(value: crate::backend::sys::vm::[<VM $name>]) -> Self {
-                [<VM $name>]::Sys(value)
-            }
-        }
-
-        #[cfg(feature = "wamr")]
-        impl From<crate::backend::wamr::vm::[<VM $name>]> for [<VM $name>] {
-            fn from(value: crate::backend::wamr::vm::[<VM $name>]) -> Self {
-                [<VM $name>]::Wamr(value)
-            }
-        }
-
-        #[cfg(feature = "wasmi")]
-        impl From<crate::backend::wasmi::vm::[<VM $name>]> for [<VM $name>] {
-            fn from(value: crate::backend::wasmi::vm::[<VM $name>]) -> Self {
-                [<VM $name>]::Wasmi(value)
-            }
-        }
-
-        #[cfg(feature = "v8")]
-        impl From<crate::backend::v8::vm::[<VM $name>]> for [<VM $name>] {
-            fn from(value: crate::backend::v8::vm::[<VM $name>]) -> Self {
-                [<VM $name>]::V8(value)
-            }
-        }
-
-        #[cfg(feature = "js")]
-        impl From<crate::backend::js::vm::[<VM $name>]> for [<VM $name>] {
-            fn from(value: crate::backend::js::vm::[<VM $name>]) -> Self {
-                [<VM $name>]::Js(value)
-            }
-        }
-
-        #[cfg(feature = "jsc")]
-        impl From<crate::backend::jsc::vm::[<VM $name>]> for [<VM $name>] {
-            fn from(value: crate::backend::jsc::vm::[<VM $name>]) -> Self {
-                [<VM $name>]::Jsc(value)
-            }
-        }
-
         impl [<VM $name>] {
             #[cfg(feature = "sys")]
             /// Consume `self` into a `sys` VM kind.
