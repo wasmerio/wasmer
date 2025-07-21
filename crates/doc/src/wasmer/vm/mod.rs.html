@@ -413,7 +413,40 @@
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
 <a href="#414" id="414">414</a>
-<a href="#415" id="415">415</a></pre></div><pre class="rust"><code><span class="doccomment">//! This module defines traits to handle abstractions created by the runtimes.
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a></pre></div><pre class="rust"><code><span class="doccomment">//! This module defines traits to handle abstractions created by the runtimes.
 
 </span><span class="kw">mod </span>impls;
 
@@ -421,199 +454,6 @@
 <span class="kw">use </span>wasmer_types::RawValue;
 
 <span class="macro">macro_rules!</span> define_vm_like {
-    (<span class="macro-nonterminal">$name</span>: ident) =&gt; {
-        <span class="macro">paste::paste!</span> {
-        <span class="doccomment">/// The enum for all those VM values of this kind.
-        </span><span class="attr">#[repr(C)]
-        </span><span class="kw">pub enum </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-            </span>Sys(<span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
-
-            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-            </span>Wamr(<span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
-
-
-            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-            </span>Wasmi(<span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
-
-
-            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-            </span>V8(<span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
-
-            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-            </span>Js(<span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
-
-            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-            </span>Jsc(<span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
-
-        }
-
-        <span class="kw">impl </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-            </span><span class="doccomment">/// Consume `self` into a `sys` VM kind.
-            </span><span class="kw">pub fn </span>into_sys(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `sys` VM kind.
-            </span><span class="kw">pub fn </span>as_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `sys` VM kind.
-            </span><span class="kw">pub fn </span>as_sys_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-            </span><span class="doccomment">/// Consume `self` into a `wamr` VM kind.
-            </span><span class="kw">pub fn </span>into_wamr(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wamr` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `wamr` VM kind.
-            </span><span class="kw">pub fn </span>as_wamr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wamr` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
-            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `wamr` VM kind.
-            </span><span class="kw">pub fn </span>as_wamr_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wamr` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-            </span><span class="doccomment">/// Consume `self` into a `wasmi` VM kind.
-            </span><span class="kw">pub fn </span>into_wasmi(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wasmi` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `wasmi` VM kind.
-            </span><span class="kw">pub fn </span>as_wasmi(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wasmi` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
-            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `wasmi` VM kind.
-            </span><span class="kw">pub fn </span>as_wasmi_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wasmi` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-            </span><span class="doccomment">/// Consume `self` into a `v8` VM kind.
-            </span><span class="kw">pub fn </span>into_v8(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `v8` VM kind.
-            </span><span class="kw">pub fn </span>as_v8(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `v8` VM kind.
-            </span><span class="kw">pub fn </span>as_v8_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-            </span><span class="doccomment">/// Consume `self` into a `js` VM kind.
-            </span><span class="kw">pub fn </span>into_js(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `js` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `js` VM kind.
-            </span><span class="kw">pub fn </span>as_js(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `js` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `js` VM kind.
-            </span><span class="kw">pub fn </span>as_js_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `js` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-            </span><span class="doccomment">/// Consume `self` into a `jsc` VM kind.
-            </span><span class="kw">pub fn </span>into_jsc(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `jsc` VM kind.
-            </span><span class="kw">pub fn </span>as_jsc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
-                }
-            }
-
-            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
-            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `jsc` VM kind.
-            </span><span class="kw">pub fn </span>as_jsc_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
-                <span class="kw">match </span><span class="self">self </span>{
-                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(s) =&gt; s,
-                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
-                }
-            }
-        }
-        }
-    };
-
     (<span class="macro-nonterminal">$name</span>: ident $(, <span class="macro-nonterminal">$derive</span>:ident)<span class="kw-2">*</span>) =&gt; {
         <span class="macro">paste::paste!</span> {
         <span class="doccomment">/// The enum for all those VM values of this kind.
@@ -716,6 +556,32 @@
                 }
             }
 
+            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+            </span><span class="doccomment">/// Consume `self` into a `v8` VM kind.
+            </span><span class="kw">pub fn </span>into_v8(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `v8` VM kind.
+            </span><span class="kw">pub fn </span>as_v8(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `v8` VM kind.
+            </span><span class="kw">pub fn </span>as_v8_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
+                }
+            }
 
             <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
             </span><span class="doccomment">/// Consume `self` into a `js` VM kind.
@@ -770,7 +636,153 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
                 }
             }
+        }
+        }
+    };
 
+    (<span class="macro-nonterminal">$name</span>: ident $(, <span class="macro-nonterminal">$derive</span>:ident)<span class="kw-2">*</span>, @From) =&gt; {
+        <span class="macro">paste::paste!</span> {
+        <span class="doccomment">/// The enum for all those VM values of this kind.
+        </span>$(<span class="attr">#[derive(<span class="macro-nonterminal">$derive</span>)]</span>)*
+        <span class="attr">#[repr(C)]
+        </span><span class="kw">pub enum </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+            </span>Sys(<span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
+            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+            </span>Wamr(<span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
+            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+            </span>Wasmi(<span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
+            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+            </span>V8(<span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
+            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+            </span>Js(<span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
+            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+            </span>Jsc(<span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]),
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+        </span><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]&gt; <span class="kw">for </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="kw">fn </span>from(value: <span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]) -&gt; <span class="self">Self </span>{
+                [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(value)
+            }
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+        </span><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]&gt; <span class="kw">for </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="kw">fn </span>from(value: <span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]) -&gt; <span class="self">Self </span>{
+                [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(value)
+            }
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+        </span><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]&gt; <span class="kw">for </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="kw">fn </span>from(value: <span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]) -&gt; <span class="self">Self </span>{
+                [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(value)
+            }
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
+        </span><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]&gt; <span class="kw">for </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="kw">fn </span>from(value: <span class="kw">crate</span>::backend::v8::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]) -&gt; <span class="self">Self </span>{
+                [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::V8(value)
+            }
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+        </span><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]&gt; <span class="kw">for </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="kw">fn </span>from(value: <span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]) -&gt; <span class="self">Self </span>{
+                [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(value)
+            }
+        }
+
+        <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+        </span><span class="kw">impl </span>From&lt;<span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]&gt; <span class="kw">for </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="kw">fn </span>from(value: <span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;]) -&gt; <span class="self">Self </span>{
+                [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(value)
+            }
+        }
+
+        <span class="kw">impl </span>[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+            </span><span class="doccomment">/// Consume `self` into a `sys` VM kind.
+            </span><span class="kw">pub fn </span>into_sys(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `sys` VM kind.
+            </span><span class="kw">pub fn </span>as_sys(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `sys` VM kind.
+            </span><span class="kw">pub fn </span>as_sys_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::sys::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Sys(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `sys` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+            </span><span class="doccomment">/// Consume `self` into a `wamr` VM kind.
+            </span><span class="kw">pub fn </span>into_wamr(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wamr` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `wamr` VM kind.
+            </span><span class="kw">pub fn </span>as_wamr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wamr` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"wamr"</span>)]
+            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `wamr` VM kind.
+            </span><span class="kw">pub fn </span>as_wamr_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::wamr::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wamr(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wamr` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+            </span><span class="doccomment">/// Consume `self` into a `wasmi` VM kind.
+            </span><span class="kw">pub fn </span>into_wasmi(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wasmi` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `wasmi` VM kind.
+            </span><span class="kw">pub fn </span>as_wasmi(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wasmi` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
+            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `wasmi` VM kind.
+            </span><span class="kw">pub fn </span>as_wasmi_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::wasmi::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Wasmi(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `wasmi` value!"</span>)
+                }
+            }
 
             <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
             </span><span class="doccomment">/// Consume `self` into a `v8` VM kind.
@@ -798,6 +810,60 @@
                     <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `v8` value!"</span>)
                 }
             }
+
+            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+            </span><span class="doccomment">/// Consume `self` into a `js` VM kind.
+            </span><span class="kw">pub fn </span>into_js(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `js` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `js` VM kind.
+            </span><span class="kw">pub fn </span>as_js(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `js` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
+            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `js` VM kind.
+            </span><span class="kw">pub fn </span>as_js_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::js::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Js(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `js` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+            </span><span class="doccomment">/// Consume `self` into a `jsc` VM kind.
+            </span><span class="kw">pub fn </span>into_jsc(<span class="self">self</span>) -&gt; <span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+            </span><span class="doccomment">/// Convert a reference to [`self`] into a reference to the same `jsc` VM kind.
+            </span><span class="kw">pub fn </span>as_jsc(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
+                }
+            }
+
+            <span class="attr">#[cfg(feature = <span class="string">"jsc"</span>)]
+            </span><span class="doccomment">/// Convert a mutable reference to [`self`] into a mutable reference to the same `jsc` VM kind.
+            </span><span class="kw">pub fn </span>as_jsc_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span><span class="kw">crate</span>::backend::jsc::vm::[&lt;VM <span class="macro-nonterminal">$name</span>&gt;] {
+                <span class="kw">match </span><span class="self">self </span>{
+                    [&lt;VM <span class="macro-nonterminal">$name</span>&gt;]::Jsc(s) =&gt; s,
+                    <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Not a `jsc` value!"</span>)
+                }
+            }
         }
         }
     };
@@ -821,7 +887,7 @@
 <span class="macro">define_vm_like!</span>(Global, Debug);
 <span class="macro">define_vm_like!</span>(Tag, Debug);
 <span class="macro">define_vm_like!</span>(Exception, Debug);
-<span class="macro">define_vm_like!</span>(Memory, Debug);
+<span class="macro">define_vm_like!</span>(Memory, Debug, @From);
 <span class="macro">define_vm_like!</span>(SharedMemory);
 <span class="macro">define_vm_like!</span>(Table, Debug);
 

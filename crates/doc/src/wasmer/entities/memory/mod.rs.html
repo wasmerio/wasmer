@@ -208,7 +208,13 @@
 <a href="#207" id="207">207</a>
 <a href="#208" id="208">208</a>
 <a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>shared::SharedMemory;
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>shared::SharedMemory;
 <span class="kw">use </span>wasmer_types::{MemoryError, MemoryType, Pages};
 
 <span class="kw">use crate</span>::{
@@ -262,8 +268,14 @@
     }
 
     <span class="doccomment">/// Create a memory object from an existing memory and attaches it to the store
-    </span><span class="kw">pub fn </span>new_from_existing(new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut, memory: VMMemory) -&gt; <span class="self">Self </span>{
-        <span class="self">Self</span>(BackendMemory::new_from_existing(new_store, memory))
+    </span><span class="kw">pub fn </span>new_from_existing&lt;IntoVMMemory&gt;(
+        new_store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+        memory: IntoVMMemory,
+    ) -&gt; <span class="self">Self
+    </span><span class="kw">where
+        </span>IntoVMMemory: Into&lt;VMMemory&gt;,
+    {
+        <span class="self">Self</span>(BackendMemory::new_from_existing(new_store, memory.into()))
     }
 
     <span class="doccomment">/// Returns the [`MemoryType`] of the `Memory`.

@@ -16,10 +16,11 @@ mutable from both host and WebAssembly.</p>
 <code>BaseTunables</code>.</p>
 <h5 id="example"><a class="doc-anchor" href="#example">§</a>Example</h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>m = Memory::new(<span class="kw-2">&amp;mut </span>store, MemoryType::new(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).unwrap();</code></pre></div>
-</div></details><details class="toggle method-toggle" open><summary><section id="method.new_from_existing" class="method"><h4 class="code-header">pub fn <a href="#method.new_from_existing" class="fn">new_from_existing</a>(
+</div></details><details class="toggle method-toggle" open><summary><section id="method.new_from_existing" class="method"><h4 class="code-header">pub fn <a href="#method.new_from_existing" class="fn">new_from_existing</a>&lt;IntoVMMemory&gt;(
     new_store: &amp;mut impl <a class="trait" href="trait.AsStoreMut.html" title="trait wasmer_wasix::syscalls::AsStoreMut">AsStoreMut</a>,
-    memory: VMMemory,
-) -&gt; <a class="struct" href="struct.Memory.html" title="struct wasmer_wasix::syscalls::Memory">Memory</a></h4></section></summary><div class="docblock"><p>Create a memory object from an existing memory and attaches it to the store</p>
+    memory: IntoVMMemory,
+) -&gt; <a class="struct" href="struct.Memory.html" title="struct wasmer_wasix::syscalls::Memory">Memory</a><div class="where">where
+    IntoVMMemory: <a class="trait" href="https://doc.rust-lang.org/1.84.1/core/convert/trait.Into.html" title="trait core::convert::Into">Into</a>&lt;VMMemory&gt;,</div></h4></section></summary><div class="docblock"><p>Create a memory object from an existing memory and attaches it to the store</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.ty" class="method"><h4 class="code-header">pub fn <a href="#method.ty" class="fn">ty</a>(&amp;self, store: &amp;impl <a class="trait" href="trait.AsStoreRef.html" title="trait wasmer_wasix::syscalls::AsStoreRef">AsStoreRef</a>) -&gt; MemoryType</h4></section></summary><div class="docblock"><p>Returns the [<code>MemoryType</code>] of the <code>Memory</code>.</p>
 <h5 id="example-1"><a class="doc-anchor" href="#example-1">§</a>Example</h5>
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">let </span>mt = MemoryType::new(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>);
