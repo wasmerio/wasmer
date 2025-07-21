@@ -2466,6 +2466,37 @@ impl core::fmt::Debug for WasmValueType {
     }
 }
 
+// TODO: if necessary, must be implemented in wit-bindgen
+unsafe impl ValueType for WasmValueType {
+    #[inline]
+    fn zero_padding_bytes(&self, _bytes: &mut [MaybeUninit<u8>]) {}
+}
+
+impl TryFrom<wasmer::Type> for WasmValueType {
+    type Error = ();
+    fn try_from(value: wasmer::Type) -> Result<Self, Self::Error> {
+        match value {
+            wasmer::Type::I32 => Ok(Self::I32),
+            wasmer::Type::I64 => Ok(Self::I64),
+            wasmer::Type::F32 => Ok(Self::F32),
+            wasmer::Type::F64 => Ok(Self::F64),
+            wasmer::Type::V128 => Ok(Self::V128),
+            _ => Err(()),
+        }
+    }
+}
+impl From<WasmValueType> for wasmer::Type {
+    fn from(value: WasmValueType) -> Self {
+        match value {
+            WasmValueType::I32 => Self::I32,
+            WasmValueType::I64 => Self::I64,
+            WasmValueType::F32 => Self::F32,
+            WasmValueType::F64 => Self::F64,
+            WasmValueType::V128 => Self::V128,
+        }
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct AddrUnspec {

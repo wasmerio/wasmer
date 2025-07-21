@@ -297,11 +297,17 @@ impl WasiModuleTreeHandles {
         }
     }
 
+    /// Helper function to look up a function in the indirect function table
+    ///
+    /// * Returns an Errno if an error occurred.
+    /// * Returns `Ok(None)` if the index is out of bounds.
+    /// * Returns `Ok(Some(None))` if there is no function at the index.
+    /// * Returns `Ok(Some(Some(function)))` if there is a function at the index.
     pub fn indirect_function_table_lookup(
         &self,
         store: &mut impl AsStoreMut,
         index: u32,
-    ) -> Result<Option<Function>, Errno> {
+    ) -> Result<Option<Option<Function>>, Errno> {
         let value = self
             .main_module_instance_handles()
             .indirect_function_table
@@ -321,8 +327,18 @@ impl WasiModuleTreeHandles {
         };
         let Some(funcref) = funcref else {
             trace!(function_id = index, "No function at the supplied index");
-            return Ok(None);
+            return Ok(Some(None));
         };
-        Ok(Some(funcref))
+        Ok(Some(Some(funcref)))
+    }
+
+    /// Check if an indirect_function_table entry is reserved for closures.
+    ///
+    /// Returns false if the entry is not reserved for closures.
+    pub fn is_closure(&self, function_id: u32) -> bool {
+        match self {
+            WasiModuleTreeHandles::Static(_) => false,
+            WasiModuleTreeHandles::Dynamic { linker, .. } => linker.is_closure(function_id),
+        }
     }
 }
