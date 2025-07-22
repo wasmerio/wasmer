@@ -217,6 +217,32 @@ pub enum WasiModuleTreeHandles {
     },
 }
 
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum FunctionLookupError {
+    #[error("No function found at the requested index `{0}`")]
+    /// Function not found at the index
+    Empty(u32),
+    #[error("Table index `{0}` out of bounds")]
+    /// Table index out of bounds
+    OutOfBounds(u32),
+    #[error("The table does not contain functions")]
+    /// The table does not contain functions
+    NotAFunctionTable,
+    #[error("No indirect function table available")]
+    /// No indirect function table available
+    NoIndirectFunctionTable,
+}
+impl From<FunctionLookupError> for Errno {
+    fn from(e: FunctionLookupError) -> Self {
+        match e {
+            FunctionLookupError::Empty(_) => Errno::Inval,
+            FunctionLookupError::OutOfBounds(_) => Errno::Inval,
+            FunctionLookupError::NotAFunctionTable => Errno::Inval,
+            FunctionLookupError::NoIndirectFunctionTable => Errno::Notsup,
+        }
+    }
+}
+
 impl WasiModuleTreeHandles {
     /// Can be used to get the `WasiModuleInstanceHandles` of the main module.
     /// If access to the side modules' instance handles is required, one must go
@@ -307,29 +333,29 @@ impl WasiModuleTreeHandles {
         &self,
         store: &mut impl AsStoreMut,
         index: u32,
-    ) -> Result<Option<Option<Function>>, Errno> {
+    ) -> Result<Function, FunctionLookupError> {
         let value = self
             .main_module_instance_handles()
             .indirect_function_table
             .as_ref()
-            .ok_or(Errno::Notsup)?
+            .ok_or(FunctionLookupError::NoIndirectFunctionTable)?
             .get(store, index);
         let Some(value) = value else {
             trace!(
                 function_id = index,
                 "Function not found in indirect function table"
             );
-            return Ok(None);
+            return Err(FunctionLookupError::OutOfBounds(index));
         };
         let Value::FuncRef(funcref) = value else {
             error!("Function table contains something other than a funcref");
-            return Err(Errno::Inval);
+            return Err(FunctionLookupError::NotAFunctionTable);
         };
         let Some(funcref) = funcref else {
             trace!(function_id = index, "No function at the supplied index");
-            return Ok(Some(None));
+            return Err(FunctionLookupError::Empty(index));
         };
-        Ok(Some(Some(funcref)))
+        Ok(funcref)
     }
 
     /// Check if an indirect_function_table entry is reserved for closures.

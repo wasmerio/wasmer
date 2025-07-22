@@ -1,7 +1,7 @@
-use super::*;
-use crate::syscalls::*;
-use wasmer::Type;
-use wasmer_wasix_types::wasi::{ReflectionResult, WasmValueType};
+use crate::{state::FunctionLookupError, WasiEnv, WasiError};
+use tracing::{instrument, trace};
+use wasmer::{FunctionEnvMut, MemorySize, Type, WasmPtr, WasmSlice};
+use wasmer_wasix_types::wasi::{Errno, ReflectionResult, WasmValueType};
 
 fn serialize_types(types: &[Type]) -> Result<Vec<WasmValueType>, Errno> {
     types
@@ -62,40 +62,32 @@ pub fn reflect_signature<M: MemorySize>(
     let function = match function_lookup_result {
         Ok(f) => f,
         Err(e) => {
+            let cacheable = match e {
+                FunctionLookupError::Empty(_) => {
+                    if env.inner().is_closure(function_id) {
+                        0
+                    } else {
+                        1
+                    }
+                }
+                FunctionLookupError::OutOfBounds(_) => 0,
+                _ => 1,
+            };
             trace!(
                 "Failed to look up function in indirect function table: {}",
                 e
             );
             wasi_try_mem_ok!(signature_info.write(ReflectionResult {
-                cacheable: 0,
+                cacheable,
                 arguments: 0,
                 results: 0,
             }));
-            return Ok(e);
+            return Ok(e.into());
         }
-    };
-
-    let Some(function) = function else {
-        // Function out of bounds
-        wasi_try_mem_ok!(signature_info.write(ReflectionResult {
-            cacheable: 0,
-            arguments: 0,
-            results: 0,
-        }));
-        return Ok(Errno::Inval);
     };
 
     let is_closure = env.inner().is_closure(function_id);
     let cacheable = if is_closure { 0 } else { 1 };
-
-    let Some(function) = function else {
-        wasi_try_mem_ok!(signature_info.write(ReflectionResult {
-            cacheable,
-            arguments: 0,
-            results: 0,
-        }));
-        return Ok(Errno::Inval);
-    };
 
     let function_type = function.ty(&store);
     let arguments = function_type.params();
