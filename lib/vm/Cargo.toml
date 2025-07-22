@@ -32,7 +32,6 @@ fnv = "1.0.3"
 tracing = { workspace = true, optional = true }
 crossbeam-queue = "0.3.8"
 loupe = { workspace = true, optional = true }
-paste = "1.0.15"
 
 [target.'cfg(any(target_family = "unix", all(target_family = "windows", target_env = "gnu")))'.dependencies]
 libunwind = "1.3.3"

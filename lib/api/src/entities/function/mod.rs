@@ -10,7 +10,7 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
-use wasmer_types::{FunctionType, RawValue};
+use wasmer_types::{FunctionType, RawValue, Upcast};
 
 use crate::{
     error::RuntimeError,
@@ -45,7 +45,7 @@ impl Function {
     ///
     /// If you know the signature of the host function at compile time,
     /// consider using [`Function::new_typed`] for less runtime overhead.
-    pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    pub fn new<FT, F>(store: &mut impl AsStoreMut<Object: Upcast<()>>, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
@@ -110,7 +110,7 @@ impl Function {
     /// Creates a new host `Function` from a native function.
     pub fn new_typed<S, F, Args, Rets>(store: &mut S, func: F) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<()>>,
         F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,

@@ -19,6 +19,7 @@ use wasmer_vm::{
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFuncRef,
     VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
 };
+use wasmer_types::Upcast;
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -54,7 +55,7 @@ impl Function {
         let raw_store = store.as_store_mut().as_raw() as *mut u8;
         let wrapper = move |values_vec: *mut RawValue| -> Result<(), RuntimeError> {
             unsafe {
-                let mut store = StoreMut::from_raw(raw_store as *mut StoreInner);
+                let mut store = StoreMut::from_raw(raw_store as *mut StoreInner<S::Object>);
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
@@ -64,7 +65,7 @@ impl Function {
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
-                let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner);
+                let store_mut = StoreMut::from_raw(raw_store as *mut StoreInner<S::Object>);
                 let env = env::FunctionEnvMut {
                     store_mut,
                     func_env: func_env.clone(),
@@ -128,7 +129,7 @@ impl Function {
     /// Creates a new host `Function` from a native function.
     pub(crate) fn new_typed<F, Args, Rets, S>(store: &mut S, func: F) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<()>>,
         F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -151,7 +152,7 @@ impl Function {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline =
-            <F as HostFunction<(), Args, Rets, WithoutEnv>>::call_trampoline_address().into_sys();
+            <F as HostFunction<(), S::Object, Args, Rets, WithoutEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -198,7 +199,7 @@ impl Function {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
         let call_trampoline =
-            <F as HostFunction<T, Args, Rets, WithEnv>>::call_trampoline_address().into_sys();
+            <F as HostFunction<T, S::Object, Args, Rets, WithEnv>>::call_trampoline_address().into_sys();
         let anyfunc = VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -513,12 +514,12 @@ macro_rules! impl_host_function {
         paste::paste! {
         #[allow(non_snake_case)]
         pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower _no_env>]
-            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Object, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
             (this: &Func) -> crate::backend::sys::vm::VMFunctionCallback {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Object, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -526,7 +527,7 @@ macro_rules! impl_host_function {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 // println!("func wrapper");
-                let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+                let mut store: StoreMut<Object> = StoreMut::from_raw(env.raw_store as *mut _);
                 let result = on_host_stack(|| {
                     // println!("func wrapper1");
                     panic::catch_unwind(AssertUnwindSafe(|| {
@@ -544,7 +545,7 @@ macro_rules! impl_host_function {
                 }
             }
 
-            func_wrapper::< $( $x, )* Rets, RetsAsResult, Func > as _
+            func_wrapper::< $( $x, )* Rets, Object, RetsAsResult, Func > as _
 
         }
 
@@ -589,7 +590,7 @@ macro_rules! impl_host_function {
                 Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static,
             {
 
-                let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+                let mut store: StoreMut<Object> = StoreMut::from_raw(env.raw_store as *mut _);
   	            let result = wasmer_vm::on_host_stack(|| {
   	                panic::catch_unwind(AssertUnwindSafe(|| {
   	                    $(

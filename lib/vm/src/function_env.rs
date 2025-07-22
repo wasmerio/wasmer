@@ -1,4 +1,4 @@
-use std::any::Any;
+use wasmer_types::Upcast;
 
 /// Underlying FunctionEnvironment used by a `VMFunction`.
 pub struct VMFunctionEnvironment<Object = wasmer_types::BoxStoreObject> {
@@ -14,11 +14,11 @@ impl<Object> std::fmt::Debug for VMFunctionEnvironment<Object> {
     }
 }
 
-impl VMFunctionEnvironment {
+impl<Object> VMFunctionEnvironment<Object> {
     /// Wraps the given value to expose it to Wasm code as a function context.
-    pub fn new(val: impl Any + Send + 'static) -> Self {
+    pub fn new<T>(val: T) -> Self where Object: Upcast<T> {
         Self {
-            contents: Box::new(val),
+            contents: Object::upcast(val),
         }
     }
 }

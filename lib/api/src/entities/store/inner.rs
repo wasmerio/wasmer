@@ -17,7 +17,7 @@ pub(crate) struct StoreInner<Object> {
     pub(crate) objects: StoreObjects<Object>,
 
     pub(crate) store: BackendStore,
-    pub(crate) on_called: Option<OnCalledHandler>,
+    pub(crate) on_called: Option<OnCalledHandler<Object>>,
 }
 
 impl<Object> std::fmt::Debug for StoreInner<Object> {
@@ -32,9 +32,9 @@ impl<Object> std::fmt::Debug for StoreInner<Object> {
 
 /// Call handler for a store.
 // TODO: better documentation!
-pub type OnCalledHandler = Box<
+pub type OnCalledHandler<Object> = Box<
     dyn FnOnce(
-        StoreMut<'_>,
+        StoreMut<'_, Object>,
     )
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;

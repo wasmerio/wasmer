@@ -7,21 +7,20 @@ use crate::{
 
 use wasmer_vm::{StoreHandle, StoreObject, StoreObjects, VMFunctionEnvironment};
 
+use wasmer_types::Upcast;
+
 #[derive(Debug)]
 #[repr(transparent)]
 /// An opaque reference to a function environment.
 /// The function environment data is owned by the `Store`.
-pub struct FunctionEnv<T, Object> {
-    pub(crate) handle: StoreHandle<VMFunctionEnvironment<Object>>,
+pub struct FunctionEnv<T> {
+    pub(crate) handle: StoreHandle<VMFunctionEnvironment>,
     marker: PhantomData<T>,
 }
 
 impl<T> FunctionEnv<T> {
     /// Make a new FunctionEnv
-    pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn new(store: &mut impl AsStoreMut<Object: Upcast<T>>, value: T) -> Self {
         Self {
             handle: StoreHandle::new(
                 store.as_store_mut().objects_mut().as_sys_mut(),
@@ -32,14 +31,11 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the data as reference
-    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef<Object: Upcast<T>>) -> &'a T {
         self.handle
             .get(store.as_store_ref().objects().as_sys())
             .as_ref()
-            .downcast_ref::<T>()
+            .downcast_ref()
             .unwrap()
     }
 
@@ -52,14 +48,11 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the data as mutable
-    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut<Object: Upcast<T>>) -> &'a mut T {
         self.handle
             .get_mut(store.objects_mut().as_sys_mut())
             .as_mut()
-            .downcast_mut::<T>()
+            .downcast_mut()
             .unwrap()
     }
 
@@ -132,16 +125,13 @@ pub struct FunctionEnvMut<'a, T, Object> {
     pub(crate) func_env: FunctionEnv<T>,
 }
 
-impl<T, Object> Debug for FunctionEnvMut<'_, T, Object>
-where
-    T: Send + Debug + 'static,
-{
+impl<T: Debug, Object: Upcast<T>> Debug for FunctionEnvMut<'_, T, Object> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.func_env.as_ref(&self.store_mut).fmt(f)
     }
 }
 
-impl<T: Send + 'static, Object> FunctionEnvMut<'_, T, Object> {
+impl<T, Object: Upcast<T>> FunctionEnvMut<'_, T, Object> {
     /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.store_mut)

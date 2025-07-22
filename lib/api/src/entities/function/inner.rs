@@ -1,4 +1,4 @@
-use wasmer_types::{FunctionType, RawValue};
+use wasmer_types::{FunctionType, RawValue, Upcast};
 
 use crate::{
     error::RuntimeError,
@@ -37,7 +37,7 @@ impl BackendFunction {
     /// If you know the signature of the host function at compile time,
     /// consider using [`Self::new_typed`] for less runtime overhead.
     #[inline]
-    pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    pub fn new<FT, F>(store: &mut impl AsStoreMut<Object: Upcast<()>>, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
@@ -145,7 +145,7 @@ impl BackendFunction {
     #[inline]
     pub fn new_typed<S, F, Args, Rets>(store: &mut S, func: F) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<()>>,
         F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,

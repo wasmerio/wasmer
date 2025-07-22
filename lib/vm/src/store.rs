@@ -8,7 +8,8 @@ use wasmer_types::{BoxStoreObject, StoreId};
 
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
-pub trait StoreObject<Object = BoxStoreObject>: Sized {
+pub trait StoreObject<Object>: Sized {
+    /// The type of data this type refers to in the store.
     type Data;
 
     /// List the objects in the store.
@@ -18,23 +19,21 @@ pub trait StoreObject<Object = BoxStoreObject>: Sized {
     fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data>;
 }
 
-use super::{NonZeroUsize, StoreObjects};
-
 macro_rules! impl_context_object {
-    ($($field:ident => $Data:ident$(<$($params:ty),*>)?,)*) => {
-        paste::paste! {
-            $(
-                impl<Object> super::StoreObject<Object> for $Data {
-                    fn list(ctx: &StoreObjects<Object>) -> &Vec<Self::Data<$(params),*>> {
-                        &ctx.$field
-                    }
+    ($($field:ident => $Data:ident,)*) => {
+        $(
+            impl<Object> super::StoreObject<Object> for $Data {
+                type Data = $Data;
 
-                    fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data<$(params),*>> {
-                        &mut ctx.$field
-                    }
+                fn list(ctx: &StoreObjects<Object>) -> &Vec<$Data> {
+                    &ctx.$field
                 }
-            )*
-        }
+
+                fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<$Data> {
+                    &mut ctx.$field
+                }
+            }
+        )*
     };
 }
 
@@ -47,7 +46,18 @@ impl_context_object! {
     extern_objs => VMExternObj,
     exceptions => VMExceptionObj,
     tags => VMTag,
-    function_environments => VMFunctionEnvironment<Object>,
+}
+
+impl<T, Object> StoreObject<Object> for VMFunctionEnvironment<T> {
+    type Data = VMFunctionEnvironment<Object>;
+
+    fn list(ctx: &StoreObjects<Object>) -> &Vec<Self::Data> {
+        &ctx.function_environments
+    }
+
+    fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data> {
+        &mut ctx.function_environments
+    }
 }
 
 /// Set of objects managed by a context.
@@ -144,7 +154,7 @@ impl<Object> StoreObjects<Object> {
         &mut self,
         a: InternalStoreHandle<T>,
         b: InternalStoreHandle<T>,
-    ) -> (&mut T, &mut T) {
+    ) -> (&mut T::Data, &mut T::Data) {
         assert_ne!(a.index(), b.index());
         let list = T::list_mut(self);
         if a.index() < b.index() {
@@ -334,7 +344,7 @@ impl<T> InternalStoreHandle<T> {
     }
 
     /// Returns a reference to the object that this handle points to.
-    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T
+    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T::Data
     where
         T: StoreObject<Object>,
     {
