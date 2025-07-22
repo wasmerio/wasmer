@@ -17,43 +17,37 @@ pub trait StoreObject<Object = BoxStoreObject>: Sized {
     /// List the objects in the store, mutably.
     fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data>;
 }
-pub mod handle {
-    use super::{NonZeroUsize, StoreObjects};
 
-    macro_rules! impl_context_object {
-        ($($field:ident => $Data:ident$(<$($params:ty),*>)?,)*) => {
-            paste::paste! {
-                $(
-                    #[derive(Debug, Clone, Copy)]
-                    pub struct $Data(NonZeroUsize);
+use super::{NonZeroUsize, StoreObjects};
 
-                    impl<Object> super::StoreObject<Object> for $Data {
-                        type Data = super::$Data$(<$($params),*>)?;
-
-                        fn list(ctx: &StoreObjects<Object>) -> &Vec<Self::Data> {
-                            &ctx.$field
-                        }
-
-                        fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data> {
-                            &mut ctx.$field
-                        }
+macro_rules! impl_context_object {
+    ($($field:ident => $Data:ident$(<$($params:ty),*>)?,)*) => {
+        paste::paste! {
+            $(
+                impl<Object> super::StoreObject<Object> for $Data {
+                    fn list(ctx: &StoreObjects<Object>) -> &Vec<Self::Data<$(params),*>> {
+                        &ctx.$field
                     }
-                )*
-            }
-        };
-    }
 
-    impl_context_object! {
-        functions => VMFunction,
-        tables => VMTable,
-        globals => VMGlobal,
-        instances => VMInstance,
-        memories => VMMemory,
-        extern_objs => VMExternObj,
-        exceptions => VMExceptionObj,
-        tags => VMTag,
-        function_environments => VMFunctionEnvironment,
-    }
+                    fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data<$(params),*>> {
+                        &mut ctx.$field
+                    }
+                }
+            )*
+        }
+    };
+}
+
+impl_context_object! {
+    functions => VMFunction,
+    tables => VMTable,
+    globals => VMGlobal,
+    instances => VMInstance,
+    memories => VMMemory,
+    extern_objs => VMExternObj,
+    exceptions => VMExceptionObj,
+    tags => VMTag,
+    function_environments => VMFunctionEnvironment<Object>,
 }
 
 /// Set of objects managed by a context.
