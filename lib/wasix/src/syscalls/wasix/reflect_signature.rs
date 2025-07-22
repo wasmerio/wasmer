@@ -1,26 +1,7 @@
 use super::*;
 use crate::syscalls::*;
 use wasmer::Type;
-use wasmer_wasix_types::wasi::WasmValueType;
-
-/// A structure representing the reflection information for a function signature
-#[repr(C)]
-#[derive(Debug, Copy, Clone)]
-pub struct FunctionSignatureInfo {
-    /// Whether the function's signature is cacheable
-    pub cacheable: u8,
-    /// Number of arguments the function takes
-    pub arguments: u16,
-    /// Number of results the function returns
-    pub results: u16,
-}
-
-unsafe impl wasmer_types::ValueType for FunctionSignatureInfo {
-    #[inline]
-    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
-        bytes[1].write(0);
-    }
-}
+use wasmer_wasix_types::wasi::{ReflectionResult, WasmValueType};
 
 fn serialize_types(types: &[Type]) -> Result<Vec<WasmValueType>, Errno> {
     types
@@ -66,7 +47,7 @@ pub fn reflect_signature<M: MemorySize>(
     argument_types_len: u16,
     result_types: WasmPtr<WasmValueType, M>,
     result_types_len: u16,
-    result: WasmPtr<FunctionSignatureInfo, M>,
+    result: WasmPtr<ReflectionResult, M>,
 ) -> Result<Errno, WasiError> {
     let (env, mut store) = ctx.data_and_store_mut();
 
@@ -85,7 +66,7 @@ pub fn reflect_signature<M: MemorySize>(
                 "Failed to look up function in indirect function table: {}",
                 e
             );
-            wasi_try_mem_ok!(signature_info.write(FunctionSignatureInfo {
+            wasi_try_mem_ok!(signature_info.write(ReflectionResult {
                 cacheable: 0,
                 arguments: 0,
                 results: 0,
@@ -96,7 +77,7 @@ pub fn reflect_signature<M: MemorySize>(
 
     let Some(function) = function else {
         // Function out of bounds
-        wasi_try_mem_ok!(signature_info.write(FunctionSignatureInfo {
+        wasi_try_mem_ok!(signature_info.write(ReflectionResult {
             cacheable: 0,
             arguments: 0,
             results: 0,
@@ -108,7 +89,7 @@ pub fn reflect_signature<M: MemorySize>(
     let cacheable = if is_closure { 0 } else { 1 };
 
     let Some(function) = function else {
-        wasi_try_mem_ok!(signature_info.write(FunctionSignatureInfo {
+        wasi_try_mem_ok!(signature_info.write(ReflectionResult {
             cacheable,
             arguments: 0,
             results: 0,
@@ -120,7 +101,7 @@ pub fn reflect_signature<M: MemorySize>(
     let arguments = function_type.params();
     let results = function_type.results();
 
-    wasi_try_mem_ok!(signature_info.write(FunctionSignatureInfo {
+    wasi_try_mem_ok!(signature_info.write(ReflectionResult {
         cacheable,
         arguments: arguments.len() as u16,
         results: results.len() as u16,

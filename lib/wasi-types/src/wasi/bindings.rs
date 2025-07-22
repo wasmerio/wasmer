@@ -2497,6 +2497,25 @@ impl From<WasmValueType> for wasmer::Type {
     }
 }
 
+#[doc = " A structure representing the reflection information for a function signature"]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+pub struct ReflectionResult {
+    #[doc = " Whether the result is cacheable"]
+    pub cacheable: u8,
+    #[doc = " Number of arguments the function takes"]
+    pub arguments: u16,
+    #[doc = " Number of results the function returns"]
+    pub results: u16,
+}
+
+unsafe impl wasmer_types::ValueType for ReflectionResult {
+    #[inline]
+    fn zero_padding_bytes(&self, bytes: &mut [MaybeUninit<u8>]) {
+        bytes[1].write(0);
+    }
+}
+
 #[repr(C)]
 #[derive(Copy, Clone)]
 pub struct AddrUnspec {
