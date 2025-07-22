@@ -2502,7 +2502,7 @@ impl From<WasmValueType> for wasmer::Type {
 #[derive(Debug, Copy, Clone)]
 pub struct ReflectionResult {
     #[doc = " Whether the result is cacheable"]
-    pub cacheable: u8,
+    pub cacheable: Bool,
     #[doc = " Number of arguments the function takes"]
     pub arguments: u16,
     #[doc = " Number of results the function returns"]

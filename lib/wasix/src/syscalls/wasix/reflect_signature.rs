@@ -1,7 +1,7 @@
 use crate::{state::FunctionLookupError, WasiEnv, WasiError};
 use tracing::{instrument, trace};
 use wasmer::{FunctionEnvMut, MemorySize, Type, WasmPtr, WasmSlice};
-use wasmer_wasix_types::wasi::{Errno, ReflectionResult, WasmValueType};
+use wasmer_wasix_types::wasi::{Bool, Errno, ReflectionResult, WasmValueType};
 
 fn serialize_types(types: &[Type]) -> Result<Vec<WasmValueType>, Errno> {
     types
@@ -65,13 +65,13 @@ pub fn reflect_signature<M: MemorySize>(
             let cacheable = match e {
                 FunctionLookupError::Empty(_) => {
                     if env.inner().is_closure(function_id) {
-                        0
+                        Bool::False
                     } else {
-                        1
+                        Bool::True
                     }
                 }
-                FunctionLookupError::OutOfBounds(_) => 0,
-                _ => 1,
+                FunctionLookupError::OutOfBounds(_) => Bool::False,
+                _ => Bool::True,
             };
             trace!(
                 "Failed to look up function in indirect function table: {}",
@@ -87,7 +87,7 @@ pub fn reflect_signature<M: MemorySize>(
     };
 
     let is_closure = env.inner().is_closure(function_id);
-    let cacheable = if is_closure { 0 } else { 1 };
+    let cacheable = if is_closure { Bool::False } else { Bool::True };
 
     let function_type = function.ty(&store);
     let arguments = function_type.params();
