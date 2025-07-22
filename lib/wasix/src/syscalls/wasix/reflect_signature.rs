@@ -22,6 +22,18 @@ unsafe impl wasmer_types::ValueType for FunctionSignatureInfo {
     }
 }
 
+fn serialize_types(types: &[Type]) -> Result<Vec<WasmValueType>, Errno> {
+    types
+        .iter()
+        .map(|t| {
+            WasmValueType::try_from(*t).map_err(|_| {
+                trace!("Cannot convert type {} to WasmValueType", t);
+                Errno::Inval
+            })
+        })
+        .collect::<Result<Vec<_>, _>>()
+}
+
 /// Provides information about a function's signature.
 ///
 /// ### Errors
@@ -105,39 +117,48 @@ pub fn reflect_signature<M: MemorySize>(
     };
 
     let function_type = function.ty(&store);
-    let arguments = function_type.params().len() as u16;
-    let results = function_type.results().len() as u16;
+    let arguments = function_type.params();
+    let results = function_type.results();
 
     wasi_try_mem_ok!(signature_info.write(FunctionSignatureInfo {
         cacheable,
-        arguments,
-        results,
+        arguments: arguments.len() as u16,
+        results: results.len() as u16,
     }));
 
-    if (arguments > argument_types_len || results > result_types_len) {
+    if (arguments.len() as u16 > argument_types_len) {
+        trace!(
+            "Provided arguments buffer is too small {}/{}",
+            argument_types_len,
+            arguments.len()
+        );
+        return Ok(Errno::Overflow);
+    }
+    if (results.len() as u16 > result_types_len) {
+        trace!(
+            "Provided results buffer is too small {}/{}",
+            result_types_len,
+            results.len()
+        );
         return Ok(Errno::Overflow);
     }
 
-    for (index, param) in function_type.params().iter().enumerate() {
-        let Ok(value_type) = WasmValueType::try_from(*param) else {
-            trace!(
-                "Failed to convert parameter type {} to WasmValueType",
-                param
-            );
-            return Ok(Errno::Inval);
-        };
-        wasi_try_mem_ok!(argument_types.write(&memory, value_type));
-        wasi_try_mem_ok!(argument_types.add_offset(M::ONE));
-    }
+    let serialized_argument_types = wasi_try_ok!(serialize_types(function_type.params()));
+    let serialized_result_types = wasi_try_ok!(serialize_types(function_type.results()));
 
-    for (index, result) in function_type.results().iter().enumerate() {
-        let Ok(value_type) = WasmValueType::try_from(*result) else {
-            trace!("Failed to convert result type {} to WasmValueType", result);
-            return Ok(Errno::Inval);
-        };
-        wasi_try_mem_ok!(result_types.write(&memory, value_type));
-        wasi_try_mem_ok!(result_types.add_offset(M::ONE));
-    }
+    let mut argument_types_slice = wasi_try_mem_ok!(WasmSlice::<WasmValueType>::new(
+        &memory,
+        argument_types.offset().into(),
+        arguments.len() as u64
+    ));
+    let mut result_types_slice = wasi_try_mem_ok!(WasmSlice::<WasmValueType>::new(
+        &memory,
+        result_types.offset().into(),
+        results.len() as u64
+    ));
+
+    wasi_try_mem_ok!(argument_types_slice.write_slice(&serialized_argument_types));
+    wasi_try_mem_ok!(result_types_slice.write_slice(&serialized_result_types));
 
     Ok(Errno::Success)
 }
