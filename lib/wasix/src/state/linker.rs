@@ -788,6 +788,8 @@ struct InstanceGroupState {
     stack_pointer: Global,
     memory: Memory,
     indirect_function_table: Table,
+    c_longjmp: Tag,
+    cpp_exception: Tag,
 
     // Once the dl_operation_pending flag is set, a barrier is created and broadcast
     // by the instigating group, which others must use to rendezvous with it.
@@ -1038,6 +1040,9 @@ impl Linker {
 
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, stack_high)?;
 
+        let c_longjmp = Tag::new(store, vec![Type::I32]);
+        let cpp_exception = Tag::new(store, vec![Type::I32]);
+
         let mut barrier_tx = Bus::new(1);
         let barrier_rx = barrier_tx.add_rx();
         let mut operation_tx = Bus::new(1);
@@ -1052,6 +1057,8 @@ impl Linker {
             stack_pointer,
             memory: memory.clone(),
             indirect_function_table: indirect_function_table.clone(),
+            c_longjmp,
+            cpp_exception,
             recv_pending_operation_barrier: barrier_rx,
             recv_pending_operation: operation_rx,
         };
@@ -1290,6 +1297,9 @@ impl Linker {
         // so no need to initialize it to a value here.
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, 0)?;
 
+        let c_longjmp = Tag::new(store, vec![Type::I32]);
+        let cpp_exception = Tag::new(store, vec![Type::I32]);
+
         let barrier_rx = linker_state.send_pending_operation_barrier.add_rx();
         let operation_rx = linker_state.send_pending_operation.add_rx();
 
@@ -1300,6 +1310,8 @@ impl Linker {
             stack_pointer,
             memory: memory.clone(),
             indirect_function_table: indirect_function_table.clone(),
+            c_longjmp,
+            cpp_exception,
             recv_pending_operation_barrier: barrier_rx,
             recv_pending_operation: operation_rx,
         };
@@ -2002,7 +2014,11 @@ impl LinkerState {
 
             // Skip over the memory, function table and stack pointer imports as well
             match import.name() {
-                "memory" | "__indirect_function_table" | "__stack_pointer" | "__c_longjmp" => {
+                "memory"
+                | "__indirect_function_table"
+                | "__stack_pointer"
+                | "__c_longjmp"
+                | "__cpp_exception" => {
                     trace!(?import, "Skipping resolution of special symbol");
                     continue;
                 }
@@ -2904,11 +2920,21 @@ impl InstanceGroupState {
                             ));
                         }
                         trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
-                        imports.define(
-                            import.module(),
-                            import.name(),
-                            Tag::new(store, vec![Type::I32]),
-                        );
+                        imports.define(import.module(), import.name(), self.c_longjmp.clone());
+                        continue;
+                    }
+                    // Clang generates this symbol when building C++ code that uses exception handling.
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "C++ exception tag");
+                        imports.define(import.module(), import.name(), self.cpp_exception.clone());
                         continue;
                     }
                     _ => (),
@@ -3174,11 +3200,20 @@ impl InstanceGroupState {
                             ));
                         }
                         trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
-                        imports.define(
-                            import.module(),
-                            import.name(),
-                            Tag::new(store, vec![Type::I32]),
-                        );
+                        imports.define(import.module(), import.name(), self.c_longjmp.clone());
+                        continue;
+                    }
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "C++ exception tag");
+                        imports.define(import.module(), import.name(), self.cpp_exception.clone());
                         continue;
                     }
                     _ => (),
