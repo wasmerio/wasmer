@@ -1609,7 +1609,7 @@ Lots of new things in the release!
   - [#3665](https://github.com/wasmerio/wasmer/pull/3665) Fix doc, threads are enabled by default now
   - [#3662](https://github.com/wasmerio/wasmer/pull/3662) Why is it so difficult to type LLVM_SYS_140_PREFIX
   - [#3661](https://github.com/wasmerio/wasmer/pull/3661) [CI] New attempt at fixing the Windows build on the CI
-  - [#3659](https://github.com/wasmerio/wasmer/pull/3659) Fixed building with with just the sys feature
+  - [#3659](https://github.com/wasmerio/wasmer/pull/3659) Fixed building with just the sys feature
   - [#3648](https://github.com/wasmerio/wasmer/pull/3648) Fix CI and llvm detection
   - [#3643](https://github.com/wasmerio/wasmer/pull/3643) fix(wasi): Memory leak due to cyclical WasiControlPlane references
   - [#3639](https://github.com/wasmerio/wasmer/pull/3639) wasi: Thread Lifecycle Fix
