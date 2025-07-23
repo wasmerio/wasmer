@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"fn":["reflect_signature","serialize_types"]};

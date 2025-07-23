@@ -3877,7 +3877,57 @@
 <a href="#3876" id="3876">3876</a>
 <a href="#3877" id="3877">3877</a>
 <a href="#3878" id="3878">3878</a>
-<a href="#3879" id="3879">3879</a></pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
+<a href="#3879" id="3879">3879</a>
+<a href="#3880" id="3880">3880</a>
+<a href="#3881" id="3881">3881</a>
+<a href="#3882" id="3882">3882</a>
+<a href="#3883" id="3883">3883</a>
+<a href="#3884" id="3884">3884</a>
+<a href="#3885" id="3885">3885</a>
+<a href="#3886" id="3886">3886</a>
+<a href="#3887" id="3887">3887</a>
+<a href="#3888" id="3888">3888</a>
+<a href="#3889" id="3889">3889</a>
+<a href="#3890" id="3890">3890</a>
+<a href="#3891" id="3891">3891</a>
+<a href="#3892" id="3892">3892</a>
+<a href="#3893" id="3893">3893</a>
+<a href="#3894" id="3894">3894</a>
+<a href="#3895" id="3895">3895</a>
+<a href="#3896" id="3896">3896</a>
+<a href="#3897" id="3897">3897</a>
+<a href="#3898" id="3898">3898</a>
+<a href="#3899" id="3899">3899</a>
+<a href="#3900" id="3900">3900</a>
+<a href="#3901" id="3901">3901</a>
+<a href="#3902" id="3902">3902</a>
+<a href="#3903" id="3903">3903</a>
+<a href="#3904" id="3904">3904</a>
+<a href="#3905" id="3905">3905</a>
+<a href="#3906" id="3906">3906</a>
+<a href="#3907" id="3907">3907</a>
+<a href="#3908" id="3908">3908</a>
+<a href="#3909" id="3909">3909</a>
+<a href="#3910" id="3910">3910</a>
+<a href="#3911" id="3911">3911</a>
+<a href="#3912" id="3912">3912</a>
+<a href="#3913" id="3913">3913</a>
+<a href="#3914" id="3914">3914</a>
+<a href="#3915" id="3915">3915</a>
+<a href="#3916" id="3916">3916</a>
+<a href="#3917" id="3917">3917</a>
+<a href="#3918" id="3918">3918</a>
+<a href="#3919" id="3919">3919</a>
+<a href="#3920" id="3920">3920</a>
+<a href="#3921" id="3921">3921</a>
+<a href="#3922" id="3922">3922</a>
+<a href="#3923" id="3923">3923</a>
+<a href="#3924" id="3924">3924</a>
+<a href="#3925" id="3925">3925</a>
+<a href="#3926" id="3926">3926</a>
+<a href="#3927" id="3927">3927</a>
+<a href="#3928" id="3928">3928</a>
+<a href="#3929" id="3929">3929</a></pre></div><pre class="rust"><code><span class="kw">use </span>num_enum::{IntoPrimitive, TryFromPrimitive};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>std::mem::MaybeUninit;
@@ -6342,6 +6392,56 @@
             WasmValueType::F64 =&gt; f.debug_tuple(<span class="string">"WasmValueType::F64"</span>).finish(),
             WasmValueType::V128 =&gt; f.debug_tuple(<span class="string">"WasmValueType::V128"</span>).finish(),
         }
+    }
+}
+
+<span class="comment">// TODO: if necessary, must be implemented in wit-bindgen
+</span><span class="kw">unsafe impl </span>ValueType <span class="kw">for </span>WasmValueType {
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, _bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {}
+}
+
+<span class="kw">impl </span>TryFrom&lt;wasmer::Type&gt; <span class="kw">for </span>WasmValueType {
+    <span class="kw">type </span>Error = ();
+    <span class="kw">fn </span>try_from(value: wasmer::Type) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+        <span class="kw">match </span>value {
+            wasmer::Type::I32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I32),
+            wasmer::Type::I64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::I64),
+            wasmer::Type::F32 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F32),
+            wasmer::Type::F64 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::F64),
+            wasmer::Type::V128 =&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::V128),
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(()),
+        }
+    }
+}
+<span class="kw">impl </span>From&lt;WasmValueType&gt; <span class="kw">for </span>wasmer::Type {
+    <span class="kw">fn </span>from(value: WasmValueType) -&gt; <span class="self">Self </span>{
+        <span class="kw">match </span>value {
+            WasmValueType::I32 =&gt; <span class="self">Self</span>::I32,
+            WasmValueType::I64 =&gt; <span class="self">Self</span>::I64,
+            WasmValueType::F32 =&gt; <span class="self">Self</span>::F32,
+            WasmValueType::F64 =&gt; <span class="self">Self</span>::F64,
+            WasmValueType::V128 =&gt; <span class="self">Self</span>::V128,
+        }
+    }
+}
+
+<span class="attr">#[doc = <span class="string">" A structure representing the reflection information for a function signature"</span>]
+#[repr(C)]
+#[derive(Debug, Copy, Clone)]
+</span><span class="kw">pub struct </span>ReflectionResult {
+    <span class="attr">#[doc = <span class="string">" Whether the result is cacheable"</span>]
+    </span><span class="kw">pub </span>cacheable: Bool,
+    <span class="attr">#[doc = <span class="string">" Number of arguments the function takes"</span>]
+    </span><span class="kw">pub </span>arguments: u16,
+    <span class="attr">#[doc = <span class="string">" Number of results the function returns"</span>]
+    </span><span class="kw">pub </span>results: u16,
+}
+
+<span class="kw">unsafe impl </span>wasmer_types::ValueType <span class="kw">for </span>ReflectionResult {
+    <span class="attr">#[inline]
+    </span><span class="kw">fn </span>zero_padding_bytes(<span class="kw-2">&amp;</span><span class="self">self</span>, bytes: <span class="kw-2">&amp;mut </span>[MaybeUninit&lt;u8&gt;]) {
+        bytes[<span class="number">1</span>].write(<span class="number">0</span>);
     }
 }
 

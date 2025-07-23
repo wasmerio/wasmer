@@ -892,7 +892,9 @@
 <a href="#891" id="891">891</a>
 <a href="#892" id="892">892</a>
 <a href="#893" id="893">893</a>
-<a href="#894" id="894">894</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a></pre></div><pre class="rust"><code><span class="comment">// FIXME: merge with ./lib.rs_upstream
 
 </span><span class="attr">#![doc(html_favicon_url = <span class="string">"https://wasmer.io/images/icons/favicon-32x32.png"</span>)]
 #![doc(html_logo_url = <span class="string">"https://github.com/wasmerio.png?size=200"</span>)]
@@ -1404,6 +1406,7 @@
         <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory32&gt;),
         <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory32&gt;),
         <span class="string">"call_dynamic" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, call_dynamic::&lt;Memory32&gt;),
+        <span class="string">"reflect_signature" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, reflect_signature::&lt;Memory32&gt;),
         <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory32&gt;),
         <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory32&gt;),
         <span class="string">"clock_time_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set),
@@ -1543,6 +1546,7 @@
         <span class="string">"args_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_get::&lt;Memory64&gt;),
         <span class="string">"args_sizes_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, args_sizes_get::&lt;Memory64&gt;),
         <span class="string">"call_dynamic" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, call_dynamic::&lt;Memory64&gt;),
+        <span class="string">"reflect_signature" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, reflect_signature::&lt;Memory64&gt;),
         <span class="string">"clock_res_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_res_get::&lt;Memory64&gt;),
         <span class="string">"clock_time_get" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_get::&lt;Memory64&gt;),
         <span class="string">"clock_time_set" </span>=&gt; Function::new_typed_with_env(<span class="kw-2">&amp;mut </span>store, env, clock_time_set),

@@ -4105,7 +4105,35 @@
 <a href="#4104" id="4104">4104</a>
 <a href="#4105" id="4105">4105</a>
 <a href="#4106" id="4106">4106</a>
-<a href="#4107" id="4107">4107</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4107" id="4107">4107</a>
+<a href="#4108" id="4108">4108</a>
+<a href="#4109" id="4109">4109</a>
+<a href="#4110" id="4110">4110</a>
+<a href="#4111" id="4111">4111</a>
+<a href="#4112" id="4112">4112</a>
+<a href="#4113" id="4113">4113</a>
+<a href="#4114" id="4114">4114</a>
+<a href="#4115" id="4115">4115</a>
+<a href="#4116" id="4116">4116</a>
+<a href="#4117" id="4117">4117</a>
+<a href="#4118" id="4118">4118</a>
+<a href="#4119" id="4119">4119</a>
+<a href="#4120" id="4120">4120</a>
+<a href="#4121" id="4121">4121</a>
+<a href="#4122" id="4122">4122</a>
+<a href="#4123" id="4123">4123</a>
+<a href="#4124" id="4124">4124</a>
+<a href="#4125" id="4125">4125</a>
+<a href="#4126" id="4126">4126</a>
+<a href="#4127" id="4127">4127</a>
+<a href="#4128" id="4128">4128</a>
+<a href="#4129" id="4129">4129</a>
+<a href="#4130" id="4130">4130</a>
+<a href="#4131" id="4131">4131</a>
+<a href="#4132" id="4132">4132</a>
+<a href="#4133" id="4133">4133</a>
+<a href="#4134" id="4134">4134</a>
+<a href="#4135" id="4135">4135</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4367,7 +4395,7 @@
 
 </span><span class="kw">use </span>std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -4924,7 +4952,9 @@
     heap_base: u64,
 
     <span class="doccomment">/// Tracks which slots in the function table are currently used for closures
-    </span>used_closure_functions: BTreeSet&lt;u32&gt;,
+    ///
+    /// True if the closure is currently in use, false otherwise.
+    </span>allocated_closure_functions: BTreeMap&lt;u32, bool&gt;,
     <span class="doccomment">/// Slots in the indirect function table that were allocated for closures but are currently not in use.
     /// These can be given out without needing to lock all threads.
     </span>available_closure_functions: Vec&lt;u32&gt;,
@@ -4956,7 +4986,7 @@
 }
 
 <span class="comment">// This macro exists to ensure we don't get into a deadlock with another pending
-// DL operation. the linker state must be locked for write *ONLY THROUGH THIS
+// DL operation. The linker state must be locked for write *ONLY THROUGH THIS
 // MACRO*. Bad things happen otherwise.
 // We also need a lock on the specific group's state here, because if there is a
 // pending DL operation we need to apply, that'll require mutable access to the
@@ -5170,7 +5200,7 @@
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.<span class="number">0 </span>+ <span class="number">1</span>,
             memory_allocator: MemoryAllocator::new(),
-            used_closure_functions: BTreeSet::new(),
+            allocated_closure_functions: BTreeMap::new(),
             available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
@@ -5535,7 +5565,9 @@
 
         <span class="comment">// Use a previously allocated slot if possible
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(function_index) = linker_state.available_closure_functions.pop() {
-            linker_state.used_closure_functions.insert(function_index);
+            linker_state
+                .allocated_closure_functions
+                .insert(function_index, <span class="bool-val">true</span>);
             <span class="kw">return </span><span class="prelude-val">Ok</span>(function_index);
         }
 
@@ -5553,8 +5585,13 @@
             linker_state
                 .available_closure_functions
                 .push(function_index + i);
+            linker_state
+                .allocated_closure_functions
+                .insert(function_index + i, <span class="bool-val">false</span>);
         }
-        linker_state.used_closure_functions.insert(function_index);
+        linker_state
+            .allocated_closure_functions
+            .insert(function_index, <span class="bool-val">true</span>);
 
         <span class="self">self</span>.synchronize_link_operation(
             DlOperation::AllocateFunctionTable {
@@ -5586,13 +5623,32 @@
         );
         <span class="macro">write_linker_state!</span>(linker_state, <span class="self">self</span>, group_state, ctx);
 
-        <span class="kw">if </span>!linker_state.used_closure_functions.remove(<span class="kw-2">&amp;</span>function_id) {
-            <span class="comment">// Not used, nothing to do
+        <span class="kw">let </span><span class="prelude-val">Some</span>(entry) = linker_state
+            .allocated_closure_functions
+            .get_mut(<span class="kw-2">&amp;</span>function_id)
+        <span class="kw">else </span>{
+            <span class="comment">// Not allocated
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        };
+        <span class="kw">if </span>!<span class="kw-2">*</span>entry {
+            <span class="comment">// Not used
             </span><span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
-        linker_state.available_closure_functions.push(function_id);
 
+        <span class="kw-2">*</span>entry = <span class="bool-val">false</span>;
+        linker_state.available_closure_functions.push(function_id);
         <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="doccomment">/// Check if an indirect_function_table entry is reserved for closures.
+    ///
+    /// Returns false if the entry is not reserved for closures.
+    </span><span class="kw">pub fn </span>is_closure(<span class="kw-2">&amp;</span><span class="self">self</span>, function_id: u32) -&gt; bool {
+        <span class="comment">// TODO: Check if this can result in a deadlock
+        </span><span class="kw">let </span>linker = <span class="self">self</span>.linker_state.read().unwrap();
+        linker
+            .allocated_closure_functions
+            .contains_key(<span class="kw-2">&amp;</span>function_id)
     }
 
     <span class="doccomment">/// Loads a side module from the given path, linking it against the existing module tree

@@ -330,7 +330,7 @@
     <span class="kw">let </span>function = <span class="macro">wasi_try_ok!</span>(env
         .inner()
         .indirect_function_table_lookup(<span class="kw-2">&amp;mut </span>store, function_id)
-        .and_then(|f| f.ok_or(Errno::Inval)));
+        .map_err(Errno::from));
 
     <span class="kw">let </span>function_type = function.ty(<span class="kw-2">&amp;</span>store);
 
