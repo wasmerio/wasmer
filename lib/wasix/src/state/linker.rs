@@ -260,7 +260,7 @@
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, HashMap},
+    collections::{BTreeMap, BTreeSet, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -817,9 +817,7 @@ struct LinkerState {
     heap_base: u64,
 
     /// Tracks which slots in the function table are currently used for closures
-    ///
-    /// True if the closure is currently in use, false otherwise.
-    allocated_closure_functions: BTreeMap<u32, bool>,
+    used_closure_functions: BTreeSet<u32>,
     /// Slots in the indirect function table that were allocated for closures but are currently not in use.
     /// These can be given out without needing to lock all threads.
     available_closure_functions: Vec<u32>,
@@ -851,7 +849,7 @@ pub struct Linker {
 }
 
 // This macro exists to ensure we don't get into a deadlock with another pending
-// DL operation. The linker state must be locked for write *ONLY THROUGH THIS
+// DL operation. the linker state must be locked for write *ONLY THROUGH THIS
 // MACRO*. Bad things happen otherwise.
 // We also need a lock on the specific group's state here, because if there is a
 // pending DL operation we need to apply, that'll require mutable access to the
@@ -1065,7 +1063,7 @@ impl Linker {
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
-            allocated_closure_functions: BTreeMap::new(),
+            used_closure_functions: BTreeSet::new(),
             available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
@@ -1430,9 +1428,7 @@ impl Linker {
 
         // Use a previously allocated slot if possible
         if let Some(function_index) = linker_state.available_closure_functions.pop() {
-            linker_state
-                .allocated_closure_functions
-                .insert(function_index, true);
+            linker_state.used_closure_functions.insert(function_index);
             return Ok(function_index);
         }
 
@@ -1450,13 +1446,8 @@ impl Linker {
             linker_state
                 .available_closure_functions
                 .push(function_index + i);
-            linker_state
-                .allocated_closure_functions
-                .insert(function_index + i, false);
         }
-        linker_state
-            .allocated_closure_functions
-            .insert(function_index, true);
+        linker_state.used_closure_functions.insert(function_index);
 
         self.synchronize_link_operation(
             DlOperation::AllocateFunctionTable {
@@ -1488,32 +1479,13 @@ impl Linker {
         );
         write_linker_state!(linker_state, self, group_state, ctx);
 
-        let Some(entry) = linker_state
-            .allocated_closure_functions
-            .get_mut(&function_id)
-        else {
-            // Not allocated
-            return Ok(());
-        };
-        if !*entry {
-            // Not used
+        if !linker_state.used_closure_functions.remove(&function_id) {
+            // Not used, nothing to do
             return Ok(());
         }
-
-        *entry = false;
         linker_state.available_closure_functions.push(function_id);
-        Ok(())
-    }
 
-    /// Check if an indirect_function_table entry is reserved for closures.
-    ///
-    /// Returns false if the entry is not reserved for closures.
-    pub fn is_closure(&self, function_id: u32) -> bool {
-        // TODO: Check if this can result in a deadlock
-        let linker = self.linker_state.read().unwrap();
-        linker
-            .allocated_closure_functions
-            .contains_key(&function_id)
+        Ok(())
     }
 
     /// Loads a side module from the given path, linking it against the existing module tree

@@ -139,7 +139,7 @@ pub fn call_dynamic<M: MemorySize>(
     let function = wasi_try_ok!(env
         .inner()
         .indirect_function_table_lookup(&mut store, function_id)
-        .map_err(Errno::from));
+        .and_then(|f| f.ok_or(Errno::Inval)));
 
     let function_type = function.ty(&store);
 
