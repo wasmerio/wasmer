@@ -545,7 +545,7 @@ macro_rules! impl_host_function {
                 }
             }
 
-            func_wrapper::< $( $x, )* Rets, Object, RetsAsResult, Func > as _
+            func_wrapper::< $( $x, )* Rets, RetsAsResult, Object, Func > as _
 
         }
 
@@ -582,7 +582,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T: Send + 'static, Object, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Object, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                 where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -611,7 +611,7 @@ macro_rules! impl_host_function {
   	                Err(panic) => wasmer_vm::resume_panic(panic),
   	            }
             }
-            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
+            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Object, Func > as _
         }
 
         #[allow(non_snake_case)]
