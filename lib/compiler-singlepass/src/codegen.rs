@@ -1190,7 +1190,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             special_labels,
             calling_convention,
         };
-        fg.emit_head()?;
+        // TODO
+        // fg.emit_head()?;
         Ok(fg)
     }
 
@@ -6669,31 +6670,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut unwind_info = None;
         let mut fde = None;
         #[cfg(feature = "unwind")]
-        match self.calling_convention {
-            CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
-                let unwind = self.machine.gen_dwarf_unwind_info(body_len);
-                if let Some(unwind) = unwind {
-                    fde = Some(unwind.to_fde(Address::Symbol {
-                        symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        addend: self.fsm.local_function_id as _,
-                    }));
-                    unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
-                }
-            }
-            CallingConvention::WindowsFastcall => {
-                let unwind = self.machine.gen_windows_unwind_info(body_len);
-                if let Some(unwind) = unwind {
-                    unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
-                }
-            }
-            _ => (),
-        };
-
+        // TODO: should be disabled by --no-default-features
+        // match self.calling_convention {
+        //     CallingConvention::SystemV | CallingConvention::AppleAarch64 => {
+        //         let unwind = self.machine.gen_dwarf_unwind_info(body_len);
+        //         if let Some(unwind) = unwind {
+        //             fde = Some(unwind.to_fde(Address::Symbol {
+        //                 symbol: WriterRelocate::FUNCTION_SYMBOL,
+        //                 addend: self.fsm.local_function_id as _,
+        //             }));
+        //             unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
+        //         }
+        //     }
+        //     CallingConvention::WindowsFastcall => {
+        //         let unwind = self.machine.gen_windows_unwind_info(body_len);
+        //         if let Some(unwind) = unwind {
+        //             unwind_info = Some(CompiledFunctionUnwindInfo::WindowsX64(unwind));
+        //         }
+        //     }
+        //     _ => (),
+        // };
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
+        dbg!(&body);
 
         Ok((
             CompiledFunction {

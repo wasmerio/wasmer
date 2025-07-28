@@ -103,7 +103,7 @@ fn dwarf_index(reg: u16) -> gimli::Register {
 
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
-    assembler: Assembler,
+    assembler: AssemblerRiscv,
     used_gprs: u32,
     used_simd: u32,
     trap_table: TrapTable,
@@ -120,13 +120,13 @@ pub struct MachineRiscv {
 
 impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
-    pub fn new(target: Option<Target>) -> Self {
+    pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
         let has_fpu = match target {
             Some(ref t) => t.cpu_features().contains(CpuFeature::NEON), // TODO: replace with RISC-V FPU feature
             None => false,
         };
-        MachineRiscv {
-            assembler: Assembler::new(0),
+        Ok(MachineRiscv {
+            assembler: AssemblerRiscv::new(0, target)?,
             used_gprs: 0,
             used_simd: 0,
             trap_table: TrapTable::default(),
@@ -134,7 +134,7 @@ impl MachineRiscv {
             src_loc: 0,
             unwind_ops: vec![],
             has_fpu,
-        }
+        })
     }
 }
 
@@ -153,7 +153,7 @@ impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
     fn assembler_get_offset(&self) -> Offset {
-        todo!()
+        self.assembler.get_offset()
     }
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
         todo!()
@@ -231,16 +231,31 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn mark_instruction_address_end(&mut self, begin: usize) {
-        todo!()
+        self.instructions_address_map.push(InstructionAddressMap {
+            srcloc: SourceLoc::new(self.src_loc),
+            code_offset: begin,
+            code_len: self.assembler.get_offset().0 - begin,
+        });
     }
     fn insert_stackoverflow(&mut self) {
         todo!()
     }
+
+    /// Get all current TrapInformation
     fn collect_trap_information(&self) -> Vec<TrapInformation> {
-        todo!()
+        self.trap_table
+            .offset_to_code
+            .clone()
+            .into_iter()
+            .map(|(offset, code)| TrapInformation {
+                code_offset: offset as u32,
+                trap_code: code,
+            })
+            .collect()
     }
+
     fn instructions_address_map(&self) -> Vec<InstructionAddressMap> {
-        todo!()
+        self.instructions_address_map.clone()
     }
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         todo!()
@@ -345,16 +360,19 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn new_machine_state(&self) -> MachineState {
-        todo!()
+        new_machine_state()
     }
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        todo!()
+        self.assembler.finalize().map_err(|e| {
+            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+        })
     }
     fn get_offset(&self) -> Offset {
         todo!()
     }
     fn finalize_function(&mut self) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.finalize_function()?;
+        Ok(())
     }
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
         todo!()
@@ -384,14 +402,18 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         todo!()
     }
-    fn emit_illegal_op(&mut self, trp: TrapCode) -> Result<(), CompileError> {
-        todo!()
+    fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
+        let offset = self.assembler.get_offset().0;
+        // TODO: handle trp
+        self.assembler.emit_brk()?;
+        self.mark_instruction_address_end(offset);
+        Ok(())
     }
     fn get_label(&mut self) -> Label {
-        todo!()
+        self.assembler.new_dynamic_label()
     }
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_label(label)
     }
     fn get_grp_for_call(&self) -> Self::GPR {
         todo!()
@@ -2538,8 +2560,14 @@ impl Machine for MachineRiscv {
     ) -> Result<CustomSection, CompileError> {
         todo!()
     }
+    #[cfg(feature = "unwind")]
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
-        todo!()
+        todo!();
+    }
+
+    #[cfg(not(feature = "unwind"))]
+    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
+        None
     }
     fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>> {
         todo!()
