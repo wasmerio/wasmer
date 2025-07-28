@@ -8,28 +8,28 @@ use wasmer_types::{BoxStoreObject, StoreId};
 
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
-pub trait StoreObject<Object>: Sized {
+pub trait StoreObject: Sized {
     /// The type of data this type refers to in the store.
-    type Data;
+    type Data<Object>;
 
     /// List the objects in the store.
-    fn list(ctx: &StoreObjects<Object>) -> &Vec<Self::Data>;
+    fn list<Object>(ctx: &StoreObjects<Object>) -> &Vec<Self::Data<Object>>;
 
     /// List the objects in the store, mutably.
-    fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data>;
+    fn list_mut<Object>(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data<Object>>;
 }
 
 macro_rules! impl_context_object {
-    ($($field:ident => $Data:ident,)*) => {
+    ($($field:ident => $Data:ident$(<$($data_params:ident),*>)?,)*) => {
         $(
-            impl<Object> super::StoreObject<Object> for $Data {
-                type Data = $Data;
+            impl super::StoreObject for $Data {
+                type Data<Object> = $Data$(<$($data_params),*>)?;
 
-                fn list(ctx: &StoreObjects<Object>) -> &Vec<$Data> {
+                fn list<Object>(ctx: &StoreObjects<Object>) -> &Vec<Self::Data<Object>> {
                     &ctx.$field
                 }
 
-                fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<$Data> {
+                fn list_mut<Object>(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data<Object>> {
                     &mut ctx.$field
                 }
             }
@@ -45,19 +45,8 @@ impl_context_object! {
     memories => VMMemory,
     extern_objs => VMExternObj,
     exceptions => VMExceptionObj,
+    function_environments => VMFunctionEnvironment<Object>,
     tags => VMTag,
-}
-
-impl<T, Object> StoreObject<Object> for VMFunctionEnvironment<T> {
-    type Data = VMFunctionEnvironment<Object>;
-
-    fn list(ctx: &StoreObjects<Object>) -> &Vec<Self::Data> {
-        &ctx.function_environments
-    }
-
-    fn list_mut(ctx: &mut StoreObjects<Object>) -> &mut Vec<Self::Data> {
-        &mut ctx.function_environments
-    }
 }
 
 /// Set of objects managed by a context.
@@ -150,11 +139,11 @@ impl<Object> StoreObjects<Object> {
     /// Returns a pair of mutable references from two handles.
     ///
     /// Panics if both handles point to the same object.
-    pub fn get_2_mut<T: StoreObject<Object>>(
+    pub fn get_2_mut<T: StoreObject>(
         &mut self,
         a: InternalStoreHandle<T>,
         b: InternalStoreHandle<T>,
-    ) -> (&mut T::Data, &mut T::Data) {
+    ) -> (&mut T::Data<Object>, &mut T::Data<Object>) {
         assert_ne!(a.index(), b.index());
         let list = T::list_mut(self);
         if a.index() < b.index() {
@@ -186,6 +175,11 @@ impl<Object> StoreObjects<Object> {
         unsafe {
             self.globals[idx].vmglobal().as_mut().val.u128 = val;
         }
+    }
+
+    /// Get a mutable reference to the list of memories.
+    pub fn memories_mut(&mut self) -> &mut Vec<VMMemory> {
+        VMMemory::list_mut(self)
     }
 }
 
@@ -234,9 +228,9 @@ impl<T> Eq for StoreHandle<T> {}
 
 impl<T> StoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
-    pub fn new<Object>(ctx: &mut StoreObjects<Object>, val: T::Data) -> Self
+    pub fn new<Object>(ctx: &mut StoreObjects<Object>, val: T::Data<Object>) -> Self
     where
-        T: StoreObject<Object>,
+        T: StoreObject,
     {
         Self {
             id: ctx.id,
@@ -245,18 +239,18 @@ impl<T> StoreHandle<T> {
     }
 
     /// Returns a reference to the object that this handle points to.
-    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T::Data
+    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T::Data<Object>
     where
-        T: StoreObject<Object>,
+        T: StoreObject,
     {
         assert_eq!(self.id, ctx.id, "object used with the wrong context");
         self.internal.get(ctx)
     }
 
     /// Returns a mutable reference to the object that this handle points to.
-    pub fn get_mut<'a, Object>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T::Data
+    pub fn get_mut<'a, Object>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T::Data<Object>
     where
-        T: StoreObject<Object>,
+        T: StoreObject,
     {
         assert_eq!(self.id, ctx.id, "object used with the wrong context");
         self.internal.get_mut(ctx)
@@ -330,11 +324,15 @@ impl<T> Eq for InternalStoreHandle<T> {}
 
 impl<T> InternalStoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
-    pub fn new<Object>(ctx: &mut StoreObjects<Object>, val: T::Data) -> Self
+    pub fn new<Object>(ctx: &mut StoreObjects<Object>, val: T::Data<Object>) -> Self
     where
-        T: StoreObject<Object>,
+        T: StoreObject,
     {
-        let list = T::list_mut(ctx);
+        Self::new_in_list(T::list_mut(ctx), val)
+    }
+
+    /// Move the object into a pre-selected list, returning a handle to it.
+    pub fn new_in_list<Object>(list: &mut Vec<T::Data<Object>>, val: T::Data<Object>) -> Self where T: StoreObject {
         let idx = NonZeroUsize::new(list.len() + 1).unwrap();
         list.push(val);
         Self {
@@ -344,17 +342,17 @@ impl<T> InternalStoreHandle<T> {
     }
 
     /// Returns a reference to the object that this handle points to.
-    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T::Data
+    pub fn get<'a, Object>(&self, ctx: &'a StoreObjects<Object>) -> &'a T::Data<Object>
     where
-        T: StoreObject<Object>,
+        T: StoreObject,
     {
         &T::list(ctx)[self.idx.get() - 1]
     }
 
     /// Returns a mutable reference to the object that this handle points to.
-    pub fn get_mut<'a, Object>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T::Data
+    pub fn get_mut<'a, Object>(&self, ctx: &'a mut StoreObjects<Object>) -> &'a mut T::Data<Object>
     where
-        T: StoreObject<Object>,
+        T: StoreObject,
     {
         &mut T::list_mut(ctx)[self.idx.get() - 1]
     }
@@ -368,6 +366,21 @@ impl<T> InternalStoreHandle<T> {
             idx,
             marker: PhantomData,
         })
+    }
+}
+
+impl InternalStoreHandle<VMMemory> {
+    /// Moves the given memory object into a list of memories and
+    /// returns a handle to it.
+    // TODO maybe come up with a system of references to the different
+    // object lists in the store
+    pub fn new_memory(memories: &mut Vec<VMMemory>, val: VMMemory) -> Self {
+        let idx = NonZeroUsize::new(memories.len() + 1).unwrap();
+        memories.push(val);
+        Self {
+            idx,
+            marker: PhantomData,
+        }
     }
 }
 
