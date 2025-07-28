@@ -71,14 +71,10 @@ impl AssemblerRiscv {
     pub fn finalize(mut self) -> Result<Vec<u8>, DynasmError> {
         // Sum two numbers in RISC-V
         dynasm!(self
-            ; .arch riscv64
-            ; addi x1, x1, 1
-            ; addi x2, x2, 2
-            ; add x3, x1, x2
+            ; add a0, a0, a1
             ; ret
         );
-        let bytes = self.inner.finalize();
-        bytes
+        self.inner.finalize()
     }
 }
 

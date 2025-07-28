@@ -6691,10 +6691,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
+        dbg!(address_map.start_srcloc, address_map.end_srcloc);
         let traps = self.machine.collect_trap_information();
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
-        dbg!(&body);
+        // TODO: remove
+        std::fs::write("/tmp/module-dump.o", &body).expect("Failed to write to file");
 
         Ok((
             CompiledFunction {
