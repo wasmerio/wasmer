@@ -12,10 +12,100 @@ use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
 
 /// General-purpose registers.
+#[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum GPR {
-    // TODO: define integer registers X0-X31.
+    X0 = 0,
+    X1 = 1,
+    Sp = 2,
+    X3 = 3,
+    X4 = 4,
+    X5 = 5,
+    X6 = 6,
+    X7 = 7,
+    X8 = 8,
+    X9 = 9,
+    X10 = 10,
+    X11 = 11,
+    X12 = 12,
+    X13 = 13,
+    X14 = 14,
+    X15 = 15,
+    X16 = 16,
+    X17 = 17,
+    X18 = 18,
+    X19 = 19,
+    X20 = 20,
+    X21 = 21,
+    X22 = 22,
+    X23 = 23,
+    X24 = 24,
+    X25 = 25,
+    X26 = 26,
+    X27 = 27,
+    X28 = 28,
+    X29 = 29,
+    X30 = 30,
+    X31 = 31,
+}
+
+impl AbstractReg for GPR {
+    fn is_callee_save(self) -> bool {
+        todo!();
+    }
+    fn is_reserved(self) -> bool {
+        todo!();
+    }
+    fn into_index(self) -> usize {
+        self as usize
+    }
+    fn from_index(n: usize) -> Result<GPR, ()> {
+        match n {
+            0..=31 => Ok(*GPR::iterator().nth(n).unwrap()),
+            _ => Err(()),
+        }
+    }
+    fn iterator() -> Iter<'static, GPR> {
+        static GPRS: [GPR; 32] = [
+            GPR::X0,
+            GPR::X1,
+            GPR::Sp,
+            GPR::X3,
+            GPR::X4,
+            GPR::X5,
+            GPR::X6,
+            GPR::X7,
+            GPR::X8,
+            GPR::X9,
+            GPR::X10,
+            GPR::X11,
+            GPR::X12,
+            GPR::X13,
+            GPR::X14,
+            GPR::X15,
+            GPR::X16,
+            GPR::X17,
+            GPR::X18,
+            GPR::X19,
+            GPR::X20,
+            GPR::X21,
+            GPR::X22,
+            GPR::X23,
+            GPR::X24,
+            GPR::X25,
+            GPR::X26,
+            GPR::X27,
+            GPR::X28,
+            GPR::X29,
+            GPR::X30,
+            GPR::X31,
+        ];
+        GPRS.iter()
+    }
+    fn to_dwarf(self) -> u16 {
+        todo!();
+    }
 }
 
 /// Floating-point registers.
@@ -23,32 +113,6 @@ pub enum GPR {
 #[allow(clippy::upper_case_acronyms)]
 pub enum FPR {
     // TODO: define floating-point registers F0-F31.
-}
-
-impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        // TODO: implement callee-save registers for RISC-V.
-        todo!()
-    }
-    fn is_reserved(self) -> bool {
-        // TODO: implement reserved registers for RISC-V (e.g., X0 always zero, stack pointer).
-        todo!()
-    }
-    fn into_index(self) -> usize {
-        self as usize
-    }
-    fn from_index(n: usize) -> Result<GPR, ()> {
-        // TODO: map index to GPR.
-        todo!()
-    }
-    fn iterator() -> Iter<'static, GPR> {
-        // TODO: return an iterator over all GPR variants.
-        todo!()
-    }
-    fn to_dwarf(self) -> u16 {
-        // TODO: map register to DWARF register number.
-        todo!()
-    }
 }
 
 impl AbstractReg for FPR {

@@ -2,6 +2,7 @@ use crate::{
     common_decl::*,
     location::{Location, Reg},
     machine_arm64::MachineARM64,
+    machine_riscv::MachineRiscv,
     machine_x64::MachineX86_64,
     unwind::UnwindInstructions,
 };
@@ -2420,6 +2421,10 @@ pub fn gen_std_trampoline(
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new(Some(target.clone()));
+            machine.gen_std_trampoline(sig, calling_convention)
+        }
+        Architecture::Riscv64(_) => {
+            let machine = MachineRiscv::new(Some(target.clone()))?;
             machine.gen_std_trampoline(sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
