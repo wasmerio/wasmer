@@ -1,5 +1,8 @@
 //! RISC-V structures.
 
+// TODO: handle warnings
+#![allow(unused_variables, unused_imports)]
+
 use crate::{
     common_decl::{MachineState, MachineValue, RegisterIndex},
     location::{CombinedRegister, Reg as AbstractReg},

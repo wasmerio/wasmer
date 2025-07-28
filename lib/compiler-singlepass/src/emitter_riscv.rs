@@ -1,5 +1,8 @@
 //! RISC-V emitter scaffolding.
 
+// TODO: handle warnings
+#![allow(unused_variables, unused_imports)]
+
 use crate::{
     codegen_error, common_decl::Size, location::Location as AbstractLocation,
     machine_riscv::AssemblerRiscv,

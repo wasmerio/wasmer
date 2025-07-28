@@ -1,5 +1,8 @@
 //! RISC-V machine scaffolding.
 
+// TODO: handle warnings
+#![allow(unused_variables, unused_imports, dead_code)]
+
 use dynasmrt::{riscv::RiscvRelocation, DynasmError, VecAssembler};
 #[cfg(feature = "unwind")]
 use gimli::{write::CallFrameInstruction, RiscV};
