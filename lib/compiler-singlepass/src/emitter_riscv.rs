@@ -7,7 +7,7 @@ use crate::{
     codegen_error,
     common_decl::Size,
     location::{Location as AbstractLocation, Reg},
-    machine_riscv::AssemblerRiscv,
+    machine_riscv::{AssemblerRiscv, ImmType},
 };
 pub use crate::{
     location::Multiplier,
@@ -128,15 +128,13 @@ impl EmitterRiscv for Assembler {
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                // TODO: verify displacement
-                // assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                // TODO: verify displacement
-                // assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; ld X(reg), [X(addr), disp]);
             }
             // TODO: add more variants
@@ -150,15 +148,13 @@ impl EmitterRiscv for Assembler {
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                // TODO: verify displacement
-                // assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index() as u32;
                 let addr = addr.into_index() as u32;
-                // TODO: verify displacement
-                // assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
             // TODO: add more variants
@@ -190,6 +186,7 @@ impl EmitterRiscv for Assembler {
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
+                assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), imm as _);
             }
             // TODO: add more variants
@@ -227,6 +224,7 @@ impl EmitterRiscv for Assembler {
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index() as u32;
                 let dst = dst.into_index() as u32;
+                assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), -(imm as i32) as _);
             }
             // TODO: add more variants

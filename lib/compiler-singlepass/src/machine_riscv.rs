@@ -202,9 +202,19 @@ impl MachineRiscv {
 
 #[allow(dead_code)]
 #[derive(PartialEq)]
-enum ImmType {
+pub(crate) enum ImmType {
     None,
+    Bits12,
     // TODO: define RISC-V immediate types.
+}
+
+impl ImmType {
+    pub(crate) fn compatible_imm(&self, imm: i64) -> bool {
+        match self {
+            ImmType::None => false,
+            ImmType::Bits12 => (-0x800..0x800).contains(&imm),
+        }
+    }
 }
 
 #[allow(dead_code)]
