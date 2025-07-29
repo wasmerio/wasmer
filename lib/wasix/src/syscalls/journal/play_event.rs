@@ -730,11 +730,19 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                     tracing::trace!(%fd, "Replay journal - SocketSendTo data={} bytes", data.len());
                     if is_64bit {
                         JournalEffector::apply_sock_send_to::<Memory64>(
-                            &self.ctx, fd, data, flags, addr,
+                            &mut self.ctx,
+                            fd,
+                            data,
+                            flags,
+                            addr,
                         )
                     } else {
                         JournalEffector::apply_sock_send_to::<Memory32>(
-                            &self.ctx, fd, data, flags, addr,
+                            &mut self.ctx,
+                            fd,
+                            data,
+                            flags,
+                            addr,
                         )
                     }
                     .map_err(anyhow_err_to_runtime_err)?
