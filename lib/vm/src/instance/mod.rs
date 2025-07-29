@@ -37,10 +37,10 @@ use std::slice;
 use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
-    DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
-    MemoryError, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
-    TagIndex, VMOffsets,
+    BoxStoreObject, DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex,
+    GlobalInit, LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex,
+    LocalTagIndex, MemoryError, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex,
+    TableInitializer, TagIndex, VMOffsets,
 };
 
 /// A WebAssembly instance.
@@ -51,12 +51,12 @@ use wasmer_types::{
 /// the `vmctx` field to learn more.
 #[repr(C)]
 #[allow(clippy::type_complexity)]
-pub(crate) struct Instance {
+pub(crate) struct Instance<Object = BoxStoreObject> {
     /// The `ModuleInfo` this `Instance` was instantiated from.
     module: Arc<ModuleInfo>,
 
     /// Pointer to the object store of the context owning this instance.
-    context: *mut StoreObjects,
+    context: *mut StoreObjects<Object>,
 
     /// Offsets in the `vmctx` region.
     offsets: VMOffsets,
@@ -102,14 +102,14 @@ pub(crate) struct Instance {
     vmctx: VMContext,
 }
 
-impl fmt::Debug for Instance {
+impl<Object> fmt::Debug for Instance<Object> {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
         formatter.debug_struct("Instance").finish()
     }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-impl Instance {
+impl<Object> Instance<Object> {
     /// Helper function to access various locations offset from our `*mut
     /// VMContext` object.
     unsafe fn vmctx_plus_offset<T>(&self, offset: u32) -> *mut T {
@@ -126,11 +126,11 @@ impl Instance {
         &self.module
     }
 
-    fn context(&self) -> &StoreObjects {
+    fn context(&self) -> &StoreObjects<Object> {
         unsafe { &*self.context }
     }
 
-    fn context_mut(&mut self) -> &mut StoreObjects {
+    fn context_mut(&mut self) -> &mut StoreObjects<Object> {
         unsafe { &mut *self.context }
     }
 
@@ -982,8 +982,8 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, Eq, PartialEq)]
-pub struct VMInstance {
+#[derive_where::derive_where(Debug, Eq, PartialEq)]
+pub struct VMInstance<Object = BoxStoreObject> {
     /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
 
@@ -996,13 +996,13 @@ pub struct VMInstance {
     ///
     /// No one in the code has a copy of the `Instance`'s
     /// pointer. `Self` is the only one.
-    instance: NonNull<Instance>,
+    instance: NonNull<Instance<Object>>,
 }
 
 /// VMInstance are created with an InstanceAllocator
 /// and it will "consume" the memory
 /// So the Drop here actualy free it (else it would be leaked)
-impl Drop for VMInstance {
+impl<Object> Drop for VMInstance<Object> {
     fn drop(&mut self) {
         let instance_ptr = self.instance.as_ptr();
 
@@ -1015,7 +1015,7 @@ impl Drop for VMInstance {
     }
 }
 
-impl VMInstance {
+impl<Object> VMInstance<Object> {
     /// Create a new `VMInstance` pointing at a new [`Instance`].
     ///
     /// # Safety
@@ -1039,9 +1039,9 @@ impl VMInstance {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        allocator: InstanceAllocator,
+        allocator: InstanceAllocator<Object>,
         module: Arc<ModuleInfo>,
-        context: &mut StoreObjects,
+        context: &mut StoreObjects<Object>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
@@ -1156,12 +1156,12 @@ impl VMInstance {
     }
 
     /// Return a reference to the contained `Instance`.
-    pub(crate) fn instance(&self) -> &Instance {
+    pub(crate) fn instance(&self) -> &Instance<Object> {
         unsafe { self.instance.as_ref() }
     }
 
     /// Return a mutable reference to the contained `Instance`.
-    pub(crate) fn instance_mut(&mut self) -> &mut Instance {
+    pub(crate) fn instance_mut(&mut self) -> &mut Instance<Object> {
         unsafe { self.instance.as_mut() }
     }
 
@@ -1367,7 +1367,7 @@ impl VMInstance {
 }
 
 /// Compute the offset for a memory data initializer.
-fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usize {
+fn get_memory_init_start<Object>(init: &DataInitializer<'_>, instance: &Instance<Object>) -> usize {
     let mut start = init.location.offset;
 
     if let Some(base) = init.location.base {
@@ -1404,7 +1404,7 @@ unsafe fn get_memory_slice<'instance>(
 }
 
 /// Compute the offset for a table element initializer.
-fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
+fn get_table_init_start<Object>(init: &TableInitializer, instance: &Instance<Object>) -> usize {
     let mut start = init.offset;
 
     if let Some(base) = init.base {
@@ -1422,7 +1422,7 @@ fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
 }
 
 /// Initialize the table memory from the provided initializers.
-fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
+fn initialize_tables<Object>(instance: &mut Instance<Object>) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
     for init in &module.table_initializers {
         let start = get_table_init_start(init, instance);
@@ -1464,7 +1464,7 @@ fn initialize_tables(instance: &mut Instance) -> Result<(), Trap> {
 /// Initialize the `Instance::passive_elements` map by resolving the
 /// `ModuleInfo::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
 /// this instance.
-fn initialize_passive_elements(instance: &Instance) {
+fn initialize_passive_elements<Object>(instance: &Instance<Object>) {
     let mut passive_elements = instance.passive_elements.borrow_mut();
     debug_assert!(
         passive_elements.is_empty(),
@@ -1487,8 +1487,8 @@ fn initialize_passive_elements(instance: &Instance) {
 }
 
 /// Initialize the table memory from the provided initializers.
-fn initialize_memories(
-    instance: &mut Instance,
+fn initialize_memories<Object>(
+    instance: &mut Instance<Object>,
     data_initializers: &[DataInitializer<'_>],
 ) -> Result<(), Trap> {
     for init in data_initializers {
@@ -1510,7 +1510,7 @@ fn initialize_memories(
     Ok(())
 }
 
-fn initialize_globals(instance: &Instance) {
+fn initialize_globals<Object>(instance: &Instance<Object>) {
     let module = Arc::clone(&instance.module);
     for (index, initializer) in module.global_initializers.iter() {
         unsafe {
@@ -1542,9 +1542,9 @@ fn initialize_globals(instance: &Instance) {
 
 /// Eagerly builds all the `VMFuncRef`s for imported and local functions so that all
 /// future funcref operations are just looking up this data.
-fn build_funcrefs(
+fn build_funcrefs<Object>(
     module_info: &ModuleInfo,
-    ctx: &StoreObjects,
+    ctx: &StoreObjects<Object>,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

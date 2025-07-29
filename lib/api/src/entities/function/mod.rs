@@ -90,14 +90,14 @@ impl Function {
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
-    pub fn new_with_env<S, FT, F, T: Send + 'static>(
+    pub fn new_with_env<S, FT, F, T: 'static>(
         store: &mut S,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<T>>,
         FT: Into<FunctionType>,
         F: Fn(FunctionEnvMut<T, S::Object>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
@@ -136,13 +136,13 @@ impl Function {
     ///
     /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
-    pub fn new_typed_with_env<S, T: Send + 'static, F, Args, Rets>(
+    pub fn new_typed_with_env<S, T: 'static, F, Args, Rets>(
         store: &mut S,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<T>>,
         F: HostFunction<T, S::Object, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,

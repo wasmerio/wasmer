@@ -4,7 +4,7 @@ pub(crate) use inner::*;
 use crate::{macros::backend::match_rt, AsStoreMut, AsStoreRef, StoreMut, StoreRef};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
-use wasmer_types::Upcast;
+use wasmer_types::{BoxStoreObject, Upcast};
 
 #[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.
@@ -49,7 +49,7 @@ impl<T> FunctionEnv<T> {
 
 /// A temporary handle to a [`FunctionEnv`].
 #[derive(derive_more::From)]
-pub struct FunctionEnvMut<'a, T, Object>(pub(crate) BackendFunctionEnvMut<'a, T, Object>);
+pub struct FunctionEnvMut<'a, T, Object = BoxStoreObject>(pub(crate) BackendFunctionEnvMut<'a, T, Object>);
 
 impl<T, Object: Upcast<T>> FunctionEnvMut<'_, T, Object> {
     /// Returns a reference to the host state in this function environement.

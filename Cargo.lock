@@ -1364,6 +1364,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "derive-where"
+version = "1.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "510c292c8cf384b1a340b816a9a6cf2599eb8f566a44949024af88418000c50b"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn 2.0.100",
+]
+
+[[package]]
 name = "derive_arbitrary"
 version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -6583,6 +6594,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "cmake",
+ "derive-where",
  "derive_more 2.0.1",
  "hashbrown 0.11.2",
  "indexmap 2.9.0",
@@ -7186,6 +7198,7 @@ dependencies = [
  "corosensei",
  "crossbeam-queue",
  "dashmap 6.1.0",
+ "derive-where",
  "enum-iterator",
  "fnv",
  "indexmap 2.9.0",
@@ -7348,6 +7361,7 @@ dependencies = [
  "compiler-test-derive",
  "criterion",
  "crossbeam-queue",
+ "derive-where",
  "glob",
  "reqwest",
  "rustc_version 0.4.1",

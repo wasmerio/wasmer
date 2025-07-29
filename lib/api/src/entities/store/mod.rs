@@ -32,7 +32,7 @@ pub struct Store<Object = BoxStoreObject> {
     pub(crate) inner: Box<StoreInner<Object>>,
 }
 
-impl Store {
+impl<Object> Store<Object> {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
         let engine: Engine = engine.into();
@@ -152,7 +152,7 @@ impl<Object> AsStoreRef for Store<Object> {
         StoreRef { inner: &self.inner }
     }
 }
-impl AsStoreMut for Store {
+impl<Object> AsStoreMut for Store<Object> {
     fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object> {
         StoreMut {
             inner: &mut self.inner,

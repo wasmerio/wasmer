@@ -26,6 +26,7 @@ impl<'a> EngineRef<'a> {
 /// Helper trait for a value that is convertible to a [`EngineRef`].
 pub trait AsEngineRef {
     // TODO maybe this should be called `StoreObject`
+    /// The type of objects associated with this engine seen as a store, if any.
     type Object;
 
     /// Create an [`EngineRef`] pointing to the underlying context.

@@ -91,6 +91,7 @@ impl<Object> StoreMut<'_, Object> {
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].
 pub trait AsStoreRef {
+    /// The type of type-erased objects stored in this store.
     type Object;
 
     /// Returns a `StoreRef` pointing to the underlying context.

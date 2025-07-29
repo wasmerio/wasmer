@@ -41,7 +41,7 @@ impl_context_object! {
     functions => VMFunction,
     tables => VMTable,
     globals => VMGlobal,
-    instances => VMInstance,
+    instances => VMInstance<Object>,
     memories => VMMemory,
     extern_objs => VMExternObj,
     exceptions => VMExceptionObj,
@@ -56,7 +56,7 @@ pub struct StoreObjects<Object = BoxStoreObject> {
     tables: Vec<VMTable>,
     globals: Vec<VMGlobal>,
     functions: Vec<VMFunction>,
-    instances: Vec<VMInstance>,
+    instances: Vec<VMInstance<Object>>,
     extern_objs: Vec<VMExternObj>,
     exceptions: Vec<VMExceptionObj>,
     tags: Vec<VMTag>,
@@ -106,7 +106,7 @@ impl<Object> StoreObjects<Object> {
         tables: Vec<VMTable>,
         globals: Vec<VMGlobal>,
         functions: Vec<VMFunction>,
-        instances: Vec<VMInstance>,
+        instances: Vec<VMInstance<Object>>,
         extern_objs: Vec<VMExternObj>,
         exceptions: Vec<VMExceptionObj>,
         tags: Vec<VMTag>,
@@ -328,11 +328,7 @@ impl<T> InternalStoreHandle<T> {
     where
         T: StoreObject,
     {
-        Self::new_in_list(T::list_mut(ctx), val)
-    }
-
-    /// Move the object into a pre-selected list, returning a handle to it.
-    pub fn new_in_list<Object>(list: &mut Vec<T::Data<Object>>, val: T::Data<Object>) -> Self where T: StoreObject {
+        let list = T::list_mut(ctx);
         let idx = NonZeroUsize::new(list.len() + 1).unwrap();
         list.push(val);
         Self {

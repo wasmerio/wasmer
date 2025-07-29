@@ -169,6 +169,14 @@ where
     pub fn into_boxed_slice(self) -> BoxedSlice<K, V> {
         unsafe { BoxedSlice::<K, V>::from_raw(Box::<[V]>::into_raw(self.elems.into_boxed_slice())) }
     }
+
+    /// Maps a function over the values of the `PrimaryMap`.
+    pub fn map_values<V_>(self, function: impl FnMut(V) -> V_) -> PrimaryMap<K, V_> {
+        PrimaryMap {
+            elems: self.elems.into_iter().map(function).collect(),
+            unused: Default::default(),
+        }
+    }
 }
 
 impl<K, V> ArchivedPrimaryMap<K, V>

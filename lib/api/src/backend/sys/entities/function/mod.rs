@@ -35,14 +35,14 @@ impl From<StoreHandle<VMFunction>> for Function {
 }
 
 impl Function {
-    pub(crate) fn new_with_env<FT, F, T: Send + 'static, S>(
+    pub(crate) fn new_with_env<FT, F, T: 'static, S>(
         store: &mut S,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<T>>,
         FT: Into<FunctionType>,
         F: Fn(FunctionEnvMut<T, S::Object>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
@@ -171,13 +171,13 @@ impl Function {
         }
     }
 
-    pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets, S>(
+    pub(crate) fn new_typed_with_env<T: 'static, F, Args, Rets, S>(
         store: &mut S,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        S: AsStoreMut,
+        S: AsStoreMut<Object: Upcast<T>>,
         F: HostFunction<T, S::Object, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -577,16 +577,17 @@ macro_rules! impl_host_function {
 
         #[allow(non_snake_case)]
         pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower>]
-            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static, Object, Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static>
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: 'static, Object: Upcast<T>, Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static>
             (this: &Func) -> crate::backend::sys::vm::VMFunctionCallback {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Object, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T: 'static, $( $x, )* Rets, RetsAsResult, Object, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                 where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
+                Object: Upcast<T>,
                 Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static,
             {
 

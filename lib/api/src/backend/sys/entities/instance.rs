@@ -42,8 +42,8 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
 
 impl Instance {
     #[allow(clippy::result_large_err)]
-    pub(crate) fn new(
-        store: &mut impl AsStoreMut,
+    pub(crate) fn new<S: AsStoreMut>(
+        store: &mut S,
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
@@ -53,8 +53,13 @@ impl Instance {
         let mut handle = module.as_sys().instantiate(store, &externs)?;
         let exports = Self::get_exports(store, module, handle.as_sys_mut());
 
+        let handle = handle.into_sys();
+        let objects = store.objects_mut().as_sys_mut();
+        let handle: StoreHandle<VMInstance> = StoreHandle::<VMInstance>::new::<S::Object>(objects, handle);
+
         let instance = Self {
-            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.into_sys()),
+            _handle: handle
+                ,
         };
 
         Ok((instance, exports))
@@ -79,10 +84,10 @@ impl Instance {
         Ok((instance, exports))
     }
 
-    fn get_exports(
-        store: &mut impl AsStoreMut,
+    fn get_exports<Store: AsStoreMut>(
+        store: &mut Store,
         module: &Module,
-        handle: &mut VMInstance,
+        handle: &mut VMInstance<Store::Object>,
     ) -> Exports {
         module
             .exports()

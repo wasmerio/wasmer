@@ -139,11 +139,11 @@ impl Module {
     }
 
     #[allow(clippy::result_large_err)]
-    pub(crate) fn instantiate(
+    pub(crate) fn instantiate<Store: AsStoreMut>(
         &self,
-        store: &mut impl AsStoreMut,
+        store: &mut Store,
         imports: &[crate::Extern],
-    ) -> Result<VMInstance, InstantiationError> {
+    ) -> Result<VMInstance<Store::Object>, InstantiationError> {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
             // platform.

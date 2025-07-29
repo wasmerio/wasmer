@@ -4,17 +4,17 @@ macro_rules! gen_rt_ty {
     {
         $(#[$meta:meta])*
         $vis:vis
-        $id:ident<
+        $id:ident$(<
             $($lt:lifetime),*
             $(,)?
             $($param:ident),*
-        >(
+        >)?(
             $path:path
         ) $(;)?
     } => {
         paste::paste! {
             $(#[$meta])*
-            $vis enum $id<$($lt,)* $($param),*> {
+            $vis enum $id $(<$($lt,)* $($param,)*>)? {
                 #[cfg(feature = "sys")]
                 /// The implementation from the `sys` backend.
                 Sys(crate::backend::sys::entities::$path),
@@ -39,20 +39,6 @@ macro_rules! gen_rt_ty {
                 /// The implementation from the `jsc` backend.
                 Jsc(crate::backend::jsc::entities::$path),
             }
-        }
-    };
-
-    {
-        $(#[$meta:meta])*
-        $vis:vis
-        $id:ident(
-            $path:path
-        )
-        $(;)?
-    } => {
-        $crate::macros::backend::gen_rt_ty! {
-            $(#[$meta])*
-            $vis $id<>($path);
         }
     };
 }

@@ -7,7 +7,7 @@ use crate::{
 
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue};
+use wasmer_types::{NativeWasmType, RawValue, Upcast};
 
 macro_rules! impl_host_function {
     ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
@@ -16,7 +16,8 @@ macro_rules! impl_host_function {
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
             RetsAsResult: IntoResult<Rets>,
-            T: Send + 'static,
+            T: 'static,
+            Object: Upcast<T>,
             Func: Fn(FunctionEnvMut<'_, T, Object>, $( $x , )*) -> RetsAsResult + 'static,
         {
             #[allow(non_snake_case)]
@@ -91,7 +92,7 @@ macro_rules! impl_host_function {
                         #[cfg(feature = "cranelift")]
                         crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "singlepass")]
-                        crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "js")]
                         crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
                         #[cfg(feature = "jsc")]
