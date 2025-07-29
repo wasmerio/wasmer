@@ -90,6 +90,16 @@ impl ModuleCache for FileSystemCache {
             .unwrap()
     }
 
+    async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
+        let path = self.path(key, &engine.deterministic_id());
+        tokio::fs::try_exists(&path)
+            .await
+            .map_err(|e| CacheError::FileRead {
+                path: path.clone(),
+                error: e,
+            })
+    }
+
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn save(
         &self,

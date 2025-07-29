@@ -5,7 +5,7 @@ use crate::{
 use colored::Colorize;
 use is_terminal::IsTerminal;
 
-/// Subcommand for log in a user into Wasmer (using a browser or provided a token)
+/// Log out from Wasmer
 #[derive(Debug, Clone, clap::Parser)]
 pub struct Logout {
     #[clap(flatten)]

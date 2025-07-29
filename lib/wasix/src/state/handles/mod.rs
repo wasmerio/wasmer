@@ -6,7 +6,12 @@ pub(crate) use global::*;
 #[cfg(feature = "js")]
 pub(crate) use thread_local::*;
 
-use wasmer::{AsStoreRef, Global, Instance, Memory, MemoryView, Module, TypedFunction};
+use tracing::{error, trace};
+use wasmer::{
+    AsStoreMut, AsStoreRef, Function, Global, Instance, Memory, MemoryView, Module, Table,
+    TypedFunction, Value,
+};
+use wasmer_wasix_types::wasi::Errno;
 
 use super::Linker;
 
@@ -21,6 +26,9 @@ pub struct WasiModuleInstanceHandles {
     /// Represents a reference to the memory
     pub(crate) memory: Memory,
     pub(crate) instance: wasmer::Instance,
+
+    /// Points to the indirect function table
+    pub(crate) indirect_function_table: Option<Table>,
 
     /// Points to the current location of the memory stack pointer
     pub(crate) stack_pointer: Option<Global>,
@@ -106,13 +114,25 @@ pub struct WasiModuleInstanceHandles {
 }
 
 impl WasiModuleInstanceHandles {
-    pub fn new(memory: Memory, store: &impl AsStoreRef, instance: Instance) -> Self {
+    pub fn new(
+        memory: Memory,
+        store: &impl AsStoreRef,
+        instance: Instance,
+        indirect_function_table: Option<Table>,
+    ) -> Self {
         let has_stack_checkpoint = instance
             .module()
             .imports()
             .any(|f| f.name() == "stack_checkpoint");
         Self {
             memory,
+            indirect_function_table: indirect_function_table.or_else(|| {
+                instance
+                    .exports
+                    .get_table("__indirect_function_table")
+                    .cloned()
+                    .ok()
+            }),
             stack_pointer: instance.exports.get_global("__stack_pointer").cloned().ok(),
             data_end: instance.exports.get_global("__data_end").cloned().ok(),
             stack_low: instance.exports.get_global("__stack_low").cloned().ok(),
@@ -197,6 +217,32 @@ pub enum WasiModuleTreeHandles {
     },
 }
 
+#[derive(thiserror::Error, Debug, Clone)]
+pub enum FunctionLookupError {
+    #[error("No function found at the requested index `{0}`")]
+    /// Function not found at the index
+    Empty(u32),
+    #[error("Table index `{0}` out of bounds")]
+    /// Table index out of bounds
+    OutOfBounds(u32),
+    #[error("The table does not contain functions")]
+    /// The table does not contain functions
+    NotAFunctionTable,
+    #[error("No indirect function table available")]
+    /// No indirect function table available
+    NoIndirectFunctionTable,
+}
+impl From<FunctionLookupError> for Errno {
+    fn from(e: FunctionLookupError) -> Self {
+        match e {
+            FunctionLookupError::Empty(_) => Errno::Inval,
+            FunctionLookupError::OutOfBounds(_) => Errno::Inval,
+            FunctionLookupError::NotAFunctionTable => Errno::Inval,
+            FunctionLookupError::NoIndirectFunctionTable => Errno::Notsup,
+        }
+    }
+}
+
 impl WasiModuleTreeHandles {
     /// Can be used to get the `WasiModuleInstanceHandles` of the main module.
     /// If access to the side modules' instance handles is required, one must go
@@ -274,6 +320,51 @@ impl WasiModuleTreeHandles {
         match self {
             Self::Static(_) => None,
             Self::Dynamic { linker, .. } => Some(linker),
+        }
+    }
+
+    /// Helper function to look up a function in the indirect function table
+    ///
+    /// * Returns an Errno if an error occurred.
+    /// * Returns `Ok(None)` if the index is out of bounds.
+    /// * Returns `Ok(Some(None))` if there is no function at the index.
+    /// * Returns `Ok(Some(Some(function)))` if there is a function at the index.
+    pub fn indirect_function_table_lookup(
+        &self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+    ) -> Result<Function, FunctionLookupError> {
+        let value = self
+            .main_module_instance_handles()
+            .indirect_function_table
+            .as_ref()
+            .ok_or(FunctionLookupError::NoIndirectFunctionTable)?
+            .get(store, index);
+        let Some(value) = value else {
+            trace!(
+                function_id = index,
+                "Function not found in indirect function table"
+            );
+            return Err(FunctionLookupError::OutOfBounds(index));
+        };
+        let Value::FuncRef(funcref) = value else {
+            error!("Function table contains something other than a funcref");
+            return Err(FunctionLookupError::NotAFunctionTable);
+        };
+        let Some(funcref) = funcref else {
+            trace!(function_id = index, "No function at the supplied index");
+            return Err(FunctionLookupError::Empty(index));
+        };
+        Ok(funcref)
+    }
+
+    /// Check if an indirect_function_table entry is reserved for closures.
+    ///
+    /// Returns false if the entry is not reserved for closures.
+    pub fn is_closure(&self, function_id: u32) -> bool {
+        match self {
+            WasiModuleTreeHandles::Static(_) => false,
+            WasiModuleTreeHandles::Dynamic { linker, .. } => linker.is_closure(function_id),
         }
     }
 }

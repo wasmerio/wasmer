@@ -259,6 +259,7 @@
 #![allow(clippy::result_large_err)]
 
 use std::{
+    borrow::Cow,
     collections::{BTreeMap, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
@@ -289,8 +290,8 @@ use crate::{
 
 use super::{WasiModuleInstanceHandles, WasiState};
 
-// Module handle 0 is always the main module. Side modules get handles starting from 1.
-pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(0);
+// Module handle 1 is always the main module. Side modules get handles starting from the next one after the main module.
+pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(1);
 static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
 
 static MAIN_MODULE_MEMORY_BASE: u64 = 0;
@@ -515,8 +516,8 @@ pub enum LinkError {
     #[error("Failed to initialize WASI(X) module handles: {0}")]
     MainModuleHandleInitFailed(ExportError),
 
-    #[error("Module does not export a TLS initialization routine")]
-    MissingTlsInitializer,
+    #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
+    DynamicFunctionIndexNotAllocated(u32),
 }
 
 #[derive(Debug)]
@@ -582,6 +583,11 @@ pub enum ResolveError {
 
     #[error("Failed to perform pending DL operation: {0}")]
     PendingDlOperationFailed(#[from] LinkError),
+
+    #[error(
+        "Tried to resolve a tls symbol from a module that did not initialize thread local storage"
+    )]
+    TlsSymbolWithoutTls,
 }
 
 #[derive(Debug, Clone)]
@@ -752,6 +758,11 @@ enum DlOperation {
         // minus one. Otherwise, we're out of sync and an error has been encountered.
         function_table_index: u32,
     },
+    // Allocates slots in the function table
+    AllocateFunctionTable {
+        index: u32,
+        size: u32,
+    },
 }
 
 struct DlModule {
@@ -765,7 +776,7 @@ struct DlInstance {
     instance: Instance,
     #[allow(dead_code)]
     instance_handles: WasiModuleInstanceHandles,
-    tls_base: u64,
+    tls_base: Option<u64>,
 }
 
 struct InstanceGroupState {
@@ -777,6 +788,8 @@ struct InstanceGroupState {
     stack_pointer: Global,
     memory: Memory,
     indirect_function_table: Table,
+    c_longjmp: Tag,
+    cpp_exception: Tag,
 
     // Once the dl_operation_pending flag is set, a barrier is created and broadcast
     // by the instigating group, which others must use to rendezvous with it.
@@ -786,6 +799,7 @@ struct InstanceGroupState {
     recv_pending_operation: bus::BusReader<DlOperation>,
 }
 
+// There is only one LinkerState for all instance groups
 struct LinkerState {
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
@@ -803,6 +817,14 @@ struct LinkerState {
 
     memory_allocator: MemoryAllocator,
     heap_base: u64,
+
+    /// Tracks which slots in the function table are currently used for closures
+    ///
+    /// True if the closure is currently in use, false otherwise.
+    allocated_closure_functions: BTreeMap<u32, bool>,
+    /// Slots in the indirect function table that were allocated for closures but are currently not in use.
+    /// These can be given out without needing to lock all threads.
+    available_closure_functions: Vec<u32>,
 
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
 
@@ -831,7 +853,7 @@ pub struct Linker {
 }
 
 // This macro exists to ensure we don't get into a deadlock with another pending
-// DL operation. the linker state must be locked for write *ONLY THROUGH THIS
+// DL operation. The linker state must be locked for write *ONLY THROUGH THIS
 // MACRO*. Bad things happen otherwise.
 // We also need a lock on the specific group's state here, because if there is a
 // pending DL operation we need to apply, that'll require mutable access to the
@@ -877,6 +899,32 @@ impl std::fmt::Debug for Linker {
     }
 }
 
+pub enum DlModuleSpec<'a> {
+    FileSystem {
+        module_spec: &'a Path,
+        ld_library_path: &'a [&'a Path],
+    },
+    Memory {
+        module_name: &'a str,
+        bytes: &'a [u8],
+    },
+}
+
+impl std::fmt::Debug for DlModuleSpec<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::FileSystem { module_spec, .. } => f
+                .debug_struct("FileSystem")
+                .field("module_spec", module_spec)
+                .finish(),
+            Self::Memory { module_name, .. } => f
+                .debug_struct("Memory")
+                .field("module_name", module_name)
+                .finish(),
+        }
+    }
+}
+
 impl Linker {
     /// Creates a new linker for the given main module. The module is expected to be a
     /// PIE executable. Imports for the module will be fulfilled, so that it can start
@@ -888,6 +936,7 @@ impl Linker {
         memory: Option<Memory>,
         func_env: &mut WasiFunctionEnv,
         stack_size: u64,
+        ld_library_path: &[&Path],
     ) -> Result<(Self, LinkedMainModule), LinkError> {
         let dylink_section = parse_dylink0_section(main_module)?;
 
@@ -913,6 +962,10 @@ impl Linker {
                 "env.__indirect_function_table".to_string(),
             ))?;
 
+        trace!(
+            minimum_size = ?function_table_type.minimum,
+            "Creating indirect function table"
+        );
         let indirect_function_table = Table::new(store, function_table_type, Value::FuncRef(None))
             .map_err(LinkError::TableAllocationError)?;
 
@@ -923,12 +976,11 @@ impl Linker {
             dylink_section.mem_info.table_size + MAIN_MODULE_TABLE_BASE as u32;
         // Make sure the function table is as big as the dylink.0 section expects it to be
         if indirect_function_table.size(store) < expected_table_length {
+            let current_size = indirect_function_table.size(store);
+            let delta = expected_table_length - current_size;
+            trace!(?current_size, ?delta, "Growing indirect function table");
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(None),
-                )
+                .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
         }
 
@@ -990,6 +1042,9 @@ impl Linker {
 
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, stack_high)?;
 
+        let c_longjmp = Tag::new(store, vec![Type::I32]);
+        let cpp_exception = Tag::new(store, vec![Type::I32]);
+
         let mut barrier_tx = Bus::new(1);
         let barrier_rx = barrier_tx.add_rx();
         let mut operation_tx = Bus::new(1);
@@ -1004,6 +1059,8 @@ impl Linker {
             stack_pointer,
             memory: memory.clone(),
             indirect_function_table: indirect_function_table.clone(),
+            c_longjmp,
+            cpp_exception,
             recv_pending_operation_barrier: barrier_rx,
             recv_pending_operation: operation_rx,
         };
@@ -1013,8 +1070,10 @@ impl Linker {
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
-            next_module_handle: 1,
+            next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
+            allocated_closure_functions: BTreeMap::new(),
+            available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
             send_pending_operation_barrier: barrier_tx,
@@ -1067,11 +1126,13 @@ impl Linker {
             trace!(name = needed, "Loading module needed by main");
             let wasi_env = func_env.data(store);
             linker_state.load_module_tree(
-                needed,
+                DlModuleSpec::FileSystem {
+                    module_spec: Path::new(needed.as_str()),
+                    ld_library_path,
+                },
                 &mut link_state,
                 &wasi_env.runtime,
                 &wasi_env.state,
-                Option::<&[&str]>::None,
             )?;
         }
 
@@ -1110,6 +1171,7 @@ impl Linker {
                 memory.clone(),
                 store,
                 main_instance.clone(),
+                Some(indirect_function_table.clone()),
             ),
         };
 
@@ -1181,24 +1243,27 @@ impl Linker {
 
         let mut imports = import_object_for_all_wasi_versions(&main_module, store, &func_env.env);
 
-        let indirect_function_table = Table::new(
-            store,
-            parent_group_state.indirect_function_table.ty(&parent_store),
-            Value::FuncRef(None),
-        )
-        .map_err(LinkError::TableAllocationError)?;
+        let indirect_function_table_type =
+            parent_group_state.indirect_function_table.ty(&parent_store);
+        trace!(
+            minimum_size = ?indirect_function_table_type.minimum,
+            "Creating indirect function table"
+        );
+
+        let indirect_function_table =
+            Table::new(store, indirect_function_table_type, Value::FuncRef(None))
+                .map_err(LinkError::TableAllocationError)?;
 
         let expected_table_length = parent_group_state
             .indirect_function_table
             .size(&parent_store);
         // Grow the table to be as big as the parent's
         if indirect_function_table.size(store) < expected_table_length {
+            let current_size = indirect_function_table.size(store);
+            let delta = expected_table_length - current_size;
+            trace!(?current_size, ?delta, "Growing indirect function table");
             indirect_function_table
-                .grow(
-                    store,
-                    expected_table_length - indirect_function_table.size(store),
-                    Value::FuncRef(None),
-                )
+                .grow(store, delta, Value::FuncRef(None))
                 .map_err(LinkError::TableAllocationError)?;
         }
 
@@ -1234,6 +1299,9 @@ impl Linker {
         // so no need to initialize it to a value here.
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, 0)?;
 
+        let c_longjmp = Tag::new(store, vec![Type::I32]);
+        let cpp_exception = Tag::new(store, vec![Type::I32]);
+
         let barrier_rx = linker_state.send_pending_operation_barrier.add_rx();
         let operation_rx = linker_state.send_pending_operation.add_rx();
 
@@ -1244,6 +1312,8 @@ impl Linker {
             stack_pointer,
             memory: memory.clone(),
             indirect_function_table: indirect_function_table.clone(),
+            c_longjmp,
+            cpp_exception,
             recv_pending_operation_barrier: barrier_rx,
             recv_pending_operation: operation_rx,
         };
@@ -1303,6 +1373,7 @@ impl Linker {
                 memory.clone(),
                 store,
                 main_instance.clone(),
+                Some(indirect_function_table.clone()),
             ),
         };
 
@@ -1354,18 +1425,118 @@ impl Linker {
         }
     }
 
+    /// Allocate a index for a closure in the indirect function table
+    pub fn allocate_closure_index(
+        &self,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    ) -> Result<u32, LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        write_linker_state!(linker_state, self, group_state, ctx);
+
+        let mut store = ctx.as_store_mut();
+
+        // Use a previously allocated slot if possible
+        if let Some(function_index) = linker_state.available_closure_functions.pop() {
+            linker_state
+                .allocated_closure_functions
+                .insert(function_index, true);
+            return Ok(function_index);
+        }
+
+        // Allocate more closures than we need to reduce the number of sync operations
+        const CLOSURE_ALLOCATION_SIZE: u32 = 100;
+
+        let function_index = group_state
+            .allocate_function_table(&mut store, CLOSURE_ALLOCATION_SIZE, 0)
+            .map_err(LinkError::TableAllocationError)? as u32;
+
+        linker_state
+            .available_closure_functions
+            .reserve(CLOSURE_ALLOCATION_SIZE as usize - 1);
+        for i in 1..CLOSURE_ALLOCATION_SIZE {
+            linker_state
+                .available_closure_functions
+                .push(function_index + i);
+            linker_state
+                .allocated_closure_functions
+                .insert(function_index + i, false);
+        }
+        linker_state
+            .allocated_closure_functions
+            .insert(function_index, true);
+
+        self.synchronize_link_operation(
+            DlOperation::AllocateFunctionTable {
+                index: function_index,
+                size: CLOSURE_ALLOCATION_SIZE,
+            },
+            linker_state,
+            group_state,
+            &ctx.data().process,
+            ctx.data().tid(),
+        );
+
+        Ok(function_index)
+    }
+
+    /// Remove a previously allocated slot for a closure in the indirect function table
+    ///
+    /// After calling this it is undefined behavior to call the function at the given index.
+    pub fn free_closure_index(
+        &self,
+        ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+        function_id: u32,
+    ) -> Result<(), LinkError> {
+        lock_instance_group_state!(
+            group_state_guard,
+            group_state,
+            self,
+            LinkError::InstanceGroupIsDead
+        );
+        write_linker_state!(linker_state, self, group_state, ctx);
+
+        let Some(entry) = linker_state
+            .allocated_closure_functions
+            .get_mut(&function_id)
+        else {
+            // Not allocated
+            return Ok(());
+        };
+        if !*entry {
+            // Not used
+            return Ok(());
+        }
+
+        *entry = false;
+        linker_state.available_closure_functions.push(function_id);
+        Ok(())
+    }
+
+    /// Check if an indirect_function_table entry is reserved for closures.
+    ///
+    /// Returns false if the entry is not reserved for closures.
+    pub fn is_closure(&self, function_id: u32) -> bool {
+        // TODO: Check if this can result in a deadlock
+        let linker = self.linker_state.read().unwrap();
+        linker
+            .allocated_closure_functions
+            .contains_key(&function_id)
+    }
+
     /// Loads a side module from the given path, linking it against the existing module tree
     /// and instantiating it. Symbols from the module can then be retrieved by calling
     /// [`Linker::resolve_export`].
     pub fn load_module(
         &self,
-        module_path: impl AsRef<Path>,
-        library_path: &[impl AsRef<Path>],
+        module_spec: DlModuleSpec,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     ) -> Result<ModuleHandle, LinkError> {
-        let module_path = module_path.as_ref();
-
-        trace!(?module_path, "Loading module");
+        trace!(?module_spec, "Loading module");
 
         lock_instance_group_state!(
             group_state_guard,
@@ -1387,11 +1558,10 @@ impl Linker {
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
         let module_handle = linker_state.load_module_tree(
-            module_path,
+            module_spec,
             &mut link_state,
             &wasi_env.runtime,
             &wasi_env.state,
-            Some(library_path),
         )?;
 
         let new_modules = link_state
@@ -1535,7 +1705,9 @@ impl Linker {
                         resolved_from,
                         offset,
                     } => {
-                        let tls_base = group_state.tls_base(*resolved_from);
+                        let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+                            return Err(ResolveError::TlsSymbolWithoutTls);
+                        };
                         return Ok(ResolvedExport::Global {
                             data_ptr: tls_base + offset,
                         });
@@ -1870,7 +2042,11 @@ impl LinkerState {
 
             // Skip over the memory, function table and stack pointer imports as well
             match import.name() {
-                "memory" | "__indirect_function_table" | "__stack_pointer" | "__c_longjmp" => {
+                "memory"
+                | "__indirect_function_table"
+                | "__stack_pointer"
+                | "__c_longjmp"
+                | "__cpp_exception" => {
                     trace!(?import, "Skipping resolution of special symbol");
                     continue;
                 }
@@ -2051,74 +2227,103 @@ impl LinkerState {
     // it was already loaded, the existing handle is returned.
     fn load_module_tree(
         &mut self,
-        module_path: impl AsRef<Path>,
+        module_spec: DlModuleSpec,
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
-        library_path: Option<&[impl AsRef<Path>]>,
     ) -> Result<ModuleHandle, LinkError> {
-        let module_path = module_path.as_ref();
-        trace!(?module_path, "Locating and loading module");
+        let module_name = match module_spec {
+            DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
+            DlModuleSpec::Memory { module_name, .. } => {
+                Cow::Owned(PathBuf::from(format!("::in-memory::{module_name}")))
+            }
+        };
+        trace!(?module_name, "Locating and loading module");
 
-        if let Some(handle) = self.side_modules_by_name.get(module_path) {
+        if let Some(handle) = self.side_modules_by_name.get(module_name.as_ref()) {
             let handle = *handle;
 
-            trace!(?module_path, ?handle, "Module was already loaded");
+            trace!(?module_name, ?handle, "Module was already loaded");
 
             return Ok(handle);
         }
 
         // Locate and load the module bytes
-        let (full_path, module_bytes) =
-            InlineWaker::block_on(locate_module(module_path, library_path, &wasi_state.fs))?;
+        let (module_bytes, paths) = match module_spec {
+            DlModuleSpec::FileSystem {
+                module_spec,
+                ld_library_path,
+            } => {
+                let (full_path, bytes) = InlineWaker::block_on(locate_module(
+                    module_spec,
+                    ld_library_path,
+                    &wasi_state.fs,
+                ))?;
+                // TODO: this can be optimized by detecting early if the module is already
+                // pending without loading its bytes
+                if link_state.pending_module_paths.contains(&full_path) {
+                    trace!("Module is already pending, won't load again");
+                    // This is fine, since a non-empty pending_modules list means we are
+                    // recursively resolving needed modules. We don't use the handle
+                    // returned from this function for anything when running recursively
+                    // (see self.load_module call below).
+                    return Ok(INVALID_MODULE_HANDLE);
+                }
 
-        trace!(?full_path, "Found module file");
+                (Cow::Owned(bytes), Some((full_path, ld_library_path)))
+            }
+            DlModuleSpec::Memory { bytes, .. } => (Cow::Borrowed(bytes), None),
+        };
 
-        // TODO: this can be optimized by detecting early if the module is already
-        // pending without loading its bytes
-        if link_state.pending_module_paths.contains(&full_path) {
-            trace!("Module is already pending, won't load again");
-            // This is fine, since a non-empty pending_modules list means we are
-            // recursively resolving needed modules. We don't use the handle
-            // returned from this function for anything when running recursively
-            // (see self.load_module call below).
-            return Ok(INVALID_MODULE_HANDLE);
-        }
-
-        let module = runtime.load_module_sync(&module_bytes)?;
+        let module = runtime.load_module_sync(module_bytes.as_ref())?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
         trace!(?dylink_info, "Loading side module");
 
-        link_state.pending_module_paths.push(full_path);
-        let num_pending_modules = link_state.pending_module_paths.len();
-        let pop_pending_module = |link_state: &mut InProgressLinkState| {
-            assert_eq!(
-                num_pending_modules,
-                link_state.pending_module_paths.len(),
-                "Internal error: pending modules not maintained correctly"
-            );
-            link_state.pending_module_paths.pop().unwrap();
-        };
+        if let Some((full_path, ld_library_path)) = paths {
+            link_state.pending_module_paths.push(full_path);
+            let num_pending_modules = link_state.pending_module_paths.len();
+            let pop_pending_module = |link_state: &mut InProgressLinkState| {
+                assert_eq!(
+                    num_pending_modules,
+                    link_state.pending_module_paths.len(),
+                    "Internal error: pending modules not maintained correctly"
+                );
+                link_state.pending_module_paths.pop().unwrap();
+            };
 
-        for needed in &dylink_info.needed {
-            trace!(needed, "Loading needed side module");
-            match self.load_module_tree(needed, link_state, runtime, wasi_state, library_path) {
-                Ok(_) => (),
-                Err(e) => {
-                    pop_pending_module(link_state);
-                    return Err(e);
+            for needed in &dylink_info.needed {
+                trace!(needed, "Loading needed side module");
+                match self.load_module_tree(
+                    DlModuleSpec::FileSystem {
+                        module_spec: Path::new(needed.as_str()),
+                        ld_library_path,
+                    },
+                    link_state,
+                    runtime,
+                    wasi_state,
+                ) {
+                    Ok(_) => (),
+                    Err(e) => {
+                        pop_pending_module(link_state);
+                        return Err(e);
+                    }
                 }
             }
+
+            pop_pending_module(link_state);
+        } else if !dylink_info.needed.is_empty() {
+            unreachable!(
+                "Internal error: in-memory modules with further needed modules not \
+                    supported and no code paths can create such a module"
+            );
         }
 
         let handle = ModuleHandle(self.next_module_handle);
         self.next_module_handle += 1;
 
-        trace!(?module_path, ?handle, "Assigned handle to module");
-
-        pop_pending_module(link_state);
+        trace!(?module_name, ?handle, "Assigned handle to module");
 
         link_state.new_modules.push(InProgressModuleLoad {
             handle,
@@ -2130,7 +2335,7 @@ impl LinkerState {
         // allocated for the module.
         // TODO: allocate table here (at least logically)?
         self.side_modules_by_name
-            .insert(module_path.to_owned(), handle);
+            .insert(module_name.into_owned(), handle);
 
         Ok(handle)
     }
@@ -2141,10 +2346,10 @@ impl InstanceGroupState {
         self.main_instance.as_ref()
     }
 
-    fn tls_base(&self, module_handle: ModuleHandle) -> u64 {
+    fn tls_base(&self, module_handle: ModuleHandle) -> Option<u64> {
         if module_handle == MAIN_MODULE_HANDLE {
             // Main's TLS area is at the beginning of its memory
-            self.main_instance_tls_base
+            Some(self.main_instance_tls_base)
         } else {
             self.side_instances
                 .get(&module_handle)
@@ -2166,6 +2371,9 @@ impl InstanceGroupState {
             .expect("Internal error: bad module handle or not instantiated in this group")
     }
 
+    /// Allocate space on the indirect function table for the given number of functions
+    ///
+    /// table_alignment is the alignment of the table as a power of two.
     fn allocate_function_table(
         &mut self,
         store: &mut impl AsStoreMut,
@@ -2186,11 +2394,11 @@ impl InstanceGroupState {
                 0
             };
 
-            let start = self.indirect_function_table.grow(
-                store,
-                table_size + offset,
-                Value::FuncRef(None),
-            )?;
+            let delta = table_size + offset;
+            trace!(?current_size, ?delta, "Growing indirect function table");
+            let start = self
+                .indirect_function_table
+                .grow(store, delta, Value::FuncRef(None))?;
 
             (start + offset) as u64
         };
@@ -2211,10 +2419,14 @@ impl InstanceGroupState {
     ) -> Result<u32, RuntimeError> {
         let table = &self.indirect_function_table;
 
+        let ty = func.ty(store).to_string();
+        let index: u32 = table.size(store);
+        trace!(?index, ?ty, "Appending function in table");
+
         table.grow(store, 1, func.into())
     }
 
-    fn append_to_function_table_at(
+    fn place_in_function_table_at(
         &self,
         store: &mut impl AsStoreMut,
         func: Function,
@@ -2223,15 +2435,20 @@ impl InstanceGroupState {
         trace!(
             ?index,
             ?func,
-            "Placing function into table at pre-defined index"
+            "Placing function in table at pre-defined index"
         );
 
         let table = &self.indirect_function_table;
         let size = table.size(store);
 
         if size <= index {
-            table.grow(store, index - size + 1, Value::FuncRef(None))?;
-            trace!(new_table_size = ?table.size(store), "Growing table");
+            let delta = index - size + 1;
+            trace!(
+                current_size = ?size,
+                ?delta,
+                "Growing indirect function table"
+            );
+            table.grow(store, delta, Value::FuncRef(None))?;
         } else {
             let existing = table.get(store, index).unwrap();
             if let Value::FuncRef(Some(_)) = existing {
@@ -2239,6 +2456,8 @@ impl InstanceGroupState {
             }
         }
 
+        let ty = func.ty(store).to_string();
+        trace!(?index, ?ty, "Placing function in table at index");
         table.set(store, index, Value::FuncRef(Some(func)))
     }
 
@@ -2320,8 +2539,12 @@ impl InstanceGroupState {
 
         let instance = Instance::new(store, &module, &imports)?;
 
-        let instance_handles =
-            WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
+        let instance_handles = WasiModuleInstanceHandles::new(
+            self.memory.clone(),
+            store,
+            instance.clone(),
+            Some(self.indirect_function_table.clone()),
+        );
 
         let dl_module = DlModule {
             module,
@@ -2335,7 +2558,7 @@ impl InstanceGroupState {
             instance_handles,
             // The TLS area of a side module's main instance is at the beginning
             // of its memory
-            tls_base: memory_base,
+            tls_base: Some(memory_base),
         };
 
         linker_state.side_modules.insert(module_handle, dl_module);
@@ -2427,19 +2650,20 @@ impl InstanceGroupState {
         let instance = Instance::new(store, &dl_module.module, &imports)?;
 
         // This is a non-main instance of a side module, so it needs a new TLS area
-        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?;
+        let tls_base = call_initialization_function::<i32>(&instance, store, "__wasix_init_tls")?
+            .map(|v| v as u64);
 
-        let Some(tls_base) = tls_base else {
-            return Err(LinkError::MissingTlsInitializer);
-        };
-
-        let instance_handles =
-            WasiModuleInstanceHandles::new(self.memory.clone(), store, instance.clone());
+        let instance_handles = WasiModuleInstanceHandles::new(
+            self.memory.clone(),
+            store,
+            instance.clone(),
+            Some(self.indirect_function_table.clone()),
+        );
 
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            tls_base: tls_base as u64,
+            tls_base,
         };
 
         self.side_instances.insert(module_handle, dl_instance);
@@ -2472,14 +2696,24 @@ impl InstanceGroupState {
                     )
                 });
 
-            self.append_to_function_table_at(store, func.clone(), pending.function_table_index)
+            self.place_in_function_table_at(store, func.clone(), pending.function_table_index)
                 .map_err(LinkError::TableAllocationError)?;
 
             trace!(?pending, "Placed pending function in table");
         }
 
         for tls in &pending_resolutions.tls {
-            let tls_base = self.tls_base(tls.resolved_from);
+            let Some(tls_base) = self.tls_base(tls.resolved_from) else {
+                // This is a panic since this error should have been caught when the symbol
+                // was originally resolved by the instigating instance group. We're just replaying
+                // the changes.
+                panic!(
+                    "Internal error: Tried to import TLS symbol from module {} that \
+                    has no TLS base",
+                    tls.resolved_from.0
+                );
+            };
+
             let final_addr = tls_base + tls.offset;
             set_integer_global(store, "<pending TLS global>", &tls.global, final_addr)?;
             trace!(?tls, tls_base, final_addr, "Setting pending TLS global");
@@ -2514,9 +2748,25 @@ impl InstanceGroupState {
             panic!("Internal error: failed to resolve exported function {name}: {e:?}")
         });
 
-        self.append_to_function_table_at(store, func.clone(), function_table_index)
+        self.place_in_function_table_at(store, func.clone(), function_table_index)
             .map_err(LinkError::TableAllocationError)?;
 
+        Ok(())
+    }
+
+    pub fn apply_function_table_allocation(
+        &mut self,
+        store: &mut impl AsStoreMut,
+        index: u32,
+        size: u32,
+    ) -> Result<(), LinkError> {
+        trace!(index, "Applying function table allocation");
+        let allocated_index = self
+            .allocate_function_table(store, size, 0)
+            .map_err(LinkError::TableAllocationError)? as u32;
+        if allocated_index != index {
+            panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
+        }
         Ok(())
     }
 
@@ -2553,6 +2803,9 @@ impl InstanceGroupState {
                 resolved_from,
                 function_table_index,
             } => self.apply_resolved_function(store, &name, resolved_from, function_table_index)?,
+            DlOperation::AllocateFunctionTable { index, size } => {
+                self.apply_function_table_allocation(store, index, size)?
+            }
         };
         trace!("Operation applied successfully");
         Ok(())
@@ -2695,11 +2948,21 @@ impl InstanceGroupState {
                             ));
                         }
                         trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
-                        imports.define(
-                            import.module(),
-                            import.name(),
-                            Tag::new(store, vec![Type::I32]),
-                        );
+                        imports.define(import.module(), import.name(), self.c_longjmp.clone());
+                        continue;
+                    }
+                    // Clang generates this symbol when building C++ code that uses exception handling.
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "C++ exception tag");
+                        imports.define(import.module(), import.name(), self.cpp_exception.clone());
                         continue;
                     }
                     _ => (),
@@ -2965,11 +3228,20 @@ impl InstanceGroupState {
                             ));
                         }
                         trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
-                        imports.define(
-                            import.module(),
-                            import.name(),
-                            Tag::new(store, vec![Type::I32]),
-                        );
+                        imports.define(import.module(), import.name(), self.c_longjmp.clone());
+                        continue;
+                    }
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "C++ exception tag");
+                        imports.define(import.module(), import.name(), self.cpp_exception.clone());
                         continue;
                     }
                     _ => (),
@@ -3090,7 +3362,7 @@ impl InstanceGroupState {
                                 function_table_index,
                                 "Placing function pointer into table"
                             );
-                            self.append_to_function_table_at(
+                            self.place_in_function_table_at(
                                 store,
                                 func.clone(),
                                 *function_table_index,
@@ -3186,7 +3458,7 @@ impl InstanceGroupState {
                         instance,
                         &linker_state.main_module_dylink_info,
                         linker_state.memory_base(MAIN_MODULE_HANDLE),
-                        self.main_instance_tls_base,
+                        Some(self.main_instance_tls_base),
                         allow_hidden,
                     ) {
                         Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
@@ -3230,7 +3502,7 @@ impl InstanceGroupState {
         instance: &Instance,
         dylink_info: &DylinkInfo,
         memory_base: u64,
-        tls_base: u64,
+        tls_base: Option<u64>,
         allow_hidden: bool,
     ) -> Result<PartiallyResolvedExport, ResolveError> {
         trace!(from = ?module_handle, symbol, "Resolving export from instance");
@@ -3271,6 +3543,9 @@ impl InstanceGroupState {
                     .unwrap_or(false);
 
                 if is_tls {
+                    let Some(tls_base) = tls_base else {
+                        return Err(ResolveError::TlsSymbolWithoutTls);
+                    };
                     let final_value = value + tls_base;
                     trace!(
                         from = ?module_handle,
@@ -3595,7 +3870,7 @@ impl InstanceGroupState {
 
 async fn locate_module(
     module_path: &Path,
-    library_path: Option<&[impl AsRef<Path>]>,
+    library_path: &[impl AsRef<Path>],
     fs: &WasiFs,
 ) -> Result<(PathBuf, Vec<u8>), LinkError> {
     async fn try_load(
@@ -3652,7 +3927,7 @@ async fn locate_module(
         );
         let search_paths = library_path
             .iter()
-            .flat_map(|paths| paths.iter().map(AsRef::as_ref))
+            .map(|path| path.as_ref())
             // Add default runtime paths
             .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
 

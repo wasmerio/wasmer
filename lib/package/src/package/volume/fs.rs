@@ -316,7 +316,7 @@ impl FsVolume {
             Ok(root)
         } else {
             let paths: Vec<_> = self.mapped_directories.iter().cloned().collect();
-            directory_tree(paths, &self.base_dir, strictness)
+            directory_tree(paths, &self.base_dir)
         }
     }
 }
@@ -359,7 +359,6 @@ fn resolve(base_dir: &Path, path: &PathSegments) -> PathBuf {
 fn directory_tree(
     paths: impl IntoIterator<Item = PathBuf>,
     base_dir: &Path,
-    strictness: Strictness,
 ) -> Result<Directory<'static>, Error> {
     let paths: Vec<_> = paths.into_iter().collect();
     let mut root = Directory::default();
@@ -374,20 +373,14 @@ fn directory_tree(
                 println!("Warning: {path:?} already exists. Overriding the old entry");
             }
         } else {
-            match webc::v3::write::Directory::from_path_with_ignore(&path) {
-                Ok(dir) => {
-                    for (path, child) in dir.children {
-                        root.children.insert(path.clone(), child);
-                    }
-                }
-                Err(e) => {
-                    let e = Error::from(e);
-                    let error = e.context(format!(
-                        "Unable to add \"{}\" to the directory tree",
-                        path.display()
-                    ));
-                    strictness.on_error(&path, error)?;
-                }
+            let dir = webc::v3::write::Directory::from_path_with_ignore(&path).map_err(|e| {
+                Error::from(e).context(format!(
+                    "Unable to add \"{}\" to the directory tree",
+                    path.display()
+                ))
+            })?;
+            for (path, child) in dir.children {
+                root.children.insert(path.clone(), child);
             }
         }
     }
@@ -506,6 +499,34 @@ mod tests {
         assert_eq!(
             String::from_utf8(volume.read_file(&man_page).unwrap().into()).unwrap(),
             "man page"
+        );
+    }
+
+    #[test]
+    fn directory_tree_propagates_errors() {
+        let temp = TempDir::new().unwrap();
+
+        // Create a directory that will be used as the base directory
+        let base_dir = temp.path().to_path_buf();
+
+        // Create a non-existent path that will cause `from_path_with_ignore` to fail
+        let non_existent_path = base_dir.join("non_existent_dir");
+
+        // Try to create a directory tree with a non-existent path
+        let result = directory_tree(std::iter::once(non_existent_path.clone()), &base_dir);
+
+        // Verify that the error is propagated
+        assert!(result.is_err());
+        let error = result.unwrap_err();
+        assert!(
+            error.to_string().contains("Unable to add"),
+            "Error message should indicate failure to add path: {}",
+            error
+        );
+        assert!(
+            error.to_string().contains("non_existent_dir"),
+            "Error message should include the problematic path: {}",
+            error
         );
     }
 }

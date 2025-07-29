@@ -6,7 +6,7 @@ use crate::VMExternToExtern;
 use wasmer_types::{BoxStoreObject, RawValue};
 
 macro_rules! define_vm_like {
-    ($name: ident $(<$($params:ident $(= $defaults:ty)?),*>)? $(, $meta:meta)* $(,)?) => {
+    ($name:ident $(<$($params:ident $(= $defaults:ty)?),*>)? $(, $meta:meta)* $(,)?) => {
         paste::paste! {
         /// The enum for all those VM values of this kind.
         $(#[$meta])*
@@ -199,6 +199,54 @@ macro_rules! define_vm_like {
         }
         }
     };
+
+    ($name:ident $(<$($params:ident $(= $defaults:ty)?),*>)? $(, $meta:meta)* , @From) => {
+        define_vm_like!($name $(<$($params $(= $defaults)?),*>)? $(, $meta)*);
+
+        paste::paste! {
+        #[cfg(feature = "sys")]
+        impl From<crate::backend::sys::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::sys::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::Sys(value)
+            }
+        }
+
+        #[cfg(feature = "wamr")]
+        impl From<crate::backend::wamr::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::wamr::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::Wamr(value)
+            }
+        }
+
+        #[cfg(feature = "wasmi")]
+        impl From<crate::backend::wasmi::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::wasmi::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::Wasmi(value)
+            }
+        }
+
+        #[cfg(feature = "v8")]
+        impl From<crate::backend::v8::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::v8::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::V8(value)
+            }
+        }
+
+        #[cfg(feature = "js")]
+        impl From<crate::backend::js::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::js::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::Js(value)
+            }
+        }
+
+        #[cfg(feature = "jsc")]
+        impl From<crate::backend::jsc::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::jsc::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::Jsc(value)
+            }
+        }
+    }
+    }
 }
 
 define_vm_like!(Extern);
@@ -219,7 +267,7 @@ define_vm_like!(Function, derive(Debug));
 define_vm_like!(Global, derive(Debug));
 define_vm_like!(Tag, derive(Debug));
 define_vm_like!(Exception, derive(Debug));
-define_vm_like!(Memory, derive(Debug));
+define_vm_like!(Memory, derive(Debug), @From);
 define_vm_like!(SharedMemory);
 define_vm_like!(Table, derive(Debug));
 

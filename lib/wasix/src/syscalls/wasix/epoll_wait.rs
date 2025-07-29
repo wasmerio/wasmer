@@ -16,8 +16,8 @@ const TIMEOUT_FOREVER: u64 = u64::MAX;
 /// ### `epoll_wait()`
 /// Wait for an I/O event on an epoll file descriptor
 #[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
-pub fn epoll_wait<'a, M: MemorySize + 'static>(
-    mut ctx: FunctionEnvMut<'a, WasiEnv>,
+pub fn epoll_wait<M: MemorySize + 'static>(
+    mut ctx: FunctionEnvMut<'_, WasiEnv>,
     epfd: WasiFd,
     events: WasmPtr<EpollEvent<M>, M>,
     maxevents: i32,
@@ -144,7 +144,7 @@ pub fn epoll_wait<'a, M: MemorySize + 'static>(
     // which will interpret the error codes
     let process_events = {
         let events_out = events;
-        move |ctx: &FunctionEnvMut<'a, WasiEnv>,
+        move |ctx: &FunctionEnvMut<'_, WasiEnv>,
               events: Result<Vec<(EpollFd, EpollType)>, Errno>| {
             let env = ctx.data();
             let memory = unsafe { env.memory_view(ctx) };
