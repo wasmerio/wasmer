@@ -293,6 +293,7 @@ pub fn gen_std_trampoline_riscv(
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
             Type::I32 => Size::S32,
+            Type::I64 => Size::S64,
             // TODO: support more types
             _ => codegen_error!(
                 "singlepass unsupported param type for trampoline {:?}",

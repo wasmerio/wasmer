@@ -1551,7 +1551,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_add,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn emit_binop_sub64(
         &mut self,

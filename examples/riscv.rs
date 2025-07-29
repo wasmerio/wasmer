@@ -16,13 +16,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
     (module
-    (type $sum_t (func (param i32 i32 i32) (result i32)))
-    (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (param $z i32) (result i32)
+    (type $sum_t (func (param i64 i64 i64) (result i64)))
+    (func $sum_f (type $sum_t) (param $x i64) (param $y i64) (param $z i64) (result i64)
     local.get $x
     local.get $y
-    i32.add
+    i64.add
     local.get $z
-    i32.add)
+    i64.add)
     (export "sum" (func $sum_f)))
     "#
         .as_bytes(),
@@ -43,13 +43,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Option 1
     println!("Calling `sum` function...");
-    let args = [Value::I32(1), Value::I32(10), Value::I32(100)];
+    let args = [Value::I64(1), Value::I64(10), Value::I64(100)];
     let result = sum.call(&mut store, &args)?;
     println!("Results: {:?}", result);
-    assert_eq!(result.to_vec(), vec![Value::I32(111)]);
+    assert_eq!(result.to_vec(), vec![Value::I64(111)]);
 
     // Option 2
-    let sum_typed: TypedFunction<(i32, i32, i32), i32> = sum.typed(&mut store)?;
+    let sum_typed: TypedFunction<(i64, i64, i64), i64> = sum.typed(&mut store)?;
     println!("Calling `sum` function (natively)...");
     let result = sum_typed.call(&mut store, 1, 2, 3)?;
     println!("Results: {:?}", result);
