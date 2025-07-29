@@ -34,17 +34,6 @@ use crate::{
 type Assembler = VecAssembler<RiscvRelocation>;
 type Location = AbstractLocation<GPR, FPR>;
 
-/// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
-macro_rules! dynasm {
-    ($a:expr ; $($tt:tt)*) => {
-        dynasm::dynasm!(
-            $a.inner
-            ; .arch riscv64
-            ; $($tt)*
-        )
-    };
-}
-
 use std::ops::{Deref, DerefMut};
 /// The RISC-V assembler wrapper, providing FPU feature tracking and a dynasmrt assembler.
 pub struct AssemblerRiscv {
