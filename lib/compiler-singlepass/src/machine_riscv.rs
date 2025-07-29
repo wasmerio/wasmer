@@ -519,16 +519,10 @@ impl Machine for MachineRiscv {
 
     // Restore save_area
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
-        // TODO: maintain pushed
-        let real_delta = if saved_area_offset & 15 != 0 {
-            saved_area_offset + 8
-        } else {
-            saved_area_offset
-        };
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Fp),
-            Location::Imm32(real_delta as u32),
+            Location::Imm32(saved_area_offset as u32),
             Location::GPR(GPR::Sp),
         )
     }
