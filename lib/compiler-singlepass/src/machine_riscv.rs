@@ -205,7 +205,7 @@ impl MachineRiscv {
 pub(crate) enum ImmType {
     None,
     Bits12,
-    // TODO: define RISC-V immediate types.
+    // TODO: define more RISC-V immediate types.
 }
 
 impl ImmType {
@@ -613,7 +613,7 @@ impl Machine for MachineRiscv {
         cannonicalize: bool,
         loc: Location,
     ) -> Result<(), CompileError> {
-        // TODO: handle canonicalize
+        // TODO: handle canonicalize when support for FP types is added
         self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X10))
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
