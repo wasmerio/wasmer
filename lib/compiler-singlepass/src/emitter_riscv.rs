@@ -78,6 +78,14 @@ pub trait EmitterRiscv {
         dst: Location,
     ) -> Result<(), CompileError>;
 
+    fn emit_sub(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
     fn emit_ret(&mut self) -> Result<(), CompileError>;
@@ -187,6 +195,43 @@ impl EmitterRiscv for Assembler {
             // TODO: add more variants
             _ => codegen_error!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_sub(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; sub X(dst), X(src1), X(src2));
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; subw X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; addi X(dst), X(src1), -(imm as i32) as _);
+            }
+            // TODO: add more variants
+            _ => codegen_error!(
+                "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,

@@ -201,7 +201,7 @@ impl MachineRiscv {
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(GPR::Sp),
-                    Location::Imm32(8 as _),
+                    Location::Imm32(8),
                     Location::GPR(GPR::Sp),
                 )?;
             }
@@ -352,10 +352,10 @@ impl Machine for MachineRiscv {
         Location::Memory(GPR::Fp, -stack_offset)
     }
     fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        self.assembler.emit_add(
+        self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm32(-(delta_stack_offset as i32) as _),
+            Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::Sp),
         )
     }
@@ -525,10 +525,10 @@ impl Machine for MachineRiscv {
         } else {
             saved_area_offset
         };
-        self.assembler.emit_add(
+        self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Fp),
-            Location::Imm32(-real_delta as _),
+            Location::Imm32(real_delta as u32),
             Location::GPR(GPR::Sp),
         )
     }
@@ -556,10 +556,10 @@ impl Machine for MachineRiscv {
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
         // TODO: support emission of unwinding info
 
-        self.assembler.emit_add(
+        self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm32(-32i32 as u32), // TODO
+            Location::Imm32(32),
             Location::GPR(GPR::Sp),
         )?;
 
@@ -604,7 +604,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_add(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm32(32i32 as u32),
+            Location::Imm32(32),
             Location::GPR(GPR::Sp),
         )?;
 
