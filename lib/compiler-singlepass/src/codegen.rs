@@ -1082,17 +1082,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.calling_convention,
         )?;
 
-        // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
-        self.state.register_values[self.machine.index_from_gpr(self.machine.get_vmctx_reg()).0] =
-            MachineValue::Vmctx;
+        // TODO: skip now
 
-        // TODO: Explicit stack check is not supported for now.
+        // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
+        // self.state.register_values[self.machine.index_from_gpr(self.machine.get_vmctx_reg()).0] =
+        //     MachineValue::Vmctx;
+
+        // // TODO: Explicit stack check is not supported for now.
         let diff = self.state.diff(&self.machine.new_machine_state());
         let state_diff_id = self.fsm.diffs.len();
         self.fsm.diffs.push(diff);
 
-        // simulate "red zone" if not supported by the platform
-        self.machine.adjust_stack(32)?;
+        // // simulate "red zone" if not supported by the platform
+        // self.machine.adjust_stack(32)?;
 
         self.control_stack.push(ControlFrame {
             label: self.machine.get_label(),
@@ -1114,7 +1116,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
-        self.machine.insert_stackoverflow();
+        // self.machine.insert_stackoverflow();
 
         if self.state.wasm_inst_offset != usize::MAX {
             return Err(CompileError::Codegen(
@@ -1190,8 +1192,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             special_labels,
             calling_convention,
         };
-        // TODO
-        // fg.emit_head()?;
+        fg.emit_head()?;
         Ok(fg)
     }
 
@@ -6691,7 +6692,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
-        dbg!(address_map.start_srcloc, address_map.end_srcloc);
         let traps = self.machine.collect_trap_information();
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();

@@ -69,11 +69,6 @@ impl AssemblerRiscv {
 
     /// Finalize to machine code bytes.
     pub fn finalize(mut self) -> Result<Vec<u8>, DynasmError> {
-        // Sum two numbers in RISC-V
-        dynasm!(self
-            ; add a0, a0, a1
-            ; ret
-        );
         self.inner.finalize()
     }
 }
@@ -132,11 +127,94 @@ impl MachineRiscv {
             has_fpu,
         })
     }
+
+    fn used_gprs_contains(&self, r: &GPR) -> bool {
+        self.used_gprs & (1 << r.into_index()) != 0
+    }
+
+    fn used_gprs_insert(&mut self, r: GPR) {
+        self.used_gprs |= 1 << r.into_index();
+    }
+
+    fn used_gprs_remove(&mut self, r: &GPR) -> bool {
+        let ret = self.used_gprs_contains(r);
+        self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
+
+    fn location_to_reg(
+        &mut self,
+        sz: Size,
+        src: Location,
+        // temps: &mut Vec<GPR>,
+        allow_imm: ImmType,
+        read_val: bool,
+        wanted: Option<GPR>,
+    ) -> Result<Location, CompileError> {
+        match src {
+            Location::GPR(_) | Location::SIMD(_) => Ok(src),
+            _ => todo!("unsupported location"),
+        }
+    }
+
+    fn emit_relaxed_binop(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location) -> Result<(), CompileError>,
+        sz: Size,
+        src: Location,
+        dst: Location,
+        putback: bool,
+    ) -> Result<(), CompileError> {
+        let src = self.location_to_reg(sz, src, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(sz, dst, ImmType::None, !putback, None)?;
+        op(&mut self.assembler, sz, src, dest)?;
+        if dst != dest && putback {
+            self.move_location(sz, dest, dst)?;
+        }
+        Ok(())
+    }
+
+    fn emit_relaxed_binop3(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location, Location) -> Result<(), CompileError>,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+        allow_imm: ImmType,
+    ) -> Result<(), CompileError> {
+        let src1 = self.location_to_reg(sz, src1, ImmType::None, true, None)?;
+        let src2 = self.location_to_reg(sz, src2, allow_imm, true, None)?;
+        let dest = self.location_to_reg(sz, dst, ImmType::None, false, None)?;
+        op(&mut self.assembler, sz, src1, src2, dest)?;
+        if dst != dest {
+            self.move_location(sz, dest, dst)?;
+        }
+        Ok(())
+    }
+
+    fn emit_pop(&mut self, sz: Size, dst: Location) -> Result<(), CompileError> {
+        match (sz, dst) {
+            (Size::S64, Location::GPR(_)) => {
+                self.assembler
+                    .emit_ld(Size::S64, dst, Location::Memory(GPR::Sp, 0))?;
+                self.assembler.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::Imm32(8 as _),
+                    Location::GPR(GPR::Sp),
+                )?;
+            }
+            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", sz, dst),
+        }
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
 #[derive(PartialEq)]
 enum ImmType {
+    None,
     // TODO: define RISC-V immediate types.
 }
 
@@ -152,16 +230,24 @@ impl Machine for MachineRiscv {
         self.assembler.get_offset()
     }
     fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
-        todo!()
+        RegisterIndex(x as usize)
     }
     fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex {
         todo!()
     }
     fn get_vmctx_reg(&self) -> Self::GPR {
-        todo!()
+        GPR::X31
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
-        todo!()
+        use GPR::*;
+        // TODO: can it include vmctx register X31?
+        static REGS: &[GPR] = &[X5, X6, X7, X28, X29, X30];
+        for r in REGS {
+            if !self.used_gprs_contains(r) {
+                return Some(*r);
+            }
+        }
+        None
     }
     fn pick_temp_gpr(&self) -> Option<Self::GPR> {
         todo!()
@@ -176,13 +262,13 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn release_gpr(&mut self, gpr: Self::GPR) {
-        todo!()
+        assert!(self.used_gprs_remove(&gpr));
     }
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR {
         todo!()
     }
     fn reserve_gpr(&mut self, gpr: Self::GPR) {
-        todo!()
+        self.used_gprs_insert(gpr);
     }
     fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<usize, CompileError> {
         todo!()
@@ -211,12 +297,21 @@ impl Machine for MachineRiscv {
     fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError> {
         todo!()
     }
+
+    // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize {
-        todo!()
+        if value & 0xf != 0 {
+            ((value >> 4) + 1) << 4
+        } else {
+            value
+        }
     }
+
+    /// Set the source location of the Wasm to the given offset.
     fn set_srcloc(&mut self, offset: u32) {
-        todo!()
+        self.src_loc = offset;
     }
+
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         todo!()
     }
@@ -254,10 +349,15 @@ impl Machine for MachineRiscv {
         self.instructions_address_map.clone()
     }
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
-        todo!()
+        Location::Memory(GPR::Fp, -stack_offset)
     }
     fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Sp),
+            Location::Imm32(-(delta_stack_offset as i32) as _),
+            Location::GPR(GPR::Sp),
+        )
     }
     fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         todo!()
@@ -269,7 +369,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn local_pointer(&self) -> Self::GPR {
-        todo!()
+        GPR::Fp
     }
     fn move_location_for_native(
         &mut self,
@@ -280,16 +380,38 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn is_local_on_stack(&self, idx: usize) -> bool {
-        todo!()
+        idx > 8
     }
+
+    // Determine a local's location.
     fn get_local_location(&self, idx: usize, callee_saved_regs_size: usize) -> Location {
-        todo!()
+        // Use callee-saved registers for the first locals.
+        match idx {
+            0 => Location::GPR(GPR::X9),
+            1 => Location::GPR(GPR::X18),
+            2 => Location::GPR(GPR::X19),
+            3 => Location::GPR(GPR::X20),
+            4 => Location::GPR(GPR::X21),
+            5 => Location::GPR(GPR::X22),
+            6 => Location::GPR(GPR::X23),
+            7 => Location::GPR(GPR::X24),
+            8 => Location::GPR(GPR::X25),
+            9 => Location::GPR(GPR::X26),
+            10 => Location::GPR(GPR::X27),
+            _ => todo!("memory location for locals is not supported yet"),
+        }
     }
+
+    // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_str(
+            Size::S64,
+            location,
+            Location::Memory(GPR::Fp, -stack_offset),
+        )
     }
     fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
-        todo!()
+        vec![]
     }
     fn get_param_location(
         &self,
@@ -300,30 +422,58 @@ impl Machine for MachineRiscv {
     ) -> Location {
         todo!()
     }
+    // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
         idx: usize,
         sz: Size,
-        stack_offset: &mut usize,
+        stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        todo!()
+        match idx {
+            0 => Location::GPR(GPR::X10),
+            1 => Location::GPR(GPR::X11),
+            2 => Location::GPR(GPR::X12),
+            3 => Location::GPR(GPR::X13),
+            4 => Location::GPR(GPR::X14),
+            5 => Location::GPR(GPR::X15),
+            6 => Location::GPR(GPR::X16),
+            7 => Location::GPR(GPR::X17),
+            _ => todo!("memory parameters are not supported yet"),
+        }
     }
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        todo!()
+        match idx {
+            0 => Location::GPR(GPR::X10),
+            1 => Location::GPR(GPR::X11),
+            2 => Location::GPR(GPR::X12),
+            3 => Location::GPR(GPR::X13),
+            4 => Location::GPR(GPR::X14),
+            5 => Location::GPR(GPR::X15),
+            6 => Location::GPR(GPR::X16),
+            7 => Location::GPR(GPR::X17),
+            _ => todo!("memory parameters are not supported yet"),
+        }
     }
+
+    // move a location to another
     fn move_location(
         &mut self,
         size: Size,
         source: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        match (source, dest) {
+            (Location::GPR(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
+            _ => todo!("unsupported move"),
+        }
     }
+
+    // move a location to another
     fn move_location_extend(
         &mut self,
         size_val: Size,
@@ -332,8 +482,25 @@ impl Machine for MachineRiscv {
         size_op: Size,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        if size_op != Size::S64 {
+            codegen_error!("singlepass move_location_extend unreachable");
+        }
+        let dst = self.location_to_reg(size_op, dest, ImmType::None, false, None)?;
+        let src = match (size_val, signed, source) {
+            (Size::S32 | Size::S64, _, Location::GPR(_)) => {
+                self.assembler.emit_mov(size_val, source, dst)?;
+                dst
+            }
+            _ => codegen_error!(
+                "singlepass can't move location {:?} {:?} {:?}",
+                size_val,
+                source,
+                dst
+            ),
+        };
+        Ok(())
     }
+
     fn load_address(
         &mut self,
         size: Size,
@@ -349,11 +516,26 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         todo!()
     }
+
+    // Restore save_area
     fn restore_saved_area(&mut self, saved_area_offset: i32) -> Result<(), CompileError> {
-        todo!()
+        // TODO: maintain pushed
+        let real_delta = if saved_area_offset & 15 != 0 {
+            saved_area_offset + 8
+        } else {
+            saved_area_offset
+        };
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Fp),
+            Location::Imm32(-real_delta as _),
+            Location::GPR(GPR::Sp),
+        )
     }
+
+    // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_pop(Size::S64, location)
     }
     fn new_machine_state(&self) -> MachineState {
         new_machine_state()
@@ -370,11 +552,63 @@ impl Machine for MachineRiscv {
         self.assembler.finalize_function()?;
         Ok(())
     }
+
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // TODO: support emission of unwinding info
+
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Sp),
+            Location::Imm32(-32i32 as u32), // TODO
+            Location::GPR(GPR::Sp),
+        )?;
+
+        self.assembler.emit_str(
+            Size::S64,
+            Location::GPR(GPR::X1), // return address register
+            Location::Memory(GPR::Sp, 24),
+        )?;
+        self.assembler.emit_str(
+            Size::S64,
+            Location::GPR(GPR::Fp),
+            Location::Memory(GPR::Sp, 16),
+        )?;
+        self.assembler.emit_str(
+            Size::S64,
+            Location::GPR(GPR::X31),
+            Location::Memory(GPR::Sp, 8),
+        )?;
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::Sp), Location::GPR(GPR::Fp))?;
+        Ok(())
     }
+
     fn emit_function_epilog(&mut self) -> Result<(), CompileError> {
-        todo!()
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::Fp), Location::GPR(GPR::Sp))?;
+        self.assembler.emit_ld(
+            Size::S64,
+            Location::GPR(GPR::X1), // return address register
+            Location::Memory(GPR::Sp, 24),
+        )?;
+        self.assembler.emit_ld(
+            Size::S64,
+            Location::GPR(GPR::Fp),
+            Location::Memory(GPR::Sp, 16),
+        )?;
+        self.assembler.emit_ld(
+            Size::S64,
+            Location::GPR(GPR::X31),
+            Location::Memory(GPR::Sp, 8),
+        )?;
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Sp),
+            Location::Imm32(32i32 as u32),
+            Location::GPR(GPR::Sp),
+        )?;
+
+        Ok(())
     }
     fn emit_function_return_value(
         &mut self,
@@ -382,7 +616,8 @@ impl Machine for MachineRiscv {
         cannonicalize: bool,
         loc: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        // TODO: handle canonicalize
+        self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X10))
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         todo!()
@@ -548,7 +783,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_ret()
     }
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         todo!()
@@ -556,13 +791,14 @@ impl Machine for MachineRiscv {
     fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
         todo!()
     }
+    // relaxed binop based...
     fn emit_relaxed_mov(
         &mut self,
         sz: Size,
         src: Location,
         dst: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst, true)
     }
     fn emit_relaxed_cmp(
         &mut self,
@@ -607,7 +843,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_add,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn emit_binop_sub32(
         &mut self,

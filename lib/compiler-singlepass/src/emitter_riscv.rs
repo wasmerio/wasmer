@@ -69,6 +69,18 @@ pub trait EmitterRiscv {
     fn emit_ld(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
 
     fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
+
+    fn emit_add(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+
+    fn emit_ret(&mut self) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -112,6 +124,13 @@ impl EmitterRiscv for Assembler {
                 // assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                // TODO: verify displacement
+                // assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                dynasm!(self ; ld X(reg), [X(addr), disp]);
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit LD {:?}, {:?}, {:?}", sz, reg, addr),
         }
@@ -127,9 +146,72 @@ impl EmitterRiscv for Assembler {
                 // assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                // TODO: verify displacement
+                // assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                dynasm!(self ; sd X(reg), [X(addr), disp]);
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit STR {:?}, {:?}, {:?}", sz, reg, addr),
         }
+        Ok(())
+    }
+
+    fn emit_add(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; add X(dst), X(src1), X(src2));
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; addw X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; addi X(dst), X(src1), imm as _);
+            }
+            // TODO: add more variants
+            _ => codegen_error!(
+                "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, src, dst) {
+            (Size::S32 | Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; mv X(dst), X(src));
+            }
+            // TODO: add more variants
+            _ => codegen_error!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
+        }
+
+        Ok(())
+    }
+
+    fn emit_ret(&mut self) -> Result<(), CompileError> {
+        dynasm!(self ; ret);
         Ok(())
     }
 }
@@ -140,8 +222,8 @@ pub fn gen_std_trampoline_riscv(
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
 
-    let fptr = GPR::X28;
-    let args = GPR::X29;
+    let fptr = GPR::X30;
+    let args = GPR::X31;
 
     dynasm!(a
         ; addi sp, sp, -32
@@ -178,7 +260,7 @@ pub fn gen_std_trampoline_riscv(
             0..=7 => {
                 a.emit_ld(
                     sz,
-                    Location::GPR(GPR::from_index(i + 10).unwrap()),
+                    Location::GPR(GPR::from_index(i + 10 + 1).unwrap()),
                     Location::Memory(args, (i * 16) as i32),
                 )?;
             }

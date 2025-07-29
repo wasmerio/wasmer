@@ -24,7 +24,7 @@ pub enum GPR {
     X5 = 5,
     X6 = 6,
     X7 = 7,
-    X8 = 8,
+    Fp = 8,
     X9 = 9,
     X10 = 10,
     X11 = 11,
@@ -76,7 +76,7 @@ impl AbstractReg for GPR {
             GPR::X5,
             GPR::X6,
             GPR::X7,
-            GPR::X8,
+            GPR::Fp,
             GPR::X9,
             GPR::X10,
             GPR::X11,
@@ -191,7 +191,7 @@ impl ArgumentRegisterAllocator {
 pub fn new_machine_state() -> MachineState {
     MachineState {
         stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; /* GPR+FPR count */ 0],
+        register_values: vec![MachineValue::Undefined; 32 /* TODO: add FPR count */],
         prev_frame: BTreeMap::new(),
         wasm_stack: vec![],
         wasm_inst_offset: usize::MAX,
