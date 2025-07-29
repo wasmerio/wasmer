@@ -90,6 +90,7 @@ version = "6.0.1"
 [workspace.dependencies]
 # Repo-local crates
 wasmer-package = { version = "0.600.1", path = "lib/package" }
+wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
 
 # Wasmer-owned crates
@@ -250,6 +251,8 @@ coverage = []
 # slow without optimizations.
 [profile.dev.package.cranelift-codegen]
 opt-level = 3
+[profile.dev.package.regalloc2]
+opt-level = 3
 [profile.dev.package.wasmparser]
 opt-level = 3
 [profile.dev.package.rkyv]
@@ -261,6 +264,8 @@ opt-level = 3
 [profile.dev.package.sha2]
 opt-level = 3
 [profile.dev.package.xxhash-rust]
+opt-level = 3
+[profile.dev.package.digest]
 opt-level = 3
 
 [[bench]]
