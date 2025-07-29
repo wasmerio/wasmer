@@ -89,6 +89,8 @@ pub trait EmitterRiscv {
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
     fn emit_ret(&mut self) -> Result<(), CompileError>;
+
+    fn emit_udf(&mut self, payload: u8) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -118,8 +120,17 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_brk(&mut self) -> Result<(), CompileError> {
-        // TODO: add back
-        // dynasm!(self ; ebreak);
+        dynasm!(self ; ebreak);
+        Ok(())
+    }
+
+    fn emit_udf(&mut self, payload: u8) -> Result<(), CompileError> {
+        // TODO: apparently using 'li a0, payload' leads to multiple instructions
+        // as the assembler cannot verify we assign u8 type.
+        dynasm!(self
+            ; xor a0, a0, a0
+            ; addi a0, a0, payload as _
+            ; ebreak);
         Ok(())
     }
 

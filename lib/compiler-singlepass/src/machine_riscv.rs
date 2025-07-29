@@ -633,8 +633,7 @@ impl Machine for MachineRiscv {
     }
     fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         let offset = self.assembler.get_offset().0;
-        // TODO: handle trp
-        self.assembler.emit_brk()?;
+        self.assembler.emit_udf(trap as u8)?;
         self.mark_instruction_address_end(offset);
         Ok(())
     }
