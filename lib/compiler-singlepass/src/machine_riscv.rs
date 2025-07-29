@@ -327,8 +327,13 @@ impl Machine for MachineRiscv {
             code_len: self.assembler.get_offset().0 - begin,
         });
     }
+    /// Insert a StackOverflow (at offset 0)
     fn insert_stackoverflow(&mut self) {
-        todo!()
+        let offset = 0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::StackOverflow);
+        self.mark_instruction_address_end(offset);
     }
 
     /// Get all current TrapInformation
