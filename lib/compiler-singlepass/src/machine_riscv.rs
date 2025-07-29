@@ -239,7 +239,6 @@ impl Machine for MachineRiscv {
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
         use GPR::*;
-        // TODO: can it include vmctx register X31?
         static REGS: &[GPR] = &[X5, X6, X7, X28, X29, X30];
         for r in REGS {
             if !self.used_gprs_contains(r) {
