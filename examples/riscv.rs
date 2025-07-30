@@ -9,56 +9,81 @@
 //! ```
 //!
 //! Ready?
+
+use std::iter;
+
 use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, Value};
 use wasmer_compiler_singlepass::Singlepass;
+
+fn gen_wat_add_function(arguments: usize) -> String {
+    assert!(arguments > 0);
+    let arg_types: Vec<_> = iter::repeat("i64").take(arguments).collect();
+    let params: Vec<_> = (0..arguments)
+        .map(|idx| format!("(param $p{} i64)", idx + 1))
+        .collect();
+    let fn_body: Vec<_> = (2..=arguments)
+        .map(|idx| format!("local.get $p{idx}\ni64.add"))
+        .collect();
+
+    format!(
+        r#"
+    (module
+    (type $sum_t (func (param {}) (result i64)))
+    (func $sum_f (type $sum_t)
+    {}
+    (result i64)
+    local.get $p1
+    {}
+    )
+    (export "sum" (func $sum_f)))
+    "#,
+        arg_types.join(" "),
+        params.join(" "),
+        fn_body.join("\n")
+    )
+}
+
+fn test_sum_generated() -> Result<(), Box<dyn std::error::Error>> {
+    for params in 1..100 {
+        let wat_body = gen_wat_add_function(params as usize);
+        let wasm_bytes = wat2wasm(wat_body.as_bytes())?;
+
+        let compiler = Singlepass::default();
+        let mut store = Store::new(compiler);
+
+        let module = Module::new(&store, wasm_bytes)?;
+
+        // Create an empty import object.
+        let import_object = imports! {};
+
+        let instance = Instance::new(&mut store, &module, &import_object)?;
+        let sum = instance.exports.get_function("sum")?;
+
+        print!("Calling `sum` function for {params} arguments...");
+
+        let args: Vec<_> = (1..=params).map(|value| Value::I64(value)).collect();
+        let result = sum.call(&mut store, &args)?;
+        println!("results: {:?}", result);
+        assert_eq!(result.to_vec(), vec![Value::I64((1..=params).sum())]);
+    }
+
+    Ok(())
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
     (module
-    (type $sum_t (func (param i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64 i64) (result i64)))
+    (type $sum_t (func (param i64 i64 i64) (result i64)))
     (func $sum_f (type $sum_t)
         (param $p1 i64)
         (param $p2 i64)
         (param $p3 i64)
-        (param $p4 i64)
-        (param $p5 i64)
-        (param $p6 i64)
-        (param $p7 i64)
-        (param $p8 i64)
-        (param $p9 i64)
-        (param $p10 i64)
-        (param $p11 i64)
-        (param $p12 i64)
-        (param $p13 i64)
-        (param $p14 i64)
         (result i64)
     local.get $p1
     local.get $p2
     i64.add
     local.get $p3
-    i64.add
-    local.get $p4
-    i64.add
-    local.get $p5
-    i64.add
-    local.get $p6
-    i64.add
-    local.get $p7
-    i64.add
-    local.get $p8
-    i64.add
-    local.get $p9
-    i64.add
-    local.get $p10
-    i64.add
-    local.get $p11
-    i64.add
-    local.get $p12
-    i64.add
-    local.get $p13
-    i64.add
-    local.get $p14
     i64.add)
     (export "sum" (func $sum_f)))
     "#
@@ -80,18 +105,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Option 1
     println!("Calling `sum` function...");
-    const PARAMS: i64 = 14;
-    let args: Vec<_> = (1..=PARAMS).map(|value| Value::I64(value)).collect();
+    let args = [Value::I64(1), Value::I64(10), Value::I64(100)];
     let result = sum.call(&mut store, &args)?;
     println!("Results: {:?}", result);
-    assert_eq!(result.to_vec(), vec![Value::I64((1..=PARAMS).sum())]);
+    assert_eq!(result.to_vec(), vec![Value::I64(111)]);
 
     // Option 2
-    // let sum_typed: TypedFunction<(i64, i64, i64), i64> = sum.typed(&mut store)?;
-    // println!("Calling `sum` function (natively)...");
-    // let result = sum_typed.call(&mut store, 1, 2, 3)?;
-    // println!("Results: {:?}", result);
-    // assert_eq!(result, 6);
+    let sum_typed: TypedFunction<(i64, i64, i64), i64> = sum.typed(&mut store)?;
+    println!("Calling `sum` function (natively)...");
+    let result = sum_typed.call(&mut store, 1, 10, 100)?;
+    println!("Results: {:?}", result);
+    assert_eq!(result, 111);
+    println!();
+
+    test_sum_generated()?;
 
     Ok(())
 }
