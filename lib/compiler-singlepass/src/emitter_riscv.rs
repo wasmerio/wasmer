@@ -96,6 +96,8 @@ pub trait EmitterRiscv {
     fn emit_ret(&mut self) -> Result<(), CompileError>;
 
     fn emit_udf(&mut self, payload: u8) -> Result<(), CompileError>;
+
+    fn emit_mov_imm(&mut self, dst: Location, val: i64) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -289,6 +291,34 @@ impl EmitterRiscv for Assembler {
         dynasm!(self ; ret);
         Ok(())
     }
+
+    fn emit_mov_imm(&mut self, dst: Location, val: i64) -> Result<(), CompileError> {
+        // TODO: support also bigger immediates than u32::MAX
+        assert!(i32::MIN as i64 <= val && val <= i32::MAX as i64);
+        let val = val as i32;
+        match dst {
+            Location::GPR(dst) => {
+                let dst = dst.into_index() as u32;
+                // The final value is compound of sum of HI20 and LO12, thus we need to handle:
+                // -10i32 (0xfffffff6) should become 0x0 (HI20) and 0xff6 (LO12).
+                // NOTE the dynasm uses a different format for the upper part in LUI:
+                // https://github.com/CensoredUsername/dynasm-rs/blob/00dc400ac0a553b378b86e797c886c0b585ecf35/doc/langref_riscv.md#upper-immediate-instructions
+                let upper = (((val as u32).wrapping_add(0x800)) & !0xfff) as i32;
+
+                let mut lower = (val & 0xfff) as i32;
+                /* TODO: This is unfortunate as the expected argument is signed integer, and thus
+                we must do wrapping arithmetics.  */
+                if lower >= 2048 {
+                    lower = lower - 4096;
+                }
+                dynasm!(self
+                    ; lui X(dst), upper
+                    ; addi X(dst), X(dst), lower);
+            }
+            _ => codegen_error!("singlepass can't emit MOVW {:?}", dst),
+        }
+        Ok(())
+    }
 }
 
 pub fn gen_std_trampoline_riscv(
@@ -342,14 +372,25 @@ pub fn gen_std_trampoline_riscv(
             }
             _ => {
                 // using X28 as scratch reg
-                a.emit_ld(
-                    sz,
-                    Location::GPR(GPR::X28),
-                    Location::Memory(args, (i * 16) as i32),
-                )?;
+                let scratch = GPR::X28;
+                let args_offset = (i * 16) as i32;
+                let arg_location = if ImmType::Bits12.compatible_imm(args_offset as i64) {
+                    Location::Memory(args, args_offset)
+                } else {
+                    a.emit_mov_imm(Location::GPR(scratch), args_offset as i64)?;
+                    a.emit_add(
+                        Size::S64,
+                        Location::GPR(args),
+                        Location::GPR(scratch),
+                        Location::GPR(scratch),
+                    )?;
+                    Location::Memory(scratch, 0)
+                };
+
+                a.emit_ld(sz, Location::GPR(scratch), arg_location)?;
                 a.emit_str(
                     sz,
-                    Location::GPR(GPR::X28),
+                    Location::GPR(scratch),
                     Location::Memory(GPR::Sp, caller_stack_offset),
                 )?;
                 caller_stack_offset += 8;

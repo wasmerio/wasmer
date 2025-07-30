@@ -44,7 +44,7 @@ fn gen_wat_add_function(arguments: usize) -> String {
 }
 
 fn test_sum_generated() -> Result<(), Box<dyn std::error::Error>> {
-    for params in 1..100 {
+    for params in 1..200 {
         let wat_body = gen_wat_add_function(params as usize);
         let wasm_bytes = wat2wasm(wat_body.as_bytes())?;
 
