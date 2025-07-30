@@ -99,6 +99,9 @@ pub struct MachineRiscv {
 }
 
 impl MachineRiscv {
+    /// The number of locals that fit in a GPR.
+    const LOCALS_IN_REGS: usize = 10;
+
     /// Creates a new RISC-V machine for code generation.
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
         let has_fpu = match target {
@@ -135,13 +138,38 @@ impl MachineRiscv {
         &mut self,
         sz: Size,
         src: Location,
-        // temps: &mut Vec<GPR>,
+        temps: &mut Vec<GPR>,
         allow_imm: ImmType,
         read_val: bool,
         wanted: Option<GPR>,
     ) -> Result<Location, CompileError> {
         match src {
             Location::GPR(_) | Location::SIMD(_) => Ok(src),
+            Location::Memory(reg, val) => {
+                let tmp = if let Some(wanted) = wanted {
+                    wanted
+                } else {
+                    let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                    })?;
+                    temps.push(tmp);
+                    tmp
+                };
+                if read_val {
+                    match sz {
+                        Size::S64 => {
+                            self.assembler.emit_ld(sz, Location::GPR(tmp), src)?;
+                        }
+                        // TODO: support more sizes
+                        _ => {
+                            return Err(CompileError::Codegen(
+                                "singlepass cannot load location from memory: {src:?}".to_owned(),
+                            ))
+                        }
+                    }
+                }
+                Ok(Location::GPR(tmp))
+            }
             _ => todo!("unsupported location"),
         }
     }
@@ -154,11 +182,15 @@ impl MachineRiscv {
         dst: Location,
         putback: bool,
     ) -> Result<(), CompileError> {
-        let src = self.location_to_reg(sz, src, ImmType::None, true, None)?;
-        let dest = self.location_to_reg(sz, dst, ImmType::None, !putback, None)?;
+        let mut temps = vec![];
+        let src = self.location_to_reg(sz, src, &mut temps, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, !putback, None)?;
         op(&mut self.assembler, sz, src, dest)?;
         if dst != dest && putback {
             self.move_location(sz, dest, dst)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
         }
         Ok(())
     }
@@ -172,12 +204,16 @@ impl MachineRiscv {
         dst: Location,
         allow_imm: ImmType,
     ) -> Result<(), CompileError> {
-        let src1 = self.location_to_reg(sz, src1, ImmType::None, true, None)?;
-        let src2 = self.location_to_reg(sz, src2, allow_imm, true, None)?;
-        let dest = self.location_to_reg(sz, dst, ImmType::None, false, None)?;
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(sz, src1, &mut temps, ImmType::None, true, None)?;
+        let src2 = self.location_to_reg(sz, src2, &mut temps, allow_imm, true, None)?;
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, false, None)?;
         op(&mut self.assembler, sz, src1, src2, dest)?;
         if dst != dest {
             self.move_location(sz, dest, dst)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
         }
         Ok(())
     }
@@ -247,9 +283,19 @@ impl Machine for MachineRiscv {
         }
         None
     }
-    fn pick_temp_gpr(&self) -> Option<Self::GPR> {
-        todo!()
+
+    // Picks an unused general purpose register for internal temporary use.
+    fn pick_temp_gpr(&self) -> Option<GPR> {
+        use GPR::*;
+        static REGS: &[GPR] = &[X17, X16, X15, X14, X13, X12, X11, X10];
+        for r in REGS {
+            if !self.used_gprs_contains(r) {
+                return Some(*r);
+            }
+        }
+        None
     }
+
     fn get_used_gprs(&self) -> Vec<Self::GPR> {
         todo!()
     }
@@ -257,7 +303,11 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn acquire_temp_gpr(&mut self) -> Option<Self::GPR> {
-        todo!()
+        let gpr = self.pick_temp_gpr();
+        if let Some(x) = gpr {
+            self.used_gprs_insert(x);
+        }
+        gpr
     }
     fn release_gpr(&mut self, gpr: Self::GPR) {
         assert!(self.used_gprs_remove(&gpr));
@@ -382,8 +432,9 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         todo!()
     }
+
     fn is_local_on_stack(&self, idx: usize) -> bool {
-        idx > 8
+        idx > Self::LOCALS_IN_REGS
     }
 
     // Determine a local's location.
@@ -401,7 +452,13 @@ impl Machine for MachineRiscv {
             8 => Location::GPR(GPR::X25),
             9 => Location::GPR(GPR::X26),
             10 => Location::GPR(GPR::X27),
-            _ => todo!("memory location for locals is not supported yet"),
+            _ => {
+                assert!(idx > Self::LOCALS_IN_REGS);
+                Location::Memory(
+                    GPR::Fp,
+                    -(((idx - Self::LOCALS_IN_REGS) * 8 + callee_saved_regs_size) as i32),
+                )
+            }
         }
     }
 
@@ -476,6 +533,9 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         match (source, dest) {
             (Location::GPR(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
+            (Location::GPR(_), Location::Memory(_, _)) => {
+                self.assembler.emit_str(size, source, dest)
+            }
             _ => todo!("unsupported move"),
         }
     }
@@ -492,7 +552,8 @@ impl Machine for MachineRiscv {
         if size_op != Size::S64 {
             codegen_error!("singlepass move_location_extend unreachable");
         }
-        let dst = self.location_to_reg(size_op, dest, ImmType::None, false, None)?;
+        let mut temps = vec![];
+        let dst = self.location_to_reg(size_op, dest, &mut temps, ImmType::None, false, None)?;
         let src = match (size_val, signed, source) {
             (Size::S32 | Size::S64, _, Location::GPR(_)) => {
                 self.assembler.emit_mov(size_val, source, dst)?;
@@ -509,6 +570,15 @@ impl Machine for MachineRiscv {
                 dst
             ),
         };
+        if src != dst {
+            self.move_location(size_op, src, dst)?;
+        }
+        if dst != dest {
+            self.move_location(size_op, dst, dest)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
         Ok(())
     }
 
