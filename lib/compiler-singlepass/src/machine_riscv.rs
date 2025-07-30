@@ -442,7 +442,11 @@ impl Machine for MachineRiscv {
             5 => Location::GPR(GPR::X15),
             6 => Location::GPR(GPR::X16),
             7 => Location::GPR(GPR::X17),
-            _ => todo!("memory parameters are not supported yet"),
+            _ => {
+                let loc = Location::Memory(GPR::Fp, 16 * 2 + *stack_args as i32);
+                *stack_args += 8;
+                loc
+            }
         }
     }
     fn get_simple_param_location(
@@ -492,6 +496,10 @@ impl Machine for MachineRiscv {
         let src = match (size_val, signed, source) {
             (Size::S32 | Size::S64, _, Location::GPR(_)) => {
                 self.assembler.emit_mov(size_val, source, dst)?;
+                dst
+            }
+            (Size::S32 | Size::S64, _, Location::Memory(_, _)) => {
+                self.assembler.emit_ld(size_val, dst, source)?;
                 dst
             }
             _ => codegen_error!(

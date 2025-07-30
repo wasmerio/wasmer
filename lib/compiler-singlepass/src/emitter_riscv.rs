@@ -148,6 +148,12 @@ impl EmitterRiscv for Assembler {
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; ld X(reg), [X(addr), disp]);
             }
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index() as u32;
+                let addr = addr.into_index() as u32;
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; ld X(reg), [X(addr), disp]);
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit LD {:?}, {:?}, {:?}", sz, reg, addr),
         }
@@ -283,7 +289,7 @@ pub fn gen_std_trampoline_riscv(
         ; addi sp, sp, -32
         ; sd ra, [sp,24]
         ; sd s0, [sp,16]
-        ; addi s0, sp, 32
+        ; mv s0, sp // use frame-pointer register for later restore
         ; mv X(fptr as u32), a1
         ; mv X(args as u32), a2
     );
@@ -312,59 +318,27 @@ pub fn gen_std_trampoline_riscv(
             ),
         };
         match i {
-            0..=7 => {
+            0..=6 => {
                 a.emit_ld(
                     sz,
                     Location::GPR(GPR::from_index(i + 10 + 1).unwrap()),
                     Location::Memory(args, (i * 16) as i32),
                 )?;
             }
-            _ => todo!(),
-            // TODO: support more than 8 arguments
-            // _ => {
-            //     #[allow(clippy::single_match)]
-            //     match calling_convention {
-            //         CallingConvention::AppleAarch64 => {
-            //             let sz = 1
-            //                 << match sz {
-            //                     Size::S8 => 0,
-            //                     Size::S16 => 1,
-            //                     Size::S32 => 2,
-            //                     Size::S64 => 3,
-            //                 };
-            //             // align first
-            //             if sz > 1 && caller_stack_offset & (sz - 1) != 0 {
-            //                 caller_stack_offset = (caller_stack_offset + (sz - 1)) & !(sz - 1);
-            //             }
-            //         }
-            //         _ => (),
-            //     };
-            //     // using X16 as scratch reg
-            //     a.emit_ldr(
-            //         sz,
-            //         Location::GPR(GPR::X16),
-            //         Location::Memory(args, (i * 16) as i32),
-            //     )?;
-            //     a.emit_str(
-            //         sz,
-            //         Location::GPR(GPR::X16),
-            //         Location::Memory(GPR::XzrSp, caller_stack_offset),
-            //     )?;
-            //     match calling_convention {
-            //         CallingConvention::AppleAarch64 => {
-            //             caller_stack_offset += 1
-            //                 << match sz {
-            //                     Size::S8 => 0,
-            //                     Size::S16 => 1,
-            //                     Size::S32 => 2,
-            //                     Size::S64 => 3,
-            //                 };
-            //         }
-            //         _ => {
-            //             caller_stack_offset += 8;
-            //         }
-            //     }
-            // }
+            _ => {
+                // using X28 as scratch reg
+                a.emit_ld(
+                    sz,
+                    Location::GPR(GPR::X28),
+                    Location::Memory(args, (i * 16) as i32),
+                )?;
+                a.emit_str(
+                    sz,
+                    Location::GPR(GPR::X28),
+                    Location::Memory(GPR::Sp, caller_stack_offset),
+                )?;
+                caller_stack_offset += 8;
+            }
         }
     }
 
@@ -382,9 +356,9 @@ pub fn gen_std_trampoline_riscv(
 
     // Restore stack.
     dynasm!(a
-        ; ld ra, [sp,24]
-        ; ld s0, [sp,16]
-        ; addi sp, sp, 32
+        ; ld ra, [s0,24]
+        ; ld s0, [s0,16]
+        ; addi sp, sp, 32 + stack_offset as i32
         ; ret
     );
 

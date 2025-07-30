@@ -16,12 +16,31 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
     (module
-    (type $sum_t (func (param i64 i64 i64) (result i64)))
-    (func $sum_f (type $sum_t) (param $x i64) (param $y i64) (param $z i64) (result i64)
-    local.get $x
-    local.get $y
+    (type $sum_t (func (param i64 i64 i64 i64 i64 i64 i64 i64 ) (result i64)))
+    (func $sum_f (type $sum_t)
+        (param $p1 i64)
+        (param $p2 i64)
+        (param $p3 i64)
+        (param $p4 i64)
+        (param $p5 i64)
+        (param $p6 i64)
+        (param $p7 i64)
+        (param $p8 i64)
+        (result i64)
+    local.get $p1
+    local.get $p2
     i64.add
-    local.get $z
+    local.get $p3
+    i64.add
+    local.get $p4
+    i64.add
+    local.get $p5
+    i64.add
+    local.get $p6
+    i64.add
+    local.get $p7
+    i64.add
+    local.get $p8
     i64.add)
     (export "sum" (func $sum_f)))
     "#
@@ -43,17 +62,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Option 1
     println!("Calling `sum` function...");
-    let args = [Value::I64(1), Value::I64(10), Value::I64(100)];
+    const PARAMS: i64 = 8;
+    let args: Vec<_> = (1..=PARAMS).map(|value| Value::I64(value)).collect();
     let result = sum.call(&mut store, &args)?;
     println!("Results: {:?}", result);
-    assert_eq!(result.to_vec(), vec![Value::I64(111)]);
+    assert_eq!(result.to_vec(), vec![Value::I64((1..=PARAMS).sum())]);
 
     // Option 2
-    let sum_typed: TypedFunction<(i64, i64, i64), i64> = sum.typed(&mut store)?;
-    println!("Calling `sum` function (natively)...");
-    let result = sum_typed.call(&mut store, 1, 2, 3)?;
-    println!("Results: {:?}", result);
-    assert_eq!(result, 6);
+    // let sum_typed: TypedFunction<(i64, i64, i64), i64> = sum.typed(&mut store)?;
+    // println!("Calling `sum` function (natively)...");
+    // let result = sum_typed.call(&mut store, 1, 2, 3)?;
+    // println!("Results: {:?}", result);
+    // assert_eq!(result, 6);
 
     Ok(())
 }
