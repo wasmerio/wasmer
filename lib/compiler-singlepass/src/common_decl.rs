@@ -272,5 +272,5 @@ impl MachineStateDiff {
 /// riscv64-linux-gnu-objdump --disassembler-color=on -b binary -m riscv:rv64 -D /path/to/object
 pub(crate) fn save_assembly_to_file(path: &Path, body: &[u8]) {
     eprintln!("Saving assembly output: {path:?}");
-    std::fs::write(path, &body).expect("Failed to write assembly to file: {path}");
+    std::fs::write(path, body).expect("Failed to write assembly to file: {path}");
 }

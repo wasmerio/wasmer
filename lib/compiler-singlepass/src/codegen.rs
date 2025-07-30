@@ -6696,8 +6696,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let traps = self.machine.collect_trap_information();
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
-        // TODO: for debugging purpose
-        save_assembly_to_file(Path::new("/tmp/module-dump.o"), &body);
+
+        // save_assembly_to_file(Path::new("/tmp/module-dump.o"), &body);
 
         Ok((
             CompiledFunction {

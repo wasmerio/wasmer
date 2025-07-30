@@ -419,8 +419,8 @@ pub fn gen_std_trampoline_riscv(
     );
 
     let mut body = a.finalize().unwrap();
-    // TODO: for debugging purpose
-    save_assembly_to_file(Path::new("/tmp/trampoline-dump.o"), &body);
+
+    // save_assembly_to_file(Path::new("/tmp/trampoline-dump.o"), &body);
 
     body.shrink_to_fit();
     Ok(FunctionBody {
