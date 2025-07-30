@@ -85,7 +85,7 @@ fn dwarf_index(reg: u16) -> gimli::Register {
 pub struct MachineRiscv {
     assembler: AssemblerRiscv,
     used_gprs: u32,
-    used_simd: u32,
+    used_fprs: u32,
     trap_table: TrapTable,
     /// Map from byte offset into wasm function to range of native instructions.
     /// Ordered by increasing InstructionAddressMap::srcloc.
@@ -111,7 +111,7 @@ impl MachineRiscv {
         Ok(MachineRiscv {
             assembler: AssemblerRiscv::new(0, target)?,
             used_gprs: 0,
-            used_simd: 0,
+            used_fprs: 0,
             trap_table: TrapTable::default(),
             instructions_address_map: vec![],
             src_loc: 0,
@@ -123,14 +123,24 @@ impl MachineRiscv {
     fn used_gprs_contains(&self, r: &GPR) -> bool {
         self.used_gprs & (1 << r.into_index()) != 0
     }
-
     fn used_gprs_insert(&mut self, r: GPR) {
         self.used_gprs |= 1 << r.into_index();
     }
-
     fn used_gprs_remove(&mut self, r: &GPR) -> bool {
         let ret = self.used_gprs_contains(r);
         self.used_gprs &= !(1 << r.into_index());
+        ret
+    }
+
+    fn used_fp_contains(&self, r: &FPR) -> bool {
+        self.used_fprs & (1 << r.into_index()) != 0
+    }
+    fn used_fprs_insert(&mut self, r: FPR) {
+        self.used_fprs |= 1 << r.into_index();
+    }
+    fn used_fprs_remove(&mut self, r: &FPR) -> bool {
+        let ret = self.used_fp_contains(r);
+        self.used_fprs &= !(1 << r.into_index());
         ret
     }
 
@@ -169,6 +179,30 @@ impl MachineRiscv {
                     }
                 }
                 Ok(Location::GPR(tmp))
+            }
+            _ => todo!("unsupported location"),
+        }
+    }
+
+    fn location_to_fp(
+        &mut self,
+        sz: Size,
+        src: Location,
+        temps: &mut Vec<FPR>,
+        allow_imm: ImmType,
+        read_val: bool,
+    ) -> Result<Location, CompileError> {
+        match src {
+            Location::SIMD(_) => Ok(src),
+            Location::GPR(_) => {
+                let tmp = self.acquire_temp_simd().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
+                })?;
+                temps.push(tmp);
+                if read_val {
+                    self.assembler.emit_mov(sz, src, Location::SIMD(tmp))?;
+                }
+                Ok(Location::SIMD(tmp))
             }
             _ => todo!("unsupported location"),
         }
@@ -214,6 +248,28 @@ impl MachineRiscv {
         }
         for r in temps {
             self.release_gpr(r);
+        }
+        Ok(())
+    }
+    fn emit_relaxed_binop3_fp(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location, Location) -> Result<(), CompileError>,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+        allow_imm: ImmType,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let src1 = self.location_to_fp(sz, src1, &mut temps, ImmType::None, true)?;
+        let src2 = self.location_to_fp(sz, src2, &mut temps, allow_imm, true)?;
+        let dest = self.location_to_fp(sz, dst, &mut temps, ImmType::None, false)?;
+        op(&mut self.assembler, sz, src1, src2, dest)?;
+        if dst != dest {
+            self.move_location(sz, dest, dst)?;
+        }
+        for r in temps {
+            self.release_simd(r);
         }
         Ok(())
     }
@@ -268,7 +324,7 @@ impl Machine for MachineRiscv {
         RegisterIndex(x as usize)
     }
     fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex {
-        todo!()
+        RegisterIndex(x as usize + 32)
     }
     fn get_vmctx_reg(&self) -> Self::GPR {
         GPR::X31
@@ -325,19 +381,40 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn pick_simd(&self) -> Option<Self::SIMD> {
-        todo!()
+        use FPR::*;
+        static REGS: &[FPR] = &[F0, F1, F2, F3, F4, F5, F6, F7];
+        for r in REGS {
+            if !self.used_fp_contains(r) {
+                return Some(*r);
+            }
+        }
+        None
     }
-    fn pick_temp_simd(&self) -> Option<Self::SIMD> {
-        todo!()
+
+    // Picks an unused FP register for internal temporary use.
+    fn pick_temp_simd(&self) -> Option<FPR> {
+        use FPR::*;
+        static REGS: &[FPR] = &[F28, F29, F31];
+        for r in REGS {
+            if !self.used_fp_contains(r) {
+                return Some(*r);
+            }
+        }
+        None
     }
+
     fn acquire_temp_simd(&mut self) -> Option<Self::SIMD> {
-        todo!()
+        let fpr = self.pick_temp_simd();
+        if let Some(x) = fpr {
+            self.used_fprs_insert(x);
+        }
+        fpr
     }
-    fn reserve_simd(&mut self, simd: Self::SIMD) {
-        todo!()
+    fn reserve_simd(&mut self, fpr: Self::SIMD) {
+        self.used_fprs_insert(fpr);
     }
-    fn release_simd(&mut self, simd: Self::SIMD) {
-        todo!()
+    fn release_simd(&mut self, fpr: Self::SIMD) {
+        assert!(self.used_fprs_remove(&fpr));
     }
     fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CompileError> {
         todo!()
@@ -695,10 +772,12 @@ impl Machine for MachineRiscv {
         self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X10))
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
-        todo!()
+        self.assembler
+            .emit_mov(Size::S64, Location::GPR(GPR::X10), Location::SIMD(FPR::F10))
     }
     fn arch_supports_canonicalize_nan(&self) -> bool {
-        todo!()
+        // TODO: support properly
+        true
     }
     fn canonicalize_nan(
         &mut self,
@@ -2710,7 +2789,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_add,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f64_sub(
         &mut self,

@@ -28,12 +28,15 @@ use wasmer_types::{
 
 type Assembler = VecAssembler<RiscvRelocation>;
 
+// TODO: handle features properly
+
 /// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
 macro_rules! dynasm {
     ($a:expr ; $($tt:tt)*) => {
         dynasm::dynasm!(
             $a
             ; .arch riscv64
+            ; .feature d
             ; $($tt)*
         )
     };
@@ -202,6 +205,12 @@ impl EmitterRiscv for Assembler {
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), imm as _);
             }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fadd.d F(dst), F(src1), F(src2));
+            }
             // TODO: add more variants
             _ => codegen_error!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
@@ -259,6 +268,16 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index() as u32;
                 dynasm!(self ; mv X(dst), X(src));
             }
+            (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmv.d.x F(dst), X(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmv.x.d X(dst), F(src));
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
         }
@@ -306,7 +325,7 @@ pub fn gen_std_trampoline_riscv(
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
             Type::I32 => Size::S32,
-            Type::I64 => Size::S64,
+            Type::I64 | Type::F64 => Size::S64,
             // TODO: support more types
             _ => codegen_error!(
                 "singlepass unsupported param type for trampoline {:?}",

@@ -149,10 +149,42 @@ impl AbstractReg for GPR {
 }
 
 /// Floating-point registers.
+#[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum FPR {
-    // TODO: define floating-point registers F0-F31.
+    F0 = 0,
+    F1 = 1,
+    F2 = 2,
+    F3 = 3,
+    F4 = 4,
+    F5 = 5,
+    F6 = 6,
+    F7 = 7,
+    F8 = 8,
+    F9 = 9,
+    F10 = 10,
+    F11 = 11,
+    F12 = 12,
+    F13 = 13,
+    F14 = 14,
+    F15 = 15,
+    F16 = 16,
+    F17 = 17,
+    F18 = 18,
+    F19 = 19,
+    F20 = 20,
+    F21 = 21,
+    F22 = 22,
+    F23 = 23,
+    F24 = 24,
+    F25 = 25,
+    F26 = 26,
+    F27 = 27,
+    F28 = 28,
+    F29 = 29,
+    F30 = 30,
+    F31 = 31,
 }
 
 impl AbstractReg for FPR {
@@ -168,12 +200,47 @@ impl AbstractReg for FPR {
         self as usize
     }
     fn from_index(n: usize) -> Result<FPR, ()> {
-        // TODO: map index to FPR.
-        todo!()
+        match n {
+            0..=31 => Ok(*FPR::iterator().nth(n).unwrap()),
+            _ => Err(()),
+        }
     }
     fn iterator() -> Iter<'static, FPR> {
-        // TODO: return an iterator over all FPR variants.
-        todo!()
+        static FPRS: [FPR; 32] = [
+            FPR::F0,
+            FPR::F1,
+            FPR::F2,
+            FPR::F3,
+            FPR::F4,
+            FPR::F5,
+            FPR::F6,
+            FPR::F7,
+            FPR::F8,
+            FPR::F9,
+            FPR::F10,
+            FPR::F11,
+            FPR::F12,
+            FPR::F13,
+            FPR::F14,
+            FPR::F15,
+            FPR::F16,
+            FPR::F17,
+            FPR::F18,
+            FPR::F19,
+            FPR::F20,
+            FPR::F21,
+            FPR::F22,
+            FPR::F23,
+            FPR::F24,
+            FPR::F25,
+            FPR::F26,
+            FPR::F27,
+            FPR::F28,
+            FPR::F29,
+            FPR::F30,
+            FPR::F31,
+        ];
+        FPRS.iter()
     }
     fn to_dwarf(self) -> u16 {
         // TODO: map FPR register to DWARF register number.
@@ -183,6 +250,7 @@ impl AbstractReg for FPR {
 
 /// A combined RISC-V register.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum RiscvRegister {
     /// General-purpose register.
     GPR(GPR),
@@ -194,7 +262,7 @@ impl CombinedRegister for RiscvRegister {
     fn to_index(&self) -> RegisterIndex {
         match *self {
             RiscvRegister::GPR(x) => RegisterIndex(x as usize),
-            RiscvRegister::FPR(x) => RegisterIndex(x as usize + /* FPR offset */ 0),
+            RiscvRegister::FPR(x) => RegisterIndex(x as usize + 64),
         }
     }
     fn from_gpr(x: u16) -> Self {
@@ -232,7 +300,7 @@ impl ArgumentRegisterAllocator {
 pub fn new_machine_state() -> MachineState {
     MachineState {
         stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 32 /* TODO: add FPR count */],
+        register_values: vec![MachineValue::Undefined; 32 + 32],
         prev_frame: BTreeMap::new(),
         wasm_stack: vec![],
         wasm_inst_offset: usize::MAX,

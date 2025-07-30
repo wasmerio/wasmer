@@ -70,7 +70,7 @@ fn test_sum_generated() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
-fn main() -> Result<(), Box<dyn std::error::Error>> {
+fn test_simple_sum_int() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
     (module
@@ -116,8 +116,56 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = sum_typed.call(&mut store, 1, 10, 100)?;
     println!("Results: {:?}", result);
     assert_eq!(result, 111);
-    println!();
 
+    Ok(())
+}
+
+fn test_simple_sum_fp() -> Result<(), Box<dyn std::error::Error>> {
+    let wasm_bytes = wat2wasm(
+        r#"
+    (module
+    (type $sum_t (func (param f64 f64 f64) (result f64)))
+    (func $sum_f (type $sum_t)
+        (param $p1 f64)
+        (param $p2 f64)
+        (param $p3 f64)
+        (result f64)
+    local.get $p1
+    local.get $p2
+    f64.add
+    local.get $p3
+    f64.add)
+    (export "sum" (func $sum_f)))
+    "#
+        .as_bytes(),
+    )?;
+
+    let compiler = Singlepass::default();
+    let mut store = Store::new(compiler);
+
+    println!("Compiling module...");
+    let module = Module::new(&store, wasm_bytes)?;
+
+    // Create an empty import object.
+    let import_object = imports! {};
+
+    println!("Instantiating module...");
+    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let sum = instance.exports.get_function("sum")?;
+
+    // Option 1
+    println!("Calling `sum` function...");
+    let args = [Value::F64(1.), Value::F64(10.), Value::F64(100.)];
+    let result = sum.call(&mut store, &args)?;
+    println!("Results: {:?}", result);
+    assert_eq!(result.to_vec(), vec![Value::F64(111.)]);
+
+    Ok(())
+}
+
+fn main() -> Result<(), Box<dyn std::error::Error>> {
+    test_simple_sum_fp()?;
+    test_simple_sum_int()?;
     test_sum_generated()?;
 
     Ok(())
