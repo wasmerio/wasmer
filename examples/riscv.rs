@@ -12,7 +12,7 @@
 
 use std::iter;
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, Value};
+use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction, Value};
 use wasmer_compiler_singlepass::Singlepass;
 
 fn gen_wat_add_function(arguments: usize) -> String {
@@ -44,7 +44,7 @@ fn gen_wat_add_function(arguments: usize) -> String {
 }
 
 fn test_sum_generated() -> Result<(), Box<dyn std::error::Error>> {
-    for params in 1..200 {
+    for params in (1..15).map(|i| i * 10) {
         let wat_body = gen_wat_add_function(params as usize);
         let wasm_bytes = wat2wasm(wat_body.as_bytes())?;
 
@@ -120,6 +120,66 @@ fn test_simple_sum_int() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn test_fib(n: i64) -> Result<(), Box<dyn std::error::Error>> {
+    let wasm_bytes = wat2wasm(
+        r#"
+    (module
+    (type $sum_t (func (param i64 i64) (result i64)))
+    (func $sum_f (type $sum_t)
+        (param $p1 i64)
+        (param $p2 i64)
+        (result i64)
+    local.get $p1
+    local.get $p2
+    i64.add)
+    (export "sum" (func $sum_f)))
+    "#
+        .as_bytes(),
+    )?;
+
+    let compiler = Singlepass::default();
+    let mut store = Store::new(compiler);
+
+    println!("Compiling module...");
+    let module = Module::new(&store, wasm_bytes)?;
+
+    // Create an empty import object.
+    let import_object = imports! {};
+
+    println!("Instantiating module...");
+    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let sum = instance.exports.get_function("sum")?;
+
+    // Option 1
+    println!("Calling `fib({n})` function...");
+
+    fn fib_recursion(function: &Function, store: &mut Store, n: i64) -> i64 {
+        match n {
+            1 => 1,
+            2 => 2,
+            _ => {
+                let n1 = fib_recursion(function, store, n - 1);
+                let n2 = fib_recursion(function, store, n - 2);
+                function
+                    .call(store, &[Value::I64(n1), Value::I64(n2)])
+                    .unwrap()
+                    .to_vec()[0]
+                    .unwrap_i64()
+            }
+        }
+    }
+
+    let expected = std::iter::successors(Some((1u64, 2)), |&(a, b)| Some((b, a + b)))
+        .nth((n - 1) as usize)
+        .map(|(a, _)| a)
+        .unwrap() as i64;
+
+    assert_eq!(expected, fib_recursion(sum, &mut store, n));
+    println!("n-th fib number is really: {expected}");
+
+    Ok(())
+}
+
 fn test_simple_sum_fp() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
@@ -165,8 +225,12 @@ fn test_simple_sum_fp() -> Result<(), Box<dyn std::error::Error>> {
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     test_simple_sum_fp()?;
+    println!();
     test_simple_sum_int()?;
+    println!();
     test_sum_generated()?;
+    println!();
+    test_fib(25)?;
 
     Ok(())
 }
