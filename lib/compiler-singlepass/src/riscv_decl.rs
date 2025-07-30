@@ -148,6 +148,46 @@ impl AbstractReg for GPR {
     }
 }
 
+/*
++-----+-------+--------------------------+-------------------+
+| Reg | Name  | Description              | Saved by          |
++-----+-------+--------------------------+-------------------+
+| f0  | ft0   | FP temporary             | Caller            |
+| f1  | ft1   | FP temporary             | Caller            |
+| f2  | ft2   | FP temporary             | Caller            |
+| f3  | ft3   | FP temporary             | Caller            |
+| f4  | ft4   | FP temporary             | Caller            |
+| f5  | ft5   | FP temporary             | Caller            |
+| f6  | ft6   | FP temporary             | Caller            |
+| f7  | ft7   | FP temporary             | Caller            |
+| f8  | fs0   | FP saved register        | Callee            |
+| f9  | fs1   | FP saved register        | Callee            |
+| f10 | fa0   | FP argument/return value | Caller            |
+| f11 | fa1   | FP argument/return value | Caller            |
+| f12 | fa2   | FP argument              | Caller            |
+| f13 | fa3   | FP argument              | Caller            |
+| f14 | fa4   | FP argument              | Caller            |
+| f15 | fa5   | FP argument              | Caller            |
+| f16 | fa6   | FP argument              | Caller            |
+| f17 | fa7   | FP argument              | Caller            |
+| f18 | fs2   | FP saved register        | Callee            |
+| f19 | fs3   | FP saved register        | Callee            |
+| f20 | fs4   | FP saved register        | Callee            |
+| f21 | fs5   | FP saved register        | Callee            |
+| f22 | fs6   | FP saved register        | Callee            |
+| f23 | fs7   | FP saved register        | Callee            |
+| f24 | fs8   | FP saved register        | Callee            |
+| f25 | fs9   | FP saved register        | Callee            |
+| f26 | fs10  | FP saved register        | Callee            |
+| f27 | fs11  | FP saved register        | Callee            |
+| f28 | ft8   | FP temporary             | Caller            |
+| f29 | ft9   | FP temporary             | Caller            |
+| f30 | ft10  | FP temporary             | Caller            |
+| f31 | ft11  | FP temporary             | Caller            |
++-----+-------+--------------------------+-------------------+
+Legend: FP = floating-point
+*/
+
 /// Floating-point registers.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
