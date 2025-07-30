@@ -13,7 +13,7 @@ use crate::{
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
-use std::{cmp, iter, path::Path};
+use std::{cmp, iter};
 
 use wasmer_compiler::{
     types::{
