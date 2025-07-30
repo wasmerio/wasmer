@@ -13,7 +13,7 @@ use crate::{
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use smallvec::{smallvec, SmallVec};
-use std::{cmp, iter};
+use std::{cmp, iter, path::Path};
 
 use wasmer_compiler::{
     types::{
@@ -6694,8 +6694,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let traps = self.machine.collect_trap_information();
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
-        // TODO: remove
-        std::fs::write("/tmp/module-dump.o", &body).expect("Failed to write to file");
+        // TODO: for debugging purpose
+        save_assembly_to_file(Path::new("/tmp/module-dump.o"), &body);
 
         Ok((
             CompiledFunction {

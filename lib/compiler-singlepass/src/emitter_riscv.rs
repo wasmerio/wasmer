@@ -3,9 +3,11 @@
 // TODO: handle warnings
 #![allow(unused_variables, unused_imports)]
 
+use std::path::Path;
+
 use crate::{
     codegen_error,
-    common_decl::Size,
+    common_decl::{save_assembly_to_file, Size},
     location::{Location as AbstractLocation, Reg},
     machine_riscv::{AssemblerRiscv, ImmType},
 };
@@ -363,8 +365,8 @@ pub fn gen_std_trampoline_riscv(
     );
 
     let mut body = a.finalize().unwrap();
-    // TODO: remove
-    std::fs::write("/tmp/trampoline-dump.o", &body).expect("Failed to write to file");
+    // TODO: for debugging purpose
+    save_assembly_to_file(Path::new("/tmp/trampoline-dump.o"), &body);
 
     body.shrink_to_fit();
     Ok(FunctionBody {

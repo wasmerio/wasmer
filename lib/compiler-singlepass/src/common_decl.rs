@@ -1,4 +1,4 @@
-use std::collections::BTreeMap;
+use std::{collections::BTreeMap, path::Path};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);
@@ -264,4 +264,13 @@ impl MachineStateDiff {
         state.wasm_inst_offset = self.wasm_inst_offset;
         state
     }
+}
+
+/// Save assembly output to a given file for debugging purposes
+///
+/// The output can be disassembled with e.g.:
+/// riscv64-linux-gnu-objdump --disassembler-color=on -b binary -m riscv:rv64 -D /path/to/object
+pub(crate) fn save_assembly_to_file(path: &Path, body: &[u8]) {
+    eprintln!("Saving assembly output: {path:?}");
+    std::fs::write(path, &body).expect("Failed to write assembly to file: {path}");
 }
