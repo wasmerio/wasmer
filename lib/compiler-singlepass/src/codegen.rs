@@ -6666,7 +6666,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let body_len = self.machine.assembler_get_offset().0;
 
+        #[allow(unused_mut)]
         let mut unwind_info = None;
+        #[allow(unused_mut)]
         let mut fde = None;
         #[cfg(feature = "unwind")]
         match self.calling_convention {

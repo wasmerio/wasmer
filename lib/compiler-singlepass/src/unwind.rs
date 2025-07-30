@@ -6,6 +6,7 @@ use std::fmt::Debug;
 #[cfg(feature = "unwind")]
 use wasmer_types::target::Architecture;
 
+#[allow(dead_code)]
 #[derive(Clone, Debug)]
 pub enum UnwindOps {
     PushFP { up_to_sp: u32 },

@@ -57,7 +57,7 @@ impl AssemblerRiscv {
     }
 
     /// Finalize to machine code bytes.
-    pub fn finalize(mut self) -> Result<Vec<u8>, DynasmError> {
+    pub fn finalize(self) -> Result<Vec<u8>, DynasmError> {
         self.inner.finalize()
     }
 }

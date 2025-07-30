@@ -217,6 +217,7 @@ pub struct ArgumentRegisterAllocator {
 
 impl ArgumentRegisterAllocator {
     /// Allocates a register for argument type `ty`. Returns `None` if no register is available.
+    #[allow(dead_code)]
     pub fn next(
         &mut self,
         ty: Type,

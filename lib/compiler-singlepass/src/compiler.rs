@@ -126,6 +126,7 @@ impl Compiler for SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
+        #[allow(unused_mut)]
         let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
@@ -142,6 +143,7 @@ impl Compiler for SinglepassCompiler {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect();
+        #[allow(unused_variables)]
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
