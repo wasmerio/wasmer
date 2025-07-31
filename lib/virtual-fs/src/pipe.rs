@@ -1,16 +1,20 @@
 use bytes::{Buf, Bytes};
-use std::io::{self, Read, Seek, SeekFrom};
 use std::pin::Pin;
 use std::sync::Arc;
 use std::sync::Mutex;
 use std::task::Context;
 use std::task::Poll;
 use std::{io::IoSlice, sync::MutexGuard};
+use std::{
+    io::{self, Read, Seek, SeekFrom},
+    sync::Weak,
+};
 use tokio::sync::mpsc;
 use tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
     sync::mpsc::error::TryRecvError,
 };
+use virtual_mio::{InterestHandler, InterestType};
 
 use crate::{ArcFile, FsError, VirtualFile};
 
@@ -31,6 +35,7 @@ pub struct Pipe {
 pub struct PipeTx {
     /// Sends bytes down the pipe
     tx: Option<mpsc::UnboundedSender<Vec<u8>>>,
+    rx_end: Weak<Mutex<PipeReceiver>>,
 }
 
 #[derive(Debug, Clone)]
@@ -124,6 +129,22 @@ impl PipeRx {
             rx.buffer.replace(Bytes::from(data));
         }
     }
+
+    pub fn set_interest_handler(&mut self, interest_handler: Box<dyn InterestHandler>) {
+        let Some(ref rx) = self.rx else {
+            return;
+        };
+        let mut rx = rx.lock().unwrap();
+        rx.interest_handler.replace(interest_handler);
+    }
+
+    pub fn remove_interest_handler(&mut self) -> Option<Box<dyn InterestHandler>> {
+        let Some(ref rx) = self.rx else {
+            return None;
+        };
+        let mut rx = rx.lock().unwrap();
+        rx.interest_handler.take()
+    }
 }
 
 #[derive(Debug)]
@@ -132,20 +153,24 @@ struct PipeReceiver {
     // actual receiver, we can't make use of an mpmc channel
     chan: mpsc::UnboundedReceiver<Vec<u8>>,
     buffer: Option<Bytes>,
+    interest_handler: Option<Box<dyn InterestHandler>>,
 }
 
 impl Pipe {
     pub fn new() -> Self {
         let (tx, rx) = mpsc::unbounded_channel();
 
+        let recv = Arc::new(Mutex::new(PipeReceiver {
+            chan: rx,
+            buffer: None,
+            interest_handler: None,
+        }));
         Pipe {
-            send: PipeTx { tx: Some(tx) },
-            recv: PipeRx {
-                rx: Some(Arc::new(Mutex::new(PipeReceiver {
-                    chan: rx,
-                    buffer: None,
-                }))),
+            send: PipeTx {
+                tx: Some(tx),
+                rx_end: Arc::downgrade(&recv),
             },
+            recv: PipeRx { rx: Some(recv) },
         }
     }
 
@@ -174,23 +199,19 @@ impl Pipe {
         self.send.close();
         self.recv.close();
     }
+
+    pub fn set_interest_handler(&mut self, interest_handler: Box<dyn InterestHandler>) {
+        self.recv.set_interest_handler(interest_handler);
+    }
+
+    pub fn remove_interest_handler(&mut self) -> Option<Box<dyn InterestHandler>> {
+        self.recv.remove_interest_handler()
+    }
 }
 
 impl Default for Pipe {
     fn default() -> Self {
         Self::new()
-    }
-}
-
-impl From<Pipe> for PipeTx {
-    fn from(val: Pipe) -> Self {
-        val.send
-    }
-}
-
-impl From<Pipe> for PipeRx {
-    fn from(val: Pipe) -> Self {
-        val.recv
     }
 }
 
@@ -211,6 +232,15 @@ impl PipeTx {
             Poll::Ready(Ok(0))
         } else {
             Poll::Ready(Ok(8192))
+        }
+    }
+
+    fn push_readable_interest_to_rx_end(&self) {
+        if let Some(rx_end) = self.rx_end.upgrade() {
+            let mut guard = rx_end.lock().unwrap();
+            if let Some(interest_handler) = guard.interest_handler.as_mut() {
+                interest_handler.push_interest(InterestType::Readable);
+            }
         }
     }
 }
@@ -302,6 +332,7 @@ impl std::io::Write for PipeTx {
 
         tx.send(buf.to_vec())
             .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
+        self.push_readable_interest_to_rx_end();
         Ok(buf.len())
     }
 
@@ -387,7 +418,10 @@ impl AsyncWrite for PipeTx {
         };
 
         match tx.send(buf.to_vec()) {
-            Ok(()) => Poll::Ready(Ok(buf.len())),
+            Ok(()) => {
+                self.push_readable_interest_to_rx_end();
+                Poll::Ready(Ok(buf.len()))
+            }
             Err(_) => Poll::Ready(Err(Into::<std::io::Error>::into(
                 std::io::ErrorKind::BrokenPipe,
             ))),
