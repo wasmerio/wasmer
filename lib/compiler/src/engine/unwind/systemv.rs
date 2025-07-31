@@ -138,50 +138,70 @@ impl UnwindRegistry {
 
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
-        if !using_libunwind() {
-            // Registering an empty `eh_frame` (i.e. which
-            // contains empty FDEs) cause problems on Linux when
-            // deregistering it. We must avoid this
-            // scenario. Usually, this is handled upstream by the
-            // compilers.
-            debug_assert_ne!(
-                eh_frame,
-                &[0, 0, 0, 0],
-                "`eh_frame` seems to contain empty FDEs"
-            );
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+        {
+            // Special call for macOS on aarch64 to register the `.eh_frame` section.
+            // TODO: I am not 100% sure if it's correct to never deregister the `.eh_frame` section. It was this way before
+            // I started working on this, so I kept it that way.
+            compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
+            return;
+        }
 
-            // On gnu (libgcc), `__register_frame` will walk the FDEs until an entry of length 0
-            let ptr = eh_frame.as_ptr();
-            __register_frame(ptr);
-            self.registrations.push(ptr as usize);
-        } else {
-            #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-            {
-                compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
+        // Validate that the `.eh_frame` is well-formed before registering it.
+        // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
+        // We put the frame records into a vector before registering them, because
+        // calling `__register_frame` with invalid data can cause segfaults.
+
+        // Pointers to the registrations that will be registered with `__register_frame`.
+        // For libgcc based systems, these are CIEs.
+        // For libunwind based systems, these are FDEs.
+        let mut records_to_register = Vec::new();
+
+        let mut current = 0;
+        let mut last_len = 0;
+        while current < (eh_frame.len() - 3) {
+            // If a CFI or a FDE starts with 0u32 it is a terminator.
+            let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
+            if len == 0 {
+                current += size_of::<u32>();
+                last_len = 0;
+                continue;
             }
+            // The first record after a terminator is always a CIE.
+            let is_cie = last_len == 0;
+            last_len = len;
+            let record = eh_frame.as_ptr() as usize + current;
+            current = current + len as usize + 4;
 
-            #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-            {
-                // For libunwind, `__register_frame` takes a pointer to a single FDE
-                let start = eh_frame.as_ptr();
-                let end = start.add(eh_frame.len());
-                let mut current = start;
-
-                // Walk all of the entries in the frame table and register them
-                while current < end {
-                    let len = std::ptr::read::<u32>(current as *const u32) as usize;
-
-                    // Skip over the CIE and zero-length FDEs.
-                    // LLVM's libunwind emits a warning on zero-length FDEs.
-                    if current != start && len != 0 {
-                        __register_frame(current);
-                        self.registrations.push(current as usize);
-                    }
-
-                    // Move to the next table entry (+4 because the length itself is not inclusive)
-                    current = current.add(len + 4);
+            if using_libunwind() {
+                // For libunwind based systems, `__register_frame` takes a pointer to an FDE.
+                if !is_cie {
+                    // Every record that's not a CIE is an FDE.
+                    records_to_register.push(record);
                 }
+                continue;
             }
+
+            // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
+            if is_cie {
+                records_to_register.push(record);
+            }
+        }
+
+        assert_eq!(
+            last_len, 0,
+            "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+        );
+        assert_eq!(
+            current,
+            eh_frame.len(),
+            "The `.eh_frame` must be finished after the last record",
+        );
+
+        for record in records_to_register {
+            // Register the CFI with libgcc
+            __register_frame(record as *const u8);
+            self.registrations.push(record);
         }
     }
 
@@ -222,16 +242,16 @@ impl Drop for UnwindRegistry {
                 //
                 // To ensure that we just pop off the first element in the list upon every
                 // deregistration, walk our list of registrations backwards.
-                for fde in self.registrations.iter().rev() {
+                for registration in self.registrations.iter().rev() {
                     #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
                     {
-                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*fde);
+                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
                         self.compact_unwind_mgr.deregister();
                     }
 
                     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
                     {
-                        __deregister_frame(*fde as *const _);
+                        __deregister_frame(*registration as *const _);
                     }
                 }
             }
