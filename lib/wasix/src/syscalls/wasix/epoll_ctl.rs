@@ -6,7 +6,10 @@ use wasmer_wasix_types::wasi::{
     EpollCtl, EpollEvent, EpollEventCtl, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
 };
 
-use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
+use std::{
+    os::fd,
+    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
+};
 
 use futures::Future;
 
@@ -124,46 +127,21 @@ pub(crate) fn epoll_ctl_internal(
 
                     // Now we register the epoll waker
                     let tx = tx.clone();
-                    let mut fd_guards =
-                        wasi_try_ok_ok!(register_epoll_waker(&env.state, &epoll_fd, tx));
+                    let mut fd_guard =
+                        wasi_try_ok_ok!(register_epoll_handler(&env.state, &epoll_fd, tx));
 
                     // After the guards are created we need to attach them to the subscription
                     let mut guard = subscriptions.lock().unwrap();
                     if let Some(subs) = guard.get_mut(&event.fd) {
-                        subs.1.append(&mut fd_guards);
+                        if let Some(fd_guard) = fd_guard {
+                            subs.1.push(fd_guard);
+                        }
                     }
                 }
             }
             Ok(Ok(()))
         }
         _ => Ok(Err(Errno::Inval)),
-    }
-}
-
-#[derive(Debug)]
-pub struct EpollJoinWaker {
-    fd: WasiFd,
-    readiness: EpollType,
-    tx: Arc<watch::Sender<EpollInterest>>,
-}
-impl EpollJoinWaker {
-    pub fn new(
-        fd: WasiFd,
-        readiness: EpollType,
-        tx: Arc<watch::Sender<EpollInterest>>,
-    ) -> Arc<Self> {
-        Arc::new(Self { fd, readiness, tx })
-    }
-
-    fn wake_now(&self) {
-        self.tx.send_modify(|i| {
-            i.interest.insert((self.fd, self.readiness));
-        });
-    }
-    pub fn as_waker(self: &Arc<Self>) -> Waker {
-        let s: *const Self = Arc::into_raw(Arc::clone(self));
-        let raw_waker = RawWaker::new(s as *const (), &VTABLE);
-        unsafe { Waker::from_raw(raw_waker) }
     }
 }
 
@@ -220,31 +198,11 @@ impl InterestHandler for EpollHandler {
     }
 }
 
-fn inline_waker_wake(s: &EpollJoinWaker) {
-    let waker_arc = unsafe { Arc::from_raw(s) };
-    waker_arc.wake_now();
-}
-
-fn inline_waker_clone(s: &EpollJoinWaker) -> RawWaker {
-    let arc = unsafe { Arc::from_raw(s) };
-    std::mem::forget(arc.clone());
-    RawWaker::new(Arc::into_raw(arc) as *const (), &VTABLE)
-}
-
-const VTABLE: RawWakerVTable = unsafe {
-    RawWakerVTable::new(
-        |s| inline_waker_clone(&*(s as *const EpollJoinWaker)), // clone
-        |s| inline_waker_wake(&*(s as *const EpollJoinWaker)),  // wake
-        |s| (*(s as *const EpollJoinWaker)).wake_now(), // wake by ref (don't decrease refcount)
-        |s| drop(Arc::from_raw(s as *const EpollJoinWaker)), // decrease refcount
-    )
-};
-
-pub(super) fn register_epoll_waker(
+pub(super) fn register_epoll_handler(
     state: &Arc<WasiState>,
     event: &EpollFd,
     tx: Arc<watch::Sender<EpollInterest>>,
-) -> Result<Vec<EpollJoinGuard>, Errno> {
+) -> Result<Option<EpollJoinGuard>, Errno> {
     let mut type_ = Eventtype::FdRead;
     let mut peb = PollEventBuilder::new();
     if event.events.contains(EpollType::EPOLLOUT) {
@@ -274,37 +232,35 @@ pub(super) fn register_epoll_waker(
     };
 
     // Get guard object which we will register the waker against
-    let mut ret = Vec::new();
     let fd_guard = poll_fd_guard(state, peb.build(), event.fd, s)?;
-    match &fd_guard.mode {
-        // Sockets now use epoll
-        InodeValFilePollGuardMode::Socket { inner, .. } => {
-            let handler = EpollHandler::new(event.fd, tx);
+    let handler = EpollHandler::new(event.fd, tx);
 
+    match &fd_guard.mode {
+        InodeValFilePollGuardMode::File(_) => {
+            // Intentionally ignored, epoll doesn't work with files
+            return Ok(None);
+        }
+        InodeValFilePollGuardMode::Socket { inner, .. } => {
             let mut inner = inner.protected.write().unwrap();
             inner.set_handler(handler).map_err(net_error_into_io_err)?;
             drop(inner);
-
-            ret.push(EpollJoinGuard::Handler { fd_guard })
         }
-        _ => {
-            // Otherwise we fall back on the regular polling guard
-
-            // First we create the waker
-            let epoll_waker = EpollJoinWaker::new(event.fd, event.events, tx);
-            let waker = epoll_waker.as_waker();
-            let mut cx = Context::from_waker(&waker);
-
-            // Now we use the waker to trigger events
-            let mut join_guard = InodeValFilePollGuardJoin::new(fd_guard);
-            if Pin::new(&mut join_guard).poll(&mut cx).is_ready() {
-                waker.wake();
-            }
-            ret.push(EpollJoinGuard::Join {
-                join_guard,
-                epoll_waker,
-            });
+        InodeValFilePollGuardMode::EventNotifications(inner) => inner.set_interest_handler(handler),
+        InodeValFilePollGuardMode::DuplexPipe { pipe } => {
+            let mut inner = pipe.write().unwrap();
+            inner.set_interest_handler(handler);
+        }
+        InodeValFilePollGuardMode::PipeRx { rx } => {
+            let mut inner = rx.write().unwrap();
+            inner.set_interest_handler(handler);
+        }
+        InodeValFilePollGuardMode::PipeTx { tx } => {
+            // The sending end of a pipe can't have an interest handler, since we
+            // only support "readable" interest on pipes; they're considered to
+            // always be writable.
+            return Ok(None);
         }
     }
-    Ok(ret)
+
+    Ok(Some(EpollJoinGuard { fd_guard }))
 }

@@ -6198,6 +6198,7 @@ dependencies = [
  "tracing",
  "tracing-test",
  "typetag",
+ "virtual-mio",
  "wasmer-package",
  "web-time",
  "webc",
