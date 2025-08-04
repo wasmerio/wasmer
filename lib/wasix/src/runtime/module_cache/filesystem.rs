@@ -43,51 +43,35 @@ impl ModuleCache for FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError> {
         let path = self.path(key, &engine.deterministic_id());
+        let engine = engine.clone();
 
-        self.task_manager
-            .runtime_handle()
-            .spawn({
-                let task_manager = self.task_manager.clone();
-                let engine = engine.clone();
+        let bytes = read_file(&path).await?;
 
-                async move {
-                    let bytes = read_file(&path).await?;
+        match deserialize(&bytes, &engine) {
+            Ok(m) => {
+                tracing::debug!("Cache hit!");
+                Ok(m)
+            }
+            Err(e) => {
+                tracing::debug!(
+                    %key,
+                    path=%path.display(),
+                    error=&e as &dyn std::error::Error,
+                    "Deleting the cache file because the artifact couldn't be deserialized",
+                );
 
-                    task_manager
-                    .spawn_await({
-
-                        move || match deserialize(&bytes, &engine) {
-                            Ok(m) => {
-                                tracing::debug!("Cache hit!");
-                                Ok(m)
-                            }
-                            Err(e) => {
-                                tracing::debug!(
-                                    %key,
-                                    path=%path.display(),
-                                    error=&e as &dyn std::error::Error,
-                                    "Deleting the cache file because the artifact couldn't be deserialized",
-                                );
-
-                                if let Err(e) = std::fs::remove_file(&path) {
-                                    tracing::warn!(
-                                        %key,
-                                        path=%path.display(),
-                                        error=&e as &dyn std::error::Error,
-                                        "Unable to remove the corrupted cache file",
-                                    );
-                                }
-
-                                Err(e)
-                            }
-                        }
-                    })
-                    .await
-                    .unwrap()
+                if let Err(e) = std::fs::remove_file(&path) {
+                    tracing::warn!(
+                        %key,
+                        path=%path.display(),
+                        error=&e as &dyn std::error::Error,
+                        "Unable to remove the corrupted cache file",
+                    );
                 }
-            })
-            .await
-            .unwrap()
+                
+                Err(e)
+            }
+        }
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
