@@ -235,6 +235,9 @@ impl InodeSocket {
 
     // When a sendto or connect call comes in for a UDP "pre-socket", it must be bound to
     // an ephemeral port automatically.
+    // Apparently, clippy fails to recognize the write-locked guard being passed into
+    // the other function, hence the `allow` attribute.
+    #[allow(clippy::await_holding_lock, clippy::readonly_write_lock)]
     pub async fn auto_bind_udp(
         &self,
         tasks: &dyn VirtualTaskManager,
@@ -245,7 +248,7 @@ impl InodeSocket {
             .ok()
             .flatten()
             .unwrap_or(Duration::from_secs(30));
-        let mut inner = self.inner.protected.write().unwrap();
+        let inner = self.inner.protected.write().unwrap();
         match &inner.kind {
             InodeSocketKind::PreSocket { props, .. } if props.ty == Socktype::Dgram => {
                 let addr = match props.family {
@@ -253,7 +256,7 @@ impl InodeSocket {
                     Addressfamily::Inet6 => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
                     _ => return Err(Errno::Notsup),
                 };
-                Self::bind_internal(tasks, net, addr, timeout, &mut inner).await
+                Self::bind_internal(tasks, net, addr, timeout, inner).await
             }
             _ => Ok(None),
         }
@@ -270,16 +273,18 @@ impl InodeSocket {
             .ok()
             .flatten()
             .unwrap_or(Duration::from_secs(30));
-        let mut inner = self.inner.protected.write().unwrap();
-        Self::bind_internal(tasks, net, set_addr, timeout, &mut inner).await
+        let inner = self.inner.protected.write().unwrap();
+        Self::bind_internal(tasks, net, set_addr, timeout, inner).await
     }
 
+    // The lock is dropped before awaiting, but clippy doesn't realize it
+    #[allow(clippy::await_holding_lock)]
     async fn bind_internal(
         tasks: &dyn VirtualTaskManager,
         net: &dyn VirtualNetworking,
         set_addr: SocketAddr,
         timeout: Duration,
-        inner: &mut RwLockWriteGuard<'_, InodeSocketProtected>,
+        mut inner: RwLockWriteGuard<'_, InodeSocketProtected>,
     ) -> Result<Option<InodeSocket>, Errno> {
         let socket = {
             match &mut inner.kind {
@@ -372,6 +377,8 @@ impl InodeSocket {
                 _ => return Err(Errno::Notsup),
             }
         };
+
+        drop(inner);
 
         tokio::select! {
             socket = socket => {
