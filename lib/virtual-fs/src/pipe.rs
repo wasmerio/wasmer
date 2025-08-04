@@ -130,7 +130,7 @@ impl PipeRx {
         }
     }
 
-    pub fn set_interest_handler(&mut self, interest_handler: Box<dyn InterestHandler>) {
+    pub fn set_interest_handler(&self, interest_handler: Box<dyn InterestHandler>) {
         let Some(ref rx) = self.rx else {
             return;
         };
@@ -138,10 +138,8 @@ impl PipeRx {
         rx.interest_handler.replace(interest_handler);
     }
 
-    pub fn remove_interest_handler(&mut self) -> Option<Box<dyn InterestHandler>> {
-        let Some(ref rx) = self.rx else {
-            return None;
-        };
+    pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
+        let rx = self.rx.as_ref()?;
         let mut rx = rx.lock().unwrap();
         rx.interest_handler.take()
     }
@@ -200,11 +198,11 @@ impl Pipe {
         self.recv.close();
     }
 
-    pub fn set_interest_handler(&mut self, interest_handler: Box<dyn InterestHandler>) {
+    pub fn set_interest_handler(&self, interest_handler: Box<dyn InterestHandler>) {
         self.recv.set_interest_handler(interest_handler);
     }
 
-    pub fn remove_interest_handler(&mut self) -> Option<Box<dyn InterestHandler>> {
+    pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
         self.recv.remove_interest_handler()
     }
 }
@@ -235,7 +233,7 @@ impl PipeTx {
         }
     }
 
-    fn push_readable_interest_to_rx_end(&self) {
+    fn mark_other_end_readable(&self) {
         if let Some(rx_end) = self.rx_end.upgrade() {
             let mut guard = rx_end.lock().unwrap();
             if let Some(interest_handler) = guard.interest_handler.as_mut() {
@@ -332,7 +330,7 @@ impl std::io::Write for PipeTx {
 
         tx.send(buf.to_vec())
             .map_err(|_| Into::<std::io::Error>::into(std::io::ErrorKind::BrokenPipe))?;
-        self.push_readable_interest_to_rx_end();
+        self.mark_other_end_readable();
         Ok(buf.len())
     }
 
@@ -419,7 +417,7 @@ impl AsyncWrite for PipeTx {
 
         match tx.send(buf.to_vec()) {
             Ok(()) => {
-                self.push_readable_interest_to_rx_end();
+                self.mark_other_end_readable();
                 Poll::Ready(Ok(buf.len()))
             }
             Err(_) => Poll::Ready(Err(Into::<std::io::Error>::into(

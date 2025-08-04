@@ -6,10 +6,7 @@ use wasmer_wasix_types::wasi::{
     EpollCtl, EpollEvent, EpollEventCtl, EpollType, SubscriptionClock, SubscriptionUnion, Userdata,
 };
 
-use std::{
-    os::fd,
-    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
-};
+use std::task::{Context, Poll, RawWaker, RawWakerVTable, Waker};
 
 use futures::Future;
 

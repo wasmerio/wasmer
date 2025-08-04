@@ -124,11 +124,11 @@ impl Drop for EpollJoinGuard {
                 inner.remove_interest_handler();
             }
             InodeValFilePollGuardMode::DuplexPipe { pipe } => {
-                let mut inner = pipe.write().unwrap();
+                let inner = pipe.write().unwrap();
                 inner.remove_interest_handler();
             }
             InodeValFilePollGuardMode::PipeRx { rx } => {
-                let mut inner = rx.write().unwrap();
+                let inner = rx.write().unwrap();
                 inner.remove_interest_handler();
             }
             InodeValFilePollGuardMode::PipeTx { .. } => {
