@@ -155,7 +155,7 @@ tokio-tungstenite = { version = "0.24.0" }
 tracing = { version = "0.1" }
 tracing-subscriber = { version = "0.3" }
 tracing-test = { version = "0.2" }
-socket2 = "0.5.7"
+socket2 = { version = "0.5.7", features = ["all"] }
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
 time = "0.3.36"
