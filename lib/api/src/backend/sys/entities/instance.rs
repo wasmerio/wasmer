@@ -55,7 +55,7 @@ impl Instance {
 
         let handle = handle.into_sys();
         let objects = store.objects_mut().as_sys_mut();
-        let handle: StoreHandle<VMInstance> = StoreHandle::<VMInstance>::new::<S::Object>(objects, handle);
+        let handle: StoreHandle<VMInstance> = StoreHandle::<VMInstance>::new(objects, handle);
 
         let instance = Self {
             _handle: handle

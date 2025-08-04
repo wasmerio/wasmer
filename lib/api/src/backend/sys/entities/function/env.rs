@@ -5,9 +5,9 @@ use crate::{
     StoreMut,
 };
 
-use wasmer_vm::{StoreHandle, StoreObject, StoreObjects, VMFunctionEnvironment};
+use wasmer_vm::{StoreHandle, StoreObjects, VMFunctionEnvironment};
 
-use wasmer_types::Upcast;
+use wasmer_types::{Upcast, ObjectStore};
 
 #[derive(Debug)]
 #[repr(transparent)]

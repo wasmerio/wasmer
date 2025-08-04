@@ -53,3 +53,30 @@ impl<T: 'static> Upcast<T> for LocalBoxStoreObject {
         (**self).downcast_mut()
     }
 }
+
+
+/// Trait to represent an object managed by a context. This is implemented on
+/// the VM types managed by the context.
+pub trait ObjectStore<K> {
+    /// The type of data this type refers to in the store.
+    type Value;
+
+    /// Get the unique ID of the store.
+    fn store_id(&self) -> crate::StoreId;
+
+    /// List the objects in the store.
+    fn list(&self) -> &Vec<Self::Value>;
+
+    /// List the objects in the store, mutably.
+    fn list_mut(&mut self) -> &mut Vec<Self::Value>;
+}
+
+/// TODO document
+pub trait StoreObject<Store> {
+    /// TODO document
+    type Value;
+}
+
+impl<T, Store: ObjectStore<T>> StoreObject<Store> for T {
+    type Value = Store::Value;
+}
