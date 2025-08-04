@@ -21,7 +21,7 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
-use gimli::write::{Address, EhFrame, FrameTable};
+use gimli::write::{Address, EhFrame, FrameTable, Writer};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -351,6 +351,7 @@ impl CraneliftCompiler {
             }
             let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
             dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
+            eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);
