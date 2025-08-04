@@ -4,37 +4,19 @@ use crate::{
 };
 use core::slice::Iter;
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
-use wasmer_types::{BoxStoreObject, ObjectStore, StoreId};
+use wasmer_types::{BoxStoreObject, ObjectStore, StoreId, impl_object_store};
 
-macro_rules! impl_context_object {
-    ($Self:ident $(<$($Self_params:ident),*>)? . $field:ident : $Value:ident$(<$($Value_params:ident),*>)?) => {
-        impl $(<$($Self_params),*>)? ObjectStore<$Value> for $Self $(<$($Self_params),*>)? {
-            type Value = $Value$(<$($Value_params),*>)?;
-
-            fn store_id(&self) -> StoreId {
-                self.id
-            }
-
-            fn list(&self) -> &Vec<Self::Value> {
-                &self.$field
-            }
-
-            fn list_mut(&mut self) -> &mut Vec<Self::Value> {
-                &mut self.$field
-            }
-        }
-    };
-}
-
-impl_context_object!(StoreObjects<Object>.functions: VMFunction);
-impl_context_object!(StoreObjects<Object>.tables: VMTable);
-impl_context_object!(StoreObjects<Object>.globals: VMGlobal);
-impl_context_object!(StoreObjects<Object>.instances: VMInstance<Object>);
-impl_context_object!(StoreObjects<Object>.memories: VMMemory);
-impl_context_object!(StoreObjects<Object>.extern_objs: VMExternObj);
-impl_context_object!(StoreObjects<Object>.exceptions: VMExceptionObj);
-impl_context_object!(StoreObjects<Object>.function_environments: VMFunctionEnvironment<Object>);
-impl_context_object!(StoreObjects<Object>.tags: VMTag);
+impl_object_store!(StoreObjects<Object> {
+    functions: VMFunction,
+    tables: VMTable,
+    globals: VMGlobal,
+    instances: VMInstance<Object>,
+    memories: VMMemory,
+    extern_objs: VMExternObj,
+    exceptions: VMExceptionObj,
+    function_environments: VMFunctionEnvironment<Object>,
+    tags: VMTag,
+});
 
 /// Set of objects managed by a context.
 pub struct StoreObjects<Object = BoxStoreObject> {

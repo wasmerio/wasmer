@@ -80,3 +80,33 @@ pub trait StoreObject<Store> {
 impl<T, Store: ObjectStore<T>> StoreObject<Store> for T {
     type Value = Store::Value;
 }
+
+/// Implement the `ObjectStore<K>` trait for a set of `K`s by
+/// accessing fields of the appropriate types.
+#[macro_export]
+macro_rules! impl_object_store {
+    (@@, $Self:ident, [ $(<$($params:ident),*>)? ], $Trait:path, $field:ident, $Value:ty) => {
+        impl $(<$($params),*>)? $Trait for $Self $(<$($params,)*>)? {
+            type Value = $Value;
+
+            fn store_id(&self) -> StoreId {
+                self.id
+            }
+
+            fn list(&self) -> &Vec<Self::Value> {
+                &self.$field
+            }
+
+            fn list_mut(&mut self) -> &mut Vec<Self::Value> {
+                &mut self.$field
+            }
+        }
+    };
+
+    (@ $Self:ident $Self_params:tt $($field:ident : $Value:ident $(<$($Value_params:ident),*>)? ,)*) => {
+        $($crate::impl_object_store!(@@, $Self, $Self_params, $crate::ObjectStore<$Value>, $field, $Value $(<$($Value_params),*>)?);)*
+    };
+    ($Self:ident $(<$($Self_params:ident),*>)? { $($field:ident : $Value:ident $(<$($Value_params:ident),*>)? ,)* }) => {
+        $crate::impl_object_store!(@ $Self [ $(<$($Self_params),*>)? ] $($field: $Value $(<$($Value_params),*>)?, )*);
+    };
+}
