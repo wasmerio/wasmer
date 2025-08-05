@@ -159,7 +159,7 @@ impl UnwindRegistry {
 
         let mut current = 0;
         let mut last_len = 0;
-        while current < (eh_frame.len() - 3) {
+        while current <= (eh_frame.len() - size_of::<u32>()) {
             // If a CFI or a FDE starts with 0u32 it is a terminator.
             let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
             if len == 0 {
