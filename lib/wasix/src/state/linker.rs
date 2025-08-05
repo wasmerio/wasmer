@@ -653,6 +653,15 @@ struct PendingTlsPointer {
 }
 
 // Used only when processing a module load operation from another instance group.
+// Note: Non-TLS globals are constant across instance groups, and thus we store
+// their value, feeding it into new instance groups directly. In the case of TLS
+// symbols, they need to get new values based on each specific instance's __tls_base,
+// so they need to be tracked.
+// __wasm_apply_data_relocs operates on memory addresses, and so it needs to run
+// only once. __wasm_apply_tls_relocs does need to run once per instance group, but
+// it's run as part of __wasm_init_tls, which itself is called by __wasix_init_tls.
+// In either case, there's no need to call any relocation functions when spawning
+// further instances of a module that was already loaded and instantiated once.
 #[derive(Debug, Default)]
 struct PendingResolutionsFromLinker {
     functions: Vec<PendingFunctionResolutionFromLinkerState>,
@@ -1185,12 +1194,6 @@ impl Linker {
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
 
-        // This function is exported from PIE executables, and needs to be run before calling
-        // _initialize or _start. More info:
-        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
-        trace!("Calling data relocator function for main module");
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
-
         {
             let group_guard = linker.instance_group_state.lock().unwrap();
             let mut linker_state = linker.linker_state.write().unwrap();
@@ -1652,9 +1655,13 @@ impl Linker {
         // stub functions and that requires a lock on the instance group's state
         drop(group_state_guard);
 
+        // These functions are exported from PIE executables, and need to be run before calling
+        // _initialize or _start. More info:
+        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
         trace!("Calling data relocation functions");
         for instance in &new_instances {
             call_initialization_function::<()>(instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function::<()>(instance, store, "__wasm_apply_tls_relocs")?;
         }
 
         trace!("Calling ctor functions");
