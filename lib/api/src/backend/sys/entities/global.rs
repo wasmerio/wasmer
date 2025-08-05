@@ -6,7 +6,7 @@ use crate::{
     value::Value,
     vm::{VMExtern, VMExternGlobal},
 };
-use wasmer_types::{GlobalType, ObjectStore as _, Mutability};
+use wasmer_types::{GlobalType, ObjectStoreOf as _, Mutability};
 use wasmer_vm::{StoreHandle, VMGlobal};
 
 #[derive(Debug, Clone)]

@@ -56,15 +56,16 @@ impl<T: 'static> Upcast<T> for LocalBoxStoreObject {
     }
 }
 
+/// Trait for object stores identified by `StoreId`.
+pub trait ObjectStore {
+    /// Get the unique ID of the store.
+    fn id(&self) -> StoreId;
+}
 
-/// Trait to represent an object managed by a context. This is implemented on
-/// the VM types managed by the context.
-pub trait ObjectStore<K> {
+/// Trait to represent a set of objects managed by a context.
+pub trait ObjectStoreOf<K>: ObjectStore {
     /// The type of data this type refers to in the store.
     type Value;
-
-    /// Get the unique ID of the store.
-    fn store_id(&self) -> StoreId;
 
     /// List the objects in the store.
     fn list(&self) -> &Vec<Self::Value>;
@@ -75,7 +76,7 @@ pub trait ObjectStore<K> {
     /// Insert an object into the store, returning a new handle to it.
     fn insert(&mut self, value: Self::Value) -> StoreHandle<K> {
         StoreHandle {
-            id: self.store_id(),
+            id: self.id(),
             internal: InternalStoreHandle::new(self, value),
         }
     }
@@ -87,21 +88,17 @@ pub trait StoreObject<Store> {
     type Value;
 }
 
-impl<T, Store: ObjectStore<T>> StoreObject<Store> for T {
+impl<T, Store: ObjectStoreOf<T>> StoreObject<Store> for T {
     type Value = Store::Value;
 }
 
-/// Implement the `ObjectStore<K>` trait for a set of `K`s by
+/// Implement the `ObjectStoreOf<K>` trait for a set of `K`s by
 /// accessing fields of the appropriate types.
 #[macro_export]
 macro_rules! impl_object_store {
-    (@@, $Self:ident, [ $(<$($params:ident),*>)? ], $Trait:path, $field:ident, $Value:ty) => {
+    (@@, $Self:ident, [ $(<$($params:ident),*>)? ], $Trait:path, $field:ident, $Value:ty,) => {
         impl $(<$($params),*>)? $Trait for $Self $(<$($params,)*>)? {
             type Value = $Value;
-
-            fn store_id(&self) -> StoreId {
-                self.id
-            }
 
             fn list(&self) -> &Vec<Self::Value> {
                 &self.$field
@@ -113,10 +110,24 @@ macro_rules! impl_object_store {
         }
     };
 
+    // TT-munch the params to prevent them being expanded until we iterate the fields.
     (@ $Self:ident $Self_params:tt $($field:ident : $Value:ident $(<$($Value_params:ident),*>)? ,)*) => {
-        $($crate::impl_object_store!(@@, $Self, $Self_params, $crate::ObjectStore<$Value>, $field, $Value $(<$($Value_params),*>)?);)*
+        $($crate::impl_object_store!(
+            @@,
+            $Self,
+            $Self_params,
+            $crate::ObjectStoreOf<$Value>,
+            $field,
+            $Value $(<$($Value_params),*>)?,
+        );)*
     };
     ($Self:ident $(<$($Self_params:ident),*>)? { $($field:ident : $Value:ident $(<$($Value_params:ident),*>)? ,)* }) => {
+        impl $(<$($Self_params),*>)? $crate::ObjectStore for $Self $(<$($Self_params),*>)? {
+            fn id(&self) -> $crate::StoreId {
+                self.id
+            }
+        }
+
         $crate::impl_object_store!(@ $Self [ $(<$($Self_params),*>)? ] $($field: $Value $(<$($Value_params),*>)?, )*);
     };
 }
@@ -166,14 +177,14 @@ impl<T> Eq for StoreHandle<T> {}
 
 impl<T> StoreHandle<T> {
     /// Returns a reference to the object that this handle points to.
-    pub fn get<'a, S: ObjectStore<T>>(&self, ctx: &'a S) -> &'a S::Value {
-        assert_eq!(self.id, ctx.store_id(), "object used with the wrong context");
+    pub fn get<'a, S: ObjectStoreOf<T>>(&self, ctx: &'a S) -> &'a S::Value {
+        assert_eq!(self.id, ctx.id(), "object used with the wrong context");
         self.internal.get(ctx)
     }
 
     /// Returns a mutable reference to the object that this handle points to.
-    pub fn get_mut<'a, S: ObjectStore<T>>(&self, ctx: &'a mut S) -> &'a mut S::Value {
-        assert_eq!(self.id, ctx.store_id(), "object used with the wrong context");
+    pub fn get_mut<'a, S: ObjectStoreOf<T>>(&self, ctx: &'a mut S) -> &'a mut S::Value {
+        assert_eq!(self.id, ctx.id(), "object used with the wrong context");
         self.internal.get_mut(ctx)
     }
 
@@ -246,7 +257,7 @@ impl<T> Eq for InternalStoreHandle<T> {}
 impl<T> InternalStoreHandle<T> {
     /// Moves the given object into an object store and returns a
     /// handle to it.
-    pub fn new<S: ObjectStore<T> + ?Sized>(store: &mut S, value: S::Value) -> Self {
+    pub fn new<S: ObjectStoreOf<T> + ?Sized>(store: &mut S, value: S::Value) -> Self {
         let list = store.list_mut();
         let idx = NonZeroUsize::new(list.len() + 1).unwrap();
         list.push(value);
@@ -257,12 +268,12 @@ impl<T> InternalStoreHandle<T> {
     }
 
     /// TODO document
-    pub fn get<'a, S: ObjectStore<T>>(&self, ctx: &'a S) -> &'a S::Value {
+    pub fn get<'a, S: ObjectStoreOf<T>>(&self, ctx: &'a S) -> &'a S::Value {
         &ctx.list()[self.idx.get() - 1]
     }
 
     /// Returns a mutable reference to the object that this handle points to.
-    pub fn get_mut<'a, S: ObjectStore<T>>(&self, ctx: &'a mut S) -> &'a mut S::Value {
+    pub fn get_mut<'a, S: ObjectStoreOf<T>>(&self, ctx: &'a mut S) -> &'a mut S::Value {
         &mut ctx.list_mut()[self.idx.get() - 1]
     }
 

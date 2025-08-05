@@ -101,7 +101,7 @@ pub use crate::units::{
 };
 pub use value::{RawValue, ValueType};
 
-pub use crate::object_store::{Upcast, BoxStoreObject, InternalStoreHandle, ObjectStore, LocalBoxStoreObject, StoreHandle, StoreObject};
+pub use crate::object_store::{Upcast, BoxStoreObject, InternalStoreHandle, ObjectStore, ObjectStoreOf, LocalBoxStoreObject, StoreHandle, StoreObject};
 pub use crate::libcalls::LibCall;
 pub use crate::memory::MemoryStyle;
 pub use crate::table::TableStyle;

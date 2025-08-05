@@ -4,7 +4,7 @@ use crate::{
 };
 use core::slice::Iter;
 use std::{cell::UnsafeCell, fmt, ptr::NonNull};
-use wasmer_types::{BoxStoreObject, ObjectStore, StoreId, impl_object_store};
+use wasmer_types::{BoxStoreObject, ObjectStoreOf, StoreId, impl_object_store};
 
 pub use wasmer_types::{InternalStoreHandle, StoreHandle};
 
@@ -97,11 +97,6 @@ impl<Object> StoreObjects<Object> {
         }
     }
 
-    /// Returns the ID of this context.
-    pub fn id(&self) -> StoreId {
-        self.id
-    }
-
     /// Sets the ID of this store
     pub fn set_id(&mut self, id: StoreId) {
         self.id = id;
@@ -114,9 +109,9 @@ impl<Object> StoreObjects<Object> {
         &mut self,
         a: InternalStoreHandle<T>,
         b: InternalStoreHandle<T>,
-    ) -> (&mut <Self as ObjectStore<T>>::Value, &mut <Self as ObjectStore<T>>::Value)
+    ) -> (&mut <Self as ObjectStoreOf<T>>::Value, &mut <Self as ObjectStoreOf<T>>::Value)
     where
-        Self: ObjectStore<T>,
+        Self: ObjectStoreOf<T>,
     {
         assert_ne!(a.index(), b.index());
         let list = self.list_mut();

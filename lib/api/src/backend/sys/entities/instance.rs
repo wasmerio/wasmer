@@ -5,7 +5,7 @@ use crate::{
     store::AsStoreMut, Extern,
 };
 use wasmer_vm::{StoreHandle, VMInstance};
-use wasmer_types::ObjectStore as _;
+use wasmer_types::ObjectStoreOf as _;
 
 use super::store::Store;
 

@@ -7,7 +7,7 @@ use std::{
 };
 
 use tracing::warn;
-use wasmer_types::{MemoryType, ObjectStore as _, Pages};
+use wasmer_types::{MemoryType, ObjectStoreOf as _, Pages};
 use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMMemory};
 
 use crate::{

@@ -1,5 +1,5 @@
 //! Data types, functions and traits for `sys` runtime's `Tag` implementation.
-use wasmer_types::{FunctionType, ObjectStore as _, TagType, Type};
+use wasmer_types::{FunctionType, ObjectStoreOf as _, TagType, Type};
 use wasmer_vm::StoreHandle;
 
 use crate::{

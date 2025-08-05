@@ -6,7 +6,7 @@ use crate::{
     vm::{VMExtern, VMExternTable},
     BackendTable, ExternRef, Function, Value,
 };
-use wasmer_types::{ObjectStore as _, TableType};
+use wasmer_types::{ObjectStoreOf as _, TableType};
 use wasmer_vm::{StoreHandle, TableElement, Trap, VMTable};
 
 #[derive(Debug, Clone)]

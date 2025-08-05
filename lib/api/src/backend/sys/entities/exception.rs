@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `sys` runtime's `Tag` implementation.
 use std::any::Any;
 
-use wasmer_types::{ObjectStore as _, TagType, Type};
+use wasmer_types::{ObjectStoreOf as _, TagType, Type};
 use wasmer_vm::StoreHandle;
 
 use crate::{

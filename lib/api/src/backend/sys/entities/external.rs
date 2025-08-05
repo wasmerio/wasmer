@@ -2,7 +2,7 @@
 
 use std::any::Any;
 use wasmer_vm::{StoreHandle, VMExternRef};
-use wasmer_types::ObjectStore as _;
+use wasmer_types::ObjectStoreOf as _;
 
 use crate::store::{AsStoreMut, AsStoreRef};
 

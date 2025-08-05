@@ -13,7 +13,7 @@ use crate::{
 };
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
-use wasmer_types::{ObjectStore as _, NativeWasmType, RawValue};
+use wasmer_types::{ObjectStoreOf as _, NativeWasmType, RawValue};
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFuncRef,

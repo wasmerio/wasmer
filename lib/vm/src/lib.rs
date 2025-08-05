@@ -63,7 +63,7 @@ pub use crate::vmcontext::{
 pub use wasmer_types::LibCall;
 pub use wasmer_types::MemoryError;
 pub use wasmer_types::MemoryStyle;
-pub use wasmer_types::ObjectStore;
+pub use wasmer_types::ObjectStoreOf;
 use wasmer_types::RawValue;
 pub use wasmer_types::TableStyle;
 pub use wasmer_types::{StoreId, TargetSharedSignatureIndex, VMBuiltinFunctionIndex, VMOffsets};

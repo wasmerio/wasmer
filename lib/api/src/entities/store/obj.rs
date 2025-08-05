@@ -1,4 +1,4 @@
-use wasmer_types::StoreId;
+use wasmer_types::{ObjectStore as _, ObjectStoreOf as _, StoreId};
 
 use crate::{macros::backend::match_rt, BackendStore};
 
@@ -22,7 +22,7 @@ pub enum StoreObjects<Object = Box<dyn std::any::Any + Send>> {
 
     #[cfg(feature = "js")]
     /// Store objects for the `js` runtime.
-    Js(crate::backend::js::store::StoreObjects),
+    Js(crate::backend::js::store::StoreObjects<Object>),
 
     #[cfg(feature = "jsc")]
     /// Store objects for the `jsc` runtime.
