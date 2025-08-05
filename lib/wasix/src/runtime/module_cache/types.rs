@@ -52,16 +52,11 @@ pub trait ModuleCache: Debug {
     ///
     /// ```rust
     /// use wasmer_wasix::runtime::module_cache::{
-    ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
+    ///     ModuleCache, FileSystemCache, SharedCache,
     /// };
-    /// use wasmer_wasix::runtime::task_manager::tokio::{RuntimeOrHandle, TokioTaskManager};
-    ///
-    /// let runtime = tokio::runtime::Runtime::new().unwrap();
-    /// let rt_handle = RuntimeOrHandle::from(runtime);
-    /// let task_manager = std::sync::Arc::new(TokioTaskManager::new(rt_handle));
     ///
     /// let cache = SharedCache::default()
-    ///     .with_fallback(FileSystemCache::new("~/.local/cache", task_manager));
+    ///     .with_fallback(FileSystemCache::new("~/.local/cache"));
     /// ```
     fn with_fallback<C>(self, other: C) -> FallbackCache<Self, C>
     where
