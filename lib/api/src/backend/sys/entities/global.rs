@@ -6,7 +6,7 @@ use crate::{
     value::Value,
     vm::{VMExtern, VMExternGlobal},
 };
-use wasmer_types::{GlobalType, Mutability};
+use wasmer_types::{GlobalType, ObjectStore as _, Mutability};
 use wasmer_vm::{StoreHandle, VMGlobal};
 
 #[derive(Debug, Clone)]
@@ -35,7 +35,7 @@ impl Global {
         }
 
         Ok(Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), global),
+            handle: store.objects_mut().as_sys_mut().insert(global),
         })
     }
 

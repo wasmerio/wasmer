@@ -22,10 +22,7 @@ impl<T> FunctionEnv<T> {
     /// Make a new FunctionEnv
     pub fn new(store: &mut impl AsStoreMut<Object: Upcast<T>>, value: T) -> Self {
         Self {
-            handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                VMFunctionEnvironment::new(value),
-            ),
+            handle: store.as_store_mut().objects_mut().as_sys_mut().insert(VMFunctionEnvironment::new(value)),
             marker: PhantomData,
         }
     }

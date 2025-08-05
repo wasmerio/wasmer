@@ -2,6 +2,7 @@
 
 use std::any::Any;
 use wasmer_vm::{StoreHandle, VMExternRef};
+use wasmer_types::ObjectStore as _;
 
 use crate::store::{AsStoreMut, AsStoreRef};
 
@@ -19,10 +20,7 @@ impl ExternRef {
         T: Any + Send + Sync + 'static + Sized,
     {
         Self {
-            handle: StoreHandle::new(
-                store.objects_mut().as_sys_mut(),
-                wasmer_vm::VMExternObj::new(value),
-            ),
+            handle: store.objects_mut().as_sys_mut().insert(wasmer_vm::VMExternObj::new(value)),
         }
     }
 

@@ -7,7 +7,7 @@ use std::{
 };
 
 use tracing::warn;
-use wasmer_types::{MemoryType, Pages};
+use wasmer_types::{MemoryType, ObjectStore as _, Pages};
 use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMMemory};
 
 use crate::{
@@ -38,12 +38,12 @@ impl Memory {
         let memory = tunables.create_host_memory(&ty, &style)?;
 
         Ok(Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), memory),
+            handle: store.as_store_mut().objects_mut().as_sys_mut().insert(memory),
         })
     }
 
     pub(crate) fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        let handle = StoreHandle::new(new_store.objects_mut().as_sys_mut(), memory);
+        let handle = new_store.objects_mut().as_sys_mut().insert(memory);
         Self::from_vm_extern(new_store, VMExternMemory::Sys(handle.internal_handle()))
     }
 

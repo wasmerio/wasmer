@@ -13,7 +13,7 @@ use crate::{
 };
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue};
+use wasmer_types::{ObjectStore as _, NativeWasmType, RawValue};
 use wasmer_vm::{
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
     StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFuncRef,
@@ -115,14 +115,13 @@ impl Function {
             call_trampoline,
         };
 
-        let vm_function = VMFunction {
-            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-            kind: VMFunctionKind::Dynamic,
-            signature: function_type,
-            host_data,
-        };
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
+            handle: store.as_store_mut().objects_mut().as_sys_mut().insert(VMFunction {
+                anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+                kind: VMFunctionKind::Dynamic,
+                signature: function_type,
+                host_data,
+            }),
         }
     }
 
@@ -167,7 +166,7 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
+            handle: store.as_store_mut().objects_mut().as_sys_mut().insert(vm_function),
         }
     }
 
@@ -214,7 +213,7 @@ impl Function {
             host_data,
         };
         Self {
-            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
+            handle: store.as_store_mut().objects_mut().as_sys_mut().insert(vm_function),
         }
     }
 
@@ -404,7 +403,7 @@ impl Function {
             host_data: Box::new(()),
         };
         Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+            handle: store.objects_mut().as_sys_mut().insert(vm_function),
         }
     }
 

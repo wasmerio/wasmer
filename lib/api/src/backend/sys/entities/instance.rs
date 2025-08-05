@@ -5,6 +5,7 @@ use crate::{
     store::AsStoreMut, Extern,
 };
 use wasmer_vm::{StoreHandle, VMInstance};
+use wasmer_types::ObjectStore as _;
 
 use super::store::Store;
 
@@ -53,13 +54,8 @@ impl Instance {
         let mut handle = module.as_sys().instantiate(store, &externs)?;
         let exports = Self::get_exports(store, module, handle.as_sys_mut());
 
-        let handle = handle.into_sys();
-        let objects = store.objects_mut().as_sys_mut();
-        let handle: StoreHandle<VMInstance> = StoreHandle::<VMInstance>::new(objects, handle);
-
         let instance = Self {
-            _handle: handle
-                ,
+            _handle: store.objects_mut().as_sys_mut().insert(handle.into_sys()),
         };
 
         Ok((instance, exports))
@@ -75,10 +71,7 @@ impl Instance {
         let mut handle = module.as_sys().instantiate(store, &externs)?;
         let exports = Self::get_exports(store, module, handle.as_sys_mut());
         let instance = Self {
-            _handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                handle.into_sys(),
-            ),
+            _handle: store.as_store_mut().objects_mut().as_sys_mut().insert(handle.into_sys()),
         };
 
         Ok((instance, exports))

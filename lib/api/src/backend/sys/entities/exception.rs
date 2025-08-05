@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `sys` runtime's `Tag` implementation.
 use std::any::Any;
 
-use wasmer_types::{TagType, Type};
+use wasmer_types::{ObjectStore as _, TagType, Type};
 use wasmer_vm::StoreHandle;
 
 use crate::{
@@ -39,10 +39,7 @@ impl ExceptionRef {
         T: Any + Send + Sync + 'static + Sized,
     {
         Self {
-            handle: crate::backend::sys::store::StoreHandle::new(
-                store.objects_mut().as_sys_mut(),
-                wasmer_vm::VMExceptionObj::new(value),
-            ),
+            handle: store.objects_mut().as_sys_mut().insert(wasmer_vm::VMExceptionObj::new(value)),
         }
     }
 
