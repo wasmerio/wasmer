@@ -683,7 +683,7 @@ impl Wasi {
         if !self.disable_cache {
             let cache_dir = env.cache_dir().join("compiled");
             let module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+                .with_fallback(FileSystemCache::new(cache_dir));
             rt.set_module_cache(module_cache);
         }
 
