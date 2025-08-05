@@ -261,54 +261,7 @@
 <a href="#260" id="260">260</a>
 <a href="#261" id="261">261</a>
 <a href="#262" id="262">262</a>
-<a href="#263" id="263">263</a>
-<a href="#264" id="264">264</a>
-<a href="#265" id="265">265</a>
-<a href="#266" id="266">266</a>
-<a href="#267" id="267">267</a>
-<a href="#268" id="268">268</a>
-<a href="#269" id="269">269</a>
-<a href="#270" id="270">270</a>
-<a href="#271" id="271">271</a>
-<a href="#272" id="272">272</a>
-<a href="#273" id="273">273</a>
-<a href="#274" id="274">274</a>
-<a href="#275" id="275">275</a>
-<a href="#276" id="276">276</a>
-<a href="#277" id="277">277</a>
-<a href="#278" id="278">278</a>
-<a href="#279" id="279">279</a>
-<a href="#280" id="280">280</a>
-<a href="#281" id="281">281</a>
-<a href="#282" id="282">282</a>
-<a href="#283" id="283">283</a>
-<a href="#284" id="284">284</a>
-<a href="#285" id="285">285</a>
-<a href="#286" id="286">286</a>
-<a href="#287" id="287">287</a>
-<a href="#288" id="288">288</a>
-<a href="#289" id="289">289</a>
-<a href="#290" id="290">290</a>
-<a href="#291" id="291">291</a>
-<a href="#292" id="292">292</a>
-<a href="#293" id="293">293</a>
-<a href="#294" id="294">294</a>
-<a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a>
-<a href="#297" id="297">297</a>
-<a href="#298" id="298">298</a>
-<a href="#299" id="299">299</a>
-<a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a>
-<a href="#304" id="304">304</a>
-<a href="#305" id="305">305</a>
-<a href="#306" id="306">306</a>
-<a href="#307" id="307">307</a>
-<a href="#308" id="308">308</a>
-<a href="#309" id="309">309</a>
-<a href="#310" id="310">310</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href="#263" id="263">263</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>tokio::sync::{mpsc::UnboundedSender, watch};
 <span class="kw">use </span>virtual_mio::{InterestHandler, InterestType};
 <span class="kw">use </span>virtual_net::net_error_into_io_err;
@@ -434,46 +387,21 @@
 
                     <span class="comment">// Now we register the epoll waker
                     </span><span class="kw">let </span>tx = tx.clone();
-                    <span class="kw">let </span><span class="kw-2">mut </span>fd_guards =
-                        <span class="macro">wasi_try_ok_ok!</span>(register_epoll_waker(<span class="kw-2">&amp;</span>env.state, <span class="kw-2">&amp;</span>epoll_fd, tx));
+                    <span class="kw">let </span><span class="kw-2">mut </span>fd_guard =
+                        <span class="macro">wasi_try_ok_ok!</span>(register_epoll_handler(<span class="kw-2">&amp;</span>env.state, <span class="kw-2">&amp;</span>epoll_fd, tx));
 
                     <span class="comment">// After the guards are created we need to attach them to the subscription
                     </span><span class="kw">let </span><span class="kw-2">mut </span>guard = subscriptions.lock().unwrap();
                     <span class="kw">if let </span><span class="prelude-val">Some</span>(subs) = guard.get_mut(<span class="kw-2">&amp;</span>event.fd) {
-                        subs.<span class="number">1</span>.append(<span class="kw-2">&amp;mut </span>fd_guards);
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(fd_guard) = fd_guard {
+                            subs.<span class="number">1</span>.push(fd_guard);
+                        }
                     }
                 }
             }
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(()))
         }
         <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(Errno::Inval)),
-    }
-}
-
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>EpollJoinWaker {
-    fd: WasiFd,
-    readiness: EpollType,
-    tx: Arc&lt;watch::Sender&lt;EpollInterest&gt;&gt;,
-}
-<span class="kw">impl </span>EpollJoinWaker {
-    <span class="kw">pub fn </span>new(
-        fd: WasiFd,
-        readiness: EpollType,
-        tx: Arc&lt;watch::Sender&lt;EpollInterest&gt;&gt;,
-    ) -&gt; Arc&lt;<span class="self">Self</span>&gt; {
-        Arc::new(<span class="self">Self </span>{ fd, readiness, tx })
-    }
-
-    <span class="kw">fn </span>wake_now(<span class="kw-2">&amp;</span><span class="self">self</span>) {
-        <span class="self">self</span>.tx.send_modify(|i| {
-            i.interest.insert((<span class="self">self</span>.fd, <span class="self">self</span>.readiness));
-        });
-    }
-    <span class="kw">pub fn </span>as_waker(<span class="self">self</span>: <span class="kw-2">&amp;</span>Arc&lt;<span class="self">Self</span>&gt;) -&gt; Waker {
-        <span class="kw">let </span>s: <span class="kw-2">*const </span><span class="self">Self </span>= Arc::into_raw(Arc::clone(<span class="self">self</span>));
-        <span class="kw">let </span>raw_waker = RawWaker::new(s <span class="kw">as </span><span class="kw-2">*const </span>(), <span class="kw-2">&amp;</span>VTABLE);
-        <span class="kw">unsafe </span>{ Waker::from_raw(raw_waker) }
     }
 }
 
@@ -530,31 +458,11 @@
     }
 }
 
-<span class="kw">fn </span>inline_waker_wake(s: <span class="kw-2">&amp;</span>EpollJoinWaker) {
-    <span class="kw">let </span>waker_arc = <span class="kw">unsafe </span>{ Arc::from_raw(s) };
-    waker_arc.wake_now();
-}
-
-<span class="kw">fn </span>inline_waker_clone(s: <span class="kw-2">&amp;</span>EpollJoinWaker) -&gt; RawWaker {
-    <span class="kw">let </span>arc = <span class="kw">unsafe </span>{ Arc::from_raw(s) };
-    std::mem::forget(arc.clone());
-    RawWaker::new(Arc::into_raw(arc) <span class="kw">as </span><span class="kw-2">*const </span>(), <span class="kw-2">&amp;</span>VTABLE)
-}
-
-<span class="kw">const </span>VTABLE: RawWakerVTable = <span class="kw">unsafe </span>{
-    RawWakerVTable::new(
-        |s| inline_waker_clone(<span class="kw-2">&amp;*</span>(s <span class="kw">as </span><span class="kw-2">*const </span>EpollJoinWaker)), <span class="comment">// clone
-        </span>|s| inline_waker_wake(<span class="kw-2">&amp;*</span>(s <span class="kw">as </span><span class="kw-2">*const </span>EpollJoinWaker)),  <span class="comment">// wake
-        </span>|s| (<span class="kw-2">*</span>(s <span class="kw">as </span><span class="kw-2">*const </span>EpollJoinWaker)).wake_now(), <span class="comment">// wake by ref (don't decrease refcount)
-        </span>|s| drop(Arc::from_raw(s <span class="kw">as </span><span class="kw-2">*const </span>EpollJoinWaker)), <span class="comment">// decrease refcount
-    </span>)
-};
-
-<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>register_epoll_waker(
+<span class="kw">pub</span>(<span class="kw">super</span>) <span class="kw">fn </span>register_epoll_handler(
     state: <span class="kw-2">&amp;</span>Arc&lt;WasiState&gt;,
     event: <span class="kw-2">&amp;</span>EpollFd,
     tx: Arc&lt;watch::Sender&lt;EpollInterest&gt;&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;EpollJoinGuard&gt;, Errno&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;EpollJoinGuard&gt;, Errno&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>type_ = Eventtype::FdRead;
     <span class="kw">let </span><span class="kw-2">mut </span>peb = PollEventBuilder::new();
     <span class="kw">if </span>event.events.contains(EpollType::EPOLLOUT) {
@@ -584,38 +492,36 @@
     };
 
     <span class="comment">// Get guard object which we will register the waker against
-    </span><span class="kw">let </span><span class="kw-2">mut </span>ret = Vec::new();
-    <span class="kw">let </span>fd_guard = poll_fd_guard(state, peb.build(), event.fd, s)<span class="question-mark">?</span>;
-    <span class="kw">match </span><span class="kw-2">&amp;</span>fd_guard.mode {
-        <span class="comment">// Sockets now use epoll
-        </span>InodeValFilePollGuardMode::Socket { inner, .. } =&gt; {
-            <span class="kw">let </span>handler = EpollHandler::new(event.fd, tx);
+    </span><span class="kw">let </span>fd_guard = poll_fd_guard(state, peb.build(), event.fd, s)<span class="question-mark">?</span>;
+    <span class="kw">let </span>handler = EpollHandler::new(event.fd, tx);
 
+    <span class="kw">match </span><span class="kw-2">&amp;</span>fd_guard.mode {
+        InodeValFilePollGuardMode::File(<span class="kw">_</span>) =&gt; {
+            <span class="comment">// Intentionally ignored, epoll doesn't work with files
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+        }
+        InodeValFilePollGuardMode::Socket { inner, .. } =&gt; {
             <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.protected.write().unwrap();
             inner.set_handler(handler).map_err(net_error_into_io_err)<span class="question-mark">?</span>;
             drop(inner);
-
-            ret.push(EpollJoinGuard::Handler { fd_guard })
         }
-        <span class="kw">_ </span>=&gt; {
-            <span class="comment">// Otherwise we fall back on the regular polling guard
-
-            // First we create the waker
-            </span><span class="kw">let </span>epoll_waker = EpollJoinWaker::new(event.fd, event.events, tx);
-            <span class="kw">let </span>waker = epoll_waker.as_waker();
-            <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
-
-            <span class="comment">// Now we use the waker to trigger events
-            </span><span class="kw">let </span><span class="kw-2">mut </span>join_guard = InodeValFilePollGuardJoin::new(fd_guard);
-            <span class="kw">if </span>Pin::new(<span class="kw-2">&amp;mut </span>join_guard).poll(<span class="kw-2">&amp;mut </span>cx).is_ready() {
-                waker.wake();
-            }
-            ret.push(EpollJoinGuard::Join {
-                join_guard,
-                epoll_waker,
-            });
+        InodeValFilePollGuardMode::EventNotifications(inner) =&gt; inner.set_interest_handler(handler),
+        InodeValFilePollGuardMode::DuplexPipe { pipe } =&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>inner = pipe.write().unwrap();
+            inner.set_interest_handler(handler);
+        }
+        InodeValFilePollGuardMode::PipeRx { rx } =&gt; {
+            <span class="kw">let </span><span class="kw-2">mut </span>inner = rx.write().unwrap();
+            inner.set_interest_handler(handler);
+        }
+        InodeValFilePollGuardMode::PipeTx { tx } =&gt; {
+            <span class="comment">// The sending end of a pipe can't have an interest handler, since we
+            // only support "readable" interest on pipes; they're considered to
+            // always be writable.
+            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
         }
     }
-    <span class="prelude-val">Ok</span>(ret)
+
+    <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(EpollJoinGuard { fd_guard }))
 }
 </code></pre></div></section></main></body></html>

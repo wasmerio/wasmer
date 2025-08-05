@@ -112,11 +112,32 @@
 <a href="#111" id="111">111</a>
 <a href="#112" id="112">112</a>
 <a href="#113" id="113">113</a>
-<a href="#114" id="114">114</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#114" id="114">114</a>
+<a href="#115" id="115">115</a>
+<a href="#116" id="116">116</a>
+<a href="#117" id="117">117</a>
+<a href="#118" id="118">118</a>
+<a href="#119" id="119">119</a>
+<a href="#120" id="120">120</a>
+<a href="#121" id="121">121</a>
+<a href="#122" id="122">122</a>
+<a href="#123" id="123">123</a>
+<a href="#124" id="124">124</a>
+<a href="#125" id="125">125</a>
+<a href="#126" id="126">126</a>
+<a href="#127" id="127">127</a>
+<a href="#128" id="128">128</a>
+<a href="#129" id="129">129</a>
+<a href="#130" id="130">130</a>
+<a href="#131" id="131">131</a>
+<a href="#132" id="132">132</a>
+<a href="#133" id="133">133</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::VecDeque,
     sync::Mutex,
     task::{Poll, Waker},
 };
+
+<span class="kw">use </span>virtual_mio::{InterestHandler, InterestType};
 
 <span class="attr">#[derive(Debug)]
 #[cfg_attr(feature = <span class="string">"enable-serde"</span>, derive(Serialize, Deserialize))]
@@ -131,6 +152,9 @@
     <span class="doccomment">/// All the registered wakers
     </span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip))]
     </span>wakers: VecDeque&lt;Waker&gt;,
+    <span class="doccomment">/// InterestHandler for use with epoll
+    </span><span class="attr">#[cfg_attr(feature = <span class="string">"enable-serde"</span>, serde(skip))]
+    </span>interest_handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler&gt;&gt;,
 }
 
 <span class="kw">impl </span>NotificationState {
@@ -144,6 +168,9 @@
         <span class="self">self</span>.last_poll = u64::MAX;
         <span class="kw">while let </span><span class="prelude-val">Some</span>(waker) = <span class="self">self</span>.wakers.pop_front() {
             waker.wake();
+        }
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(handler) = <span class="self">self</span>.interest_handler.as_mut() {
+            handler.push_interest(InterestType::Readable);
         }
     }
 
@@ -184,6 +211,7 @@
                 last_poll: u64::MAX,
                 is_semaphore,
                 wakers: Default::default(),
+                interest_handler: <span class="prelude-val">None</span>,
             }),
         }
     }
@@ -224,6 +252,16 @@
     <span class="kw">pub fn </span>reset(<span class="kw-2">&amp;</span><span class="self">self</span>) {
         <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
         state.last_poll = u64::MAX;
+    }
+
+    <span class="kw">pub fn </span>set_interest_handler(<span class="kw-2">&amp;</span><span class="self">self</span>, handler: Box&lt;<span class="kw">dyn </span>InterestHandler&gt;) {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.interest_handler.replace(handler);
+    }
+
+    <span class="kw">pub fn </span>remove_interest_handler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler&gt;&gt; {
+        <span class="kw">let </span><span class="kw-2">mut </span>state = <span class="self">self</span>.state.lock().unwrap();
+        state.interest_handler.take()
     }
 }
 </code></pre></div></section></main></body></html>

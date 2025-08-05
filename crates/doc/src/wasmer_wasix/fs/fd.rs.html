@@ -221,47 +221,23 @@
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
 <a href="#222" id="222">222</a>
-<a href="#223" id="223">223</a>
-<a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a>
-<a href="#227" id="227">227</a>
-<a href="#228" id="228">228</a>
-<a href="#229" id="229">229</a>
-<a href="#230" id="230">230</a>
-<a href="#231" id="231">231</a>
-<a href="#232" id="232">232</a>
-<a href="#233" id="233">233</a>
-<a href="#234" id="234">234</a>
-<a href="#235" id="235">235</a>
-<a href="#236" id="236">236</a>
-<a href="#237" id="237">237</a>
-<a href="#238" id="238">238</a>
-<a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a>
-<a href="#241" id="241">241</a>
-<a href="#242" id="242">242</a>
-<a href="#243" id="243">243</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#223" id="223">223</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     path::PathBuf,
-    pin::Pin,
     sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
-    task::Context,
 };
 
-<span class="kw">use </span>futures::Future;
 <span class="kw">use </span>serde_derive::{Deserialize, Serialize};
 <span class="kw">use </span>std::sync::Mutex <span class="kw">as </span>StdMutex;
 <span class="kw">use </span>tokio::sync::{watch, Mutex <span class="kw">as </span>AsyncMutex};
 <span class="kw">use </span>virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{EpollType, Fd <span class="kw">as </span>WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
-<span class="kw">use crate</span>::{net::socket::InodeSocket, syscalls::EpollJoinWaker};
+<span class="kw">use </span><span class="kw">crate</span>::net::socket::InodeSocket;
 
 <span class="kw">use super</span>::{
-    InodeGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
-    InodeWeakGuard, NotificationInner,
+    InodeGuard, InodeValFilePollGuard, InodeValFilePollGuardMode, InodeWeakGuard, NotificationInner,
 };
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -354,49 +330,33 @@
 
 <span class="doccomment">/// Guard the cleans up the selector registrations
 </span><span class="attr">#[derive(Debug)]
-</span><span class="kw">pub enum </span>EpollJoinGuard {
-    Join {
-        join_guard: InodeValFilePollGuardJoin,
-        epoll_waker: Arc&lt;EpollJoinWaker&gt;,
-    },
-    Handler {
-        fd_guard: InodeValFilePollGuard,
-    },
+</span><span class="kw">pub struct </span>EpollJoinGuard {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) fd_guard: InodeValFilePollGuard,
 }
 <span class="kw">impl </span>Drop <span class="kw">for </span>EpollJoinGuard {
     <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">if let </span><span class="self">Self</span>::Handler { fd_guard, .. } = <span class="self">self </span>{
-            <span class="kw">if let </span>InodeValFilePollGuardMode::Socket { inner } = <span class="kw-2">&amp;mut </span>fd_guard.mode {
+        <span class="kw">match </span><span class="kw-2">&amp;</span><span class="self">self</span>.fd_guard.mode {
+            InodeValFilePollGuardMode::File(<span class="kw">_</span>) =&gt; {
+                <span class="comment">// Intentionally ignored, epoll doesn't work with files
+            </span>}
+            InodeValFilePollGuardMode::Socket { inner } =&gt; {
                 <span class="kw">let </span><span class="kw-2">mut </span>inner = inner.protected.write().unwrap();
                 inner.remove_handler();
             }
-        }
-    }
-}
-<span class="kw">impl </span>EpollJoinGuard {
-    <span class="kw">pub fn </span>is_spent(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">match </span><span class="self">self </span>{
-            <span class="self">Self</span>::Join { join_guard, .. } =&gt; join_guard.is_spent(),
-            <span class="self">Self</span>::Handler { .. } =&gt; <span class="bool-val">false</span>,
-        }
-    }
-    <span class="kw">pub fn </span>renew(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-        <span class="kw">if let </span><span class="self">Self</span>::Join {
-            join_guard,
-            epoll_waker,
-        } = <span class="self">self
-        </span>{
-            <span class="kw">let </span>fd = join_guard.fd();
-            join_guard.reset();
-
-            <span class="kw">let </span>waker = epoll_waker.as_waker();
-            <span class="kw">let </span><span class="kw-2">mut </span>cx = Context::from_waker(<span class="kw-2">&amp;</span>waker);
-            <span class="kw">if </span>Pin::new(join_guard).poll(<span class="kw-2">&amp;mut </span>cx).is_ready() {
-                <span class="macro">tracing::trace!</span>(fd, <span class="string">"join renew already woken"</span>);
-                waker.wake();
-            } <span class="kw">else </span>{
-                <span class="macro">tracing::trace!</span>(fd, <span class="string">"join waker reinstalled"</span>);
+            InodeValFilePollGuardMode::EventNotifications(inner) =&gt; {
+                inner.remove_interest_handler();
             }
+            InodeValFilePollGuardMode::DuplexPipe { pipe } =&gt; {
+                <span class="kw">let </span>inner = pipe.write().unwrap();
+                inner.remove_interest_handler();
+            }
+            InodeValFilePollGuardMode::PipeRx { rx } =&gt; {
+                <span class="kw">let </span>inner = rx.write().unwrap();
+                inner.remove_interest_handler();
+            }
+            InodeValFilePollGuardMode::PipeTx { .. } =&gt; {
+                <span class="comment">// Intentionally ignored, the sending end of a pipe can't have an interest handler
+            </span>}
         }
     }
 }

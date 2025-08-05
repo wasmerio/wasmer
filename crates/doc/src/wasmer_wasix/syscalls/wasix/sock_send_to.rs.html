@@ -158,7 +158,19 @@
 <a href="#157" id="157">157</a>
 <a href="#158" id="158">158</a>
 <a href="#159" id="159">159</a>
-<a href="#160" id="160">160</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::task::Waker;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{net::socket::TimeType, syscalls::<span class="kw-2">*</span>};
@@ -201,7 +213,7 @@
     Span::current().record(<span class="string">"addr"</span>, <span class="macro">format!</span>(<span class="string">"{addr:?}"</span>));
 
     <span class="kw">let </span>bytes_written = <span class="macro">wasi_try_ok!</span>(sock_send_to_internal(
-        <span class="kw-2">&amp;</span>ctx,
+        <span class="kw-2">&amp;mut </span>ctx,
         sock,
         FdWriteSource::Iovs {
             iovs: si_data,
@@ -240,12 +252,24 @@
 }
 
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>sock_send_to_internal&lt;M: MemorySize&gt;(
-    ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+    ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     sock: WasiFd,
     si_data: FdWriteSource&lt;<span class="lifetime">'_</span>, M&gt;,
     si_flags: SiFlags,
     addr: SocketAddr,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Result</span>&lt;usize, Errno&gt;, WasiError&gt; {
+    <span class="kw">let </span>env = ctx.data();
+    <span class="kw">let </span>net = env.net().clone();
+    <span class="kw">let </span>tasks = ctx.data().tasks().clone();
+
+    <span class="comment">// Auto-bind UDP
+    </span><span class="macro">wasi_try_ok_ok!</span>(__sock_upgrade(
+        ctx,
+        sock,
+        Rights::SOCK_SEND_TO,
+        <span class="kw">move </span>|<span class="kw-2">mut </span>socket, flags| <span class="kw">async move </span>{ socket.auto_bind_udp(tasks.deref(), net.deref()).<span class="kw">await </span>}
+    ));
+
     <span class="kw">let </span>env = ctx.data();
     <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
 

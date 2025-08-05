@@ -829,7 +829,15 @@
 <a href="#828" id="828">828</a>
 <a href="#829" id="829">829</a>
 <a href="#830" id="830">830</a>
-<a href="#831" id="831">831</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Range;
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::ops::Range;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 
@@ -1561,11 +1569,19 @@
                     <span class="macro">tracing::trace!</span>(%fd, <span class="string">"Replay journal - SocketSendTo data={} bytes"</span>, data.len());
                     <span class="kw">if </span>is_64bit {
                         JournalEffector::apply_sock_send_to::&lt;Memory64&gt;(
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.ctx, fd, data, flags, addr,
+                            <span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx,
+                            fd,
+                            data,
+                            flags,
+                            addr,
                         )
                     } <span class="kw">else </span>{
                         JournalEffector::apply_sock_send_to::&lt;Memory32&gt;(
-                            <span class="kw-2">&amp;</span><span class="self">self</span>.ctx, fd, data, flags, addr,
+                            <span class="kw-2">&amp;mut </span><span class="self">self</span>.ctx,
+                            fd,
+                            data,
+                            flags,
+                            addr,
                         )
                     }
                     .map_err(anyhow_err_to_runtime_err)<span class="question-mark">?

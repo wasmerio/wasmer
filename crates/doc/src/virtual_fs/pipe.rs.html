@@ -569,19 +569,55 @@
 <a href="#568" id="568">568</a>
 <a href="#569" id="569">569</a>
 <a href="#570" id="570">570</a>
-<a href="#571" id="571">571</a></pre></div><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
-<span class="kw">use </span>std::io::{<span class="self">self</span>, Read, Seek, SeekFrom};
+<a href="#571" id="571">571</a>
+<a href="#572" id="572">572</a>
+<a href="#573" id="573">573</a>
+<a href="#574" id="574">574</a>
+<a href="#575" id="575">575</a>
+<a href="#576" id="576">576</a>
+<a href="#577" id="577">577</a>
+<a href="#578" id="578">578</a>
+<a href="#579" id="579">579</a>
+<a href="#580" id="580">580</a>
+<a href="#581" id="581">581</a>
+<a href="#582" id="582">582</a>
+<a href="#583" id="583">583</a>
+<a href="#584" id="584">584</a>
+<a href="#585" id="585">585</a>
+<a href="#586" id="586">586</a>
+<a href="#587" id="587">587</a>
+<a href="#588" id="588">588</a>
+<a href="#589" id="589">589</a>
+<a href="#590" id="590">590</a>
+<a href="#591" id="591">591</a>
+<a href="#592" id="592">592</a>
+<a href="#593" id="593">593</a>
+<a href="#594" id="594">594</a>
+<a href="#595" id="595">595</a>
+<a href="#596" id="596">596</a>
+<a href="#597" id="597">597</a>
+<a href="#598" id="598">598</a>
+<a href="#599" id="599">599</a>
+<a href="#600" id="600">600</a>
+<a href="#601" id="601">601</a>
+<a href="#602" id="602">602</a>
+<a href="#603" id="603">603</a></pre></div><pre class="rust"><code><span class="kw">use </span>bytes::{Buf, Bytes};
 <span class="kw">use </span>std::pin::Pin;
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>std::sync::Mutex;
 <span class="kw">use </span>std::task::Context;
 <span class="kw">use </span>std::task::Poll;
 <span class="kw">use </span>std::{io::IoSlice, sync::MutexGuard};
+<span class="kw">use </span>std::{
+    io::{<span class="self">self</span>, Read, Seek, SeekFrom},
+    sync::Weak,
+};
 <span class="kw">use </span>tokio::sync::mpsc;
 <span class="kw">use </span>tokio::{
     io::{AsyncRead, AsyncSeek, AsyncWrite},
     sync::mpsc::error::TryRecvError,
 };
+<span class="kw">use </span>virtual_mio::{InterestHandler, InterestType};
 
 <span class="kw">use crate</span>::{ArcFile, FsError, VirtualFile};
 
@@ -602,6 +638,7 @@
 </span><span class="kw">pub struct </span>PipeTx {
     <span class="doccomment">/// Sends bytes down the pipe
     </span>tx: <span class="prelude-ty">Option</span>&lt;mpsc::UnboundedSender&lt;Vec&lt;u8&gt;&gt;&gt;,
+    rx_end: Weak&lt;Mutex&lt;PipeReceiver&gt;&gt;,
 }
 
 <span class="attr">#[derive(Debug, Clone)]
@@ -695,6 +732,20 @@
             rx.buffer.replace(Bytes::from(data));
         }
     }
+
+    <span class="kw">pub fn </span>set_interest_handler(<span class="kw-2">&amp;</span><span class="self">self</span>, interest_handler: Box&lt;<span class="kw">dyn </span>InterestHandler&gt;) {
+        <span class="kw">let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>rx) = <span class="self">self</span>.rx <span class="kw">else </span>{
+            <span class="kw">return</span>;
+        };
+        <span class="kw">let </span><span class="kw-2">mut </span>rx = rx.lock().unwrap();
+        rx.interest_handler.replace(interest_handler);
+    }
+
+    <span class="kw">pub fn </span>remove_interest_handler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler&gt;&gt; {
+        <span class="kw">let </span>rx = <span class="self">self</span>.rx.as_ref()<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>rx = rx.lock().unwrap();
+        rx.interest_handler.take()
+    }
 }
 
 <span class="attr">#[derive(Debug)]
@@ -703,20 +754,24 @@
     // actual receiver, we can't make use of an mpmc channel
     </span>chan: mpsc::UnboundedReceiver&lt;Vec&lt;u8&gt;&gt;,
     buffer: <span class="prelude-ty">Option</span>&lt;Bytes&gt;,
+    interest_handler: <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler&gt;&gt;,
 }
 
 <span class="kw">impl </span>Pipe {
     <span class="kw">pub fn </span>new() -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>(tx, rx) = mpsc::unbounded_channel();
 
+        <span class="kw">let </span>recv = Arc::new(Mutex::new(PipeReceiver {
+            chan: rx,
+            buffer: <span class="prelude-val">None</span>,
+            interest_handler: <span class="prelude-val">None</span>,
+        }));
         Pipe {
-            send: PipeTx { tx: <span class="prelude-val">Some</span>(tx) },
-            recv: PipeRx {
-                rx: <span class="prelude-val">Some</span>(Arc::new(Mutex::new(PipeReceiver {
-                    chan: rx,
-                    buffer: <span class="prelude-val">None</span>,
-                }))),
+            send: PipeTx {
+                tx: <span class="prelude-val">Some</span>(tx),
+                rx_end: Arc::downgrade(<span class="kw-2">&amp;</span>recv),
             },
+            recv: PipeRx { rx: <span class="prelude-val">Some</span>(recv) },
         }
     }
 
@@ -745,23 +800,19 @@
         <span class="self">self</span>.send.close();
         <span class="self">self</span>.recv.close();
     }
+
+    <span class="kw">pub fn </span>set_interest_handler(<span class="kw-2">&amp;</span><span class="self">self</span>, interest_handler: Box&lt;<span class="kw">dyn </span>InterestHandler&gt;) {
+        <span class="self">self</span>.recv.set_interest_handler(interest_handler);
+    }
+
+    <span class="kw">pub fn </span>remove_interest_handler(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;<span class="kw">dyn </span>InterestHandler&gt;&gt; {
+        <span class="self">self</span>.recv.remove_interest_handler()
+    }
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>Pipe {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self</span>::new()
-    }
-}
-
-<span class="kw">impl </span>From&lt;Pipe&gt; <span class="kw">for </span>PipeTx {
-    <span class="kw">fn </span>from(val: Pipe) -&gt; <span class="self">Self </span>{
-        val.send
-    }
-}
-
-<span class="kw">impl </span>From&lt;Pipe&gt; <span class="kw">for </span>PipeRx {
-    <span class="kw">fn </span>from(val: Pipe) -&gt; <span class="self">Self </span>{
-        val.recv
     }
 }
 
@@ -782,6 +833,15 @@
             Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">0</span>))
         } <span class="kw">else </span>{
             Poll::Ready(<span class="prelude-val">Ok</span>(<span class="number">8192</span>))
+        }
+    }
+
+    <span class="kw">fn </span>mark_other_end_readable(<span class="kw-2">&amp;</span><span class="self">self</span>) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(rx_end) = <span class="self">self</span>.rx_end.upgrade() {
+            <span class="kw">let </span><span class="kw-2">mut </span>guard = rx_end.lock().unwrap();
+            <span class="kw">if let </span><span class="prelude-val">Some</span>(interest_handler) = guard.interest_handler.as_mut() {
+                interest_handler.push_interest(InterestType::Readable);
+            }
         }
     }
 }
@@ -873,6 +933,7 @@
 
         tx.send(buf.to_vec())
             .map_err(|<span class="kw">_</span>| Into::&lt;std::io::Error&gt;::into(std::io::ErrorKind::BrokenPipe))<span class="question-mark">?</span>;
+        <span class="self">self</span>.mark_other_end_readable();
         <span class="prelude-val">Ok</span>(buf.len())
     }
 
@@ -958,7 +1019,10 @@
         };
 
         <span class="kw">match </span>tx.send(buf.to_vec()) {
-            <span class="prelude-val">Ok</span>(()) =&gt; Poll::Ready(<span class="prelude-val">Ok</span>(buf.len())),
+            <span class="prelude-val">Ok</span>(()) =&gt; {
+                <span class="self">self</span>.mark_other_end_readable();
+                Poll::Ready(<span class="prelude-val">Ok</span>(buf.len()))
+            }
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; Poll::Ready(<span class="prelude-val">Err</span>(Into::&lt;std::io::Error&gt;::into(
                 std::io::ErrorKind::BrokenPipe,
             ))),

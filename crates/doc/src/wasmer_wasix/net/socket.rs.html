@@ -1551,13 +1551,53 @@
 <a href="#1550" id="1550">1550</a>
 <a href="#1551" id="1551">1551</a>
 <a href="#1552" id="1552">1552</a>
-<a href="#1553" id="1553">1553</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#1553" id="1553">1553</a>
+<a href="#1554" id="1554">1554</a>
+<a href="#1555" id="1555">1555</a>
+<a href="#1556" id="1556">1556</a>
+<a href="#1557" id="1557">1557</a>
+<a href="#1558" id="1558">1558</a>
+<a href="#1559" id="1559">1559</a>
+<a href="#1560" id="1560">1560</a>
+<a href="#1561" id="1561">1561</a>
+<a href="#1562" id="1562">1562</a>
+<a href="#1563" id="1563">1563</a>
+<a href="#1564" id="1564">1564</a>
+<a href="#1565" id="1565">1565</a>
+<a href="#1566" id="1566">1566</a>
+<a href="#1567" id="1567">1567</a>
+<a href="#1568" id="1568">1568</a>
+<a href="#1569" id="1569">1569</a>
+<a href="#1570" id="1570">1570</a>
+<a href="#1571" id="1571">1571</a>
+<a href="#1572" id="1572">1572</a>
+<a href="#1573" id="1573">1573</a>
+<a href="#1574" id="1574">1574</a>
+<a href="#1575" id="1575">1575</a>
+<a href="#1576" id="1576">1576</a>
+<a href="#1577" id="1577">1577</a>
+<a href="#1578" id="1578">1578</a>
+<a href="#1579" id="1579">1579</a>
+<a href="#1580" id="1580">1580</a>
+<a href="#1581" id="1581">1581</a>
+<a href="#1582" id="1582">1582</a>
+<a href="#1583" id="1583">1583</a>
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a>
+<a href="#1590" id="1590">1590</a>
+<a href="#1591" id="1591">1591</a>
+<a href="#1592" id="1592">1592</a>
+<a href="#1593" id="1593">1593</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     future::Future,
     io,
     mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockWriteGuard},
     task::{Context, Poll},
     time::Duration,
 };
@@ -1786,6 +1826,35 @@
         inner.poll_read_ready(cx)
     }
 
+    <span class="comment">// When a sendto or connect call comes in for a UDP "pre-socket", it must be bound to
+    // an ephemeral port automatically.
+    // Apparently, clippy fails to recognize the write-locked guard being passed into
+    // the other function, hence the `allow` attribute.
+    </span><span class="attr">#[allow(clippy::await_holding_lock, clippy::readonly_write_lock)]
+    </span><span class="kw">pub async fn </span>auto_bind_udp(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
+        net: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualNetworking,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;InodeSocket&gt;, Errno&gt; {
+        <span class="kw">let </span>timeout = <span class="self">self
+            </span>.opt_time(TimeType::BindTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+        <span class="kw">match </span><span class="kw-2">&amp;</span>inner.kind {
+            InodeSocketKind::PreSocket { props, .. } <span class="kw">if </span>props.ty == Socktype::Dgram =&gt; {
+                <span class="kw">let </span>addr = <span class="kw">match </span>props.family {
+                    Addressfamily::Inet4 =&gt; SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), <span class="number">0</span>),
+                    Addressfamily::Inet6 =&gt; SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), <span class="number">0</span>),
+                    <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
+                };
+                <span class="self">Self</span>::bind_internal(tasks, net, addr, timeout, inner).<span class="kw">await
+            </span>}
+            <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
+        }
+    }
+
     <span class="kw">pub async fn </span>bind(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
@@ -1797,9 +1866,20 @@
             .ok()
             .flatten()
             .unwrap_or(Duration::from_secs(<span class="number">30</span>));
+        <span class="kw">let </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
+        <span class="self">Self</span>::bind_internal(tasks, net, set_addr, timeout, inner).<span class="kw">await
+    </span>}
 
+    <span class="comment">// The lock is dropped before awaiting, but clippy doesn't realize it
+    </span><span class="attr">#[allow(clippy::await_holding_lock)]
+    </span><span class="kw">async fn </span>bind_internal(
+        tasks: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualTaskManager,
+        net: <span class="kw-2">&amp;</span><span class="kw">dyn </span>VirtualNetworking,
+        set_addr: SocketAddr,
+        timeout: Duration,
+        <span class="kw-2">mut </span>inner: RwLockWriteGuard&lt;<span class="lifetime">'_</span>, InodeSocketProtected&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;InodeSocket&gt;, Errno&gt; {
         <span class="kw">let </span>socket = {
-            <span class="kw">let </span><span class="kw-2">mut </span>inner = <span class="self">self</span>.inner.protected.write().unwrap();
             <span class="kw">match </span><span class="kw-2">&amp;mut </span>inner.kind {
                 InodeSocketKind::PreSocket { props, addr, .. } =&gt; {
                     <span class="kw">match </span>props.family {
@@ -1836,7 +1916,6 @@
                         Socktype::Dgram =&gt; {
                             <span class="kw">let </span>reuse_port = props.reuse_port;
                             <span class="kw">let </span>reuse_addr = props.reuse_addr;
-                            drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
                         }
@@ -1882,7 +1961,6 @@
                         Socktype::Dgram =&gt; {
                             <span class="kw">let </span>reuse_port = props.reuse_port;
                             <span class="kw">let </span>reuse_addr = props.reuse_addr;
-                            drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
                         }
@@ -1892,6 +1970,8 @@
                 <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(Errno::Notsup),
             }
         };
+
+        drop(inner);
 
         <span class="macro">tokio::select!</span> {
             socket = socket =&gt; {

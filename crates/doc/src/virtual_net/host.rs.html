@@ -1016,7 +1016,14 @@
 <a href="#1015" id="1015">1015</a>
 <a href="#1016" id="1016">1016</a>
 <a href="#1017" id="1017">1017</a>
-<a href="#1018" id="1018">1018</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a></pre></div><pre class="rust"><code><span class="attr">#![allow(unused_variables)]
 </span><span class="kw">use </span><span class="kw">crate</span>::ruleset::{Direction, Ruleset};
 <span class="kw">use crate</span>::{io_err_into_net_error, VirtualIoSource};
 <span class="attr">#[allow(unused_imports)]
@@ -1135,8 +1142,15 @@
 
         <span class="attr">#[cfg(not(windows))]
         </span><span class="kw">let </span>socket = {
-            <span class="kw">let </span>std_sock =
-                Socket::new(Domain::IPV4, Type::DGRAM, <span class="prelude-val">None</span>).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+            <span class="kw">let </span>domain = <span class="kw">if </span>addr.is_ipv4() {
+                Domain::IPV4
+            } <span class="kw">else </span>{
+                Domain::IPV6
+            };
+            <span class="kw">let </span>std_sock = Socket::new(domain, Type::DGRAM, <span class="prelude-val">None</span>).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
+            std_sock
+                .set_nonblocking(<span class="bool-val">true</span>)
+                .map_err(io_err_into_net_error)<span class="question-mark">?</span>;
             std_sock
                 .set_reuse_address(reuse_addr)
                 .map_err(io_err_into_net_error)<span class="question-mark">?</span>;

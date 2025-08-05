@@ -205,14 +205,7 @@
 <a href="#204" id="204">204</a>
 <a href="#205" id="205">205</a>
 <a href="#206" id="206">206</a>
-<a href="#207" id="207">207</a>
-<a href="#208" id="208">208</a>
-<a href="#209" id="209">209</a>
-<a href="#210" id="210">210</a>
-<a href="#211" id="211">211</a>
-<a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a>
-<a href="#214" id="214">214</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
+<a href="#207" id="207">207</a></pre></div><pre class="rust"><code><span class="kw">use </span>serde::{Deserialize, Serialize};
 <span class="kw">use </span>wasmer_wasix_types::wasi::{
     EpollCtl, EpollData, EpollEvent, EpollType, SubscriptionClock, Userdata,
 };
@@ -298,13 +291,6 @@
                                 <span class="kw">continue</span>;
                             }
                         };
-
-                        <span class="comment">// We have to renew any joins that have now been spent
-                        </span><span class="kw">for </span>join <span class="kw">in </span>joins {
-                            <span class="kw">if </span>join.is_spent() {
-                                join.renew();
-                            }
-                        }
 
                         <span class="comment">// Record the event
                         </span>ret.push((fd.clone(), readiness));

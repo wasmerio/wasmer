@@ -123,7 +123,7 @@
     }
 
     <span class="kw">pub fn </span>apply_sock_send_to&lt;M: MemorySize&gt;(
-        ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+        ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
         sock: Fd,
         si_data: Cow&lt;<span class="lifetime">'_</span>, [u8]&gt;,
         si_flags: SiFlags,

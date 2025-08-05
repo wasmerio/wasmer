@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["EpollJoinGuard","Kind"],"struct":["EpollFd","EpollInterest","Fd","FdInner","InodeVal"],"type":["EpollSubscriptions"]};
+window.SIDEBAR_ITEMS = {"enum":["Kind"],"struct":["EpollFd","EpollInterest","EpollJoinGuard","Fd","FdInner","InodeVal"],"type":["EpollSubscriptions"]};
