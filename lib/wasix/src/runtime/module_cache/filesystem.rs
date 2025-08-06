@@ -7,7 +7,6 @@ use wasmer::{Engine, Module};
 
 use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
 use crate::runtime::task_manager::tokio::TokioTaskManager;
-use crate::runtime::task_manager::VirtualTaskManagerExt;
 
 /// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
@@ -38,6 +37,94 @@ impl FileSystemCache {
     }
 }
 
+/// Loads a module from the filesystem cache.
+/// 
+/// A tokio reactor must be available
+#[tracing::instrument(level = "debug", skip_all, fields(? path))]
+async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
+    let bytes = read_file(&path).await?;
+    let deserialized = tokio::task::spawn_blocking(move || deserialize(&bytes, &engine))
+        .await
+        .unwrap();
+    match deserialized {
+        Ok(m) => {
+            tracing::debug!("Cache hit!");
+            Ok(m)
+        }
+        Err(e) => {
+            tracing::debug!(
+                path=%path.display(),
+                error=&e as &dyn std::error::Error,
+                "Deleting the cache file because the artifact couldn't be deserialized",
+            );
+
+            if let Err(e) = std::fs::remove_file(&path) {
+                tracing::warn!(
+                    path=%path.display(),
+                    error=&e as &dyn std::error::Error,
+                    "Unable to remove the corrupted cache file",
+                );
+            }
+            Err(e)
+        }
+    }
+}
+
+/// Checks if the path exists in the filesystem cache.
+/// 
+/// A tokio reactor must be available
+async fn tokio_contains(path: PathBuf) -> Result<bool, CacheError> {
+    tokio::fs::try_exists(&path)
+        .await
+        .map_err(|e| CacheError::FileRead {
+            path: path.clone(),
+            error: e,
+        })
+}
+
+/// Saves the module to the filesystem cache.
+/// 
+/// A tokio reactor must be available
+#[tracing::instrument(level = "debug", skip_all, fields(? path))]
+async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
+    let parent = path
+        .parent()
+        .expect("Unreachable - always created by joining onto cache_dir");
+
+    if let Err(e) = tokio::fs::create_dir_all(parent).await {
+        tracing::warn!(
+            dir=%parent.display(),
+            error=&e as &dyn std::error::Error,
+            "Unable to create the cache directory",
+        );
+    }
+
+    // Note: We save to a temporary file and persist() it at the end so
+    // concurrent readers won't see a partially written module.
+    let (file, temp) = NamedTempFile::new_in(parent)
+        .map_err(CacheError::other)?
+        .into_parts();
+
+    let mut file = tokio::fs::File::from_std(file);
+
+    let serialized = tokio::task::spawn_blocking(move || module.serialize())
+        .await
+        .unwrap()?;
+
+    let mut writer = tokio::io::BufWriter::new(&mut file);
+    if let Err(error) = writer.write_all(&serialized).await {
+        return Err(CacheError::FileWrite { path, error });
+    }
+    if let Err(error) = writer.flush().await {
+        return Err(CacheError::FileWrite { path, error });
+    }
+
+    temp.persist(&path).map_err(CacheError::other)?;
+    tracing::debug!(path=%path.display(), "Saved to disk");
+
+    Ok(())
+}
+
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
@@ -45,43 +132,25 @@ impl ModuleCache for FileSystemCache {
         let path = self.path(key, &engine.deterministic_id());
         let engine = engine.clone();
 
-        let bytes = read_file(&path).await?;
-
-        match deserialize(&bytes, &engine) {
-            Ok(m) => {
-                tracing::debug!("Cache hit!");
-                Ok(m)
-            }
-            Err(e) => {
-                tracing::debug!(
-                    %key,
-                    path=%path.display(),
-                    error=&e as &dyn std::error::Error,
-                    "Deleting the cache file because the artifact couldn't be deserialized",
-                );
-
-                if let Err(e) = std::fs::remove_file(&path) {
-                    tracing::warn!(
-                        %key,
-                        path=%path.display(),
-                        error=&e as &dyn std::error::Error,
-                        "Unable to remove the corrupted cache file",
-                    );
-                }
-                
-                Err(e)
-            }
-        }
+        // Use the bundled tokio runtime instead of the given async runtime
+        // This is necessary because this function can also be called with a futures_executor
+        self.task_manager
+            .runtime_handle()
+            .spawn(tokio_load(path, engine))
+            .await
+            .unwrap()
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
         let path = self.path(key, &engine.deterministic_id());
-        tokio::fs::try_exists(&path)
+
+        // Use the bundled tokio runtime instead of the given async runtime
+        // This is necessary because this function can also be called with a futures_executor
+        self.task_manager
+            .runtime_handle()
+            .spawn(tokio_contains(path))
             .await
-            .map_err(|e| CacheError::FileRead {
-                path: path.clone(),
-                error: e,
-            })
+            .unwrap()
     }
 
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
@@ -92,53 +161,13 @@ impl ModuleCache for FileSystemCache {
         module: &Module,
     ) -> Result<(), CacheError> {
         let path = self.path(key, &engine.deterministic_id());
+        let module = module.clone();
 
+        // Use the bundled tokio runtime instead of the given async runtime
+        // This is necessary because this function can also be called with a futures_executor
         self.task_manager
             .runtime_handle()
-            .spawn({
-                let task_manager = self.task_manager.clone();
-                let module = module.clone();
-
-                async move {
-                    let parent = path
-                        .parent()
-                        .expect("Unreachable - always created by joining onto cache_dir");
-
-                    if let Err(e) = tokio::fs::create_dir_all(parent).await {
-                        tracing::warn!(
-                            dir=%parent.display(),
-                            error=&e as &dyn std::error::Error,
-                            "Unable to create the cache directory",
-                        );
-                    }
-
-                    // Note: We save to a temporary file and persist() it at the end so
-                    // concurrent readers won't see a partially written module.
-                    let (file, temp) = NamedTempFile::new_in(parent)
-                        .map_err(CacheError::other)?
-                        .into_parts();
-
-                    let mut file = tokio::fs::File::from_std(file);
-
-                    let serialized = task_manager
-                        .spawn_await(move || module.serialize())
-                        .await
-                        .unwrap()?;
-
-                    let mut writer = tokio::io::BufWriter::new(&mut file);
-                    if let Err(error) = writer.write_all(&serialized).await {
-                        return Err(CacheError::FileWrite { path, error });
-                    }
-                    if let Err(error) = writer.flush().await {
-                        return Err(CacheError::FileWrite { path, error });
-                    }
-
-                    temp.persist(&path).map_err(CacheError::other)?;
-                    tracing::debug!(path=%path.display(), "Saved to disk");
-
-                    Ok(())
-                }
-            })
+            .spawn(tokio_save(path, module))
             .await
             .unwrap()
     }
