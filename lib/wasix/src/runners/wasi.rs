@@ -394,35 +394,28 @@ impl WasiRunner {
         let runtime = env.runtime.clone();
         let tasks = runtime.task_manager().clone();
 
-        let exit_code = tasks.spawn_and_block_on(
-            async move {
-                let mut task_handle = crate::bin_factory::spawn_exec_module(module, env, &runtime)
-                    .context("Spawn failed")?;
+        let mut task_handle =
+            crate::bin_factory::spawn_exec_module(module, env, &runtime).context("Spawn failed")?;
 
-                #[cfg(feature = "ctrlc")]
-                task_handle.install_ctrlc_handler();
+        #[cfg(feature = "ctrlc")]
+        task_handle.install_ctrlc_handler();
+        let task_handle = async move { task_handle.wait_finished().await }.in_current_span();
 
-                task_handle
-                    .wait_finished()
-                    .await
-                    .map_err(|err| {
-                        // We do our best to recover the error
-                        let msg = err.to_string();
-                        let weak = Arc::downgrade(&err);
-                        Arc::into_inner(err).unwrap_or_else(|| {
-                            weak.upgrade()
-                                .map(|err| wasi_runtime_error_to_owned(&err))
-                                .unwrap_or_else(|| {
-                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
-                                        "{}", msg
-                                    )))
-                                })
+        let result = tasks.spawn_and_block_on(task_handle)?;
+        let exit_code = result
+            .map_err(|err| {
+                // We do our best to recover the error
+                let msg = err.to_string();
+                let weak = Arc::downgrade(&err);
+                Arc::into_inner(err).unwrap_or_else(|| {
+                    weak.upgrade()
+                        .map(|err| wasi_runtime_error_to_owned(&err))
+                        .unwrap_or_else(|| {
+                            WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("{}", msg)))
                         })
-                    })
-                    .context("Unable to wait for the process to exit")
-            }
-            .in_current_span(),
-        )??;
+                })
+            })
+            .context("Unable to wait for the process to exit")?;
 
         if exit_code.raw() == 0 {
             Ok(())
@@ -503,6 +496,12 @@ impl WasiRunner {
         let tasks = runtime.task_manager().clone();
         let pkg = pkg.clone();
 
+        // TODO: This will NOT work when loading shared libraries, because of the FileSystemCache
+        //
+        // Wrapping the call to `spawn_and_block_on` in a call to `spawn_await` could help to prevent deadlocks
+        // because then blocking in here won't block the tokio runtime
+        //
+        // See run_wasm above for a possible fix
         let exit_code = tasks.spawn_and_block_on(
             async move {
                 let mut task_handle =

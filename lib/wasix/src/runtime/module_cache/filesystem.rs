@@ -38,7 +38,7 @@ impl FileSystemCache {
 }
 
 /// Loads a module from the filesystem cache.
-/// 
+///
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
@@ -71,7 +71,7 @@ async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError>
 }
 
 /// Checks if the path exists in the filesystem cache.
-/// 
+///
 /// A tokio reactor must be available
 async fn tokio_contains(path: PathBuf) -> Result<bool, CacheError> {
     tokio::fs::try_exists(&path)
@@ -83,7 +83,7 @@ async fn tokio_contains(path: PathBuf) -> Result<bool, CacheError> {
 }
 
 /// Saves the module to the filesystem cache.
-/// 
+///
 /// A tokio reactor must be available
 #[tracing::instrument(level = "debug", skip_all, fields(? path))]
 async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
