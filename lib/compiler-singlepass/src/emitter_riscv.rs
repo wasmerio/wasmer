@@ -144,8 +144,8 @@ impl EmitterRiscv for Assembler {
     fn emit_ld(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
+                let reg = reg.into_index();
+                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
@@ -190,27 +190,27 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; addw X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), imm as _);
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; fadd.d F(dst), F(src1), F(src2));
             }
             // TODO: add more variants
@@ -234,20 +234,20 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; sub X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; subw X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), -(imm as i32) as _);
             }
