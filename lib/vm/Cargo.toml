@@ -54,9 +54,6 @@ rustversion = "1.0"
 [badges]
 maintenance = { status = "actively-developed" }
 
-[lints.rust]
-unexpected_cfgs = { level = "warn", check-cfg = ['cfg(missing_rust_probestack)'] }
-
 [features]
 default = []
 enable-serde = ["serde", "indexmap/serde", "wasmer-types/enable-serde"]
