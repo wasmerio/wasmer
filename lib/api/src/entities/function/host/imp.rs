@@ -94,7 +94,7 @@ macro_rules! impl_host_function {
                         #[cfg(feature = "singlepass")]
                         crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "js")]
-                        crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "jsc")]
                         crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
                         #[cfg(feature = "wamr")]

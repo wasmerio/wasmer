@@ -143,7 +143,7 @@ impl Module {
         &self,
         store: &mut Store,
         imports: &[crate::Extern],
-    ) -> Result<VMInstance<Store::Object>, InstantiationError> {
+    ) -> Result<VMInstance, InstantiationError> {
         if !self.artifact.allocated() {
             // Return an error mentioning that the artifact is compiled for a different
             // platform.

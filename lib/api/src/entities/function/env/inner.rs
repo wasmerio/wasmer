@@ -88,10 +88,7 @@ impl<T> BackendFunctionEnv<T> {
 
     /// Convert it into a `FunctionEnvMut`
     // TODO consider taking the `AsStoreMut` directly
-    pub fn into_mut<S: AsStoreMut>(self, store: &mut S) -> FunctionEnvMut<'_, T, S::Object>
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn into_mut<S: AsStoreMut<Object: Upcast<T>>>(self, store: &mut S) -> FunctionEnvMut<'_, T, S::Object> {
         match_rt!(on self => f {
             f.into_mut(store).into()
         })

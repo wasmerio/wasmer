@@ -27,7 +27,7 @@ macro_rules! define_vm_like {
             V8(crate::backend::v8::vm::[<VM $name>]),
 
             #[cfg(feature = "js")]
-            Js(crate::backend::js::vm::[<VM $name>]),
+            Js(crate::backend::js::vm::[<VM $name>] $(<$($params),*>)?),
 
             #[cfg(feature = "jsc")]
             Jsc(crate::backend::jsc::vm::[<VM $name>]),
@@ -259,7 +259,7 @@ define_vm_like!(ExternTable);
 define_vm_like!(FunctionCallback);
 define_vm_like!(FunctionBody);
 define_vm_like!(FunctionEnvironment, derive(Debug));
-define_vm_like!(Instance<Object = BoxStoreObject>, derive_where::derive_where(Debug));
+define_vm_like!(Instance, derive(Debug));
 define_vm_like!(Trampoline);
 
 //define_vm_like!(Config);

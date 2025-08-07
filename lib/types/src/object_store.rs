@@ -9,6 +9,7 @@ pub type LocalBoxStoreObject = Box<dyn Any>;
 
 /// TODO document
 // TODO is this name too low-level?
+// TODO this would probably be nicer swapping `Self` and `T`
 pub trait Upcast<T>: Sized {
     /// TODO document
     fn upcast(value: T) -> Self;
