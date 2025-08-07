@@ -513,14 +513,13 @@ fn issue_4519_sdiv64(mut config: crate::Config) -> Result<()> {
 ///
 /// https://github.com/wasmerio/wasmer/issues/5309
 fn issue_5309_reftype_panic(mut config: crate::Config) -> Result<()> {
-    let wat = format!(
-        r#"
+    let wat = r#"
       (module
         (type $x1 (func (param funcref)))
         (import "env" "abort" (func $f (type $x1)))
       )
-    "#,
-    );
+    "#
+    .to_string();
 
     let mut store = config.store();
     let _ = Module::new(&store, wat);
