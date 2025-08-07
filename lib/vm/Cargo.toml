@@ -49,6 +49,7 @@ windows-sys = { version = "0.59", features = [
 
 [build-dependencies]
 cc = "1.0"
+rustversion = "1.0"
 
 [badges]
 maintenance = { status = "actively-developed" }
