@@ -7,7 +7,7 @@ use std::mem;
 use std::ptr::{self, NonNull};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::VMOffsets;
-use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
+use wasmer_types::{BoxStoreObject, LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 
 /// This is an intermediate type that manages the raw allocation and
 /// metadata when creating an [`Instance`].
@@ -27,9 +27,9 @@ use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 /// layout to represent the wanted [`Instance`].
 ///
 /// Then we use this layout to allocate an empty `Instance` properly.
-pub struct InstanceAllocator {
+pub struct InstanceAllocator<Object = BoxStoreObject> {
     /// The buffer that will contain the [`Instance`] and dynamic fields.
-    instance_ptr: NonNull<Instance>,
+    instance_ptr: NonNull<Instance<Object>>,
 
     /// The layout of the `instance_ptr` buffer.
     instance_layout: Layout,
@@ -44,7 +44,7 @@ pub struct InstanceAllocator {
     consumed: bool,
 }
 
-impl Drop for InstanceAllocator {
+impl<Object> Drop for InstanceAllocator<Object> {
     fn drop(&mut self) {
         if !self.consumed {
             // If `consumed` has not been set, then we still have ownership
@@ -58,7 +58,7 @@ impl Drop for InstanceAllocator {
     }
 }
 
-impl InstanceAllocator {
+impl<Object> InstanceAllocator<Object> {
     /// Allocates instance data for use with [`VMInstance::new`].
     ///
     /// Returns a wrapper type around the allocation and 2 vectors of
@@ -79,7 +79,7 @@ impl InstanceAllocator {
         let instance_layout = Self::instance_layout(&offsets);
 
         #[allow(clippy::cast_ptr_alignment)]
-        let instance_ptr = unsafe { alloc::alloc(instance_layout) as *mut Instance };
+        let instance_ptr = unsafe { alloc::alloc(instance_layout) as *mut Instance<Object> };
 
         let instance_ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
             ptr
@@ -188,7 +188,7 @@ impl InstanceAllocator {
 
     /// Finish preparing by writing the [`Instance`] into memory, and
     /// consume this `InstanceAllocator`.
-    pub(crate) fn into_vminstance(mut self, instance: Instance) -> VMInstance {
+    pub(crate) fn into_vminstance(mut self, instance: Instance<Object>) -> VMInstance<Object> {
         // Prevent the old state's drop logic from being called as we
         // transition into the new state.
         self.consumed = true;

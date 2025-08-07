@@ -6,7 +6,7 @@ use wasmer_types::{
     FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
     MemoryIndex, MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
 };
-use wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects, VMTag};
+use wasmer_vm::{MemoryError, VMTag};
 use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{VMConfig, VMGlobal, VMMemory, VMTable};
 use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
@@ -69,11 +69,10 @@ pub trait Tunables {
     #[allow(clippy::result_large_err)]
     unsafe fn create_memories(
         &self,
-        context: &mut StoreObjects,
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         memory_definition_locations: &[NonNull<VMMemoryDefinition>],
-    ) -> Result<PrimaryMap<LocalMemoryIndex, InternalStoreHandle<VMMemory>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalMemoryIndex, VMMemory>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
@@ -86,11 +85,10 @@ pub trait Tunables {
             let mi = MemoryIndex::new(index);
             let ty = &module.memories[mi];
             let style = &memory_styles[mi];
-            memories.push(InternalStoreHandle::new(
-                context,
+            memories.push(
                 self.create_vm_memory(ty, style, *mdl)
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {e}")))?,
-            ));
+            );
         }
         Ok(memories)
     }
@@ -103,11 +101,10 @@ pub trait Tunables {
     #[allow(clippy::result_large_err)]
     unsafe fn create_tables(
         &self,
-        context: &mut StoreObjects,
         module: &ModuleInfo,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         table_definition_locations: &[NonNull<VMTableDefinition>],
-    ) -> Result<PrimaryMap<LocalTableIndex, InternalStoreHandle<VMTable>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalTableIndex, VMTable>, LinkError> {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
@@ -120,11 +117,9 @@ pub trait Tunables {
             let ti = TableIndex::new(index);
             let ty = &module.tables[ti];
             let style = &table_styles[ti];
-            tables.push(InternalStoreHandle::new(
-                context,
-                self.create_vm_table(ty, style, *tdl)
-                    .map_err(LinkError::Resource)?,
-            ));
+            tables.push(self.create_vm_table(ty, style, *tdl)
+                        .map_err(LinkError::Resource)?,
+            );
         }
         Ok(tables)
     }
@@ -134,9 +129,8 @@ pub trait Tunables {
     #[allow(clippy::result_large_err)]
     fn create_tags(
         &self,
-        context: &mut StoreObjects,
         module: &ModuleInfo,
-    ) -> Result<PrimaryMap<LocalTagIndex, InternalStoreHandle<VMTag>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalTagIndex, VMTag>, LinkError> {
         let num_imports = module.num_imported_tags;
         let mut vmctx_tags = PrimaryMap::with_capacity(module.tags.len() - num_imports);
 
@@ -148,11 +142,10 @@ pub trait Tunables {
                     "Could not find matching signature for tag index {tag_type:?}"
                 )));
             };
-            vmctx_tags.push(InternalStoreHandle::new(
-                context,
+            vmctx_tags.push(
                 self.create_tag(wasmer_types::TagKind::Exception, sig_ty.clone())
                     .map_err(LinkError::Resource)?,
-            ));
+            );
         }
 
         Ok(vmctx_tags)
@@ -163,18 +156,16 @@ pub trait Tunables {
     #[allow(clippy::result_large_err)]
     fn create_globals(
         &self,
-        context: &mut StoreObjects,
         module: &ModuleInfo,
-    ) -> Result<PrimaryMap<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>, LinkError> {
+    ) -> Result<PrimaryMap<LocalGlobalIndex, VMGlobal>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
         for &global_type in module.globals.values().skip(num_imports) {
-            vmctx_globals.push(InternalStoreHandle::new(
-                context,
+            vmctx_globals.push(
                 self.create_global(global_type)
                     .map_err(LinkError::Resource)?,
-            ));
+            );
         }
 
         Ok(vmctx_globals)

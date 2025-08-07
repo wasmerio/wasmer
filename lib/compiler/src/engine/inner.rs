@@ -16,10 +16,9 @@ use crate::{Compiler, CompilerConfig};
 use shared_buffer::OwnedBuffer;
 
 #[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
+use std::{path::Path, io::Write};
 use std::sync::{Arc, Mutex};
 use std::{
-    io::Write,
     sync::atomic::{AtomicUsize, Ordering::SeqCst},
 };
 
@@ -27,10 +26,10 @@ use std::{
 use wasmer_types::Features;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo,
     SignatureIndex,
 };
-use wasmer_types::{target::Target, CompileError, HashAlgorithm, ModuleInfo};
+use wasmer_types::{target::Target, CompileError, HashAlgorithm};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -98,10 +97,9 @@ impl Engine {
 
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> String {
-        let i = self.inner();
         #[cfg(feature = "compiler")]
         {
-            if let Some(ref c) = i.compiler {
+            if let Some(ref c) = self.inner().compiler {
                 return c.deterministic_id();
             } else {
                 return self.name.clone();
@@ -307,6 +305,9 @@ impl Engine {
         &mut self,
         suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
+        // `suggested_opts` will not be used if cfg(not(feature = "compiler")).
+        #![allow(unused_variables)]
+
         #[cfg(feature = "compiler")]
         {
             let mut i = self.inner_mut();

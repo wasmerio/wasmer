@@ -51,6 +51,7 @@ loupe = { workspace = true, optional = true, features = [
 ] }
 paste = "1.0.15"
 derive_more = { workspace = true, features = ["from", "debug"] }
+derive-where = "1.5.0"
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

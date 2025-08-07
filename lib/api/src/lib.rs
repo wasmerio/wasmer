@@ -185,7 +185,7 @@
 //! only perform computation without side effects and call other functions.
 //!
 //! Wasm functions take 0 or more arguments and return 0 or more results.
-//! Wasm functions can only deal with the primitive types defined in
+//! Wasm functions can only deal with the primitive type sdefined in
 //! [`Value`].
 //!
 //! A Host function is any function implemented on the host, in this case in
@@ -439,11 +439,12 @@ pub use backend::*;
 mod vm;
 
 pub use wasmer_types::{
-    is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
-    FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
-    MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableStyle, TableType, TagKind, TagType, Type, ValueType, WasmError, WasmResult,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    is_wasm, BoxStoreObject, LocalBoxStoreObject, Bytes, CompileError, DeserializeError,
+    ExportIndex, ExportType, ExternType, FrameInfo, FunctionType, GlobalInit, GlobalType,
+    ImportType, LocalFunctionIndex, MemoryError, MemoryStyle, MemoryType, Mutability,
+    OnCalledAction, Pages, ParseCpuFeatureError, SerializeError, TableStyle, TableType, TagKind,
+    TagType, Type, Upcast, ValueType, WasmError, WasmResult, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 
 #[cfg(feature = "wasmparser")]

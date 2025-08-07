@@ -799,12 +799,12 @@ impl VMContext {
     #[allow(clippy::cast_ptr_alignment)]
     #[inline]
     pub(crate) unsafe fn instance(&self) -> &Instance {
-        &*((self as *const Self as *mut u8).offset(-Instance::vmctx_offset()) as *const Instance)
+        &*((self as *const Self as *mut u8).offset(-Instance::<()>::vmctx_offset()) as *const Instance)
     }
 
     #[inline]
     pub(crate) unsafe fn instance_mut(&mut self) -> &mut Instance {
-        &mut *((self as *const Self as *mut u8).offset(-Instance::vmctx_offset()) as *mut Instance)
+        &mut *((self as *const Self as *mut u8).offset(-Instance::<()>::vmctx_offset()) as *mut Instance)
     }
 }
 

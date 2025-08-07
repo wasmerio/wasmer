@@ -5,7 +5,9 @@ use crate::{
     StoreMut,
 };
 
-use wasmer_vm::{StoreHandle, StoreObject, StoreObjects, VMFunctionEnvironment};
+use wasmer_vm::{StoreHandle, StoreObjects, VMFunctionEnvironment};
+
+use wasmer_types::{Upcast, ObjectStoreOf};
 
 #[derive(Debug)]
 #[repr(transparent)]
@@ -18,28 +20,19 @@ pub struct FunctionEnv<T> {
 
 impl<T> FunctionEnv<T> {
     /// Make a new FunctionEnv
-    pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn new(store: &mut impl AsStoreMut<Object: Upcast<T>>, value: T) -> Self {
         Self {
-            handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                VMFunctionEnvironment::new(value),
-            ),
+            handle: store.as_store_mut().objects_mut().as_sys_mut().insert(VMFunctionEnvironment::new(value)),
             marker: PhantomData,
         }
     }
 
     /// Get the data as reference
-    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef<Object: Upcast<T>>) -> &'a T {
         self.handle
             .get(store.as_store_ref().objects().as_sys())
             .as_ref()
-            .downcast_ref::<T>()
+            .downcast_ref()
             .unwrap()
     }
 
@@ -52,20 +45,18 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Get the data as mutable
-    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut<Object: Upcast<T>>) -> &'a mut T {
         self.handle
             .get_mut(store.objects_mut().as_sys_mut())
             .as_mut()
-            .downcast_mut::<T>()
+            .downcast_mut()
             .unwrap()
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<T>
+    pub fn into_mut<S>(self, store: &mut S) -> FunctionEnvMut<'_, T, S::Object>
     where
+        S: AsStoreMut,
         T: Any + Send + 'static + Sized,
     {
         FunctionEnvMut {
@@ -126,21 +117,18 @@ impl<T> Clone for FunctionEnv<T> {
 }
 
 /// A temporary handle to a [`FunctionEnv`].
-pub struct FunctionEnvMut<'a, T: 'a> {
-    pub(crate) store_mut: StoreMut<'a>,
+pub struct FunctionEnvMut<'a, T, Object> {
+    pub(crate) store_mut: StoreMut<'a, Object>,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
-impl<T> Debug for FunctionEnvMut<'_, T>
-where
-    T: Send + Debug + 'static,
-{
+impl<T: Debug, Object: Upcast<T>> Debug for FunctionEnvMut<'_, T, Object> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.func_env.as_ref(&self.store_mut).fmt(f)
     }
 }
 
-impl<T: Send + 'static> FunctionEnvMut<'_, T> {
+impl<T, Object: Upcast<T>> FunctionEnvMut<'_, T, Object> {
     /// Returns a reference to the host state in this function environement.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.store_mut)
@@ -157,7 +145,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
+    pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T, Object> {
         FunctionEnvMut {
             store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
@@ -165,7 +153,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_, Object>) {
         let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
@@ -176,28 +164,30 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 }
 
-impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<T, Object> AsStoreRef for FunctionEnvMut<'_, T, Object> {
+    type Object = Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef {
             inner: self.store_mut.inner,
         }
     }
 }
 
-impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+impl<T, Object> AsStoreMut for FunctionEnvMut<'_, T, Object> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object> {
         StoreMut {
             inner: self.store_mut.inner,
         }
     }
 
-    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects<Self::Object> {
         self.store_mut.objects_mut()
     }
 }
 
-impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
-    fn from(value: FunctionEnvMut<'a, T>) -> Self {
+impl<'a, T, Object> From<FunctionEnvMut<'a, T, Object>> for crate::FunctionEnvMut<'a, T, Object> {
+    fn from(value: FunctionEnvMut<'a, T, Object>) -> Self {
         crate::FunctionEnvMut(crate::BackendFunctionEnvMut::Sys(value))
     }
 }

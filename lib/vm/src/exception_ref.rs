@@ -1,7 +1,5 @@
 use std::any::Any;
-use wasmer_types::RawValue;
-
-use crate::store::InternalStoreHandle;
+use wasmer_types::{InternalStoreHandle, RawValue};
 
 /// Underlying object referenced by a `VMExceptionRef`.
 #[derive(Debug)]

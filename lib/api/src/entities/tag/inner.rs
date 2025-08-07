@@ -12,10 +12,11 @@ use crate::{
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-gen_rt_ty!(Tag
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub(crate) BackendTag(tag::Tag);
+}
 
 impl BackendTag {
     /// Create a new tag with event of type P -> [], that is a function that takes parameters `P`

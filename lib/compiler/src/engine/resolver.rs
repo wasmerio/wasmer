@@ -44,7 +44,7 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 }
 
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
-fn get_extern_type(context: &StoreObjects, extern_: &VMExtern) -> ExternType {
+fn get_extern_type<Object>(context: &StoreObjects<Object>, extern_: &VMExtern) -> ExternType {
     match extern_ {
         VMExtern::Tag(f) => ExternType::Tag(wasmer_types::TagType::from_fn_type(
             wasmer_types::TagKind::Exception,
@@ -60,7 +60,7 @@ fn get_extern_type(context: &StoreObjects, extern_: &VMExtern) -> ExternType {
     }
 }
 
-fn get_runtime_size(context: &StoreObjects, extern_: &VMExtern) -> Option<u32> {
+fn get_runtime_size<Object>(context: &StoreObjects<Object>, extern_: &VMExtern) -> Option<u32> {
     match extern_ {
         VMExtern::Table(t) => Some(t.get(context).get_runtime_size()),
         VMExtern::Memory(m) => Some(m.get(context).get_runtime_size()),
@@ -73,10 +73,10 @@ fn get_runtime_size(context: &StoreObjects, extern_: &VMExtern) -> Option<u32> {
 ///
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 #[allow(clippy::result_large_err)]
-pub fn resolve_imports(
+pub fn resolve_imports<Object>(
     module: &ModuleInfo,
     imports: &[VMExtern],
-    context: &mut StoreObjects,
+    context: &mut StoreObjects<Object>,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,

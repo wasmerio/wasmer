@@ -1,5 +1,5 @@
 use wasm_bindgen::{prelude::*, JsValue};
-use wasmer_types::{GlobalType, Mutability, RawValue, Type};
+use wasmer_types::{GlobalType, Mutability, ObjectStoreOf as _, RawValue, StoreHandle, Type};
 
 use crate::{
     js::vm::VMGlobal,
@@ -135,10 +135,10 @@ impl Global {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_global: VMExternGlobal) -> Self {
-        use crate::js::store::StoreObject;
-        VMGlobal::list_mut(store.objects_mut().as_js_mut()).push(vm_global.as_js().clone());
+        let handle = vm_global.into_js();
+        let _: StoreHandle<VMGlobal> = store.objects_mut().as_js_mut().insert(handle.clone());
         Self {
-            handle: vm_global.into_js(),
+            handle,
         }
     }
 
