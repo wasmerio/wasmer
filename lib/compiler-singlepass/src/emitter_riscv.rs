@@ -327,27 +327,21 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_mov_imm(&mut self, dst: Location, val: i64) -> Result<(), CompileError> {
-        // TODO: support also bigger immediates than u32::MAX
-        assert!(i32::MIN as i64 <= val && val <= i32::MAX as i64);
-        let val = val as i32;
+        // The number of used bits by the number including the sign bit.
+        let used_bits = i64::BITS - val.abs().leading_zeros() + 1;
+
         match dst {
             Location::GPR(dst) => {
-                let dst = dst.into_index() as u32;
-                // The final value is compound of sum of HI20 and LO12, thus we need to handle:
-                // -10i32 (0xfffffff6) should become 0x0 (HI20) and 0xff6 (LO12).
-                // NOTE the dynasm uses a different format for the upper part in LUI:
-                // https://github.com/CensoredUsername/dynasm-rs/blob/00dc400ac0a553b378b86e797c886c0b585ecf35/doc/langref_riscv.md#upper-immediate-instructions
-                let upper = (((val as u32).wrapping_add(0x800)) & !0xfff) as i32;
+                let dst = dst.into_index();
 
-                let mut lower = (val & 0xfff) as i32;
-                /* TODO: This is unfortunate as the expected argument is signed integer, and thus
-                we must do wrapping arithmetics.  */
-                if lower >= 2048 {
-                    lower -= 4096;
+                match used_bits {
+                    0..=12 => dynasm!(self ; li.12 X(dst), val as _),
+                    13..=32 => dynasm!(self ; li.32 X(dst), val as _),
+                    33..=43 => dynasm!(self ; li.43 X(dst), val),
+                    44..=54 => dynasm!(self ; li.54 X(dst), val),
+                    55..=64 => dynasm!(self ; li X(dst), val),
+                    _ => unreachable!(),
                 }
-                dynasm!(self
-                    ; lui X(dst), upper
-                    ; addi X(dst), X(dst), lower);
             }
             _ => codegen_error!("singlepass can't emit MOVW {:?}", dst),
         }
