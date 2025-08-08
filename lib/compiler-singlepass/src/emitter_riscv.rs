@@ -343,7 +343,7 @@ impl EmitterRiscv for Assembler {
                 /* TODO: This is unfortunate as the expected argument is signed integer, and thus
                 we must do wrapping arithmetics.  */
                 if lower >= 2048 {
-                    lower = lower - 4096;
+                    lower -= 4096;
                 }
                 dynasm!(self
                     ; lui X(dst), upper

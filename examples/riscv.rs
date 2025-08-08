@@ -223,6 +223,44 @@ fn test_simple_sum_fp() -> Result<(), Box<dyn std::error::Error>> {
     Ok(())
 }
 
+fn test_snippet() -> Result<(), Box<dyn std::error::Error>> {
+    let wasm_bytes = wat2wasm(
+        r#"
+    (module
+    (type $sum_t (func (param i64 i64) (result i64)))
+    (func $sum_f (type $sum_t)
+        (param $p1 i64)
+        (param $p2 i64)
+        (result i64)
+    local.get $p1
+    local.get $p2
+    i64.add)
+    (export "sum" (func $sum_f)))
+    "#
+        .as_bytes(),
+    )?;
+
+    let compiler = Singlepass::default();
+    let mut store = Store::new(compiler);
+
+    println!("Compiling module...");
+    let module = Module::new(&store, wasm_bytes)?;
+
+    // Create an empty import object.
+    let import_object = imports! {};
+
+    println!("Instantiating module...");
+    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let sample = instance.exports.get_function("sum")?;
+
+    println!("Calling `fn` function...");
+    let args = [Value::I64(5), Value::I64(i64::MIN)];
+    let result = sample.call(&mut store, &args)?;
+    println!("Results: {:?}", result);
+
+    Ok(())
+}
+
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     test_simple_sum_fp()?;
     println!();
@@ -230,7 +268,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!();
     test_sum_generated()?;
     println!();
-    test_fib(25)?;
+    test_fib(7)?;
+
+    println!();
+    test_snippet()?;
 
     Ok(())
 }
