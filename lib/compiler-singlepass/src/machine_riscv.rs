@@ -180,6 +180,32 @@ impl MachineRiscv {
                 }
                 Ok(Location::GPR(tmp))
             }
+            Location::Imm8(_) | Location::Imm32(_) | Location::Imm64(_) => {
+                let imm = match src {
+                    Location::Imm8(val) => val as i64,
+                    Location::Imm32(val) => val as i64,
+                    Location::Imm64(val) => val as i64,
+                    _ => unreachable!(),
+                };
+
+                if imm == 0 {
+                    Ok(Location::GPR(GPR::XZero))
+                } else if allow_imm.compatible_imm(imm) {
+                    Ok(src)
+                } else {
+                    let tmp = if let Some(wanted) = wanted {
+                        wanted
+                    } else {
+                        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                        })?;
+                        temps.push(tmp);
+                        tmp
+                    };
+                    self.assembler.emit_mov_imm(Location::GPR(tmp), imm as _)?;
+                    Ok(Location::GPR(tmp))
+                }
+            }
             _ => todo!("unsupported location"),
         }
     }

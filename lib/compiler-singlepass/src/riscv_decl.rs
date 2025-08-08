@@ -56,7 +56,7 @@ Legend: -R = caller-saved, -E = callee-saved, - = not saved
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 #[allow(clippy::upper_case_acronyms)]
 pub enum GPR {
-    X0 = 0,
+    XZero = 0,
     X1 = 1,
     Sp = 2,
     X3 = 3,
@@ -108,7 +108,7 @@ impl AbstractReg for GPR {
     }
     fn iterator() -> Iter<'static, GPR> {
         static GPRS: [GPR; 32] = [
-            GPR::X0,
+            GPR::XZero,
             GPR::X1,
             GPR::Sp,
             GPR::X3,
