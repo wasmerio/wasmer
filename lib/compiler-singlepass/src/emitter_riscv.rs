@@ -50,6 +50,25 @@ pub type Location = AbstractLocation<GPR, FPR>;
 pub enum Condition {
     /// Signed less than
     Lt,
+    /// Signed less than or equal
+    Le,
+    /// Signed greater than
+    Gt,
+    /// Signed greater than or equal
+    Ge,
+    /// Signed equal
+    Eq,
+    /// Signed not equal
+    Ne,
+
+    /// Unsigned less than
+    Ltu,
+    /// Unsigned less than or equal
+    Leu,
+    /// Unsigned greater than
+    Gtu,
+    /// Unsigned greater than or equal
+    Geu,
 }
 
 /// Emitter trait for RISC-V.
@@ -106,7 +125,6 @@ pub trait EmitterRiscv {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-        size: Size,
     ) -> Result<(), CompileError>;
 
     fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
@@ -341,28 +359,66 @@ impl EmitterRiscv for Assembler {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
-        size: Size,
     ) -> Result<(), CompileError> {
-        match (c, size, loc_a, loc_b, ret) {
-            (
-                Condition::Lt,
-                Size::S32,
-                Location::GPR(loc_a),
-                Location::GPR(loc_b),
-                Location::GPR(ret),
-            ) => {
-                let loc_a = loc_a.into_index();
-                let loc_b = loc_b.into_index();
-                let ret = ret.into_index();
-                dynasm!(self
-                    ; slt X(ret), X(loc_a), X(loc_b));
-            }
-            _ => codegen_error!(
+        let (Location::GPR(loc_a), Location::GPR(loc_b), Location::GPR(ret)) = (loc_a, loc_b, ret)
+        else {
+            codegen_error!(
                 "singlepass can't emit CMP {:?} {:?} {:?}",
                 loc_a,
                 loc_b,
                 ret
-            ),
+            );
+        };
+
+        let loc_a = loc_a.into_index();
+        let loc_b = loc_b.into_index();
+        let ret = ret.into_index();
+
+        match c {
+            // signed comparison operations
+            Condition::Lt => {
+                dynasm!(self; slt X(ret), X(loc_a), X(loc_b));
+            }
+            Condition::Le => {
+                dynasm!(self
+                    ; slt X(ret), X(loc_b), X(loc_a)
+                    ; xori X(ret), X(ret), 1);
+            }
+            Condition::Gt => {
+                dynasm!(self; slt X(ret), X(loc_b), X(loc_a));
+            }
+            Condition::Ge => {
+                dynasm!(self
+                    ; slt X(ret), X(loc_a), X(loc_b)
+                    ; xori X(ret), X(ret), 1);
+            }
+            Condition::Eq => {
+                dynasm!(self
+                    ; xor X(ret), X(loc_a), X(loc_b)
+                    ; seqz X(ret), X(ret));
+            }
+            Condition::Ne => {
+                dynasm!(self
+                    ; xor X(ret), X(loc_a), X(loc_b)
+                    ; snez X(ret), X(ret));
+            }
+            // unsigned comparison operations
+            Condition::Ltu => {
+                dynasm!(self; sltu X(ret), X(loc_a), X(loc_b));
+            }
+            Condition::Leu => {
+                dynasm!(self
+                    ; sltu X(ret), X(loc_b), X(loc_a)
+                    ; xori X(ret), X(ret), 1);
+            }
+            Condition::Gtu => {
+                dynasm!(self; sltu X(ret), X(loc_b), X(loc_a));
+            }
+            Condition::Geu => {
+                dynasm!(self
+                    ; sltu X(ret), X(loc_a), X(loc_b)
+                    ; xori X(ret), X(ret), 1);
+            }
         }
 
         Ok(())

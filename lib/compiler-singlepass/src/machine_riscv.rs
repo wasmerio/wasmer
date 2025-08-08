@@ -291,6 +291,29 @@ impl MachineRiscv {
         Ok(())
     }
 
+    fn emit_relaxed_cmp(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        sz: Size,
+    ) -> Result<(), CompileError> {
+        // TODO: add support for immediate operations where some instructions (like `slti`) can be used
+        let mut temps = vec![];
+        let loc_a = self.location_to_reg(sz, loc_a, &mut temps, ImmType::None, true, None)?;
+        let loc_b = self.location_to_reg(sz, loc_b, &mut temps, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(sz, ret, &mut temps, ImmType::None, false, None)?;
+        self.assembler.emit_cmp(c, loc_a, loc_b, dest)?;
+        if ret != dest {
+            self.move_location(sz, dest, ret)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
+
     /// I32 comparison with.
     fn emit_cmpop_i32_dynamic_b(
         &mut self,
@@ -301,13 +324,45 @@ impl MachineRiscv {
     ) -> Result<(), CompileError> {
         match ret {
             Location::GPR(_) => {
-                self.assembler.emit_cmp(c, loc_a, loc_b, ret, Size::S32)?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32)?;
             }
             Location::Memory(_, _) => {
-                // TODO: add
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32)?;
+                self.move_location(Size::S32, Location::GPR(tmp), ret)?;
+                self.release_gpr(tmp);
             }
             _ => {
                 codegen_error!("singlepass emit_cmpop_i32_dynamic_b unreachable");
+            }
+        }
+        Ok(())
+    }
+
+    /// I64 comparison with.
+    fn emit_cmpop_i64_dynamic_b(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        match ret {
+            Location::GPR(_) => {
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64)?;
+            }
+            Location::Memory(_, _) => {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64)?;
+                self.move_location(Size::S64, Location::GPR(tmp), ret)?;
+                self.release_gpr(tmp);
+            }
+            _ => {
+                codegen_error!("singlepass emit_cmpop_64_dynamic_b unreachable");
             }
         }
         Ok(())
@@ -988,7 +1043,7 @@ impl Machine for MachineRiscv {
         src: Location,
         dst: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        todo!();
     }
     fn emit_memory_fence(&mut self) -> Result<(), CompileError> {
         todo!()
@@ -1120,7 +1175,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Ge, loc_a, loc_b, ret)
     }
     fn i32_cmp_gt_s(
         &mut self,
@@ -1128,7 +1183,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Gt, loc_a, loc_b, ret)
     }
     fn i32_cmp_le_s(
         &mut self,
@@ -1136,7 +1191,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Le, loc_a, loc_b, ret)
     }
     fn i32_cmp_lt_s(
         &mut self,
@@ -1152,7 +1207,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Geu, loc_a, loc_b, ret)
     }
     fn i32_cmp_gt_u(
         &mut self,
@@ -1160,7 +1215,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Gtu, loc_a, loc_b, ret)
     }
     fn i32_cmp_le_u(
         &mut self,
@@ -1168,7 +1223,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Leu, loc_a, loc_b, ret)
     }
     fn i32_cmp_lt_u(
         &mut self,
@@ -1176,7 +1231,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Ltu, loc_a, loc_b, ret)
     }
     fn i32_cmp_ne(
         &mut self,
@@ -1184,7 +1239,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Ne, loc_a, loc_b, ret)
     }
     fn i32_cmp_eq(
         &mut self,
@@ -1192,7 +1247,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret)
     }
     fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
@@ -1830,7 +1885,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Ge, loc_a, loc_b, ret)
     }
     fn i64_cmp_gt_s(
         &mut self,
@@ -1838,7 +1893,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Gt, loc_a, loc_b, ret)
     }
     fn i64_cmp_le_s(
         &mut self,
@@ -1846,7 +1901,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Le, loc_a, loc_b, ret)
     }
     fn i64_cmp_lt_s(
         &mut self,
@@ -1854,7 +1909,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Lt, loc_a, loc_b, ret)
     }
     fn i64_cmp_ge_u(
         &mut self,
@@ -1862,7 +1917,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Geu, loc_a, loc_b, ret)
     }
     fn i64_cmp_gt_u(
         &mut self,
@@ -1870,7 +1925,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Gtu, loc_a, loc_b, ret)
     }
     fn i64_cmp_le_u(
         &mut self,
@@ -1878,7 +1933,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Leu, loc_a, loc_b, ret)
     }
     fn i64_cmp_lt_u(
         &mut self,
@@ -1886,7 +1941,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Ltu, loc_a, loc_b, ret)
     }
     fn i64_cmp_ne(
         &mut self,
@@ -1894,7 +1949,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Ne, loc_a, loc_b, ret)
     }
     fn i64_cmp_eq(
         &mut self,
@@ -1902,7 +1957,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i64_dynamic_b(Condition::Eq, loc_a, loc_b, ret)
     }
     fn i64_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
