@@ -2622,6 +2622,14 @@ impl Machine for MachineARM64 {
     fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_bcond_label_far(Condition::Cs, label)
     }
+    fn jmp_on_false(
+        &mut self,
+        cond: AbstractLocation<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
+        self.jmp_on_equal(label)
+    }
 
     // jmp table
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {

@@ -402,6 +402,13 @@ pub trait Machine {
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError>;
 
+    /// Jump to label if the condition is false.
+    fn jmp_on_false(
+        &mut self,
+        cond: Location<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError>;
+
     /// jmp using a jump table at lable with cond as the indice
     fn emit_jmp_to_jumptable(
         &mut self,

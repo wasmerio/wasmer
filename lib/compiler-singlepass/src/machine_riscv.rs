@@ -290,6 +290,28 @@ impl MachineRiscv {
         }
         Ok(())
     }
+
+    /// I32 comparison with.
+    fn emit_cmpop_i32_dynamic_b(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        match ret {
+            Location::GPR(_) => {
+                self.assembler.emit_cmp(c, loc_a, loc_b, ret, Size::S32)?;
+            }
+            Location::Memory(_, _) => {
+                // TODO: add
+            }
+            _ => {
+                codegen_error!("singlepass emit_cmpop_i32_dynamic_b unreachable");
+            }
+        }
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
@@ -821,7 +843,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn get_gpr_for_ret(&self) -> Self::GPR {
-        todo!()
+        GPR::X10
     }
     fn get_simd_for_ret(&self) -> Self::SIMD {
         todo!()
@@ -909,7 +931,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_j_label(label)
     }
     fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
         todo!()
@@ -928,6 +950,13 @@ impl Machine for MachineRiscv {
     }
     fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
         todo!()
+    }
+    fn jmp_on_false(
+        &mut self,
+        cond: AbstractLocation<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_on_false_label_far(cond, label)
     }
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {
         todo!()
@@ -1115,7 +1144,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_cmpop_i32_dynamic_b(Condition::Lt, loc_a, loc_b, ret)
     }
     fn i32_cmp_ge_u(
         &mut self,

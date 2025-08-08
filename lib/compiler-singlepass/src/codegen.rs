@@ -2981,9 +2981,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
-                self.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-                self.machine.jmp_on_equal(label_else)?;
+                self.machine.jmp_on_false(cond, label_else)?;
             }
             Operator::Else => {
                 let frame = self.control_stack.last_mut().unwrap();
@@ -3051,9 +3049,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let end_label = self.machine.get_label();
                 let zero_label = self.machine.get_label();
 
-                self.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-                self.machine.jmp_on_equal(zero_label)?;
+                self.machine.jmp_on_false(cond, zero_label)?;
                 match cncl {
                     Some((Some(fp), _))
                         if self.machine.arch_supports_canonicalize_nan()
@@ -4051,9 +4047,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::BrIf { relative_depth } => {
                 let after = self.machine.get_label();
                 let cond = self.pop_value_released()?;
-                self.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-                self.machine.jmp_on_equal(after)?;
+                self.machine.jmp_on_false(cond, after)?;
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
@@ -6697,7 +6691,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
 
-        // save_assembly_to_file(Path::new("/tmp/module-dump.o"), &body);
+        save_assembly_to_file(std::path::Path::new("/tmp/module-dump.o"), &body);
 
         Ok((
             CompiledFunction {

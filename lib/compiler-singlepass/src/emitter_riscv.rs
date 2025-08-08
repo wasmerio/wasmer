@@ -48,7 +48,8 @@ pub type Location = AbstractLocation<GPR, FPR>;
 /// Branch conditions for RISC-V.
 #[derive(Copy, Clone, Debug, Eq, PartialEq)]
 pub enum Condition {
-    // TODO: define RISC-V branch conditions.
+    /// Signed less than
+    Lt,
 }
 
 /// Emitter trait for RISC-V.
@@ -98,6 +99,20 @@ pub trait EmitterRiscv {
     fn emit_udf(&mut self, payload: u8) -> Result<(), CompileError>;
 
     fn emit_mov_imm(&mut self, dst: Location, val: i64) -> Result<(), CompileError>;
+
+    fn emit_cmp(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        size: Size,
+    ) -> Result<(), CompileError>;
+
+    fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
+        -> Result<(), CompileError>;
+
+    fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -106,7 +121,7 @@ impl EmitterRiscv for Assembler {
     }
 
     fn get_label(&mut self) -> Label {
-        todo!()
+        self.new_dynamic_label()
     }
 
     fn get_offset(&self) -> Offset {
@@ -317,6 +332,65 @@ impl EmitterRiscv for Assembler {
             }
             _ => codegen_error!("singlepass can't emit MOVW {:?}", dst),
         }
+        Ok(())
+    }
+
+    fn emit_cmp(
+        &mut self,
+        c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+        size: Size,
+    ) -> Result<(), CompileError> {
+        match (c, size, loc_a, loc_b, ret) {
+            (
+                Condition::Lt,
+                Size::S32,
+                Location::GPR(loc_a),
+                Location::GPR(loc_b),
+                Location::GPR(ret),
+            ) => {
+                let loc_a = loc_a.into_index();
+                let loc_b = loc_b.into_index();
+                let ret = ret.into_index();
+                dynasm!(self
+                    ; slt X(ret), X(loc_a), X(loc_b));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit CMP {:?} {:?} {:?}",
+                loc_a,
+                loc_b,
+                ret
+            ),
+        }
+
+        Ok(())
+    }
+
+    fn emit_on_false_label_far(
+        &mut self,
+        cond: Location,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        let cont: Label = self.get_label();
+        match cond {
+            Location::GPR(cond) => {
+                let cond = cond.into_index();
+                // Use the negative condition to jump after the "j" instruction that will
+                // go to the requsted `label`.
+                dynasm!(self; bnez X(cond), => cont);
+            }
+            _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
+        }
+
+        dynasm!(self; j => label);
+        self.emit_label(cont)?;
+        Ok(())
+    }
+
+    fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError> {
+        dynasm!(self ; j => label);
         Ok(())
     }
 }
