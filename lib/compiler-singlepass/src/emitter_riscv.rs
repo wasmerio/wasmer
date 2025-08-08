@@ -183,8 +183,8 @@ impl EmitterRiscv for Assembler {
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
+                let reg = reg.into_index();
+                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; ld X(reg), [X(addr), disp]);
             }
@@ -197,14 +197,14 @@ impl EmitterRiscv for Assembler {
     fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
+                let reg = reg.into_index();
+                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
+                let reg = reg.into_index();
+                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
@@ -300,18 +300,18 @@ impl EmitterRiscv for Assembler {
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32 | Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src = src.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; mv X(dst), X(src));
             }
             (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src = src.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; fmv.d.x F(dst), X(src));
             }
             (Size::S64, Location::SIMD(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
+                let src = src.into_index();
+                let dst = dst.into_index();
                 dynasm!(self ; fmv.x.d X(dst), F(src));
             }
             // TODO: add more variants
