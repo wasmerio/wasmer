@@ -1112,7 +1112,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::None,
+            ImmType::Bits12,
         )
     }
     fn emit_binop_sub32(
@@ -1822,7 +1822,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::None,
+            ImmType::Bits12,
         )
     }
     fn emit_binop_sub64(

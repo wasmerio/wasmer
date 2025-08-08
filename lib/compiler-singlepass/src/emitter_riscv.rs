@@ -228,6 +228,7 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
+            // TODO: remove as we can just use the add also for Size::S32
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let src2 = src2.into_index();
