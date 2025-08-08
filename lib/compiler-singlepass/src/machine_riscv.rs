@@ -240,13 +240,12 @@ impl MachineRiscv {
         sz: Size,
         src: Location,
         dst: Location,
-        putback: bool,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src = self.location_to_reg(sz, src, &mut temps, ImmType::None, true, None)?;
-        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, !putback, None)?;
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, false, None)?;
         op(&mut self.assembler, sz, src, dest)?;
-        if dst != dest && putback {
+        if dst != dest {
             self.move_location(sz, dest, dst)?;
         }
         for r in temps {
@@ -1061,7 +1060,7 @@ impl Machine for MachineRiscv {
         src: Location,
         dst: Location,
     ) -> Result<(), CompileError> {
-        self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst, true)
+        self.emit_relaxed_binop(Assembler::emit_mov, sz, src, dst)
     }
     fn emit_relaxed_cmp(
         &mut self,
