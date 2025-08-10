@@ -116,6 +116,20 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_sdiv(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_udiv(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
@@ -133,6 +147,7 @@ pub trait EmitterRiscv {
         ret: Location,
     ) -> Result<(), CompileError>;
 
+    fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
     fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
         -> Result<(), CompileError>;
 
@@ -341,6 +356,67 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_udiv(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; divuw X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; divu X(dst), X(src1), X(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+    fn emit_sdiv(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; divw X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; div X(dst), X(src1), X(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32 | Size::S64, Location::GPR(src), Location::GPR(dst)) => {
@@ -372,7 +448,12 @@ impl EmitterRiscv for Assembler {
 
     fn emit_mov_imm(&mut self, dst: Location, val: i64) -> Result<(), CompileError> {
         // The number of used bits by the number including the sign bit.
-        let used_bits = i64::BITS - val.abs().leading_zeros() + 1;
+        // i64::MIN.abs() will overflow, thus handle it specially.
+        let used_bits = if val == i64::MIN {
+            i64::BITS
+        } else {
+            i64::BITS - val.abs().leading_zeros() + 1
+        };
 
         match dst {
             Location::GPR(dst) => {
@@ -463,6 +544,16 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
+        match cond {
+            Location::GPR(cond) => {
+                let cond = cond.into_index();
+                dynasm!(self; beqz X(cond), => label);
+            }
+            _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
+        }
+        Ok(())
+    }
     fn emit_on_false_label_far(
         &mut self,
         cond: Location,
