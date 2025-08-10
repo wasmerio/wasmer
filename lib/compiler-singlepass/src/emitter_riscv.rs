@@ -130,6 +130,20 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_srem(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_urem(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
@@ -407,7 +421,68 @@ impl EmitterRiscv for Assembler {
                 dynasm!(self ; div X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
-                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                "singlepass can't emit SDIV {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_urem(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; remuw X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; remu X(dst), X(src1), X(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit UREM {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+    fn emit_srem(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; remw X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; rem X(dst), X(src1), X(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit REM {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,

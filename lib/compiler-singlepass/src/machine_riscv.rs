@@ -1223,7 +1223,22 @@ impl Machine for MachineRiscv {
         integer_division_by_zero: Label,
         integer_overflow: Label,
     ) -> Result<usize, CompileError> {
-        todo!()
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
+        let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
+
+        self.assembler
+            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_urem(Size::S32, src1, src2, dest)?;
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(offset)
     }
     fn emit_binop_srem32(
         &mut self,
@@ -1233,7 +1248,22 @@ impl Machine for MachineRiscv {
         integer_division_by_zero: Label,
         integer_overflow: Label,
     ) -> Result<usize, CompileError> {
-        todo!()
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
+        let src2 = self.location_to_reg(Size::S32, loc_b, &mut temps, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
+
+        self.assembler
+            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_srem(Size::S32, src1, src2, dest)?;
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(offset)
     }
     fn emit_binop_and32(
         &mut self,
@@ -1992,7 +2022,22 @@ impl Machine for MachineRiscv {
         integer_division_by_zero: Label,
         integer_overflow: Label,
     ) -> Result<usize, CompileError> {
-        todo!()
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
+        let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
+
+        self.assembler
+            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_urem(Size::S64, src1, src2, dest)?;
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(offset)
     }
     fn emit_binop_srem64(
         &mut self,
@@ -2002,7 +2047,22 @@ impl Machine for MachineRiscv {
         integer_division_by_zero: Label,
         integer_overflow: Label,
     ) -> Result<usize, CompileError> {
-        todo!()
+        let mut temps = vec![];
+        let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
+        let src2 = self.location_to_reg(Size::S64, loc_b, &mut temps, ImmType::None, true, None)?;
+        let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
+
+        self.assembler
+            .emit_on_false_label_far(src2, integer_division_by_zero)?;
+        let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
+        self.assembler.emit_srem(Size::S64, src1, src2, dest)?;
+        if ret != dest {
+            self.move_location(Size::S64, dest, ret)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(offset)
     }
     fn emit_binop_and64(
         &mut self,
