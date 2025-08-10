@@ -399,7 +399,9 @@ impl MachineRiscv {
 pub(crate) enum ImmType {
     None,
     Bits12,
-    // TODO: define more RISC-V immediate types.
+    // `add(w) X(rd) -imm` is used for subtraction with an immediate, so we need to check
+    // the range of negated value.
+    Bits12Subtraction,
 }
 
 impl ImmType {
@@ -407,6 +409,7 @@ impl ImmType {
         match self {
             ImmType::None => false,
             ImmType::Bits12 => (-0x800..0x800).contains(&imm),
+            ImmType::Bits12Subtraction => (-0x801..0x801).contains(&imm),
         }
     }
 }
@@ -1120,7 +1123,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_sub,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12Subtraction,
+        )
     }
     fn emit_binop_mul32(
         &mut self,
@@ -1830,7 +1840,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_sub,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12Subtraction,
+        )
     }
     fn emit_binop_mul64(
         &mut self,

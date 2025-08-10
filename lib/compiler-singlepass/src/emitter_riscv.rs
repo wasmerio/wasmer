@@ -225,18 +225,23 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
-            // TODO: remove as we can just use the add also for Size::S32
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12.compatible_imm(imm as i64));
+                dynasm!(self ; addi X(dst), X(src1), imm as _);
+            }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let src2 = src2.into_index();
                 let dst = dst.into_index();
                 dynasm!(self ; addw X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
-                dynasm!(self ; addi X(dst), X(src1), imm as _);
+                dynasm!(self ; addiw X(dst), X(src1), imm as _);
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
                 let src1 = src1.into_index();
@@ -244,7 +249,6 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; fadd.d F(dst), F(src1), F(src2));
             }
-            // TODO: add more variants
             _ => codegen_error!(
                 "singlepass can't emit ADD {:?} {:?} {:?} {:?}",
                 sz,
@@ -270,19 +274,24 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; sub X(dst), X(src1), X(src2));
             }
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; addi X(dst), X(src1), -(imm as i32) as _);
+            }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let src2 = src2.into_index();
                 let dst = dst.into_index();
                 dynasm!(self ; subw X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
-                assert!(ImmType::Bits12.compatible_imm(imm as i64));
-                dynasm!(self ; addi X(dst), X(src1), -(imm as i32) as _);
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; addiw X(dst), X(src1), -(imm as i32) as _);
             }
-            // TODO: add more variants
             _ => codegen_error!(
                 "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
                 sz,
