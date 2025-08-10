@@ -604,7 +604,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn zero_location(&mut self, size: Size, location: Location) -> Result<(), CompileError> {
-        todo!()
+        self.move_location(size, Location::GPR(GPR::XZero), location)
     }
     fn local_pointer(&self) -> Self::GPR {
         GPR::Fp
@@ -1048,7 +1048,8 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn align_for_loop(&mut self) -> Result<(), CompileError> {
-        todo!()
+        // nothing to do on RISC-V
+        Ok(())
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_ret()
@@ -1201,7 +1202,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src1, tmp)?;
         self.assembler.emit_on_false_label(tmp, label_nooverflow)?;
-        self.assembler.emit_mov_imm(tmp, 0)?;
+        self.zero_location(Size::S32, tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
         self.assembler.emit_on_false_label(tmp, integer_overflow)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
@@ -2000,7 +2001,7 @@ impl Machine for MachineRiscv {
         )?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src1, tmp)?;
         self.assembler.emit_on_false_label(tmp, label_nooverflow)?;
-        self.assembler.emit_mov_imm(tmp, 0)?;
+        self.zero_location(Size::S64, tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
         self.assembler.emit_on_false_label(tmp, integer_overflow)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
