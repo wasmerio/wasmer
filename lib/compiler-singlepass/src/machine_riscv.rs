@@ -299,8 +299,25 @@ impl MachineRiscv {
         Ok(())
     }
 
-    fn emit_pop(&mut self, sz: Size, dst: Location) -> Result<(), CompileError> {
-        match (sz, dst) {
+    fn emit_push(&mut self, size: Size, src: Location) -> Result<(), CompileError> {
+        match (size, src) {
+            (Size::S64, Location::GPR(_)) => {
+                self.assembler
+                    .emit_str(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
+                self.assembler.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::Imm32(8),
+                    Location::GPR(GPR::Sp),
+                )?;
+            }
+            _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", size, src),
+        }
+        Ok(())
+    }
+
+    fn emit_pop(&mut self, size: Size, dst: Location) -> Result<(), CompileError> {
+        match (size, dst) {
             (Size::S64, Location::GPR(_)) => {
                 self.assembler
                     .emit_ld(Size::S64, dst, Location::Memory(GPR::Sp, 0))?;
@@ -311,7 +328,7 @@ impl MachineRiscv {
                     Location::GPR(GPR::Sp),
                 )?;
             }
-            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", sz, dst),
+            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", size, dst),
         }
         Ok(())
     }
@@ -436,7 +453,7 @@ impl Machine for MachineRiscv {
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[X5, X6, X7, X28, X29, X30];
+        static REGS: &[GPR] = &[X5, X6, X7, X28, X29];
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);
@@ -458,10 +475,16 @@ impl Machine for MachineRiscv {
     }
 
     fn get_used_gprs(&self) -> Vec<Self::GPR> {
-        todo!()
+        GPR::iterator()
+            .filter(|x| self.used_gprs & (1 << x.into_index()) != 0)
+            .cloned()
+            .collect()
     }
     fn get_used_simd(&self) -> Vec<Self::SIMD> {
-        todo!()
+        FPR::iterator()
+            .filter(|x| self.used_fprs & (1 << x.into_index()) != 0)
+            .cloned()
+            .collect()
     }
     fn acquire_temp_gpr(&mut self) -> Option<Self::GPR> {
         let gpr = self.pick_temp_gpr();
@@ -474,16 +497,24 @@ impl Machine for MachineRiscv {
         assert!(self.used_gprs_remove(&gpr));
     }
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR {
-        todo!()
+        assert!(!self.used_gprs_contains(&gpr));
+        self.used_gprs_insert(gpr);
+        gpr
     }
     fn reserve_gpr(&mut self, gpr: Self::GPR) {
         self.used_gprs_insert(gpr);
     }
-    fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<usize, CompileError> {
-        todo!()
+    fn push_used_gpr(&mut self, used_gprs: &[Self::GPR]) -> Result<usize, CompileError> {
+        for r in used_gprs.iter() {
+            self.emit_push(Size::S64, Location::GPR(*r))?;
+        }
+        Ok(used_gprs.len() * 16)
     }
-    fn pop_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<(), CompileError> {
-        todo!()
+    fn pop_used_gpr(&mut self, used_gprs: &[Self::GPR]) -> Result<(), CompileError> {
+        for r in used_gprs.iter().rev() {
+            self.emit_pop(Size::S64, Location::GPR(*r))?;
+        }
+        Ok(())
     }
     fn pick_simd(&self) -> Option<Self::SIMD> {
         use FPR::*;
@@ -662,10 +693,24 @@ impl Machine for MachineRiscv {
         &self,
         idx: usize,
         sz: Size,
-        stack_offset: &mut usize,
+        stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        todo!()
+        match idx {
+            0 => Location::GPR(GPR::X10),
+            1 => Location::GPR(GPR::X11),
+            2 => Location::GPR(GPR::X12),
+            3 => Location::GPR(GPR::X13),
+            4 => Location::GPR(GPR::X14),
+            5 => Location::GPR(GPR::X15),
+            6 => Location::GPR(GPR::X16),
+            7 => Location::GPR(GPR::X17),
+            _ => {
+                let loc = Location::Memory(GPR::Sp, *stack_args as i32);
+                *stack_args += 8;
+                loc
+            }
+        }
     }
     // Get call param location, MUST be called in order!
     fn get_call_param_location(
@@ -838,6 +883,11 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::X31),
             Location::Memory(GPR::Sp, 8),
         )?;
+        self.assembler.emit_str(
+            Size::S64,
+            Location::GPR(GPR::X30),
+            Location::Memory(GPR::Sp, 0),
+        )?;
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::Sp), Location::GPR(GPR::Fp))?;
         Ok(())
@@ -860,6 +910,11 @@ impl Machine for MachineRiscv {
             Size::S64,
             Location::GPR(GPR::X31),
             Location::Memory(GPR::Sp, 8),
+        )?;
+        self.assembler.emit_ld(
+            Size::S64,
+            Location::GPR(GPR::X30),
+            Location::Memory(GPR::Sp, 0),
         )?;
         self.assembler.emit_add(
             Size::S64,
@@ -908,7 +963,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_label(label)
     }
     fn get_grp_for_call(&self) -> Self::GPR {
-        todo!()
+        GPR::X30
     }
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError> {
         todo!()
@@ -1055,10 +1110,10 @@ impl Machine for MachineRiscv {
         self.assembler.emit_ret()
     }
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_push(size, loc)
     }
     fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_pop(size, loc)
     }
     // relaxed binop based...
     fn emit_relaxed_mov(
@@ -1903,7 +1958,19 @@ impl Machine for MachineRiscv {
         calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
     ) -> Result<Vec<Relocation>, CompileError> {
-        todo!()
+        let mut relocations = vec![];
+        let next = self.get_label();
+        let reloc_at = self.assembler.get_offset().0;
+        // TODO: verify if valid for RISC-V
+        self.emit_label(next)?; // this is to be sure the current imm26 value is 0
+        self.assembler.emit_call_label(next)?;
+        relocations.push(Relocation {
+            kind: RelocationKind::RiscvCall,
+            reloc_target,
+            offset: reloc_at as u32,
+            addend: 0,
+        });
+        Ok(relocations)
     }
     fn emit_binop_add64(
         &mut self,

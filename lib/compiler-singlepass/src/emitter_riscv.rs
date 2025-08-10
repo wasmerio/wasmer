@@ -166,6 +166,8 @@ pub trait EmitterRiscv {
         -> Result<(), CompileError>;
 
     fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError>;
+
+    fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -652,6 +654,11 @@ impl EmitterRiscv for Assembler {
 
     fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError> {
         dynasm!(self ; j => label);
+        Ok(())
+    }
+
+    fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
+        dynasm!(self ; call =>label);
         Ok(())
     }
 }
