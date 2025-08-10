@@ -307,7 +307,7 @@ impl MachineRiscv {
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(GPR::Sp),
-                    Location::Imm32(8),
+                    Location::Imm64(8),
                     Location::GPR(GPR::Sp),
                 )?;
             }
@@ -324,7 +324,7 @@ impl MachineRiscv {
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(GPR::Sp),
-                    Location::Imm32(8),
+                    Location::Imm64(8),
                     Location::GPR(GPR::Sp),
                 )?;
             }
@@ -624,7 +624,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm32(delta_stack_offset),
+            Location::Imm64(delta_stack_offset as _),
             Location::GPR(GPR::Sp),
         )
     }
@@ -833,7 +833,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Fp),
-            Location::Imm32(saved_area_offset as u32),
+            Location::Imm64(saved_area_offset as _),
             Location::GPR(GPR::Sp),
         )
     }
@@ -864,7 +864,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm32(32),
+            Location::Imm64(32),
             Location::GPR(GPR::Sp),
         )?;
 
@@ -919,7 +919,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_add(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm32(32),
+            Location::Imm64(32),
             Location::GPR(GPR::Sp),
         )?;
 

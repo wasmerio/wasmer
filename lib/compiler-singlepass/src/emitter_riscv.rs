@@ -283,7 +283,7 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
@@ -332,7 +332,7 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; sub X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
