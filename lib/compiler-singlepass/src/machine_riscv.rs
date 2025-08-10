@@ -1327,7 +1327,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_and,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn emit_binop_or32(
         &mut self,
@@ -1335,7 +1342,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_or,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn emit_binop_xor32(
         &mut self,
@@ -1343,7 +1357,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_xor,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i32_cmp_ge_s(
         &mut self,
@@ -2138,7 +2159,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_and,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn emit_binop_or64(
         &mut self,
@@ -2146,7 +2174,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_or,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn emit_binop_xor64(
         &mut self,
@@ -2154,7 +2189,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_xor,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i64_cmp_ge_s(
         &mut self,

@@ -144,6 +144,27 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_and(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_or(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_xor(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
@@ -485,6 +506,132 @@ impl EmitterRiscv for Assembler {
             }
             _ => codegen_error!(
                 "singlepass can't emit REM {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_and(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (
+                Size::S32 | Size::S64,
+                Location::GPR(src1),
+                Location::GPR(src2),
+                Location::GPR(dst),
+            ) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; and X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; andi X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; andi X(dst), X(src1), imm as _);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit AND {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_or(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (
+                Size::S32 | Size::S64,
+                Location::GPR(src1),
+                Location::GPR(src2),
+                Location::GPR(dst),
+            ) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; or X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; ori X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; ori X(dst), X(src1), imm as _);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit OR {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_xor(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (
+                Size::S32 | Size::S64,
+                Location::GPR(src1),
+                Location::GPR(src2),
+                Location::GPR(dst),
+            ) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; xor X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; xori X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; xori X(dst), X(src1), imm as _);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit OR {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,
