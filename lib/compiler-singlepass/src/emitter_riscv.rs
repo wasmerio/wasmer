@@ -36,7 +36,7 @@ macro_rules! dynasm {
         dynasm::dynasm!(
             $a
             ; .arch riscv64
-            ; .feature d
+            ; .feature g
             ; $($tt)*
         )
     };
@@ -102,8 +102,14 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
-
     fn emit_sub(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_mul(
         &mut self,
         sz: Size,
         src1: Location,
@@ -294,6 +300,38 @@ impl EmitterRiscv for Assembler {
             }
             _ => codegen_error!(
                 "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_mul(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; mul X(dst), X(src1), X(src2));
+            }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; mulw X(dst), X(src1), X(src2));
+            }
+
+            _ => codegen_error!(
+                "singlepass can't emit MUL {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,
