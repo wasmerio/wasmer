@@ -1461,7 +1461,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_sll,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i32_shr(
         &mut self,
@@ -1469,7 +1476,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_srl,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i32_sar(
         &mut self,
@@ -1477,7 +1491,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_sra,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i32_rol(
         &mut self,
@@ -2293,7 +2314,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_sll,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i64_shr(
         &mut self,
@@ -2301,7 +2329,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_srl,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i64_sar(
         &mut self,
@@ -2309,7 +2344,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3(
+            Assembler::emit_sra,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::Bits12,
+        )
     }
     fn i64_rol(
         &mut self,

@@ -165,6 +165,27 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_sll(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_srl(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_sra(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
@@ -631,7 +652,145 @@ impl EmitterRiscv for Assembler {
                 dynasm!(self ; xori X(dst), X(src1), imm as _);
             }
             _ => codegen_error!(
-                "singlepass can't emit OR {:?} {:?} {:?} {:?}",
+                "singlepass can't emit XOR {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_sll(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (
+                Size::S32 | Size::S64,
+                Location::GPR(src1),
+                Location::GPR(src2),
+                Location::GPR(dst),
+            ) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; sll X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                if imm >= u64::BITS as _ {
+                    codegen_error!("singlepass SLL with incompatible imm {}", imm);
+                }
+                dynasm!(self ; slli X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                if imm >= u32::BITS {
+                    codegen_error!("singlepass SLL with incompatible imm {}", imm);
+                }
+                dynasm!(self ; slli X(dst), X(src1), imm as _);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit SLL {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_srl(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (
+                Size::S32 | Size::S64,
+                Location::GPR(src1),
+                Location::GPR(src2),
+                Location::GPR(dst),
+            ) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; srl X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                if imm >= u64::BITS as _ {
+                    codegen_error!("singlepass SRL with incompatible imm {}", imm);
+                }
+                dynasm!(self ; srli X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                if imm >= u32::BITS {
+                    codegen_error!("singlepass SRL with incompatible imm {}", imm);
+                }
+                dynasm!(self ; srli X(dst), X(src1), imm as _);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit SRL {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_sra(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (
+                Size::S32 | Size::S64,
+                Location::GPR(src1),
+                Location::GPR(src2),
+                Location::GPR(dst),
+            ) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; sra X(dst), X(src1), X(src2));
+            }
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                if imm >= u64::BITS as _ {
+                    codegen_error!("singlepass SRA with incompatible imm {}", imm);
+                }
+                dynasm!(self ; srai X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let dst = dst.into_index();
+                if imm >= u32::BITS {
+                    codegen_error!("singlepass SRA with incompatible imm {}", imm);
+                }
+                dynasm!(self ; srai X(dst), X(src1), imm as _);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit SRA {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,
