@@ -144,7 +144,7 @@ impl AbstractReg for GPR {
         GPRS.iter()
     }
     fn to_dwarf(self) -> u16 {
-        todo!();
+        self.into_index() as u16
     }
 }
 
