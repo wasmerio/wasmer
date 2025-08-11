@@ -766,7 +766,10 @@ impl Machine for MachineRiscv {
             (Location::GPR(_), Location::Memory(_, _)) => {
                 self.assembler.emit_str(size, source, dest)
             }
-            _ => todo!("unsupported move"),
+            (Location::Memory(_, _), Location::GPR(_)) => {
+                self.assembler.emit_ld(size, dest, source)
+            }
+            _ => todo!("unsupported move: {size:?} {source:?} {dest:?}"),
         }
     }
 
