@@ -85,13 +85,6 @@ pub fn epoll_wait<M: MemorySize + 'static>(
                             }
                         };
 
-                        // We have to renew any joins that have now been spent
-                        for join in joins {
-                            if join.is_spent() {
-                                join.renew();
-                            }
-                        }
-
                         // Record the event
                         ret.push((fd.clone(), readiness));
                         if ret.len() + POLL_GUARD_MAX_RET >= (maxevents as usize) {

@@ -52,8 +52,14 @@ impl Memory {
     }
 
     /// Create a memory object from an existing memory and attaches it to the store
-    pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        Self(BackendMemory::new_from_existing(new_store, memory))
+    pub fn new_from_existing<IntoVMMemory>(
+        new_store: &mut impl AsStoreMut,
+        memory: IntoVMMemory,
+    ) -> Self
+    where
+        IntoVMMemory: Into<VMMemory>,
+    {
+        Self(BackendMemory::new_from_existing(new_store, memory.into()))
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.

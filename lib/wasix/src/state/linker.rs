@@ -260,7 +260,7 @@
 
 use std::{
     borrow::Cow,
-    collections::{BTreeMap, BTreeSet, HashMap},
+    collections::{BTreeMap, HashMap},
     ffi::OsStr,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
@@ -790,6 +790,8 @@ struct InstanceGroupState {
     stack_pointer: Global,
     memory: Memory,
     indirect_function_table: Table,
+    c_longjmp: Tag,
+    cpp_exception: Tag,
 
     // Once the dl_operation_pending flag is set, a barrier is created and broadcast
     // by the instigating group, which others must use to rendezvous with it.
@@ -819,7 +821,9 @@ struct LinkerState {
     heap_base: u64,
 
     /// Tracks which slots in the function table are currently used for closures
-    used_closure_functions: BTreeSet<u32>,
+    ///
+    /// True if the closure is currently in use, false otherwise.
+    allocated_closure_functions: BTreeMap<u32, bool>,
     /// Slots in the indirect function table that were allocated for closures but are currently not in use.
     /// These can be given out without needing to lock all threads.
     available_closure_functions: Vec<u32>,
@@ -851,7 +855,7 @@ pub struct Linker {
 }
 
 // This macro exists to ensure we don't get into a deadlock with another pending
-// DL operation. the linker state must be locked for write *ONLY THROUGH THIS
+// DL operation. The linker state must be locked for write *ONLY THROUGH THIS
 // MACRO*. Bad things happen otherwise.
 // We also need a lock on the specific group's state here, because if there is a
 // pending DL operation we need to apply, that'll require mutable access to the
@@ -1040,6 +1044,9 @@ impl Linker {
 
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, stack_high)?;
 
+        let c_longjmp = Tag::new(store, vec![Type::I32]);
+        let cpp_exception = Tag::new(store, vec![Type::I32]);
+
         let mut barrier_tx = Bus::new(1);
         let barrier_rx = barrier_tx.add_rx();
         let mut operation_tx = Bus::new(1);
@@ -1054,6 +1061,8 @@ impl Linker {
             stack_pointer,
             memory: memory.clone(),
             indirect_function_table: indirect_function_table.clone(),
+            c_longjmp,
+            cpp_exception,
             recv_pending_operation_barrier: barrier_rx,
             recv_pending_operation: operation_rx,
         };
@@ -1065,7 +1074,7 @@ impl Linker {
             side_modules_by_name: HashMap::new(),
             next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
             memory_allocator: MemoryAllocator::new(),
-            used_closure_functions: BTreeSet::new(),
+            allocated_closure_functions: BTreeMap::new(),
             available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
@@ -1292,6 +1301,9 @@ impl Linker {
         // so no need to initialize it to a value here.
         let stack_pointer = define_integer_global_import(store, &stack_pointer_import, 0)?;
 
+        let c_longjmp = Tag::new(store, vec![Type::I32]);
+        let cpp_exception = Tag::new(store, vec![Type::I32]);
+
         let barrier_rx = linker_state.send_pending_operation_barrier.add_rx();
         let operation_rx = linker_state.send_pending_operation.add_rx();
 
@@ -1302,6 +1314,8 @@ impl Linker {
             stack_pointer,
             memory: memory.clone(),
             indirect_function_table: indirect_function_table.clone(),
+            c_longjmp,
+            cpp_exception,
             recv_pending_operation_barrier: barrier_rx,
             recv_pending_operation: operation_rx,
         };
@@ -1430,7 +1444,9 @@ impl Linker {
 
         // Use a previously allocated slot if possible
         if let Some(function_index) = linker_state.available_closure_functions.pop() {
-            linker_state.used_closure_functions.insert(function_index);
+            linker_state
+                .allocated_closure_functions
+                .insert(function_index, true);
             return Ok(function_index);
         }
 
@@ -1448,8 +1464,13 @@ impl Linker {
             linker_state
                 .available_closure_functions
                 .push(function_index + i);
+            linker_state
+                .allocated_closure_functions
+                .insert(function_index + i, false);
         }
-        linker_state.used_closure_functions.insert(function_index);
+        linker_state
+            .allocated_closure_functions
+            .insert(function_index, true);
 
         self.synchronize_link_operation(
             DlOperation::AllocateFunctionTable {
@@ -1481,13 +1502,32 @@ impl Linker {
         );
         write_linker_state!(linker_state, self, group_state, ctx);
 
-        if !linker_state.used_closure_functions.remove(&function_id) {
-            // Not used, nothing to do
+        let Some(entry) = linker_state
+            .allocated_closure_functions
+            .get_mut(&function_id)
+        else {
+            // Not allocated
+            return Ok(());
+        };
+        if !*entry {
+            // Not used
             return Ok(());
         }
-        linker_state.available_closure_functions.push(function_id);
 
+        *entry = false;
+        linker_state.available_closure_functions.push(function_id);
         Ok(())
+    }
+
+    /// Check if an indirect_function_table entry is reserved for closures.
+    ///
+    /// Returns false if the entry is not reserved for closures.
+    pub fn is_closure(&self, function_id: u32) -> bool {
+        // TODO: Check if this can result in a deadlock
+        let linker = self.linker_state.read().unwrap();
+        linker
+            .allocated_closure_functions
+            .contains_key(&function_id)
     }
 
     /// Loads a side module from the given path, linking it against the existing module tree
@@ -2004,7 +2044,11 @@ impl LinkerState {
 
             // Skip over the memory, function table and stack pointer imports as well
             match import.name() {
-                "memory" | "__indirect_function_table" | "__stack_pointer" | "__c_longjmp" => {
+                "memory"
+                | "__indirect_function_table"
+                | "__stack_pointer"
+                | "__c_longjmp"
+                | "__cpp_exception" => {
                     trace!(?import, "Skipping resolution of special symbol");
                     continue;
                 }
@@ -2907,11 +2951,21 @@ impl InstanceGroupState {
                             ));
                         }
                         trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
-                        imports.define(
-                            import.module(),
-                            import.name(),
-                            Tag::new(store, vec![Type::I32]),
-                        );
+                        imports.define(import.module(), import.name(), self.c_longjmp.clone());
+                        continue;
+                    }
+                    // Clang generates this symbol when building C++ code that uses exception handling.
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "C++ exception tag");
+                        imports.define(import.module(), import.name(), self.cpp_exception.clone());
                         continue;
                     }
                     _ => (),
@@ -3177,11 +3231,20 @@ impl InstanceGroupState {
                             ));
                         }
                         trace!(?module_handle, ?import, "setjmp/longjmp exception tag");
-                        imports.define(
-                            import.module(),
-                            import.name(),
-                            Tag::new(store, vec![Type::I32]),
-                        );
+                        imports.define(import.module(), import.name(), self.c_longjmp.clone());
+                        continue;
+                    }
+                    "__cpp_exception" => {
+                        if !matches!(import.ty(), ExternType::Tag(ty) if *ty.params == [Type::I32])
+                        {
+                            return Err(LinkError::BadImport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                                import.ty().clone(),
+                            ));
+                        }
+                        trace!(?module_handle, ?import, "C++ exception tag");
+                        imports.define(import.module(), import.name(), self.cpp_exception.clone());
                         continue;
                     }
                     _ => (),

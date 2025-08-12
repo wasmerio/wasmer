@@ -4,7 +4,7 @@ use std::{
     mem::MaybeUninit,
     net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr},
     pin::Pin,
-    sync::{Arc, RwLock},
+    sync::{Arc, RwLock, RwLockWriteGuard},
     task::{Context, Poll},
     time::Duration,
 };
@@ -233,6 +233,35 @@ impl InodeSocket {
         inner.poll_read_ready(cx)
     }
 
+    // When a sendto or connect call comes in for a UDP "pre-socket", it must be bound to
+    // an ephemeral port automatically.
+    // Apparently, clippy fails to recognize the write-locked guard being passed into
+    // the other function, hence the `allow` attribute.
+    #[allow(clippy::await_holding_lock, clippy::readonly_write_lock)]
+    pub async fn auto_bind_udp(
+        &self,
+        tasks: &dyn VirtualTaskManager,
+        net: &dyn VirtualNetworking,
+    ) -> Result<Option<InodeSocket>, Errno> {
+        let timeout = self
+            .opt_time(TimeType::BindTimeout)
+            .ok()
+            .flatten()
+            .unwrap_or(Duration::from_secs(30));
+        let inner = self.inner.protected.write().unwrap();
+        match &inner.kind {
+            InodeSocketKind::PreSocket { props, .. } if props.ty == Socktype::Dgram => {
+                let addr = match props.family {
+                    Addressfamily::Inet4 => SocketAddr::new(IpAddr::V4(Ipv4Addr::UNSPECIFIED), 0),
+                    Addressfamily::Inet6 => SocketAddr::new(IpAddr::V6(Ipv6Addr::UNSPECIFIED), 0),
+                    _ => return Err(Errno::Notsup),
+                };
+                Self::bind_internal(tasks, net, addr, timeout, inner).await
+            }
+            _ => Ok(None),
+        }
+    }
+
     pub async fn bind(
         &self,
         tasks: &dyn VirtualTaskManager,
@@ -244,9 +273,20 @@ impl InodeSocket {
             .ok()
             .flatten()
             .unwrap_or(Duration::from_secs(30));
+        let inner = self.inner.protected.write().unwrap();
+        Self::bind_internal(tasks, net, set_addr, timeout, inner).await
+    }
 
+    // The lock is dropped before awaiting, but clippy doesn't realize it
+    #[allow(clippy::await_holding_lock)]
+    async fn bind_internal(
+        tasks: &dyn VirtualTaskManager,
+        net: &dyn VirtualNetworking,
+        set_addr: SocketAddr,
+        timeout: Duration,
+        mut inner: RwLockWriteGuard<'_, InodeSocketProtected>,
+    ) -> Result<Option<InodeSocket>, Errno> {
         let socket = {
-            let mut inner = self.inner.protected.write().unwrap();
             match &mut inner.kind {
                 InodeSocketKind::PreSocket { props, addr, .. } => {
                     match props.family {
@@ -283,7 +323,6 @@ impl InodeSocket {
                         Socktype::Dgram => {
                             let reuse_port = props.reuse_port;
                             let reuse_addr = props.reuse_addr;
-                            drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
                         }
@@ -329,7 +368,6 @@ impl InodeSocket {
                         Socktype::Dgram => {
                             let reuse_port = props.reuse_port;
                             let reuse_addr = props.reuse_addr;
-                            drop(inner);
 
                             net.bind_udp(addr, reuse_port, reuse_addr)
                         }
@@ -339,6 +377,8 @@ impl InodeSocket {
                 _ => return Err(Errno::Notsup),
             }
         };
+
+        drop(inner);
 
         tokio::select! {
             socket = socket => {

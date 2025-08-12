@@ -147,6 +147,7 @@ mod wcgi {
     use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
     use rand::Rng;
     use tokio::runtime::Handle;
+    use wasmer_package::utils::from_bytes;
     use wasmer_wasix::{
         bin_factory::BinaryPackage,
         runners::wcgi::{NoOpWcgiCallbacks, WcgiRunner},
@@ -217,6 +218,7 @@ mod wcgi {
         (cb, fut)
     }
 
+    #[derive(Debug)]
     struct Callbacks {
         sender: Sender<AbortHandle>,
         handle: Handle,

@@ -45,6 +45,7 @@ SETTINGS = {
     # extra features to put when publishing, for example wasmer-cli needs a
     # compiler by default otherwise it won't work standalone
     "publish_features": {
+        "wasmer-compiler": "compiler",
         "wasmer-cli": "default,cranelift",
         "wasmer-wasix": "sys,wasmer/sys-default",
         "wasmer-wasix-types": "wasmer/sys-default",
@@ -125,8 +126,24 @@ class Publisher:
         elif self.verbose and self.dry_run:
             print(f"Publishing version {self.version} dry run!")
 
+        print(data["dependencies"])
+        print("wasmer-package" in data["workspace"]["dependencies"])
+
+        check_local_workspace_dep = lambda t: \
+            (t[0] in data["dependencies"] and \
+             isinstance(data["dependencies"][t[0]], dict) and \
+             "path" in data["dependencies"][t[0]]) or \
+            (t[0] in data["workspace"]["dependencies"] and \
+             isinstance(data["workspace"]["dependencies"][t[0]], dict) and \
+             "path" in data["workspace"]["dependencies"][t[0]])
+
         # define helper function
-        check_local_dep_fn = lambda t: isinstance(t[1], dict) and "path" in t[1]
+        check_local_dep_fn = lambda t: \
+            isinstance(t[1], dict) and \
+            ("path" in t[1] or \
+             "workspace" in t[1] and t[1]["workspace"] is True and \
+             check_local_workspace_dep(t))
+                
         members = set(
             map(
                 lambda p: p + "/Cargo.toml",
@@ -285,15 +302,6 @@ class Publisher:
                 print(f"`{crate_name}` was already published!")
                 continue
 
-            # sleep for 16 seconds between crates to ensure the crates.io
-            # index has time to update
-            if not self.dry_run:
-                print(
-                    "Sleeping for 16 seconds to allow the `crates.io` index to update..."
-                )
-                time.sleep(16)
-            else:
-                print("In dry-run: not sleeping for crates.io to update.")
         if failures > 0 and self.verbose:
             print(f"encountered {failures} failures.")
             for key, value in status.items():

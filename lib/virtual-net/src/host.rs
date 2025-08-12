@@ -117,8 +117,15 @@ impl VirtualNetworking for LocalNetworking {
 
         #[cfg(not(windows))]
         let socket = {
-            let std_sock =
-                Socket::new(Domain::IPV4, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            let domain = if addr.is_ipv4() {
+                Domain::IPV4
+            } else {
+                Domain::IPV6
+            };
+            let std_sock = Socket::new(domain, Type::DGRAM, None).map_err(io_err_into_net_error)?;
+            std_sock
+                .set_nonblocking(true)
+                .map_err(io_err_into_net_error)?;
             std_sock
                 .set_reuse_address(reuse_addr)
                 .map_err(io_err_into_net_error)?;

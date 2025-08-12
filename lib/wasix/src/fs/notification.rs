@@ -4,6 +4,8 @@ use std::{
     task::{Poll, Waker},
 };
 
+use virtual_mio::{InterestHandler, InterestType};
+
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 struct NotificationState {
@@ -17,6 +19,9 @@ struct NotificationState {
     /// All the registered wakers
     #[cfg_attr(feature = "enable-serde", serde(skip))]
     wakers: VecDeque<Waker>,
+    /// InterestHandler for use with epoll
+    #[cfg_attr(feature = "enable-serde", serde(skip))]
+    interest_handler: Option<Box<dyn InterestHandler>>,
 }
 
 impl NotificationState {
@@ -30,6 +35,9 @@ impl NotificationState {
         self.last_poll = u64::MAX;
         while let Some(waker) = self.wakers.pop_front() {
             waker.wake();
+        }
+        if let Some(handler) = self.interest_handler.as_mut() {
+            handler.push_interest(InterestType::Readable);
         }
     }
 
@@ -70,6 +78,7 @@ impl NotificationInner {
                 last_poll: u64::MAX,
                 is_semaphore,
                 wakers: Default::default(),
+                interest_handler: None,
             }),
         }
     }
@@ -110,5 +119,15 @@ impl NotificationInner {
     pub fn reset(&self) {
         let mut state = self.state.lock().unwrap();
         state.last_poll = u64::MAX;
+    }
+
+    pub fn set_interest_handler(&self, handler: Box<dyn InterestHandler>) {
+        let mut state = self.state.lock().unwrap();
+        state.interest_handler.replace(handler);
+    }
+
+    pub fn remove_interest_handler(&self) -> Option<Box<dyn InterestHandler>> {
+        let mut state = self.state.lock().unwrap();
+        state.interest_handler.take()
     }
 }

@@ -17,6 +17,7 @@ export CC="$WASI_SDK/bin/clang"
 export CXX="$WASI_SDK/bin/clang"
 export CFLAGS="\
 --sysroot=$WASIX_SYSROOT \
+--target=wasm32-wasi \
 -matomics \
 -mbulk-memory \
 -mmutable-globals \
