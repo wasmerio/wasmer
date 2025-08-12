@@ -117,7 +117,7 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
@@ -336,7 +336,7 @@ jobs:
     name: Windows GNU
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -403,7 +403,7 @@ jobs:
     name: macOS aarch64 (JSC)
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-apple-darwin
@@ -436,7 +436,7 @@ jobs:
     name: macOS x86_64 (JSC)
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
@@ -465,7 +465,7 @@ jobs:
     name: Linux riscv64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu
