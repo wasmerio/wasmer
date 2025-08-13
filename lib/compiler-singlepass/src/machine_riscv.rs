@@ -757,6 +757,9 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         match (source, dest) {
             (Location::GPR(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
+            (Location::Imm32(_), Location::GPR(dst)) => self
+                .assembler
+                .emit_mov_imm(dest, source.imm_value_scalar().unwrap()),
             (Location::GPR(_), Location::Memory(_, _)) => {
                 self.assembler.emit_str(size, source, dest)
             }
