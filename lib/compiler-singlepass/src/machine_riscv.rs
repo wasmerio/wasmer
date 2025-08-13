@@ -180,14 +180,8 @@ impl MachineRiscv {
                 }
                 Ok(Location::GPR(tmp))
             }
-            Location::Imm8(_) | Location::Imm32(_) | Location::Imm64(_) => {
-                let imm = match src {
-                    Location::Imm8(val) => val as i64,
-                    Location::Imm32(val) => val as i64,
-                    Location::Imm64(val) => val as i64,
-                    _ => unreachable!(),
-                };
-
+            _ if src.is_imm() => {
+                let imm = src.imm_value_scalar().unwrap();
                 if imm == 0 {
                     Ok(Location::GPR(GPR::XZero))
                 } else if allow_imm.compatible_imm(imm) {
@@ -782,6 +776,7 @@ impl Machine for MachineRiscv {
         size_op: Size,
         dest: Location,
     ) -> Result<(), CompileError> {
+        // TODO: distinguish/signed and unsigned operations
         if size_op != Size::S64 {
             codegen_error!("singlepass move_location_extend unreachable");
         }
@@ -1102,9 +1097,38 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.assembler.emit_on_false_label_far(cond, label)
     }
+
+    // jmp table
     fn emit_jmp_to_jumptable(&mut self, label: Label, cond: Location) -> Result<(), CompileError> {
-        todo!()
+        let tmp1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        self.assembler.emit_load_label(tmp1, label)?;
+        self.move_location(Size::S32, cond, Location::GPR(tmp2))?;
+
+        // Multiply by 4 (size of each instruction)
+        self.assembler.emit_sll(
+            Size::S32,
+            Location::GPR(tmp2),
+            Location::Imm32(2),
+            Location::GPR(tmp2),
+        )?;
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            Location::GPR(tmp2),
+        )?;
+        self.assembler.emit_j_register(tmp2)?;
+        self.release_gpr(tmp2);
+        self.release_gpr(tmp1);
+        Ok(())
     }
+
     fn align_for_loop(&mut self) -> Result<(), CompileError> {
         // nothing to do on RISC-V
         Ok(())

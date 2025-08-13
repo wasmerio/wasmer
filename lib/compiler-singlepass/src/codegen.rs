@@ -4090,12 +4090,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
                 let default_br = self.machine.get_label();
-                self.machine.emit_relaxed_cmp(
-                    Size::S32,
-                    Location::Imm32(targets.len() as u32),
+                // TODO: refactor
+                let tmp = self.machine.acquire_temp_gpr().unwrap();
+                self.machine.i32_cmp_lt_u(
                     cond,
+                    Location::Imm32(targets.len() as u32),
+                    Location::GPR(tmp),
                 )?;
-                self.machine.jmp_on_aboveequal(default_br)?;
+                self.machine.jmp_on_false(Location::GPR(tmp), default_br)?;
+                self.machine.release_gpr(tmp);
 
                 self.machine.emit_jmp_to_jumptable(table_label, cond)?;
 

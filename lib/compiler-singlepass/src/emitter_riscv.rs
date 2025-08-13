@@ -9,6 +9,7 @@ use crate::{
     codegen_error,
     common_decl::{save_assembly_to_file, Size},
     location::{Location as AbstractLocation, Reg},
+    machine::MaybeImmediate,
     machine_riscv::{AssemblerRiscv, ImmType},
 };
 pub use crate::{
@@ -208,7 +209,8 @@ pub trait EmitterRiscv {
         -> Result<(), CompileError>;
 
     fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError>;
-
+    fn emit_j_register(&mut self, reg: GPR) -> Result<(), CompileError>;
+    fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError>;
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
 }
 
@@ -933,6 +935,12 @@ impl EmitterRiscv for Assembler {
                 let cond = cond.into_index();
                 dynasm!(self; beqz X(cond), => label);
             }
+            _ if cond.is_imm() => {
+                let imm = cond.imm_value_scalar().unwrap();
+                if imm == 0 {
+                    return self.emit_j_label(label);
+                }
+            }
             _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
         }
         Ok(())
@@ -950,6 +958,12 @@ impl EmitterRiscv for Assembler {
                 // go to the requsted `label`.
                 dynasm!(self; bnez X(cond), => cont);
             }
+            _ if cond.is_imm() => {
+                let imm = cond.imm_value_scalar().unwrap();
+                if imm == 0 {
+                    return self.emit_j_label(label);
+                }
+            }
             _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
         }
 
@@ -963,8 +977,20 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_j_register(&mut self, reg: GPR) -> Result<(), CompileError> {
+        let reg = reg.into_index();
+        dynasm!(self ; jalr zero, X(reg), 0);
+        Ok(())
+    }
+
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         dynasm!(self ; call =>label);
+        Ok(())
+    }
+
+    fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError> {
+        let reg = reg.into_index() as _;
+        dynasm!(self ; la X(reg), => label);
         Ok(())
     }
 }
