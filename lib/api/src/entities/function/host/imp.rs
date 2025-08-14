@@ -7,17 +7,18 @@ use crate::{
 
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
-use wasmer_types::{NativeWasmType, RawValue};
+use wasmer_types::{NativeWasmType, RawValue, Upcast};
 
 macro_rules! impl_host_function {
     ([$c_struct_representation:ident] $c_struct_name:ident, $( $x:ident ),* ) => {
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, RetsAsResult, T, Func> crate::HostFunction<T, ( $( $x ),* ), Rets, WithEnv> for Func where
+        impl< $( $x, )* Rets, RetsAsResult, T, Func, Object> crate::HostFunction<T, Object, ( $( $x ),* ), Rets, WithEnv> for Func where
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
             RetsAsResult: IntoResult<Rets>,
-            T: Send + 'static,
-            Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+            T: 'static,
+            Object: Upcast<T>,
+            Func: Fn(FunctionEnvMut<'_, T, Object>, $( $x , )*) -> RetsAsResult + 'static,
         {
             #[allow(non_snake_case)]
             fn function_callback(&self, rt: crate::backend::BackendKind) -> crate::vm::VMFunctionCallback {
@@ -70,8 +71,8 @@ macro_rules! impl_host_function {
 
         // Implement `HostFunction` for a function that has the same arity than the tuple.
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, RetsAsResult, Func >
-            crate::HostFunction<(), ( $( $x ),* ), Rets, WithoutEnv>
+        impl< $( $x, )* Rets, RetsAsResult, Func, Object >
+            crate::HostFunction<(), Object, ( $( $x ),* ), Rets, WithoutEnv>
         for
             Func
         where
@@ -85,15 +86,15 @@ macro_rules! impl_host_function {
                 paste::paste! {
                     match rt {
                         #[cfg(feature = "sys")]
-                        crate::backend::BackendKind::Headless => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::Headless => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "llvm")]
-                        crate::backend::BackendKind::LLVM => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::LLVM => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "cranelift")]
-                        crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::Cranelift => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "singlepass")]
-                        crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::Singlepass => crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "js")]
-                        crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
+                        crate::backend::BackendKind::Js => crate::vm::VMFunctionCallback::Js(crate::backend::js::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self)),
                         #[cfg(feature = "jsc")]
                         crate::backend::BackendKind::Jsc => crate::vm::VMFunctionCallback::Jsc(crate::backend::jsc::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
                         #[cfg(feature = "wamr")]
@@ -110,7 +111,7 @@ macro_rules! impl_host_function {
             #[cfg(feature = "sys")]
             fn function_callback_sys(&self) -> crate::vm::VMFunctionCallback {
                 paste::paste! {
-                    crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
+                    crate::vm::VMFunctionCallback::Sys(crate::backend::sys::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>]::<$($x,)* Rets, RetsAsResult, Object, _>(self))
                 }
             }
 

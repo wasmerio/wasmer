@@ -6,10 +6,10 @@ use crate::{
 };
 
 /// Underlying buffer for a memory.
-gen_rt_ty!(MemoryBuffer<'a>
-    @derives Debug, Copy, Clone, derive_more::From;
-    @path memory
-);
+gen_rt_ty! {
+    #[derive(Debug, Copy, Clone, derive_more::From)]
+    pub(crate) BackendMemoryBuffer<'a>(memory::MemoryBuffer<'a>);
+}
 
 impl BackendMemoryBuffer<'_> {
     #[allow(unused)]

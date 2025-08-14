@@ -45,8 +45,8 @@ use wasmer_types::{
 };
 
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, MemoryStyle, StoreObjects, TableStyle, TrapHandlerFn,
-    VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InternalStoreHandle, MemoryStyle, StoreObjects, TableStyle,
+    TrapHandlerFn, VMConfig, VMExtern, VMInstance, VMSharedSignatureIndex, VMTrampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -826,12 +826,12 @@ impl Artifact {
     ///
     /// See [`VMInstance::new`].
     #[allow(clippy::result_large_err)]
-    pub unsafe fn instantiate(
+    pub unsafe fn instantiate<Object>(
         &self,
         tunables: &dyn Tunables,
         imports: &[VMExtern],
-        context: &mut StoreObjects,
-    ) -> Result<VMInstance, InstantiationError> {
+        context: &mut StoreObjects<Object>,
+    ) -> Result<VMInstance<Object>, InstantiationError> {
         // Validate the CPU features this module was compiled with against the
         // host CPU features.
         let host_cpu_features = CpuFeature::for_host();
@@ -862,29 +862,31 @@ impl Artifact {
             InstanceAllocator::new(&module);
         let finished_memories = tunables
             .create_memories(
-                context,
                 &module,
                 self.memory_styles(),
                 &memory_definition_locations,
             )
             .map_err(InstantiationError::Link)?
+            .map_values(|memory| InternalStoreHandle::new(context, memory))
             .into_boxed_slice();
         let finished_tables = tunables
             .create_tables(
-                context,
                 &module,
                 self.table_styles(),
                 &table_definition_locations,
             )
             .map_err(InstantiationError::Link)?
+            .map_values(|table| InternalStoreHandle::new(context, table))
             .into_boxed_slice();
         let finished_tags = tunables
-            .create_tags(context, &module)
+            .create_tags(&module)
             .map_err(InstantiationError::Link)?
+            .map_values(|tag| InternalStoreHandle::new(context, tag))
             .into_boxed_slice();
         let finished_globals = tunables
-            .create_globals(context, &module)
+            .create_globals(&module)
             .map_err(InstantiationError::Link)?
+            .map_values(|global| InternalStoreHandle::new(context, global))
             .into_boxed_slice();
 
         let handle = VMInstance::new(
@@ -910,11 +912,11 @@ impl Artifact {
     ///
     /// See [`VMInstance::finish_instantiation`].
     #[allow(clippy::result_large_err)]
-    pub unsafe fn finish_instantiation(
+    pub unsafe fn finish_instantiation<Object>(
         &self,
         config: &VMConfig,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
-        handle: &mut VMInstance,
+        handle: &mut VMInstance<Object>,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
             .data_initializers()

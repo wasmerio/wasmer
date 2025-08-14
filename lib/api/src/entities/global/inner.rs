@@ -14,10 +14,11 @@ use wasmer_types::{GlobalType, Mutability};
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-gen_rt_ty!(Global
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub(crate) BackendGlobal(global::Global);
+}
 
 impl BackendGlobal {
     /// Create a new global with the initial [`Value`].

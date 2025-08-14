@@ -16,10 +16,11 @@ use crate::{
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-gen_rt_ty!(Table
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq, derive_more::From
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq, derive_more::From)]
+    pub(crate) BackendTable(table::Table);
+}
 
 impl BackendTable {
     /// Creates a new table with the provided [`TableType`] definition.

@@ -1,9 +1,7 @@
 use crate::{AsEngineRef, Engine, EngineRef};
 
-pub(crate) mod handle;
 pub(crate) mod obj;
 
-pub(crate) use handle::*;
 pub(crate) use obj::*;
 
 #[derive(Debug)]
@@ -26,6 +24,8 @@ impl Store {
 }
 
 impl AsEngineRef for Store {
+    type Object = ();
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.engine)
     }

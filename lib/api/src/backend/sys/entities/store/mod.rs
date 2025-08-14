@@ -42,6 +42,8 @@ impl Store {
 }
 
 impl AsEngineRef for Store {
+    type Object = std::convert::Infallible;
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         EngineRef::new(&self.engine)
     }
@@ -112,7 +114,7 @@ impl crate::BackendStore {
     }
 }
 
-impl crate::Store {
+impl<Object> crate::Store<Object> {
     /// Consume [`self`] into [`crate::backend::sys::store::Store`].
     pub(crate) fn into_sys(self) -> crate::backend::sys::store::Store {
         self.inner.store.into_sys()

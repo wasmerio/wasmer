@@ -6,7 +6,7 @@ pub(crate) use typed::*;
 
 use js_sys::{Array, Function as JsFunction};
 use wasm_bindgen::{prelude::*, JsCast};
-use wasmer_types::{FunctionType, RawValue};
+use wasmer_types::{FunctionType, RawValue, Upcast};
 
 use crate::{
     js::{
@@ -51,15 +51,15 @@ impl Function {
     }
 
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<FT, F, T: Send + 'static>(
-        store: &mut impl AsStoreMut,
+    pub fn new_with_env<FT, F, T: 'static, S: AsStoreMut<Object: Upcast<T>>>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        F: Fn(FunctionEnvMut<'_, T, S::Object>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
             + Send
             + Sync,
@@ -71,8 +71,8 @@ impl Function {
         let raw_env = env.clone();
         let wrapped_func: JsValue = match function_type.results().len() {
             0 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                let mut store: StoreMut<S::Object> = unsafe { StoreMut::from_raw(raw_store as _) };
+                let env: FunctionEnvMut<T, S::Object> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -85,8 +85,8 @@ impl Function {
                 as Box<dyn FnMut(&Array) -> Result<(), JsValue>>)
             .into_js_value(),
             1 => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                let mut store: StoreMut<S::Object> = unsafe { StoreMut::from_raw(raw_store as _) };
+                let env: FunctionEnvMut<T, S::Object> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -99,8 +99,8 @@ impl Function {
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
             _n => Closure::wrap(Box::new(move |args: &Array| {
-                let mut store: StoreMut = unsafe { StoreMut::from_raw(raw_store as _) };
-                let env: FunctionEnvMut<T> = raw_env.clone().into_mut(&mut store);
+                let mut store: StoreMut<S::Object> = unsafe { StoreMut::from_raw(raw_store as _) };
+                let env: FunctionEnvMut<T, S::Object> = raw_env.clone().into_mut(&mut store);
                 let wasm_arguments = function_type
                     .params()
                     .iter()
@@ -122,9 +122,9 @@ impl Function {
     }
 
     /// Creates a new host `Function` from a native function.
-    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    pub fn new_typed<F, Args, Rets, S: AsStoreMut>(store: &mut S, func: F) -> Self
     where
-        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -150,13 +150,13 @@ impl Function {
         }
     }
 
-    pub fn new_typed_with_env<T, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
+    pub fn new_typed_with_env<T, F, Args, Rets, S: AsStoreMut>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets, WithEnv>,
+        F: HostFunction<T, S::Object, Args, Rets, WithEnv>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -314,9 +314,9 @@ where
 {
     /// Creates a new `WasmFunction`.
     #[allow(dead_code)]
-    pub fn new<F, T, Kind: HostFunctionKind>(function: F) -> Self
+    pub fn new<F, T, Object, Kind: HostFunctionKind>(function: F) -> Self
     where
-        F: HostFunction<T, Args, Rets, Kind>,
+        F: HostFunction<T, Object, Args, Rets, Kind>,
         T: Sized,
     {
         Self {
@@ -369,13 +369,13 @@ macro_rules! impl_host_function {
         paste::paste! {
         #[allow(non_snake_case)]
         pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower _no_env>]
-            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, Object, Func: Fn($( $x , )*) -> RetsAsResult + 'static>
             (this: &Func) -> crate::backend::js::vm::VMFunctionCallback {
 
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Object, Func>( store_ptr: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -384,7 +384,7 @@ macro_rules! impl_host_function {
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
                 let func: &Func = &*(&() as *const () as *const Func);
-                let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                let mut store = StoreMut::<Object>::from_raw(store_ptr as *mut _);
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
                     func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
@@ -402,29 +402,29 @@ macro_rules! impl_host_function {
                 }
             }
 
-            func_wrapper::< $( $x, )* Rets, RetsAsResult, Func> as _
+            func_wrapper::< $( $x, )* Rets, RetsAsResult, Object, Func> as _
 
         }
 
 
         #[allow(non_snake_case)]
         pub(crate) fn [<gen_fn_callback_ $c_struct_name:lower>]
-            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static,  Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static>
+            <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T, Object: Upcast<T>, Func: Fn(FunctionEnvMut<T, Object>, $( $x , )*) -> RetsAsResult + 'static>
             (this: &Func) -> crate::backend::js::vm::VMFunctionCallback {
 
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C" fn func_wrapper<T, $( $x, )* Rets, RetsAsResult, Object, Func>( store_ptr: usize, handle_index: usize, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                T: Send + 'static,
-                Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+                Object: Upcast<T>,
+                Func: Fn(FunctionEnvMut<'_, T, Object>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = StoreMut::from_raw(store_ptr as *mut _);
-                let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
+                let mut store = StoreMut::<Object>::from_raw(store_ptr as *mut _);
+                let mut store2 = StoreMut::<Object>::from_raw(store_ptr as *mut _);
 
                 let result = {
                     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
@@ -432,7 +432,7 @@ macro_rules! impl_host_function {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         let handle: crate::backend::js::store::StoreHandle<crate::backend::js::vm::VMFunctionEnvironment> =
                           crate::backend::js::store::StoreHandle::from_internal(store2.objects_mut().id(), crate::backend::js::store::InternalStoreHandle::from_index(handle_index).unwrap());
-                        let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
+                        let env: crate::backend::js::function::env::FunctionEnvMut<T, Object> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
                         func(BackendFunctionEnvMut::Js(env).into(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
                     }))
                 };
@@ -449,7 +449,7 @@ macro_rules! impl_host_function {
                 }
             }
 
-            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
+            func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Object, Func > as _
         }
 
         }

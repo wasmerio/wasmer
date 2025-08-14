@@ -37,7 +37,7 @@ const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 /// # Ok(())
 /// # }
 /// ```
-pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
+pub fn get_object_for_target(triple: &Triple) -> Result<Object<'_>, ObjectError> {
     let obj_binary_format = match triple.binary_format {
         BinaryFormat::Elf => object::BinaryFormat::Elf,
         BinaryFormat::Macho => object::BinaryFormat::MachO,

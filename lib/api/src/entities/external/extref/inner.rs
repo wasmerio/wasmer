@@ -5,7 +5,10 @@ use crate::macros::backend::{gen_rt_ty, match_rt};
 use crate::vm::VMExternRef;
 use crate::StoreRef;
 
-gen_rt_ty!(ExternRef @derives derive_more::From, Debug, Clone ; @path external);
+gen_rt_ty! {
+    #[derive(derive_more::From, Debug, Clone)]
+    pub(crate) BackendExternRef(external::ExternRef);
+}
 
 impl BackendExternRef {
     /// Make a new extern reference

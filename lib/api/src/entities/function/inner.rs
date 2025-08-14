@@ -1,4 +1,4 @@
-use wasmer_types::{FunctionType, RawValue};
+use wasmer_types::{FunctionType, RawValue, Upcast};
 
 use crate::{
     error::RuntimeError,
@@ -25,10 +25,11 @@ use crate::{
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-gen_rt_ty!(Function
-    @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
-    @derives Debug, Clone, PartialEq, Eq
-);
+gen_rt_ty! {
+    #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub(crate) BackendFunction(function::Function);
+}
 
 impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -36,13 +37,13 @@ impl BackendFunction {
     /// If you know the signature of the host function at compile time,
     /// consider using [`Self::new_typed`] for less runtime overhead.
     #[inline]
-    pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    pub fn new<FT, F>(store: &mut impl AsStoreMut<Object: Upcast<()>>, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
         let env = FunctionEnv::new(&mut store.as_store_mut(), ());
-        let wrapped_func = move |_env: FunctionEnvMut<()>,
+        let wrapped_func = move |_env: FunctionEnvMut<(), _>,
                                  args: &[Value]|
               -> Result<Vec<Value>, RuntimeError> { func(args) };
         Self::new_with_env(store, &env, ty, wrapped_func)
@@ -86,15 +87,16 @@ impl BackendFunction {
     /// });
     /// ```
     #[inline]
-    pub fn new_with_env<FT, F, T: Send + 'static>(
-        store: &mut impl AsStoreMut,
+    pub fn new_with_env<S, FT, F, T: 'static>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         ty: FT,
         func: F,
     ) -> Self
     where
+        S: AsStoreMut<Object: Upcast<T>>,
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
+        F: Fn(FunctionEnvMut<T, S::Object>, &[Value]) -> Result<Vec<Value>, RuntimeError>
             + 'static
             + Send
             + Sync,
@@ -141,9 +143,10 @@ impl BackendFunction {
 
     /// Creates a new host `Function` from a native function.
     #[inline]
-    pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    pub fn new_typed<S, F, Args, Rets>(store: &mut S, func: F) -> Self
     where
-        F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
+        S: AsStoreMut<Object: Upcast<()>>,
+        F: HostFunction<(), S::Object, Args, Rets, WithoutEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
@@ -196,13 +199,14 @@ impl BackendFunction {
     /// let f = Function::new_typed_with_env(&mut store, &env, sum);
     /// ```
     #[inline]
-    pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
+    pub fn new_typed_with_env<S, T: 'static, F, Args, Rets>(
+        store: &mut S,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
+        S: AsStoreMut<Object: Upcast<T>>,
+        F: HostFunction<T, S::Object, Args, Rets, WithEnv> + 'static + Send + Sync,
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {

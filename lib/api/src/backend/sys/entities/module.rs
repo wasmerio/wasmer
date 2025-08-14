@@ -139,9 +139,9 @@ impl Module {
     }
 
     #[allow(clippy::result_large_err)]
-    pub(crate) fn instantiate(
+    pub(crate) fn instantiate<Store: AsStoreMut>(
         &self,
-        store: &mut impl AsStoreMut,
+        store: &mut Store,
         imports: &[crate::Extern],
     ) -> Result<VMInstance, InstantiationError> {
         if !self.artifact.allocated() {
