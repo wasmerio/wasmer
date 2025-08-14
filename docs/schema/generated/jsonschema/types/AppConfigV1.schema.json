@@ -218,6 +218,16 @@
               "type": "null"
             }
           ]
+        },
+        "ssh": {
+          "anyOf": [
+            {
+              "$ref": "#/definitions/CapabilitySshServerV1"
+            },
+            {
+              "type": "null"
+            }
+          ]
         }
       },
       "additionalProperties": true
@@ -301,6 +311,29 @@
           "type": "string"
         }
       }
+    },
+    "CapabilitySshServerV1": {
+      "description": "Configure SSH server credentials and settings.",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Enable an SSH server.",
+          "type": [
+            "boolean",
+            "null"
+          ]
+        },
+        "users": {
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/SshUserV1"
+          }
+        }
+      },
+      "additionalProperties": true
     },
     "ExecutableJob": {
       "type": "object",
@@ -731,6 +764,48 @@
     "PackageSource": {
       "type": "string"
     },
+    "PasswordV1": {
+      "oneOf": [
+        {
+          "description": "Plain text password.",
+          "type": "object",
+          "required": [
+            "password",
+            "type"
+          ],
+          "properties": {
+            "password": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "plain"
+              ]
+            }
+          }
+        },
+        {
+          "description": "Bcrypt password hash.",
+          "type": "object",
+          "required": [
+            "hash",
+            "type"
+          ],
+          "properties": {
+            "hash": {
+              "type": "string"
+            },
+            "type": {
+              "type": "string",
+              "enum": [
+                "bcrypt"
+              ]
+            }
+          }
+        }
+      ]
+    },
     "PrettyDuration": {
       "type": "string"
     },
@@ -749,6 +824,39 @@
     },
     "SnapshotTrigger": {
       "type": "string"
+    },
+    "SshUserV1": {
+      "type": "object",
+      "required": [
+        "username"
+      ],
+      "properties": {
+        "authorized_keys": {
+          "description": "SSH public keys for this user.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "type": "string"
+          }
+        },
+        "passwords": {
+          "description": "Passwords for this user.",
+          "type": [
+            "array",
+            "null"
+          ],
+          "items": {
+            "$ref": "#/definitions/PasswordV1"
+          }
+        },
+        "username": {
+          "description": "The username used for SSH login.",
+          "type": "string"
+        }
+      },
+      "additionalProperties": true
     }
   }
 }
