@@ -429,15 +429,19 @@
 <a href="#428" id="428">428</a>
 <a href="#429" id="429">429</a>
 <a href="#430" id="430">430</a>
-<a href="#431" id="431">431</a></pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a></pre></div><pre class="rust"><code><span class="doccomment">//! User-facing app.yaml file config: [`AppConfigV1`].
 
 </span><span class="kw">mod </span>healthcheck;
 <span class="kw">mod </span>http;
 <span class="kw">mod </span>job;
 <span class="kw">mod </span>pretty_duration;
 <span class="kw">mod </span>snapshot_trigger;
+<span class="kw">mod </span>ssh;
 
-<span class="kw">pub use </span><span class="self">self</span>::{healthcheck::<span class="kw-2">*</span>, http::<span class="kw-2">*</span>, job::<span class="kw-2">*</span>, pretty_duration::<span class="kw-2">*</span>, snapshot_trigger::<span class="kw-2">*</span>};
+<span class="kw">pub use </span><span class="self">self</span>::{healthcheck::<span class="kw-2">*</span>, http::<span class="kw-2">*</span>, job::<span class="kw-2">*</span>, pretty_duration::<span class="kw-2">*</span>, snapshot_trigger::<span class="kw-2">*</span>, ssh::<span class="kw-2">*</span>};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>bytesize::ByteSize;
@@ -636,6 +640,8 @@
     <span class="doccomment">/// Enables app bootstrapping with startup snapshots.
     </span><span class="attr">#[serde(skip_serializing_if = <span class="string">"Option::is_none"</span>)]
     </span><span class="kw">pub </span>instaboot: <span class="prelude-ty">Option</span>&lt;AppConfigCapabilityInstaBootV1&gt;,
+
+    <span class="kw">pub </span>ssh: <span class="prelude-ty">Option</span>&lt;CapabilitySshServerV1&gt;,
 
     <span class="doccomment">/// Additional unknown capabilities.
     ///
