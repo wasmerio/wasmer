@@ -246,9 +246,9 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_udf(&mut self, payload: u8) -> Result<(), CompileError> {
-        // TODO: propagate the payload
-        //; li.12 a0, payload as _
-        dynasm!(self ; unimp);
+        dynasm!(self
+            ; li.12 a0, payload as _
+            ; unimp);
         Ok(())
     }
 
