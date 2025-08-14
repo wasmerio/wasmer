@@ -4168,7 +4168,14 @@
 <a href="#4167" id="4167">4167</a>
 <a href="#4168" id="4168">4168</a>
 <a href="#4169" id="4169">4169</a>
-<a href="#4170" id="4170">4170</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4170" id="4170">4170</a>
+<a href="#4171" id="4171">4171</a>
+<a href="#4172" id="4172">4172</a>
+<a href="#4173" id="4173">4173</a>
+<a href="#4174" id="4174">4174</a>
+<a href="#4175" id="4175">4175</a>
+<a href="#4176" id="4176">4176</a>
+<a href="#4177" id="4177">4177</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4823,6 +4830,15 @@
 }
 
 <span class="comment">// Used only when processing a module load operation from another instance group.
+// Note: Non-TLS globals are constant across instance groups, and thus we store
+// their value, feeding it into new instance groups directly. In the case of TLS
+// symbols, they need to get new values based on each specific instance's __tls_base,
+// so they need to be tracked.
+// __wasm_apply_data_relocs operates on memory addresses, and so it needs to run
+// only once. __wasm_apply_tls_relocs does need to run once per instance group, but
+// it's run as part of __wasm_init_tls, which itself is called by __wasix_init_tls.
+// In either case, there's no need to call any relocation functions when spawning
+// further instances of a module that was already loaded and instantiated once.
 </span><span class="attr">#[derive(Debug, Default)]
 </span><span class="kw">struct </span>PendingResolutionsFromLinker {
     functions: Vec&lt;PendingFunctionResolutionFromLinkerState&gt;,
@@ -5355,12 +5371,6 @@
             )
             .map_err(LinkError::MainModuleHandleInitFailed)<span class="question-mark">?</span>;
 
-        <span class="comment">// This function is exported from PIE executables, and needs to be run before calling
-        // _initialize or _start. More info:
-        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
-        </span><span class="macro">trace!</span>(<span class="string">"Calling data relocator function for main module"</span>);
-        call_initialization_function::&lt;()&gt;(<span class="kw-2">&amp;</span>main_instance, store, <span class="string">"__wasm_apply_data_relocs"</span>)<span class="question-mark">?</span>;
-
         {
             <span class="kw">let </span>group_guard = linker.instance_group_state.lock().unwrap();
             <span class="kw">let </span><span class="kw-2">mut </span>linker_state = linker.linker_state.write().unwrap();
@@ -5822,9 +5832,13 @@
         // stub functions and that requires a lock on the instance group's state
         </span>drop(group_state_guard);
 
-        <span class="macro">trace!</span>(<span class="string">"Calling data relocation functions"</span>);
+        <span class="comment">// These functions are exported from PIE executables, and need to be run before calling
+        // _initialize or _start. More info:
+        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
+        </span><span class="macro">trace!</span>(<span class="string">"Calling data relocation functions"</span>);
         <span class="kw">for </span>instance <span class="kw">in </span><span class="kw-2">&amp;</span>new_instances {
             call_initialization_function::&lt;()&gt;(instance, store, <span class="string">"__wasm_apply_data_relocs"</span>)<span class="question-mark">?</span>;
+            call_initialization_function::&lt;()&gt;(instance, store, <span class="string">"__wasm_apply_tls_relocs"</span>)<span class="question-mark">?</span>;
         }
 
         <span class="macro">trace!</span>(<span class="string">"Calling ctor functions"</span>);
