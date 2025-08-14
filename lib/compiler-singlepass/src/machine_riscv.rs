@@ -779,26 +779,24 @@ impl Machine for MachineRiscv {
         size_op: Size,
         dest: Location,
     ) -> Result<(), CompileError> {
-        // TODO: distinguish/signed and unsigned operations
         if size_op != Size::S64 {
             codegen_error!("singlepass move_location_extend unreachable");
         }
         let mut temps = vec![];
         let dst = self.location_to_reg(size_op, dest, &mut temps, ImmType::None, false, None)?;
         let src = match (size_val, signed, source) {
-            (Size::S32 | Size::S64, _, Location::GPR(_)) => {
-                self.assembler.emit_mov(size_val, source, dst)?;
-                dst
-            }
-            (Size::S32 | Size::S64, _, Location::Memory(_, _)) => {
-                self.assembler.emit_ld(size_val, dst, source)?;
+            (Size::S64, _, _) => source,
+            (_, _, Location::GPR(_)) => {
+                self.assembler.emit_extend(size_val, signed, source, dst)?;
                 dst
             }
             _ => codegen_error!(
-                "singlepass can't move location {:?} {:?} {:?}",
+                "singlepass can't emit move_location_extend {:?} {:?} {:?} => {:?} {:?}",
                 size_val,
+                signed,
                 source,
-                dst
+                size_op,
+                dest
             ),
         };
         if src != dst {
@@ -1181,7 +1179,26 @@ impl Machine for MachineRiscv {
         sz_dst: Size,
         dst: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        match (src, dst) {
+            (Location::Memory(_, _), Location::GPR(_)) => {
+                codegen_error!("singlepass emit_relaxed_sign_extension unreachable")
+            }
+            _ => {
+                let mut temps = vec![];
+                let src =
+                    self.location_to_reg(sz_src, src, &mut temps, ImmType::None, true, None)?;
+                let dest =
+                    self.location_to_reg(sz_dst, dst, &mut temps, ImmType::None, false, None)?;
+                self.assembler.emit_extend(sz_src, true, src, dst)?;
+                if dst != dest {
+                    self.move_location(sz_dst, dest, dst)?;
+                }
+                for r in temps {
+                    self.release_gpr(r);
+                }
+                Ok(())
+            }
+        }
     }
     fn emit_imul_imm32(
         &mut self,

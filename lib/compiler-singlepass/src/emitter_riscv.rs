@@ -187,6 +187,13 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_extend(
+        &mut self,
+        sz: Size,
+        signed: bool,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
@@ -672,12 +679,7 @@ impl EmitterRiscv for Assembler {
         dst: Location,
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
-            (
-                Size::S32 | Size::S64,
-                Location::GPR(src1),
-                Location::GPR(src2),
-                Location::GPR(dst),
-            ) => {
+            (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let src2 = src2.into_index();
                 let dst = dst.into_index();
@@ -691,13 +693,19 @@ impl EmitterRiscv for Assembler {
                 }
                 dynasm!(self ; slli X(dst), X(src1), imm as _);
             }
+            (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; sllw X(dst), X(src1), X(src2));
+            }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
                 if imm >= u32::BITS {
                     codegen_error!("singlepass SLL with incompatible imm {}", imm);
                 }
-                dynasm!(self ; slli X(dst), X(src1), imm as _);
+                dynasm!(self ; slliw X(dst), X(src1), imm as _);
             }
             _ => codegen_error!(
                 "singlepass can't emit SLL {:?} {:?} {:?} {:?}",
@@ -756,6 +764,42 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_extend(
+        &mut self,
+        sz: Size,
+        signed: bool,
+        src: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        let bit_shift = match sz {
+            Size::S8 => 56,
+            Size::S16 => 48,
+            Size::S32 => 32,
+            _ => codegen_error!("singlepass can't emit SEXT {:?} {:?} {:?}", sz, src, dst),
+        };
+
+        match (signed, src, dst) {
+            (true, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self
+                    ; slli X(dst), X(src), bit_shift
+                    ; srai X(dst), X(dst), bit_shift
+                );
+            }
+            (false, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self
+                    ; slli X(dst), X(src), bit_shift
+                    ; srli X(dst), X(dst), bit_shift
+                );
+            }
+            _ => codegen_error!("singlepass can't emit SEXT {:?} {:?} {:?}", sz, src, dst),
+        };
+        Ok(())
+    }
+
     fn emit_sra(
         &mut self,
         sz: Size,
@@ -804,10 +848,15 @@ impl EmitterRiscv for Assembler {
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
-            (Size::S32 | Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
                 let src = src.into_index();
                 let dst = dst.into_index();
                 dynasm!(self ; mv X(dst), X(src));
+            }
+            (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; slliw X(dst), X(src), 0);
             }
             (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
                 let src = src.into_index();
