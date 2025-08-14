@@ -188,15 +188,16 @@ impl UnwindRegistry {
             }
         }
 
-        assert_eq!(
-            last_len, 0,
-            "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-        );
-        assert_eq!(
-            current,
-            eh_frame.len(),
-            "The `.eh_frame` must be finished after the last record",
-        );
+        // TODO: Enable this check againt when updating the artifact version to 11
+        // assert_eq!(
+        //     last_len, 0,
+        //     "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+        // );
+        // assert_eq!(
+        //     current,
+        //     eh_frame.len(),
+        //     "The `.eh_frame` must be finished after the last record",
+        // );
 
         for record in records_to_register {
             // Register the CFI with libgcc
