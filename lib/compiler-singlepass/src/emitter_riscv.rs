@@ -92,7 +92,13 @@ pub trait EmitterRiscv {
     // TODO: add methods for emitting RISC-V instructions (e.g., loads, stores, arithmetic, branches, etc.)
     fn emit_brk(&mut self) -> Result<(), CompileError>;
 
-    fn emit_ld(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
+    fn emit_ld(
+        &mut self,
+        sz: Size,
+        signed: bool,
+        reg: Location,
+        addr: Location,
+    ) -> Result<(), CompileError>;
 
     fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
 
@@ -259,27 +265,51 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
-    fn emit_ld(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
-        match (sz, reg, addr) {
-            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
+    fn emit_ld(
+        &mut self,
+        sz: Size,
+        signed: bool,
+        reg: Location,
+        addr: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, signed, reg, addr) {
+            (Size::S64, _, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; ld X(reg), [X(addr), disp]);
             }
-            (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
+            (Size::S32, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; lwu X(reg), [X(addr), disp]);
+            }
+            (Size::S32, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
-            (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
+            (Size::S16, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; lhu X(reg), [X(addr), disp]);
+            }
+            (Size::S16, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lh X(reg), [X(addr), disp]);
             }
-            (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
+            (Size::S8, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; lbu X(reg), [X(addr), disp]);
+            }
+            (Size::S8, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
@@ -1103,6 +1133,7 @@ pub fn gen_std_trampoline_riscv(
             0..=6 => {
                 a.emit_ld(
                     sz,
+                    false,
                     Location::GPR(GPR::from_index(i + 10 + 1).unwrap()),
                     Location::Memory(args, (i * 16) as i32),
                 )?;
@@ -1124,7 +1155,7 @@ pub fn gen_std_trampoline_riscv(
                     Location::Memory(scratch, 0)
                 };
 
-                a.emit_ld(sz, Location::GPR(scratch), arg_location)?;
+                a.emit_ld(sz, false, Location::GPR(scratch), arg_location)?;
                 a.emit_str(
                     sz,
                     Location::GPR(scratch),
