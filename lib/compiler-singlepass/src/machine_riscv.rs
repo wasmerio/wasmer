@@ -597,8 +597,7 @@ impl MachineRiscv {
                         Location::GPR(tmp),
                         Location::GPR(tmp),
                     )?;
-                    self.assembler
-                        .emit_ld(Size::S64, dest, Location::Memory(tmp, 0))?;
+                    self.assembler.emit_ld(sz, dest, Location::Memory(tmp, 0))?;
                     temps.push(tmp);
                 }
             }
@@ -1787,7 +1786,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S32, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i32_load_8u(
         &mut self,

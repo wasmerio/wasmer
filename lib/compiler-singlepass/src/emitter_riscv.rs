@@ -261,17 +261,29 @@ impl EmitterRiscv for Assembler {
 
     fn emit_ld(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
+            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; ld X(reg), [X(addr), disp]);
+            }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
-            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
+            (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
-                dynasm!(self ; ld X(reg), [X(addr), disp]);
+                dynasm!(self ; lh X(reg), [X(addr), disp]);
+            }
+            (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; lb X(reg), [X(addr), disp]);
             }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit LD {:?}, {:?}, {:?}", sz, reg, addr),
