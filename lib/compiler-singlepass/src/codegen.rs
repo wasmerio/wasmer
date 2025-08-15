@@ -2818,10 +2818,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     )?;
                 }
 
+                let cond = self.machine.acquire_temp_gpr().unwrap();
+                self.machine.i32_cmp_lt_u(
+                    func_index,
+                    Location::GPR(table_count),
+                    Location::GPR(cond),
+                )?;
                 self.machine
-                    .location_cmp(Size::S32, func_index, Location::GPR(table_count))?;
-                self.machine
-                    .jmp_on_belowequal(self.special_labels.table_access_oob)?;
+                    .jmp_on_false(Location::GPR(cond), self.special_labels.table_access_oob)?;
                 self.machine
                     .move_location(Size::S32, func_index, Location::GPR(table_count))?;
                 self.machine.emit_imul_imm32(
@@ -2843,13 +2847,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(table_count),
                 )?;
                 // Trap if the FuncRef is null
-                self.machine.location_cmp(
-                    Size::S64,
-                    Location::Imm32(0),
+                // TODO: refactor
+                self.machine.i64_cmp_ne(
                     Location::GPR(table_count),
+                    Location::Imm64(0),
+                    Location::GPR(cond),
                 )?;
                 self.machine
-                    .jmp_on_equal(self.special_labels.indirect_call_null)?;
+                    .jmp_on_false(Location::GPR(cond), self.special_labels.indirect_call_null)?;
+
                 self.machine.move_location(
                     Size::S64,
                     Location::Memory(
@@ -2860,17 +2866,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
 
                 // Trap if signature mismatches.
-                self.machine.location_cmp(
-                    Size::S32,
+                // TODO: refactor
+                self.machine.i64_cmp_ne(
                     Location::GPR(sigidx),
                     Location::Memory(
                         table_count,
                         (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
                     ),
+                    Location::GPR(cond),
                 )?;
+                // TODO
                 self.machine
-                    .jmp_on_different(self.special_labels.bad_signature)?;
+                    .jmp_on_false(Location::GPR(cond), self.special_labels.bad_signature)?;
 
+                self.machine.release_gpr(cond);
                 self.machine.release_gpr(sigidx);
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);

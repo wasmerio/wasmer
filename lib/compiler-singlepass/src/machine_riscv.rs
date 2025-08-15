@@ -166,17 +166,7 @@ impl MachineRiscv {
                     tmp
                 };
                 if read_val {
-                    match sz {
-                        Size::S64 => {
-                            self.assembler.emit_ld(sz, false, Location::GPR(tmp), src)?;
-                        }
-                        // TODO: support more sizes
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "singlepass cannot load location from memory: {src:?}".to_owned(),
-                            ))
-                        }
-                    }
+                    self.assembler.emit_ld(sz, false, Location::GPR(tmp), src)?;
                 }
                 Ok(Location::GPR(tmp))
             }
@@ -1189,7 +1179,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        todo!()
+        false
     }
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
@@ -1198,7 +1188,17 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
-        todo!()
+        let mut temps = vec![];
+        let loc =
+            self.location_to_reg(Size::S64, location, &mut temps, ImmType::None, true, None)?;
+        match loc {
+            Location::GPR(reg) => self.assembler.emit_call_register(reg),
+            _ => codegen_error!("singlepass can't emit CALL Location"),
+        }?;
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
     }
     fn get_gpr_for_ret(&self) -> Self::GPR {
         GPR::X10
@@ -1251,7 +1251,17 @@ impl Machine for MachineRiscv {
         dest: Location,
         flags: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        let mut temps = vec![];
+        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits12, true, None)?;
+        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None, true, None)?;
+        self.assembler.emit_add(size, dst, src, dst)?;
+        if dst != dest {
+            self.move_location(size, dst, dest)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
     }
     fn location_sub(
         &mut self,
@@ -1424,7 +1434,19 @@ impl Machine for MachineRiscv {
         imm32: u32,
         gpr: Self::GPR,
     ) -> Result<(), CompileError> {
-        todo!()
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.assembler
+            .emit_mov_imm(Location::GPR(tmp), imm32 as _)?;
+        self.assembler.emit_mul(
+            size,
+            Location::GPR(gpr),
+            Location::GPR(tmp),
+            Location::GPR(gpr),
+        )?;
+        self.release_gpr(tmp);
+        Ok(())
     }
     fn emit_binop_add32(
         &mut self,

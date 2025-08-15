@@ -225,6 +225,7 @@ pub trait EmitterRiscv {
     fn emit_j_register(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError>;
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
+    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -1081,6 +1082,12 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
+        let reg = reg.into_index();
+        dynasm!(self ; jalr ra, X(reg), 0);
+        Ok(())
+    }
+
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError> {
         let reg = reg.into_index() as _;
         dynasm!(self ; la X(reg), => label);
@@ -1188,7 +1195,7 @@ pub fn gen_std_trampoline_riscv(
 
     let mut body = a.finalize().unwrap();
 
-    // save_assembly_to_file(Path::new("/tmp/trampoline-dump.o"), &body);
+    save_assembly_to_file(Path::new("/tmp/trampoline-dump.o"), &body);
 
     body.shrink_to_fit();
     Ok(FunctionBody {
