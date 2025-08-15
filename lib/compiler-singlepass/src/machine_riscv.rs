@@ -403,6 +403,215 @@ impl MachineRiscv {
         }
         Ok(())
     }
+
+    #[allow(clippy::too_many_arguments)]
+    fn memory_op<F: FnOnce(&mut Self, GPR) -> Result<(), CompileError>>(
+        &mut self,
+        addr: Location,
+        memarg: &MemArg,
+        check_alignment: bool,
+        value_size: usize,
+        need_check: bool,
+        imported_memories: bool,
+        offset: i32,
+        heap_access_oob: Label,
+        unaligned_atomic: Label,
+        cb: F,
+    ) -> Result<(), CompileError> {
+        let value_size = value_size as i64;
+        let tmp_addr = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.
+        let (base_loc, bound_loc) = if imported_memories {
+            // Imported memories require one level of indirection.
+            self.emit_relaxed_binop(
+                Assembler::emit_mov,
+                Size::S64,
+                Location::Memory(self.get_vmctx_reg(), offset),
+                Location::GPR(tmp_addr),
+            )?;
+            (Location::Memory(tmp_addr, 0), Location::Memory(tmp_addr, 8))
+        } else {
+            (
+                Location::Memory(self.get_vmctx_reg(), offset),
+                Location::Memory(self.get_vmctx_reg(), offset + 8),
+            )
+        };
+
+        let tmp_base = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmp_bound = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        // Load base into temporary register.
+        self.emit_relaxed_load(Size::S64, Location::GPR(tmp_base), base_loc)?;
+
+        // Load bound into temporary register, if needed.
+        if need_check {
+            self.emit_relaxed_load(Size::S64, Location::GPR(tmp_bound), bound_loc)?;
+
+            // Wasm -> Effective.
+            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+            self.assembler.emit_add(
+                Size::S64,
+                Location::GPR(tmp_bound),
+                Location::GPR(tmp_base),
+                Location::GPR(tmp_bound),
+            )?;
+            if ImmType::Bits12.compatible_imm(value_size) {
+                self.assembler.emit_sub(
+                    Size::S64,
+                    Location::GPR(tmp_bound),
+                    Location::Imm32(value_size as _),
+                    Location::GPR(tmp_bound),
+                )?;
+            } else {
+                let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                self.assembler
+                    .emit_mov_imm(Location::GPR(tmp2), value_size)?;
+                self.assembler.emit_sub(
+                    Size::S64,
+                    Location::GPR(tmp_bound),
+                    Location::GPR(tmp2),
+                    Location::GPR(tmp_bound),
+                )?;
+                self.release_gpr(tmp2);
+            }
+        }
+
+        // Load effective address.
+        // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
+        // might be reused.
+        self.move_location(Size::S32, addr, Location::GPR(tmp_addr))?;
+
+        // Add offset to memory address.
+        if memarg.offset != 0 {
+            if ImmType::Bits12.compatible_imm(value_size) {
+                self.assembler.emit_add(
+                    Size::S32,
+                    Location::Imm32(memarg.offset as u32),
+                    Location::GPR(tmp_addr),
+                    Location::GPR(tmp_addr),
+                )?;
+            } else {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                self.assembler
+                    .emit_mov_imm(Location::GPR(tmp), memarg.offset as _)?;
+                self.assembler.emit_add(
+                    Size::S32,
+                    Location::GPR(tmp_addr),
+                    Location::GPR(tmp),
+                    Location::GPR(tmp_addr),
+                )?;
+                self.release_gpr(tmp);
+            }
+
+            // Trap if offset calculation overflowed.
+            // TODO: add support as don't have a carry set flag
+        }
+
+        // Wasm linear memory -> real memory
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(tmp_base),
+            Location::GPR(tmp_addr),
+            Location::GPR(tmp_addr),
+        )?;
+
+        // tmp_base is already unused
+        let cond = tmp_base;
+
+        if need_check {
+            // Trap if the end address of the requested area is above that of the linear memory.
+            self.assembler.emit_cmp(
+                Condition::Le,
+                Location::GPR(tmp_bound),
+                Location::GPR(tmp_addr),
+                Location::GPR(cond),
+            )?;
+
+            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+            self.jmp_on_false(Location::GPR(cond), heap_access_oob)?;
+        }
+
+        self.release_gpr(tmp_bound);
+        self.release_gpr(cond);
+
+        let align = value_size as u32;
+        if check_alignment && align != 1 {
+            self.assembler.emit_and(
+                Size::S64,
+                Location::GPR(tmp_addr),
+                Location::Imm64((align - 1) as u64),
+                Location::GPR(cond),
+            )?;
+            // TODO: add emit_on_true_label_far
+            self.assembler.emit_xor(
+                Size::S64,
+                Location::GPR(cond),
+                Location::Imm64(1),
+                Location::GPR(cond),
+            )?;
+            self.assembler
+                .emit_on_false_label_far(Location::GPR(cond), unaligned_atomic)?;
+        }
+        let begin = self.assembler.get_offset().0;
+        cb(self, tmp_addr)?;
+        let end = self.assembler.get_offset().0;
+        self.mark_address_range_with_trap_code(TrapCode::HeapAccessOutOfBounds, begin, end);
+
+        self.release_gpr(tmp_addr);
+        Ok(())
+    }
+
+    fn emit_relaxed_load(
+        &mut self,
+        sz: Size,
+        dst: Location,
+        src: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, false, None)?;
+        match src {
+            Location::Memory(addr, offset) => {
+                if ImmType::Bits12.compatible_imm(offset as i64) {
+                    self.assembler.emit_ld(sz, dest, src)?;
+                } else {
+                    let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                    })?;
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as i64)?;
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(addr),
+                        Location::GPR(tmp),
+                        Location::GPR(tmp),
+                    )?;
+                    self.assembler
+                        .emit_ld(Size::S64, dest, Location::Memory(tmp, 0))?;
+                    temps.push(tmp);
+                }
+            }
+            _ => codegen_error!("singplass emit_relaxed_load unreachable"),
+        }
+        if dst != dest {
+            self.move_location(sz, dest, dst)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
@@ -567,8 +776,12 @@ impl Machine for MachineRiscv {
         self.src_loc = offset;
     }
 
+    // TODO: refactoring: make the code generic
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
-        todo!()
+        for i in begin..end {
+            self.trap_table.offset_to_code.insert(i, code);
+        }
+        self.mark_instruction_address_end(begin);
     }
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         todo!()
@@ -2427,7 +2640,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S64, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i64_load_8u(
         &mut self,
