@@ -118,7 +118,12 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
         val = if read(addr) == 0xc0001073 {
             // Read from the instruction we emitted: 'addi a0, xzero, $payload'
             // and take the encoded immediate value (upper 12-bits).
-            Some((read(addr.sub(1)) >> 20) as u8)
+            let prev_insn = read(addr.sub(1));
+            if (prev_insn & 0xffff) == 0x0513 {
+                Some((prev_insn >> 20) as u8)
+            } else {
+                None
+            }
         } else {
             None
         };
