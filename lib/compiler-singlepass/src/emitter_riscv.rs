@@ -1202,7 +1202,6 @@ pub fn gen_std_trampoline_riscv(
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
 
-    // TODO: should we save/restore also these 2 registers?
     let fptr = GPR::X30;
     let args = GPR::X31;
 
@@ -1210,6 +1209,8 @@ pub fn gen_std_trampoline_riscv(
         ; addi sp, sp, -32
         ; sd ra, [sp,24]
         ; sd s0, [sp,16]
+        ; sd X(fptr as u32), [sp, 8]
+        ; sd X(args as u32), [sp, 0]
         ; mv s0, sp // use frame-pointer register for later restore
         ; mv X(fptr as u32), a1
         ; mv X(args as u32), a2
@@ -1289,6 +1290,8 @@ pub fn gen_std_trampoline_riscv(
     dynasm!(a
         ; ld ra, [s0,24]
         ; ld s0, [s0,16]
+        ; ld X(fptr as u32), [s0,8]
+        ; ld X(args as u32), [s0,0]
         ; addi sp, sp, 32 + stack_offset as i32
         ; ret
     );
