@@ -603,6 +603,84 @@ impl MachineRiscv {
         }
         Ok(())
     }
+
+    fn emit_rol(
+        &mut self,
+        sz: Size,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let size_bits = sz.bits();
+
+        let src2 = if let Some(imm) = loc_b.imm_value_scalar() {
+            Location::Imm32(size_bits - (imm as u32) % size_bits)
+        } else {
+            let tmp1 = self.location_to_reg(
+                sz,
+                Location::Imm32(size_bits),
+                &mut temps,
+                ImmType::None,
+                true,
+                None,
+            )?;
+            let tmp2 = self.location_to_reg(sz, loc_b, &mut temps, ImmType::None, true, None)?;
+            self.assembler.emit_sub(sz, tmp1, tmp2, tmp1)?;
+            tmp1
+        };
+
+        self.emit_ror(sz, loc_a, src2, ret)?;
+
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
+
+    fn emit_ror(
+        &mut self,
+        sz: Size,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+
+        let imm = match sz {
+            Size::S32 | Size::S64 => Location::Imm32(sz.bits() as u32),
+            _ => codegen_error!("singplass emit_ror unreachable"),
+        };
+        let imm = self.location_to_reg(sz, imm, &mut temps, ImmType::None, false, None)?;
+
+        let tmp1 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.assembler
+            .emit_srl(sz, loc_a, loc_b, Location::GPR(tmp1))?;
+
+        let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.assembler
+            .emit_sub(sz, imm, loc_b, Location::GPR(tmp2))?;
+        self.assembler
+            .emit_sll(sz, loc_a, Location::GPR(tmp2), Location::GPR(tmp2))?;
+        self.assembler.emit_or(
+            sz,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            Location::GPR(tmp1),
+        )?;
+
+        self.move_location(sz, Location::GPR(tmp1), ret)?;
+        self.release_gpr(tmp1);
+        self.release_gpr(tmp2);
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
@@ -1793,7 +1871,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_rol(Size::S32, loc_a, loc_b, ret)
     }
     fn i32_ror(
         &mut self,
@@ -1801,7 +1879,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_ror(Size::S32, loc_a, loc_b, ret)
     }
     fn i32_load(
         &mut self,
@@ -2701,7 +2779,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_rol(Size::S64, loc_a, loc_b, ret)
     }
     fn i64_ror(
         &mut self,
@@ -2709,7 +2787,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_ror(Size::S64, loc_a, loc_b, ret)
     }
     fn i64_load(
         &mut self,

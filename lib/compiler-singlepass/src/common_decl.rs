@@ -116,6 +116,17 @@ pub enum Size {
     S64,
 }
 
+impl Size {
+    pub fn bits(&self) -> u32 {
+        match self {
+            Size::S8 => 8,
+            Size::S16 => 16,
+            Size::S32 => 32,
+            Size::S64 => 64,
+        }
+    }
+}
+
 /// A kind of suspend offset.
 #[allow(dead_code)]
 #[derive(Clone, Copy, Debug)]
