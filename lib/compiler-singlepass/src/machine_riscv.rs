@@ -908,7 +908,8 @@ impl Machine for MachineRiscv {
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[X5, X6, X7, X28, X29, X30, X31];
+        // Ignore X28 as we use it as a scratch register
+        static REGS: &[GPR] = &[X5, X6, X7, X29, X30, X31];
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);

@@ -367,13 +367,13 @@ impl EmitterRiscv for Assembler {
     fn emit_push(&mut self, size: Size, src: Location) -> Result<(), CompileError> {
         match (size, src) {
             (Size::S64, Location::GPR(_)) => {
-                self.emit_sd(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
-                self.emit_add(
+                self.emit_sub(
                     Size::S64,
                     Location::GPR(GPR::Sp),
                     Location::Imm64(8),
                     Location::GPR(GPR::Sp),
                 )?;
+                self.emit_sd(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
             }
             _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", size, src),
         }
