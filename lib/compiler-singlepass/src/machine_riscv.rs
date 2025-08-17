@@ -2010,7 +2010,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Ne, loc_a, loc_b, ret, false)
+        self.emit_cmpop_i32_dynamic_b(Condition::Ne, loc_a, loc_b, ret, true)
     }
     fn i32_cmp_eq(
         &mut self,
@@ -2018,7 +2018,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret, false)
+        self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret, true)
     }
     fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_clz(Size::S32, loc, ret)

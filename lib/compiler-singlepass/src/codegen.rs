@@ -2863,7 +2863,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 // Trap if signature mismatches.
                 // TODO: refactor
-                self.machine.i64_cmp_ne(
+                self.machine.i32_cmp_eq(
                     Location::GPR(sigidx),
                     Location::Memory(
                         table_count,
@@ -2871,7 +2871,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ),
                     Location::GPR(cond),
                 )?;
-                // TODO
                 self.machine
                     .jmp_on_false(Location::GPR(cond), self.special_labels.bad_signature)?;
 
