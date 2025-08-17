@@ -336,7 +336,7 @@ impl EmitterRiscv for Assembler {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
-                dynasm!(self ; sd X(reg), [X(addr), disp]);
+                dynasm!(self ; sw X(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
