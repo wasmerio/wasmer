@@ -1240,7 +1240,7 @@ pub fn gen_std_trampoline_riscv(
     // Write return value.
     if !sig.results().is_empty() {
         a.emit_sd(
-            Size::S32,
+            Size::S64,
             Location::GPR(GPR::X10),
             Location::Memory(args, 0),
         )?;
