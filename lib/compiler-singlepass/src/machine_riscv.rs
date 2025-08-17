@@ -1173,7 +1173,7 @@ impl Machine for MachineRiscv {
         GPR::X30
     }
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_call_register(register)
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         todo!()
