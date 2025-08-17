@@ -1071,6 +1071,8 @@ impl EmitterRiscv for Assembler {
                 let imm = cond.imm_value_scalar().unwrap();
                 if imm == 0 {
                     return self.emit_j_label(label);
+                } else {
+                    self.emit_j_label(cont)?;
                 }
             }
             _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
