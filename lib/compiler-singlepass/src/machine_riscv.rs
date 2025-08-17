@@ -492,6 +492,11 @@ impl MachineRiscv {
 
         // Add offset to memory address.
         if memarg.offset != 0 {
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            self.move_location(Size::S32, Location::GPR(tmp_addr), Location::GPR(tmp))?;
+
             if ImmType::Bits12.compatible_imm(memarg.offset as _) {
                 self.assembler.emit_add(
                     Size::S32,
@@ -515,7 +520,16 @@ impl MachineRiscv {
             }
 
             // Trap if offset calculation overflowed.
-            // TODO: add support as don't have a carry set flag
+            self.assembler.emit_cmp(
+                Condition::Geu,
+                Location::GPR(tmp_addr),
+                Location::GPR(tmp),
+                Location::GPR(tmp),
+            )?;
+            self.assembler
+                .emit_on_false_label_far(Location::GPR(tmp), heap_access_oob)?;
+
+            self.release_gpr(tmp);
         }
 
         // Wasm linear memory -> real memory
