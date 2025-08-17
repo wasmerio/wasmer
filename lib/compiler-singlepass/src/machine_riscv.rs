@@ -324,11 +324,19 @@ impl MachineRiscv {
         loc_b: Location,
         ret: Location,
         sz: Size,
+        signed: bool,
     ) -> Result<(), CompileError> {
         // TODO: add support for immediate operations where some instructions (like `slti`) can be used
         let mut temps = vec![];
         let loc_a = self.location_to_reg(sz, loc_a, &mut temps, ImmType::None, true, None)?;
         let loc_b = self.location_to_reg(sz, loc_b, &mut temps, ImmType::None, true, None)?;
+
+        // We must sign-extend the 32-bit integeres for signed comparison operations
+        if sz == Size::S32 && signed {
+            self.assembler.emit_extend(sz, signed, loc_a, loc_a)?;
+            self.assembler.emit_extend(sz, signed, loc_b, loc_b)?;
+        }
+
         let dest = self.location_to_reg(sz, ret, &mut temps, ImmType::None, false, None)?;
         self.assembler.emit_cmp(c, loc_a, loc_b, dest)?;
         if ret != dest {
@@ -347,16 +355,17 @@ impl MachineRiscv {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
+        signed: bool,
     ) -> Result<(), CompileError> {
         match ret {
             Location::GPR(_) => {
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32)?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32, signed)?;
             }
             Location::Memory(_, _) => {
                 let tmp = self.acquire_temp_gpr().ok_or_else(|| {
                     CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32)?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32, signed)?;
                 self.move_location(Size::S32, Location::GPR(tmp), ret)?;
                 self.release_gpr(tmp);
             }
@@ -377,13 +386,13 @@ impl MachineRiscv {
     ) -> Result<(), CompileError> {
         match ret {
             Location::GPR(_) => {
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64)?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64, false)?;
             }
             Location::Memory(_, _) => {
                 let tmp = self.acquire_temp_gpr().ok_or_else(|| {
                     CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
                 })?;
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64)?;
+                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64, false)?;
                 self.move_location(Size::S64, Location::GPR(tmp), ret)?;
                 self.release_gpr(tmp);
             }
@@ -1901,7 +1910,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Ge, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Ge, loc_a, loc_b, ret, true)
     }
     fn i32_cmp_gt_s(
         &mut self,
@@ -1909,7 +1918,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Gt, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Gt, loc_a, loc_b, ret, true)
     }
     fn i32_cmp_le_s(
         &mut self,
@@ -1917,7 +1926,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Le, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Le, loc_a, loc_b, ret, true)
     }
     fn i32_cmp_lt_s(
         &mut self,
@@ -1925,7 +1934,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Lt, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Lt, loc_a, loc_b, ret, true)
     }
     fn i32_cmp_ge_u(
         &mut self,
@@ -1933,7 +1942,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Geu, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Geu, loc_a, loc_b, ret, false)
     }
     fn i32_cmp_gt_u(
         &mut self,
@@ -1941,7 +1950,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Gtu, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Gtu, loc_a, loc_b, ret, false)
     }
     fn i32_cmp_le_u(
         &mut self,
@@ -1949,7 +1958,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Leu, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Leu, loc_a, loc_b, ret, false)
     }
     fn i32_cmp_lt_u(
         &mut self,
@@ -1957,7 +1966,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Ltu, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Ltu, loc_a, loc_b, ret, false)
     }
     fn i32_cmp_ne(
         &mut self,
@@ -1965,7 +1974,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Ne, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Ne, loc_a, loc_b, ret, false)
     }
     fn i32_cmp_eq(
         &mut self,
@@ -1973,7 +1982,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret)
+        self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret, false)
     }
     fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_clz(Size::S32, loc, ret)
