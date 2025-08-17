@@ -728,6 +728,123 @@ impl MachineRiscv {
         self.release_gpr(temp);
         Ok(())
     }
+
+    fn emit_ctz(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        let size_bits = sz.bits();
+        let arg = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let cnt = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let temp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.move_location(sz, src, Location::GPR(arg))?;
+
+        let one_imm = match sz {
+            Size::S32 => Location::Imm32(1),
+            Size::S64 => Location::Imm64(1),
+            _ => codegen_error!("singplass emit_ctz unreachable"),
+        };
+
+        let label_loop = self.assembler.get_label();
+        let label_exit = self.assembler.get_label();
+
+        // if the value is zero, return size_bits
+        self.move_location(sz, Location::Imm32(size_bits), Location::GPR(cnt))?;
+        self.assembler
+            .emit_on_false_label(Location::GPR(arg), label_exit)?;
+
+        self.move_location(sz, Location::Imm32(0), Location::GPR(cnt))?;
+
+        self.assembler.emit_label(label_loop)?; // loop:
+        self.assembler
+            .emit_and(sz, Location::GPR(arg), one_imm, Location::GPR(temp))?;
+        self.assembler
+            .emit_on_true_label(Location::GPR(temp), label_exit)?;
+
+        self.assembler
+            .emit_add(sz, Location::GPR(cnt), one_imm, Location::GPR(cnt))?;
+        self.assembler
+            .emit_srl(sz, Location::GPR(arg), one_imm, Location::GPR(arg))?;
+        self.jmp_unconditionnal(label_loop)?;
+
+        self.assembler.emit_label(label_exit)?; // exit:
+
+        self.move_location(sz, Location::GPR(cnt), dst)?;
+
+        self.release_gpr(arg);
+        self.release_gpr(cnt);
+        self.release_gpr(temp);
+        Ok(())
+    }
+
+    fn emit_clz(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        let size_bits = sz.bits();
+        let arg = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let cnt = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.move_location(sz, src, Location::GPR(arg))?;
+
+        let one_imm = match sz {
+            Size::S32 => Location::Imm32(1),
+            Size::S64 => Location::Imm64(1),
+            _ => codegen_error!("singplass emit_ctz unreachable"),
+        };
+
+        let label_loop = self.assembler.get_label();
+        let label_exit = self.assembler.get_label();
+
+        // if the value is zero, return size_bits
+        self.move_location(sz, Location::Imm32(size_bits), Location::GPR(cnt))?;
+        self.assembler
+            .emit_on_false_label(Location::GPR(arg), label_exit)?;
+
+        self.move_location(sz, Location::Imm32(0), Location::GPR(cnt))?;
+
+        // loop:
+        self.assembler.emit_label(label_loop)?;
+        // Shift the argument by (bit_size - cnt - 1) and test if it's one
+        self.move_location(
+            Size::S32,
+            Location::Imm32(size_bits - 1),
+            Location::GPR(tmp),
+        )?;
+        self.assembler.emit_sub(
+            Size::S32,
+            Location::GPR(tmp),
+            Location::GPR(cnt),
+            Location::GPR(tmp),
+        )?;
+        self.assembler.emit_srl(
+            sz,
+            Location::GPR(arg),
+            Location::GPR(tmp),
+            Location::GPR(tmp),
+        )?;
+        self.assembler
+            .emit_on_true_label(Location::GPR(tmp), label_exit)?;
+
+        self.assembler
+            .emit_add(sz, Location::GPR(cnt), one_imm, Location::GPR(cnt))?;
+        self.jmp_unconditionnal(label_loop)?;
+
+        self.assembler.emit_label(label_exit)?; // exit:i
+
+        self.move_location(sz, Location::GPR(cnt), dst)?;
+
+        self.release_gpr(arg);
+        self.release_gpr(cnt);
+        self.release_gpr(tmp);
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
@@ -1859,10 +1976,10 @@ impl Machine for MachineRiscv {
         self.emit_cmpop_i32_dynamic_b(Condition::Eq, loc_a, loc_b, ret)
     }
     fn i32_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_clz(Size::S32, loc, ret)
     }
     fn i32_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_ctz(Size::S32, loc, ret)
     }
     fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_popcnt(Size::S32, loc, ret)
@@ -2767,10 +2884,10 @@ impl Machine for MachineRiscv {
         self.emit_cmpop_i64_dynamic_b(Condition::Eq, loc_a, loc_b, ret)
     }
     fn i64_clz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_clz(Size::S64, loc, ret)
     }
     fn i64_ctz(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_ctz(Size::S64, loc, ret)
     }
     fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_popcnt(Size::S64, loc, ret)

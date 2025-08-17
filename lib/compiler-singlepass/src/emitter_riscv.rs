@@ -220,6 +220,7 @@ pub trait EmitterRiscv {
     fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
     fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
         -> Result<(), CompileError>;
+    fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
 
     fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError>;
     fn emit_j_register(&mut self, reg: GPR) -> Result<(), CompileError>;
@@ -1063,6 +1064,22 @@ impl EmitterRiscv for Assembler {
 
         dynasm!(self; j => label);
         self.emit_label(cont)?;
+        Ok(())
+    }
+    fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
+        match cond {
+            Location::GPR(cond) => {
+                let cond = cond.into_index();
+                dynasm!(self; bnez X(cond), => label);
+            }
+            _ if cond.is_imm() => {
+                let imm = cond.imm_value_scalar().unwrap();
+                if imm != 0 {
+                    return self.emit_j_label(label);
+                }
+            }
+            _ => codegen_error!("singlepass can't emit jump to true branch {:?}", cond),
+        }
         Ok(())
     }
 
