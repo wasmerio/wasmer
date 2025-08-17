@@ -942,7 +942,7 @@ impl Machine for MachineRiscv {
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
         use GPR::*;
-        static REGS: &[GPR] = &[X5, X6, X7, X28, X29];
+        static REGS: &[GPR] = &[X5, X6, X7, X28, X29, X30, X31];
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);
@@ -1361,28 +1361,18 @@ impl Machine for MachineRiscv {
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm64(32),
+            Location::Imm64(16),
             Location::GPR(GPR::Sp),
         )?;
 
         self.assembler.emit_sd(
             Size::S64,
             Location::GPR(GPR::X1), // return address register
-            Location::Memory(GPR::Sp, 24),
-        )?;
-        self.assembler.emit_sd(
-            Size::S64,
-            Location::GPR(GPR::Fp),
-            Location::Memory(GPR::Sp, 16),
-        )?;
-        self.assembler.emit_sd(
-            Size::S64,
-            Location::GPR(GPR::X31),
             Location::Memory(GPR::Sp, 8),
         )?;
         self.assembler.emit_sd(
             Size::S64,
-            Location::GPR(GPR::X30),
+            Location::GPR(GPR::Fp),
             Location::Memory(GPR::Sp, 0),
         )?;
         self.assembler
@@ -1397,30 +1387,18 @@ impl Machine for MachineRiscv {
             Size::S64,
             false,
             Location::GPR(GPR::X1), // return address register
-            Location::Memory(GPR::Sp, 24),
-        )?;
-        self.assembler.emit_ld(
-            Size::S64,
-            false,
-            Location::GPR(GPR::Fp),
-            Location::Memory(GPR::Sp, 16),
-        )?;
-        self.assembler.emit_ld(
-            Size::S64,
-            false,
-            Location::GPR(GPR::X31),
             Location::Memory(GPR::Sp, 8),
         )?;
         self.assembler.emit_ld(
             Size::S64,
             false,
-            Location::GPR(GPR::X30),
+            Location::GPR(GPR::Fp),
             Location::Memory(GPR::Sp, 0),
         )?;
         self.assembler.emit_add(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm64(32),
+            Location::Imm64(16),
             Location::GPR(GPR::Sp),
         )?;
 
