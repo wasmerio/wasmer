@@ -100,7 +100,7 @@ pub trait EmitterRiscv {
         addr: Location,
     ) -> Result<(), CompileError>;
 
-    fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
+    fn emit_sd(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
 
     fn emit_add(
         &mut self,
@@ -323,22 +323,33 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
-    fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
+    fn emit_sd(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
-            (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
-                dynasm!(self ; sd X(reg), [X(addr), disp]);
-            }
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
-            // TODO: add more variants
-            _ => codegen_error!("singlepass can't emit STR {:?}, {:?}, {:?}", sz, reg, addr),
+            (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; sd X(reg), [X(addr), disp]);
+            }
+            (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; sh X(reg), [X(addr), disp]);
+            }
+            (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; sb X(reg), [X(addr), disp]);
+            }
+            _ => codegen_error!("singlepass can't emit SD {:?}, {:?}, {:?}", sz, reg, addr),
         }
         Ok(())
     }
@@ -1180,7 +1191,7 @@ pub fn gen_std_trampoline_riscv(
                 };
 
                 a.emit_ld(sz, false, Location::GPR(scratch), arg_location)?;
-                a.emit_str(
+                a.emit_sd(
                     sz,
                     Location::GPR(scratch),
                     Location::Memory(GPR::Sp, caller_stack_offset),
@@ -1195,7 +1206,7 @@ pub fn gen_std_trampoline_riscv(
 
     // Write return value.
     if !sig.results().is_empty() {
-        a.emit_str(
+        a.emit_sd(
             Size::S32,
             Location::GPR(GPR::X10),
             Location::Memory(args, 0),

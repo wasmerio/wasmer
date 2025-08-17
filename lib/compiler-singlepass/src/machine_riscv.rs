@@ -287,7 +287,7 @@ impl MachineRiscv {
         match (size, src) {
             (Size::S64, Location::GPR(_)) => {
                 self.assembler
-                    .emit_str(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
+                    .emit_sd(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(GPR::Sp),
@@ -606,6 +606,42 @@ impl MachineRiscv {
         }
         if dst != dest {
             self.move_location(sz, dest, dst)?;
+        }
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
+
+    fn emit_relaxed_store(
+        &mut self,
+        sz: Size,
+        dst: Location,
+        src: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let dest = self.location_to_reg(Size::S64, dst, &mut temps, ImmType::None, true, None)?;
+        match src {
+            Location::Memory(addr, offset) => {
+                if ImmType::Bits12.compatible_imm(offset as i64) {
+                    self.assembler.emit_sd(sz, dest, src)?;
+                } else {
+                    let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                    })?;
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as i64)?;
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(addr),
+                        Location::GPR(tmp),
+                        Location::GPR(tmp),
+                    )?;
+                    self.assembler.emit_sd(sz, dest, Location::Memory(tmp, 0))?;
+                    temps.push(tmp);
+                }
+            }
+            _ => codegen_error!("singplepass emit_relaxed_store unreachable"),
         }
         for r in temps {
             self.release_gpr(r);
@@ -1129,7 +1165,7 @@ impl Machine for MachineRiscv {
 
     // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
-        self.assembler.emit_str(
+        self.assembler.emit_sd(
             Size::S64,
             location,
             Location::Memory(GPR::Fp, -stack_offset),
@@ -1216,7 +1252,7 @@ impl Machine for MachineRiscv {
                 .assembler
                 .emit_mov_imm(dest, source.imm_value_scalar().unwrap()),
             (Location::GPR(_), Location::Memory(_, _)) => {
-                self.assembler.emit_str(size, source, dest)
+                self.assembler.emit_sd(size, source, dest)
             }
             (Location::Memory(_, _), Location::GPR(_)) => {
                 self.assembler.emit_ld(size, false, dest, source)
@@ -1322,22 +1358,22 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::Sp),
         )?;
 
-        self.assembler.emit_str(
+        self.assembler.emit_sd(
             Size::S64,
             Location::GPR(GPR::X1), // return address register
             Location::Memory(GPR::Sp, 24),
         )?;
-        self.assembler.emit_str(
+        self.assembler.emit_sd(
             Size::S64,
             Location::GPR(GPR::Fp),
             Location::Memory(GPR::Sp, 16),
         )?;
-        self.assembler.emit_str(
+        self.assembler.emit_sd(
             Size::S64,
             Location::GPR(GPR::X31),
             Location::Memory(GPR::Sp, 8),
         )?;
-        self.assembler.emit_str(
+        self.assembler.emit_sd(
             Size::S64,
             Location::GPR(GPR::X30),
             Location::Memory(GPR::Sp, 0),
@@ -2224,7 +2260,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0)),
+        )
     }
     fn i32_save_8(
         &mut self,
@@ -2237,7 +2284,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S8, value, Location::Memory(addr, 0)),
+        )
     }
     fn i32_save_16(
         &mut self,
@@ -2250,7 +2308,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S16, value, Location::Memory(addr, 0)),
+        )
     }
     fn i32_atomic_save(
         &mut self,
@@ -3194,7 +3263,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S64, value, Location::Memory(addr, 0)),
+        )
     }
     fn i64_save_8(
         &mut self,
@@ -3207,7 +3287,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S8, value, Location::Memory(addr, 0)),
+        )
     }
     fn i64_save_16(
         &mut self,
@@ -3220,7 +3311,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S16, value, Location::Memory(addr, 0)),
+        )
     }
     fn i64_save_32(
         &mut self,
@@ -3233,7 +3335,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0)),
+        )
     }
     fn i64_atomic_save(
         &mut self,
