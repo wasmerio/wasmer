@@ -937,7 +937,8 @@ impl Machine for MachineRiscv {
         RegisterIndex(x as usize + 32)
     }
     fn get_vmctx_reg(&self) -> Self::GPR {
-        GPR::X31
+        // Must be a callee-save register.
+        GPR::X27
     }
     fn pick_gpr(&self) -> Option<Self::GPR> {
         use GPR::*;
@@ -1159,7 +1160,6 @@ impl Machine for MachineRiscv {
             7 => Location::GPR(GPR::X24),
             8 => Location::GPR(GPR::X25),
             9 => Location::GPR(GPR::X26),
-            10 => Location::GPR(GPR::X27),
             _ => {
                 assert!(idx > Self::LOCALS_IN_REGS);
                 Location::Memory(
@@ -1464,7 +1464,7 @@ impl Machine for MachineRiscv {
         self.assembler.emit_label(label)
     }
     fn get_grp_for_call(&self) -> Self::GPR {
-        GPR::X30
+        GPR::X1
     }
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError> {
         self.assembler.emit_call_register(register)

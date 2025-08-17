@@ -1159,6 +1159,7 @@ pub fn gen_std_trampoline_riscv(
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
 
+    // TODO: should we save/restore also these 2 registers?
     let fptr = GPR::X30;
     let args = GPR::X31;
 
