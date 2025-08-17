@@ -492,7 +492,7 @@ impl MachineRiscv {
 
         // Add offset to memory address.
         if memarg.offset != 0 {
-            if ImmType::Bits12.compatible_imm(value_size) {
+            if ImmType::Bits12.compatible_imm(memarg.offset as _) {
                 self.assembler.emit_add(
                     Size::S32,
                     Location::Imm32(memarg.offset as u32),
@@ -553,15 +553,8 @@ impl MachineRiscv {
                 Location::Imm64((align - 1) as u64),
                 Location::GPR(cond),
             )?;
-            // TODO: add emit_on_true_label_far
-            self.assembler.emit_xor(
-                Size::S64,
-                Location::GPR(cond),
-                Location::Imm64(1),
-                Location::GPR(cond),
-            )?;
             self.assembler
-                .emit_on_false_label_far(Location::GPR(cond), unaligned_atomic)?;
+                .emit_on_true_label_far(Location::GPR(cond), unaligned_atomic)?;
         }
         let begin = self.assembler.get_offset().0;
         cb(self, tmp_addr)?;
@@ -2104,7 +2097,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             4,
             need_check,
             imported_memories,
@@ -3070,7 +3063,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             1,
             need_check,
             imported_memories,
@@ -3094,7 +3087,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             1,
             need_check,
             imported_memories,
@@ -3118,7 +3111,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             4,
             need_check,
             imported_memories,
@@ -3142,7 +3135,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             4,
             need_check,
             imported_memories,
@@ -3166,7 +3159,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             2,
             need_check,
             imported_memories,
@@ -3190,7 +3183,7 @@ impl Machine for MachineRiscv {
         self.memory_op(
             addr,
             memarg,
-            true,
+            false,
             2,
             need_check,
             imported_memories,

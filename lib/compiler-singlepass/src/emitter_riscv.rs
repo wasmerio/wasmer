@@ -220,6 +220,7 @@ pub trait EmitterRiscv {
     fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
     fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
         -> Result<(), CompileError>;
+    fn emit_on_true_label_far(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
     fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
 
     fn emit_j_label(&mut self, label: Label) -> Result<(), CompileError>;
@@ -368,7 +369,8 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
+            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
@@ -380,7 +382,8 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; addw X(dst), X(src1), X(src2));
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
+            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
                 let src1 = src1.into_index();
                 let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
@@ -1091,6 +1094,33 @@ impl EmitterRiscv for Assembler {
             }
             _ => codegen_error!("singlepass can't emit jump to true branch {:?}", cond),
         }
+        Ok(())
+    }
+    fn emit_on_true_label_far(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
+        let cont: Label = self.get_label();
+        let jump_label: Label = self.get_label();
+        match cond {
+            Location::GPR(cond) => {
+                let cond = cond.into_index();
+                dynasm!(self; bnez X(cond), => jump_label);
+            }
+            _ if cond.is_imm() => {
+                let imm = cond.imm_value_scalar().unwrap();
+                if imm == 1 {
+                    return self.emit_j_label(jump_label);
+                }
+            }
+            _ => codegen_error!("singlepass can't emit jump to false branch {:?}", cond),
+        }
+
+        // skip over the jump to target
+        dynasm!(self; j => cont);
+
+        self.emit_label(jump_label)?;
+        dynasm!(self; j => label);
+
+        self.emit_label(cont)?;
+
         Ok(())
     }
 
