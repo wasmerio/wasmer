@@ -320,19 +320,63 @@ impl CombinedRegister for RiscvRegister {
 /// Allocator for function argument registers according to the RISC-V ABI.
 #[derive(Default)]
 pub struct ArgumentRegisterAllocator {
-    // TODO: track next GPR/FPR for argument passing.
+    n_gprs: usize,
+    n_fprs: usize,
 }
 
 impl ArgumentRegisterAllocator {
     /// Allocates a register for argument type `ty`. Returns `None` if no register is available.
     #[allow(dead_code)]
-    pub fn next(
-        &mut self,
-        ty: Type,
-        calling_convention: CallingConvention,
-    ) -> Result<Option<RiscvRegister>, CompileError> {
-        // TODO: implement RISC-V calling convention register allocation.
-        todo!()
+    pub fn next(&mut self, ty: Type) -> Result<Option<RiscvRegister>, CompileError> {
+        let ret = {
+            static GPR_SEQ: &[GPR] = &[
+                GPR::X10,
+                GPR::X11,
+                GPR::X12,
+                GPR::X13,
+                GPR::X14,
+                GPR::X15,
+                GPR::X16,
+                GPR::X17,
+            ];
+            static FPR_SEQ: &[FPR] = &[
+                FPR::F10,
+                FPR::F11,
+                FPR::F12,
+                FPR::F13,
+                FPR::F14,
+                FPR::F15,
+                FPR::F16,
+                FPR::F17,
+            ];
+            match ty {
+                Type::I32 | Type::I64 => {
+                    if self.n_gprs < GPR_SEQ.len() {
+                        let gpr = GPR_SEQ[self.n_gprs];
+                        self.n_gprs += 1;
+                        Some(RiscvRegister::GPR(gpr))
+                    } else {
+                        None
+                    }
+                }
+                Type::F32 | Type::F64 => {
+                    if self.n_fprs < FPR_SEQ.len() {
+                        let neon = FPR_SEQ[self.n_fprs];
+                        self.n_fprs += 1;
+                        Some(RiscvRegister::FPR(neon))
+                    } else {
+                        None
+                    }
+                }
+                _ => {
+                    return Err(CompileError::Codegen(format!(
+                        "No register available for type {ty}"
+                    )))
+                }
+            }
+        };
+
+        Ok(ret)
     }
 }
 

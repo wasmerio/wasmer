@@ -11,6 +11,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
     machine_riscv::{AssemblerRiscv, ImmType},
+    riscv_decl::{ArgumentRegisterAllocator, RiscvRegister},
 };
 pub use crate::{
     location::Multiplier,
@@ -21,10 +22,13 @@ use dynasm::dynasm;
 use dynasmrt::{
     riscv::RiscvRelocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
 };
-use wasmer_compiler::types::function::FunctionBody;
+use wasmer_compiler::types::{
+    function::FunctionBody,
+    section::{CustomSection, CustomSectionProtection, SectionBody},
+};
 use wasmer_types::{
     target::{CallingConvention, CpuFeature},
-    CompileError, FunctionType, Type,
+    CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
 };
 
 type Assembler = VecAssembler<RiscvRelocation>;
@@ -72,6 +76,9 @@ pub enum Condition {
     Geu,
 }
 
+/// Scratch register used in function call trampolines.
+const SCRATCH_REG: GPR = GPR::X28;
+
 /// Emitter trait for RISC-V.
 #[allow(unused)]
 pub trait EmitterRiscv {
@@ -101,6 +108,8 @@ pub trait EmitterRiscv {
     ) -> Result<(), CompileError>;
 
     fn emit_sd(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError>;
+    fn emit_push(&mut self, size: Size, src: Location) -> Result<(), CompileError>;
+    fn emit_pop(&mut self, size: Size, dst: Location) -> Result<(), CompileError>;
 
     fn emit_add(
         &mut self,
@@ -351,6 +360,38 @@ impl EmitterRiscv for Assembler {
                 dynasm!(self ; sb X(reg), [X(addr), disp]);
             }
             _ => codegen_error!("singlepass can't emit SD {:?}, {:?}, {:?}", sz, reg, addr),
+        }
+        Ok(())
+    }
+
+    fn emit_push(&mut self, size: Size, src: Location) -> Result<(), CompileError> {
+        match (size, src) {
+            (Size::S64, Location::GPR(_)) => {
+                self.emit_sd(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
+                self.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::Imm64(8),
+                    Location::GPR(GPR::Sp),
+                )?;
+            }
+            _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", size, src),
+        }
+        Ok(())
+    }
+
+    fn emit_pop(&mut self, size: Size, dst: Location) -> Result<(), CompileError> {
+        match (size, dst) {
+            (Size::S64, Location::GPR(_)) => {
+                self.emit_ld(Size::S64, false, dst, Location::Memory(GPR::Sp, 0))?;
+                self.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::Imm64(8),
+                    Location::GPR(GPR::Sp),
+                )?;
+            }
+            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", size, dst),
         }
         Ok(())
     }
@@ -1207,26 +1248,24 @@ pub fn gen_std_trampoline_riscv(
                 )?;
             }
             _ => {
-                // using X28 as scratch reg
-                let scratch = GPR::X28;
                 let args_offset = (i * 16) as i32;
                 let arg_location = if ImmType::Bits12.compatible_imm(args_offset as i64) {
                     Location::Memory(args, args_offset)
                 } else {
-                    a.emit_mov_imm(Location::GPR(scratch), args_offset as i64)?;
+                    a.emit_mov_imm(Location::GPR(SCRATCH_REG), args_offset as i64)?;
                     a.emit_add(
                         Size::S64,
                         Location::GPR(args),
-                        Location::GPR(scratch),
-                        Location::GPR(scratch),
+                        Location::GPR(SCRATCH_REG),
+                        Location::GPR(SCRATCH_REG),
                     )?;
-                    Location::Memory(scratch, 0)
+                    Location::Memory(SCRATCH_REG, 0)
                 };
 
-                a.emit_ld(sz, false, Location::GPR(scratch), arg_location)?;
+                a.emit_ld(sz, false, Location::GPR(SCRATCH_REG), arg_location)?;
                 a.emit_sd(
                     sz,
-                    Location::GPR(scratch),
+                    Location::GPR(SCRATCH_REG),
                     Location::Memory(GPR::Sp, caller_stack_offset),
                 )?;
                 caller_stack_offset += 8;
@@ -1262,5 +1301,190 @@ pub fn gen_std_trampoline_riscv(
     Ok(FunctionBody {
         body,
         unwind_info: None,
+    })
+}
+
+/// Generates dynamic import function call trampoline for a function type.
+pub fn gen_std_dynamic_import_trampoline_riscv(
+    vmoffsets: &VMOffsets,
+    sig: &FunctionType,
+) -> Result<FunctionBody, CompileError> {
+    let mut a = Assembler::new(0);
+    // Allocate argument array.
+    let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
+
+    // Save RA and X28, as scratch register
+    a.emit_push(Size::S64, Location::GPR(GPR::X1))?;
+    a.emit_push(Size::S64, Location::GPR(SCRATCH_REG))?;
+
+    if stack_offset != 0 {
+        if ImmType::Bits12Subtraction.compatible_imm(stack_offset as _) {
+            a.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::Sp),
+                Location::Imm64(stack_offset as _),
+                Location::GPR(GPR::Sp),
+            )?;
+        } else {
+            a.emit_mov_imm(Location::GPR(SCRATCH_REG), stack_offset as _)?;
+            a.emit_sub(
+                Size::S64,
+                Location::GPR(GPR::Sp),
+                Location::GPR(SCRATCH_REG),
+                Location::GPR(GPR::Sp),
+            )?;
+        }
+    }
+
+    // Copy arguments.
+    if !sig.params().is_empty() {
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        argalloc.next(Type::I64).unwrap(); // skip VMContext
+
+        let mut stack_param_count: usize = 0;
+
+        for (i, ty) in sig.params().iter().enumerate() {
+            let source_loc = match argalloc.next(*ty)? {
+                Some(RiscvRegister::GPR(gpr)) => Location::GPR(gpr),
+                Some(RiscvRegister::FPR(fpr)) => Location::SIMD(fpr),
+                None => {
+                    a.emit_ld(
+                        Size::S64,
+                        false,
+                        Location::GPR(SCRATCH_REG),
+                        Location::Memory(GPR::Sp, (stack_offset + 16 + stack_param_count) as _),
+                    )?;
+                    stack_param_count += 8;
+                    Location::GPR(SCRATCH_REG)
+                }
+            };
+            a.emit_sd(
+                Size::S64,
+                source_loc,
+                Location::Memory(GPR::Sp, (i * 16) as _),
+            )?;
+            // Zero upper 64 bits.
+            a.emit_sd(
+                Size::S64,
+                Location::GPR(GPR::XZero),
+                Location::Memory(GPR::Sp, (i * 16 + 8) as _),
+            )?;
+        }
+    }
+
+    // Load target address.
+    let offset = vmoffsets.vmdynamicfunction_import_context_address();
+    a.emit_ld(
+        Size::S64,
+        false,
+        Location::GPR(SCRATCH_REG),
+        Location::Memory(GPR::X10, offset as i32),
+    )?;
+    // Load values array.
+    a.emit_add(
+        Size::S64,
+        Location::GPR(GPR::Sp),
+        Location::Imm64(0),
+        Location::GPR(GPR::X1),
+    )?;
+
+    // Call target.
+    a.emit_call_register(SCRATCH_REG)?;
+
+    // Fetch return value.
+    if !sig.results().is_empty() {
+        assert_eq!(sig.results().len(), 1);
+        a.emit_ld(
+            Size::S64,
+            false,
+            Location::GPR(GPR::X10),
+            Location::Memory(GPR::Sp, 0),
+        )?;
+    }
+
+    // Release values array.
+    if stack_offset != 0 {
+        if ImmType::Bits12.compatible_imm(stack_offset as _) {
+            a.emit_add(
+                Size::S64,
+                Location::GPR(GPR::Sp),
+                Location::Imm64(stack_offset as _),
+                Location::GPR(GPR::Sp),
+            )?;
+        } else {
+            a.emit_mov_imm(Location::GPR(SCRATCH_REG), stack_offset as _)?;
+            a.emit_add(
+                Size::S64,
+                Location::GPR(GPR::Sp),
+                Location::GPR(SCRATCH_REG),
+                Location::GPR(GPR::Sp),
+            )?;
+        }
+    }
+    a.emit_pop(Size::S64, Location::GPR(SCRATCH_REG))?;
+    a.emit_pop(Size::S64, Location::GPR(GPR::X1))?;
+
+    // Return.
+    a.emit_ret()?;
+
+    let mut body = a.finalize().unwrap();
+    body.shrink_to_fit();
+    Ok(FunctionBody {
+        body,
+        unwind_info: None,
+    })
+}
+
+// Singlepass calls import functions through a trampoline.
+pub fn gen_import_call_trampoline_riscv(
+    vmoffsets: &VMOffsets,
+    index: FunctionIndex,
+    sig: &FunctionType,
+    calling_convention: CallingConvention,
+) -> Result<CustomSection, CompileError> {
+    let mut a = Assembler::new(0);
+
+    // Singlepass internally treats all arguments as integers
+    // For the standard System V calling convention requires
+    //  floating point arguments to be passed in NEON registers.
+    //  Translation is expensive, so only do it if needed.
+    if sig
+        .params()
+        .iter()
+        .any(|&x| x == Type::F32 || x == Type::F64)
+    {
+        todo!("floating-point types not supporter yet")
+    }
+
+    // Emits a tail call trampoline that loads the address of the target import function
+    // from Ctx and jumps to it.
+
+    let offset = vmoffsets.vmctx_vmfunction_import(index);
+    dbg!(offset);
+
+    a.emit_ld(
+        Size::S64,
+        false,
+        Location::GPR(SCRATCH_REG),
+        Location::Memory(GPR::X10, offset as i32), // function pointer
+    )?;
+    a.emit_ld(
+        Size::S64,
+        false,
+        Location::GPR(GPR::X10),
+        Location::Memory(GPR::X10, offset as i32 + 8), // target vmctx
+    )?;
+
+    a.emit_j_register(SCRATCH_REG)?;
+
+    let mut contents = a.finalize().unwrap();
+    contents.shrink_to_fit();
+    let section_body = SectionBody::new_with_vec(contents);
+
+    Ok(CustomSection {
+        protection: CustomSectionProtection::ReadExecute,
+        alignment: None,
+        bytes: section_body,
+        relocations: vec![],
     })
 }

@@ -283,40 +283,6 @@ impl MachineRiscv {
         Ok(())
     }
 
-    fn emit_push(&mut self, size: Size, src: Location) -> Result<(), CompileError> {
-        match (size, src) {
-            (Size::S64, Location::GPR(_)) => {
-                self.assembler
-                    .emit_sd(Size::S64, src, Location::Memory(GPR::Sp, 0))?;
-                self.assembler.emit_add(
-                    Size::S64,
-                    Location::GPR(GPR::Sp),
-                    Location::Imm64(8),
-                    Location::GPR(GPR::Sp),
-                )?;
-            }
-            _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", size, src),
-        }
-        Ok(())
-    }
-
-    fn emit_pop(&mut self, size: Size, dst: Location) -> Result<(), CompileError> {
-        match (size, dst) {
-            (Size::S64, Location::GPR(_)) => {
-                self.assembler
-                    .emit_ld(Size::S64, false, dst, Location::Memory(GPR::Sp, 0))?;
-                self.assembler.emit_add(
-                    Size::S64,
-                    Location::GPR(GPR::Sp),
-                    Location::Imm64(8),
-                    Location::GPR(GPR::Sp),
-                )?;
-            }
-            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", size, dst),
-        }
-        Ok(())
-    }
-
     fn emit_relaxed_cmp(
         &mut self,
         c: Condition,
@@ -995,7 +961,7 @@ impl Machine for MachineRiscv {
     }
     fn push_used_gpr(&mut self, used_gprs: &[Self::GPR]) -> Result<usize, CompileError> {
         for r in used_gprs.iter() {
-            self.emit_push(Size::S64, Location::GPR(*r))?;
+            self.assembler.emit_push(Size::S64, Location::GPR(*r))?;
         }
         Ok(used_gprs.len() * 16)
     }
@@ -1476,7 +1442,7 @@ impl Machine for MachineRiscv {
         GPR::X10
     }
     fn get_simd_for_ret(&self) -> Self::SIMD {
-        todo!()
+        FPR::F10
     }
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError> {
         todo!()
@@ -1638,10 +1604,10 @@ impl Machine for MachineRiscv {
         self.assembler.emit_ret()
     }
     fn emit_push(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
-        self.emit_push(size, loc)
+        self.assembler.emit_push(size, loc)
     }
     fn emit_pop(&mut self, size: Size, loc: Location) -> Result<(), CompileError> {
-        self.emit_pop(size, loc)
+        self.assembler.emit_pop(size, loc)
     }
     // relaxed binop based...
     fn emit_relaxed_mov(
@@ -4167,10 +4133,11 @@ impl Machine for MachineRiscv {
         &self,
         vmoffsets: &VMOffsets,
         sig: &FunctionType,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Result<FunctionBody, CompileError> {
-        todo!()
+        gen_std_dynamic_import_trampoline_riscv(vmoffsets, sig)
     }
+    // Singlepass calls import functions through a trampoline.
     fn gen_import_call_trampoline(
         &self,
         vmoffsets: &VMOffsets,
@@ -4178,7 +4145,7 @@ impl Machine for MachineRiscv {
         sig: &FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<CustomSection, CompileError> {
-        todo!()
+        gen_import_call_trampoline_riscv(vmoffsets, index, sig, calling_convention)
     }
     #[cfg(feature = "unwind")]
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
