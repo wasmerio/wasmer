@@ -2847,14 +2847,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(table_count),
                 )?;
                 // Trap if the FuncRef is null
-                // TODO: refactor
-                self.machine.i64_cmp_ne(
+                self.machine.jmp_on_false(
                     Location::GPR(table_count),
-                    Location::Imm64(0),
-                    Location::GPR(cond),
+                    self.special_labels.indirect_call_null,
                 )?;
-                self.machine
-                    .jmp_on_false(Location::GPR(cond), self.special_labels.indirect_call_null)?;
 
                 self.machine.move_location(
                     Size::S64,
