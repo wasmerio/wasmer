@@ -1203,7 +1203,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         match (source, dest) {
             (Location::GPR(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
-            (Location::Imm32(_), Location::GPR(dst)) => self
+            (Location::Imm32(_) | Location::Imm64(_), Location::GPR(dst)) => self
                 .assembler
                 .emit_mov_imm(dest, source.imm_value_scalar().unwrap()),
             (Location::GPR(_), Location::Memory(_, _)) => {
@@ -1784,11 +1784,11 @@ impl Machine for MachineRiscv {
             true,
             None,
         )?;
-        self.assembler.emit_cmp(Condition::Eq, tmp, src1, tmp)?;
-        self.assembler.emit_on_false_label(tmp, label_nooverflow)?;
-        self.zero_location(Size::S32, tmp)?;
+        self.assembler.emit_cmp(Condition::Ne, tmp, src1, tmp)?;
+        self.assembler.emit_on_true_label(tmp, label_nooverflow)?;
+        self.move_location(Size::S32, Location::Imm32(-1i32 as _), tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
-        self.assembler.emit_on_false_label(tmp, integer_overflow)?;
+        self.assembler.emit_on_true_label(tmp, integer_overflow)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest)?;
@@ -2692,11 +2692,12 @@ impl Machine for MachineRiscv {
             true,
             None,
         )?;
-        self.assembler.emit_cmp(Condition::Eq, tmp, src1, tmp)?;
-        self.assembler.emit_on_false_label(tmp, label_nooverflow)?;
-        self.zero_location(Size::S64, tmp)?;
+
+        self.assembler.emit_cmp(Condition::Ne, tmp, src1, tmp)?;
+        self.assembler.emit_on_true_label(tmp, label_nooverflow)?;
+        self.move_location(Size::S64, Location::Imm64(-1i64 as _), tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
-        self.assembler.emit_on_false_label(tmp, integer_overflow)?;
+        self.assembler.emit_on_true_label(tmp, integer_overflow)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest)?;
