@@ -681,6 +681,53 @@ impl MachineRiscv {
         }
         Ok(())
     }
+
+    fn emit_popcnt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        let arg = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let cnt = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let temp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.move_location(sz, src, Location::GPR(arg))?;
+
+        self.move_location(sz, Location::Imm32(0), Location::GPR(cnt))?;
+        let one_imm = match sz {
+            Size::S32 => Location::Imm32(1),
+            Size::S64 => Location::Imm64(1),
+            _ => codegen_error!("singplass emit_popcnt unreachable"),
+        };
+
+        let label_loop = self.assembler.get_label();
+        let label_exit = self.assembler.get_label();
+
+        self.assembler.emit_label(label_loop)?; // loop:
+        self.assembler
+            .emit_and(sz, Location::GPR(arg), one_imm, Location::GPR(temp))?;
+        self.assembler.emit_add(
+            sz,
+            Location::GPR(cnt),
+            Location::GPR(temp),
+            Location::GPR(cnt),
+        )?;
+        self.assembler
+            .emit_srl(sz, Location::GPR(arg), one_imm, Location::GPR(arg))?;
+        self.assembler
+            .emit_on_false_label(Location::GPR(arg), label_exit)?;
+        self.jmp_unconditionnal(label_loop)?;
+
+        self.assembler.emit_label(label_exit)?; // exit:
+
+        self.move_location(sz, Location::GPR(cnt), dst)?;
+
+        self.release_gpr(arg);
+        self.release_gpr(cnt);
+        self.release_gpr(temp);
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
@@ -1818,7 +1865,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn i32_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_popcnt(Size::S32, loc, ret)
     }
     fn i32_shl(
         &mut self,
@@ -2726,7 +2773,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn i64_popcnt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_popcnt(Size::S64, loc, ret)
     }
     fn i64_shl(
         &mut self,
