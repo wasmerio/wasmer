@@ -56,8 +56,7 @@ impl<T> FunctionEnv<T> {
     /// Convert it into a `FunctionEnvMut`
     pub fn into_mut<S>(self, store: &mut S) -> FunctionEnvMut<'_, T, S::Object>
     where
-        S: AsStoreMut,
-        T: Any + Send + 'static + Sized,
+        S: AsStoreMut<Object: Upcast<T>>,
     {
         FunctionEnvMut {
             store_mut: store.as_store_mut(),

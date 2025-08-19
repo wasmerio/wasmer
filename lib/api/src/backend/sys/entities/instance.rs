@@ -43,8 +43,8 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
 
 impl Instance {
     #[allow(clippy::result_large_err)]
-    pub(crate) fn new<S: AsStoreMut>(
-        store: &mut S,
+    pub(crate) fn new(
+        store: &mut impl AsStoreMut,
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {

@@ -58,6 +58,8 @@ impl<T: 'static> Upcast<T> for LocalBoxStoreObject {
 }
 
 /// Trait for object stores identified by `StoreId`.
+// TODO maybe this can be merged into `AsStoreRef` and things
+// parameterized by store instead of object?
 pub trait ObjectStore {
     /// Get the unique ID of the store.
     fn id(&self) -> StoreId;
@@ -84,6 +86,7 @@ pub trait ObjectStoreOf<K>: ObjectStore {
 }
 
 /// TODO document
+// TODO is this worth it?
 pub trait StoreObject<Store> {
     /// TODO document
     type Value;
