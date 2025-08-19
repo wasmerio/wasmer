@@ -486,9 +486,11 @@ impl Compiler for LLVMCompiler {
 
         if !eh_frame_section_bytes.is_empty() {
             let eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() as u32);
-            // Do not terminate dwarf info with a zero-length CIE.
-            // Because more info will be added later
-            // in lib/object/src/module.rs emit_compilation
+            // Terminate the eh_frame info with a zero-length CIE.
+            //
+            // There may be more info added later in lib/object/src/module.rs emit_compilation
+            // but that's okay, because an eh_frame can have multiple CIEs.
+            eh_frame_section_bytes.extend_from_slice(&[0, 0, 0, 0]);
             module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 alignment: None,
