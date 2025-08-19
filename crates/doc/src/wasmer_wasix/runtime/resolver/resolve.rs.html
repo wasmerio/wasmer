@@ -1665,7 +1665,7 @@
         summary: PackageSummary,
     }
 
-    <span class="kw">impl</span>&lt;<span class="lifetime">'builder</span>&gt; AddPackageVersion&lt;<span class="lifetime">'builder</span>&gt; {
+    <span class="kw">impl </span>AddPackageVersion&lt;<span class="lifetime">'_</span>&gt; {
         <span class="kw">fn </span>with_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, version_constraint: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
             <span class="self">self</span>.with_aliased_dependency(name, name, version_constraint)
         }
@@ -1736,7 +1736,7 @@
         </span>}
     }
 
-    <span class="kw">impl</span>&lt;<span class="lifetime">'builder</span>&gt; Drop <span class="kw">for </span>AddPackageVersion&lt;<span class="lifetime">'builder</span>&gt; {
+    <span class="kw">impl </span>Drop <span class="kw">for </span>AddPackageVersion&lt;<span class="lifetime">'_</span>&gt; {
         <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
             <span class="kw">let </span>summary = <span class="self">self</span>.summary.clone();
             <span class="self">self</span>.builder.add(summary);
@@ -1808,7 +1808,7 @@
         dependencies: BTreeMap&lt;String, PackageId&gt;,
     }
 
-    <span class="kw">impl</span>&lt;<span class="lifetime">'source</span>, <span class="lifetime">'builder</span>&gt; DependencyGraphEntryBuilder&lt;<span class="lifetime">'source</span>, <span class="lifetime">'builder</span>&gt; {
+    <span class="kw">impl </span>DependencyGraphEntryBuilder&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; {
         <span class="kw">fn </span>with_dependency(<span class="kw-2">&amp;mut </span><span class="self">self</span>, id: <span class="kw-2">&amp;</span>PackageId) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
             <span class="kw">let </span>name = <span class="kw-2">&amp;</span>id.as_named().unwrap().full_name;
             <span class="self">self</span>.with_aliased_dependency(name, id)
@@ -1821,7 +1821,7 @@
         </span>}
     }
 
-    <span class="kw">impl</span>&lt;<span class="lifetime">'source</span>, <span class="lifetime">'builder</span>&gt; Drop <span class="kw">for </span>DependencyGraphEntryBuilder&lt;<span class="lifetime">'source</span>, <span class="lifetime">'builder</span>&gt; {
+    <span class="kw">impl </span>Drop <span class="kw">for </span>DependencyGraphEntryBuilder&lt;<span class="lifetime">'_</span>, <span class="lifetime">'_</span>&gt; {
         <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
             <span class="self">self</span>.builder
                 .dependencies

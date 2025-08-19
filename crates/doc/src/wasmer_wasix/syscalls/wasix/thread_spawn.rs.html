@@ -328,7 +328,9 @@
 <a href="#327" id="327">327</a>
 <a href="#328" id="328">328</a>
 <a href="#329" id="329">329</a>
-<a href="#330" id="330">330</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::f32::consts::E;
 
 <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -513,6 +515,97 @@
     </span><span class="prelude-val">Ok</span>(())
 }
 
+<span class="comment">// This function calls into the module
+</span><span class="kw">fn </span>call_module_internal&lt;M: MemorySize&gt;(
+    env: <span class="kw-2">&amp;</span>WasiFunctionEnv,
+    store: <span class="kw-2">&amp;mut </span>Store,
+    start_ptr_offset: M::Offset,
+) -&gt; <span class="prelude-ty">Result</span>&lt;(), DeepSleepWork&gt; {
+    <span class="comment">// We either call the reactor callback or the thread spawn callback
+    //trace!("threading: invoking thread callback (reactor={})", reactor);
+
+    // Note: we ensure both unwraps can happen before getting to this point
+    </span><span class="kw">let </span>spawn = env
+        .data(<span class="kw-2">&amp;</span>store)
+        .inner()
+        .main_module_instance_handles()
+        .thread_spawn
+        .clone()
+        .unwrap();
+    <span class="kw">let </span>tid = env.data(<span class="kw-2">&amp;</span>store).tid();
+    <span class="kw">let </span>thread_result = spawn.call(
+        store,
+        tid.raw().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow).unwrap(),
+        start_ptr_offset
+            .try_into()
+            .map_err(|<span class="kw">_</span>| Errno::Overflow)
+            .unwrap(),
+    );
+    <span class="macro">trace!</span>(<span class="string">"callback finished (ret={:?})"</span>, thread_result);
+
+    <span class="kw">let </span>exit_code = handle_thread_result(env, store, thread_result)<span class="question-mark">?</span>;
+
+    <span class="comment">// Clean up the environment on exit
+    </span>env.on_exit(store, exit_code);
+    <span class="prelude-val">Ok</span>(())
+}
+
+<span class="kw">fn </span>handle_thread_result(
+    env: <span class="kw-2">&amp;</span>WasiFunctionEnv,
+    store: <span class="kw-2">&amp;mut </span>Store,
+    err: <span class="prelude-ty">Result</span>&lt;(), RuntimeError&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;ExitCode&gt;, DeepSleepWork&gt; {
+    <span class="kw">let </span>tid = env.data(<span class="kw-2">&amp;</span>store).tid();
+    <span class="kw">let </span>pid = env.data(<span class="kw-2">&amp;</span>store).pid();
+    <span class="kw">let </span><span class="prelude-val">Err</span>(err) = err <span class="kw">else </span>{
+        <span class="macro">trace!</span>(<span class="string">"thread exited cleanly without calling thread_exit"</span>);
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>);
+    };
+    <span class="kw">match </span>err.downcast::&lt;WasiError&gt;() {
+        <span class="prelude-val">Ok</span>(WasiError::ThreadExit) =&gt; {
+            <span class="macro">trace!</span>(<span class="string">"thread exited cleanly"</span>);
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
+        }
+        <span class="prelude-val">Ok</span>(WasiError::Exit(code)) =&gt; {
+            <span class="macro">trace!</span>(exit_code = <span class="question-mark">?</span>code, <span class="string">"thread requested exit"</span>);
+            <span class="kw">if </span>!code.is_success() {
+                <span class="comment">// TODO: Why do we need to taint the runtime on a non-zero exit code? Why not also for zero?
+                </span>env.data(<span class="kw-2">&amp;</span>store)
+                    .runtime
+                    .on_taint(TaintReason::NonZeroExitCode(code));
+            };
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(code))
+        }
+        <span class="prelude-val">Ok</span>(WasiError::DeepSleep(deep)) =&gt; {
+            <span class="macro">trace!</span>(<span class="string">"entered a deep sleep"</span>);
+            <span class="prelude-val">Err</span>(deep)
+        }
+        <span class="prelude-val">Ok</span>(WasiError::UnknownWasiVersion) =&gt; {
+            <span class="macro">eprintln!</span>(
+                <span class="string">"Thread {tid} of process {pid} failed because it has an unknown wasix version"
+            </span>);
+            env.data(<span class="kw-2">&amp;</span>store)
+                .runtime
+                .on_taint(TaintReason::UnknownWasiVersion);
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExitCode::from(<span class="number">129</span>)))
+        }
+        <span class="prelude-val">Ok</span>(WasiError::DlSymbolResolutionFailed(symbol)) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Thread {tid} of process {pid} failed to find required symbol: {symbol}"</span>);
+            env.data(<span class="kw-2">&amp;</span>store)
+                .runtime
+                .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExitCode::from(<span class="number">129</span>)))
+        }
+        <span class="prelude-val">Err</span>(err) =&gt; {
+            <span class="macro">eprintln!</span>(<span class="string">"Thread {tid} of process {pid} failed with runtime error: {err}"</span>);
+            env.data(<span class="kw-2">&amp;</span>store)
+                .runtime
+                .on_taint(TaintReason::RuntimeError(err));
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(ExitCode::from(<span class="number">129</span>)))
+        }
+    }
+}
+
 <span class="doccomment">/// Calls the module
 </span><span class="kw">fn </span>call_module&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: WasiFunctionEnv,
@@ -520,93 +613,9 @@
     start_ptr_offset: M::Offset,
     thread_handle: Arc&lt;WasiThreadHandle&gt;,
     rewind_state: <span class="prelude-ty">Option</span>&lt;(RewindState, RewindResultType)&gt;,
-) -&gt; <span class="prelude-ty">Result</span>&lt;Tid, Errno&gt; {
+) {
     <span class="kw">let </span>env = ctx.data(<span class="kw-2">&amp;</span>store);
     <span class="kw">let </span>tasks = env.tasks().clone();
-
-    <span class="comment">// This function calls into the module
-    </span><span class="kw">let </span>call_module_internal = <span class="kw">move </span>|env: <span class="kw-2">&amp;</span>WasiFunctionEnv, store: <span class="kw-2">&amp;mut </span>Store| {
-        <span class="comment">// We either call the reactor callback or the thread spawn callback
-        //trace!("threading: invoking thread callback (reactor={})", reactor);
-
-        // Note: we ensure both unwraps can happen before getting to this point
-        </span><span class="kw">let </span>spawn = env
-            .data(<span class="kw-2">&amp;</span>store)
-            .inner()
-            .main_module_instance_handles()
-            .thread_spawn
-            .clone()
-            .unwrap();
-        <span class="kw">let </span>tid = env.data(<span class="kw-2">&amp;</span>store).tid();
-        <span class="kw">let </span>call_ret = spawn.call(
-            store,
-            tid.raw().try_into().map_err(|<span class="kw">_</span>| Errno::Overflow).unwrap(),
-            start_ptr_offset
-                .try_into()
-                .map_err(|<span class="kw">_</span>| Errno::Overflow)
-                .unwrap(),
-        );
-        <span class="macro">trace!</span>(<span class="string">"callback finished (ret={:?})"</span>, call_ret);
-
-        <span class="kw">let </span><span class="kw-2">mut </span>ret = Errno::Success;
-        <span class="kw">let </span><span class="kw-2">mut </span>exit_code = <span class="prelude-val">None</span>;
-        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = call_ret {
-            <span class="kw">match </span>err.downcast::&lt;WasiError&gt;() {
-                <span class="prelude-val">Ok</span>(WasiError::ThreadExit) =&gt; {
-                    <span class="macro">trace!</span>(<span class="string">"thread exited cleanly"</span>);
-                    ret = Errno::Success;
-                }
-                <span class="prelude-val">Ok</span>(WasiError::Exit(code)) =&gt; {
-                    <span class="macro">trace!</span>(exit_code = <span class="question-mark">?</span>code, <span class="string">"thread requested exit"</span>);
-                    exit_code = <span class="prelude-val">Some</span>(code);
-                    ret = <span class="kw">if </span>code.is_success() {
-                        Errno::Success
-                    } <span class="kw">else </span>{
-                        env.data(<span class="kw-2">&amp;</span>store)
-                            .runtime
-                            .on_taint(TaintReason::NonZeroExitCode(code));
-                        Errno::Noexec
-                    };
-                }
-                <span class="prelude-val">Ok</span>(WasiError::DeepSleep(deep)) =&gt; {
-                    <span class="macro">trace!</span>(<span class="string">"entered a deep sleep"</span>);
-                    <span class="kw">return </span><span class="prelude-val">Err</span>(deep);
-                }
-                <span class="prelude-val">Ok</span>(WasiError::UnknownWasiVersion) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">"failed as wasi version is unknown"</span>);
-                    env.data(<span class="kw-2">&amp;</span>store)
-                        .runtime
-                        .on_taint(TaintReason::UnknownWasiVersion);
-                    ret = Errno::Noexec;
-                    exit_code = <span class="prelude-val">Some</span>(ExitCode::from(<span class="number">128 </span>+ ret <span class="kw">as </span>i32));
-                }
-                <span class="prelude-val">Ok</span>(WasiError::DlSymbolResolutionFailed(symbol)) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">"failed as wasi version is unknown"</span>);
-                    env.data(<span class="kw-2">&amp;</span>store)
-                        .runtime
-                        .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
-                    ret = Errno::Nolink;
-                    exit_code = <span class="prelude-val">Some</span>(ExitCode::from(<span class="number">128 </span>+ ret <span class="kw">as </span>i32));
-                }
-                <span class="prelude-val">Err</span>(err) =&gt; {
-                    <span class="macro">debug!</span>(<span class="string">"failed with runtime error: {}"</span>, err);
-                    env.data(<span class="kw-2">&amp;</span>store)
-                        .runtime
-                        .on_taint(TaintReason::RuntimeError(err));
-                    ret = Errno::Noexec;
-                    exit_code = <span class="prelude-val">Some</span>(ExitCode::from(<span class="number">128 </span>+ ret <span class="kw">as </span>i32));
-                }
-            }
-        } <span class="kw">else </span>{
-            <span class="macro">debug!</span>(<span class="string">"thread exited cleanly without calling thread_exit"</span>);
-        }
-
-        <span class="comment">// Clean up the environment
-        </span>env.on_exit(store, exit_code);
-
-        <span class="comment">// Return the result
-        </span><span class="prelude-val">Ok</span>(ret <span class="kw">as </span>u32)
-    };
 
     <span class="comment">// If we need to rewind then do so
     </span><span class="kw">if let </span><span class="prelude-val">Some</span>((rewind_state, rewind_result)) = rewind_state {
@@ -619,43 +628,38 @@
             rewind_result,
         );
         <span class="kw">if </span>res != Errno::Success {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(res);
+            <span class="kw">return</span>;
         }
     }
 
     <span class="comment">// Now invoke the module
-    </span><span class="kw">let </span>ret = call_module_internal(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store);
+    </span><span class="kw">let </span>ret = call_module_internal::&lt;M&gt;(<span class="kw-2">&amp;</span>ctx, <span class="kw-2">&amp;mut </span>store, start_ptr_offset);
 
     <span class="comment">// If it went to deep sleep then we need to handle that
-    </span><span class="kw">match </span>ret {
-        <span class="prelude-val">Ok</span>(ret) =&gt; {
-            <span class="comment">// Frees the handle so that it closes
-            </span>drop(thread_handle);
-            <span class="prelude-val">Ok</span>(ret <span class="kw">as </span>Pid)
-        }
-        <span class="prelude-val">Err</span>(deep) =&gt; {
-            <span class="comment">// Create the callback that will be invoked when the thread respawns after a deep sleep
-            </span><span class="kw">let </span>rewind = deep.rewind;
-            <span class="kw">let </span>respawn = {
-                <span class="kw">let </span>tasks = tasks.clone();
-                <span class="kw">move </span>|ctx, store, trigger_res| {
-                    <span class="comment">// Call the thread
-                    </span>call_module::&lt;M&gt;(
-                        ctx,
-                        store,
-                        start_ptr_offset,
-                        thread_handle,
-                        <span class="prelude-val">Some</span>((rewind, RewindResultType::RewindWithResult(trigger_res))),
-                    );
-                }
-            };
+    </span><span class="kw">if let </span><span class="prelude-val">Err</span>(deep) = ret {
+        <span class="comment">// Create the callback that will be invoked when the thread respawns after a deep sleep
+        </span><span class="kw">let </span>rewind = deep.rewind;
+        <span class="kw">let </span>respawn = {
+            <span class="kw">let </span>tasks = tasks.clone();
+            <span class="kw">move </span>|ctx, store, trigger_res| {
+                <span class="comment">// Call the thread
+                </span>call_module::&lt;M&gt;(
+                    ctx,
+                    store,
+                    start_ptr_offset,
+                    thread_handle,
+                    <span class="prelude-val">Some</span>((rewind, RewindResultType::RewindWithResult(trigger_res))),
+                );
+            }
+        };
 
-            <span class="doccomment">/// Spawns the WASM process after a trigger
-            </span><span class="kw">unsafe </span>{
-                tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-            };
-            <span class="prelude-val">Err</span>(Errno::Unknown)
-        }
-    }
+        <span class="doccomment">/// Spawns the WASM process after a trigger
+        </span><span class="kw">unsafe </span>{
+            tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+        };
+        <span class="kw">return</span>;
+    };
+    <span class="comment">// I don't think we need to do this explicitly, but it was done before refactoring so we keep it for now.
+    </span>drop(thread_handle);
 }
 </code></pre></div></section></main></body></html>
