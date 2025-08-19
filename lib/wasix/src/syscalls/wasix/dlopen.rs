@@ -2,7 +2,7 @@ use super::*;
 use crate::{state::DlModuleSpec, syscalls::*};
 
 // TODO: add journal events for dl-related syscalls
-#[instrument(level = "trace", skip_all, fields(path = field::Empty, flags), ret)]
+#[instrument(level = "trace", skip_all, fields(path = field::Empty, ld_library_path = field::Empty, flags), ret)]
 pub fn dlopen<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     path: WasmPtr<u8, M>,
@@ -36,13 +36,15 @@ pub fn dlopen<M: MemorySize>(
     }
 
     let path = unsafe { get_input_str_ok!(&memory, path, path_len) };
+    Span::current().record("path", path.as_str());
+
     let ld_library_path =
         unsafe { get_input_str_ok!(&memory, ld_library_path, ld_library_path_len) };
+    Span::current().record("ld_library_path", ld_library_path.as_str());
     let ld_library_path = ld_library_path
         .split(':')
         .map(Path::new)
         .collect::<Vec<_>>();
-    Span::current().record("path", path.as_str());
 
     let linker = linker.clone();
 

@@ -596,6 +596,7 @@ pub struct DylinkInfo {
     pub needed: Vec<String>,
     pub import_metadata: HashMap<(String, String), wasmparser::SymbolFlags>,
     pub export_metadata: HashMap<String, wasmparser::SymbolFlags>,
+    pub runtime_path: Vec<String>,
 }
 
 pub struct LinkedMainModule {
@@ -1128,6 +1129,7 @@ impl Linker {
         let main_instance = Instance::new(store, main_module, &imports)?;
         instance_group.main_instance = Some(main_instance.clone());
 
+        let runtime_path = linker_state.main_module_dylink_info.runtime_path.clone();
         for needed in linker_state.main_module_dylink_info.needed.clone() {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
@@ -1142,6 +1144,14 @@ impl Linker {
                 &mut link_state,
                 &wasi_env.runtime,
                 &wasi_env.state,
+                runtime_path.as_ref(),
+                // HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
+                // if one runs `wasmer ../module.wasm --dir .`, we won't have access to the
+                // main module's folder within the virtual FS. This is why we're picking PWD
+                // as the $ORIGIN of the main module, which should at least be slightly
+                // sensible. The `main.wasm` file name will be stripped and only the `./`
+                // will be taken into account by `locate_module`.
+                Some(Path::new("./main.wasm")),
             )?;
         }
 
@@ -1566,11 +1576,14 @@ impl Linker {
 
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
+        let runtime_path: &[String] = &[];
         let module_handle = linker_state.load_module_tree(
             module_spec,
             &mut link_state,
             &wasi_env.runtime,
             &wasi_env.state,
+            runtime_path,          // No runtime path when loading a module via dlopen
+            Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
         )?;
 
         let new_modules = link_state
@@ -2244,6 +2257,8 @@ impl LinkerState {
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
+        runtime_path: &[impl AsRef<str>],
+        calling_module_path: Option<impl AsRef<Path>>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_name = match module_spec {
             DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
@@ -2270,6 +2285,8 @@ impl LinkerState {
                 let (full_path, bytes) = InlineWaker::block_on(locate_module(
                     module_spec,
                     ld_library_path,
+                    runtime_path,
+                    calling_module_path,
                     &wasi_state.fs,
                 ))?;
                 // TODO: this can be optimized by detecting early if the module is already
@@ -2295,7 +2312,7 @@ impl LinkerState {
         trace!(?dylink_info, "Loading side module");
 
         if let Some((full_path, ld_library_path)) = paths {
-            link_state.pending_module_paths.push(full_path);
+            link_state.pending_module_paths.push(full_path.clone());
             let num_pending_modules = link_state.pending_module_paths.len();
             let pop_pending_module = |link_state: &mut InProgressLinkState| {
                 assert_eq!(
@@ -2316,6 +2333,11 @@ impl LinkerState {
                     link_state,
                     runtime,
                     wasi_state,
+                    // RUNPATH, on which WASM_DYLINK_RUNTIME_PATH is based, is *not* applied
+                    // recursively, so we discard the runtime_path parameter and
+                    // only take the one from the module's dylink.0 section
+                    dylink_info.runtime_path.as_ref(),
+                    Some(&full_path),
                 ) {
                     Ok(_) => (),
                     Err(e) => {
@@ -3884,6 +3906,8 @@ impl InstanceGroupState {
 async fn locate_module(
     module_path: &Path,
     library_path: &[impl AsRef<Path>],
+    runtime_path: &[impl AsRef<str>],
+    calling_module_path: Option<impl AsRef<Path>>,
     fs: &WasiFs,
 ) -> Result<(PathBuf, Vec<u8>), LinkError> {
     async fn try_load(
@@ -3938,16 +3962,59 @@ async fn locate_module(
             ?module_path,
             "Locating module by name in default runtime path"
         );
+
+        let calling_module_dir = calling_module_path
+            .as_ref()
+            .map(|p| p.as_ref().parent().unwrap_or_else(|| p.as_ref()));
+
+        let runtime_path = runtime_path.iter().map(|path| {
+            let path = path.as_ref();
+
+            let relative = path
+                .strip_prefix("$ORIGIN")
+                .or_else(|| path.strip_prefix("${ORIGIN}"));
+
+            match relative {
+                Some(relative) => {
+                    let Some(calling_module_dir) = calling_module_dir else {
+                        // This is an internal error because the only time calling_module_path
+                        // should be empty is when loading a module through dlopen, and a
+                        // dlopen'ed module isn't being required by another module so we don't
+                        // have a RUNPATH to consider at all. See the invocation of
+                        // `load_module_tree` in `load_module`.
+                        panic!(
+                            "Internal error: $ORIGIN or ${{ORIGIN}} in RUNPATH, but \
+                            no calling module path provided"
+                        );
+                    };
+                    Cow::Owned(PathBuf::from(
+                        fs.relative_path_to_absolute(
+                            calling_module_dir
+                                .join(relative)
+                                .to_string_lossy()
+                                .into_owned(),
+                        ),
+                    ))
+                }
+                None => Cow::Borrowed(Path::new(path)),
+            }
+        });
+
+        // Search order is: LD_LIBRARY_PATH -> RUNPATH -> system default folders
         let search_paths = library_path
             .iter()
-            .map(|path| path.as_ref())
-            // Add default runtime paths
-            .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
+            .map(|path| Cow::Borrowed(path.as_ref()))
+            .chain(runtime_path)
+            .chain(
+                DEFAULT_RUNTIME_PATH
+                    .iter()
+                    .map(|path| Cow::Borrowed(Path::new(path))),
+            );
 
         let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
         for path in search_paths {
             let full_path = path.join(module_path);
-            trace!(?module_path, full_path = ?full_path, "Searching module");
+            trace!(search_path = ?path, full_path = ?full_path, "Searching module");
             match try_load(&fs.root_fs, &full_path).await {
                 Ok(ret) => {
                     trace!(?module_path, full_path = ?ret.0, "Located module");
@@ -3969,6 +4036,9 @@ pub fn is_dynamically_linked(module: &Module) -> bool {
     module.custom_sections("dylink.0").next().is_some()
 }
 
+// Need to parse the RUNPATH subsection manually until wasmparser adds support
+const WASM_DYLINK_RUNTIME_PATH: u8 = 5;
+
 pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut sections = module.custom_sections("dylink.0");
 
@@ -3987,6 +4057,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut needed = None;
     let mut import_metadata = HashMap::new();
     let mut export_metadata = HashMap::new();
+    let mut runtime_path = Vec::new();
 
     for subsection in reader {
         let subsection = subsection?;
@@ -4011,7 +4082,23 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
                 }
             }
 
-            wasmparser::Dylink0Subsection::Unknown { .. } => (),
+            wasmparser::Dylink0Subsection::Unknown {
+                ty: WASM_DYLINK_RUNTIME_PATH,
+                data,
+                range,
+            } => {
+                let mut reader = wasmparser::BinaryReader::new(data, range.start);
+                runtime_path.extend(
+                    (0..reader.read_var_u32()?)
+                        .map(|_| reader.read_string().map(ToOwned::to_owned))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter(),
+                )
+            }
+
+            wasmparser::Dylink0Subsection::Unknown { ty, .. } => {
+                tracing::warn!("Skipping unknown dylink.0 subsection {ty}");
+            }
         }
     }
 
@@ -4025,6 +4112,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
         needed: needed.unwrap_or_default(),
         import_metadata,
         export_metadata,
+        runtime_path,
     })
 }
 
