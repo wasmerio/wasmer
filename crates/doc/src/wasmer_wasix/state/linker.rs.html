@@ -4175,7 +4175,13 @@
 <a href="#4174" id="4174">4174</a>
 <a href="#4175" id="4175">4175</a>
 <a href="#4176" id="4176">4176</a>
-<a href="#4177" id="4177">4177</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4177" id="4177">4177</a>
+<a href="#4178" id="4178">4178</a>
+<a href="#4179" id="4179">4179</a>
+<a href="#4180" id="4180">4180</a>
+<a href="#4181" id="4181">4181</a>
+<a href="#4182" id="4182">4182</a>
+<a href="#4183" id="4183">4183</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -5370,6 +5376,12 @@
                 <span class="bool-val">true</span>,
             )
             .map_err(LinkError::MainModuleHandleInitFailed)<span class="question-mark">?</span>;
+
+        <span class="comment">// The main module isn't added to the link state's list of new modules, so we need to
+        // call its initialization functions separately
+        </span><span class="macro">trace!</span>(<span class="string">"Calling data relocator function for main module"</span>);
+        call_initialization_function::&lt;()&gt;(<span class="kw-2">&amp;</span>main_instance, store, <span class="string">"__wasm_apply_data_relocs"</span>)<span class="question-mark">?</span>;
+        call_initialization_function::&lt;()&gt;(<span class="kw-2">&amp;</span>main_instance, store, <span class="string">"__wasm_apply_tls_relocs"</span>)<span class="question-mark">?</span>;
 
         {
             <span class="kw">let </span>group_guard = linker.instance_group_state.lock().unwrap();
