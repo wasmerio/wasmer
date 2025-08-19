@@ -99,6 +99,7 @@ async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
         );
     }
 
+    // TODO: NamedTempFile is blocking and we should use the appropriate tokio function instead.
     // Note: We save to a temporary file and persist() it at the end so
     // concurrent readers won't see a partially written module.
     let (file, temp) = NamedTempFile::new_in(parent)
