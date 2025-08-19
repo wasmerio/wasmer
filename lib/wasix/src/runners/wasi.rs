@@ -496,8 +496,6 @@ impl WasiRunner {
         let tasks = runtime.task_manager().clone();
         let pkg = pkg.clone();
 
-        // TODO: This will NOT work when loading shared libraries, because of the FileSystemCache
-        //
         // Wrapping the call to `spawn_and_block_on` in a call to `spawn_await` could help to prevent deadlocks
         // because then blocking in here won't block the tokio runtime
         //
