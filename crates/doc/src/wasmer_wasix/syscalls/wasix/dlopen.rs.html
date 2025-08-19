@@ -93,11 +93,13 @@
 <a href="#92" id="92">92</a>
 <a href="#93" id="93">93</a>
 <a href="#94" id="94">94</a>
-<a href="#95" id="95">95</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <span class="kw">use crate</span>::{state::DlModuleSpec, syscalls::<span class="kw-2">*</span>};
 
 <span class="comment">// TODO: add journal events for dl-related syscalls
-</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(path = field::Empty, flags), ret)]
+</span><span class="attr">#[instrument(level = <span class="string">"trace"</span>, skip_all, fields(path = field::Empty, ld_library_path = field::Empty, flags), ret)]
 </span><span class="kw">pub fn </span>dlopen&lt;M: MemorySize&gt;(
     <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
     path: WasmPtr&lt;u8, M&gt;,
@@ -131,13 +133,15 @@
     }
 
     <span class="kw">let </span>path = <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, path, path_len) };
+    Span::current().record(<span class="string">"path"</span>, path.as_str());
+
     <span class="kw">let </span>ld_library_path =
         <span class="kw">unsafe </span>{ <span class="macro">get_input_str_ok!</span>(<span class="kw-2">&amp;</span>memory, ld_library_path, ld_library_path_len) };
+    Span::current().record(<span class="string">"ld_library_path"</span>, ld_library_path.as_str());
     <span class="kw">let </span>ld_library_path = ld_library_path
         .split(<span class="string">':'</span>)
         .map(Path::new)
         .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-    Span::current().record(<span class="string">"path"</span>, path.as_str());
 
     <span class="kw">let </span>linker = linker.clone();
 

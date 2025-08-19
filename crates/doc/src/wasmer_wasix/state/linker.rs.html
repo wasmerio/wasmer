@@ -4181,7 +4181,95 @@
 <a href="#4180" id="4180">4180</a>
 <a href="#4181" id="4181">4181</a>
 <a href="#4182" id="4182">4182</a>
-<a href="#4183" id="4183">4183</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4183" id="4183">4183</a>
+<a href="#4184" id="4184">4184</a>
+<a href="#4185" id="4185">4185</a>
+<a href="#4186" id="4186">4186</a>
+<a href="#4187" id="4187">4187</a>
+<a href="#4188" id="4188">4188</a>
+<a href="#4189" id="4189">4189</a>
+<a href="#4190" id="4190">4190</a>
+<a href="#4191" id="4191">4191</a>
+<a href="#4192" id="4192">4192</a>
+<a href="#4193" id="4193">4193</a>
+<a href="#4194" id="4194">4194</a>
+<a href="#4195" id="4195">4195</a>
+<a href="#4196" id="4196">4196</a>
+<a href="#4197" id="4197">4197</a>
+<a href="#4198" id="4198">4198</a>
+<a href="#4199" id="4199">4199</a>
+<a href="#4200" id="4200">4200</a>
+<a href="#4201" id="4201">4201</a>
+<a href="#4202" id="4202">4202</a>
+<a href="#4203" id="4203">4203</a>
+<a href="#4204" id="4204">4204</a>
+<a href="#4205" id="4205">4205</a>
+<a href="#4206" id="4206">4206</a>
+<a href="#4207" id="4207">4207</a>
+<a href="#4208" id="4208">4208</a>
+<a href="#4209" id="4209">4209</a>
+<a href="#4210" id="4210">4210</a>
+<a href="#4211" id="4211">4211</a>
+<a href="#4212" id="4212">4212</a>
+<a href="#4213" id="4213">4213</a>
+<a href="#4214" id="4214">4214</a>
+<a href="#4215" id="4215">4215</a>
+<a href="#4216" id="4216">4216</a>
+<a href="#4217" id="4217">4217</a>
+<a href="#4218" id="4218">4218</a>
+<a href="#4219" id="4219">4219</a>
+<a href="#4220" id="4220">4220</a>
+<a href="#4221" id="4221">4221</a>
+<a href="#4222" id="4222">4222</a>
+<a href="#4223" id="4223">4223</a>
+<a href="#4224" id="4224">4224</a>
+<a href="#4225" id="4225">4225</a>
+<a href="#4226" id="4226">4226</a>
+<a href="#4227" id="4227">4227</a>
+<a href="#4228" id="4228">4228</a>
+<a href="#4229" id="4229">4229</a>
+<a href="#4230" id="4230">4230</a>
+<a href="#4231" id="4231">4231</a>
+<a href="#4232" id="4232">4232</a>
+<a href="#4233" id="4233">4233</a>
+<a href="#4234" id="4234">4234</a>
+<a href="#4235" id="4235">4235</a>
+<a href="#4236" id="4236">4236</a>
+<a href="#4237" id="4237">4237</a>
+<a href="#4238" id="4238">4238</a>
+<a href="#4239" id="4239">4239</a>
+<a href="#4240" id="4240">4240</a>
+<a href="#4241" id="4241">4241</a>
+<a href="#4242" id="4242">4242</a>
+<a href="#4243" id="4243">4243</a>
+<a href="#4244" id="4244">4244</a>
+<a href="#4245" id="4245">4245</a>
+<a href="#4246" id="4246">4246</a>
+<a href="#4247" id="4247">4247</a>
+<a href="#4248" id="4248">4248</a>
+<a href="#4249" id="4249">4249</a>
+<a href="#4250" id="4250">4250</a>
+<a href="#4251" id="4251">4251</a>
+<a href="#4252" id="4252">4252</a>
+<a href="#4253" id="4253">4253</a>
+<a href="#4254" id="4254">4254</a>
+<a href="#4255" id="4255">4255</a>
+<a href="#4256" id="4256">4256</a>
+<a href="#4257" id="4257">4257</a>
+<a href="#4258" id="4258">4258</a>
+<a href="#4259" id="4259">4259</a>
+<a href="#4260" id="4260">4260</a>
+<a href="#4261" id="4261">4261</a>
+<a href="#4262" id="4262">4262</a>
+<a href="#4263" id="4263">4263</a>
+<a href="#4264" id="4264">4264</a>
+<a href="#4265" id="4265">4265</a>
+<a href="#4266" id="4266">4266</a>
+<a href="#4267" id="4267">4267</a>
+<a href="#4268" id="4268">4268</a>
+<a href="#4269" id="4269">4269</a>
+<a href="#4270" id="4270">4270</a>
+<a href="#4271" id="4271">4271</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4779,6 +4867,7 @@
     <span class="kw">pub </span>needed: Vec&lt;String&gt;,
     <span class="kw">pub </span>import_metadata: HashMap&lt;(String, String), wasmparser::SymbolFlags&gt;,
     <span class="kw">pub </span>export_metadata: HashMap&lt;String, wasmparser::SymbolFlags&gt;,
+    <span class="kw">pub </span>runtime_path: Vec&lt;String&gt;,
 }
 
 <span class="kw">pub struct </span>LinkedMainModule {
@@ -5311,6 +5400,7 @@
         </span><span class="kw">let </span>main_instance = Instance::new(store, main_module, <span class="kw-2">&amp;</span>imports)<span class="question-mark">?</span>;
         instance_group.main_instance = <span class="prelude-val">Some</span>(main_instance.clone());
 
+        <span class="kw">let </span>runtime_path = linker_state.main_module_dylink_info.runtime_path.clone();
         <span class="kw">for </span>needed <span class="kw">in </span>linker_state.main_module_dylink_info.needed.clone() {
             <span class="comment">// A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
@@ -5325,6 +5415,14 @@
                 <span class="kw-2">&amp;mut </span>link_state,
                 <span class="kw-2">&amp;</span>wasi_env.runtime,
                 <span class="kw-2">&amp;</span>wasi_env.state,
+                runtime_path.as_ref(),
+                <span class="comment">// HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
+                // if one runs `wasmer ../module.wasm --dir .`, we won't have access to the
+                // main module's folder within the virtual FS. This is why we're picking PWD
+                // as the $ORIGIN of the main module, which should at least be slightly
+                // sensible. The `main.wasm` file name will be stripped and only the `./`
+                // will be taken into account by `locate_module`.
+                </span><span class="prelude-val">Some</span>(Path::new(<span class="string">"./main.wasm"</span>)),
             )<span class="question-mark">?</span>;
         }
 
@@ -5749,12 +5847,15 @@
 
         <span class="macro">trace!</span>(<span class="string">"Loading module tree for requested module"</span>);
         <span class="kw">let </span>wasi_env = env.as_ref(<span class="kw-2">&amp;</span>store);
+        <span class="kw">let </span>runtime_path: <span class="kw-2">&amp;</span>[String] = <span class="kw-2">&amp;</span>[];
         <span class="kw">let </span>module_handle = linker_state.load_module_tree(
             module_spec,
             <span class="kw-2">&amp;mut </span>link_state,
             <span class="kw-2">&amp;</span>wasi_env.runtime,
             <span class="kw-2">&amp;</span>wasi_env.state,
-        )<span class="question-mark">?</span>;
+            runtime_path,          <span class="comment">// No runtime path when loading a module via dlopen
+            </span><span class="prelude-ty">Option</span>::&lt;<span class="kw-2">&amp;</span>Path&gt;::None, <span class="comment">// Empty runtime path means we don't need the module's path either
+        </span>)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>new_modules = link_state
             .new_modules
@@ -6427,6 +6528,8 @@
         link_state: <span class="kw-2">&amp;mut </span>InProgressLinkState,
         runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
         wasi_state: <span class="kw-2">&amp;</span>WasiState,
+        runtime_path: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;str&gt;],
+        calling_module_path: <span class="prelude-ty">Option</span>&lt;<span class="kw">impl </span>AsRef&lt;Path&gt;&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ModuleHandle, LinkError&gt; {
         <span class="kw">let </span>module_name = <span class="kw">match </span>module_spec {
             DlModuleSpec::FileSystem { module_spec, .. } =&gt; Cow::Borrowed(module_spec),
@@ -6453,6 +6556,8 @@
                 <span class="kw">let </span>(full_path, bytes) = InlineWaker::block_on(locate_module(
                     module_spec,
                     ld_library_path,
+                    runtime_path,
+                    calling_module_path,
                     <span class="kw-2">&amp;</span>wasi_state.fs,
                 ))<span class="question-mark">?</span>;
                 <span class="comment">// TODO: this can be optimized by detecting early if the module is already
@@ -6478,7 +6583,7 @@
         <span class="macro">trace!</span>(<span class="question-mark">?</span>dylink_info, <span class="string">"Loading side module"</span>);
 
         <span class="kw">if let </span><span class="prelude-val">Some</span>((full_path, ld_library_path)) = paths {
-            link_state.pending_module_paths.push(full_path);
+            link_state.pending_module_paths.push(full_path.clone());
             <span class="kw">let </span>num_pending_modules = link_state.pending_module_paths.len();
             <span class="kw">let </span>pop_pending_module = |link_state: <span class="kw-2">&amp;mut </span>InProgressLinkState| {
                 <span class="macro">assert_eq!</span>(
@@ -6499,6 +6604,11 @@
                     link_state,
                     runtime,
                     wasi_state,
+                    <span class="comment">// RUNPATH, on which WASM_DYLINK_RUNTIME_PATH is based, is *not* applied
+                    // recursively, so we discard the runtime_path parameter and
+                    // only take the one from the module's dylink.0 section
+                    </span>dylink_info.runtime_path.as_ref(),
+                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>full_path),
                 ) {
                     <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; (),
                     <span class="prelude-val">Err</span>(e) =&gt; {
@@ -8067,6 +8177,8 @@
 <span class="kw">async fn </span>locate_module(
     module_path: <span class="kw-2">&amp;</span>Path,
     library_path: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;Path&gt;],
+    runtime_path: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;str&gt;],
+    calling_module_path: <span class="prelude-ty">Option</span>&lt;<span class="kw">impl </span>AsRef&lt;Path&gt;&gt;,
     fs: <span class="kw-2">&amp;</span>WasiFs,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;(PathBuf, Vec&lt;u8&gt;), LinkError&gt; {
     <span class="kw">async fn </span>try_load(
@@ -8121,16 +8233,59 @@
             <span class="question-mark">?</span>module_path,
             <span class="string">"Locating module by name in default runtime path"
         </span>);
-        <span class="kw">let </span>search_paths = library_path
+
+        <span class="kw">let </span>calling_module_dir = calling_module_path
+            .as_ref()
+            .map(|p| p.as_ref().parent().unwrap_or_else(|| p.as_ref()));
+
+        <span class="kw">let </span>runtime_path = runtime_path.iter().map(|path| {
+            <span class="kw">let </span>path = path.as_ref();
+
+            <span class="kw">let </span>relative = path
+                .strip_prefix(<span class="string">"$ORIGIN"</span>)
+                .or_else(|| path.strip_prefix(<span class="string">"${ORIGIN}"</span>));
+
+            <span class="kw">match </span>relative {
+                <span class="prelude-val">Some</span>(relative) =&gt; {
+                    <span class="kw">let </span><span class="prelude-val">Some</span>(calling_module_dir) = calling_module_dir <span class="kw">else </span>{
+                        <span class="comment">// This is an internal error because the only time calling_module_path
+                        // should be empty is when loading a module through dlopen, and a
+                        // dlopen'ed module isn't being required by another module so we don't
+                        // have a RUNPATH to consider at all. See the invocation of
+                        // `load_module_tree` in `load_module`.
+                        </span><span class="macro">panic!</span>(
+                            <span class="string">"Internal error: $ORIGIN or ${{ORIGIN}} in RUNPATH, but \
+                            no calling module path provided"
+                        </span>);
+                    };
+                    Cow::Owned(PathBuf::from(
+                        fs.relative_path_to_absolute(
+                            calling_module_dir
+                                .join(relative)
+                                .to_string_lossy()
+                                .into_owned(),
+                        ),
+                    ))
+                }
+                <span class="prelude-val">None </span>=&gt; Cow::Borrowed(Path::new(path)),
+            }
+        });
+
+        <span class="comment">// Search order is: LD_LIBRARY_PATH -&gt; RUNPATH -&gt; system default folders
+        </span><span class="kw">let </span>search_paths = library_path
             .iter()
-            .map(|path| path.as_ref())
-            <span class="comment">// Add default runtime paths
-            </span>.chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
+            .map(|path| Cow::Borrowed(path.as_ref()))
+            .chain(runtime_path)
+            .chain(
+                DEFAULT_RUNTIME_PATH
+                    .iter()
+                    .map(|path| Cow::Borrowed(Path::new(path))),
+            );
 
         <span class="kw">let </span><span class="kw-2">mut </span>errors: Vec&lt;(PathBuf, FsError)&gt; = Vec::new();
         <span class="kw">for </span>path <span class="kw">in </span>search_paths {
             <span class="kw">let </span>full_path = path.join(module_path);
-            <span class="macro">trace!</span>(<span class="question-mark">?</span>module_path, full_path = <span class="question-mark">?</span>full_path, <span class="string">"Searching module"</span>);
+            <span class="macro">trace!</span>(search_path = <span class="question-mark">?</span>path, full_path = <span class="question-mark">?</span>full_path, <span class="string">"Searching module"</span>);
             <span class="kw">match </span>try_load(<span class="kw-2">&amp;</span>fs.root_fs, <span class="kw-2">&amp;</span>full_path).<span class="kw">await </span>{
                 <span class="prelude-val">Ok</span>(ret) =&gt; {
                     <span class="macro">trace!</span>(<span class="question-mark">?</span>module_path, full_path = <span class="question-mark">?</span>ret.<span class="number">0</span>, <span class="string">"Located module"</span>);
@@ -8152,6 +8307,9 @@
     module.custom_sections(<span class="string">"dylink.0"</span>).next().is_some()
 }
 
+<span class="comment">// Need to parse the RUNPATH subsection manually until wasmparser adds support
+</span><span class="kw">const </span>WASM_DYLINK_RUNTIME_PATH: u8 = <span class="number">5</span>;
+
 <span class="kw">pub fn </span>parse_dylink0_section(module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Result</span>&lt;DylinkInfo, LinkError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>sections = module.custom_sections(<span class="string">"dylink.0"</span>);
 
@@ -8170,6 +8328,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>needed = <span class="prelude-val">None</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>import_metadata = HashMap::new();
     <span class="kw">let </span><span class="kw-2">mut </span>export_metadata = HashMap::new();
+    <span class="kw">let </span><span class="kw-2">mut </span>runtime_path = Vec::new();
 
     <span class="kw">for </span>subsection <span class="kw">in </span>reader {
         <span class="kw">let </span>subsection = subsection<span class="question-mark">?</span>;
@@ -8194,7 +8353,23 @@
                 }
             }
 
-            wasmparser::Dylink0Subsection::Unknown { .. } =&gt; (),
+            wasmparser::Dylink0Subsection::Unknown {
+                ty: WASM_DYLINK_RUNTIME_PATH,
+                data,
+                range,
+            } =&gt; {
+                <span class="kw">let </span><span class="kw-2">mut </span>reader = wasmparser::BinaryReader::new(data, range.start);
+                runtime_path.extend(
+                    (<span class="number">0</span>..reader.read_var_u32()<span class="question-mark">?</span>)
+                        .map(|<span class="kw">_</span>| reader.read_string().map(ToOwned::to_owned))
+                        .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?
+                        </span>.into_iter(),
+                )
+            }
+
+            wasmparser::Dylink0Subsection::Unknown { ty, .. } =&gt; {
+                <span class="macro">tracing::warn!</span>(<span class="string">"Skipping unknown dylink.0 subsection {ty}"</span>);
+            }
         }
     }
 
@@ -8208,6 +8383,7 @@
         needed: needed.unwrap_or_default(),
         import_metadata,
         export_metadata,
+        runtime_path,
     })
 }
 
