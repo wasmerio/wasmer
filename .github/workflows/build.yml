@@ -358,11 +358,12 @@ jobs:
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
           /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
           mkdir -p /tmp/winsdk
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/WS2_32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/KERNEL32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/BCRYPT.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/ADVAPI32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/USERENV.lib /tmp/winsdk/
+          SDK_VERSION=$(ls /tmp/xwindownload/sdk/lib | head -n 1)
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/WS2_32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/KERNEL32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/BCRYPT.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/ADVAPI32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/USERENV.lib /tmp/winsdk/
           echo "WinSDK files:"
           ls -laH /tmp/winsdk
           echo ""

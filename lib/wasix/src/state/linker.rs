@@ -1194,6 +1194,12 @@ impl Linker {
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
 
+        // The main module isn't added to the link state's list of new modules, so we need to
+        // call its initialization functions separately
+        trace!("Calling data relocator function for main module");
+        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
+        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
+
         {
             let group_guard = linker.instance_group_state.lock().unwrap();
             let mut linker_state = linker.linker_state.write().unwrap();
