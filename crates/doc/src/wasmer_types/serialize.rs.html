@@ -67,7 +67,8 @@
 <a href="#66" id="66">66</a>
 <a href="#67" id="67">67</a>
 <a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a></pre></div><pre class="rust"><code><span class="kw">use crate</span>::{lib::std::mem, DeserializeError};
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a></pre></div><pre class="rust"><code><span class="kw">use crate</span>::{lib::std::mem, DeserializeError};
 
 <span class="doccomment">/// Metadata header which holds an ABI version and the length of the remaining
 /// metadata.
@@ -82,6 +83,7 @@
 <span class="kw">impl </span>MetadataHeader {
     <span class="doccomment">/// Current ABI version. Increment this any time breaking changes are made
     /// to the format of the serialized data.
+    </span><span class="comment">// TODO: Enable the commented out code in `systemv.rs:191` when updating this to 11
     </span><span class="kw">pub const </span>CURRENT_VERSION: u32 = <span class="number">10</span>;
 
     <span class="doccomment">/// Magic number to identify wasmer metadata.

@@ -542,7 +542,8 @@
 <a href="#541" id="541">541</a>
 <a href="#542" id="542">542</a>
 <a href="#543" id="543">543</a>
-<a href="#544" id="544">544</a></pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a></pre></div><pre class="rust"><code><span class="doccomment">//! Support for compiling with Cranelift.
 
 </span><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
@@ -565,7 +566,7 @@
 };
 
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-</span><span class="kw">use </span>gimli::write::{Address, EhFrame, FrameTable};
+</span><span class="kw">use </span>gimli::write::{Address, EhFrame, FrameTable, Writer};
 
 <span class="attr">#[cfg(feature = <span class="string">"rayon"</span>)]
 </span><span class="kw">use </span>rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -895,8 +896,9 @@
             }
             <span class="kw">let </span><span class="kw-2">mut </span>eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
             dwarf_frametable.write_eh_frame(<span class="kw-2">&amp;mut </span>eh_frame).unwrap();
+            eh_frame.write(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]).unwrap(); <span class="comment">// Write a 0 length at the end of the table.
 
-            <span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
+            </span><span class="kw">let </span>eh_frame_section = eh_frame.<span class="number">0</span>.into_section();
             custom_sections.push(eh_frame_section);
             unwind_info.eh_frame = <span class="prelude-val">Some</span>(SectionIndex::new(custom_sections.len() - <span class="number">1</span>));
         };

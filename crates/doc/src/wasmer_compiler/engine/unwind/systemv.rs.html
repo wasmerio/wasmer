@@ -238,7 +238,28 @@
 <a href="#237" id="237">237</a>
 <a href="#238" id="238">238</a>
 <a href="#239" id="239">239</a>
-<a href="#240" id="240">240</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Module for System V ABI unwind registry.
@@ -378,50 +399,71 @@
 
     <span class="attr">#[allow(clippy::cast_ptr_alignment)]
     </span><span class="kw">unsafe fn </span>register_frames(<span class="kw-2">&amp;mut </span><span class="self">self</span>, eh_frame: <span class="kw-2">&amp;</span>[u8]) {
-        <span class="kw">if </span>!using_libunwind() {
-            <span class="comment">// Registering an empty `eh_frame` (i.e. which
-            // contains empty FDEs) cause problems on Linux when
-            // deregistering it. We must avoid this
-            // scenario. Usually, this is handled upstream by the
-            // compilers.
-            </span><span class="macro">debug_assert_ne!</span>(
-                eh_frame,
-                <span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>],
-                <span class="string">"`eh_frame` seems to contain empty FDEs"
-            </span>);
+        <span class="attr">#[cfg(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>))]
+        </span>{
+            <span class="comment">// Special call for macOS on aarch64 to register the `.eh_frame` section.
+            // TODO: I am not 100% sure if it's correct to never deregister the `.eh_frame` section. It was this way before
+            // I started working on this, so I kept it that way.
+            </span>compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() <span class="kw">as </span>usize);
+            <span class="kw">return</span>;
+        }
 
-            <span class="comment">// On gnu (libgcc), `__register_frame` will walk the FDEs until an entry of length 0
-            </span><span class="kw">let </span>ptr = eh_frame.as_ptr();
-            __register_frame(ptr);
-            <span class="self">self</span>.registrations.push(ptr <span class="kw">as </span>usize);
-        } <span class="kw">else </span>{
-            <span class="attr">#[cfg(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>))]
-            </span>{
-                compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() <span class="kw">as </span>usize);
+        <span class="comment">// Validate that the `.eh_frame` is well-formed before registering it.
+        // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
+        // We put the frame records into a vector before registering them, because
+        // calling `__register_frame` with invalid data can cause segfaults.
+
+        // Pointers to the registrations that will be registered with `__register_frame`.
+        // For libgcc based systems, these are CIEs.
+        // For libunwind based systems, these are FDEs.
+        </span><span class="kw">let </span><span class="kw-2">mut </span>records_to_register = Vec::new();
+
+        <span class="kw">let </span><span class="kw-2">mut </span>current = <span class="number">0</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>last_len = <span class="number">0</span>;
+        <span class="kw">while </span>current &lt;= (eh_frame.len() - size_of::&lt;u32&gt;()) {
+            <span class="comment">// If a CFI or a FDE starts with 0u32 it is a terminator.
+            </span><span class="kw">let </span>len = u32::from_ne_bytes(eh_frame[current..(current + <span class="number">4</span>)].try_into().unwrap());
+            <span class="kw">if </span>len == <span class="number">0 </span>{
+                current += size_of::&lt;u32&gt;();
+                last_len = <span class="number">0</span>;
+                <span class="kw">continue</span>;
             }
+            <span class="comment">// The first record after a terminator is always a CIE.
+            </span><span class="kw">let </span>is_cie = last_len == <span class="number">0</span>;
+            last_len = len;
+            <span class="kw">let </span>record = eh_frame.as_ptr() <span class="kw">as </span>usize + current;
+            current = current + len <span class="kw">as </span>usize + <span class="number">4</span>;
 
-            <span class="attr">#[cfg(not(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>)))]
-            </span>{
-                <span class="comment">// For libunwind, `__register_frame` takes a pointer to a single FDE
-                </span><span class="kw">let </span>start = eh_frame.as_ptr();
-                <span class="kw">let </span>end = start.add(eh_frame.len());
-                <span class="kw">let </span><span class="kw-2">mut </span>current = start;
-
-                <span class="comment">// Walk all of the entries in the frame table and register them
-                </span><span class="kw">while </span>current &lt; end {
-                    <span class="kw">let </span>len = std::ptr::read::&lt;u32&gt;(current <span class="kw">as </span><span class="kw-2">*const </span>u32) <span class="kw">as </span>usize;
-
-                    <span class="comment">// Skip over the CIE and zero-length FDEs.
-                    // LLVM's libunwind emits a warning on zero-length FDEs.
-                    </span><span class="kw">if </span>current != start &amp;&amp; len != <span class="number">0 </span>{
-                        __register_frame(current);
-                        <span class="self">self</span>.registrations.push(current <span class="kw">as </span>usize);
-                    }
-
-                    <span class="comment">// Move to the next table entry (+4 because the length itself is not inclusive)
-                    </span>current = current.add(len + <span class="number">4</span>);
+            <span class="kw">if </span>using_libunwind() {
+                <span class="comment">// For libunwind based systems, `__register_frame` takes a pointer to an FDE.
+                </span><span class="kw">if </span>!is_cie {
+                    <span class="comment">// Every record that's not a CIE is an FDE.
+                    </span>records_to_register.push(record);
                 }
+                <span class="kw">continue</span>;
             }
+
+            <span class="comment">// For libgcc based systems, `__register_frame` takes a pointer to a CIE.
+            </span><span class="kw">if </span>is_cie {
+                records_to_register.push(record);
+            }
+        }
+
+        <span class="comment">// TODO: Enable this check againt when updating the artifact version to 11
+        // assert_eq!(
+        //     last_len, 0,
+        //     "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+        // );
+        // assert_eq!(
+        //     current,
+        //     eh_frame.len(),
+        //     "The `.eh_frame` must be finished after the last record",
+        // );
+
+        </span><span class="kw">for </span>record <span class="kw">in </span>records_to_register {
+            <span class="comment">// Register the CFI with libgcc
+            </span>__register_frame(record <span class="kw">as </span><span class="kw-2">*const </span>u8);
+            <span class="self">self</span>.registrations.push(record);
         }
     }
 
@@ -462,16 +504,16 @@
                 //
                 // To ensure that we just pop off the first element in the list upon every
                 // deregistration, walk our list of registrations backwards.
-                </span><span class="kw">for </span>fde <span class="kw">in </span><span class="self">self</span>.registrations.iter().rev() {
+                </span><span class="kw">for </span>registration <span class="kw">in </span><span class="self">self</span>.registrations.iter().rev() {
                     <span class="attr">#[cfg(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>))]
                     </span>{
-                        compact_unwind::__unw_remove_dynamic_eh_frame_section(<span class="kw-2">*</span>fde);
+                        compact_unwind::__unw_remove_dynamic_eh_frame_section(<span class="kw-2">*</span>registration);
                         <span class="self">self</span>.compact_unwind_mgr.deregister();
                     }
 
                     <span class="attr">#[cfg(not(all(target_os = <span class="string">"macos"</span>, target_arch = <span class="string">"aarch64"</span>)))]
                     </span>{
-                        __deregister_frame(<span class="kw-2">*</span>fde <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>);
+                        __deregister_frame(<span class="kw-2">*</span>registration <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>);
                     }
                 }
             }

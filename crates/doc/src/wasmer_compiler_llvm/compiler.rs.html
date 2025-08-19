@@ -646,7 +646,9 @@
 <a href="#645" id="645">645</a>
 <a href="#646" id="646">646</a>
 <a href="#647" id="647">647</a>
-<a href="#648" id="648">648</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::LLVM;
+<a href="#648" id="648">648</a>
+<a href="#649" id="649">649</a>
+<a href="#650" id="650">650</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::LLVM;
 <span class="kw">use </span><span class="kw">crate</span>::trampoline::FuncTrampoline;
 <span class="kw">use </span><span class="kw">crate</span>::translator::FuncTranslator;
 <span class="kw">use </span><span class="kw">crate</span>::CompiledKind;
@@ -1134,10 +1136,12 @@
 
         <span class="kw">if </span>!eh_frame_section_bytes.is_empty() {
             <span class="kw">let </span>eh_frame_idx = SectionIndex::from_u32(module_custom_sections.len() <span class="kw">as </span>u32);
-            <span class="comment">// Do not terminate dwarf info with a zero-length CIE.
-            // Because more info will be added later
-            // in lib/object/src/module.rs emit_compilation
-            </span>module_custom_sections.push(CustomSection {
+            <span class="comment">// Terminate the eh_frame info with a zero-length CIE.
+            //
+            // There may be more info added later in lib/object/src/module.rs emit_compilation
+            // but that's okay, because an eh_frame can have multiple CIEs.
+            </span>eh_frame_section_bytes.extend_from_slice(<span class="kw-2">&amp;</span>[<span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+            module_custom_sections.push(CustomSection {
                 protection: CustomSectionProtection::Read,
                 alignment: <span class="prelude-val">None</span>,
                 bytes: SectionBody::new_with_vec(eh_frame_section_bytes),
