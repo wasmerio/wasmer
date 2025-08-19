@@ -310,7 +310,21 @@
 <a href="#309" id="309">309</a>
 <a href="#310" id="310">310</a>
 <a href="#311" id="311">311</a>
-<a href="#312" id="312">312</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use </span>tempfile::NamedTempFile;
@@ -319,7 +333,6 @@
 
 <span class="kw">use </span><span class="kw">crate</span>::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
 <span class="kw">use </span><span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager;
-<span class="kw">use </span><span class="kw">crate</span>::runtime::task_manager::VirtualTaskManagerExt;
 
 <span class="doccomment">/// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
@@ -350,66 +363,121 @@
     }
 }
 
+<span class="doccomment">/// Loads a module from the filesystem cache.
+///
+/// A tokio reactor must be available
+</span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(<span class="question-mark">? </span>path))]
+</span><span class="kw">async fn </span>tokio_load(path: PathBuf, engine: Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
+    <span class="kw">let </span>bytes = read_file(<span class="kw-2">&amp;</span>path).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>deserialized = tokio::task::spawn_blocking(<span class="kw">move </span>|| deserialize(<span class="kw-2">&amp;</span>bytes, <span class="kw-2">&amp;</span>engine))
+        .<span class="kw">await
+        </span>.unwrap();
+    <span class="kw">match </span>deserialized {
+        <span class="prelude-val">Ok</span>(m) =&gt; {
+            <span class="macro">tracing::debug!</span>(<span class="string">"Cache hit!"</span>);
+            <span class="prelude-val">Ok</span>(m)
+        }
+        <span class="prelude-val">Err</span>(e) =&gt; {
+            <span class="macro">tracing::debug!</span>(
+                path=%path.display(),
+                error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                <span class="string">"Deleting the cache file because the artifact couldn't be deserialized"</span>,
+            );
+
+            <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::remove_file(<span class="kw-2">&amp;</span>path) {
+                <span class="macro">tracing::warn!</span>(
+                    path=%path.display(),
+                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+                    <span class="string">"Unable to remove the corrupted cache file"</span>,
+                );
+            }
+            <span class="prelude-val">Err</span>(e)
+        }
+    }
+}
+
+<span class="doccomment">/// Checks if the path exists in the filesystem cache.
+///
+/// A tokio reactor must be available
+</span><span class="kw">async fn </span>tokio_contains(path: PathBuf) -&gt; <span class="prelude-ty">Result</span>&lt;bool, CacheError&gt; {
+    tokio::fs::try_exists(<span class="kw-2">&amp;</span>path)
+        .<span class="kw">await
+        </span>.map_err(|e| CacheError::FileRead {
+            path: path.clone(),
+            error: e,
+        })
+}
+
+<span class="doccomment">/// Saves the module to the filesystem cache.
+///
+/// A tokio reactor must be available
+</span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(<span class="question-mark">? </span>path))]
+</span><span class="kw">async fn </span>tokio_save(path: PathBuf, module: Module) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
+    <span class="kw">let </span>parent = path
+        .parent()
+        .expect(<span class="string">"Unreachable - always created by joining onto cache_dir"</span>);
+
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = tokio::fs::create_dir_all(parent).<span class="kw">await </span>{
+        <span class="macro">tracing::warn!</span>(
+            dir=%parent.display(),
+            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+            <span class="string">"Unable to create the cache directory"</span>,
+        );
+    }
+
+    <span class="comment">// TODO: NamedTempFile is blocking and we should use the appropriate tokio function instead.
+    // Note: We save to a temporary file and persist() it at the end so
+    // concurrent readers won't see a partially written module.
+    </span><span class="kw">let </span>(file, temp) = NamedTempFile::new_in(parent)
+        .map_err(CacheError::other)<span class="question-mark">?
+        </span>.into_parts();
+
+    <span class="kw">let </span><span class="kw-2">mut </span>file = tokio::fs::File::from_std(file);
+
+    <span class="kw">let </span>serialized = tokio::task::spawn_blocking(<span class="kw">move </span>|| module.serialize())
+        .<span class="kw">await
+        </span>.unwrap()<span class="question-mark">?</span>;
+
+    <span class="kw">let </span><span class="kw-2">mut </span>writer = tokio::io::BufWriter::new(<span class="kw-2">&amp;mut </span>file);
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = writer.write_all(<span class="kw-2">&amp;</span>serialized).<span class="kw">await </span>{
+        <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
+    }
+    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = writer.flush().<span class="kw">await </span>{
+        <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
+    }
+
+    temp.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
+    <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">"Saved to disk"</span>);
+
+    <span class="prelude-val">Ok</span>(())
+}
+
 <span class="attr">#[async_trait::async_trait]
 </span><span class="kw">impl </span>ModuleCache <span class="kw">for </span>FileSystemCache {
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(% key))]
     </span><span class="kw">async fn </span>load(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;Module, CacheError&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
+        <span class="kw">let </span>engine = engine.clone();
 
-        <span class="self">self</span>.task_manager
+        <span class="comment">// Use the bundled tokio runtime instead of the given async runtime
+        // This is necessary because this function can also be called with a futures_executor
+        </span><span class="self">self</span>.task_manager
             .runtime_handle()
-            .spawn({
-                <span class="kw">let </span>task_manager = <span class="self">self</span>.task_manager.clone();
-                <span class="kw">let </span>engine = engine.clone();
-
-                <span class="kw">async move </span>{
-                    <span class="kw">let </span>bytes = read_file(<span class="kw-2">&amp;</span>path).<span class="kw">await</span><span class="question-mark">?</span>;
-
-                    task_manager
-                    .spawn_await({
-
-                        <span class="kw">move </span>|| <span class="kw">match </span>deserialize(<span class="kw-2">&amp;</span>bytes, <span class="kw-2">&amp;</span>engine) {
-                            <span class="prelude-val">Ok</span>(m) =&gt; {
-                                <span class="macro">tracing::debug!</span>(<span class="string">"Cache hit!"</span>);
-                                <span class="prelude-val">Ok</span>(m)
-                            }
-                            <span class="prelude-val">Err</span>(e) =&gt; {
-                                <span class="macro">tracing::debug!</span>(
-                                    %key,
-                                    path=%path.display(),
-                                    error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                                    <span class="string">"Deleting the cache file because the artifact couldn't be deserialized"</span>,
-                                );
-
-                                <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = std::fs::remove_file(<span class="kw-2">&amp;</span>path) {
-                                    <span class="macro">tracing::warn!</span>(
-                                        %key,
-                                        path=%path.display(),
-                                        error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                                        <span class="string">"Unable to remove the corrupted cache file"</span>,
-                                    );
-                                }
-
-                                <span class="prelude-val">Err</span>(e)
-                            }
-                        }
-                    })
-                    .<span class="kw">await
-                    </span>.unwrap()
-                }
-            })
+            .spawn(tokio_load(path, engine))
             .<span class="kw">await
             </span>.unwrap()
     }
 
     <span class="kw">async fn </span>contains(<span class="kw-2">&amp;</span><span class="self">self</span>, key: ModuleHash, engine: <span class="kw-2">&amp;</span>Engine) -&gt; <span class="prelude-ty">Result</span>&lt;bool, CacheError&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
-        tokio::fs::try_exists(<span class="kw-2">&amp;</span>path)
+
+        <span class="comment">// Use the bundled tokio runtime instead of the given async runtime
+        // This is necessary because this function can also be called with a futures_executor
+        </span><span class="self">self</span>.task_manager
+            .runtime_handle()
+            .spawn(tokio_contains(path))
             .<span class="kw">await
-            </span>.map_err(|e| CacheError::FileRead {
-                path: path.clone(),
-                error: e,
-            })
+            </span>.unwrap()
     }
 
     <span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all, fields(% key))]
@@ -420,53 +488,13 @@
         module: <span class="kw-2">&amp;</span>Module,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CacheError&gt; {
         <span class="kw">let </span>path = <span class="self">self</span>.path(key, <span class="kw-2">&amp;</span>engine.deterministic_id());
+        <span class="kw">let </span>module = module.clone();
 
-        <span class="self">self</span>.task_manager
+        <span class="comment">// Use the bundled tokio runtime instead of the given async runtime
+        // This is necessary because this function can also be called with a futures_executor
+        </span><span class="self">self</span>.task_manager
             .runtime_handle()
-            .spawn({
-                <span class="kw">let </span>task_manager = <span class="self">self</span>.task_manager.clone();
-                <span class="kw">let </span>module = module.clone();
-
-                <span class="kw">async move </span>{
-                    <span class="kw">let </span>parent = path
-                        .parent()
-                        .expect(<span class="string">"Unreachable - always created by joining onto cache_dir"</span>);
-
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = tokio::fs::create_dir_all(parent).<span class="kw">await </span>{
-                        <span class="macro">tracing::warn!</span>(
-                            dir=%parent.display(),
-                            error=<span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-                            <span class="string">"Unable to create the cache directory"</span>,
-                        );
-                    }
-
-                    <span class="comment">// Note: We save to a temporary file and persist() it at the end so
-                    // concurrent readers won't see a partially written module.
-                    </span><span class="kw">let </span>(file, temp) = NamedTempFile::new_in(parent)
-                        .map_err(CacheError::other)<span class="question-mark">?
-                        </span>.into_parts();
-
-                    <span class="kw">let </span><span class="kw-2">mut </span>file = tokio::fs::File::from_std(file);
-
-                    <span class="kw">let </span>serialized = task_manager
-                        .spawn_await(<span class="kw">move </span>|| module.serialize())
-                        .<span class="kw">await
-                        </span>.unwrap()<span class="question-mark">?</span>;
-
-                    <span class="kw">let </span><span class="kw-2">mut </span>writer = tokio::io::BufWriter::new(<span class="kw-2">&amp;mut </span>file);
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = writer.write_all(<span class="kw-2">&amp;</span>serialized).<span class="kw">await </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
-                    }
-                    <span class="kw">if let </span><span class="prelude-val">Err</span>(error) = writer.flush().<span class="kw">await </span>{
-                        <span class="kw">return </span><span class="prelude-val">Err</span>(CacheError::FileWrite { path, error });
-                    }
-
-                    temp.persist(<span class="kw-2">&amp;</span>path).map_err(CacheError::other)<span class="question-mark">?</span>;
-                    <span class="macro">tracing::debug!</span>(path=%path.display(), <span class="string">"Saved to disk"</span>);
-
-                    <span class="prelude-val">Ok</span>(())
-                }
-            })
+            .spawn(tokio_save(path, module))
             .<span class="kw">await
             </span>.unwrap()
     }

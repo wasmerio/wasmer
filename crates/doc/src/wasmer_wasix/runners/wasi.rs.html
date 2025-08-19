@@ -694,10 +694,7 @@
 <a href="#693" id="693">693</a>
 <a href="#694" id="694">694</a>
 <a href="#695" id="695">695</a>
-<a href="#696" id="696">696</a>
-<a href="#697" id="697">697</a>
-<a href="#698" id="698">698</a>
-<a href="#699" id="699">699</a></pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
+<a href="#696" id="696">696</a></pre></div><pre class="rust"><code><span class="doccomment">//! WebC container support for running WASI modules
 
 </span><span class="kw">use </span>std::{path::PathBuf, sync::Arc};
 
@@ -1093,35 +1090,28 @@
         <span class="kw">let </span>runtime = env.runtime.clone();
         <span class="kw">let </span>tasks = runtime.task_manager().clone();
 
-        <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
-            <span class="kw">async move </span>{
-                <span class="kw">let </span><span class="kw-2">mut </span>task_handle = <span class="kw">crate</span>::bin_factory::spawn_exec_module(module, env, <span class="kw-2">&amp;</span>runtime)
-                    .context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
+            <span class="kw">crate</span>::bin_factory::spawn_exec_module(module, env, <span class="kw-2">&amp;</span>runtime).context(<span class="string">"Spawn failed"</span>)<span class="question-mark">?</span>;
 
-                <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
-                </span>task_handle.install_ctrlc_handler();
+        <span class="attr">#[cfg(feature = <span class="string">"ctrlc"</span>)]
+        </span>task_handle.install_ctrlc_handler();
+        <span class="kw">let </span>task_handle = <span class="kw">async move </span>{ task_handle.wait_finished().<span class="kw">await </span>}.in_current_span();
 
-                task_handle
-                    .wait_finished()
-                    .<span class="kw">await
-                    </span>.map_err(|err| {
-                        <span class="comment">// We do our best to recover the error
-                        </span><span class="kw">let </span>msg = err.to_string();
-                        <span class="kw">let </span>weak = Arc::downgrade(<span class="kw-2">&amp;</span>err);
-                        Arc::into_inner(err).unwrap_or_else(|| {
-                            weak.upgrade()
-                                .map(|err| wasi_runtime_error_to_owned(<span class="kw-2">&amp;</span>err))
-                                .unwrap_or_else(|| {
-                                    WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(
-                                        <span class="string">"{}"</span>, msg
-                                    )))
-                                })
+        <span class="kw">let </span>result = tasks.spawn_and_block_on(task_handle)<span class="question-mark">?</span>;
+        <span class="kw">let </span>exit_code = result
+            .map_err(|err| {
+                <span class="comment">// We do our best to recover the error
+                </span><span class="kw">let </span>msg = err.to_string();
+                <span class="kw">let </span>weak = Arc::downgrade(<span class="kw-2">&amp;</span>err);
+                Arc::into_inner(err).unwrap_or_else(|| {
+                    weak.upgrade()
+                        .map(|err| wasi_runtime_error_to_owned(<span class="kw-2">&amp;</span>err))
+                        .unwrap_or_else(|| {
+                            WasiRuntimeError::Anyhow(Arc::new(<span class="macro">anyhow::format_err!</span>(<span class="string">"{}"</span>, msg)))
                         })
-                    })
-                    .context(<span class="string">"Unable to wait for the process to exit"</span>)
-            }
-            .in_current_span(),
-        )<span class="question-mark">??</span>;
+                })
+            })
+            .context(<span class="string">"Unable to wait for the process to exit"</span>)<span class="question-mark">?</span>;
 
         <span class="kw">if </span>exit_code.raw() == <span class="number">0 </span>{
             <span class="prelude-val">Ok</span>(())
@@ -1202,7 +1192,11 @@
         <span class="kw">let </span>tasks = runtime.task_manager().clone();
         <span class="kw">let </span>pkg = pkg.clone();
 
-        <span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
+        <span class="comment">// Wrapping the call to `spawn_and_block_on` in a call to `spawn_await` could help to prevent deadlocks
+        // because then blocking in here won't block the tokio runtime
+        //
+        // See run_wasm above for a possible fix
+        </span><span class="kw">let </span>exit_code = tasks.spawn_and_block_on(
             <span class="kw">async move </span>{
                 <span class="kw">let </span><span class="kw-2">mut </span>task_handle =
                     <span class="kw">crate</span>::bin_factory::spawn_exec(pkg, <span class="kw-2">&amp;</span>command_name, env, <span class="kw-2">&amp;</span>runtime)

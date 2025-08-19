@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["deserialize","read_file"],"struct":["FileSystemCache"]};
+window.SIDEBAR_ITEMS = {"fn":["deserialize","read_file","tokio_contains","tokio_load","tokio_save"],"struct":["FileSystemCache"]};
