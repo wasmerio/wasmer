@@ -1151,7 +1151,7 @@ impl Linker {
                 // as the $ORIGIN of the main module, which should at least be slightly
                 // sensible. The `main.wasm` file name will be stripped and only the `./`
                 // will be taken into account by `locate_module`.
-                Path::new("./main.wasm"),
+                Some(Path::new("./main.wasm")),
             )?;
         }
 
@@ -1582,8 +1582,8 @@ impl Linker {
             &mut link_state,
             &wasi_env.runtime,
             &wasi_env.state,
-            runtime_path,   // No runtime path when loading a module via dlopen
-            Path::new("/"), // Empty runtime path means we don't need the module's path either
+            runtime_path,          // No runtime path when loading a module via dlopen
+            Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
         )?;
 
         let new_modules = link_state
@@ -2258,7 +2258,7 @@ impl LinkerState {
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
         runtime_path: &[impl AsRef<str>],
-        calling_module_path: impl AsRef<Path>,
+        calling_module_path: Option<impl AsRef<Path>>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_name = match module_spec {
             DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
@@ -2337,7 +2337,7 @@ impl LinkerState {
                     // recursively, so we discard the runtime_path parameter and
                     // only take the one from the module's dylink.0 section
                     dylink_info.runtime_path.as_ref(),
-                    &full_path,
+                    Some(&full_path),
                 ) {
                     Ok(_) => (),
                     Err(e) => {
@@ -3907,7 +3907,7 @@ async fn locate_module(
     module_path: &Path,
     library_path: &[impl AsRef<Path>],
     runtime_path: &[impl AsRef<str>],
-    calling_module_path: impl AsRef<Path>,
+    calling_module_path: Option<impl AsRef<Path>>,
     fs: &WasiFs,
 ) -> Result<(PathBuf, Vec<u8>), LinkError> {
     async fn try_load(
@@ -3965,8 +3965,7 @@ async fn locate_module(
 
         let calling_module_dir = calling_module_path
             .as_ref()
-            .parent()
-            .unwrap_or_else(|| calling_module_path.as_ref());
+            .map(|p| p.as_ref().parent().unwrap_or_else(|| p.as_ref()));
 
         let runtime_path = runtime_path.iter().map(|path| {
             let path = path.as_ref();
@@ -3976,14 +3975,27 @@ async fn locate_module(
                 .or_else(|| path.strip_prefix("${ORIGIN}"));
 
             match relative {
-                Some(relative) => Cow::Owned(PathBuf::from(
-                    fs.relative_path_to_absolute(
-                        calling_module_dir
-                            .join(relative)
-                            .to_string_lossy()
-                            .into_owned(),
-                    ),
-                )),
+                Some(relative) => {
+                    let Some(calling_module_dir) = calling_module_dir else {
+                        // This is an internal error because the only time calling_module_path
+                        // should be empty is when loading a module through dlopen, and a
+                        // dlopen'ed module isn't being required by another module so we don't
+                        // have a RUNPATH to consider at all. See the invocation of
+                        // `load_module_tree` in `load_module`.
+                        panic!(
+                            "Internal error: $ORIGIN or ${{ORIGIN}} in RUNPATH, but \
+                            no calling module path provided"
+                        );
+                    };
+                    Cow::Owned(PathBuf::from(
+                        fs.relative_path_to_absolute(
+                            calling_module_dir
+                                .join(relative)
+                                .to_string_lossy()
+                                .into_owned(),
+                        ),
+                    ))
+                }
                 None => Cow::Borrowed(Path::new(path)),
             }
         });
