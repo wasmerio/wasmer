@@ -170,30 +170,41 @@ jobs:
         run: |
           sudo apt-get update
           sudo apt-get install -y git make lld curl
-          wget https://apt.llvm.org/llvm.sh
-          chmod +x llvm.sh
-          sudo ./llvm.sh 19 all
 
-      - name: Download wasix-libc
+      - name: Download binaryen
         uses: dsaltares/fetch-gh-release-asset@1.1.2
         with:
-          repo: wasix-org/wasix-libc
-          file: sysroot.tar.gz
-          target: sysroot/wasix-libc.tar.gz
+          repo: WebAssembly/binaryen
+          version: tags/version_123
+          file: binaryen-version_123-x86_64-linux.tar.gz
+          target: binaryen/binaryen.tar.gz
 
-      - name: Unpack wasix-libc
+      - name: Unpack binaryen
         run: |
-          cd sysroot
-          tar xzf wasix-libc.tar.gz
+          tar -xf binaryen/binaryen.tar.gz -C binaryen --strip-components=1
+          chmod +x binaryen/bin/*
+          export BINARYEN_DIR=$(pwd)/binaryen
+          echo "$BINARYEN_DIR/bin" >> $GITHUB_PATH
 
-      - name: Install wasi-sdk Tools
+      - name: Install wasixcc, sysroot and LLVM
         run: |
-          cd ~
-          curl -L "https://github.com/WebAssembly/wasi-sdk/releases/download/wasi-sdk-${{ env.WASI_SDK_VERSION }}/wasi-sdk-${{ env.WASI_SDK_VERSION }}.0-linux.tar.gz" -o wasi-sdk.tar.gz
-          tar -xzf wasi-sdk.tar.gz
-          cp -r wasi-sdk-${{ env.WASI_SDK_VERSION }}.0 ~/wasi-sdk
+          export RUST_LOG=wasixcc=trace
+          rustup toolchain install 1.89 --profile minimal --no-self-update
+          cargo +1.89 install wasixcc -F bin
+          mkdir wasixcc-install
+          wasixcc --install-executables ./wasixcc-install
+          echo "$(pwd)/wasixcc-install" >> $GITHUB_PATH
+          mkdir -p ~/.wasixcc/llvm
+          mkdir -p ~/.wasixcc/sysroot
+          wasixcc --download-all
 
-      - name: Install LLVM 18
+      - name: Tool versions
+        run: |
+          echo "wasixcc version: $(wasixcc --version)"
+          echo "llvm version: $(wasixcc -- --version)"
+          echo "wasm-opt version: $(wasm-opt --version)"
+
+      - name: Install LLVM 18 (for building Wasmer)
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz -L -o llvm.tar.xz
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
@@ -205,10 +216,6 @@ jobs:
           echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
-
-      - name: Install wasm-opt
-        run: |
-          sudo apt-get install -y binaryen
 
       - name: make test-wasix
         run: |
