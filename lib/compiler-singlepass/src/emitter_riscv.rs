@@ -1231,9 +1231,10 @@ pub fn gen_std_trampoline_riscv(
     let mut caller_stack_offset: i32 = 0;
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
-            Type::I32 => Size::S32,
+            Type::I32 | Type::F32 => Size::S32,
             Type::I64 | Type::F64 => Size::S64,
-            // TODO: support more types
+            Type::ExternRef => Size::S64,
+            Type::FuncRef => Size::S64,
             _ => codegen_error!(
                 "singlepass unsupported param type for trampoline {:?}",
                 *param
