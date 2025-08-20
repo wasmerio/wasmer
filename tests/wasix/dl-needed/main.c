@@ -1,10 +1,35 @@
 #include <stdio.h>
 #include <dlfcn.h>
+#include <pthread.h>
+#include <unistd.h>
+#include <signal.h>
 
 extern int main_needed_func(int);
 
+int main_exported()
+{
+    return 85;
+}
+
+// We need a live worker thread so the DlOperation sync logic runs.
+// The thread doesn't need to do anything.
+void *thread_func(void *arg)
+{
+    for (;;)
+    {
+        sleep(1);
+    }
+}
+
 int main()
 {
+    pthread_t thread;
+    if (pthread_create(&thread, NULL, thread_func, NULL) != 0)
+    {
+        fprintf(stderr, "Failed to create thread\n");
+        return 1;
+    }
+
     if (main_needed_func(42) != 43)
     {
         fprintf(stderr, "main_needed_func returned unexpected value\n");
@@ -40,6 +65,8 @@ int main()
         fprintf(stderr, "dlclose failed: %s\n", dlerror());
         return 1;
     }
+
+    pthread_kill(thread, SIGTERM);
 
     // Print something to make sure printf and, by extension, data relocations work.
     // Do *NOT* remote this.

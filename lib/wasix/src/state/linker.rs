@@ -2815,14 +2815,14 @@ impl InstanceGroupState {
         trace!(?operation, "Applying operation");
         match operation {
             DlOperation::LoadModules(module_handles) => {
-                // Allocate table first, since instantiating will put more stuff in the table
-                // and we need to have the modules' own table space allocated before that. This
-                // replicates the behavior of the instigating group.
-                for handle in &module_handles {
-                    self.allocate_function_table_for_existing_module(linker_state, store, *handle)?;
-                }
                 let mut pending_functions = PendingResolutionsFromLinker::default();
                 for handle in module_handles {
+                    // We need to do table allocation in exactly the same order as the instigating
+                    // group, which is:
+                    //   * Allocate module's own table space
+                    //   * Fill GOT.func entries (through instantiating the module)
+                    //   * Then repeat for the next module.
+                    self.allocate_function_table_for_existing_module(linker_state, store, handle)?;
                     self.instantiate_side_module_from_linker(
                         linker_state,
                         store,
