@@ -1207,8 +1207,8 @@ pub fn gen_std_trampoline_riscv(
 
     dynasm!(a
         ; addi sp, sp, -32
-        ; sd ra, [sp,24]
-        ; sd s0, [sp,16]
+        ; sd s0, [sp,24]
+        ; sd ra, [sp,16]
         ; sd X(fptr as u32), [sp, 8]
         ; sd X(args as u32), [sp, 0]
         ; mv s0, sp // use frame-pointer register for later restore
@@ -1289,10 +1289,10 @@ pub fn gen_std_trampoline_riscv(
 
     // Restore stack.
     dynasm!(a
-        ; ld ra, [s0,24]
-        ; ld s0, [s0,16]
-        ; ld X(fptr as u32), [s0,8]
         ; ld X(args as u32), [s0,0]
+        ; ld X(fptr as u32), [s0,8]
+        ; ld ra, [s0,16]
+        ; ld s0, [s0,24]
         ; addi sp, sp, 32 + stack_offset as i32
         ; ret
     );
