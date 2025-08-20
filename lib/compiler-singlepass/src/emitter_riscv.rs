@@ -1202,8 +1202,9 @@ pub fn gen_std_trampoline_riscv(
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
 
-    let fptr = GPR::X30;
-    let args = GPR::X31;
+    // Callee-save registers must be used.
+    let fptr = GPR::X26;
+    let args = GPR::X27;
 
     dynasm!(a
         ; addi sp, sp, -32
