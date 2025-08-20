@@ -32,9 +32,9 @@ impl AsyncCliCommand for CmdAppInfo {
         println!("  App Info  ");
         println!("→ Name: {}", app.name);
         println!("→ Owner: {}", app.owner.global_name);
-        println!("→ URL: {}", app_url);
-        println!("→ Unique URL: {}", versioned_url);
-        println!("→ Dashboard: {}", dashboard_url);
+        println!("→ URL: {app_url}");
+        println!("→ Unique URL: {versioned_url}");
+        println!("→ Dashboard: {dashboard_url}");
 
         Ok(())
     }

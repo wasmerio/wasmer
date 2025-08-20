@@ -8,6 +8,40 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.1.0-rc.3 - 20/08/2025
+This release introduces a new reflection syscall for WASIX, RUNTIME_PATH support for
+dynamically-loaded modules, as well as many fixes and improvements across the board.
+
+## Added
+
+  - [#5695](https://github.com/wasmerio/wasmer/pull/5695) Implement RUNTIME_PATH support in the linker
+  - [#5653](https://github.com/wasmerio/wasmer/pull/5653) Implement a reflection API in WASIX
+  - [#5697](https://github.com/wasmerio/wasmer/pull/5697) Add WASIX DL tests
+  - [#5689](https://github.com/wasmerio/wasmer/pull/5689) feat(config): Add CapabilitySshServerV1 to app config
+  - [#5618](https://github.com/wasmerio/wasmer/pull/5618) Add ModuleCache::contains() + make compilation opts hashable
+
+## Changed
+
+  - [#5634](https://github.com/wasmerio/wasmer/pull/5634) Improve thread error handling
+  - [#5679](https://github.com/wasmerio/wasmer/pull/5679) Call __wasm_apply_tls_relocs during first load of each module
+  - [#5693](https://github.com/wasmerio/wasmer/pull/5693) chore(ci): upgrade checkout to v5
+  - [#5673](https://github.com/wasmerio/wasmer/pull/5673) Enable the "all" feature for socket2.
+  - [#5515](https://github.com/wasmerio/wasmer/pull/5515) docs: remove consecutive duplicate words
+  - [#5629](https://github.com/wasmerio/wasmer/pull/5629) Make bundling webcs fail if there are major errors
+
+## Fixed
+
+  - [#5677](https://github.com/wasmerio/wasmer/pull/5677) Fix deadlock when loading shared libraries
+  - [#5670](https://github.com/wasmerio/wasmer/pull/5670) Fix segfault on unterminated eh_frame by validating the frame before passing it to `__register_function`.
+  - [#5690](https://github.com/wasmerio/wasmer/pull/5690) fix(lib/vm): vendor `compiler-builtins` to fix undefined symbol `__rust_probestack`
+  - [#5669](https://github.com/wasmerio/wasmer/pull/5669) Fix WASIX networking w.r.t. aiohttp
+  - [#5655](https://github.com/wasmerio/wasmer/pull/5655) Shamelessly fix multiple things in one PR
+  - [#5652](https://github.com/wasmerio/wasmer/pull/5652) fix(lib/api): make `Memory::new_from_existing(...)` compatible with wasmer 5.0
+  - [#5646](https://github.com/wasmerio/wasmer/pull/5646) fix: fix wat gating
+  - [#5635](https://github.com/wasmerio/wasmer/pull/5635) fix(wasix): make wasmer/wat & wasmer/js-serializable-module optional features
+
+
+
 ## 6.1.0-rc.2 - 16/07/2025
 This is the first release of the linker, adding support for dynamic linking in WASIX.
 The linker, paired with [wasixcc](https://github.com/wasix-org/wasixcc), can load DL modules
