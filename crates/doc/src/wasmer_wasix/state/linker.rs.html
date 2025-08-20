@@ -7086,14 +7086,14 @@
         <span class="macro">trace!</span>(<span class="question-mark">?</span>operation, <span class="string">"Applying operation"</span>);
         <span class="kw">match </span>operation {
             DlOperation::LoadModules(module_handles) =&gt; {
-                <span class="comment">// Allocate table first, since instantiating will put more stuff in the table
-                // and we need to have the modules' own table space allocated before that. This
-                // replicates the behavior of the instigating group.
-                </span><span class="kw">for </span>handle <span class="kw">in </span><span class="kw-2">&amp;</span>module_handles {
-                    <span class="self">self</span>.allocate_function_table_for_existing_module(linker_state, store, <span class="kw-2">*</span>handle)<span class="question-mark">?</span>;
-                }
                 <span class="kw">let </span><span class="kw-2">mut </span>pending_functions = PendingResolutionsFromLinker::default();
                 <span class="kw">for </span>handle <span class="kw">in </span>module_handles {
+                    <span class="comment">// We need to do table allocation in exactly the same order as the instigating
+                    // group, which is:
+                    //   * Allocate module's own table space
+                    //   * Fill GOT.func entries (through instantiating the module)
+                    //   * Then repeat for the next module.
+                    </span><span class="self">self</span>.allocate_function_table_for_existing_module(linker_state, store, handle)<span class="question-mark">?</span>;
                     <span class="self">self</span>.instantiate_side_module_from_linker(
                         linker_state,
                         store,
