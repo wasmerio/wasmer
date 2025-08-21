@@ -304,6 +304,11 @@ path = "examples/riscv.rs"
 required-features = ["singlepass"]
 
 [[example]]
+name = "riscv2"
+path = "examples/riscv2.rs"
+required-features = ["singlepass"]
+
+[[example]]
 name = "engine-headless"
 path = "examples/engine_headless.rs"
 required-features = ["cranelift"]
