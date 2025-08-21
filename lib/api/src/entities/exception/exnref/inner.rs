@@ -5,7 +5,10 @@ use crate::macros::backend::{gen_rt_ty, match_rt};
 use crate::vm::VMExceptionRef;
 use crate::StoreRef;
 
-gen_rt_ty!(ExceptionRef @derives derive_more::From, Debug, Clone ; @path exception);
+gen_rt_ty! {
+    #[derive(derive_more::From, Debug, Clone)]
+    pub(crate) BackendExceptionRef(exception::ExceptionRef);
+}
 
 impl BackendExceptionRef {
     /// Make a new extern reference

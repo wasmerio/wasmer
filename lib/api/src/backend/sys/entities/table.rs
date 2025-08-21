@@ -6,7 +6,7 @@ use crate::{
     vm::{VMExtern, VMExternTable},
     BackendTable, ExternRef, Function, Value,
 };
-use wasmer_types::TableType;
+use wasmer_types::{ObjectStoreOf as _, TableType};
 use wasmer_vm::{StoreHandle, TableElement, Trap, VMTable};
 
 #[derive(Debug, Clone)]
@@ -78,7 +78,7 @@ impl Table {
         }
 
         Ok(Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), table),
+            handle: store.objects_mut().as_sys_mut().insert(table),
         })
     }
 

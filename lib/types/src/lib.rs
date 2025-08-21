@@ -61,6 +61,7 @@ mod module_hash;
 mod serialize;
 mod stack;
 mod store_id;
+mod object_store;
 mod table;
 pub mod target;
 mod trapcode;
@@ -100,6 +101,7 @@ pub use crate::units::{
 };
 pub use value::{RawValue, ValueType};
 
+pub use crate::object_store::{Upcast, BoxStoreObject, InternalStoreHandle, ObjectStore, ObjectStoreOf, LocalBoxStoreObject, StoreHandle, StoreObject};
 pub use crate::libcalls::LibCall;
 pub use crate::memory::MemoryStyle;
 pub use crate::table::TableStyle;

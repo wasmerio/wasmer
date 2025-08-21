@@ -13,13 +13,14 @@ use wasmer_vm::TrapHandlerFn;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-pub(crate) struct StoreInner {
-    pub(crate) objects: StoreObjects,
+pub(crate) struct StoreInner<Object> {
+    pub(crate) objects: StoreObjects<Object>,
+
     pub(crate) store: BackendStore,
-    pub(crate) on_called: Option<OnCalledHandler>,
+    pub(crate) on_called: Option<OnCalledHandler<Object>>,
 }
 
-impl std::fmt::Debug for StoreInner {
+impl<Object> std::fmt::Debug for StoreInner<Object> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("StoreInner")
             .field("objects", &self.objects)
@@ -31,14 +32,17 @@ impl std::fmt::Debug for StoreInner {
 
 /// Call handler for a store.
 // TODO: better documentation!
-pub type OnCalledHandler = Box<
+pub type OnCalledHandler<Object> = Box<
     dyn FnOnce(
-        StoreMut<'_>,
+        StoreMut<'_, Object>,
     )
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
 
-gen_rt_ty!(Store @derives derive_more::From, Debug; @path store);
+gen_rt_ty! {
+    #[derive(derive_more::From, Debug)]
+    pub(crate) BackendStore(store::Store);
+}
 
 impl BackendStore {
     #[inline]
@@ -57,6 +61,8 @@ impl BackendStore {
 }
 
 impl AsEngineRef for BackendStore {
+    type Object = ();
+
     #[inline]
     fn as_engine_ref(&self) -> crate::EngineRef<'_> {
         match_rt!(on self => s {

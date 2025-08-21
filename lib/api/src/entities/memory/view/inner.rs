@@ -13,7 +13,10 @@ use crate::{
 ///
 /// After a memory is grown a view must not be used anymore. Views are
 /// created using the Memory.view() method.
-gen_rt_ty!(MemoryView<'a> @derives Debug, derive_more::From ; @path memory::view);
+gen_rt_ty! {
+    #[derive(Debug, derive_more::From)]
+    pub(crate) BackendMemoryView<'a>(memory::view::MemoryView<'a>);
+}
 
 impl<'a> BackendMemoryView<'a> {
     #[inline]

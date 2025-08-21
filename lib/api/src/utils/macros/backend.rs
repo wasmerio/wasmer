@@ -1,133 +1,43 @@
 /// Automatically generate "backend" types.
 #[macro_use]
 macro_rules! gen_rt_ty {
-    // In this case we automatically try to create the struct following the canonical path to the
-    // same entity in each backend.
-    ($id:ident) => {
+    {
+        $(#[$meta:meta])*
+        $vis:vis
+        $id:ident$(<
+            $($lt:lifetime),*
+            $(,)?
+            $($param:ident),*
+        >)?(
+            $path:path
+        ) $(;)?
+    } => {
         paste::paste! {
-            pub(crate) enum [<Backend $id>] {
+            $(#[$meta])*
+            $vis enum $id $(<$($lt,)* $($param,)*>)? {
                 #[cfg(feature = "sys")]
                 /// The implementation from the `sys` backend.
-                Sys(crate::backend::sys::entities::[<$id:lower>]::$id),
+                Sys(crate::backend::sys::entities::$path),
 
                 #[cfg(feature = "v8")]
                 /// The implementation from the `v8` backend.
-                V8(crate::backend::v8::entities::[<$id:lower>]::$id),
+                V8(crate::backend::v8::entities::$path),
 
                 #[cfg(feature = "wamr")]
                 /// The implementation from the `wamr` backend.
-                Wamr(crate::backend::wamr::entities::[<$id:lower>]::$id),
+                Wamr(crate::backend::wamr::entities::$path),
 
                 #[cfg(feature = "wasmi")]
                 /// The implementation from the `wasmi` backend.
-                Wasmi(crate::backend::wasmi::entities::[<$id:lower>]::$id),
+                Wasmi(crate::backend::wasmi::entities::$path),
 
                 #[cfg(feature = "js")]
                 /// The implementation from the `js` backend.
-                Js(crate::backend::js::entities::[<$id:lower>]::$id),
+                Js(crate::backend::js::entities::$path),
 
                 #[cfg(feature = "jsc")]
                 /// The implementation from the `jsc` backend.
-                Jsc(crate::backend::jsc::entities::[<$id:lower>]::$id),
-            }
-        }
-    };
-
-    ($id:ident$(<$lt:lifetime>)? $(@cfg $($if:meta => $then: meta),*)? @derives $($derive:path),*) => {
-        paste::paste! {
-            $($(#[cfg_attr($if, $then)])*)?
-            #[derive($($derive,)*)]
-            pub(crate) enum [<Backend $id>]$(<$lt>)? {
-                #[cfg(feature = "sys")]
-                /// The implementation from the `sys` backend.
-                Sys(crate::backend::sys::entities::[<$id:lower>]::$id$(<$lt>)?),
-
-                #[cfg(feature = "v8")]
-                /// The implementation from the `v8` backend.
-                V8(crate::backend::v8::entities::[<$id:lower>]::$id$(<$lt>)?),
-
-                #[cfg(feature = "wamr")]
-                /// The implementation from the `wamr` backend.
-                Wamr(crate::backend::wamr::entities::[<$id:lower>]::$id$(<$lt>)?),
-
-                #[cfg(feature = "wasmi")]
-                /// The implementation from the `wasmi` backend.
-                Wasmi(crate::backend::wasmi::entities::[<$id:lower>]::$id$(<$lt>)?),
-
-                #[cfg(feature = "js")]
-                /// The implementation from the `js` backend.
-                Js(crate::backend::js::entities::[<$id:lower>]::$id$(<$lt>)?),
-
-
-                #[cfg(feature = "jsc")]
-                /// The implementation from the `jsc` backend.
-                Jsc(crate::backend::jsc::entities::[<$id:lower>]::$id$(<$lt>)?),
-            }
-        }
-    };
-
-    ($id:ident$(<$lt:lifetime>)? $(@cfg $($if:meta => $then: meta),*)? @derives $($derive:path),* ; @path $path:path ) => {
-        paste::paste! {
-            $($(#[cfg_attr($if, $then)])*)?
-            #[derive($($derive,)*)]
-            pub(crate) enum [<Backend $id>]$(<$lt>)? {
-                #[cfg(feature = "sys")]
-                /// The implementation from the `sys` backend.
-                Sys(crate::backend::sys::entities::$path::$id$(<$lt>)?),
-
-                #[cfg(feature = "v8")]
-                /// The implementation from the `v8` backend.
-                V8(crate::backend::v8::entities::$path::$id$(<$lt>)?),
-
-                #[cfg(feature = "wamr")]
-                /// The implementation from the `wamr` backend.
-                Wamr(crate::backend::wamr::entities::$path::$id$(<$lt>)?),
-
-                #[cfg(feature = "wasmi")]
-                /// The implementation from the `wasmi` backend.
-                Wasmi(crate::backend::wasmi::entities::$path::$id$(<$lt>)?),
-
-                #[cfg(feature = "js")]
-                /// The implementation from the `js` backend.
-                Js(crate::backend::js::entities::$path::$id$(<$lt>)?),
-
-
-                #[cfg(feature = "jsc")]
-                /// The implementation from the `jsc` backend.
-                Jsc(crate::backend::jsc::entities::$path::$id$(<$lt>)?),
-            }
-        }
-    };
-
-
-    ($id:ident @derives $($derive:path),* ; @path $path:path) => {
-        paste::paste! {
-            #[derive($($derive,)*)]
-            pub(crate) enum [<Backend $id>] {
-                #[cfg(feature = "sys")]
-                /// The implementation from the `sys` backend.
-                Sys(crate::backend::sys::entities::$path::$id),
-
-                #[cfg(feature = "v8")]
-                /// The implementation from the `v8` backend.
-                V8(crate::backend::v8::entities::$path::$id),
-
-                #[cfg(feature = "wamr")]
-                /// The implementation from the `wamr` backend.
-                Wamr(crate::backend::wamr::entities::$path::$id),
-
-                #[cfg(feature = "wasmi")]
-                /// The implementation from the `wasmi` backend.
-                Wasmi(crate::backend::wasmi::entities::$path::$id),
-
-                #[cfg(feature = "js")]
-                /// The implementation from the `js` backend.
-                Js(crate::backend::js::entities::$path::$id),
-
-
-                #[cfg(feature = "jsc")]
-                /// The implementation from the `jsc` backend.
-                Jsc(crate::backend::jsc::entities::$path::$id),
+                Jsc(crate::backend::jsc::entities::$path),
             }
         }
     };

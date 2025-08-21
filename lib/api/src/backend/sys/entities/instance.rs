@@ -5,6 +5,7 @@ use crate::{
     store::AsStoreMut, Extern,
 };
 use wasmer_vm::{StoreHandle, VMInstance};
+use wasmer_types::ObjectStoreOf as _;
 
 use super::store::Store;
 
@@ -42,8 +43,8 @@ impl From<wasmer_compiler::InstantiationError> for InstantiationError {
 
 impl Instance {
     #[allow(clippy::result_large_err)]
-    pub(crate) fn new(
-        store: &mut impl AsStoreMut,
+    pub(crate) fn new<S: AsStoreMut>(
+        store: &mut S,
         module: &Module,
         imports: &Imports,
     ) -> Result<(Self, Exports), InstantiationError> {
@@ -54,7 +55,7 @@ impl Instance {
         let exports = Self::get_exports(store, module, handle.as_sys_mut());
 
         let instance = Self {
-            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.into_sys()),
+            _handle: store.objects_mut().as_sys_mut().insert(handle.into_sys()),
         };
 
         Ok((instance, exports))
@@ -70,19 +71,16 @@ impl Instance {
         let mut handle = module.as_sys().instantiate(store, &externs)?;
         let exports = Self::get_exports(store, module, handle.as_sys_mut());
         let instance = Self {
-            _handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                handle.into_sys(),
-            ),
+            _handle: store.as_store_mut().objects_mut().as_sys_mut().insert(handle.into_sys()),
         };
 
         Ok((instance, exports))
     }
 
-    fn get_exports(
-        store: &mut impl AsStoreMut,
+    fn get_exports<Store: AsStoreMut>(
+        store: &mut Store,
         module: &Module,
-        handle: &mut VMInstance,
+        handle: &mut VMInstance<Store::Object>,
     ) -> Exports {
         module
             .exports()

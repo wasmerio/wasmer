@@ -13,7 +13,7 @@ pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
 pub(crate) use inner::*;
-use wasmer_types::StoreId;
+use wasmer_types::{BoxStoreObject, StoreId};
 
 #[cfg(feature = "sys")]
 use wasmer_vm::TrapHandlerFn;
@@ -28,11 +28,11 @@ use wasmer_vm::TrapHandlerFn;
 ///
 /// For more informations, check out the [related WebAssembly specification]
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
-pub struct Store {
-    pub(crate) inner: Box<StoreInner>,
+pub struct Store<Object = BoxStoreObject> {
+    pub(crate) inner: Box<StoreInner<Object>>,
 }
 
-impl Store {
+impl<Object> Store<Object> {
     /// Creates a new `Store` with a specific [`Engine`].
     pub fn new(engine: impl Into<Engine>) -> Self {
         let engine: Engine = engine.into();
@@ -118,8 +118,8 @@ impl PartialEq for Store {
 
 // This is required to be able to set the trap_handler in the
 // Store.
-unsafe impl Send for Store {}
-unsafe impl Sync for Store {}
+unsafe impl<Object: Send> Send for Store<Object> {}
+unsafe impl<Object: Sync> Sync for Store<Object> {}
 
 impl Default for Store {
     fn default() -> Self {
@@ -127,35 +127,39 @@ impl Default for Store {
     }
 }
 
-impl std::fmt::Debug for Store {
+impl<Object> std::fmt::Debug for Store<Object> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("Store").finish()
     }
 }
 
-impl AsEngineRef for Store {
+impl<Object> AsEngineRef for Store<Object> {
+    type Object = Object;
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }
 
-    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
+    fn maybe_as_store(&self) -> Option<StoreRef<'_, Object>> {
         Some(self.as_store_ref())
     }
 }
 
-impl AsStoreRef for Store {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<Object> AsStoreRef for Store<Object> {
+    type Object = Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: &self.inner }
     }
 }
-impl AsStoreMut for Store {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+impl<Object> AsStoreMut for Store<Object> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object> {
         StoreMut {
             inner: &mut self.inner,
         }
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects {
+    fn objects_mut(&mut self) -> &mut StoreObjects<Self::Object> {
         &mut self.inner.objects
     }
 }

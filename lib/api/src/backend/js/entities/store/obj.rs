@@ -5,81 +5,30 @@ use wasmer_types::StoreId;
 
 use crate::js::vm::{function::VMFunctionEnvironment, global::VMGlobal};
 
-use super::handle::InternalStoreHandle;
+pub use wasmer_types::{StoreHandle, InternalStoreHandle};
 
-/// Trait to represent an object managed by a context. This is implemented on
-/// the VM types managed by the context.
-pub trait StoreObject: Sized {
-    fn list(store: &StoreObjects) -> &Vec<Self>;
-    fn list_mut(store: &mut StoreObjects) -> &mut Vec<Self>;
-}
-
-macro_rules! impl_store_object {
-    ($($field:ident => $ty:ty,)*) => {
-        $(
-            impl StoreObject for $ty {
-                fn list(store: &StoreObjects) -> &Vec<Self> {
-                    &store.$field
-                }
-                fn list_mut(store: &mut StoreObjects) -> &mut Vec<Self> {
-                    &mut store.$field
-                }
-            }
-        )*
-    };
-}
-
-impl_store_object! {
+wasmer_types::impl_object_store!(StoreObjects<Object> {
     // Note: we store the globals in order to be able to access them later via
     // `StoreObjects::iter_globals`.
-    globals => VMGlobal,
-    // functions => VMFunction,
-    // tables => VMTable,
-    // memories => VMMemory,
+    globals: VMGlobal,
+    // functions: VMFunction,
+    // tables: VMTable,
+    // memories: VMMemory,
     // The function environments are the only things attached to a store,
     // since the other JS objects (table, globals, memory and functions)
     // live in the JS VM Store by default
-    function_environments => VMFunctionEnvironment,
-}
+    function_environments: VMFunctionEnvironment<Object>,
+});
 
 /// Set of objects managed by a context.
-#[derive(Default, Debug)]
-pub struct StoreObjects {
+#[derive_where::derive_where(Default, Debug)]
+pub struct StoreObjects<Object = wasmer_types::BoxStoreObject> {
     id: StoreId,
     globals: Vec<VMGlobal>,
-    function_environments: Vec<VMFunctionEnvironment>,
+    function_environments: Vec<VMFunctionEnvironment<Object>>,
 }
 
-impl StoreObjects {
-    /// Returns the ID of this context.
-    pub fn id(&self) -> StoreId {
-        self.id
-    }
-
-    /// Sets the ID of this store
-    pub fn set_id(&mut self, id: StoreId) {
-        self.id = id;
-    }
-
-    /// Returns a pair of mutable references from two handles.
-    ///
-    /// Panics if both handles point to the same object.
-    pub fn get_2_mut<T: StoreObject>(
-        &mut self,
-        a: InternalStoreHandle<T>,
-        b: InternalStoreHandle<T>,
-    ) -> (&mut T, &mut T) {
-        assert_ne!(a.index(), b.index());
-        let list = T::list_mut(self);
-        if a.index() < b.index() {
-            let (low, high) = list.split_at_mut(b.index());
-            (&mut low[a.index()], &mut high[0])
-        } else {
-            let (low, high) = list.split_at_mut(a.index());
-            (&mut high[0], &mut low[a.index()])
-        }
-    }
-
+impl<Object> StoreObjects<Object> {
     /// Return an immutable iterator over all globals
     pub fn iter_globals(&self) -> core::slice::Iter<VMGlobal> {
         self.globals.iter()
@@ -108,9 +57,9 @@ impl StoreObjects {
     }
 }
 
-impl crate::StoreObjects {
+impl<Object> crate::StoreObjects<Object> {
     /// Consume [`self`] into [`crate::backend::js::store::StoreObjects`].
-    pub fn into_js(self) -> crate::backend::js::store::StoreObjects {
+    pub fn into_js(self) -> crate::backend::js::store::StoreObjects<Object> {
         match self {
             Self::Js(s) => s,
             _ => panic!("Not a `js` store!"),
@@ -118,7 +67,7 @@ impl crate::StoreObjects {
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::js::store::StoreObjects`].
-    pub fn as_js(&self) -> &crate::backend::js::store::StoreObjects {
+    pub fn as_js(&self) -> &crate::backend::js::store::StoreObjects<Object> {
         match self {
             Self::Js(s) => s,
             _ => panic!("Not a `js` store!"),
@@ -126,7 +75,7 @@ impl crate::StoreObjects {
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::js::store::StoreObjects`].
-    pub fn as_js_mut(&mut self) -> &mut crate::backend::js::store::StoreObjects {
+    pub fn as_js_mut(&mut self) -> &mut crate::backend::js::store::StoreObjects<Object> {
         match self {
             Self::Js(s) => s,
             _ => panic!("Not a `js` store!"),

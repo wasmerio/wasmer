@@ -2,20 +2,25 @@ use std::ops::{Deref, DerefMut};
 
 use super::{inner::StoreInner, StoreObjects};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
-use wasmer_types::{ExternType, OnCalledAction};
+use wasmer_types::{BoxStoreObject, ExternType, OnCalledAction};
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
 #[cfg(feature = "sys")]
 use wasmer_vm::TrapHandlerFn;
 
 /// A temporary handle to a [`crate::Store`].
-#[derive(Debug)]
-pub struct StoreRef<'a> {
-    pub(crate) inner: &'a StoreInner,
+pub struct StoreRef<'a, Object = BoxStoreObject> {
+    pub(crate) inner: &'a StoreInner<Object>,
 }
 
-impl<'a> StoreRef<'a> {
-    pub(crate) fn objects(&self) -> &'a StoreObjects {
+impl<Object> std::fmt::Debug for StoreRef<'_, Object> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("StoreRef").field("inner", &self.inner).finish()
+    }
+}
+
+impl<'a, Object> StoreRef<'a, Object> {
+    pub(crate) fn objects(&self) -> &'a StoreObjects<Object> {
         &self.inner.objects
     }
 
@@ -27,7 +32,7 @@ impl<'a> StoreRef<'a> {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        StoreObjects::same(&a.inner.objects, &b.inner.objects)
+        StoreObjects::<Object>::same(&a.inner.objects, &b.inner.objects)
     }
 
     /// The signal handler
@@ -40,11 +45,11 @@ impl<'a> StoreRef<'a> {
 }
 
 /// A temporary handle to a [`crate::Store`].
-pub struct StoreMut<'a> {
-    pub(crate) inner: &'a mut StoreInner,
+pub struct StoreMut<'a, Object = BoxStoreObject> {
+    pub(crate) inner: &'a mut StoreInner<Object>,
 }
 
-impl StoreMut<'_> {
+impl<Object> StoreMut<'_, Object> {
     /// Returns the [`Engine`].
     pub fn engine(&self) -> &Engine {
         self.inner.store.engine()
@@ -53,21 +58,21 @@ impl StoreMut<'_> {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine.
     pub fn same(a: &Self, b: &Self) -> bool {
-        StoreObjects::same(&a.inner.objects, &b.inner.objects)
+        StoreObjects::<Object>::same(&a.inner.objects, &b.inner.objects)
     }
 
     #[allow(unused)]
-    pub(crate) fn as_raw(&self) -> *mut StoreInner {
-        self.inner as *const StoreInner as *mut StoreInner
+    pub(crate) fn as_raw(&self) -> *mut StoreInner<Object> {
+        self.inner as *const StoreInner<Object> as *mut StoreInner<Object>
     }
 
     #[allow(unused)]
-    pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
+    pub(crate) unsafe fn from_raw(raw: *mut StoreInner<Object>) -> Self {
         Self { inner: &mut *raw }
     }
 
     #[allow(unused)]
-    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects) {
+    pub(crate) fn engine_and_objects_mut(&mut self) -> (&Engine, &mut StoreObjects<Object>) {
         (self.inner.store.engine(), &mut self.inner.objects)
     }
 
@@ -75,7 +80,7 @@ impl StoreMut<'_> {
     /// Sets the unwind callback which will be invoked when the call finishes
     pub fn on_called<F>(&mut self, callback: F)
     where
-        F: FnOnce(StoreMut<'_>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+        F: FnOnce(StoreMut<'_, Object>) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
             + Send
             + Sync
             + 'static,
@@ -86,42 +91,51 @@ impl StoreMut<'_> {
 
 /// Helper trait for a value that is convertible to a [`StoreRef`].
 pub trait AsStoreRef {
+    /// The type of type-erased objects stored in this store.
+    type Object;
+
     /// Returns a `StoreRef` pointing to the underlying context.
-    fn as_store_ref(&self) -> StoreRef<'_>;
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Object>;
 }
 
 /// Helper trait for a value that is convertible to a [`StoreMut`].
 pub trait AsStoreMut: AsStoreRef {
     /// Returns a `StoreMut` pointing to the underlying context.
-    fn as_store_mut(&mut self) -> StoreMut<'_>;
+    fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object>;
 
     /// Returns the ObjectMutable
-    fn objects_mut(&mut self) -> &mut StoreObjects;
+    fn objects_mut(&mut self) -> &mut StoreObjects<Self::Object>;
 }
 
-impl AsStoreRef for StoreRef<'_> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<Object> AsStoreRef for StoreRef<'_, Object> {
+    type Object = Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: self.inner }
     }
 }
 
-impl AsEngineRef for StoreRef<'_> {
+impl<Object> AsEngineRef for StoreRef<'_, Object> {
+    type Object = ();
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }
 }
 
-impl AsStoreRef for StoreMut<'_> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+impl<Object> AsStoreRef for StoreMut<'_, Object> {
+    type Object = Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Object> {
         StoreRef { inner: self.inner }
     }
 }
-impl AsStoreMut for StoreMut<'_> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+impl<Object> AsStoreMut for StoreMut<'_, Object> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Object> {
         StoreMut { inner: self.inner }
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects {
+    fn objects_mut(&mut self) -> &mut StoreObjects<Object> {
         &mut self.inner.objects
     }
 }
@@ -131,7 +145,9 @@ where
     P: Deref,
     P::Target: AsStoreRef,
 {
-    fn as_store_ref(&self) -> StoreRef<'_> {
+    type Object = <P::Target as AsStoreRef>::Object;
+
+    fn as_store_ref(&self) -> StoreRef<'_, Self::Object> {
         (**self).as_store_ref()
     }
 }
@@ -141,16 +157,18 @@ where
     P: DerefMut,
     P::Target: AsStoreMut,
 {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
+    fn as_store_mut(&mut self) -> StoreMut<'_, Self::Object> {
         (**self).as_store_mut()
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects {
+    fn objects_mut(&mut self) -> &mut StoreObjects<Self::Object> {
         (**self).objects_mut()
     }
 }
 
-impl AsEngineRef for StoreMut<'_> {
+impl<Object> AsEngineRef for StoreMut<'_, Object> {
+    type Object = std::convert::Infallible;
+
     fn as_engine_ref(&self) -> EngineRef<'_> {
         self.inner.store.as_engine_ref()
     }

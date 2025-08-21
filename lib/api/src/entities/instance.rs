@@ -179,4 +179,7 @@ impl std::fmt::Debug for Instance {
 }
 
 /// An enumeration of all the possible instances kind supported by the runtimes.
-gen_rt_ty!(Instance @derives Clone, PartialEq, Eq);
+gen_rt_ty! {
+    #[derive(Clone, PartialEq, Eq)]
+    pub(crate) BackendInstance(instance::Instance);
+}
