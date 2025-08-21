@@ -1027,6 +1027,16 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; fmv.x.s X(dst), F(src));
             }
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fmv.d F(dst), F(src));
+            }
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fmv.s F(dst), F(src));
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
         }

@@ -1422,6 +1422,7 @@ impl Machine for MachineRiscv {
             }
             (Location::GPR(_), Location::SIMD(_)) => self.assembler.emit_mov(size, source, dest),
             (Location::SIMD(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
+            (Location::SIMD(_), Location::SIMD(_)) => self.assembler.emit_mov(size, source, dest),
             _ => todo!("unsupported move: {size:?} {source:?} {dest:?}"),
         }
     }
