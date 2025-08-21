@@ -220,11 +220,29 @@ pub trait EmitterRiscv {
 
     // Floating-point type instructions
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_fcvt(
+        &mut self,
+        signed: bool,
+        sz_in: Size,
+        src: Location,
+        sz_out: Size,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_write_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
+    fn emit_read_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
 
     // Control-flow related instructions
     fn emit_cmp(
         &mut self,
         c: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_fcmp(
+        &mut self,
+        c: Condition,
+        size: Size,
         loc_a: Location,
         loc_b: Location,
         ret: Location,
@@ -1066,6 +1084,133 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_fcvt(
+        &mut self,
+        signed: bool,
+        sz_in: Size,
+        src: Location,
+        sz_out: Size,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (signed, sz_in, src, sz_out, dst) {
+            // floating-point -> floating-point types
+            (_, Size::S32, Location::SIMD(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.s.d F(dst), F(src));
+            }
+            (_, Size::S64, Location::SIMD(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.d.s F(dst), F(src));
+            }
+            // floating-point -> int types
+            (true, Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.w.s X(dst), F(src), rtz);
+            }
+            (true, Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.w.d X(dst), F(src), rtz);
+            }
+            (true, Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.l.s X(dst), F(src), rtz);
+            }
+            (true, Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.l.d X(dst), F(src), rtz);
+            }
+            (false, Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.wu.s X(dst), F(src), rtz);
+            }
+            (false, Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.wu.d X(dst), F(src), rtz);
+            }
+            (false, Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.lu.s X(dst), F(src), rtz);
+            }
+            (false, Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.lu.d X(dst), F(src), rtz);
+            }
+            // int -> floating-point types
+            (true, Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.s.w F(dst), X(src));
+            }
+            (true, Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.s.l F(dst), X(src));
+            }
+            (true, Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.d.w F(dst), X(src));
+            }
+            (true, Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.d.l F(dst), X(src));
+            }
+
+            (false, Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.s.wu F(dst), X(src));
+            }
+            (false, Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.s.lu F(dst), X(src));
+            }
+            (false, Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.d.wu F(dst), X(src));
+            }
+            (false, Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fcvt.d.lu F(dst), X(src));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit FCVT {:?} {:?} {:?} {:?}",
+                sz_in,
+                src,
+                sz_out,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_write_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
+        let dst = GPR::XZero.into_index();
+        let src = reg.into_index();
+        dynasm!(self ; fscsr X(dst), X(src));
+        Ok(())
+    }
+
+    fn emit_read_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
+        let dst = reg.into_index();
+        dynasm!(self ; frcsr X(dst));
+        Ok(())
+    }
+
     fn emit_cmp(
         &mut self,
         c: Condition,
@@ -1132,6 +1277,42 @@ impl EmitterRiscv for Assembler {
                     ; sltu X(ret), X(loc_a), X(loc_b)
                     ; xori X(ret), X(ret), 1);
             }
+        }
+
+        Ok(())
+    }
+
+    fn emit_fcmp(
+        &mut self,
+        c: Condition,
+        size: Size,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        let (Location::SIMD(loc_a), Location::SIMD(loc_b), Location::GPR(ret)) =
+            (loc_a, loc_b, ret)
+        else {
+            codegen_error!(
+                "singlepass can't emit FCMP {:?} {:?} {:?}",
+                loc_a,
+                loc_b,
+                ret
+            );
+        };
+
+        let loc_a = loc_a.into_index();
+        let loc_b = loc_b.into_index();
+        let ret = ret.into_index();
+
+        match (size, c) {
+            (Size::S32, Condition::Eq) => {
+                dynasm!(self ; feq.s X(ret), F(loc_a), F(loc_b));
+            }
+            (Size::S64, Condition::Eq) => {
+                dynasm!(self ; feq.d X(ret), F(loc_a), F(loc_b));
+            }
+            _ => todo!(),
         }
 
         Ok(())

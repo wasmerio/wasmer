@@ -911,6 +911,147 @@ impl MachineRiscv {
         self.release_gpr(tmp);
         Ok(())
     }
+
+    fn convert_float_to_int(
+        &mut self,
+        loc: Location,
+        size_in: Size,
+        ret: Location,
+        size_out: Size,
+        signed: bool,
+        sat: bool,
+    ) -> Result<(), CompileError> {
+        let mut gprs = vec![];
+        let mut fprs = vec![];
+        let src = self.location_to_fpr(size_in, loc, &mut fprs, ImmType::None, true)?;
+        let dest = self.location_to_reg(size_out, ret, &mut gprs, ImmType::None, false, None)?;
+        // TODO: save+restore the rounding moves in the FSCR register?
+        if !sat {
+            self.reset_fscr_fflags()?;
+        }
+
+        if sat {
+            // On RISC-V, if the input value is any NaN, the output of the operation is i32::MAX and thus we must
+            // convert it to zero on our own.
+            let end = self.assembler.get_label();
+            let cond = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            self.zero_location(size_out, dest)?;
+            // if NaN -> skip convert operation
+            self.assembler
+                .emit_fcmp(Condition::Eq, size_in, src, src, Location::GPR(cond))?;
+            self.assembler
+                .emit_on_false_label(Location::GPR(cond), end)?;
+            self.release_gpr(cond);
+
+            self.assembler
+                .emit_fcvt(signed, size_in, src, size_out, dest)?;
+            self.emit_label(end)?;
+        } else {
+            self.assembler
+                .emit_fcvt(signed, size_in, src, size_out, dest)?;
+            self.trap_float_convertion_errors(size_in, src, &mut gprs)?;
+        }
+
+        if ret != dest {
+            self.move_location(size_out, dest, ret)?;
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        for r in fprs {
+            self.release_simd(r);
+        }
+        Ok(())
+    }
+
+    fn convert_int_to_float(
+        &mut self,
+        loc: Location,
+        size_in: Size,
+        ret: Location,
+        size_out: Size,
+        signed: bool,
+    ) -> Result<(), CompileError> {
+        let mut gprs = vec![];
+        let mut fprs = vec![];
+        let src = self.location_to_reg(size_in, loc, &mut gprs, ImmType::None, true, None)?;
+        let dest = self.location_to_fpr(size_out, ret, &mut fprs, ImmType::None, false)?;
+        self.assembler
+            .emit_fcvt(signed, size_in, src, size_out, dest)?;
+        if ret != dest {
+            self.move_location(Size::S32, dest, ret)?;
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        for r in fprs {
+            self.release_simd(r);
+        }
+        Ok(())
+    }
+
+    fn reset_fscr_fflags(&mut self) -> Result<(), CompileError> {
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        self.move_location(Size::S32, Location::GPR(GPR::XZero), Location::GPR(tmp))?;
+        self.assembler.emit_write_fscr(tmp)?;
+        self.release_gpr(tmp);
+        Ok(())
+    }
+
+    fn trap_float_convertion_errors(
+        &mut self,
+        sz: Size,
+        f: Location,
+        temps: &mut Vec<GPR>,
+    ) -> Result<(), CompileError> {
+        let fscr = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(fscr);
+
+        let trap_badconv = self.assembler.get_label();
+        let end = self.assembler.get_label();
+
+        self.assembler.emit_read_fscr(fscr)?;
+        // clear all fflags bits except NV (1 << 4)
+        self.assembler.emit_srl(
+            Size::S32,
+            Location::GPR(fscr),
+            Location::Imm32(4),
+            Location::GPR(fscr),
+        )?;
+        self.assembler
+            .emit_on_false_label(Location::GPR(fscr), end)?;
+
+        // now need to check if it's overflow or NaN
+        let cond = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(cond);
+
+        self.assembler
+            .emit_fcmp(Condition::Eq, sz, f, f, Location::GPR(cond))?;
+        // fallthru: trap_overflow
+        self.assembler
+            .emit_on_false_label(Location::GPR(cond), trap_badconv)?;
+        self.emit_illegal_op_internal(TrapCode::IntegerOverflow)?;
+        self.emit_label(trap_badconv)?;
+        self.emit_illegal_op_internal(TrapCode::BadConversionToInteger)?;
+
+        self.emit_label(end)?;
+        // TODO:???
+        // self.restore_fpcr(old_fpcr)
+
+        Ok(())
+    }
+
+    fn emit_illegal_op_internal(&mut self, trap: TrapCode) -> Result<(), CompileError> {
+        self.assembler.emit_udf(trap as u8)
+    }
 }
 
 #[allow(dead_code)]
@@ -3916,7 +4057,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_int_to_float(loc, Size::S64, ret, Size::S64, signed)
     }
     fn convert_f64_i32(
         &mut self,
@@ -3924,7 +4065,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_int_to_float(loc, Size::S32, ret, Size::S64, signed)
     }
     fn convert_f32_i64(
         &mut self,
@@ -3932,7 +4073,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_int_to_float(loc, Size::S64, ret, Size::S32, signed)
     }
     fn convert_f32_i32(
         &mut self,
@@ -3940,7 +4081,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_int_to_float(loc, Size::S32, ret, Size::S32, signed)
     }
     fn convert_i64_f64(
         &mut self,
@@ -3949,7 +4090,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         sat: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_float_to_int(loc, Size::S64, ret, Size::S64, signed, sat)
     }
     fn convert_i32_f64(
         &mut self,
@@ -3958,7 +4099,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         sat: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_float_to_int(loc, Size::S64, ret, Size::S32, signed, sat)
     }
     fn convert_i64_f32(
         &mut self,
@@ -3967,7 +4108,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         sat: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_float_to_int(loc, Size::S32, ret, Size::S64, signed, sat)
     }
     fn convert_i32_f32(
         &mut self,
@@ -3976,7 +4117,7 @@ impl Machine for MachineRiscv {
         signed: bool,
         sat: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.convert_float_to_int(loc, Size::S32, ret, Size::S32, signed, sat)
     }
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()

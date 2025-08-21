@@ -16,19 +16,9 @@ use wasmer_compiler_singlepass::Singlepass;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
-  (module
-    (type $sum_t (func (param i32 i32 i32) (result i32)))
-    (func $sum_f (type $sum_t)
-        (param $p1 i32)
-        (param $p2 i32)
-        (param $p3 i32)
-        (result i32)
-    local.get $p1
-    local.get $p2
-    i32.add
-    local.get $p3
-    i32.add)
-    (export "sum" (func $sum_f)))
+(module
+  (func (export "f32.convert_i32_s") (param $x i32) (result f32) (f32.convert_i32_s (local.get $x)))
+)
     "#
         .as_bytes(),
     )?;
@@ -44,14 +34,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     let instance = Instance::new(&mut store, &module, &import_object)?;
-    let func = instance.exports.get_function("sum")?;
+    let func = instance.exports.get_function("f32.convert_i32_s")?;
 
     println!("Calling `fn` function...");
     //let result = sample.call(&mut store, &[Value::I32(123456)])?;
     //let result = sample.call(&mut store, &[])?;
-    let result = func.call(&mut store, &[Value::I32(1), Value::I32(2), Value::I32(3)])?;
-    let ret = result[0].unwrap_i32();
-    println!("Result 0x{:x} {}", ret, ret);
+    let result = func.call(&mut store, &[Value::I32(-1)])?;
+    let ret = result[0].unwrap_f32();
+    println!("Result 0x{} {}", ret, ret);
 
     // for i in 0..16 {
     //     let result = sample2.call(&mut store, &[Value::I32(i)])?; //, &[Value::I32(1), Value::I32(123)])?;
@@ -59,7 +49,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // }
 
     // let result = sample2.call(&mut store, &[Value::I32(14)])?; //, &[Value::I32(1), Value::I32(123)])?;
-    // println!("Result {:?}", result);
+    println!("Result {:?}", result);
 
     Ok(())
 }
