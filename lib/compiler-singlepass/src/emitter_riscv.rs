@@ -1300,7 +1300,7 @@ pub fn gen_std_trampoline_riscv(
 
     let mut body = a.finalize().unwrap();
 
-    save_assembly_to_file(Path::new("/tmp/trampoline-dump.o"), &body);
+    save_assembly_to_file("-trampoline-dump.o", &body);
 
     body.shrink_to_fit();
     Ok(FunctionBody {
