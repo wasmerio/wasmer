@@ -194,7 +194,7 @@ impl MachineRiscv {
         }
     }
 
-    fn location_to_fp(
+    fn location_to_fpr(
         &mut self,
         sz: Size,
         src: Location,
@@ -212,6 +212,33 @@ impl MachineRiscv {
                 if read_val {
                     self.assembler.emit_mov(sz, src, Location::SIMD(tmp))?;
                 }
+                Ok(Location::SIMD(tmp))
+            }
+            Location::Memory(reg, val) => {
+                let tmp = self.acquire_temp_simd().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
+                })?;
+                temps.push(tmp);
+                if read_val {
+                    self.assembler
+                        .emit_ld(sz, false, Location::SIMD(tmp), src)?;
+                }
+                Ok(Location::SIMD(tmp))
+            }
+            _ if src.is_imm() => {
+                let tmp = self.acquire_temp_simd().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
+                })?;
+                temps.push(tmp);
+
+                let mut gpr_temps = vec![];
+                let dst =
+                    self.location_to_reg(sz, src, &mut gpr_temps, allow_imm, read_val, None)?;
+                self.assembler.emit_mov(sz, dst, Location::SIMD(tmp))?;
+                for r in gpr_temps {
+                    self.release_gpr(r);
+                }
+
                 Ok(Location::SIMD(tmp))
             }
             _ => todo!("unsupported location"),
@@ -234,6 +261,27 @@ impl MachineRiscv {
         }
         for r in temps {
             self.release_gpr(r);
+        }
+        Ok(())
+    }
+
+    fn emit_relaxed_binop_neon(
+        &mut self,
+        op: fn(&mut Assembler, Size, Location, Location) -> Result<(), CompileError>,
+        sz: Size,
+        src: Location,
+        dst: Location,
+        putback: bool,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let src = self.location_to_fpr(sz, src, &mut temps, ImmType::None, true)?;
+        let dest = self.location_to_fpr(sz, dst, &mut temps, ImmType::None, !putback)?;
+        op(&mut self.assembler, sz, src, dest)?;
+        if dst != dest && putback {
+            self.move_location(sz, dest, dst)?;
+        }
+        for r in temps {
+            self.release_simd(r);
         }
         Ok(())
     }
@@ -270,9 +318,9 @@ impl MachineRiscv {
         allow_imm: ImmType,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
-        let src1 = self.location_to_fp(sz, src1, &mut temps, ImmType::None, true)?;
-        let src2 = self.location_to_fp(sz, src2, &mut temps, allow_imm, true)?;
-        let dest = self.location_to_fp(sz, dst, &mut temps, ImmType::None, false)?;
+        let src1 = self.location_to_fpr(sz, src1, &mut temps, ImmType::None, true)?;
+        let src2 = self.location_to_fpr(sz, src2, &mut temps, allow_imm, true)?;
+        let dest = self.location_to_fpr(sz, dst, &mut temps, ImmType::None, false)?;
         op(&mut self.assembler, sz, src1, src2, dest)?;
         if dst != dest {
             self.move_location(sz, dest, dst)?;
@@ -1231,6 +1279,8 @@ impl Machine for MachineRiscv {
             (Location::Memory(_, _), Location::GPR(_)) => {
                 self.assembler.emit_ld(size, false, dest, source)
             }
+            (Location::GPR(_), Location::SIMD(_)) => self.assembler.emit_mov(size, source, dest),
+            (Location::SIMD(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
             _ => todo!("unsupported move: {size:?} {source:?} {dest:?}"),
         }
     }
@@ -3759,7 +3809,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S32, false, ret, Location::Memory(addr, 0)),
+        )
     }
     fn f32_save(
         &mut self,
@@ -3773,7 +3834,25 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                if !canonicalize {
+                    this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0))
+                } else {
+                    this.canonicalize_nan(Size::S32, value, Location::Memory(addr, 0))
+                }
+            },
+        )
     }
     fn f64_load(
         &mut self,
@@ -3786,7 +3865,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S64, false, ret, Location::Memory(addr, 0)),
+        )
     }
     fn f64_save(
         &mut self,
@@ -3800,7 +3890,25 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
+        self.memory_op(
+            addr,
+            memarg,
+            false,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                if !canonicalize {
+                    this.emit_relaxed_store(Size::S64, value, Location::Memory(addr, 0))
+                } else {
+                    this.canonicalize_nan(Size::S64, value, Location::Memory(addr, 0))
+                }
+            },
+        )
     }
     fn convert_f64_i64(
         &mut self,
@@ -3877,7 +3985,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S64, loc, ret, true)
     }
     fn f64_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
@@ -4004,7 +4112,7 @@ impl Machine for MachineRiscv {
         todo!()
     }
     fn f32_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S32, loc, ret, true)
     }
     fn f32_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()

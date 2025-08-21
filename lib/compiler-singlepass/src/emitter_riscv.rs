@@ -218,6 +218,10 @@ pub trait EmitterRiscv {
 
     fn emit_mov_imm(&mut self, dst: Location, val: i64) -> Result<(), CompileError>;
 
+    // Floating-point type instructions
+    fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+
+    // Control-flow related instructions
     fn emit_cmp(
         &mut self,
         c: Condition,
@@ -284,6 +288,7 @@ impl EmitterRiscv for Assembler {
         reg: Location,
         addr: Location,
     ) -> Result<(), CompileError> {
+        // TODO: refactor the disp checks
         match (sz, signed, reg, addr) {
             (Size::S64, _, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
@@ -327,6 +332,18 @@ impl EmitterRiscv for Assembler {
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lb X(reg), [X(addr), disp]);
             }
+            (Size::S64, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; fld F(reg), [X(addr), disp]);
+            }
+            (Size::S32, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; flw F(reg), [X(addr), disp]);
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit LD {:?}, {:?}, {:?}", sz, reg, addr),
         }
@@ -334,6 +351,7 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_sd(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
+        // TODO: refactor the disp checks
         match (sz, reg, addr) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let reg = reg.into_index();
@@ -358,6 +376,18 @@ impl EmitterRiscv for Assembler {
                 let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sb X(reg), [X(addr), disp]);
+            }
+            (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; fsd F(reg), [X(addr), disp]);
+            }
+            (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
+                let reg = reg.into_index();
+                let addr = addr.into_index();
+                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                dynasm!(self ; fsw F(reg), [X(addr), disp]);
             }
             _ => codegen_error!("singlepass can't emit SD {:?}, {:?}, {:?}", sz, reg, addr),
         }
@@ -969,6 +999,16 @@ impl EmitterRiscv for Assembler {
                 let dst = dst.into_index();
                 dynasm!(self ; fmv.x.d X(dst), F(src));
             }
+            (Size::S32, Location::GPR(src), Location::SIMD(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fmv.s.x F(dst), X(src));
+            }
+            (Size::S32, Location::SIMD(src), Location::GPR(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fmv.x.s X(dst), F(src));
+            }
             // TODO: add more variants
             _ => codegen_error!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
         }
@@ -1005,6 +1045,24 @@ impl EmitterRiscv for Assembler {
             }
             _ => codegen_error!("singlepass can't emit MOVW {:?}", dst),
         }
+        Ok(())
+    }
+
+    fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, src, dst) {
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fneg.d F(dst), F(src));
+            }
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fneg.s F(dst), F(src));
+            }
+            _ => codegen_error!("singlepass can't emit FNEG {:?} {:?} {:?}", sz, src, dst),
+        }
+
         Ok(())
     }
 
