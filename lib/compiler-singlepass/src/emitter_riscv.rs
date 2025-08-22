@@ -1005,7 +1005,10 @@ impl EmitterRiscv for Assembler {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
                 let src = src.into_index();
                 let dst = dst.into_index();
-                dynasm!(self ; slliw X(dst), X(src), 0);
+                dynasm!(self
+                    ; slli X(dst), X(src), 32
+                    ; srli X(dst), X(dst), 32
+                );
             }
             (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
                 let src = src.into_index();

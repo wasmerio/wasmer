@@ -992,6 +992,36 @@ impl MachineRiscv {
         Ok(())
     }
 
+    fn convert_float_to_float(
+        &mut self,
+        loc: Location,
+        size_in: Size,
+        ret: Location,
+        size_out: Size,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let src = self.location_to_fpr(size_in, loc, &mut temps, ImmType::None, true)?;
+        let dest = self.location_to_fpr(size_out, ret, &mut temps, ImmType::None, false)?;
+
+        match (size_in, size_out) {
+            (Size::S32, Size::S64) => self
+                .assembler
+                .emit_fcvt(false, size_in, src, size_out, dest)?,
+            (Size::S64, Size::S32) => self
+                .assembler
+                .emit_fcvt(false, size_in, src, size_out, dest)?,
+            _ => codegen_error!("singlepass convert_float_to_float unreachable"),
+        }
+
+        if ret != dest {
+            self.move_location(size_out, dest, ret)?;
+        }
+        for r in temps {
+            self.release_simd(r);
+        }
+        Ok(())
+    }
+
     fn reset_fscr_fflags(&mut self) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -4121,10 +4151,10 @@ impl Machine for MachineRiscv {
         self.convert_float_to_int(loc, Size::S32, ret, Size::S32, signed, sat)
     }
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.convert_float_to_float(loc, Size::S64, ret, Size::S32)
     }
     fn convert_f32_f64(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.convert_float_to_float(loc, Size::S32, ret, Size::S64)
     }
     fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S64, loc, ret, true)
