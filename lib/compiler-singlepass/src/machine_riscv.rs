@@ -4151,10 +4151,10 @@ impl Machine for MachineRiscv {
         self.convert_float_to_int(loc, Size::S32, ret, Size::S32, signed, sat)
     }
     fn convert_f64_f32(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        self.convert_float_to_float(loc, Size::S64, ret, Size::S32)
+        self.convert_float_to_float(loc, Size::S32, ret, Size::S64)
     }
     fn convert_f32_f64(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        self.convert_float_to_float(loc, Size::S32, ret, Size::S64)
+        self.convert_float_to_float(loc, Size::S64, ret, Size::S32)
     }
     fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S64, loc, ret, true)

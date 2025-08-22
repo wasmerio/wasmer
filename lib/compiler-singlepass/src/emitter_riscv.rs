@@ -1110,12 +1110,12 @@ impl EmitterRiscv for Assembler {
             (_, Size::S32, Location::SIMD(src), Size::S64, Location::SIMD(dst)) => {
                 let src = src.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; fcvt.s.d F(dst), F(src));
+                dynasm!(self ; fcvt.d.s F(dst), F(src));
             }
             (_, Size::S64, Location::SIMD(src), Size::S32, Location::SIMD(dst)) => {
                 let src = src.into_index() as u32;
                 let dst = dst.into_index() as u32;
-                dynasm!(self ; fcvt.d.s F(dst), F(src));
+                dynasm!(self ; fcvt.s.d F(dst), F(src));
             }
             // floating-point -> int types
             (true, Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
