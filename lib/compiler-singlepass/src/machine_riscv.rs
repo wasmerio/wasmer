@@ -1846,18 +1846,29 @@ impl Machine for MachineRiscv {
     fn emit_function_return_value(
         &mut self,
         ty: WpType,
-        cannonicalize: bool,
+        canonicalize: bool,
         loc: Location,
     ) -> Result<(), CompileError> {
-        // TODO: handle canonicalize when support for FP types is added
-        self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X10))
+        if canonicalize {
+            self.canonicalize_nan(
+                match ty {
+                    WpType::F32 => Size::S32,
+                    WpType::F64 => Size::S64,
+                    _ => unreachable!(),
+                },
+                loc,
+                Location::GPR(GPR::X10),
+            )?;
+        } else {
+            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X10))?;
+        }
+        Ok(())
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::X10), Location::SIMD(FPR::F10))
     }
     fn arch_supports_canonicalize_nan(&self) -> bool {
-        // TODO: support properly
         true
     }
     fn canonicalize_nan(
@@ -1866,7 +1877,40 @@ impl Machine for MachineRiscv {
         input: Location,
         output: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        let mut temps = vec![];
+        // use FMAX (input, intput) => output to automaticaly normalize the NaN
+        match (sz, input, output) {
+            (Size::S32, Location::SIMD(_), Location::SIMD(_)) => {
+                self.assembler.emit_fmax(sz, input, input, output)?;
+            }
+            (Size::S64, Location::SIMD(_), Location::SIMD(_)) => {
+                self.assembler.emit_fmax(sz, input, input, output)?;
+            }
+            (Size::S32, Location::SIMD(_), _) | (Size::S64, Location::SIMD(_), _) => {
+                let tmp = self.location_to_fpr(sz, output, &mut temps, ImmType::None, false)?;
+                self.assembler.emit_fmax(sz, input, input, tmp)?;
+                self.move_location(sz, tmp, output)?;
+            }
+            (Size::S32, Location::Memory(_, _), _) | (Size::S64, Location::Memory(_, _), _) => {
+                let src = self.location_to_fpr(sz, input, &mut temps, ImmType::None, true)?;
+                let tmp = self.location_to_fpr(sz, output, &mut temps, ImmType::None, false)?;
+                self.assembler.emit_fmax(sz, src, src, tmp)?;
+                if tmp != output {
+                    self.move_location(sz, tmp, output)?;
+                }
+            }
+            _ => codegen_error!(
+                "singlepass can't emit canonicalize_nan {:?} {:?} {:?}",
+                sz,
+                input,
+                output
+            ),
+        }
+
+        for r in temps {
+            self.release_simd(r);
+        }
+        Ok(())
     }
     fn emit_illegal_op(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         let offset = self.assembler.get_offset().0;
