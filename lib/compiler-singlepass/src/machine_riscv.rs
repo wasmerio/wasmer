@@ -4549,7 +4549,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop3_fp(
             Assembler::emit_fmax,
-            Size::S32,
+            Size::S64,
             loc_a,
             loc_b,
             ret,
