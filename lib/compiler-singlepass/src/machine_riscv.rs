@@ -286,7 +286,7 @@ impl MachineRiscv {
         Ok(())
     }
 
-    fn emit_relaxed_binop_neon(
+    fn emit_relaxed_binop_fp(
         &mut self,
         op: fn(&mut Assembler, Size, Location, Location) -> Result<(), CompileError>,
         sz: Size,
@@ -1102,6 +1102,35 @@ impl MachineRiscv {
 
     fn emit_illegal_op_internal(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         self.assembler.emit_udf(trap as u8)
+    }
+
+    fn emit_relaxed_fcmp(
+        &mut self,
+        c: Condition,
+        size: Size,
+        loc_a: Location,
+        loc_b: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        // TODO: add support for immediate operations
+        let mut fprs = vec![];
+        let mut gprs = vec![];
+
+        let loc_a = self.location_to_fpr(size, loc_a, &mut fprs, ImmType::None, true)?;
+        let loc_b = self.location_to_fpr(size, loc_b, &mut fprs, ImmType::None, true)?;
+        let dest = self.location_to_reg(size, ret, &mut gprs, ImmType::None, false, None)?;
+
+        self.assembler.emit_fcmp(c, size, loc_a, loc_b, dest)?;
+        if ret != dest {
+            self.move_location(size, dest, ret)?;
+        }
+        for r in fprs {
+            self.release_simd(r);
+        }
+        for r in gprs {
+            self.release_gpr(r);
+        }
+        Ok(())
     }
 }
 
@@ -4306,13 +4335,41 @@ impl Machine for MachineRiscv {
         self.convert_float_to_float(loc, Size::S64, ret, Size::S32)
     }
     fn f64_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S64, loc, ret, true)
+        self.emit_relaxed_binop_fp(Assembler::emit_fneg, Size::S64, loc, ret, true)
     }
     fn f64_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
     }
     fn emit_i64_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError> {
-        todo!()
+        let mask = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        self.assembler
+            .emit_mov_imm(Location::GPR(mask), 0x7fffffffffffffffu64 as _)?;
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(tmp1),
+            Location::GPR(mask),
+            Location::GPR(tmp1),
+        )?;
+
+        self.assembler
+            .emit_mov_imm(Location::GPR(mask), 0x8000000000000000u64 as _)?;
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(tmp2),
+            Location::GPR(mask),
+            Location::GPR(tmp2),
+        )?;
+
+        self.release_gpr(mask);
+        self.assembler.emit_or(
+            Size::S64,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            Location::GPR(tmp1),
+        )
     }
     fn f64_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
@@ -4335,7 +4392,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Ge, Size::S64, loc_a, loc_b, ret)
     }
     fn f64_cmp_gt(
         &mut self,
@@ -4343,7 +4400,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Gt, Size::S64, loc_a, loc_b, ret)
     }
     fn f64_cmp_le(
         &mut self,
@@ -4351,7 +4408,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Le, Size::S64, loc_a, loc_b, ret)
     }
     fn f64_cmp_lt(
         &mut self,
@@ -4359,7 +4416,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Lt, Size::S64, loc_a, loc_b, ret)
     }
     fn f64_cmp_ne(
         &mut self,
@@ -4367,7 +4424,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Ne, Size::S64, loc_a, loc_b, ret)
     }
     fn f64_cmp_eq(
         &mut self,
@@ -4375,7 +4432,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Eq, Size::S64, loc_a, loc_b, ret)
     }
     fn f64_min(
         &mut self,
@@ -4383,7 +4440,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_fmin,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f64_max(
         &mut self,
@@ -4391,7 +4455,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_fmax,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f64_add(
         &mut self,
@@ -4414,7 +4485,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_sub,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f64_mul(
         &mut self,
@@ -4422,7 +4500,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_mul,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f64_div(
         &mut self,
@@ -4430,16 +4515,51 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_fdiv,
+            Size::S64,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f32_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        self.emit_relaxed_binop_neon(Assembler::emit_fneg, Size::S32, loc, ret, true)
+        self.emit_relaxed_binop_fp(Assembler::emit_fneg, Size::S32, loc, ret, true)
     }
     fn f32_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
     }
     fn emit_i32_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError> {
-        todo!()
+        let mask = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        self.assembler
+            .emit_mov_imm(Location::GPR(mask), 0x7fffffffu32 as _)?;
+        self.assembler.emit_and(
+            Size::S32,
+            Location::GPR(tmp1),
+            Location::GPR(mask),
+            Location::GPR(tmp1),
+        )?;
+
+        self.assembler
+            .emit_mov_imm(Location::GPR(mask), 0x80000000u32 as _)?;
+        self.assembler.emit_and(
+            Size::S32,
+            Location::GPR(tmp2),
+            Location::GPR(mask),
+            Location::GPR(tmp2),
+        )?;
+
+        self.release_gpr(mask);
+        self.assembler.emit_or(
+            Size::S32,
+            Location::GPR(tmp1),
+            Location::GPR(tmp2),
+            Location::GPR(tmp1),
+        )
     }
     fn f32_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
         todo!()
@@ -4462,7 +4582,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Ge, Size::S32, loc_a, loc_b, ret)
     }
     fn f32_cmp_gt(
         &mut self,
@@ -4470,7 +4590,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Gt, Size::S32, loc_a, loc_b, ret)
     }
     fn f32_cmp_le(
         &mut self,
@@ -4478,7 +4598,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Le, Size::S32, loc_a, loc_b, ret)
     }
     fn f32_cmp_lt(
         &mut self,
@@ -4486,7 +4606,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Lt, Size::S32, loc_a, loc_b, ret)
     }
     fn f32_cmp_ne(
         &mut self,
@@ -4494,7 +4614,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Ne, Size::S32, loc_a, loc_b, ret)
     }
     fn f32_cmp_eq(
         &mut self,
@@ -4502,7 +4622,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcmp(Condition::Eq, Size::S32, loc_a, loc_b, ret)
     }
     fn f32_min(
         &mut self,
@@ -4510,7 +4630,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_fmin,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f32_max(
         &mut self,
@@ -4518,7 +4645,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_fmax,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f32_add(
         &mut self,
@@ -4526,7 +4660,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_add,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f32_sub(
         &mut self,
@@ -4534,7 +4675,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_sub,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f32_mul(
         &mut self,
@@ -4542,7 +4690,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_mul,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn f32_div(
         &mut self,
@@ -4550,7 +4705,14 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop3_fp(
+            Assembler::emit_fdiv,
+            Size::S32,
+            loc_a,
+            loc_b,
+            ret,
+            ImmType::None,
+        )
     }
     fn gen_std_trampoline(
         &self,

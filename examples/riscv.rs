@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
 (module
-  (func (export "f32.convert_i32_s") (param $x i32) (result f32) (f32.convert_i32_s (local.get $x)))
+  (func (export "eq") (param $x f64) (param $y f64) (result i32) (f64.eq (local.get $x) (local.get $y)))
 )
     "#
         .as_bytes(),
@@ -34,13 +34,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     let instance = Instance::new(&mut store, &module, &import_object)?;
-    let func = instance.exports.get_function("f32.convert_i32_s")?;
+    let func = instance.exports.get_function("eq")?;
 
     println!("Calling `fn` function...");
     //let result = sample.call(&mut store, &[Value::I32(123456)])?;
     //let result = sample.call(&mut store, &[])?;
-    let result = func.call(&mut store, &[Value::I32(-1)])?;
-    let ret = result[0].unwrap_f32();
+    let result = func.call(&mut store, &[Value::F64(-0.0), Value::F64(0.0)])?;
+    let ret = result[0].unwrap_i32();
     println!("Result 0x{} {}", ret, ret);
 
     // for i in 0..16 {

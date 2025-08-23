@@ -220,6 +220,27 @@ pub trait EmitterRiscv {
 
     // Floating-point type instructions
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_fmin(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_fmax(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_fdiv(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError>;
     fn emit_fcvt(
         &mut self,
         signed: bool,
@@ -478,6 +499,13 @@ impl EmitterRiscv for Assembler {
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addiw X(dst), X(src1), imm as _);
             }
+
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fadd.s F(dst), F(src1), F(src2));
+            }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
                 let src1 = src1.into_index();
                 let src2 = src2.into_index();
@@ -527,6 +555,19 @@ impl EmitterRiscv for Assembler {
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; addiw X(dst), X(src1), -(imm as i32) as _);
             }
+
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fsub.s F(dst), F(src1), F(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fsub.d F(dst), F(src1), F(src2));
+            }
             _ => codegen_error!(
                 "singlepass can't emit SUB {:?} {:?} {:?} {:?}",
                 sz,
@@ -557,6 +598,19 @@ impl EmitterRiscv for Assembler {
                 let src2 = src2.into_index();
                 let dst = dst.into_index();
                 dynasm!(self ; mulw X(dst), X(src1), X(src2));
+            }
+
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fmul.s F(dst), F(src1), F(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index();
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; fmul.d F(dst), F(src1), F(src2));
             }
 
             _ => codegen_error!(
@@ -1097,6 +1151,99 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_fmin(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmin.s F(dst), F(src1), F(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmin.d F(dst), F(src1), F(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit FMIN {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_fmax(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmax.s F(dst), F(src1), F(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fmax.d F(dst), F(src1), F(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit FMAX {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
+    fn emit_fdiv(
+        &mut self,
+        sz: Size,
+        src1: Location,
+        src2: Location,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        match (sz, src1, src2, dst) {
+            (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fdiv.s F(dst), F(src1), F(src2));
+            }
+            (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
+                let src1 = src1.into_index() as u32;
+                let src2 = src2.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fdiv.d F(dst), F(src1), F(src2));
+            }
+            _ => codegen_error!(
+                "singlepass can't emit FDIV {:?} {:?} {:?} {:?}",
+                sz,
+                src1,
+                src2,
+                dst
+            ),
+        }
+        Ok(())
+    }
+
     fn emit_fcvt(
         &mut self,
         signed: bool,
@@ -1319,13 +1466,53 @@ impl EmitterRiscv for Assembler {
         let ret = ret.into_index();
 
         match (size, c) {
+            (Size::S32, Condition::Lt) => {
+                dynasm!(self ; flt.s X(ret), F(loc_a), F(loc_b));
+            }
+            (Size::S32, Condition::Le) => {
+                dynasm!(self ; fle.s X(ret), F(loc_a), F(loc_b));
+            }
+            (Size::S32, Condition::Gt) => {
+                dynasm!(self ; flt.s X(ret), F(loc_b), F(loc_a));
+            }
+            (Size::S32, Condition::Ge) => {
+                dynasm!(self ; fle.s X(ret), F(loc_b), F(loc_a));
+            }
             (Size::S32, Condition::Eq) => {
                 dynasm!(self ; feq.s X(ret), F(loc_a), F(loc_b));
+            }
+            (Size::S32, Condition::Ne) => {
+                dynasm!(self
+                    ; feq.s X(ret), F(loc_a), F(loc_b)
+                    ; xori X(ret), X(ret), 1);
+            }
+
+            (Size::S64, Condition::Lt) => {
+                dynasm!(self ; flt.d X(ret), F(loc_a), F(loc_b));
+            }
+            (Size::S64, Condition::Le) => {
+                dynasm!(self ; fle.d X(ret), F(loc_a), F(loc_b));
+            }
+            (Size::S64, Condition::Gt) => {
+                dynasm!(self ; flt.d X(ret), F(loc_b), F(loc_a));
+            }
+            (Size::S64, Condition::Ge) => {
+                dynasm!(self; fle.d X(ret), F(loc_b), F(loc_a));
             }
             (Size::S64, Condition::Eq) => {
                 dynasm!(self ; feq.d X(ret), F(loc_a), F(loc_b));
             }
-            _ => todo!(),
+            (Size::S64, Condition::Ne) => {
+                dynasm!(self
+                    ; feq.d X(ret), F(loc_a), F(loc_b)
+                    ; xori X(ret), X(ret), 1);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit FCMP {:?} {:?} {:?}",
+                loc_a,
+                loc_b,
+                ret
+            ),
         }
 
         Ok(())
