@@ -98,6 +98,8 @@ pub struct MachineRiscv {
     has_fpu: bool,
 }
 
+const SCRATCH_REG: GPR = GPR::X28;
+
 impl MachineRiscv {
     /// The number of locals that fit in a GPR.
     const LOCALS_IN_REGS: usize = 10;
@@ -166,7 +168,26 @@ impl MachineRiscv {
                     tmp
                 };
                 if read_val {
-                    self.assembler.emit_ld(sz, false, Location::GPR(tmp), src)?;
+                    if ImmType::Bits12.compatible_imm(val as _) {
+                        self.assembler.emit_ld(sz, false, Location::GPR(tmp), src)?;
+                    } else {
+                        if reg == tmp {
+                            codegen_error!("singlepass reg == tmp unreachable");
+                        }
+                        self.assembler.emit_mov_imm(Location::GPR(tmp), val as _)?;
+                        self.assembler.emit_add(
+                            Size::S64,
+                            Location::GPR(reg),
+                            Location::GPR(tmp),
+                            Location::GPR(tmp),
+                        )?;
+                        self.assembler.emit_ld(
+                            sz,
+                            false,
+                            Location::GPR(tmp),
+                            Location::Memory(tmp, 0),
+                        )?;
+                    }
                 }
                 Ok(Location::GPR(tmp))
             }
@@ -1227,11 +1248,36 @@ impl Machine for MachineRiscv {
     fn release_simd(&mut self, fpr: Self::SIMD) {
         assert!(self.used_fprs_remove(&fpr));
     }
-    fn push_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<usize, CompileError> {
-        todo!()
+
+    fn push_used_simd(&mut self, used_neons: &[Self::SIMD]) -> Result<usize, CompileError> {
+        let stack_adjust = (used_neons.len() * 8) as u32;
+        self.adjust_stack(stack_adjust)?;
+
+        for (i, r) in used_neons.iter().enumerate() {
+            self.assembler.emit_sd(
+                Size::S64,
+                Location::SIMD(*r),
+                Location::Memory(GPR::Sp, (i * 8) as i32),
+            )?;
+        }
+        Ok(stack_adjust as usize)
     }
-    fn pop_used_simd(&mut self, simds: &[Self::SIMD]) -> Result<(), CompileError> {
-        todo!()
+    fn pop_used_simd(&mut self, used_neons: &[Self::SIMD]) -> Result<(), CompileError> {
+        for (i, r) in used_neons.iter().enumerate() {
+            self.assembler.emit_ld(
+                Size::S64,
+                false,
+                Location::SIMD(*r),
+                Location::Memory(GPR::Sp, (i * 8) as i32),
+            )?;
+        }
+        let stack_adjust = (used_neons.len() * 8) as u32;
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Sp),
+            Location::Imm64(stack_adjust as _),
+            Location::GPR(GPR::Sp),
+        )
     }
 
     // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
@@ -1300,15 +1346,35 @@ impl Machine for MachineRiscv {
         Location::Memory(GPR::Fp, -stack_offset)
     }
     fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+        let delta = if ImmType::Bits12Subtraction.compatible_imm(delta_stack_offset as _) {
+            Location::Imm64(delta_stack_offset as _)
+        } else {
+            self.assembler
+                .emit_mov_imm(Location::GPR(SCRATCH_REG), delta_stack_offset as _)?;
+            Location::GPR(SCRATCH_REG)
+        };
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
-            Location::Imm64(delta_stack_offset as _),
+            delta,
             Location::GPR(GPR::Sp),
         )
     }
     fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        todo!()
+        let delta = if ImmType::Bits12.compatible_imm(delta_stack_offset as _) {
+            Location::Imm64(delta_stack_offset as _)
+        } else {
+            let tmp = GPR::X28;
+            self.assembler
+                .emit_mov_imm(Location::GPR(SCRATCH_REG), delta_stack_offset as _)?;
+            Location::GPR(SCRATCH_REG)
+        };
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Sp),
+            delta,
+            Location::GPR(GPR::Sp),
+        )
     }
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         todo!()
@@ -1319,13 +1385,23 @@ impl Machine for MachineRiscv {
     fn local_pointer(&self) -> Self::GPR {
         GPR::Fp
     }
+    // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
         size: Size,
         loc: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        match loc {
+            Location::Imm64(_)
+            | Location::Imm32(_)
+            | Location::Imm8(_)
+            | Location::Memory(_, _) => {
+                self.move_location(size, loc, Location::GPR(SCRATCH_REG))?;
+                self.move_location(size, Location::GPR(SCRATCH_REG), dest)
+            }
+            _ => self.move_location(size, loc, dest),
+        }
     }
 
     fn is_local_on_stack(&self, idx: usize) -> bool {
@@ -1347,7 +1423,7 @@ impl Machine for MachineRiscv {
             8 => Location::GPR(GPR::X25),
             9 => Location::GPR(GPR::X26),
             _ => {
-                assert!(idx > Self::LOCALS_IN_REGS);
+                assert!(idx >= Self::LOCALS_IN_REGS);
                 Location::Memory(
                     GPR::Fp,
                     -(((idx - Self::LOCALS_IN_REGS) * 8 + callee_saved_regs_size) as i32),
@@ -1444,8 +1520,21 @@ impl Machine for MachineRiscv {
             (Location::Imm32(_) | Location::Imm64(_), Location::GPR(dst)) => self
                 .assembler
                 .emit_mov_imm(dest, source.imm_value_scalar().unwrap()),
-            (Location::GPR(_), Location::Memory(_, _)) => {
-                self.assembler.emit_sd(size, source, dest)
+            (Location::GPR(_), Location::Memory(addr, offset)) => {
+                let addr = if ImmType::Bits12.compatible_imm(offset as _) {
+                    dest
+                } else {
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(SCRATCH_REG), offset as _)?;
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(addr),
+                        Location::GPR(SCRATCH_REG),
+                        Location::GPR(SCRATCH_REG),
+                    )?;
+                    Location::Memory(SCRATCH_REG, 0)
+                };
+                self.assembler.emit_sd(size, source, addr)
             }
             (Location::Memory(_, _), Location::GPR(_)) => {
                 self.assembler.emit_ld(size, false, dest, source)
@@ -1477,6 +1566,10 @@ impl Machine for MachineRiscv {
                 self.assembler.emit_extend(size_val, signed, source, dst)?;
                 dst
             }
+            (_, _, Location::Memory(_, _)) => {
+                self.assembler.emit_ld(size_val, signed, dst, source)?;
+                dst
+            }
             _ => codegen_error!(
                 "singlepass can't emit move_location_extend {:?} {:?} {:?} => {:?} {:?}",
                 size_val,
@@ -1506,12 +1599,68 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         todo!()
     }
+
+    // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
         init_stack_loc_cnt: u64,
         last_stack_loc: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        let label = self.assembler.get_label();
+        let mut temps = vec![];
+        let dest = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(dest);
+        let cnt = self.location_to_reg(
+            Size::S64,
+            Location::Imm64(init_stack_loc_cnt),
+            &mut temps,
+            ImmType::None,
+            true,
+            None,
+        )?;
+        match last_stack_loc {
+            Location::GPR(_) => codegen_error!("singlepass init_stack_loc unreachable"),
+            Location::SIMD(_) => codegen_error!("singlepass init_stack_loc unreachable"),
+            Location::Memory(reg, offset) => {
+                if ImmType::Bits12.compatible_imm(offset as _) {
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(reg),
+                        Location::Imm64(offset as _),
+                        Location::GPR(dest),
+                    )?;
+                } else {
+                    let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                        CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                    })?;
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(tmp), offset as _)?;
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(reg),
+                        Location::GPR(tmp),
+                        Location::GPR(dest),
+                    )?;
+                    temps.push(tmp);
+                }
+            }
+            _ => codegen_error!("singlepass can't emit init_stack_loc {:?}", last_stack_loc),
+        };
+        self.assembler.emit_label(label)?;
+        self.assembler.emit_sd(
+            Size::S64,
+            Location::GPR(GPR::XZero),
+            Location::Memory(dest, 8),
+        )?;
+        self.assembler
+            .emit_sub(Size::S64, cnt, Location::Imm64(1), cnt)?;
+        self.assembler.emit_on_true_label(cnt, label)?;
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
     }
 
     // Restore save_area
