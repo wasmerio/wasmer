@@ -4338,7 +4338,27 @@ impl Machine for MachineRiscv {
         self.emit_relaxed_binop_fp(Assembler::emit_fneg, Size::S64, loc, ret, true)
     }
     fn f64_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let mask = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        self.move_location(Size::S64, loc, Location::GPR(tmp))?;
+        self.assembler
+            .emit_mov_imm(Location::GPR(mask), 0x7fffffffffffffffi64)?;
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(tmp),
+            Location::GPR(mask),
+            Location::GPR(tmp),
+        )?;
+        self.move_location(Size::S64, Location::GPR(tmp), ret)?;
+
+        self.release_gpr(tmp);
+        self.release_gpr(mask);
+        Ok(())
     }
     fn emit_i64_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError> {
         let mask = self.acquire_temp_gpr().ok_or_else(|| {
@@ -4528,7 +4548,27 @@ impl Machine for MachineRiscv {
         self.emit_relaxed_binop_fp(Assembler::emit_fneg, Size::S32, loc, ret, true)
     }
     fn f32_abs(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let mask = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        self.move_location(Size::S32, loc, Location::GPR(tmp))?;
+        self.assembler
+            .emit_mov_imm(Location::GPR(mask), 0x7fffffffi64)?;
+        self.assembler.emit_and(
+            Size::S32,
+            Location::GPR(tmp),
+            Location::GPR(mask),
+            Location::GPR(tmp),
+        )?;
+        self.move_location(Size::S32, Location::GPR(tmp), ret)?;
+
+        self.release_gpr(tmp);
+        self.release_gpr(mask);
+        Ok(())
     }
     fn emit_i32_copysign(&mut self, tmp1: Self::GPR, tmp2: Self::GPR) -> Result<(), CompileError> {
         let mask = self.acquire_temp_gpr().ok_or_else(|| {
