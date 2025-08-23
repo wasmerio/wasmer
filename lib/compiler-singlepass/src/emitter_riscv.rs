@@ -76,6 +76,19 @@ pub enum Condition {
     Geu,
 }
 
+/// Floating-point number rounding mode
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum RoundingMode {
+    /// Round to Nearest, ties to Even (default)
+    Rne,
+    /// Round towards Zero
+    Rtz,
+    /// Round Down (towards -∞)
+    Rdn,
+    /// Round Up (towards +∞)
+    Rup,
+}
+
 /// Scratch register used in function call trampolines.
 const SCRATCH_REG: GPR = GPR::X28;
 
@@ -241,6 +254,7 @@ pub trait EmitterRiscv {
         src2: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_fsqrt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
     fn emit_fcvt(
         &mut self,
         signed: bool,
@@ -248,6 +262,14 @@ pub trait EmitterRiscv {
         src: Location,
         sz_out: Size,
         dst: Location,
+    ) -> Result<(), CompileError>;
+    fn emit_fcvt_with_rounding(
+        &mut self,
+        rounding: RoundingMode,
+        size: Size,
+        src: Location,
+        dst: Location,
+        tmp: GPR,
     ) -> Result<(), CompileError>;
     fn emit_write_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
     fn emit_read_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
@@ -1244,6 +1266,23 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_fsqrt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, src, dst) {
+            (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fsqrt.s F(dst), F(src));
+            }
+            (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
+                let src = src.into_index() as u32;
+                let dst = dst.into_index() as u32;
+                dynasm!(self ; fsqrt.d F(dst), F(src));
+            }
+            _ => codegen_error!("singlepass can't emit FSQRT {:?} {:?} {:?}", sz, src, dst),
+        }
+        Ok(())
+    }
+
     fn emit_fcvt(
         &mut self,
         signed: bool,
@@ -1355,6 +1394,80 @@ impl EmitterRiscv for Assembler {
                 dst
             ),
         }
+        Ok(())
+    }
+
+    fn emit_fcvt_with_rounding(
+        &mut self,
+        rounding: RoundingMode,
+        size: Size,
+        src: Location,
+        dst: Location,
+        tmp: GPR,
+    ) -> Result<(), CompileError> {
+        let (Location::SIMD(src), Location::SIMD(dst)) = (src, dst) else {
+            codegen_error!(
+                "singlepass can't emit FCVT with rounding for non-register operands: {:?} {:?} {:?} {:?}",
+                src,
+                dst,
+                size,
+                rounding
+            )
+        };
+
+        let src = src.into_index();
+        let dst = dst.into_index();
+        let tmp = tmp.into_index();
+
+        match (size, rounding) {
+            (Size::S32, RoundingMode::Rne) => {
+                dynasm!(self
+                    ; fcvt.w.s X(tmp), F(src), rne
+                    ; fcvt.s.w F(dst), X(tmp), rne);
+            }
+            (Size::S32, RoundingMode::Rtz) => {
+                dynasm!(self
+                    ; fcvt.w.s X(tmp), F(src), rtz
+                    ; fcvt.s.w F(dst), X(tmp), rtz);
+            }
+            (Size::S32, RoundingMode::Rdn) => {
+                dynasm!(self
+                    ; fcvt.w.s X(tmp), F(src), rdn
+                    ; fcvt.s.w F(dst), X(tmp), rdn);
+            }
+            (Size::S32, RoundingMode::Rup) => {
+                dynasm!(self
+                    ; fcvt.w.s X(tmp), F(src), rup
+                    ; fcvt.s.w F(dst), X(tmp), rup);
+            }
+
+            (Size::S64, RoundingMode::Rne) => {
+                dynasm!(self
+                    ; fcvt.l.d X(tmp), F(src), rne
+                    ; fcvt.d.l F(dst), X(tmp), rne);
+            }
+            (Size::S64, RoundingMode::Rtz) => {
+                dynasm!(self
+                    ; fcvt.l.d X(tmp), F(src), rtz
+                    ; fcvt.d.l F(dst), X(tmp), rtz);
+            }
+            (Size::S64, RoundingMode::Rdn) => {
+                dynasm!(self
+                    ; fcvt.l.d X(tmp), F(src), rdn
+                    ; fcvt.d.l F(dst), X(tmp), rdn);
+            }
+            (Size::S64, RoundingMode::Rup) => {
+                dynasm!(self
+                    ; fcvt.l.d X(tmp), F(src), rup
+                    ; fcvt.d.l F(dst), X(tmp), rup);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit FCVT with rounding {:?} {:?}",
+                size,
+                rounding
+            ),
+        }
+
         Ok(())
     }
 

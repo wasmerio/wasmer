@@ -1132,6 +1132,78 @@ impl MachineRiscv {
         }
         Ok(())
     }
+
+    fn emit_relaxed_fcvt_with_rounding(
+        &mut self,
+        rounding: RoundingMode,
+        size: Size,
+        loc: Location,
+        ret: Location,
+    ) -> Result<(), CompileError> {
+        // For f64, values ≥ 2^52, the least significant bit of the significand represents 2,
+        // so you can't represent odd integers or any fractional part.
+        // Similarly, for f32, values ≥ 2^24 fulfil the same precondition.
+
+        let mut fprs = vec![];
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+
+        let loc = self.location_to_fpr(size, loc, &mut fprs, ImmType::None, true)?;
+        let dest = self.location_to_fpr(size, ret, &mut fprs, ImmType::None, false)?;
+
+        let cond = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
+        })?;
+        let tmp2 = self.acquire_temp_simd().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
+        })?;
+
+        if size == Size::S64 {
+            self.assembler
+                .emit_mov_imm(Location::GPR(cond), 0x4330000000000000)?;
+            self.assembler
+                .emit_mov(Size::S64, Location::GPR(cond), Location::SIMD(tmp1))?;
+            self.f64_abs(loc, Location::SIMD(tmp2))?;
+        } else {
+            assert!(size == Size::S32);
+            self.assembler
+                .emit_mov_imm(Location::GPR(cond), 0x4b000000)?;
+            self.assembler
+                .emit_mov(Size::S32, Location::GPR(cond), Location::SIMD(tmp1))?;
+            self.f32_abs(loc, Location::SIMD(tmp2))?;
+        }
+        self.emit_relaxed_fcmp(
+            Condition::Lt,
+            size,
+            Location::SIMD(tmp2),
+            Location::SIMD(tmp1),
+            Location::GPR(cond),
+        )?;
+
+        let label_exit = self.get_label();
+        self.assembler.emit_mov(size, loc, dest)?;
+
+        self.assembler
+            .emit_on_false_label(Location::GPR(cond), label_exit)?;
+
+        self.assembler
+            .emit_fcvt_with_rounding(rounding, size, loc, dest, cond)?;
+        self.emit_label(label_exit)?;
+
+        if ret != dest {
+            self.move_location(size, dest, ret)?;
+        }
+
+        for r in fprs {
+            self.release_simd(r);
+        }
+        self.release_gpr(tmp);
+        Ok(())
+    }
 }
 
 #[allow(dead_code)]
@@ -4392,19 +4464,19 @@ impl Machine for MachineRiscv {
         )
     }
     fn f64_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop_fp(Assembler::emit_fsqrt, Size::S64, loc, ret, true)
     }
     fn f64_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rtz, Size::S64, loc, ret)
     }
     fn f64_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rup, Size::S64, loc, ret)
     }
     fn f64_floor(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rdn, Size::S64, loc, ret)
     }
     fn f64_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rne, Size::S64, loc, ret)
     }
     fn f64_cmp_ge(
         &mut self,
@@ -4602,19 +4674,19 @@ impl Machine for MachineRiscv {
         )
     }
     fn f32_sqrt(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_binop_fp(Assembler::emit_fsqrt, Size::S32, loc, ret, true)
     }
     fn f32_trunc(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rtz, Size::S32, loc, ret)
     }
     fn f32_ceil(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rup, Size::S32, loc, ret)
     }
     fn f32_floor(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rdn, Size::S32, loc, ret)
     }
     fn f32_nearest(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
-        todo!()
+        self.emit_relaxed_fcvt_with_rounding(RoundingMode::Rne, Size::S32, loc, ret)
     }
     fn f32_cmp_ge(
         &mut self,
