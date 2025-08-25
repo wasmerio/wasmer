@@ -99,6 +99,8 @@ pub struct MachineRiscv {
 }
 
 const SCRATCH_REG: GPR = GPR::X28;
+const CANONICAL_NAN_F64: u64 = 0x7ff8000000000000;
+const CANONICAL_NAN_F32: u32 = 0x7fc00000;
 
 impl MachineRiscv {
     /// The number of locals that fit in a GPR.
@@ -329,6 +331,8 @@ impl MachineRiscv {
         }
         Ok(())
     }
+
+    #[allow(clippy::too_many_arguments)]
     fn emit_relaxed_binop3_fp(
         &mut self,
         op: fn(&mut Assembler, Size, Location, Location, Location) -> Result<(), CompileError>,
@@ -337,17 +341,54 @@ impl MachineRiscv {
         src2: Location,
         dst: Location,
         allow_imm: ImmType,
+        return_nan_if_present: bool,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
+        let mut gprs = vec![];
         let src1 = self.location_to_fpr(sz, src1, &mut temps, ImmType::None, true)?;
         let src2 = self.location_to_fpr(sz, src2, &mut temps, allow_imm, true)?;
         let dest = self.location_to_fpr(sz, dst, &mut temps, ImmType::None, false)?;
+
+        let label_after = self.get_label();
+        if return_nan_if_present {
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            gprs.push(tmp);
+
+            // Return an ArithmeticNan if either src1 or (and) src2 have a NaN value.
+            let canonical_nan = match sz {
+                Size::S32 => CANONICAL_NAN_F32 as u64,
+                Size::S64 => CANONICAL_NAN_F64,
+                _ => unreachable!(),
+            };
+
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp), canonical_nan as _)?;
+            self.assembler.emit_mov(sz, Location::GPR(tmp), dest)?;
+
+            self.assembler
+                .emit_fcmp(Condition::Eq, sz, src1, src1, Location::GPR(tmp))?;
+            self.assembler
+                .emit_on_false_label(Location::GPR(tmp), label_after)?;
+
+            self.assembler
+                .emit_fcmp(Condition::Eq, sz, src2, src2, Location::GPR(tmp))?;
+            self.assembler
+                .emit_on_false_label(Location::GPR(tmp), label_after)?;
+        }
+
         op(&mut self.assembler, sz, src1, src2, dest)?;
+        self.emit_label(label_after)?;
+
         if dst != dest {
             self.move_location(sz, dest, dst)?;
         }
         for r in temps {
             self.release_simd(r);
+        }
+        for r in gprs {
+            self.release_gpr(r);
         }
         Ok(())
     }
@@ -1162,6 +1203,26 @@ impl MachineRiscv {
             CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
         })?;
 
+        let label_after = self.get_label();
+
+        // Return an ArithmeticNan if either src1 or (and) src2 have a NaN value.
+        let canonical_nan = match size {
+            Size::S32 => CANONICAL_NAN_F32 as u64,
+            Size::S64 => CANONICAL_NAN_F64,
+            _ => unreachable!(),
+        };
+
+        self.assembler
+            .emit_mov_imm(Location::GPR(tmp), canonical_nan as _)?;
+        self.assembler.emit_mov(size, Location::GPR(tmp), dest)?;
+        self.assembler
+            .emit_on_false_label(Location::GPR(cond), label_after)?;
+        self.assembler
+            .emit_fcmp(Condition::Eq, size, loc, loc, Location::GPR(tmp))?;
+        self.assembler
+            .emit_on_false_label(Location::GPR(tmp), label_after)?;
+
+        // TODO: refactor the constants
         if size == Size::S64 {
             self.assembler
                 .emit_mov_imm(Location::GPR(cond), 0x4330000000000000)?;
@@ -1184,15 +1245,14 @@ impl MachineRiscv {
             Location::GPR(cond),
         )?;
 
-        let label_exit = self.get_label();
         self.assembler.emit_mov(size, loc, dest)?;
-
         self.assembler
-            .emit_on_false_label(Location::GPR(cond), label_exit)?;
+            .emit_on_false_label(Location::GPR(cond), label_after)?;
 
+        // Emit the actual conversion operation.
         self.assembler
             .emit_fcvt_with_rounding(rounding, size, loc, dest, cond)?;
-        self.emit_label(label_exit)?;
+        self.emit_label(label_after)?;
 
         if ret != dest {
             self.move_location(size, dest, ret)?;
@@ -4583,6 +4643,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            true,
         )
     }
     fn f64_max(
@@ -4598,6 +4659,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            true,
         )
     }
     fn f64_add(
@@ -4613,6 +4675,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f64_sub(
@@ -4628,6 +4691,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f64_mul(
@@ -4643,6 +4707,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f64_div(
@@ -4658,6 +4723,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f32_neg(&mut self, loc: Location, ret: Location) -> Result<(), CompileError> {
@@ -4793,6 +4859,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            true,
         )
     }
     fn f32_max(
@@ -4808,6 +4875,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            true,
         )
     }
     fn f32_add(
@@ -4823,6 +4891,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f32_sub(
@@ -4838,6 +4907,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f32_mul(
@@ -4853,6 +4923,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn f32_div(
@@ -4868,6 +4939,7 @@ impl Machine for MachineRiscv {
             loc_b,
             ret,
             ImmType::None,
+            false,
         )
     }
     fn gen_std_trampoline(

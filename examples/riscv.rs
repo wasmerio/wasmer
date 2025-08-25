@@ -17,7 +17,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
 (module
-  (func (export "nearest") (param $x f64) (result f64) (f64.nearest (local.get $x)))
+  (func (export "nearest") (param $x f64) (result f64) (f64.floor (local.get $x)))
 )
     "#
         .as_bytes(),
@@ -39,7 +39,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Calling `fn` function...");
     //let result = sample.call(&mut store, &[Value::I32(123456)])?;
     //let result = sample.call(&mut store, &[])?;
-    let result = func.call(&mut store, &[Value::F64(0.49999)])?;
+    let result = func.call(&mut store, &[Value::F64(-0.0)])?;
     let ret = result[0].unwrap_f64();
     println!("Result 0x{} {}", ret, ret);
 

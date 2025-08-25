@@ -1150,7 +1150,7 @@ impl EmitterRiscv for Assembler {
                     _ => unreachable!(),
                 }
             }
-            _ => codegen_error!("singlepass can't emit MOVW {:?}", dst),
+            _ => codegen_error!("singlepass can't emit MOVIMM {:?}", dst),
         }
         Ok(())
     }
@@ -1423,43 +1423,51 @@ impl EmitterRiscv for Assembler {
             (Size::S32, RoundingMode::Rne) => {
                 dynasm!(self
                     ; fcvt.w.s X(tmp), F(src), rne
-                    ; fcvt.s.w F(dst), X(tmp), rne);
+                    ; fcvt.s.w F(dst), X(tmp), rne
+                    ; fsgnj.s F(dst), F(dst), F(src));
             }
             (Size::S32, RoundingMode::Rtz) => {
                 dynasm!(self
                     ; fcvt.w.s X(tmp), F(src), rtz
-                    ; fcvt.s.w F(dst), X(tmp), rtz);
+                    ; fcvt.s.w F(dst), X(tmp), rtz
+                    ; fsgnj.s F(dst), F(dst), F(src));
             }
             (Size::S32, RoundingMode::Rdn) => {
                 dynasm!(self
                     ; fcvt.w.s X(tmp), F(src), rdn
-                    ; fcvt.s.w F(dst), X(tmp), rdn);
+                    ; fcvt.s.w F(dst), X(tmp), rdn
+                    ; fsgnj.s F(dst), F(dst), F(src));
             }
             (Size::S32, RoundingMode::Rup) => {
                 dynasm!(self
                     ; fcvt.w.s X(tmp), F(src), rup
-                    ; fcvt.s.w F(dst), X(tmp), rup);
+                    ; fcvt.s.w F(dst), X(tmp), rup
+                    ; fsgnj.s F(dst), F(dst), F(src));
             }
 
             (Size::S64, RoundingMode::Rne) => {
                 dynasm!(self
                     ; fcvt.l.d X(tmp), F(src), rne
-                    ; fcvt.d.l F(dst), X(tmp), rne);
+                    ; fcvt.d.l F(dst), X(tmp), rne
+                    ; fsgnj.d F(dst), F(dst), F(src));
             }
             (Size::S64, RoundingMode::Rtz) => {
                 dynasm!(self
                     ; fcvt.l.d X(tmp), F(src), rtz
-                    ; fcvt.d.l F(dst), X(tmp), rtz);
+                    ; fcvt.d.l F(dst), X(tmp), rtz
+                    ; fsgnj.d F(dst), F(dst), F(src));
             }
             (Size::S64, RoundingMode::Rdn) => {
                 dynasm!(self
                     ; fcvt.l.d X(tmp), F(src), rdn
-                    ; fcvt.d.l F(dst), X(tmp), rdn);
+                    ; fcvt.d.l F(dst), X(tmp), rdn
+                    ; fsgnj.d F(dst), F(dst), F(src));
             }
             (Size::S64, RoundingMode::Rup) => {
                 dynasm!(self
                     ; fcvt.l.d X(tmp), F(src), rup
-                    ; fcvt.d.l F(dst), X(tmp), rup);
+                    ; fcvt.d.l F(dst), X(tmp), rup
+                    ; fsgnj.d F(dst), F(dst), F(src));
             }
             _ => codegen_error!(
                 "singlepass can't emit FCVT with rounding {:?} {:?}",
