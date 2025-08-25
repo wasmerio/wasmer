@@ -440,12 +440,16 @@ where
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
-        let result =
-            on_host_stack(|| panic::catch_unwind(AssertUnwindSafe(|| (this.ctx.func)(values_vec))));
+        let result = on_host_stack(|| {
+            panic::catch_unwind(AssertUnwindSafe(|| {
+                (this.ctx.func)(values_vec).map_err(Box::new)
+            }))
+        });
 
+        // IMPORTANT: DO NOT ALLOCATE ANYTHING, AS WE ARE NOT ON THE HOST STACK.
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(trap)) => raise_user_trap(on_host_stack(|| Box::new(trap))),
+            Ok(Err(trap)) => raise_user_trap(trap),
             Err(panic) => resume_panic(panic),
         }
     }
@@ -522,21 +526,20 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
-                // println!("func wrapper");
                 let mut store = StoreMut::from_raw(env.raw_store as *mut _);
                 let result = on_host_stack(|| {
-                    // println!("func wrapper1");
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         $(
                             let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
                         )*
-                        (env.func)($($x),* ).into_result()
+                        (env.func)($($x),* ).into_result().map_err(Box::new)
                     }))
                 });
 
+                // IMPORTANT: DO NOT ALLOCATE ANYTHING, AS WE ARE NOT ON THE HOST STACK.
                 match result {
                     Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    Ok(Err(trap)) => raise_user_trap(on_host_stack(|| Box::new(trap))),
+                    Ok(Err(trap)) => raise_user_trap(trap),
                     Err(panic) => resume_panic(panic) ,
                 }
             }
@@ -597,13 +600,14 @@ macro_rules! impl_host_function {
   	                        store_mut,
   	                        func_env: env.env.as_sys().clone(),
   	                    }.into();
-  	                    (env.func)(f_env, $($x),* ).into_result()
+  	                    (env.func)(f_env, $($x),* ).into_result().map_err(Box::new)
   	                }))
   	            });
 
+                // IMPORTANT: DO NOT ALLOCATE ANYTHING, AS WE ARE NOT ON THE HOST STACK.
   	            match result {
   	                Ok(Ok(result)) => return result.into_c_struct(&mut store),
-  	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(on_host_stack(|| Box::new(trap))),
+  	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(trap),
   	                Err(panic) => wasmer_vm::resume_panic(panic),
   	            }
             }
