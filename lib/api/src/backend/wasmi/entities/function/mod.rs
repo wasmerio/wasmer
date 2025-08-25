@@ -621,68 +621,68 @@ macro_rules! impl_host_function {
             <$( $x: FromToNativeWasmType, )* Rets: WasmTypeList, RetsAsResult: IntoResult<Rets>, T: Send + 'static,  Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static>
             (this: &Func) -> crate::backend::wasmi::vm::VMFunctionCallback {
             unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func, T>(env: *mut c_void, args: *const wasm_val_vec_t, results: *mut wasm_val_vec_t) -> *mut wasm_trap_t
-	        where
-	          $( $x: FromToNativeWasmType, )*
-	          Rets: WasmTypeList,
-	          RetsAsResult: IntoResult<Rets>,
-	          T: Send + 'static,
-	          Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
+            where
+              $( $x: FromToNativeWasmType, )*
+              Rets: WasmTypeList,
+              RetsAsResult: IntoResult<Rets>,
+              T: Send + 'static,
+              Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
 
-	          let r: *mut (crate::backend::wasmi::function::FunctionCallbackEnv<'_, Func>) = env as _;
-	          let store = &mut (*r).store.as_store_mut();
+              let r: *mut (crate::backend::wasmi::function::FunctionCallbackEnv<'_, Func>) = env as _;
+              let store = &mut (*r).store.as_store_mut();
 
-	          let mut i = 0;
+              let mut i = 0;
 
-	          $(
-	          let c_arg = (*(*args).data.wrapping_add(i)).clone();
-	          let wasmer_arg = c_arg.into_wv();
-	          let raw_arg : RawValue = wasmer_arg.as_raw(store);
-	          let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
+              $(
+              let c_arg = (*(*args).data.wrapping_add(i)).clone();
+              let wasmer_arg = c_arg.into_wv();
+              let raw_arg : RawValue = wasmer_arg.as_raw(store);
+              let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
 
-	          i += 1;
+              i += 1;
               )*
 
-	          let env_handle = (*r).env_handle.as_ref().unwrap().clone();
-	          let mut fn_env = crate::backend::wasmi::function::env::FunctionEnv::from_handle(env_handle).into_mut(store);
-	          let func: &Func = &(*r).func;
+              let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+              let mut fn_env = crate::backend::wasmi::function::env::FunctionEnv::from_handle(env_handle).into_mut(store);
+              let func: &Func = &(*r).func;
 
-	          let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-	              ((*r).func)(BackendFunctionEnvMut::Wasmi(fn_env).into(), $( $x, )* ).into_result()
-	          }));
+              let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
+                  ((*r).func)(BackendFunctionEnvMut::Wasmi(fn_env).into(), $( $x, )* ).into_result()
+              }));
 
 
-	          match result {
-	              Ok(Ok(result)) => {
-	          	  let types = Rets::wasm_types();
-	          	  let mut native_results = result.into_array(store);
-	          	  let native_results = native_results.as_mut();
+              match result {
+                  Ok(Ok(result)) => {
+                    let types = Rets::wasm_types();
+                    let mut native_results = result.into_array(store);
+                    let native_results = native_results.as_mut();
 
-	          	  let native_results: Vec<Value> = native_results.into_iter().enumerate().map(|(i, r)| Value::from_raw(store, types[i], r.clone())).collect();
+                    let native_results: Vec<Value> = native_results.into_iter().enumerate().map(|(i, r)| Value::from_raw(store, types[i], r.clone())).collect();
 
-	          	  let mut c_results: Vec<wasm_val_t> = native_results.into_iter().map(IntoCApiValue::into_cv).collect();
+                    let mut c_results: Vec<wasm_val_t> = native_results.into_iter().map(IntoCApiValue::into_cv).collect();
 
-	          	  if c_results.len() != (*results).size {
-	          	      panic!("when calling host function: number of observed results differ from wanted results")
-	          	  }
+                    if c_results.len() != (*results).size {
+                        panic!("when calling host function: number of observed results differ from wanted results")
+                    }
 
-	          	  unsafe {
-	          	      for i in 0..(*results).size {
-	          	          *((*results).data.wrapping_add(i)) = c_results[i]
-	          	      }
+                    unsafe {
+                        for i in 0..(*results).size {
+                            *((*results).data.wrapping_add(i)) = c_results[i]
+                        }
 
-	          	  }
+                    }
 
-	          	  unsafe { std::ptr::null_mut() }
-	            },
+                    unsafe { std::ptr::null_mut() }
+                },
 
-	            Ok(Err(e)) => { let trap = crate::backend::wasmi::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) } },
+                Ok(Err(e)) => { let trap = crate::backend::wasmi::error::Trap::user(Box::new(e)); unsafe { trap.into_wasm_trap(store) } },
 
-	            Err(e) => { unimplemented!("host function panicked"); }
-	          }
-	        }
+                Err(e) => { unimplemented!("host function panicked"); }
+              }
+            }
 
-	        func_wrapper::< $( $x, )* Rets, RetsAsResult, Func, T> as _
+            func_wrapper::< $( $x, )* Rets, RetsAsResult, Func, T> as _
         }
         }
     };
