@@ -536,7 +536,7 @@ macro_rules! impl_host_function {
 
                 match result {
                     Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
+                    Ok(Err(trap)) => raise_user_trap(on_host_stack(|| Box::new(trap))),
                     Err(panic) => resume_panic(panic) ,
                 }
             }
@@ -603,7 +603,7 @@ macro_rules! impl_host_function {
 
   	            match result {
   	                Ok(Ok(result)) => return result.into_c_struct(&mut store),
-  	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(Box::new(trap)),
+  	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(on_host_stack(|| Box::new(trap))),
   	                Err(panic) => wasmer_vm::resume_panic(panic),
   	            }
             }
