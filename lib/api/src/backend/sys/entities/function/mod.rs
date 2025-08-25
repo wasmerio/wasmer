@@ -538,9 +538,9 @@ macro_rules! impl_host_function {
                     }))
                 });
 
-            // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
-            // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
-            // See: https://github.com/wasmerio/wasmer/pull/5700
+                // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
+                // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
+                // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(Ok(result)) => return result.into_c_struct(&mut store),
                     Ok(Err(trap)) => raise_user_trap(trap),
@@ -558,20 +558,20 @@ macro_rules! impl_host_function {
             () -> crate::backend::sys::vm::VMTrampoline {
 
             unsafe extern "C" fn call_trampoline<$( $x: FromToNativeWasmType, )* Rets: WasmTypeList>
-  	        (
-                  vmctx: *mut crate::backend::sys::vm::VMContext,
-                  body: crate::backend::sys::vm::VMFunctionCallback,
-                  args: *mut RawValue,
-              ) {
-	         let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
-  	         let mut _n = 0;
-  	         $(
-  	             let $x = *args.add(_n).cast();
-  	             _n += 1;
-  	         )*
+            (
+                vmctx: *mut crate::backend::sys::vm::VMContext,
+                body: crate::backend::sys::vm::VMFunctionCallback,
+                args: *mut RawValue,
+            ) {
+                let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+                let mut _n = 0;
+                $(
+                    let $x = *args.add(_n).cast();
+                    _n += 1;
+                )*
 
-  	         let results = body(vmctx, $( $x ),*);
-  	         Rets::write_c_struct_to_ptr(results, args);
+                let results = body(vmctx, $( $x ),*);
+                Rets::write_c_struct_to_ptr(results, args);
             }
 
             call_trampoline::<$( $x, )* Rets> as _
@@ -594,28 +594,28 @@ macro_rules! impl_host_function {
             {
 
                 let mut store = StoreMut::from_raw(env.raw_store as *mut _);
-  	            let result = wasmer_vm::on_host_stack(|| {
-  	                panic::catch_unwind(AssertUnwindSafe(|| {
-  	                    $(
-  	                        let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
-  	                    )*
-  	                    let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
-  	                    let f_env = crate::backend::sys::function::env::FunctionEnvMut {
-  	                        store_mut,
-  	                        func_env: env.env.as_sys().clone(),
-  	                    }.into();
-  	                    (env.func)(f_env, $($x),* ).into_result().map_err(Box::new)
-  	                }))
-  	            });
+                let result = wasmer_vm::on_host_stack(|| {
+                    panic::catch_unwind(AssertUnwindSafe(|| {
+                        $(
+                            let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
+                        )*
+                        let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
+                        let f_env = crate::backend::sys::function::env::FunctionEnvMut {
+                            store_mut,
+                            func_env: env.env.as_sys().clone(),
+                        }.into();
+                        (env.func)(f_env, $($x),* ).into_result().map_err(Box::new)
+                    }))
+                });
 
-            // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
-            // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
-            // See: https://github.com/wasmerio/wasmer/pull/5700
-            match result {
-  	                Ok(Ok(result)) => return result.into_c_struct(&mut store),
-  	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(trap),
-  	                Err(panic) => wasmer_vm::resume_panic(panic),
-  	            }
+                // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
+                // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
+                // See: https://github.com/wasmerio/wasmer/pull/5700
+                match result {
+                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                    Ok(Err(trap)) => raise_user_trap(trap),
+                    Err(panic) => resume_panic(panic),
+                }
             }
             func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
         }
@@ -630,21 +630,20 @@ macro_rules! impl_host_function {
                   body: crate::backend::sys::vm::VMFunctionCallback,
                   args: *mut RawValue,
             ) {
-	          let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
-	          let mut _n = 0;
-	          $(
-	          let $x = *args.add(_n).cast();
-	          _n += 1;
-	          )*
+                let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+                let mut _n = 0;
+                $(
+                let $x = *args.add(_n).cast();
+                _n += 1;
+                )*
 
-	          let results = body(vmctx, $( $x ),*);
-	          Rets::write_c_struct_to_ptr(results, args);
+                let results = body(vmctx, $( $x ),*);
+                Rets::write_c_struct_to_ptr(results, args);
             }
 
-	        call_trampoline::<$( $x, )* Rets> as _
+            call_trampoline::<$( $x, )* Rets> as _
         }
-        }
-    };
+    }};
 }
 
 // Here we go! Let's generate all the C struct, `WasmTypeList`
