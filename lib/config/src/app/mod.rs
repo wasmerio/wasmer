@@ -207,6 +207,7 @@ pub struct AppConfigCapabilityMapV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub instaboot: Option<AppConfigCapabilityInstaBootV1>,
 
+    #[serde(skip_serializing_if = "Option::is_none")]
     pub ssh: Option<CapabilitySshServerV1>,
 
     /// Additional unknown capabilities.
