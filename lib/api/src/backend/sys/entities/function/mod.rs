@@ -445,7 +445,7 @@ where
 
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(trap)) => raise_user_trap(Box::new(trap)),
+            Ok(Err(trap)) => raise_user_trap(on_host_stack(|| Box::new(trap))),
             Err(panic) => resume_panic(panic),
         }
     }
