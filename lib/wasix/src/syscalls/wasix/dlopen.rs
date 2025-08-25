@@ -31,7 +31,7 @@ pub fn dlopen<M: MemorySize>(
 
     if path.is_null() {
         // A null file name symbolizes the main module, which has a static handle
-        wasi_try_mem_ok!(out_handle.write(&memory, crate::state::MAIN_MODULE_HANDLE.into()));
+        wasi_try_mem_ok!(out_handle.write(&memory, crate::state::ModuleHandle::MAIN.into()));
         return Ok(Errno::Success);
     }
 

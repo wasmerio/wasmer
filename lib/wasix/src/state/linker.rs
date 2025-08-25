@@ -283,35 +283,18 @@ use wasmer::{
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
+use super::{WasiModuleInstanceHandles, WasiState};
 use crate::{
     fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
     WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
 };
+pub(crate) use module_handle::{ModuleHandle, ModuleHandleWithFlags};
 
-use super::{WasiModuleInstanceHandles, WasiState};
-
-// Module handle 1 is always the main module. Side modules get handles starting from the next one after the main module.
-pub static MAIN_MODULE_HANDLE: ModuleHandle = ModuleHandle(1);
-static INVALID_MODULE_HANDLE: ModuleHandle = ModuleHandle(u32::MAX);
+mod module_handle;
 
 static MAIN_MODULE_MEMORY_BASE: u64 = 0;
 // Need to keep the zeroth index null to catch null function pointers at runtime
 static MAIN_MODULE_TABLE_BASE: u64 = 1;
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
-pub struct ModuleHandle(u32);
-
-impl From<ModuleHandle> for u32 {
-    fn from(handle: ModuleHandle) -> Self {
-        handle.0
-    }
-}
-
-impl From<u32> for ModuleHandle {
-    fn from(handle: u32) -> Self {
-        ModuleHandle(handle)
-    }
-}
 
 const DEFAULT_RUNTIME_PATH: [&str; 3] = ["/lib", "/usr/lib", "/usr/local/lib"];
 
@@ -518,6 +501,9 @@ pub enum LinkError {
 
     #[error("Dynamic function index {0} was not allocated via `allocate_function`")]
     DynamicFunctionIndexNotAllocated(u32),
+
+    #[error("Module handle limit exhausted")]
+    ModuleHandlesExhausted,
 }
 
 #[derive(Debug)]
@@ -540,6 +526,7 @@ impl std::fmt::Display for LocateModuleError {
     }
 }
 
+// TODO: What does partially resolved mean?
 #[derive(Debug)]
 enum PartiallyResolvedExport {
     Function(Function),
@@ -742,8 +729,8 @@ pub enum SymbolResolutionResult {
     // The symbol was resolved to a function export with the same name from this module.
     // it is expected that the symbol resolves to an export of the correct type.
     Function {
-        ty: FunctionType,
         resolved_from: ModuleHandle,
+        ty: FunctionType,
     },
     // Same deal as above, but a pointer was generated and placed in the function table.
     FunctionPointer {
@@ -793,6 +780,7 @@ struct InstanceGroupState {
     main_instance: Option<Instance>,
     main_instance_tls_base: u64,
 
+    /// All the loaded instances besides the main instance
     side_instances: HashMap<ModuleHandle, DlInstance>,
 
     stack_pointer: Global,
@@ -823,7 +811,7 @@ struct LinkerState {
     // order is preserved.
     side_modules: BTreeMap<ModuleHandle, DlModule>,
     side_modules_by_name: HashMap<PathBuf, ModuleHandle>,
-    next_module_handle: u32,
+    next_module_handle: ModuleHandle,
 
     memory_allocator: MemoryAllocator,
     heap_base: u64,
@@ -1080,7 +1068,7 @@ impl Linker {
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
             side_modules_by_name: HashMap::new(),
-            next_module_handle: MAIN_MODULE_HANDLE.0 + 1,
+            next_module_handle: ModuleHandle::MAIN.next().unwrap(),
             memory_allocator: MemoryAllocator::new(),
             allocated_closure_functions: BTreeMap::new(),
             available_closure_functions: Vec::new(),
@@ -1105,14 +1093,14 @@ impl Linker {
             &instance_group,
             store,
             main_module,
-            MAIN_MODULE_HANDLE,
+            ModuleHandle::MAIN,
             &mut link_state,
             &well_known_imports,
         )?;
 
         trace!("Populating main module's imports object");
         instance_group.populate_imports_from_link_state(
-            MAIN_MODULE_HANDLE,
+            ModuleHandle::MAIN,
             &mut linker_state,
             &mut link_state,
             store,
@@ -1349,7 +1337,7 @@ impl Linker {
 
         trace!("Populating imports object for new instance group's main instance");
         instance_group.populate_imports_from_linker(
-            MAIN_MODULE_HANDLE,
+            ModuleHandle::MAIN,
             &linker_state,
             store,
             &main_module,
@@ -1554,7 +1542,7 @@ impl Linker {
         &self,
         module_spec: DlModuleSpec,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-    ) -> Result<ModuleHandle, LinkError> {
+    ) -> Result<ModuleHandleWithFlags, LinkError> {
         trace!(?module_spec, "Loading module");
 
         lock_instance_group_state!(
@@ -1703,7 +1691,7 @@ impl Linker {
     pub fn resolve_export(
         &self,
         ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        module_handle: Option<ModuleHandle>,
+        module_handle: ModuleHandleWithFlags,
         symbol: &str,
     ) -> Result<ResolvedExport, ResolveError> {
         trace!(?module_handle, symbol, "Resolving symbol");
@@ -2013,7 +2001,7 @@ impl LinkerState {
     }
 
     fn memory_base(&self, module_handle: ModuleHandle) -> u64 {
-        if module_handle == MAIN_MODULE_HANDLE {
+        if module_handle == ModuleHandle::MAIN {
             MAIN_MODULE_MEMORY_BASE
         } else {
             self.side_modules
@@ -2024,7 +2012,7 @@ impl LinkerState {
     }
 
     fn dylink_info(&self, module_handle: ModuleHandle) -> &DylinkInfo {
-        if module_handle == MAIN_MODULE_HANDLE {
+        if module_handle == ModuleHandle::MAIN {
             &self.main_module_dylink_info
         } else {
             &self
@@ -2259,7 +2247,7 @@ impl LinkerState {
         wasi_state: &WasiState,
         runtime_path: &[impl AsRef<str>],
         calling_module_path: Option<impl AsRef<Path>>,
-    ) -> Result<ModuleHandle, LinkError> {
+    ) -> Result<ModuleHandleWithFlags, LinkError> {
         let module_name = match module_spec {
             DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
             DlModuleSpec::Memory { module_name, .. } => {
@@ -2273,7 +2261,7 @@ impl LinkerState {
 
             trace!(?module_name, ?handle, "Module was already loaded");
 
-            return Ok(handle);
+            return Ok(handle.into());
         }
 
         // Locate and load the module bytes
@@ -2297,7 +2285,7 @@ impl LinkerState {
                     // recursively resolving needed modules. We don't use the handle
                     // returned from this function for anything when running recursively
                     // (see self.load_module call below).
-                    return Ok(INVALID_MODULE_HANDLE);
+                    return Ok(ModuleHandleWithFlags::Invalid);
                 }
 
                 (Cow::Owned(bytes), Some((full_path, ld_library_path)))
@@ -2355,8 +2343,8 @@ impl LinkerState {
             );
         }
 
-        let handle = ModuleHandle(self.next_module_handle);
-        self.next_module_handle += 1;
+        let handle = self.next_module_handle;
+        self.next_module_handle = handle.next().expect("Module handle");
 
         trace!(?module_name, ?handle, "Assigned handle to module");
 
@@ -2372,7 +2360,7 @@ impl LinkerState {
         self.side_modules_by_name
             .insert(module_name.into_owned(), handle);
 
-        Ok(handle)
+        Ok(handle.into())
     }
 }
 
@@ -2382,7 +2370,7 @@ impl InstanceGroupState {
     }
 
     fn tls_base(&self, module_handle: ModuleHandle) -> Option<u64> {
-        if module_handle == MAIN_MODULE_HANDLE {
+        if module_handle == ModuleHandle::MAIN {
             // Main's TLS area is at the beginning of its memory
             Some(self.main_instance_tls_base)
         } else {
@@ -2394,7 +2382,7 @@ impl InstanceGroupState {
     }
 
     fn try_instance(&self, handle: ModuleHandle) -> Option<&Instance> {
-        if handle == MAIN_MODULE_HANDLE {
+        if handle == ModuleHandle::MAIN {
             self.main_instance.as_ref()
         } else {
             self.side_instances.get(&handle).map(|i| &i.instance)
@@ -2745,7 +2733,7 @@ impl InstanceGroupState {
                 panic!(
                     "Internal error: Tried to import TLS symbol from module {} that \
                     has no TLS base",
-                    tls.resolved_from.0
+                    tls.resolved_from
                 );
             };
 
@@ -2877,8 +2865,8 @@ impl InstanceGroupState {
             .main_instance()
             .and_then(|instance| instance.exports.get_extern(symbol))
         {
-            trace!(symbol, from = ?MAIN_MODULE_HANDLE, ?export, "Resolved exported symbol");
-            Some((MAIN_MODULE_HANDLE, export))
+            trace!(symbol, from = ?ModuleHandle::MAIN, ?export, "Resolved exported symbol");
+            Some((ModuleHandle::MAIN, export))
         } else {
             for (handle, dl_instance) in &self.side_instances {
                 if let Some(export) = dl_instance.instance.exports.get_extern(symbol) {
@@ -3455,13 +3443,13 @@ impl InstanceGroupState {
         &self,
         linker_state: &LinkerState,
         store: &mut impl AsStoreMut,
-        module_handle: Option<ModuleHandle>,
+        module_handle: ModuleHandleWithFlags,
         symbol: &str,
         allow_hidden: bool,
     ) -> Result<(PartiallyResolvedExport, ModuleHandle), ResolveError> {
         trace!(?module_handle, ?symbol, "Resolving export");
         match module_handle {
-            Some(module_handle) => {
+            ModuleHandleWithFlags::Normal(module_handle) => {
                 let instance = self
                     .try_instance(module_handle)
                     .ok_or(ResolveError::InvalidModuleHandle)?;
@@ -3483,20 +3471,20 @@ impl InstanceGroupState {
                 ))
             }
 
-            None => {
+            ModuleHandleWithFlags::RtldDefault => {
                 // TODO: this would be the place to support RTLD_NEXT
                 if let Some(instance) = self.main_instance() {
                     match self.resolve_export_from(
                         store,
-                        MAIN_MODULE_HANDLE,
+                        ModuleHandle::MAIN,
                         symbol,
                         instance,
                         &linker_state.main_module_dylink_info,
-                        linker_state.memory_base(MAIN_MODULE_HANDLE),
+                        linker_state.memory_base(ModuleHandle::MAIN),
                         Some(self.main_instance_tls_base),
                         allow_hidden,
                     ) {
-                        Ok(export) => return Ok((export, MAIN_MODULE_HANDLE)),
+                        Ok(export) => return Ok((export, ModuleHandle::MAIN)),
                         Err(ResolveError::MissingExport) => (),
                         Err(e) => return Err(e),
                     }
@@ -3526,6 +3514,7 @@ impl InstanceGroupState {
                 );
                 Err(ResolveError::MissingExport)
             }
+            ModuleHandleWithFlags::Invalid => Err(ResolveError::InvalidModuleHandle),
         }
     }
 
@@ -3807,7 +3796,13 @@ impl InstanceGroupState {
 
             match (
                 unresolved,
-                self.resolve_export(linker_state, store, None, &key.import_name, true),
+                self.resolve_export(
+                    linker_state,
+                    store,
+                    ModuleHandleWithFlags::RtldDefault,
+                    &key.import_name,
+                    true,
+                ),
             ) {
                 (
                     UnresolvedGlobal::Mem(key, global),

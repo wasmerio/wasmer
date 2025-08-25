@@ -1,8 +1,9 @@
-use state::ModuleHandle;
+use state::ModuleHandleWithFlags;
 
 use super::*;
-use crate::syscalls::*;
+use crate::{state::ModuleHandle, syscalls::*};
 
+// TODO: dl invalid handle
 #[instrument(level = "trace", skip_all, fields(path = field::Empty), ret)]
 pub fn dl_invalid_handle(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -13,11 +14,8 @@ pub fn dl_invalid_handle(
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
 
-    let handle = if handle == 0 {
-        // Handle zero is the main module, and never a valid side module handle
+    let Ok(handle) = ModuleHandle::try_from(handle) else {
         return Ok(Errno::Noexec);
-    } else {
-        ModuleHandle::from(handle)
     };
 
     let env_inner = unsafe { env.inner() };
@@ -26,14 +24,11 @@ pub fn dl_invalid_handle(
         return Ok(Errno::Noexec);
     };
 
-    let is_valid = linker
+    let result = linker
         .clone()
         .is_handle_valid(handle, &mut ctx)
-        .unwrap_or(false);
+        .map(|v| if v { Errno::Success } else { Errno::Noexec })
+        .unwrap_or(Errno::Noexec);
 
-    Ok(if is_valid {
-        Errno::Success
-    } else {
-        Errno::Noexec
-    })
+    Ok(result)
 }

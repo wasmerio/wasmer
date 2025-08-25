@@ -1,8 +1,6 @@
-use state::MAIN_MODULE_HANDLE;
-
 use super::*;
 use crate::{
-    state::{ModuleHandle, ResolvedExport},
+    state::{ModuleHandleWithFlags, ResolvedExport},
     syscalls::*,
 };
 
@@ -34,13 +32,7 @@ pub fn dlsym<M: MemorySize>(
     };
     let linker = linker.clone();
 
-    // handle = 0 is RTLD_DEFAULT, so search everywhere
-    let handle = if handle == 0 {
-        None
-    } else {
-        Some(ModuleHandle::from(handle))
-    };
-    let symbol = linker.resolve_export(&mut ctx, handle, &symbol);
+    let symbol = linker.resolve_export(&mut ctx, ModuleHandleWithFlags::from(handle), &symbol);
 
     let (env, mut store) = ctx.data_and_store_mut();
     let memory = unsafe { env.memory_view(&store) };
