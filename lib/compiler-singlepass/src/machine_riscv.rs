@@ -1645,7 +1645,7 @@ impl Machine for MachineRiscv {
             6 => Location::GPR(GPR::X16),
             7 => Location::GPR(GPR::X17),
             _ => {
-                let loc = Location::Memory(GPR::Fp, 16 * 2 + *stack_args as i32);
+                let loc = Location::Memory(GPR::Fp, 16 + *stack_args as i32);
                 *stack_args += 8;
                 loc
             }
