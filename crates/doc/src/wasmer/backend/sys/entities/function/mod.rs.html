@@ -1113,7 +1113,7 @@
 
         <span class="kw">match </span>result {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) =&gt; {}
-            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(Box::new(trap)),
+            <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(on_host_stack(|| Box::new(trap))),
             <span class="prelude-val">Err</span>(panic) =&gt; resume_panic(panic),
         }
     }
@@ -1204,7 +1204,7 @@
 
                 <span class="kw">match </span>result {
                     <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(result)) =&gt; <span class="kw">return </span>result.into_c_struct(<span class="kw-2">&amp;mut </span>store),
-                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(Box::new(trap)),
+                    <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; raise_user_trap(on_host_stack(|| Box::new(trap))),
                     <span class="prelude-val">Err</span>(panic) =&gt; resume_panic(panic) ,
                 }
             }
@@ -1271,7 +1271,7 @@
 
   	            <span class="kw">match </span>result {
   	                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(result)) =&gt; <span class="kw">return </span>result.into_c_struct(<span class="kw-2">&amp;mut </span>store),
-  	                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; wasmer_vm::raise_user_trap(Box::new(trap)),
+  	                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(trap)) =&gt; wasmer_vm::raise_user_trap(on_host_stack(|| Box::new(trap))),
   	                <span class="prelude-val">Err</span>(panic) =&gt; wasmer_vm::resume_panic(panic),
   	            }
             }
