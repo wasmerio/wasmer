@@ -446,7 +446,9 @@ where
             }))
         });
 
-        // IMPORTANT: DO NOT ALLOCATE ANYTHING, AS WE ARE NOT ON THE HOST STACK.
+        // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
+        // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
+        // See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
             Ok(Ok(())) => {}
             Ok(Err(trap)) => raise_user_trap(trap),
@@ -536,7 +538,9 @@ macro_rules! impl_host_function {
                     }))
                 });
 
-                // IMPORTANT: DO NOT ALLOCATE ANYTHING, AS WE ARE NOT ON THE HOST STACK.
+            // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
+            // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
+            // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(Ok(result)) => return result.into_c_struct(&mut store),
                     Ok(Err(trap)) => raise_user_trap(trap),
@@ -604,8 +608,10 @@ macro_rules! impl_host_function {
   	                }))
   	            });
 
-                // IMPORTANT: DO NOT ALLOCATE ANYTHING, AS WE ARE NOT ON THE HOST STACK.
-  	            match result {
+            // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
+            // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
+            // See: https://github.com/wasmerio/wasmer/pull/5700
+            match result {
   	                Ok(Ok(result)) => return result.into_c_struct(&mut store),
   	                Ok(Err(trap)) => wasmer_vm::raise_user_trap(trap),
   	                Err(panic) => wasmer_vm::resume_panic(panic),
