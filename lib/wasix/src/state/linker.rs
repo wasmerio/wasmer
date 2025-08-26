@@ -285,18 +285,20 @@ use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use super::{WasiModuleInstanceHandles, WasiState};
 use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
-    WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
+    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId
 };
 pub(crate) use module_handle::{ModuleHandle, ModuleHandleWithFlags};
+use symbol_resolution_cache::{SymbolResolutionCache};
 
 mod module_handle;
+pub(crate) mod symbol_resolution_cache;
 
 static MAIN_MODULE_MEMORY_BASE: u64 = 0;
 // Need to keep the zeroth index null to catch null function pointers at runtime
 static MAIN_MODULE_TABLE_BASE: u64 = 1;
 
 const DEFAULT_RUNTIME_PATH: [&str; 3] = ["/lib", "/usr/lib", "/usr/local/lib"];
+
 
 struct AllocatedPage {
     // The base_ptr is mutable, and will move forward as memory is allocated from the page.
@@ -704,7 +706,6 @@ struct InProgressLinkState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SymbolResolutionKey {
     Needed(NeededSymbolResolutionKey),
-    Requested(String),
 }
 
 #[derive(Debug)]
@@ -825,6 +826,7 @@ struct LinkerState {
     available_closure_functions: Vec<u32>,
 
     symbol_resolution_records: HashMap<SymbolResolutionKey, SymbolResolutionResult>,
+    symbol_resolution_cache: SymbolResolutionCache,
 
     send_pending_operation_barrier: bus::Bus<Arc<Barrier>>,
     send_pending_operation: bus::Bus<DlOperation>,
@@ -1074,6 +1076,7 @@ impl Linker {
             available_closure_functions: Vec::new(),
             heap_base: stack_high,
             symbol_resolution_records: HashMap::new(),
+            symbol_resolution_cache: SymbolResolutionCache::new(),
             send_pending_operation_barrier: barrier_tx,
             send_pending_operation: operation_tx,
         };
@@ -1679,6 +1682,128 @@ impl Linker {
         Ok(())
     }
 
+    //     // TODO: Support RTLD_NEXT
+    // /// Resolves an export from the module corresponding to the given module handle.
+    // /// Only functions and globals can be resolved.
+    // ///
+    // /// If the symbol is a global, the returned value will be the absolute address of
+    // /// the data corresponding to that global within the shared linear memory.
+    // ///
+    // /// If it's a function, it'll be placed into the indirect function table,
+    // /// which creates a "function pointer" that can be used from WASM code.
+    // pub fn resolve_export_handle(
+    //     &self,
+    //     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
+    //     module_handle: ModuleHandle,
+    //     symbol: &str,
+    // ) -> Result<ResolvedExport, ResolveError> {
+    //     trace!(?module_handle, symbol, "Resolving symbol");
+
+    //     let resolution_key = SymbolResolutionKey::Requested(module_handle, symbol.to_string());
+
+    //     lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
+
+    //     if let Ok(linker_state) = self.linker_state.try_read() {
+    //         if let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
+    //             trace!(?resolution, "Already have a resolution for this symbol");
+    //             match resolution {
+    //                 SymbolResolutionResult::FunctionPointer {
+    //                     function_table_index: addr,
+    //                     ..
+    //                 } => {
+    //                     return Ok(ResolvedExport::Function {
+    //                         func_ptr: *addr as u64,
+    //                     })
+    //                 }
+    //                 SymbolResolutionResult::Memory(addr) => {
+    //                     return Ok(ResolvedExport::Global { data_ptr: *addr })
+    //                 }
+    //                 SymbolResolutionResult::Tls {
+    //                     resolved_from,
+    //                     offset,
+    //                 } => {
+    //                     let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+    //                         return Err(ResolveError::TlsSymbolWithoutTls);
+    //                     };
+    //                     return Ok(ResolvedExport::Global {
+    //                         data_ptr: tls_base + offset,
+    //                     });
+    //                 }
+    //                 r => panic!(
+    //                     "Internal error: unexpected symbol resolution \
+    //                     {r:?} for requested symbol {symbol}"
+    //                 ),
+    //             }
+    //         }
+    //     }
+
+    //     write_linker_state!(linker_state, self, group_state, ctx);
+
+    //     let mut store = ctx.as_store_mut();
+
+    //     trace!("Resolving export");
+    //     let (export, resolved_from) =
+    //         group_state.resolve_export(&linker_state, &mut store, module_handle, symbol, false)?;
+
+    //     trace!(?export, ?resolved_from, "Resolved export");
+
+    //     match export {
+    //         PartiallyResolvedExport::Global(addr) => {
+    //             linker_state
+    //                 .symbol_resolution_records
+    //                 .insert(resolution_key, SymbolResolutionResult::Memory(addr));
+
+    //             Ok(ResolvedExport::Global { data_ptr: addr })
+    //         }
+    //         PartiallyResolvedExport::Tls { offset, final_addr } => {
+    //             linker_state.symbol_resolution_records.insert(
+    //                 resolution_key,
+    //                 SymbolResolutionResult::Tls {
+    //                     resolved_from,
+    //                     offset,
+    //                 },
+    //             );
+
+    //             Ok(ResolvedExport::Global {
+    //                 data_ptr: final_addr,
+    //             })
+    //         }
+    //         PartiallyResolvedExport::Function(func) => {
+    //             let func_ptr = group_state
+    //                 .append_to_function_table(&mut store, func.clone())
+    //                 .map_err(ResolveError::TableAllocationError)?;
+    //             trace!(
+    //                 ?func_ptr,
+    //                 table_size = group_state.indirect_function_table.size(&store),
+    //                 "Placed resolved function into table"
+    //             );
+    //             linker_state.symbol_resolution_records.insert(
+    //                 resolution_key,
+    //                 SymbolResolutionResult::FunctionPointer {
+    //                     resolved_from,
+    //                     function_table_index: func_ptr,
+    //                 },
+    //             );
+
+    //             self.synchronize_link_operation(
+    //                 DlOperation::ResolveFunction {
+    //                     name: symbol.to_string(),
+    //                     resolved_from,
+    //                     function_table_index: func_ptr,
+    //                 },
+    //                 linker_state,
+    //                 group_state,
+    //                 &ctx.data().process,
+    //                 ctx.data().tid(),
+    //             );
+
+    //             Ok(ResolvedExport::Function {
+    //                 func_ptr: func_ptr as u64,
+    //             })
+    //         }
+    //     }
+    // }
+
     // TODO: Support RTLD_NEXT
     /// Resolves an export from the module corresponding to the given module handle.
     /// Only functions and globals can be resolved.
@@ -1696,12 +1821,15 @@ impl Linker {
     ) -> Result<ResolvedExport, ResolveError> {
         trace!(?module_handle, symbol, "Resolving symbol");
 
-        let resolution_key = SymbolResolutionKey::Requested(symbol.to_string());
+        // let resolution_key = SymbolResolutionKey::Requested(symbol.to_string());
 
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
         if let Ok(linker_state) = self.linker_state.try_read() {
-            if let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
+            if let Some(resolution) = linker_state
+                .symbol_resolution_cache
+                .get_by_name_and_module_handle(symbol, &module_handle)
+            {
                 trace!(?resolution, "Already have a resolution for this symbol");
                 match resolution {
                     SymbolResolutionResult::FunctionPointer {
@@ -1746,15 +1874,18 @@ impl Linker {
 
         match export {
             PartiallyResolvedExport::Global(addr) => {
-                linker_state
-                    .symbol_resolution_records
-                    .insert(resolution_key, SymbolResolutionResult::Memory(addr));
+                linker_state.symbol_resolution_cache.insert_entry(
+                    &resolved_from,
+                    symbol,
+                    SymbolResolutionResult::Memory(addr),
+                );
 
                 Ok(ResolvedExport::Global { data_ptr: addr })
             }
             PartiallyResolvedExport::Tls { offset, final_addr } => {
-                linker_state.symbol_resolution_records.insert(
-                    resolution_key,
+                linker_state.symbol_resolution_cache.insert_entry(
+                    &resolved_from,
+                    symbol,
                     SymbolResolutionResult::Tls {
                         resolved_from,
                         offset,
@@ -1774,8 +1905,9 @@ impl Linker {
                     table_size = group_state.indirect_function_table.size(&store),
                     "Placed resolved function into table"
                 );
-                linker_state.symbol_resolution_records.insert(
-                    resolution_key,
+                linker_state.symbol_resolution_cache.insert_entry(
+                    &resolved_from,
+                    symbol,
                     SymbolResolutionResult::FunctionPointer {
                         resolved_from,
                         function_table_index: func_ptr,
@@ -2839,21 +2971,11 @@ impl InstanceGroupState {
         store: &mut impl AsStoreMut,
         linker_state: &LinkerState,
     ) -> Result<(), LinkError> {
-        for (key, val) in &linker_state.symbol_resolution_records {
-            if let SymbolResolutionKey::Requested(name) = key {
-                if let SymbolResolutionResult::FunctionPointer {
-                    resolved_from,
-                    function_table_index,
-                } = val
-                {
-                    self.apply_resolved_function(
-                        store,
-                        name,
-                        *resolved_from,
-                        *function_table_index,
-                    )?;
-                }
-            }
+        for (name, resolved_from, function_table_index) in linker_state
+            .symbol_resolution_cache
+            .all_function_pointers_iter()
+        {
+            self.apply_resolved_function(store, name, *resolved_from, *function_table_index)?;
         }
         Ok(())
     }
