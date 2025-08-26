@@ -717,20 +717,24 @@ struct InProgressLinkState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SymbolResolutionKey {
     Needed(NeededSymbolResolutionKey),
-    Requested(String),
+    Requested {
+        // Note: since we don't support module unloading, resolving the same symbol
+        // from *every* module will find the same symbol every time, so we can cache
+        // the None case as well.
+        // TODO: once we implement RTLD_NEXT, that flag should also be taken into
+        // account here.
+        resolve_from: Option<ModuleHandle>,
+        name: String,
+    },
 }
 
 #[derive(Debug)]
 pub enum SymbolResolutionResult {
     // The symbol was resolved to a global address. We don't resolve again because
     // the value of globals and the memory_base for each module and all of its instances
-    // is fixed, and we can't nuke globals in the same way we do with functions. The end
-    // goal is to have new instance groups behave exactly the same as existing instance
-    // groups; since existing instance groups will have a (possibly invalid) pointer
-    // into memory from when this global still existed, we do the same for new instance
-    // groups.
-    // The case of unresolved globals is not mentioned here, since it can't exist once
-    // a link operation is complete.
+    // is fixed.
+    // The case of unresolved globals is not mentioned in this enum, since it can't exist
+    // once a link operation is finalized.
     Memory(u64),
     // The symbol was resolved to a global address, but the global is a TLS variable.
     // Each instance of each module has a different TLS area, and TLS symbols must be
@@ -1708,7 +1712,10 @@ impl Linker {
     ) -> Result<ResolvedExport, ResolveError> {
         trace!(?module_handle, symbol, "Resolving symbol");
 
-        let resolution_key = SymbolResolutionKey::Requested(symbol.to_string());
+        let resolution_key = SymbolResolutionKey::Requested {
+            resolve_from: module_handle,
+            name: symbol.to_string(),
+        };
 
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
@@ -2852,7 +2859,7 @@ impl InstanceGroupState {
         linker_state: &LinkerState,
     ) -> Result<(), LinkError> {
         for (key, val) in &linker_state.symbol_resolution_records {
-            if let SymbolResolutionKey::Requested(name) = key {
+            if let SymbolResolutionKey::Requested { name, .. } = key {
                 if let SymbolResolutionResult::FunctionPointer {
                     resolved_from,
                     function_table_index,
@@ -3502,13 +3509,19 @@ impl InstanceGroupState {
                     }
                 }
 
-                for (handle, instance) in &self.side_instances {
+                // Iterate over linker.side_modules to ensure we're going over the
+                // modules in increasing order of module_handle, A.K.A. the order
+                // in which modules were loaded. linker.side_modules is a BTreeMap
+                // whereas self.side_instances is a HashMap with undetermined
+                // iteration order.
+                for (handle, module) in &linker_state.side_modules {
+                    let instance = &self.side_instances[handle];
                     match self.resolve_export_from(
                         store,
                         *handle,
                         symbol,
                         &instance.instance,
-                        &linker_state.side_modules[handle].dylink_info,
+                        &module.dylink_info,
                         linker_state.memory_base(*handle),
                         instance.tls_base,
                         allow_hidden,
