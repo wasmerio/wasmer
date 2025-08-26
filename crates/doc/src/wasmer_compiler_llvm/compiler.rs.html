@@ -748,7 +748,7 @@
                 .iter()
                 .map(|(f, v)| (wasm_module.local_func_index(<span class="kw-2">*</span>f), v))
                 .filter(|(f, <span class="kw">_</span>)| f.is_some())
-                .map(|(f, v)| (v.clone(), f.unwrap())),
+                .map(|(f, v)| (<span class="macro">format!</span>(<span class="string">"{}_{}"</span>, v.clone(), f.unwrap().as_u32()), f.unwrap())),
         );
         <span class="self">Self </span>{
             wasm_module,
@@ -765,7 +765,7 @@
                 </span>.wasm_module
                 .function_names
                 .get(<span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.func_index(index))
-                .cloned()
+                .map(|name| <span class="macro">format!</span>(<span class="string">"{}_{}"</span>, name, index.as_u32()))
                 .unwrap_or(<span class="self">self</span>.short_names.symbol_to_name(symbol)),
             <span class="kw">_ </span>=&gt; <span class="self">self</span>.short_names.symbol_to_name(symbol),
         }
