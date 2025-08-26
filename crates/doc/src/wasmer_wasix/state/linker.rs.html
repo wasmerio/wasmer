@@ -4269,7 +4269,20 @@
 <a href="#4268" id="4268">4268</a>
 <a href="#4269" id="4269">4269</a>
 <a href="#4270" id="4270">4270</a>
-<a href="#4271" id="4271">4271</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4271" id="4271">4271</a>
+<a href="#4272" id="4272">4272</a>
+<a href="#4273" id="4273">4273</a>
+<a href="#4274" id="4274">4274</a>
+<a href="#4275" id="4275">4275</a>
+<a href="#4276" id="4276">4276</a>
+<a href="#4277" id="4277">4277</a>
+<a href="#4278" id="4278">4278</a>
+<a href="#4279" id="4279">4279</a>
+<a href="#4280" id="4280">4280</a>
+<a href="#4281" id="4281">4281</a>
+<a href="#4282" id="4282">4282</a>
+<a href="#4283" id="4283">4283</a>
+<a href="#4284" id="4284">4284</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4988,20 +5001,24 @@
 <span class="attr">#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 </span><span class="kw">pub enum </span>SymbolResolutionKey {
     Needed(NeededSymbolResolutionKey),
-    Requested(String),
+    Requested {
+        <span class="comment">// Note: since we don't support module unloading, resolving the same symbol
+        // from *every* module will find the same symbol every time, so we can cache
+        // the None case as well.
+        // TODO: once we implement RTLD_NEXT, that flag should also be taken into
+        // account here.
+        </span>resolve_from: <span class="prelude-ty">Option</span>&lt;ModuleHandle&gt;,
+        name: String,
+    },
 }
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub enum </span>SymbolResolutionResult {
     <span class="comment">// The symbol was resolved to a global address. We don't resolve again because
     // the value of globals and the memory_base for each module and all of its instances
-    // is fixed, and we can't nuke globals in the same way we do with functions. The end
-    // goal is to have new instance groups behave exactly the same as existing instance
-    // groups; since existing instance groups will have a (possibly invalid) pointer
-    // into memory from when this global still existed, we do the same for new instance
-    // groups.
-    // The case of unresolved globals is not mentioned here, since it can't exist once
-    // a link operation is complete.
+    // is fixed.
+    // The case of unresolved globals is not mentioned in this enum, since it can't exist
+    // once a link operation is finalized.
     </span>Memory(u64),
     <span class="comment">// The symbol was resolved to a global address, but the global is a TLS variable.
     // Each instance of each module has a different TLS area, and TLS symbols must be
@@ -5979,7 +5996,10 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;ResolvedExport, ResolveError&gt; {
         <span class="macro">trace!</span>(<span class="question-mark">?</span>module_handle, symbol, <span class="string">"Resolving symbol"</span>);
 
-        <span class="kw">let </span>resolution_key = SymbolResolutionKey::Requested(symbol.to_string());
+        <span class="kw">let </span>resolution_key = SymbolResolutionKey::Requested {
+            resolve_from: module_handle,
+            name: symbol.to_string(),
+        };
 
         <span class="macro">lock_instance_group_state!</span>(guard, group_state, <span class="self">self</span>, ResolveError::InstanceGroupIsDead);
 
@@ -7123,7 +7143,7 @@
         linker_state: <span class="kw-2">&amp;</span>LinkerState,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), LinkError&gt; {
         <span class="kw">for </span>(key, val) <span class="kw">in </span><span class="kw-2">&amp;</span>linker_state.symbol_resolution_records {
-            <span class="kw">if let </span>SymbolResolutionKey::Requested(name) = key {
+            <span class="kw">if let </span>SymbolResolutionKey::Requested { name, .. } = key {
                 <span class="kw">if let </span>SymbolResolutionResult::FunctionPointer {
                     resolved_from,
                     function_table_index,
@@ -7773,13 +7793,19 @@
                     }
                 }
 
-                <span class="kw">for </span>(handle, instance) <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.side_instances {
+                <span class="comment">// Iterate over linker.side_modules to ensure we're going over the
+                // modules in increasing order of module_handle, A.K.A. the order
+                // in which modules were loaded. linker.side_modules is a BTreeMap
+                // whereas self.side_instances is a HashMap with undetermined
+                // iteration order.
+                </span><span class="kw">for </span>(handle, module) <span class="kw">in </span><span class="kw-2">&amp;</span>linker_state.side_modules {
+                    <span class="kw">let </span>instance = <span class="kw-2">&amp;</span><span class="self">self</span>.side_instances[handle];
                     <span class="kw">match </span><span class="self">self</span>.resolve_export_from(
                         store,
                         <span class="kw-2">*</span>handle,
                         symbol,
                         <span class="kw-2">&amp;</span>instance.instance,
-                        <span class="kw-2">&amp;</span>linker_state.side_modules[handle].dylink_info,
+                        <span class="kw-2">&amp;</span>module.dylink_info,
                         linker_state.memory_base(<span class="kw-2">*</span>handle),
                         instance.tls_base,
                         allow_hidden,
