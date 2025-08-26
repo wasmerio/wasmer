@@ -2018,7 +2018,100 @@ pub fn gen_import_call_trampoline_riscv(
         .iter()
         .any(|&x| x == Type::F32 || x == Type::F64)
     {
-        todo!("floating-point types not supporter yet")
+        // Allocate stack space for arguments.
+        let stack_offset: i32 = if sig.params().len() > 8 {
+            8 * 8
+        } else {
+            (sig.params().len() as i32) * 8
+        };
+        if stack_offset > 0 {
+            if ImmType::Bits12Subtraction.compatible_imm(stack_offset as _) {
+                a.emit_sub(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::Imm64(stack_offset as _),
+                    Location::GPR(GPR::Sp),
+                )?;
+            } else {
+                a.emit_mov_imm(Location::GPR(SCRATCH_REG), stack_offset as _)?;
+                a.emit_sub(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::GPR(SCRATCH_REG),
+                    Location::GPR(GPR::Sp),
+                )?;
+            }
+        }
+
+        // Store all arguments to the stack to prevent overwrite.
+        static PARAM_REGS: &[GPR] = &[
+            GPR::X10,
+            GPR::X11,
+            GPR::X12,
+            GPR::X13,
+            GPR::X14,
+            GPR::X15,
+            GPR::X16,
+            GPR::X17,
+        ];
+        let mut param_locations = vec![];
+        /* Clippy is wrong about using `i` to index `PARAM_REGS` here. */
+        #[allow(clippy::needless_range_loop)]
+        for i in 0..sig.params().len() {
+            let loc = match i {
+                0..=7 => {
+                    let loc = Location::Memory(GPR::Sp, (i * 8) as i32);
+                    a.emit_sd(Size::S64, Location::GPR(PARAM_REGS[i]), loc)?;
+                    loc
+                }
+                _ => Location::Memory(GPR::Sp, stack_offset + ((i - 8) * 8) as i32),
+            };
+            param_locations.push(loc);
+        }
+
+        // Copy arguments.
+        let mut caller_stack_offset: i32 = 0;
+        let mut argalloc = ArgumentRegisterAllocator::default();
+        argalloc.next(Type::I64).unwrap(); // skip VMContext
+        for (i, ty) in sig.params().iter().enumerate() {
+            let prev_loc = param_locations[i];
+            let targ = match argalloc.next(*ty)? {
+                Some(RiscvRegister::GPR(gpr)) => Location::GPR(gpr),
+                Some(RiscvRegister::FPR(neon)) => Location::SIMD(neon),
+                None => {
+                    // No register can be allocated. Put this argument on the stack.
+                    a.emit_ld(Size::S64, false, Location::GPR(SCRATCH_REG), prev_loc)?;
+                    a.emit_sd(
+                        Size::S64,
+                        Location::GPR(SCRATCH_REG),
+                        Location::Memory(GPR::Sp, stack_offset + caller_stack_offset),
+                    )?;
+                    caller_stack_offset += 8;
+                    continue;
+                }
+            };
+            a.emit_ld(Size::S64, false, targ, prev_loc)?;
+        }
+
+        // Restore stack pointer.
+        if stack_offset > 0 {
+            if ImmType::Bits12.compatible_imm(stack_offset as _) {
+                a.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::Imm64(stack_offset as _),
+                    Location::GPR(GPR::Sp),
+                )?;
+            } else {
+                a.emit_mov_imm(Location::GPR(SCRATCH_REG), stack_offset as _)?;
+                a.emit_add(
+                    Size::S64,
+                    Location::GPR(GPR::Sp),
+                    Location::GPR(SCRATCH_REG),
+                    Location::GPR(GPR::Sp),
+                )?;
+            }
+        }
     }
 
     // Emits a tail call trampoline that loads the address of the target import function
