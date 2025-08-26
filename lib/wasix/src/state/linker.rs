@@ -598,6 +598,7 @@ pub struct DylinkInfo {
     pub needed: Vec<String>,
     pub import_metadata: HashMap<(String, String), wasmparser::SymbolFlags>,
     pub export_metadata: HashMap<String, wasmparser::SymbolFlags>,
+    pub runtime_path: Vec<String>,
 }
 
 pub struct LinkedMainModule {
@@ -655,6 +656,15 @@ struct PendingTlsPointer {
 }
 
 // Used only when processing a module load operation from another instance group.
+// Note: Non-TLS globals are constant across instance groups, and thus we store
+// their value, feeding it into new instance groups directly. In the case of TLS
+// symbols, they need to get new values based on each specific instance's __tls_base,
+// so they need to be tracked.
+// __wasm_apply_data_relocs operates on memory addresses, and so it needs to run
+// only once. __wasm_apply_tls_relocs does need to run once per instance group, but
+// it's run as part of __wasm_init_tls, which itself is called by __wasix_init_tls.
+// In either case, there's no need to call any relocation functions when spawning
+// further instances of a module that was already loaded and instantiated once.
 #[derive(Debug, Default)]
 struct PendingResolutionsFromLinker {
     functions: Vec<PendingFunctionResolutionFromLinkerState>,
@@ -709,20 +719,24 @@ struct InProgressLinkState {
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 pub enum SymbolResolutionKey {
     Needed(NeededSymbolResolutionKey),
-    Requested(String),
+    Requested {
+        // Note: since we don't support module unloading, resolving the same symbol
+        // from *every* module will find the same symbol every time, so we can cache
+        // the None case as well.
+        // TODO: once we implement RTLD_NEXT, that flag should also be taken into
+        // account here.
+        resolve_from: Option<ModuleHandle>,
+        name: String,
+    },
 }
 
 #[derive(Debug)]
 pub enum SymbolResolutionResult {
     // The symbol was resolved to a global address. We don't resolve again because
     // the value of globals and the memory_base for each module and all of its instances
-    // is fixed, and we can't nuke globals in the same way we do with functions. The end
-    // goal is to have new instance groups behave exactly the same as existing instance
-    // groups; since existing instance groups will have a (possibly invalid) pointer
-    // into memory from when this global still existed, we do the same for new instance
-    // groups.
-    // The case of unresolved globals is not mentioned here, since it can't exist once
-    // a link operation is complete.
+    // is fixed.
+    // The case of unresolved globals is not mentioned in this enum, since it can't exist
+    // once a link operation is finalized.
     Memory(u64),
     // The symbol was resolved to a global address, but the global is a TLS variable.
     // Each instance of each module has a different TLS area, and TLS symbols must be
@@ -1121,6 +1135,7 @@ impl Linker {
         let main_instance = Instance::new(store, main_module, &imports)?;
         instance_group.main_instance = Some(main_instance.clone());
 
+        let runtime_path = linker_state.main_module_dylink_info.runtime_path.clone();
         for needed in linker_state.main_module_dylink_info.needed.clone() {
             // A successful load_module will add the module to the side_modules list,
             // from which symbols can be resolved in the following call to
@@ -1135,6 +1150,14 @@ impl Linker {
                 &mut link_state,
                 &wasi_env.runtime,
                 &wasi_env.state,
+                runtime_path.as_ref(),
+                // HACK: The main module doesn't have to exist in the virtual FS at all; e.g.
+                // if one runs `wasmer ../module.wasm --dir .`, we won't have access to the
+                // main module's folder within the virtual FS. This is why we're picking PWD
+                // as the $ORIGIN of the main module, which should at least be slightly
+                // sensible. The `main.wasm` file name will be stripped and only the `./`
+                // will be taken into account by `locate_module`.
+                Some(Path::new("./main.wasm")),
             )?;
         }
 
@@ -1187,11 +1210,11 @@ impl Linker {
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
 
-        // This function is exported from PIE executables, and needs to be run before calling
-        // _initialize or _start. More info:
-        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
+        // The main module isn't added to the link state's list of new modules, so we need to
+        // call its initialization functions separately
         trace!("Calling data relocator function for main module");
         call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
+        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
 
         {
             let group_guard = linker.instance_group_state.lock().unwrap();
@@ -1559,11 +1582,14 @@ impl Linker {
 
         trace!("Loading module tree for requested module");
         let wasi_env = env.as_ref(&store);
+        let runtime_path: &[String] = &[];
         let module_handle = linker_state.load_module_tree(
             module_spec,
             &mut link_state,
             &wasi_env.runtime,
             &wasi_env.state,
+            runtime_path,          // No runtime path when loading a module via dlopen
+            Option::<&Path>::None, // Empty runtime path means we don't need the module's path either
         )?;
 
         let new_modules = link_state
@@ -1654,9 +1680,13 @@ impl Linker {
         // stub functions and that requires a lock on the instance group's state
         drop(group_state_guard);
 
+        // These functions are exported from PIE executables, and need to be run before calling
+        // _initialize or _start. More info:
+        // https://github.com/WebAssembly/tool-conventions/blob/main/DynamicLinking.md
         trace!("Calling data relocation functions");
         for instance in &new_instances {
             call_initialization_function::<()>(instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function::<()>(instance, store, "__wasm_apply_tls_relocs")?;
         }
 
         trace!("Calling ctor functions");
@@ -1684,7 +1714,10 @@ impl Linker {
     ) -> Result<ResolvedExport, ResolveError> {
         trace!(?module_handle, symbol, "Resolving symbol");
 
-        let resolution_key = SymbolResolutionKey::Requested(symbol.to_string());
+        let resolution_key = SymbolResolutionKey::Requested {
+            resolve_from: module_handle,
+            name: symbol.to_string(),
+        };
 
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
@@ -2233,6 +2266,8 @@ impl LinkerState {
         link_state: &mut InProgressLinkState,
         runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
         wasi_state: &WasiState,
+        runtime_path: &[impl AsRef<str>],
+        calling_module_path: Option<impl AsRef<Path>>,
     ) -> Result<ModuleHandle, LinkError> {
         let module_name = match module_spec {
             DlModuleSpec::FileSystem { module_spec, .. } => Cow::Borrowed(module_spec),
@@ -2259,6 +2294,8 @@ impl LinkerState {
                 let (full_path, bytes) = InlineWaker::block_on(locate_module(
                     module_spec,
                     ld_library_path,
+                    runtime_path,
+                    calling_module_path,
                     &wasi_state.fs,
                 ))?;
                 // TODO: this can be optimized by detecting early if the module is already
@@ -2285,7 +2322,7 @@ impl LinkerState {
         trace!(?dylink_info, "Loading side module");
 
         if let Some((full_path, ld_library_path)) = paths {
-            link_state.pending_module_paths.push(full_path);
+            link_state.pending_module_paths.push(full_path.clone());
             let num_pending_modules = link_state.pending_module_paths.len();
             let pop_pending_module = |link_state: &mut InProgressLinkState| {
                 assert_eq!(
@@ -2306,6 +2343,11 @@ impl LinkerState {
                     link_state,
                     runtime,
                     wasi_state,
+                    // RUNPATH, on which WASM_DYLINK_RUNTIME_PATH is based, is *not* applied
+                    // recursively, so we discard the runtime_path parameter and
+                    // only take the one from the module's dylink.0 section
+                    dylink_info.runtime_path.as_ref(),
+                    Some(&full_path),
                 ) {
                     Ok(_) => (),
                     Err(e) => {
@@ -2783,14 +2825,14 @@ impl InstanceGroupState {
         trace!(?operation, "Applying operation");
         match operation {
             DlOperation::LoadModules(module_handles) => {
-                // Allocate table first, since instantiating will put more stuff in the table
-                // and we need to have the modules' own table space allocated before that. This
-                // replicates the behavior of the instigating group.
-                for handle in &module_handles {
-                    self.allocate_function_table_for_existing_module(linker_state, store, *handle)?;
-                }
                 let mut pending_functions = PendingResolutionsFromLinker::default();
                 for handle in module_handles {
+                    // We need to do table allocation in exactly the same order as the instigating
+                    // group, which is:
+                    //   * Allocate module's own table space
+                    //   * Fill GOT.func entries (through instantiating the module)
+                    //   * Then repeat for the next module.
+                    self.allocate_function_table_for_existing_module(linker_state, store, handle)?;
                     self.instantiate_side_module_from_linker(
                         linker_state,
                         store,
@@ -2820,7 +2862,7 @@ impl InstanceGroupState {
         linker_state: &LinkerState,
     ) -> Result<(), LinkError> {
         for (key, val) in &linker_state.symbol_resolution_records {
-            if let SymbolResolutionKey::Requested(name) = key {
+            if let SymbolResolutionKey::Requested { name, .. } = key {
                 if let SymbolResolutionResult::FunctionPointer {
                     resolved_from,
                     function_table_index,
@@ -3470,13 +3512,19 @@ impl InstanceGroupState {
                     }
                 }
 
-                for (handle, instance) in &self.side_instances {
+                // Iterate over linker.side_modules to ensure we're going over the
+                // modules in increasing order of module_handle, A.K.A. the order
+                // in which modules were loaded. linker.side_modules is a BTreeMap
+                // whereas self.side_instances is a HashMap with undetermined
+                // iteration order.
+                for (handle, module) in &linker_state.side_modules {
+                    let instance = &self.side_instances[handle];
                     match self.resolve_export_from(
                         store,
                         *handle,
                         symbol,
                         &instance.instance,
-                        &linker_state.side_modules[handle].dylink_info,
+                        &module.dylink_info,
                         linker_state.memory_base(*handle),
                         instance.tls_base,
                         allow_hidden,
@@ -3874,6 +3922,8 @@ impl InstanceGroupState {
 async fn locate_module(
     module_path: &Path,
     library_path: &[impl AsRef<Path>],
+    runtime_path: &[impl AsRef<str>],
+    calling_module_path: Option<impl AsRef<Path>>,
     fs: &WasiFs,
 ) -> Result<(PathBuf, OwnedBuffer), LinkError> {
     async fn try_load(
@@ -3934,16 +3984,59 @@ async fn locate_module(
             ?module_path,
             "Locating module by name in default runtime path"
         );
+
+        let calling_module_dir = calling_module_path
+            .as_ref()
+            .map(|p| p.as_ref().parent().unwrap_or_else(|| p.as_ref()));
+
+        let runtime_path = runtime_path.iter().map(|path| {
+            let path = path.as_ref();
+
+            let relative = path
+                .strip_prefix("$ORIGIN")
+                .or_else(|| path.strip_prefix("${ORIGIN}"));
+
+            match relative {
+                Some(relative) => {
+                    let Some(calling_module_dir) = calling_module_dir else {
+                        // This is an internal error because the only time calling_module_path
+                        // should be empty is when loading a module through dlopen, and a
+                        // dlopen'ed module isn't being required by another module so we don't
+                        // have a RUNPATH to consider at all. See the invocation of
+                        // `load_module_tree` in `load_module`.
+                        panic!(
+                            "Internal error: $ORIGIN or ${{ORIGIN}} in RUNPATH, but \
+                            no calling module path provided"
+                        );
+                    };
+                    Cow::Owned(PathBuf::from(
+                        fs.relative_path_to_absolute(
+                            calling_module_dir
+                                .join(relative)
+                                .to_string_lossy()
+                                .into_owned(),
+                        ),
+                    ))
+                }
+                None => Cow::Borrowed(Path::new(path)),
+            }
+        });
+
+        // Search order is: LD_LIBRARY_PATH -> RUNPATH -> system default folders
         let search_paths = library_path
             .iter()
-            .map(|path| path.as_ref())
-            // Add default runtime paths
-            .chain(DEFAULT_RUNTIME_PATH.iter().map(Path::new));
+            .map(|path| Cow::Borrowed(path.as_ref()))
+            .chain(runtime_path)
+            .chain(
+                DEFAULT_RUNTIME_PATH
+                    .iter()
+                    .map(|path| Cow::Borrowed(Path::new(path))),
+            );
 
         let mut errors: Vec<(PathBuf, FsError)> = Vec::new();
         for path in search_paths {
             let full_path = path.join(module_path);
-            trace!(?module_path, full_path = ?full_path, "Searching module");
+            trace!(search_path = ?path, full_path = ?full_path, "Searching module");
             match try_load(&fs.root_fs, &full_path).await {
                 Ok(ret) => {
                     trace!(?module_path, full_path = ?ret.0, "Located module");
@@ -3965,6 +4058,9 @@ pub fn is_dynamically_linked(module: &Module) -> bool {
     module.custom_sections("dylink.0").next().is_some()
 }
 
+// Need to parse the RUNPATH subsection manually until wasmparser adds support
+const WASM_DYLINK_RUNTIME_PATH: u8 = 5;
+
 pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut sections = module.custom_sections("dylink.0");
 
@@ -3983,6 +4079,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
     let mut needed = None;
     let mut import_metadata = HashMap::new();
     let mut export_metadata = HashMap::new();
+    let mut runtime_path = Vec::new();
 
     for subsection in reader {
         let subsection = subsection?;
@@ -4007,7 +4104,23 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
                 }
             }
 
-            wasmparser::Dylink0Subsection::Unknown { .. } => (),
+            wasmparser::Dylink0Subsection::Unknown {
+                ty: WASM_DYLINK_RUNTIME_PATH,
+                data,
+                range,
+            } => {
+                let mut reader = wasmparser::BinaryReader::new(data, range.start);
+                runtime_path.extend(
+                    (0..reader.read_var_u32()?)
+                        .map(|_| reader.read_string().map(ToOwned::to_owned))
+                        .collect::<Result<Vec<_>, _>>()?
+                        .into_iter(),
+                )
+            }
+
+            wasmparser::Dylink0Subsection::Unknown { ty, .. } => {
+                tracing::warn!("Skipping unknown dylink.0 subsection {ty}");
+            }
         }
     }
 
@@ -4021,6 +4134,7 @@ pub fn parse_dylink0_section(module: &Module) -> Result<DylinkInfo, LinkError> {
         needed: needed.unwrap_or_default(),
         import_metadata,
         export_metadata,
+        runtime_path,
     })
 }
 

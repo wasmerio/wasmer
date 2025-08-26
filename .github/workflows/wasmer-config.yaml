@@ -20,7 +20,7 @@ jobs:
     name: Compile and Test
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust
@@ -41,7 +41,7 @@ jobs:
     name: Linting and Formatting
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Rust Cache
         uses: Swatinem/rust-cache@v2
       - name: Setup Rust

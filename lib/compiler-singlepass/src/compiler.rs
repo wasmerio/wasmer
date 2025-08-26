@@ -16,7 +16,7 @@ use crate::machine_x64::MachineX86_64;
 use crate::unwind::{create_systemv_cie, UnwindFrame};
 use enumset::EnumSet;
 #[cfg(feature = "unwind")]
-use gimli::write::{EhFrame, FrameTable};
+use gimli::write::{EhFrame, FrameTable, Writer};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
@@ -253,6 +253,7 @@ impl Compiler for SinglepassCompiler {
             }
             let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
             dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
+            eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
 
             let eh_frame_section = eh_frame.0.into_section();
             custom_sections.push(eh_frame_section);

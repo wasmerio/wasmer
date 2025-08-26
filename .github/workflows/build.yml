@@ -117,7 +117,7 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
@@ -336,7 +336,7 @@ jobs:
     name: Windows GNU
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -358,11 +358,12 @@ jobs:
           cargo build --release --manifest-path=/tmp/xwin/Cargo.toml
           /tmp/xwin/target/release/xwin --accept-license --cache-dir /tmp/xwincache splat --output /tmp/xwindownload
           mkdir -p /tmp/winsdk
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/WS2_32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/KERNEL32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/BCRYPT.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/ADVAPI32.lib /tmp/winsdk/
-          cp /tmp/xwindownload/sdk/lib/10.0.20348/um/x86_64/USERENV.lib /tmp/winsdk/
+          SDK_VERSION=$(ls /tmp/xwindownload/sdk/lib | head -n 1)
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/WS2_32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/KERNEL32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/BCRYPT.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/ADVAPI32.lib /tmp/winsdk/
+          cp /tmp/xwindownload/sdk/lib/$SDK_VERSION/um/x86_64/USERENV.lib /tmp/winsdk/
           echo "WinSDK files:"
           ls -laH /tmp/winsdk
           echo ""
@@ -403,7 +404,7 @@ jobs:
     name: macOS aarch64 (JSC)
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-apple-darwin
@@ -436,7 +437,7 @@ jobs:
     name: macOS x86_64 (JSC)
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
@@ -465,7 +466,7 @@ jobs:
     name: Linux riscv64
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu
