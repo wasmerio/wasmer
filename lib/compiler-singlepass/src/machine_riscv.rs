@@ -2749,7 +2749,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S32, true, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i32_atomic_load_8u(
         &mut self,
@@ -2762,7 +2773,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S8, true, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i32_atomic_load_16u(
         &mut self,
@@ -2775,7 +2797,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S16, true, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i32_save(
         &mut self,
@@ -2860,7 +2893,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i32_atomic_save_8(
         &mut self,
@@ -2873,7 +2918,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S8, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i32_atomic_save_16(
         &mut self,
@@ -2886,7 +2943,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S16, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i32_atomic_add(
         &mut self,
@@ -3739,7 +3808,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S64, true, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i64_atomic_load_8u(
         &mut self,
@@ -3752,7 +3832,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i64_atomic_load_16u(
         &mut self,
@@ -3765,7 +3856,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i64_atomic_load_32u(
         &mut self,
@@ -3778,7 +3880,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_load(Size::S32, false, ret, Location::Memory(addr, 0)),
+        )
     }
     fn i64_save(
         &mut self,
@@ -3887,7 +4000,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S64, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i64_atomic_save_8(
         &mut self,
@@ -3900,7 +4025,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S8, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i64_atomic_save_16(
         &mut self,
@@ -3913,7 +4050,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S16, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i64_atomic_save_32(
         &mut self,
@@ -3926,7 +4075,19 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            addr,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0)),
+        )?;
+        self.assembler.emit_rwfence()
     }
     fn i64_atomic_add(
         &mut self,

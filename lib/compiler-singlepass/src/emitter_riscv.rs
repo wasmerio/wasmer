@@ -302,6 +302,8 @@ pub trait EmitterRiscv {
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError>;
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError>;
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError>;
+
+    fn emit_rwfence(&mut self) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -1752,6 +1754,11 @@ impl EmitterRiscv for Assembler {
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError> {
         let reg = reg.into_index() as _;
         dynasm!(self ; la X(reg), => label);
+        Ok(())
+    }
+
+    fn emit_rwfence(&mut self) -> Result<(), CompileError> {
+        dynasm!(self ; fence rw, rw);
         Ok(())
     }
 }
