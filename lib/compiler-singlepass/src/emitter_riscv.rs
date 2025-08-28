@@ -3,7 +3,7 @@
 // TODO: handle warnings
 #![allow(unused_variables, unused_imports)]
 
-use std::path::Path;
+use std::{ops::Add, path::Path};
 
 use crate::{
     codegen_error,
@@ -89,12 +89,30 @@ pub enum RoundingMode {
     Rup,
 }
 
+/// Atomic binary operation type
+#[derive(Copy, Clone, Debug, Eq, PartialEq)]
+pub enum AtomicBinaryOp {
+    Add,
+    Sub,
+    Or,
+    And,
+    Xor,
+    Exchange,
+}
+
 /// Scratch register used in function call trampolines.
 const SCRATCH_REG: GPR = GPR::X28;
 
 /// Emitter trait for RISC-V.
 #[allow(unused)]
 pub trait EmitterRiscv {
+    fn emit_reserved_sd(
+        &mut self,
+        size: Size,
+        dest: GPR,
+        addr: GPR,
+        source: GPR,
+    ) -> Result<(), CompileError>;
     /// Returns the SIMD (FPU) feature if available.
     fn get_simd_arch(&self) -> Option<&CpuFeature>;
     /// Generates a new internal label.
@@ -222,6 +240,8 @@ pub trait EmitterRiscv {
         src: Location,
         dst: Location,
     ) -> Result<(), CompileError>;
+    fn emit_not(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_neg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
@@ -304,6 +324,15 @@ pub trait EmitterRiscv {
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError>;
 
     fn emit_rwfence(&mut self) -> Result<(), CompileError>;
+    fn emit_atomic_binop(
+        &mut self,
+        op: AtomicBinaryOp,
+        size: Size,
+        dest: GPR,
+        addr: GPR,
+        source: GPR,
+    ) -> Result<(), CompileError>;
+    fn emit_reserved_ld(&mut self, size: Size, reg: GPR, addr: GPR) -> Result<(), CompileError>;
 }
 
 impl EmitterRiscv for Assembler {
@@ -1073,6 +1102,32 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
+    fn emit_not(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, src, dst) {
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; not X(dst), X(src));
+            }
+            _ => codegen_error!("singlepass can't emit NOT {:?} {:?} {:?}", sz, src, dst),
+        }
+
+        Ok(())
+    }
+
+    fn emit_neg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
+        match (sz, src, dst) {
+            (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
+                let src = src.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; neg X(dst), X(src));
+            }
+            _ => codegen_error!("singlepass can't emit NEG {:?} {:?} {:?}", sz, src, dst),
+        }
+
+        Ok(())
+    }
+
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
@@ -1759,6 +1814,97 @@ impl EmitterRiscv for Assembler {
 
     fn emit_rwfence(&mut self) -> Result<(), CompileError> {
         dynasm!(self ; fence rw, rw);
+        Ok(())
+    }
+
+    fn emit_atomic_binop(
+        &mut self,
+        op: AtomicBinaryOp,
+        size: Size,
+        dest: GPR,
+        addr: GPR,
+        source: GPR,
+    ) -> Result<(), CompileError> {
+        let dest = dest.into_index();
+        let addr = addr.into_index();
+        let source = source.into_index();
+
+        match (size, op) {
+            (Size::S64, AtomicBinaryOp::Add) => {
+                dynasm!(self ; amoadd.d.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S64, AtomicBinaryOp::Or) => {
+                dynasm!(self ; amoor.d.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S64, AtomicBinaryOp::Xor) => {
+                dynasm!(self ; amoxor.d.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S64, AtomicBinaryOp::And) => {
+                dynasm!(self ; amoand.d.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S64, AtomicBinaryOp::Exchange) => {
+                dynasm!(self ; amoswap.d.aqrl X(dest), X(source), [X(addr)])
+            }
+
+            (Size::S32, AtomicBinaryOp::Add) => {
+                dynasm!(self ; amoadd.w.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S32, AtomicBinaryOp::Or) => {
+                dynasm!(self ; amoor.w.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S32, AtomicBinaryOp::Xor) => {
+                dynasm!(self ; amoxor.w.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S32, AtomicBinaryOp::And) => {
+                dynasm!(self ; amoand.w.aqrl X(dest), X(source), [X(addr)])
+            }
+            (Size::S32, AtomicBinaryOp::Exchange) => {
+                dynasm!(self ; amoswap.w.aqrl X(dest), X(source), [X(addr)])
+            }
+            _ => codegen_error!("singlepass can't emit atomic binop {:?} {:?}", size, op),
+        }
+
+        Ok(())
+    }
+
+    fn emit_reserved_ld(&mut self, size: Size, reg: GPR, addr: GPR) -> Result<(), CompileError> {
+        let reg = reg.into_index();
+        let addr = addr.into_index();
+
+        match size {
+            Size::S32 => {
+                dynasm!(self ; lr.w.aqrl X(reg), [X(addr)])
+            }
+            Size::S64 => {
+                dynasm!(self ; lr.d.aqrl X(reg), [X(addr)])
+            }
+            _ => codegen_error!("singlepass can't emit atomic reserved ld {:?}", size),
+        }
+
+        Ok(())
+    }
+
+    fn emit_reserved_sd(
+        &mut self,
+        size: Size,
+        dest: GPR,
+        addr: GPR,
+        source: GPR,
+    ) -> Result<(), CompileError> {
+        let dest = dest.into_index();
+        let addr = addr.into_index();
+        let source = source.into_index();
+
+        match size {
+            Size::S32 => {
+                dynasm!(self ; sc.w.rl X(dest), X(source), [X(addr)])
+            }
+            Size::S64 => {
+                dynasm!(self ; sc.d.rl X(dest), X(source), [X(addr)])
+            }
+            _ => codegen_error!("singlepass can't emit atomic reserved sd {:?}", size),
+        }
+
         Ok(())
     }
 }

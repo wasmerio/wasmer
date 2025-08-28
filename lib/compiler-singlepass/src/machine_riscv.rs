@@ -332,6 +332,445 @@ impl MachineRiscv {
         Ok(())
     }
 
+    fn emit_relaxed_atomic_binop3(
+        &mut self,
+        op: AtomicBinaryOp,
+        sz: Size,
+        dst: Location,
+        addr: GPR,
+        src: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let source = self.location_to_reg(sz, src, &mut temps, ImmType::None, false, None)?;
+        let dest = self.location_to_reg(Size::S64, dst, &mut temps, ImmType::None, false, None)?;
+        let (Location::GPR(source), Location::GPR(dest)) = (source, dest) else {
+            panic!("emit_relaxed_atomic_binop3 expects locations in registers");
+        };
+
+        // RISC-V does not provide atomic operations binary operations for S8 and S16 types. And so we must rely on 32-bit atomic operations
+        // with a proper masking.
+        match sz {
+            Size::S32 | Size::S64 => {
+                if op == AtomicBinaryOp::Sub {
+                    self.assembler.emit_neg(
+                        Size::S64,
+                        Location::GPR(source),
+                        Location::GPR(source),
+                    )?;
+                    self.assembler.emit_atomic_binop(
+                        AtomicBinaryOp::Add,
+                        sz,
+                        dest,
+                        addr,
+                        source,
+                    )?;
+                } else {
+                    self.assembler
+                        .emit_atomic_binop(op, sz, dest, addr, source)?;
+                }
+            }
+            Size::S8 | Size::S16 => {
+                let aligned_addr = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(aligned_addr);
+                let bit_offset = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(bit_offset);
+                let bit_mask = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(bit_mask);
+
+                self.assembler.emit_and(
+                    Size::S64,
+                    Location::GPR(addr),
+                    Location::Imm64(-4i64 as _),
+                    Location::GPR(aligned_addr),
+                )?;
+                self.assembler.emit_and(
+                    Size::S64,
+                    Location::GPR(addr),
+                    Location::Imm64(3),
+                    Location::GPR(bit_offset),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(bit_offset),
+                    Location::Imm64(3),
+                    Location::GPR(bit_offset),
+                )?;
+                self.assembler.emit_mov_imm(
+                    Location::GPR(bit_mask),
+                    if sz == Size::S8 {
+                        u8::MAX as _
+                    } else {
+                        u16::MAX as _
+                    },
+                )?;
+                self.assembler.emit_and(
+                    Size::S32,
+                    Location::GPR(source),
+                    Location::GPR(bit_mask),
+                    Location::GPR(source),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(bit_mask),
+                    Location::GPR(bit_offset),
+                    Location::GPR(bit_mask),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(source),
+                    Location::GPR(bit_offset),
+                    Location::GPR(source),
+                )?;
+
+                match op {
+                    AtomicBinaryOp::Add | AtomicBinaryOp::Sub | AtomicBinaryOp::Exchange => {
+                        let loaded_value = self.acquire_temp_gpr().ok_or_else(|| {
+                            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                        })?;
+                        temps.push(loaded_value);
+                        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                        })?;
+
+                        // Loop
+                        let label_loop = self.get_label();
+
+                        self.assembler
+                            .emit_reserved_ld(Size::S32, loaded_value, aligned_addr)?;
+
+                        match op {
+                            AtomicBinaryOp::Add => self.assembler.emit_add(
+                                Size::S64,
+                                Location::GPR(loaded_value),
+                                Location::GPR(source),
+                                Location::GPR(tmp),
+                            )?,
+                            AtomicBinaryOp::Sub => self.assembler.emit_sub(
+                                Size::S64,
+                                Location::GPR(loaded_value),
+                                Location::GPR(source),
+                                Location::GPR(tmp),
+                            )?,
+                            AtomicBinaryOp::Exchange => self.assembler.emit_mov(
+                                Size::S64,
+                                Location::GPR(source),
+                                Location::GPR(tmp),
+                            )?,
+                            _ => unreachable!(),
+                        }
+
+                        self.assembler.emit_xor(
+                            Size::S64,
+                            Location::GPR(tmp),
+                            Location::GPR(loaded_value),
+                            Location::GPR(tmp),
+                        )?;
+                        self.assembler.emit_and(
+                            Size::S64,
+                            Location::GPR(tmp),
+                            Location::GPR(bit_mask),
+                            Location::GPR(tmp),
+                        )?;
+                        self.assembler.emit_xor(
+                            Size::S64,
+                            Location::GPR(tmp),
+                            Location::GPR(loaded_value),
+                            Location::GPR(tmp),
+                        )?;
+                        self.assembler
+                            .emit_reserved_sd(Size::S32, tmp, aligned_addr, tmp)?;
+                        self.assembler
+                            .emit_on_false_label(Location::GPR(tmp), label_loop)?;
+
+                        self.emit_label(label_loop)?;
+
+                        // Return the previous value
+                        self.assembler.emit_and(
+                            Size::S32,
+                            Location::GPR(loaded_value),
+                            Location::GPR(bit_mask),
+                            Location::GPR(dest),
+                        )?;
+                        self.assembler.emit_srl(
+                            Size::S32,
+                            Location::GPR(dest),
+                            Location::GPR(bit_offset),
+                            Location::GPR(dest),
+                        )?;
+                    }
+                    AtomicBinaryOp::Or | AtomicBinaryOp::Xor => {
+                        self.assembler.emit_atomic_binop(
+                            op,
+                            Size::S32,
+                            dest,
+                            aligned_addr,
+                            source,
+                        )?;
+                        self.assembler.emit_and(
+                            Size::S32,
+                            Location::GPR(dest),
+                            Location::GPR(bit_mask),
+                            Location::GPR(dest),
+                        )?;
+                        self.assembler.emit_srl(
+                            Size::S32,
+                            Location::GPR(dest),
+                            Location::GPR(bit_offset),
+                            Location::GPR(dest),
+                        )?;
+                    }
+                    AtomicBinaryOp::And => {
+                        self.assembler.emit_not(
+                            Size::S64,
+                            Location::GPR(bit_mask),
+                            Location::GPR(bit_mask),
+                        )?;
+                        self.assembler.emit_or(
+                            Size::S64,
+                            Location::GPR(bit_mask),
+                            Location::GPR(source),
+                            Location::GPR(source),
+                        )?;
+                        self.assembler.emit_not(
+                            Size::S64,
+                            Location::GPR(bit_mask),
+                            Location::GPR(bit_mask),
+                        )?;
+                        self.assembler.emit_atomic_binop(
+                            op,
+                            Size::S32,
+                            dest,
+                            aligned_addr,
+                            source,
+                        )?;
+                        self.assembler.emit_and(
+                            Size::S32,
+                            Location::GPR(dest),
+                            Location::GPR(bit_mask),
+                            Location::GPR(dest),
+                        )?;
+                        self.assembler.emit_srl(
+                            Size::S32,
+                            Location::GPR(dest),
+                            Location::GPR(bit_offset),
+                            Location::GPR(dest),
+                        )?;
+                    }
+                }
+            }
+        }
+
+        if dst != Location::GPR(dest) {
+            self.move_location(sz, Location::GPR(dest), dst)?;
+        }
+
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
+
+    fn emit_relaxed_atomic_cmpxchg(
+        &mut self,
+        size: Size,
+        dst: Location,
+        addr: GPR,
+        new: Location,
+        cmp: Location,
+    ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+        let cmp = self.location_to_reg(size, cmp, &mut temps, ImmType::None, true, None)?;
+        let new = self.location_to_reg(size, new, &mut temps, ImmType::None, true, None)?;
+        let (Location::GPR(cmp), Location::GPR(new)) = (cmp, new) else {
+            panic!("emit_relaxed_atomic_cmpxchg expects locations in registers");
+        };
+
+        match size {
+            Size::S32 | Size::S64 => {
+                let value = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(value);
+                let cond = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(cond);
+
+                // main re-try loop
+                let label_retry = self.get_label();
+                let label_after_retry = self.get_label();
+                self.emit_label(label_retry)?;
+
+                self.assembler.emit_reserved_ld(size, value, addr)?;
+                self.assembler.emit_cmp(
+                    Condition::Eq,
+                    Location::GPR(value),
+                    Location::GPR(cmp),
+                    Location::GPR(cond),
+                )?;
+                self.assembler
+                    .emit_on_false_label(Location::GPR(cond), label_after_retry)?;
+                self.assembler.emit_reserved_sd(size, cond, addr, new)?;
+                self.assembler
+                    .emit_on_true_label(Location::GPR(cond), label_retry)?;
+
+                // after re-try get the previous value
+                self.emit_label(label_after_retry)?;
+
+                self.assembler.emit_mov(size, Location::GPR(value), dst)?;
+            }
+            Size::S8 | Size::S16 => {
+                let value = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(value);
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(tmp);
+                let bit_offset = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(bit_offset);
+                let bit_mask = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(bit_mask);
+                let cond = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                temps.push(cond);
+
+                // before the loop
+                self.assembler.emit_and(
+                    Size::S64,
+                    Location::GPR(addr),
+                    Location::Imm64(3),
+                    Location::GPR(bit_offset),
+                )?;
+                self.assembler.emit_and(
+                    Size::S64,
+                    Location::GPR(addr),
+                    Location::Imm64(-4i64 as _),
+                    Location::GPR(addr),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(bit_offset),
+                    Location::Imm64(3),
+                    Location::GPR(bit_offset),
+                )?;
+                self.assembler.emit_mov_imm(
+                    Location::GPR(bit_mask),
+                    if size == Size::S8 {
+                        u8::MAX as _
+                    } else {
+                        u16::MAX as _
+                    },
+                )?;
+                self.assembler.emit_and(
+                    Size::S32,
+                    Location::GPR(new),
+                    Location::GPR(bit_mask),
+                    Location::GPR(new),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(bit_mask),
+                    Location::GPR(bit_offset),
+                    Location::GPR(bit_mask),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(new),
+                    Location::GPR(bit_offset),
+                    Location::GPR(new),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(cmp),
+                    Location::GPR(bit_offset),
+                    Location::GPR(cmp),
+                )?;
+
+                // main re-try loop
+                let label_retry = self.get_label();
+                let label_after_retry = self.get_label();
+                self.emit_label(label_retry)?;
+
+                self.assembler.emit_reserved_ld(Size::S32, value, addr)?;
+                self.assembler.emit_and(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::GPR(bit_mask),
+                    Location::GPR(tmp),
+                )?;
+
+                self.assembler.emit_cmp(
+                    Condition::Eq,
+                    Location::GPR(tmp),
+                    Location::GPR(cmp),
+                    Location::GPR(cond),
+                )?;
+                self.assembler
+                    .emit_on_false_label(Location::GPR(cond), label_after_retry)?;
+
+                // mask new to the 4B word
+                self.assembler.emit_xor(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::GPR(new),
+                    Location::GPR(tmp),
+                )?;
+                self.assembler.emit_and(
+                    Size::S32,
+                    Location::GPR(tmp),
+                    Location::GPR(bit_mask),
+                    Location::GPR(tmp),
+                )?;
+                self.assembler.emit_xor(
+                    Size::S32,
+                    Location::GPR(tmp),
+                    Location::GPR(value),
+                    Location::GPR(tmp),
+                )?;
+                self.assembler
+                    .emit_reserved_sd(Size::S32, cond, addr, tmp)?;
+                self.assembler
+                    .emit_on_true_label(Location::GPR(cond), label_retry)?;
+
+                // After re-try get the previous value
+                self.emit_label(label_after_retry)?;
+
+                self.assembler.emit_and(
+                    Size::S32,
+                    Location::GPR(value),
+                    Location::GPR(bit_mask),
+                    Location::GPR(tmp),
+                )?;
+                self.assembler.emit_srl(
+                    Size::S32,
+                    Location::GPR(tmp),
+                    Location::GPR(bit_offset),
+                    Location::GPR(tmp),
+                )?;
+                self.assembler
+                    .emit_mov(Size::S32, Location::GPR(tmp), dst)?;
+            }
+        }
+
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
+    }
+
     #[allow(clippy::too_many_arguments)]
     fn emit_relaxed_binop3_fp(
         &mut self,
@@ -2969,7 +3408,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_add_8u(
         &mut self,
@@ -2983,7 +3435,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_add_16u(
         &mut self,
@@ -2997,7 +3462,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_sub(
         &mut self,
@@ -3011,7 +3489,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_sub_8u(
         &mut self,
@@ -3025,7 +3516,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_sub_16u(
         &mut self,
@@ -3039,7 +3543,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_and(
         &mut self,
@@ -3053,7 +3570,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_and_8u(
         &mut self,
@@ -3067,7 +3597,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_and_16u(
         &mut self,
@@ -3081,7 +3624,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_or(
         &mut self,
@@ -3095,7 +3651,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_or_8u(
         &mut self,
@@ -3109,7 +3678,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_or_16u(
         &mut self,
@@ -3123,7 +3705,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_xor(
         &mut self,
@@ -3137,7 +3732,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_xor_8u(
         &mut self,
@@ -3151,7 +3759,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_xor_16u(
         &mut self,
@@ -3165,7 +3786,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_xchg(
         &mut self,
@@ -3179,7 +3813,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_xchg_8u(
         &mut self,
@@ -3193,7 +3840,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_xchg_16u(
         &mut self,
@@ -3207,7 +3867,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i32_atomic_cmpxchg(
         &mut self,
@@ -3222,7 +3895,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S32, ret, addr, new, cmp),
+        )
     }
     fn i32_atomic_cmpxchg_8u(
         &mut self,
@@ -3237,7 +3921,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S8, ret, addr, new, cmp),
+        )
     }
     fn i32_atomic_cmpxchg_16u(
         &mut self,
@@ -3252,7 +3947,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S16, ret, addr, new, cmp),
+        )
     }
     fn emit_call_with_reloc(
         &mut self,
@@ -4101,7 +4807,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S64, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_add_8u(
         &mut self,
@@ -4115,7 +4834,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_add_16u(
         &mut self,
@@ -4129,7 +4861,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_add_32u(
         &mut self,
@@ -4143,7 +4888,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Add, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_sub(
         &mut self,
@@ -4157,7 +4915,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S64, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_sub_8u(
         &mut self,
@@ -4171,7 +4942,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_sub_16u(
         &mut self,
@@ -4185,7 +4969,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_sub_32u(
         &mut self,
@@ -4199,7 +4996,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Sub, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_and(
         &mut self,
@@ -4213,7 +5023,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S64, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_and_8u(
         &mut self,
@@ -4227,7 +5050,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_and_16u(
         &mut self,
@@ -4241,7 +5077,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_and_32u(
         &mut self,
@@ -4255,7 +5104,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::And, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_or(
         &mut self,
@@ -4269,7 +5131,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S64, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_or_8u(
         &mut self,
@@ -4283,7 +5158,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_or_16u(
         &mut self,
@@ -4297,7 +5185,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_or_32u(
         &mut self,
@@ -4311,7 +5212,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Or, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xor(
         &mut self,
@@ -4325,7 +5239,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S64, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xor_8u(
         &mut self,
@@ -4339,7 +5266,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xor_16u(
         &mut self,
@@ -4353,7 +5293,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xor_32u(
         &mut self,
@@ -4367,7 +5320,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Xor, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xchg(
         &mut self,
@@ -4381,7 +5347,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S64, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xchg_8u(
         &mut self,
@@ -4395,7 +5374,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S8, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xchg_16u(
         &mut self,
@@ -4409,7 +5401,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S16, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_xchg_32u(
         &mut self,
@@ -4423,7 +5428,20 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| {
+                this.emit_relaxed_atomic_binop3(AtomicBinaryOp::Exchange, Size::S32, ret, addr, loc)
+            },
+        )
     }
     fn i64_atomic_cmpxchg(
         &mut self,
@@ -4438,7 +5456,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            8,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S64, ret, addr, new, cmp),
+        )
     }
     fn i64_atomic_cmpxchg_8u(
         &mut self,
@@ -4453,7 +5482,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            1,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S8, ret, addr, new, cmp),
+        )
     }
     fn i64_atomic_cmpxchg_16u(
         &mut self,
@@ -4468,7 +5508,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            2,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S16, ret, addr, new, cmp),
+        )
     }
     fn i64_atomic_cmpxchg_32u(
         &mut self,
@@ -4483,7 +5534,18 @@ impl Machine for MachineRiscv {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        todo!()
+        self.memory_op(
+            target,
+            memarg,
+            true,
+            4,
+            need_check,
+            imported_memories,
+            offset,
+            heap_access_oob,
+            unaligned_atomic,
+            |this, addr| this.emit_relaxed_atomic_cmpxchg(Size::S32, ret, addr, new, cmp),
+        )
     }
     fn f32_load(
         &mut self,
