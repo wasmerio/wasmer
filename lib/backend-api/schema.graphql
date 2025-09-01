@@ -77,8 +77,8 @@ type User implements Node & PackageOwner & Owner {
   packageTransfersIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageTransferRequestConnection!
   packageInvitesIncoming(offset: Int, before: String, after: String, first: Int, last: Int): PackageCollaboratorInviteConnection!
   namespaceInvitesIncoming(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
-  apiTokens(before: String, after: String, first: Int, last: Int): APITokenConnection!
-  notifications(before: String, after: String, first: Int, last: Int): UserNotificationConnection!
+  apiTokens(offset: Int, before: String, after: String, first: Int, last: Int): APITokenConnection!
+  notifications(offset: Int, before: String, after: String, first: Int, last: Int): UserNotificationConnection!
   dashboardActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   loginMethods: [LoginMethod!]!
   githubUser: SocialAuth
@@ -121,6 +121,7 @@ value as specified by
 """
 scalar DateTime
 
+"""An enumeration."""
 enum LimitState {
   not_limited
   nearing_limits
@@ -249,7 +250,7 @@ type Namespace implements Node & PackageOwner & Owner {
   apps(sortBy: DeployAppsSortBy, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   packageVersions(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionConnection!
   collaborators(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorConnection!
-  publicActivity(before: String, after: String, first: Int, last: Int): ActivityEventConnection!
+  publicActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   pendingInvites(offset: Int, before: String, after: String, first: Int, last: Int): NamespaceCollaboratorInviteConnection!
   viewerHasRole(role: GrapheneRole!): Boolean!
   viewerAsCollaborator(role: GrapheneRole): NamespaceCollaborator
@@ -320,6 +321,7 @@ type NamespaceCollaboratorInvite implements Node {
   closedAt: DateTime
 }
 
+"""An enumeration."""
 enum RegistryNamespaceMaintainerInviteRoleChoices {
   """Owner"""
   OWNER
@@ -345,6 +347,7 @@ type NamespaceCollaborator implements Node {
   invite: NamespaceCollaboratorInvite
 }
 
+"""An enumeration."""
 enum RegistryNamespaceMaintainerRoleChoices {
   """Owner"""
   OWNER
@@ -527,8 +530,8 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   isSigned: Boolean!
   moduleInterfaces: [InterfaceVersion!]!
   modules: [PackageVersionModule!]!
-  getPiritaContents(volume: String! = "atom", base: String! = ""): [PiritaFilesystemItem!]!
-  getWebcContents(volume: String! = "atom", base: String! = "/"): [WEBCFilesystemItem!]!
+  getPiritaContents(volume: String! = "atom", base: String! = ""): [PiritaFilesystemItem!]! @deprecated(reason: "File exploration is of the webc is not supported anymore, please get the files directly fromt he webc")
+  getWebcContents(volume: String! = "atom", base: String! = "/"): [WEBCFilesystemItem!]! @deprecated(reason: "File exploration is of the webc is not supported anymore, please get the files directly fromt he webc")
   nativeExecutables(triple: String, wasmerCompilerVersion: String): [NativeExecutable]
   bindings: [PackageVersionLanguageBinding]!
   npmBindings: PackageVersionNPMBinding
@@ -573,13 +576,13 @@ type WebcImage implements Node {
   """"""
   fileSize: BigInt!
   manifest: JSONString!
-  volumes: JSONString!
-  offsets: JSONString!
   webcSha256: String!
   targzSha256: String
   createdAt: DateTime!
   updatedAt: DateTime!
   webcUrl: String!
+  volumes: JSONString! @deprecated(reason: "Deprecated, use the webc_url to explore the webc file")
+  offsets: JSONString! @deprecated(reason: "Deprecated, use the webc_url to explore the webc file")
 }
 
 enum WebcVersion {
@@ -614,6 +617,7 @@ type PackageVersionEdge {
   cursor: String!
 }
 
+"""An enumeration."""
 enum RegistryPackageVersionBindingsStateChoices {
   """Bindings are not detected"""
   NOT_PRESENT
@@ -628,6 +632,7 @@ enum RegistryPackageVersionBindingsStateChoices {
   GENERATED_AND_PRESENT
 }
 
+"""An enumeration."""
 enum RegistryPackageVersionNativeExecutablesStateChoices {
   """Native Executables are not detected"""
   NOT_PRESENT
@@ -982,6 +987,7 @@ type DeployAppVersion implements Node {
   gitSource: AutobuildRepository
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
+  isUploaded: Boolean!
 }
 
 type DeployApp implements Node & Owner {
@@ -1025,10 +1031,12 @@ type DeployApp implements Node & Owner {
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
   deployments(before: String, after: String, first: Int, last: Int): DeploymentConnection
   buildConfiguration: BuildConfiguration
+  sshServer: AppSshServer
   mails: [AppMail]
   kind: Kind
 }
 
+"""An enumeration."""
 enum DeployAppVersionsSortBy {
   NEWEST
   OLDEST
@@ -1094,6 +1102,7 @@ type AppAlias implements Node {
   redirectsFrom: [AppAlias]
 }
 
+"""An enumeration."""
 enum DeployAppAliasKindChoices {
   """Deployment"""
   DEPLOYMENT
@@ -1102,6 +1111,7 @@ enum DeployAppAliasKindChoices {
   DOMAIN
 }
 
+"""An enumeration."""
 enum AppAliasVerificationStates {
   UNVERIFIED
   VERIFIED
@@ -1121,6 +1131,7 @@ enum HTTPRedirectType {
   PERMANENT_MOVED
 }
 
+"""An enumeration."""
 enum AppAliasSortBy {
   NEWEST
   OLDEST
@@ -1199,6 +1210,7 @@ type UsageMetric {
   timestamp: DateTime!
 }
 
+"""An enumeration."""
 enum MetricType {
   cpu_time
   memory_time
@@ -1265,11 +1277,13 @@ type S3Credentials {
   endpoint: String!
 }
 
+"""An enumeration."""
 enum AppScreenshotViewportSize {
   MOBILE
   DESKTOP
 }
 
+"""An enumeration."""
 enum AppScreenshotAppearance {
   LIGHT
   DARK
@@ -1320,6 +1334,7 @@ type AutobuildRepository implements Node {
   commitHash: String!
   commitMessage: String!
   commitAuthorUsername: String!
+  reference: String
   status: StatusEnum!
   logUrl: String
   commitUrl: String
@@ -1349,12 +1364,14 @@ type BuildConfiguration implements Node {
   installCmd: String!
   canDeployWithoutRepo: Boolean!
   completionTimeInSeconds: Int!
-  kind: BuildKind!
+  kind: BuildKind
   repo: String!
 
   """The ID of the object"""
   id: ID!
   name: String!
+  repoName: String!
+  repoNamespace: String!
 }
 
 type BuildKind implements Node {
@@ -1366,6 +1383,81 @@ type BuildKind implements Node {
 
   """The ID of the object"""
   id: ID!
+}
+
+type AppSshServer implements Node {
+  enabled: Boolean!
+  users(offset: Int, before: String, after: String, first: Int, last: Int): SshUserConnection!
+
+  """The ID of the object"""
+  id: ID!
+}
+
+type SshUserConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [SshUserEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `SshUser` and its cursor."""
+type SshUserEdge {
+  """The item at the end of the edge"""
+  node: SshUser
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type SshUser implements Node {
+  """The ID of the object"""
+  id: ID!
+  username: String!
+  sftpRootFolder: String!
+  authorizedKeys(offset: Int, before: String, after: String, first: Int, last: Int): SshAuthorizedKeyConnection!
+  port: Int!
+  serverHost: String!
+  authenticationMethods: [SshAuthenticationMethod]
+}
+
+type SshAuthorizedKeyConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [SshAuthorizedKeyEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `SshAuthorizedKey` and its cursor."""
+type SshAuthorizedKeyEdge {
+  """The item at the end of the edge"""
+  node: SshAuthorizedKey
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+"""A public key authorised for a specific SSH user."""
+type SshAuthorizedKey implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  sshUser: SshUser!
+  name: String
+  publicKey: String!
+  createdBy: User!
+}
+
+enum SshAuthenticationMethod {
+  PASSWORD
+  PUBLIC_KEY
 }
 
 type AppMail implements Node {
@@ -1388,6 +1480,7 @@ type WordpressLiveConfig {
   checkedAt: DateTime!
   wordpressVersion: String!
   phpVersion: String!
+  phpArchitecture: String!
   mysqlServer: String!
   plugins: [WordPressPlugin]!
   themes: [WordPressTheme]!
@@ -1433,6 +1526,7 @@ type LogEdge {
   cursor: String!
 }
 
+"""An enumeration."""
 enum LogStream {
   STDOUT
   STDERR
@@ -1446,6 +1540,7 @@ type AppVersionVolume {
   mountPaths: [AppVersionVolumeMountPath]!
   size: BigInt
   usedSize: BigInt
+  explorerUrl: String
 }
 
 type AppVersionVolumeMountPath {
@@ -1585,7 +1680,7 @@ type Collection {
   description: String!
   createdAt: DateTime!
   banner: String!
-  packages(before: String, after: String, first: Int, last: Int): PackageConnection!
+  packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
 }
 
 type AppTemplateConnection {
@@ -1750,6 +1845,7 @@ type PackageCollaborator implements Node {
   invite: PackageCollaboratorInvite
 }
 
+"""An enumeration."""
 enum RegistryPackageMaintainerRoleChoices {
   """Owner"""
   OWNER
@@ -1780,6 +1876,7 @@ type PackageCollaboratorInvite implements Node {
   closedAt: DateTime
 }
 
+"""An enumeration."""
 enum RegistryPackageMaintainerInviteRoleChoices {
   """Owner"""
   OWNER
@@ -1875,6 +1972,7 @@ type DeployAppEdge {
   cursor: String!
 }
 
+"""An enumeration."""
 enum DeployAppsSortBy {
   NEWEST
   OLDEST
@@ -2080,6 +2178,7 @@ type CAARecord implements Node & DNSRecordInterface {
   domain: DNSDomain!
 }
 
+"""An enumeration."""
 enum DnsmanagerCertificationAuthorityAuthorizationRecordTagChoices {
   """issue"""
   ISSUE
@@ -2221,6 +2320,7 @@ type SSHFPRecord implements Node & DNSRecordInterface {
   domain: DNSDomain!
 }
 
+"""An enumeration."""
 enum DnsmanagerSshFingerprintRecordAlgorithmChoices {
   """RSA"""
   A_1
@@ -2235,6 +2335,7 @@ enum DnsmanagerSshFingerprintRecordAlgorithmChoices {
   A_4
 }
 
+"""An enumeration."""
 enum DnsmanagerSshFingerprintRecordTypeChoices {
   """SHA-1"""
   A_1
@@ -2275,6 +2376,9 @@ type APITokenConnection {
 
   """Contains the nodes in this connection."""
   edges: [APITokenEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """A Relay edge containing a `APIToken` and its cursor."""
@@ -2337,6 +2441,9 @@ type UserNotificationConnection {
 
   """Contains the nodes in this connection."""
   edges: [UserNotificationEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
   hasPendingNotifications: Boolean!
   pendingNotificationsCount: Int!
 }
@@ -2380,12 +2487,7 @@ type UserNotificationKindValidateEmail {
   user: User!
 }
 
-"""
-
-    Enum of ways a user can login. One user can have many login methods
-    associated with their account.
-    
-"""
+"\n    Enum of ways a user can login. One user can have many login methods\n    associated with their account.\n    "
 enum LoginMethod {
   GOOGLE
   GITHUB
@@ -2453,6 +2555,7 @@ type PaymentIntent implements Node {
   amount: String!
 }
 
+"""An enumeration."""
 enum DjstripePaymentIntentStatusChoices {
   """
   Cancellation invalidates the intent for future confirmation and cannot be undone.
@@ -2538,6 +2641,7 @@ type WasmerSubscription implements Node {
   id: ID!
 }
 
+"""An enumeration."""
 enum DjstripeSubscriptionStatusChoices {
   """Active"""
   ACTIVE
@@ -2773,7 +2877,7 @@ input WorkloadRunnerWasmSourceV1 {
 
 type Query {
   latestTOS: TermsOfService!
-  getAppRegions(supportsVolumes: Boolean, supportsDatabases: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): AppRegionConnection!
+  getAppRegions(active: Boolean, supportsVolumes: Boolean, supportsDatabases: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): AppRegionConnection!
   getDeployAppVersion(name: String!, owner: String, version: String): DeployAppVersion
   getAllDomains(namespace: String, offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
   getAllDNSRecords(sortBy: DNSRecordsSortBy, updatedAfter: DateTime, before: String, after: String, first: Int, last: Int): DNSRecordConnection!
@@ -2856,12 +2960,13 @@ type Query {
   getPackageInstanceByVersionOrHash(name: String!, version: String, hash: String): PackageInstance
   categories(offset: Int, before: String, after: String, first: Int, last: Int): CategoryConnection!
   viewerCan(action: OwnerAction!, ownerName: String!): Boolean!
-  blogposts(tags: [String!], before: String, after: String, first: Int, last: Int): BlogPostConnection!
+  blogposts(tags: [String!], offset: Int, before: String, after: String, first: Int, last: Int): BlogPostConnection!
   getBlogpost(slug: String, featured: Boolean): BlogPost
   allBlogpostTags(offset: Int, before: String, after: String, first: Int, last: Int): BlogPostTagConnection
   search(query: String!, packages: PackagesFilter, namespaces: NamespacesFilter, users: UsersFilter, apps: AppFilter, blogposts: BlogPostsFilter, appTemplates: AppTemplateFilter, before: String, after: String, first: Int, last: Int): SearchConnection!
   searchAutocomplete(kind: [SearchKind!], query: String!, before: String, after: String, first: Int, last: Int): SearchConnection!
   getGlobalObject(slug: String!): GlobalObject
+  internalTask(id: ID!): InternalTask
   node(
     """The ID of the object"""
     id: ID!
@@ -2904,6 +3009,7 @@ type AppRegion implements Node {
   city: String!
   supportsVolumes: Boolean!
   supportsDbs: Boolean!
+  active: Boolean!
 
   """The ID of the object"""
   id: ID!
@@ -2974,6 +3080,7 @@ type TemplateLanguageEdge {
   cursor: String!
 }
 
+"""An enumeration."""
 enum AppTemplatesSortBy {
   NEWEST
   OLDEST
@@ -3009,6 +3116,7 @@ type SecretLog implements Node {
   secretName: String!
 }
 
+"""An enumeration."""
 enum DeploySecretLogActionChoices {
   """Access"""
   ACCESS
@@ -3076,6 +3184,7 @@ type GetPasswordResetToken {
   user: User
 }
 
+"""An enumeration."""
 enum PackageVersionSortBy {
   NEWEST
   OLDEST
@@ -3108,6 +3217,9 @@ type BlogPostConnection {
 
   """Contains the nodes in this connection."""
   edges: [BlogPostEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
 }
 
 """A Relay edge containing a `BlogPost` and its cursor."""
@@ -3145,6 +3257,7 @@ type BlogPost implements Node {
   editUrl: String
 }
 
+"""An enumeration."""
 enum BlogBlogPostThemeChoices {
   """Green"""
   GREEN
@@ -3421,6 +3534,14 @@ enum SearchKind {
 
 union GlobalObject = User | Namespace
 
+type InternalTask {
+  id: ID!
+  status: String!
+  result: JSONString
+  dateDone: DateTime
+  traceback: String
+}
+
 type RegistryInfo {
   """Base URL for this registry"""
   baseUrl: String!
@@ -3473,6 +3594,24 @@ type Mutation {
   """Delete domain with given ID"""
   deleteAppDomain(input: DeleteAppDomainInput!): DeleteAppDomainPayload
 
+  """Enable or disable the SSH server capability on an app."""
+  toggleSshServer(input: ToggleSshServerInput!): ToggleSshServerPayload
+
+  """Reveal the password for an SSH user."""
+  revealSshUserPassword(input: RevealSshUserPasswordInput!): RevealSshUserPasswordPayload
+
+  """Rotate the password for an SSH user."""
+  rotateSshUserPassword(input: RotateSshUserPasswordInput!): RotateSshUserPasswordPayload
+
+  """Add an SSH authorized key to an SSH user."""
+  addSshAuthorizedKey(input: AddSshAuthorizedKeyInput!): AddSshAuthorizedKeyPayload
+
+  """Edit an SSH user."""
+  deleteSshAuthorizedKey(input: DeleteSshAuthorizedKeyInput!): DeleteSshAuthorizedKeyPayload
+
+  """Edit an SSH user."""
+  editSshUser(input: EditSshUserInput!): EditSshUserPayload
+
   """Detach autobuild from app."""
   verifyAppDomain(input: VerifyAppDomainInput!): VerifyAppDomainPayload
 
@@ -3502,6 +3641,7 @@ type Mutation {
   """
   detachPaymentMethod(input: DetachPaymentMethodInput!): DetachPaymentMethodPayload
   generateDeployConfigToken(input: GenerateDeployConfigTokenInput!): GenerateDeployConfigTokenPayload
+  generateSshToken(input: GenerateSshTokenInput!): GenerateSshTokenPayload
   renameApp(input: RenameAppInput!): RenameAppPayload
   renameAppAlias(input: RenameAppAliasInput!): RenameAppAliasPayload
 
@@ -3577,6 +3717,21 @@ type Mutation {
   """Claim a perishable app as their own."""
   claimPerishableApp(input: ClaimPerishableAppInput!): ClaimPerishableAppPayload
   deployViaAutobuild(input: DeployViaAutobuildInput!): DeployViaAutobuildPayload
+
+  """
+  Delete a user with some reason. The deletion will be soft, so the
+  underlying data will remain and be anonymized following GDPR.
+  """
+  deleteUser(input: DeleteUserInput!): DeleteUserPayload
+
+  """Create a new vault from yaml config"""
+  upsertVault(input: UpsertVaultInput!): UpsertVaultPayload
+
+  """Attach vault to an app"""
+  attachVault(input: AttachVaultInput!): AttachVaultPayload
+
+  """Migrate an app to a different region."""
+  migrateAppRegion(input: MigrateAppRegionInput!): MigrateAppRegionPayload
   tokenAuth(input: ObtainJSONWebTokenInput!): ObtainJSONWebTokenPayload
   generateDeployToken(input: GenerateDeployTokenInput!): GenerateDeployTokenPayload
   verifyAccessToken(token: String): Verify
@@ -3673,6 +3828,88 @@ type DeleteAppDomainPayload {
 input DeleteAppDomainInput {
   """ID of the domain to delete."""
   id: ID!
+  clientMutationId: String
+}
+
+"""Enable or disable the SSH server capability on an app."""
+type ToggleSshServerPayload {
+  sshServer: AppSshServer!
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input ToggleSshServerInput {
+  """App ID"""
+  appId: ID!
+  enabled: Boolean!
+  clientMutationId: String
+}
+
+"""Reveal the password for an SSH user."""
+type RevealSshUserPasswordPayload {
+  sshUser: SshUser!
+  password: String
+  clientMutationId: String
+}
+
+input RevealSshUserPasswordInput {
+  """SSH User ID"""
+  sshUserId: ID!
+  clientMutationId: String
+}
+
+"""Rotate the password for an SSH user."""
+type RotateSshUserPasswordPayload {
+  sshUser: SshUser!
+  password: String!
+  clientMutationId: String
+}
+
+input RotateSshUserPasswordInput {
+  """SSH User ID"""
+  sshUserId: ID!
+  clientMutationId: String
+}
+
+"""Add an SSH authorized key to an SSH user."""
+type AddSshAuthorizedKeyPayload {
+  authorizedKey: SshAuthorizedKey!
+  clientMutationId: String
+}
+
+input AddSshAuthorizedKeyInput {
+  """SSH User ID"""
+  sshUserId: ID!
+  publicKey: String!
+  name: String
+  clientMutationId: String
+}
+
+"""Edit an SSH user."""
+type DeleteSshAuthorizedKeyPayload {
+  success: Boolean!
+  clientMutationId: String
+}
+
+input DeleteSshAuthorizedKeyInput {
+  """SSH User ID"""
+  sshUserId: ID!
+  name: String
+  clientMutationId: String
+}
+
+"""Edit an SSH user."""
+type EditSshUserPayload {
+  sshUser: SshUser!
+  clientMutationId: String
+}
+
+input EditSshUserInput {
+  """SSH User ID"""
+  id: ID!
+  username: String
+  authenticationMethods: [SshAuthenticationMethod] = null
+  sftpRootFolder: String
   clientMutationId: String
 }
 
@@ -3869,6 +4106,16 @@ input GenerateDeployConfigTokenInput {
   clientMutationId: String
 }
 
+type GenerateSshTokenPayload {
+  token: String!
+  clientMutationId: String
+}
+
+input GenerateSshTokenInput {
+  appId: ID
+  clientMutationId: String
+}
+
 type RenameAppPayload {
   success: Boolean!
   app: DeployApp!
@@ -4006,6 +4253,7 @@ input UpsertDNSRecordInput {
   clientMutationId: String
 }
 
+"""An enumeration."""
 enum RecordKind {
   A
   AAAA
@@ -4391,7 +4639,8 @@ type DeployViaAutobuildPayload {
 input DeployViaAutobuildInput {
   repoUrl: String
   uploadUrl: String
-  appName: String!
+  appName: String
+  appId: ID
   owner: String
   buildCmd: String
   installCmd: String
@@ -4449,6 +4698,79 @@ input JobDefinitionInput {
 
   """Humanfriendly timeout definition. e.g. 10m, 1h"""
   timeout: String = "10m"
+}
+
+"""
+Delete a user with some reason. The deletion will be soft, so the
+underlying data will remain and be anonymized following GDPR.
+"""
+type DeleteUserPayload {
+  deleted: Boolean!
+
+  """ID of user to delete"""
+  userId: ID!
+  clientMutationId: String
+}
+
+input DeleteUserInput {
+  """ID of user to delete"""
+  userId: ID!
+  clientMutationId: String
+}
+
+"""Create a new vault from yaml config"""
+type UpsertVaultPayload {
+  vault: Vault!
+  clientMutationId: String
+}
+
+type Vault implements Node {
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  name: String!
+  app: DeployApp
+
+  """The ID of the object"""
+  id: ID!
+}
+
+input UpsertVaultInput {
+  """YAML Configuration for vault"""
+  config: String!
+  clientMutationId: String
+}
+
+"""Attach vault to an app"""
+type AttachVaultPayload {
+  app: DeployApp!
+  clientMutationId: String
+}
+
+input AttachVaultInput {
+  """ID of app to which the vault will be attached."""
+  appId: ID!
+
+  """ID of vault to attach."""
+  vaultId: ID!
+  clientMutationId: String
+}
+
+"""Migrate an app to a different region."""
+type MigrateAppRegionPayload {
+  app: DeployApp!
+
+  """ID of the internal task for app migration"""
+  taskId: ID!
+  clientMutationId: String
+}
+
+input MigrateAppRegionInput {
+  """ID of the app to migrate"""
+  appId: ID!
+
+  """Target region name"""
+  regionName: String!
+  clientMutationId: String
 }
 
 type ObtainJSONWebTokenPayload {
@@ -4518,6 +4840,7 @@ input RegisterUserInput {
   password: String!
   acceptedTos: Boolean
   intent: String
+  fingerprintVisitorId: String
   clientMutationId: String
 }
 
@@ -4532,6 +4855,7 @@ input SocialAuthJWTInput {
   accessToken: String!
   register: Boolean = false
   registerIntent: String
+  fingerprintVisitorId: String
   clientMutationId: String
 }
 
@@ -4571,7 +4895,7 @@ type RequestValidationEmailPayload {
 
 input RequestValidationEmailInput {
   """The user id"""
-  userId: ID
+  userId: ID @deprecated(reason: "This field is deprecated. The user can only request a validation email for themselves.")
   clientMutationId: String
 }
 
@@ -4628,7 +4952,10 @@ input UpdateUserInfoInput {
   bio: String
 
   """The user avatar"""
-  avatar: String
+  avatar: String @deprecated(reason: "Use `avatarUpload` instead")
+
+  """The user avatar"""
+  avatarUpload: Upload
 
   """
   The user Twitter (it can be the url, or the handle with or without the @)
@@ -4647,6 +4974,12 @@ input UpdateUserInfoInput {
   location: String
   clientMutationId: String
 }
+
+"""
+Create scalar that ignores normal serialization/deserialization, since
+that will be handled by the multipart request spec
+"""
+scalar Upload
 
 type ValidateUserPasswordPayload {
   success: Boolean
@@ -4901,12 +5234,20 @@ input PublishPackageInput {
   readme: String
   repository: String
   homepage: String
-  file: String
+
+  """The package file"""
+  file: String @deprecated(reason: "Use `fileUpload` instead")
+
+  """The package file"""
+  fileUpload: Upload
   signedUrl: String
   signature: InputSignature
 
   """The package icon"""
-  icon: String
+  icon: String @deprecated(reason: "Use `iconUpload` instead")
+
+  """The package icon"""
+  iconUpload: Upload
 
   """Whether the package is private"""
   private: Boolean = false
@@ -4924,6 +5265,7 @@ input InputSignature {
   data: String!
 }
 
+"""An enumeration."""
 enum UploadFormat {
   targz
   webcv2
@@ -4981,7 +5323,10 @@ input UpdatePackageInput {
   packageId: ID!
 
   """The package icon"""
-  icon: String
+  icon: String @deprecated(reason: "Use `iconUpload` instead")
+
+  """The package icon"""
+  iconUpload: Upload
   clientMutationId: String
 }
 
@@ -5073,7 +5418,10 @@ input CreateNamespaceInput {
   description: String
 
   """The namespace avatar"""
-  avatar: String
+  avatar: String @deprecated(reason: "Use `avatarUpload` instead")
+
+  """The namespace avatar"""
+  avatarUpload: Upload
   clientMutationId: String
 }
 
@@ -5095,7 +5443,10 @@ input UpdateNamespaceInput {
   description: String
 
   """The namespace avatar"""
-  avatar: String
+  avatar: String @deprecated(reason: "Use `avatarUpload` instead")
+
+  """The namespace avatar"""
+  avatarUpload: Upload
 
   """
   The user Twitter (it can be the url, or the handle with or without the @)
