@@ -141,7 +141,7 @@ rkyv = { version = "0.8.8", features = ["indexmap-2", "bytes-1"] }
 memmap2 = { version = "0.6.2" }
 toml = { version = "0.8", features = ["preserve_order"] }
 indexmap = "2"
-serde = { version = "1", features = ["derive"] }
+serde = { version = "1", default-features = false }
 serde_yaml = { package = "serde_yml", version = "0.0.12" }
 serde_json = { version = "1" }
 bytecheck = { version = "0.6.8" }
