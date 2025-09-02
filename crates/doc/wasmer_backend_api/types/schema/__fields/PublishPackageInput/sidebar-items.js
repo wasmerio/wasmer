@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","description","file","homepage","icon","license","licenseFile","manifest","name","namespace","private","readme","repository","signature","signedUrl","uploadFormat","version","wait"]};
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","description","file","fileUpload","homepage","icon","iconUpload","license","licenseFile","manifest","name","namespace","private","readme","repository","signature","signedUrl","uploadFormat","version","wait"]};

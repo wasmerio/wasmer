@@ -131,16 +131,109 @@
 <a href="#130" id="130">130</a>
 <a href="#131" id="131">131</a>
 <a href="#132" id="132">132</a>
-<a href="#133" id="133">133</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::path::{Path, PathBuf};
+<a href="#133" id="133">133</a>
+<a href="#134" id="134">134</a>
+<a href="#135" id="135">135</a>
+<a href="#136" id="136">136</a>
+<a href="#137" id="137">137</a>
+<a href="#138" id="138">138</a>
+<a href="#139" id="139">139</a>
+<a href="#140" id="140">140</a>
+<a href="#141" id="141">141</a>
+<a href="#142" id="142">142</a>
+<a href="#143" id="143">143</a>
+<a href="#144" id="144">144</a>
+<a href="#145" id="145">145</a>
+<a href="#146" id="146">146</a>
+<a href="#147" id="147">147</a>
+<a href="#148" id="148">148</a>
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a>
+<a href="#196" id="196">196</a>
+<a href="#197" id="197">197</a>
+<a href="#198" id="198">198</a>
+<a href="#199" id="199">199</a>
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+    collections::HashMap,
+    path::{Path, PathBuf},
+    time::Duration,
+};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>serde::{Deserialize, Serialize};
+<span class="kw">use </span>time::OffsetDateTime;
 
 <span class="attr">#[derive(Serialize, Deserialize, PartialEq, Eq, Clone, Debug)]
 </span><span class="kw">pub struct </span>EdgeConfig {
     <span class="kw">pub </span>version: u32,
     <span class="doccomment">/// Token used for ssh access.
     </span><span class="kw">pub </span>ssh_token: <span class="prelude-ty">Option</span>&lt;String&gt;,
+
+    <span class="doccomment">/// Map from unique app ID (da_...) to SSH token.
+    </span><span class="attr">#[serde(default)]
+    </span><span class="kw">pub </span>ssh_app_tokens: HashMap&lt;String, String&gt;,
+
     <span class="doccomment">/// Token used for network access.
     </span><span class="kw">pub </span>network_token: <span class="prelude-ty">Option</span>&lt;String&gt;,
 }
@@ -167,12 +260,44 @@
         <span class="kw">let </span>config = toml::from_str(data_str)<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>(config)
     }
+
+    <span class="doccomment">/// Get a valid SSH token.
+    ///
+    /// Will filter out the stored token if it has expired.
+    </span><span class="kw">pub fn </span>get_valid_ssh_token(<span class="kw-2">&amp;</span><span class="self">self</span>, app_id: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt; {
+        <span class="attr">#[allow(clippy::manual_filter)]
+        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(app_id) = app_id {
+            <span class="kw">let </span>token = <span class="self">self</span>.ssh_app_tokens.get(app_id)<span class="question-mark">?</span>;
+            <span class="kw">if </span>jwt_token_valid(token) {
+                <span class="prelude-val">Some</span>(token)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(token) = <span class="kw-2">&amp;</span><span class="self">self</span>.ssh_token {
+            <span class="kw">if </span>jwt_token_valid(token) {
+                <span class="prelude-val">Some</span>(token)
+            } <span class="kw">else </span>{
+                <span class="prelude-val">None
+            </span>}
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>}
+    }
+
+    <span class="kw">pub fn </span>add_ssh_token(<span class="kw-2">&amp;mut </span><span class="self">self</span>, app_id: <span class="prelude-ty">Option</span>&lt;String&gt;, token: String) {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(app_id) = app_id {
+            <span class="self">self</span>.ssh_app_tokens.insert(app_id, token);
+        } <span class="kw">else </span>{
+            <span class="self">self</span>.ssh_token = <span class="prelude-val">Some</span>(token);
+        }
+    }
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>EdgeConfig {
     <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             ssh_token: <span class="prelude-val">None</span>,
+            ssh_app_tokens: HashMap::new(),
             network_token: <span class="prelude-val">None</span>,
             version: <span class="number">1</span>,
         }
@@ -188,12 +313,6 @@
 }
 
 <span class="kw">impl </span>LoadedEdgeConfig {
-    <span class="kw">pub fn </span>set_ssh_token(<span class="kw-2">&amp;mut </span><span class="self">self</span>, token: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
-        <span class="self">self</span>.config.ssh_token = <span class="prelude-val">Some</span>(token);
-        <span class="self">self</span>.save()<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
-
     <span class="attr">#[allow(dead_code)]
     </span><span class="kw">pub fn </span>set_network_token(<span class="kw-2">&amp;mut </span><span class="self">self</span>, token: String) -&gt; <span class="prelude-ty">Result</span>&lt;(), anyhow::Error&gt; {
         <span class="self">self</span>.config.network_token = <span class="prelude-val">Some</span>(token);
@@ -263,5 +382,52 @@
     <span class="kw">let </span>config = EdgeConfig::from_slice(<span class="kw-2">&amp;</span>data)
         .with_context(|| <span class="macro">format!</span>(<span class="string">"failed to parse config file at '{}'"</span>, path.display()))<span class="question-mark">?</span>;
     <span class="prelude-val">Ok</span>(config)
+}
+
+<span class="kw">fn </span>jwt_token_valid(jwt_token: <span class="kw-2">&amp;</span>str) -&gt; bool {
+    <span class="kw">if let </span><span class="prelude-val">Ok</span>(expiration) = jwt_token_expiration_time(jwt_token) {
+        expiration &gt; (OffsetDateTime::now_utc() + Duration::from_secs(<span class="number">30</span>))
+    } <span class="kw">else </span>{
+        <span class="bool-val">false
+    </span>}
+}
+
+<span class="kw">fn </span>jwt_token_expiration_time(jwt_token: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;OffsetDateTime, anyhow::Error&gt; {
+    <span class="kw">use </span>base64::Engine;
+
+    <span class="comment">// JWT tokens have three parts separated by dots: Header.Payload.Signature
+    </span><span class="kw">let </span>parts: Vec&lt;<span class="kw-2">&amp;</span>str&gt; = jwt_token.split(<span class="string">'.'</span>).collect();
+
+    <span class="kw">if </span>parts.len() != <span class="number">3 </span>{
+        <span class="macro">bail!</span>(<span class="string">"Invalid JWT token format: expected 3 parts."</span>);
+    }
+
+    <span class="kw">let </span>payload_base64 = parts[<span class="number">1</span>];
+
+    <span class="comment">// Decode the Base64 URL-encoded payload
+    </span><span class="kw">let </span>decoded_payload_bytes = base64::prelude::BASE64_URL_SAFE_NO_PAD
+        .decode(payload_base64)
+        .with_context(|| <span class="string">"Failed to base64 decode payload"</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>decoded_payload_str = String::from_utf8(decoded_payload_bytes)
+        .with_context(|| <span class="string">"Failed to convert decoded bytes to UTF-8"</span>)<span class="question-mark">?</span>;
+
+    <span class="comment">// Parse the JSON payload
+    </span><span class="kw">let </span>payload_json: serde_json::Value = serde_json::from_str(<span class="kw-2">&amp;</span>decoded_payload_str)
+        .with_context(|| <span class="string">"Failed to parse JSON payload"</span>)<span class="question-mark">?</span>;
+
+    <span class="comment">// Extract the 'exp' (expiration time) claim
+    // It should be a Unix timestamp (seconds since epoch)
+    </span><span class="kw">let </span>exp_timestamp = payload_json
+        .get(<span class="string">"exp"</span>)
+        .context(<span class="string">"no 'exp' field in token payload"</span>)<span class="question-mark">?
+        </span>.as_i64()
+        .context(<span class="string">"exp field is not an integer"</span>)<span class="question-mark">?</span>;
+
+    <span class="comment">// Convert the Unix timestamp to an OffsetDateTime
+    </span><span class="kw">let </span>expiration_time = OffsetDateTime::from_unix_timestamp(exp_timestamp)
+        .context(<span class="string">"Failed to convert Unix timestamp to OffsetDateTime"</span>)<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(expiration_time)
 }
 </code></pre></div></section></main></body></html>

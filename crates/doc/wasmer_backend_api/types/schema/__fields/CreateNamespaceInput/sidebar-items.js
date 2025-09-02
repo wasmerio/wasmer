@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["avatar","clientMutationId","description","displayName","name"]};
+window.SIDEBAR_ITEMS = {"struct":["avatar","avatarUpload","clientMutationId","description","displayName","name"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["after","before","first","last","tags"]};
+window.SIDEBAR_ITEMS = {"struct":["after","before","first","last","offset","tags"]};

@@ -147,36 +147,66 @@
 <a href="#146" id="146">146</a>
 <a href="#147" id="147">147</a>
 <a href="#148" id="148">148</a>
-<a href="#149" id="149">149</a></pre></div><pre class="rust"><code><span class="doccomment">//! Edge SSH command.
+<a href="#149" id="149">149</a>
+<a href="#150" id="150">150</a>
+<a href="#151" id="151">151</a>
+<a href="#152" id="152">152</a>
+<a href="#153" id="153">153</a>
+<a href="#154" id="154">154</a>
+<a href="#155" id="155">155</a>
+<a href="#156" id="156">156</a>
+<a href="#157" id="157">157</a>
+<a href="#158" id="158">158</a>
+<a href="#159" id="159">159</a>
+<a href="#160" id="160">160</a>
+<a href="#161" id="161">161</a>
+<a href="#162" id="162">162</a>
+<a href="#163" id="163">163</a>
+<a href="#164" id="164">164</a>
+<a href="#165" id="165">165</a>
+<a href="#166" id="166">166</a>
+<a href="#167" id="167">167</a>
+<a href="#168" id="168">168</a>
+<a href="#169" id="169">169</a>
+<a href="#170" id="170">170</a>
+<a href="#171" id="171">171</a>
+<a href="#172" id="172">172</a>
+<a href="#173" id="173">173</a>
+<a href="#174" id="174">174</a>
+<a href="#175" id="175">175</a>
+<a href="#176" id="176">176</a>
+<a href="#177" id="177">177</a>
+<a href="#178" id="178">178</a>
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a></pre></div><pre class="rust"><code><span class="doccomment">//! Edge SSH command.
 
 </span><span class="kw">use </span>anyhow::Context;
-<span class="kw">use </span>wasmer_backend_api::WasmerClient;
+<span class="kw">use </span>wasmer_backend_api::{types::DeployApp, WasmerClient};
 
-<span class="kw">use </span><span class="kw">super</span>::AsyncCliCommand;
-<span class="kw">use crate</span>::{config::WasmerEnv, edge_config::EdgeConfig};
+<span class="kw">use super</span>::{app::AppIdentArgOpts, AsyncCliCommand};
+<span class="kw">use crate</span>::{config::WasmerEnv, edge_config::LoadedEdgeConfig};
 
 <span class="doccomment">/// Start a remote SSH session.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>CmdSsh {
     <span class="attr">#[clap(flatten)]
+    </span><span class="kw">pub </span>app: AppIdentArgOpts,
+
+    <span class="attr">#[clap(flatten)]
     </span>env: WasmerEnv,
+
     <span class="doccomment">/// SSH port to use.
     </span><span class="attr">#[clap(long, default_value = <span class="string">"22"</span>)]
     </span><span class="kw">pub </span>ssh_port: u16,
+
     <span class="doccomment">/// Local port mapping to the package that's running, this allows
     /// for instance a HTTP server to be tested remotely while giving
     /// instant logs over stderr channelled via SSH.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>map_port: Vec&lt;u16&gt;,
-    <span class="doccomment">/// Package to run on the Deploy servers
-    ///
-    /// By default a bash session will be started.
-    </span><span class="attr">#[clap(index = <span class="number">1</span>)]
-    </span><span class="kw">pub </span>run: <span class="prelude-ty">Option</span>&lt;String&gt;,
-
-    <span class="doccomment">/// Additional arguments to pass to the package.
-    </span><span class="attr">#[clap(index = <span class="number">2</span>, trailing_var_arg = <span class="bool-val">true</span>)]
-    </span><span class="kw">pub </span>run_args: Vec&lt;String&gt;,
 
     <span class="doccomment">/// The Edge SSH server host to connect to.
     ///
@@ -187,11 +217,10 @@
     <span class="doccomment">/// Prints the SSH command rather than executing it.
     </span><span class="attr">#[clap(short, long)]
     </span><span class="kw">pub </span>print: bool,
-}
 
-<span class="kw">impl </span>CmdSsh {
-    <span class="doccomment">/// The default package to run.
-    </span><span class="kw">const </span>DEFAULT_PACKAGE: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"wasmer/bash"</span>;
+    <span class="comment">// All extra arguments.
+    </span><span class="attr">#[clap(trailing_var_arg = <span class="bool-val">true</span>)]
+    </span><span class="kw">pub </span>extra: Vec&lt;String&gt;,
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -202,10 +231,22 @@
         <span class="kw">let </span><span class="kw-2">mut </span>config = <span class="kw">crate</span>::edge_config::load_config(<span class="prelude-val">None</span>)<span class="question-mark">?</span>;
         <span class="kw">let </span>client = <span class="self">self</span>.env.client()<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>(token, is_new) = acquire_ssh_token(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>config.config).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>token = acquire_ssh_token(<span class="kw-2">&amp;</span>client, <span class="kw-2">&amp;</span>config, <span class="kw-2">&amp;</span><span class="self">self</span>.app).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>app_id = token.app.as_ref().map(|a| a.id.inner().to_owned());
 
         <span class="kw">let </span>host = <span class="kw">if let </span><span class="prelude-val">Some</span>(host) = <span class="self">self</span>.host {
             host
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(app) = <span class="kw-2">&amp;</span>token.app {
+            <span class="comment">// For apps, use the app domain to ensure proper routing.
+            </span><span class="kw">let </span>url = app.url.clone();
+            <span class="kw">if </span>url.starts_with(<span class="string">"http://"</span>) || url.starts_with(<span class="string">"https://"</span>) {
+                <span class="kw">let </span>url = url.parse::&lt;url::Url&gt;().context(<span class="string">"Could not parse app url"</span>)<span class="question-mark">?</span>;
+                url.host_str()
+                    .context(<span class="string">"Could not determine host from app url"</span>)<span class="question-mark">?
+                    </span>.to_string()
+            } <span class="kw">else </span>{
+                url
+            }
         } <span class="kw">else </span>{
             <span class="comment">// No custom host specified, use an appropriate one based on the
             // environment.
@@ -215,12 +256,16 @@
         </span>};
         <span class="kw">let </span>port = <span class="self">self</span>.ssh_port;
 
-        <span class="kw">if </span>is_new {
+        <span class="kw">if </span>token.is_new {
             <span class="macro">eprintln!</span>(<span class="string">"Acquired new SSH token"</span>);
-            config.set_ssh_token(token.clone())<span class="question-mark">?</span>;
+            config.config.add_ssh_token(app_id, token.token.clone());
             <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = config.save() {
                 <span class="macro">eprintln!</span>(<span class="string">"WARNING: failed to save config: {err}"</span>);
             }
+        }
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(app) = <span class="kw-2">&amp;</span>token.app {
+            <span class="macro">eprintln!</span>(<span class="string">"Connecting to app '{}' at {}"</span>, app.name, host);
         }
 
         <span class="kw">let </span><span class="kw-2">mut </span>cmd = std::process::Command::new(<span class="string">"ssh"</span>);
@@ -247,11 +292,9 @@
             cmd = cmd.args([<span class="string">"-L"</span>, <span class="macro">format!</span>(<span class="string">"{map_port}:localhost:{map_port}"</span>).as_str()]);
         }
 
-        <span class="kw">let </span>package = <span class="self">self</span>.run.as_deref().unwrap_or(<span class="self">Self</span>::DEFAULT_PACKAGE);
-        cmd = cmd.arg(<span class="macro">format!</span>(<span class="string">"{token}@{host}"</span>)).arg(package);
-        <span class="kw">for </span>run_arg <span class="kw">in </span><span class="self">self</span>.run_args {
-            cmd = cmd.arg(<span class="kw-2">&amp;</span>run_arg);
-        }
+        cmd = cmd
+            .arg(<span class="macro">format!</span>(<span class="string">"{}@{}"</span>, token.token, host))
+            .args(<span class="kw-2">&amp;</span><span class="self">self</span>.extra);
 
         <span class="kw">if </span><span class="self">self</span>.print {
             <span class="macro">print!</span>(<span class="string">"ssh"</span>);
@@ -271,29 +314,54 @@
     }
 }
 
-<span class="kw">type </span>IsNew = bool;
 <span class="kw">type </span>RawToken = String;
+
+<span class="kw">struct </span>AcquiredToken {
+    token: RawToken,
+    app: <span class="prelude-ty">Option</span>&lt;DeployApp&gt;,
+    is_new: bool,
+}
 
 <span class="kw">async fn </span>acquire_ssh_token(
     client: <span class="kw-2">&amp;</span>WasmerClient,
-    config: <span class="kw-2">&amp;</span>EdgeConfig,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(RawToken, IsNew), anyhow::Error&gt; {
-    <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = <span class="kw-2">&amp;</span>config.ssh_token {
-        <span class="comment">// TODO: validate that token is still valid.
-        </span><span class="kw">return </span><span class="prelude-val">Ok</span>((token.clone(), <span class="bool-val">false</span>));
+    config: <span class="kw-2">&amp;</span>LoadedEdgeConfig,
+    app_opts: <span class="kw-2">&amp;</span>AppIdentArgOpts,
+) -&gt; <span class="prelude-ty">Result</span>&lt;AcquiredToken, anyhow::Error&gt; {
+    <span class="kw">let </span>app_opts = app_opts.clone().to_opts();
+
+    <span class="kw">let </span>app = <span class="kw">if let </span><span class="prelude-val">Some</span>((<span class="kw">_</span>, app)) = app_opts.load_app_opt(client).<span class="kw">await</span><span class="question-mark">? </span>{
+        <span class="prelude-val">Some</span>(app)
+    } <span class="kw">else </span>{
+        <span class="prelude-val">None
+    </span>};
+
+    <span class="comment">// Check cached.
+    </span><span class="kw">let </span>app_id = app.as_ref().map(|a| a.id.inner());
+    <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = config.config.get_valid_ssh_token(app_id) {
+        <span class="kw">return </span><span class="prelude-val">Ok</span>(AcquiredToken {
+            token: token.to_string(),
+            app,
+            is_new: <span class="bool-val">false</span>,
+        });
     }
 
-    <span class="kw">let </span>token = create_ssh_token(client).<span class="kw">await</span><span class="question-mark">?</span>;
-    <span class="prelude-val">Ok</span>((token, <span class="bool-val">true</span>))
+    <span class="comment">// Create new.
+    </span><span class="kw">let </span>token = create_ssh_token(client, app_id.map(|x| x.to_owned())).<span class="kw">await</span><span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(AcquiredToken {
+        token,
+        app,
+        is_new: <span class="bool-val">true</span>,
+    })
 }
 
 <span class="doccomment">/// Create a new token for SSH access through the backend API.
-</span><span class="kw">async fn </span>create_ssh_token(client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; <span class="prelude-ty">Result</span>&lt;RawToken, anyhow::Error&gt; {
-    wasmer_backend_api::query::generate_deploy_config_token_raw(
-        client,
-        wasmer_backend_api::query::TokenKind::SSH,
-    )
-    .<span class="kw">await
-    </span>.context(<span class="string">"Could not create token for ssh access"</span>)
+</span><span class="kw">async fn </span>create_ssh_token(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    app: <span class="prelude-ty">Option</span>&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;RawToken, anyhow::Error&gt; {
+    wasmer_backend_api::query::generate_ssh_token(client, app)
+        .<span class="kw">await
+        </span>.context(<span class="string">"Could not create token for ssh access"</span>)
 }
 </code></pre></div></section></main></body></html>

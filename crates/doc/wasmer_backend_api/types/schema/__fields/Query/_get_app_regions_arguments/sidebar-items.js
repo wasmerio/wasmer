@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["after","before","first","last","offset","supportsDatabases","supportsVolumes"]};
+window.SIDEBAR_ITEMS = {"struct":["active","after","before","first","last","offset","supportsDatabases","supportsVolumes"]};

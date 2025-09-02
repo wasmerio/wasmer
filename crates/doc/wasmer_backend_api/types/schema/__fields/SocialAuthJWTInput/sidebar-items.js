@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["accessToken","clientMutationId","provider","register","registerIntent"]};
+window.SIDEBAR_ITEMS = {"struct":["accessToken","clientMutationId","fingerprintVisitorId","provider","register","registerIntent"]};

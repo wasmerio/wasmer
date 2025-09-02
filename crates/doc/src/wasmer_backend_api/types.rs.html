@@ -2346,7 +2346,24 @@
 <a href="#2345" id="2345">2345</a>
 <a href="#2346" id="2346">2346</a>
 <a href="#2347" id="2347">2347</a>
-<a href="#2348" id="2348">2348</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
+<a href="#2348" id="2348">2348</a>
+<a href="#2349" id="2349">2349</a>
+<a href="#2350" id="2350">2350</a>
+<a href="#2351" id="2351">2351</a>
+<a href="#2352" id="2352">2352</a>
+<a href="#2353" id="2353">2353</a>
+<a href="#2354" id="2354">2354</a>
+<a href="#2355" id="2355">2355</a>
+<a href="#2356" id="2356">2356</a>
+<a href="#2357" id="2357">2357</a>
+<a href="#2358" id="2358">2358</a>
+<a href="#2359" id="2359">2359</a>
+<a href="#2360" id="2360">2360</a>
+<a href="#2361" id="2361">2361</a>
+<a href="#2362" id="2362">2362</a>
+<a href="#2363" id="2363">2363</a>
+<a href="#2364" id="2364">2364</a>
+<a href="#2365" id="2365">2365</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
 
@@ -3783,6 +3800,23 @@
 
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     </span><span class="kw">pub struct </span>GenerateDeployConfigTokenPayload {
+        <span class="kw">pub </span>token: String,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>GenerateSshTokenVariables {
+        <span class="kw">pub </span>app_id: <span class="prelude-ty">Option</span>&lt;cynic::Id&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">"Mutation"</span>, variables = <span class="string">"GenerateSshTokenVariables"</span>)]
+    </span><span class="kw">pub struct </span>GenerateSshToken {
+        <span class="attr">#[arguments(input: { appId: <span class="macro-nonterminal">$app_id </span>})]
+        </span><span class="kw">pub </span>generate_ssh_token: <span class="prelude-ty">Option</span>&lt;GenerateSshTokenPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>GenerateSshTokenPayload {
         <span class="kw">pub </span>token: String,
     }
 

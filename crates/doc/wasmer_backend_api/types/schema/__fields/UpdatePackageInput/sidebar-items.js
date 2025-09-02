@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","icon","packageId"]};
+window.SIDEBAR_ITEMS = {"struct":["clientMutationId","icon","iconUpload","packageId"]};

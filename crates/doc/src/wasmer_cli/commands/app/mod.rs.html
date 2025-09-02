@@ -76,7 +76,8 @@
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
 <a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a></pre></div><pre class="rust"><code><span class="doccomment">//! Edge app commands.
+<a href="#78" id="78">78</a>
+<a href="#79" id="79">79</a></pre></div><pre class="rust"><code><span class="doccomment">//! Edge app commands.
 
 </span><span class="kw">pub mod </span>create;
 <span class="kw">pub mod </span>database;
@@ -94,6 +95,7 @@
 <span class="kw">pub mod </span>volumes;
 
 <span class="kw">mod </span>util;
+<span class="kw">pub use </span>util::AppIdentArgOpts;
 
 <span class="kw">use </span><span class="kw">crate</span>::commands::AsyncCliCommand;
 
