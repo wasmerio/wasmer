@@ -70,7 +70,7 @@ pub(crate) struct Instance {
     /// WebAssembly global data.
     globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
 
-    /// WebAssembly global data.
+    /// WebAssembly tag data.
     tags: BoxedSlice<LocalTagIndex, InternalStoreHandle<VMTag>>,
 
     /// Pointers to functions in executable memory.

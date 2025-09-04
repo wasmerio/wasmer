@@ -18,7 +18,7 @@ pub struct Imports {
     /// Resolved addresses for imported memories.
     pub memories: BoxedSlice<MemoryIndex, VMMemoryImport>,
 
-    /// Resolved addresses for imported memories.
+    /// Resolved addresses for imported tags.
     pub tags: BoxedSlice<TagIndex, VMTagImport>,
 
     /// Resolved addresses for imported globals.
