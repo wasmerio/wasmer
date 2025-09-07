@@ -53,6 +53,13 @@ const FUNCTION_SECTION_ELF: &str = "__TEXT,wasmer_function";
 const FUNCTION_SECTION_MACHO: &str = "__TEXT";
 const FUNCTION_SEGMENT_MACHO: &str = "wasmer_function";
 
+// Since we want to use module-local tag numbers for landing pads,
+// the catch-all tag can't be zero; we instead use i32::MAX, which
+// is hopefully large enough to not conflict with any real tag.
+// If you have 2 billion tags in a single module, you deserve what you get.
+// ( Arshia: that comment above is AI-generated... AI is savage XD )
+const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
+
 pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
@@ -299,11 +306,8 @@ impl FuncTranslator {
             abi: &*self.abi,
             config,
             exception_types_cache: HashMap::new(),
+            vmctx_alloca: None,
             tags_cache: HashMap::new(),
-            ptr_size: self
-                .target_machine
-                .get_target_data()
-                .get_pointer_byte_size(None),
             binary_fmt: self.binary_fmt,
         };
 
@@ -1484,14 +1488,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         Ok(())
     }
 
-    fn get_or_insert_global_tag(&mut self, tag: u32) -> BasicValueEnum<'ctx> {
+    // Generates a global constant with the tag's module-local index, which can be used
+    // as the "type info" of a catch clause.
+    fn get_or_insert_tag_type_info_global(&mut self, tag: i32) -> BasicValueEnum<'ctx> {
         if let Some(tag) = self.tags_cache.get(&tag) {
             return *tag;
         }
 
         let tag_ty = self
             .context
-            .struct_type(&[self.intrinsics.i64_ty.into()], false);
+            .struct_type(&[self.intrinsics.i32_ty.into()], false);
         let tag_glbl = self.module.add_global(
             tag_ty,
             Some(AddressSpace::default()),
@@ -1499,11 +1505,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         );
         tag_glbl.set_initializer(
             &tag_ty
-                .const_named_struct(&[self
-                    .intrinsics
-                    .i64_ty
-                    .const_int(self.encode_tag(tag) as _, false)
-                    .into()])
+                .const_named_struct(&[self.intrinsics.i32_ty.const_int(tag as _, false).into()])
                 .as_basic_value_enum(),
         );
 
@@ -1543,28 +1545,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         let ty = self.context.struct_type(&types, false);
         self.exception_types_cache.insert(tag, ty);
         Ok(ty)
-    }
-
-    // Encode a tag - an u32 identifying an event - into a unique value that can be used in
-    // catch clauses.
-    //
-    // This is to avoid that the #0 tag is reinterpreted as nullptr in the catch clause of a
-    // landing pad.
-    #[inline]
-    fn encode_tag(&self, tag: u32) -> usize {
-        let size = self.ptr_size;
-        if size == 4 {
-            // Add 1 to the tag value so that we don't have tags with value `0`; this is because
-            // the catches in the landingpad match on the value of the tag, and a value of 0 means
-            // catch_all
-            (tag + 1) as usize
-        } else if size == 8 {
-            let mut base = vec![b'w', b'a', b's', b'm'];
-            base.append(&mut tag.to_be_bytes().to_vec());
-            u64::from_be_bytes(base.try_into().unwrap()) as usize
-        } else {
-            panic!()
-        }
     }
 
     fn build_g0m0_indirect_call(
@@ -1822,6 +1802,21 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
         Ok(call_site_local)
     }
+
+    fn build_or_get_vmctx_alloca(&mut self) -> Result<PointerValue<'ctx>, CompileError> {
+        if let Some(vmctx_alloca) = self.vmctx_alloca {
+            return Ok(vmctx_alloca);
+        }
+
+        let vmctx_alloca = err!(self
+            .alloca_builder
+            .build_alloca(self.intrinsics.ptr_ty, "vmctx"));
+        err!(self
+            .alloca_builder
+            .build_store(vmctx_alloca, self.abi.get_vmctx_ptr_param(&self.function)));
+        self.vmctx_alloca = Some(vmctx_alloca);
+        Ok(vmctx_alloca)
+    }
 }
 
 /*
@@ -1936,9 +1931,9 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     symbol_registry: &'a dyn SymbolRegistry,
     abi: &'a dyn Abi,
     config: &'a LLVM,
-    tags_cache: HashMap<u32, BasicValueEnum<'ctx>>,
+    tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
     exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
-    ptr_size: u32,
+    vmctx_alloca: Option<PointerValue<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
 }
 
@@ -12449,6 +12444,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
                 let can_throw_block = self.context.append_basic_block(self.function, "try_begin");
                 let catch_block = self.context.append_basic_block(self.function, "catch");
+                let catch_all_block = self.context.append_basic_block(self.function, "catch_all");
+                let catch_specific_block = self
+                    .context
+                    .append_basic_block(self.function, "catch_specific");
+                let catch_end_block = self.context.append_basic_block(self.function, "catch_end");
 
                 let rethrow_block = self.context.append_basic_block(self.function, "rethrow");
 
@@ -12476,24 +12476,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     phis
                 };
 
-                self.builder.position_at_end(current_block);
-                err!(self.builder.build_unconditional_branch(can_throw_block));
-                self.builder.position_at_end(catch_block);
-
-                // Collect unique catches. It is not a "hard" error on the wasm side,
-                // but LLVM will definitely complain about having the same identifier
-                // match two different branches in the switch below.
-                let catches: Vec<_> = try_table
-                    .catches
-                    .into_iter()
-                    .unique_by(|v| match v {
-                        Catch::One { label, .. }
-                        | Catch::OneRef { label, .. }
-                        | Catch::All { label }
-                        | Catch::AllRef { label } => *label,
-                    })
-                    .collect();
-
                 let block_param_types = self
                     .module_translation
                     .blocktype_params_results(&try_table.ty)?
@@ -12505,6 +12487,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     })
                     .collect::<Result<Vec<_>, _>>()?;
 
+                self.builder.position_at_end(current_block);
+                err!(self.builder.build_unconditional_branch(can_throw_block));
+                self.builder.position_at_end(catch_block);
+
+                // Collect unique catches. It is not a "hard" error on the wasm side,
+                // but LLVM will definitely complain about having the same identifier
+                // match two different branches in the switch below.
+                let catches: Vec<_> = try_table
+                    .catches
+                    .into_iter()
+                    .unique_by(|v| match v {
+                        Catch::One { tag, .. } | Catch::OneRef { tag, .. } => *tag as i32,
+                        Catch::All { .. } | Catch::AllRef { .. } => CATCH_ALL_TAG_VALUE,
+                    })
+                    .collect();
+
                 // Build the landing pad.
                 let null = self.intrinsics.ptr_ty.const_zero();
                 let exception_type = self.context.struct_type(
@@ -12512,21 +12510,17 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     false,
                 );
 
-                let mut tags = vec![];
-                let clauses: Vec<BasicValueEnum<'ctx>> = catches
+                let mut catch_tag_values = vec![];
+                let lpad_clauses: Vec<BasicValueEnum<'ctx>> = catches
                     .iter()
                     .map(|catch| match catch {
                         Catch::All { .. } | Catch::AllRef { .. } => {
-                            tags.push(0);
+                            catch_tag_values.push(CATCH_ALL_TAG_VALUE as u32);
                             Ok(null.into())
                         }
                         Catch::One { tag, .. } | Catch::OneRef { tag, .. } => {
-                            //let (int_tag, tag_ptr) = self.tag_to_catch_clause(*tag);
-                            //let tag_ptr = tag_ptr?;
-                            //tags.push(int_tag);
-                            //Ok(tag_ptr.into())
-                            tags.push(*tag);
-                            Ok(self.get_or_insert_global_tag(*tag))
+                            catch_tag_values.push(*tag);
+                            Ok(self.get_or_insert_tag_type_info_global(*tag as i32))
                         }
                     })
                     .collect::<Result<Vec<BasicValueEnum<'ctx>>, CompileError>>()?;
@@ -12534,15 +12528,65 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let res = err!(self.builder.build_landing_pad(
                     exception_type,
                     self.intrinsics.personality,
-                    &clauses,
+                    &lpad_clauses,
                     false,
-                    "exc",
+                    "exc_struct",
                 ));
 
                 let res = res.into_struct_value();
 
-                let uw_exc = err!(self.builder.build_extract_value(res, 0, "exc"));
-                let exc_ty = err!(self.builder.build_extract_value(res, 1, "exc_ty"));
+                let uw_exc = err!(self.builder.build_extract_value(res, 0, "exc_ptr"));
+                let pre_selector = err!(self.builder.build_extract_value(res, 1, "pre_selector"));
+
+                // The pre-selector can be either 0 (for catch-all) or 1 (for a
+                // specific, but as-yet-unknown tag).
+                let pre_selector_is_zero = err!(self.builder.build_int_compare(
+                    IntPredicate::EQ,
+                    pre_selector.into_int_value(),
+                    self.intrinsics.i32_ty.const_zero(),
+                    "pre_selector_is_zero"
+                ));
+                err!(self.builder.build_conditional_branch(
+                    pre_selector_is_zero,
+                    catch_all_block,
+                    catch_specific_block
+                ));
+
+                self.builder.position_at_end(catch_all_block);
+                err!(self.builder.build_unconditional_branch(catch_end_block));
+
+                self.builder.position_at_end(catch_specific_block);
+                let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
+                let vmctx_ptr =
+                    err!(self
+                        .builder
+                        .build_load(self.intrinsics.ptr_ty, vmctx_alloca, "vmctx"));
+                let selector_value = err!(self.builder.build_call(
+                    self.intrinsics.personality2,
+                    &[vmctx_ptr.into(), uw_exc.into()],
+                    "selector"
+                ));
+                err!(self.builder.build_unconditional_branch(catch_end_block));
+
+                self.builder.position_at_end(catch_end_block);
+                let selector = err!(self.builder.build_phi(self.intrinsics.i32_ty, "selector"));
+                selector.add_incoming(&[
+                    (
+                        &self
+                            .intrinsics
+                            .i32_ty
+                            .const_int(CATCH_ALL_TAG_VALUE as u64, false),
+                        catch_all_block,
+                    ),
+                    (
+                        &selector_value
+                            .try_as_basic_value()
+                            .left()
+                            .unwrap()
+                            .into_int_value(),
+                        catch_specific_block,
+                    ),
+                ]);
 
                 // The exception we get at this point is a wrapper around the [`WasmerException`]
                 // type. This is needed because when we create the exception to pass it to
@@ -12551,14 +12595,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // fields and we need to pass them back when rethrowing. This to say, we need to
                 // keep the original exception passed to us by libunwind to be able to rethrow it.
                 let uw_exc = uw_exc.into_pointer_value();
-                let exc = err!(self.builder.build_call(
+                let wasmer_exc = err!(self.builder.build_call(
                     self.intrinsics.read_exception,
                     &[uw_exc.into()],
                     "wasmer_exc_ptr"
                 ));
 
-                let exc = exc.as_any_value_enum().into_pointer_value();
-                let exc_ty = exc_ty.into_int_value();
+                let wasmer_exc = wasmer_exc.as_any_value_enum().into_pointer_value();
+                let selector = selector.as_basic_value().into_int_value();
 
                 let mut catch_blocks = vec![];
                 for catch in catches.iter() {
@@ -12572,7 +12616,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
-                            self.builder.position_at_end(catch_block);
+                            self.builder.position_at_end(catch_end_block);
                             catch_blocks.push(b);
                         }
                         Catch::One { tag, label } => {
@@ -12602,9 +12646,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             // Points at the `data` field of the exception.
                             let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
                                 self.intrinsics.exc_ty,
-                                exc,
+                                wasmer_exc,
                                 1,
-                                "wasmer_exc_data_ptr"
+                                "wasmer_exc_data_ptr_ptr"
                             ));
 
                             let wasmer_exc_data_ptr = err!(self.builder.build_load(
@@ -12645,7 +12689,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
-                            self.builder.position_at_end(catch_block);
+                            self.builder.position_at_end(catch_end_block);
                             catch_blocks.push(b);
                         }
                         Catch::OneRef { label, tag } => {
@@ -12675,7 +12719,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             // Points at the `data` field of the exception.
                             let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
                                 self.intrinsics.exc_ty,
-                                exc,
+                                wasmer_exc,
                                 1,
                                 "wasmer_exc_data_ptr"
                             ));
@@ -12720,7 +12764,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
-                            self.builder.position_at_end(catch_block);
+                            self.builder.position_at_end(catch_end_block);
                             catch_blocks.push(b);
                         }
                         Catch::AllRef { label } => {
@@ -12741,19 +12785,24 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
-                            self.builder.position_at_end(catch_block);
+                            self.builder.position_at_end(catch_end_block);
                             catch_blocks.push(b);
                         }
                     }
                 }
 
                 err!(self.builder.build_switch(
-                    exc_ty,
+                    selector,
                     rethrow_block,
                     catch_blocks
                         .into_iter()
                         .enumerate()
-                        .map(|(i, v)| (self.intrinsics.i32_ty.const_int(tags[i] as _, false), v))
+                        .map(|(i, v)| (
+                            self.intrinsics
+                                .i32_ty
+                                .const_int(catch_tag_values[i] as _, false),
+                            v
+                        ))
                         .collect::<Vec<_>>()
                         .as_slice()
                 ));
@@ -12786,7 +12835,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     can_throw_phis,
                     end_block,
                     end_phis,
-                    &tags,
+                    &catch_tag_values,
                 );
             }
             Operator::Throw { tag_index } => {
@@ -12799,6 +12848,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let signature = &self.wasm_module.signatures[tag];
                 let params = signature.params();
                 let values = self.state.popn_save_extra(params.len())?;
+
+                let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
+                let vmctx_ptr =
+                    err!(self
+                        .builder
+                        .build_load(self.intrinsics.ptr_ty, vmctx_alloca, "vmctx"));
 
                 values.iter().enumerate().try_for_each(|(i, (v, _))| {
                     let t = type_to_llvm(self.intrinsics, params[i])?;
@@ -12837,7 +12892,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     err!(self.builder.build_store(ptr, value.0));
                 }
 
-                let encoded_tag = self.encode_tag(tag_index);
                 if let Some(pad) = self.state.get_landingpad_for_tag(tag_index) {
                     let unreachable_block = self
                         .context
@@ -12847,9 +12901,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         self.intrinsics.throw,
                         &[
                             self.intrinsics
-                                .i64_ty
-                                .const_int(encoded_tag as _, false)
+                                .i32_ty
+                                .const_int(tag_index as _, false)
                                 .into(),
+                            vmctx_ptr.into(),
                             exc.into(),
                             size.into()
                         ],
@@ -12867,10 +12922,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     err!(self.builder.build_call(
                         self.intrinsics.throw,
                         &[
+                            // We pass in the module-local tag index, but it'll be translated
+                            // to a store-unique index in the `throw` intrinsic.
                             self.intrinsics
-                                .i64_ty
-                                .const_int(encoded_tag as _, false)
+                                .i32_ty
+                                .const_int(tag_index as _, false)
                                 .into(),
+                            vmctx_ptr.into(),
                             exc.into(),
                             size.into()
                         ],
