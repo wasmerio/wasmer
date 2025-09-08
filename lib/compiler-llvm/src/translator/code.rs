@@ -5,7 +5,7 @@ use super::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
     // stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
-    state::{ControlFrame, ExtraInfo, IfElseState, State},
+    state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
 use inkwell::{
     attributes::AttributeLoc,
@@ -1769,7 +1769,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
         */
 
-        let call_site_local = if let Some(lpad) = self.state.get_landingpad() {
+        let call_site_local = if let Some(lpad) = self.state.get_innermost_landingpad() {
             let then_block = self.context.append_basic_block(self.function, "then_block");
 
             let ret = err!(self.builder.build_indirect_invoke(
@@ -2858,7 +2858,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     }
                 }
                 */
-                let call_site = if let Some(lpad) = self.state.get_landingpad() {
+                let call_site = if let Some(lpad) = self.state.get_innermost_landingpad() {
                     let then_block = self.context.append_basic_block(self.function, "then_block");
 
                     let ret = err!(self.builder.build_indirect_invoke(
@@ -12443,7 +12443,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
                 let can_throw_block = self.context.append_basic_block(self.function, "try_begin");
-                let catch_block = self.context.append_basic_block(self.function, "catch");
+                let lpad_block = self.context.append_basic_block(self.function, "catch");
                 let catch_all_block = self.context.append_basic_block(self.function, "catch_all");
                 let catch_specific_block = self
                     .context
@@ -12489,7 +12489,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 self.builder.position_at_end(current_block);
                 err!(self.builder.build_unconditional_branch(can_throw_block));
-                self.builder.position_at_end(catch_block);
+                self.builder.position_at_end(lpad_block);
 
                 // Collect unique catches. It is not a "hard" error on the wasm side,
                 // but LLVM will definitely complain about having the same identifier
@@ -12511,7 +12511,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 );
 
                 let mut catch_tag_values = vec![];
-                let lpad_clauses: Vec<BasicValueEnum<'ctx>> = catches
+                let mut lpad_clauses: Vec<BasicValueEnum<'ctx>> = catches
                     .iter()
                     .map(|catch| match catch {
                         Catch::All { .. } | Catch::AllRef { .. } => {
@@ -12524,6 +12524,27 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         }
                     })
                     .collect::<Result<Vec<BasicValueEnum<'ctx>>, CompileError>>()?;
+
+                // Since jumping between landingpads is not possible, we need to collect
+                // all tags from outer try_tables as well to build a clause for *every*
+                // possible tag that might be caught.
+                let mut outer_catch_blocks = vec![];
+                for outer_landingpad in self.state.landingpads.iter().rev() {
+                    for catch_info @ TagCatchInfo { tag, .. } in &outer_landingpad.tags {
+                        if !catch_tag_values.contains(tag) {
+                            catch_tag_values.push(*tag);
+                            lpad_clauses.push(if *tag as i32 == CATCH_ALL_TAG_VALUE {
+                                null.into()
+                            } else {
+                                *self.tags_cache.get(&(*tag as i32)).expect(
+                                    "If a previous try_table encountered a tag, \
+                                    it should be in the cache",
+                                )
+                            });
+                            outer_catch_blocks.push(*catch_info);
+                        }
+                    }
+                }
 
                 let res = err!(self.builder.build_landing_pad(
                     exception_type,
@@ -12617,7 +12638,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                             self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push(b);
+                            catch_blocks.push((b, None));
                         }
                         Catch::One { tag, label } => {
                             let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
@@ -12628,6 +12649,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 .context
                                 .append_basic_block(self.function, "catch_one_clause");
                             self.builder.position_at_end(b);
+
+                            let wasmer_exc_phi = err!(self
+                                .builder
+                                .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
+                            wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
 
                             // Get the type of the exception.
                             let inner_exc_ty =
@@ -12646,7 +12672,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             // Points at the `data` field of the exception.
                             let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
                                 self.intrinsics.exc_ty,
-                                wasmer_exc,
+                                wasmer_exc_phi.as_basic_value().into_pointer_value(),
                                 1,
                                 "wasmer_exc_data_ptr_ptr"
                             ));
@@ -12690,7 +12716,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                             self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push(b);
+                            catch_blocks.push((b, Some(wasmer_exc_phi)));
                         }
                         Catch::OneRef { label, tag } => {
                             let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
@@ -12701,6 +12727,11 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 .context
                                 .append_basic_block(self.function, "catch_one_clause");
                             self.builder.position_at_end(b);
+
+                            let wasmer_exc_phi = err!(self
+                                .builder
+                                .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
+                            wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
 
                             // Get the type of the exception.
                             let inner_exc_ty =
@@ -12719,7 +12750,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             // Points at the `data` field of the exception.
                             let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
                                 self.intrinsics.exc_ty,
-                                wasmer_exc,
+                                wasmer_exc_phi.as_basic_value().into_pointer_value(),
                                 1,
                                 "wasmer_exc_data_ptr"
                             ));
@@ -12765,7 +12796,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                             self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push(b);
+                            catch_blocks.push((b, Some(wasmer_exc_phi)));
                         }
                         Catch::AllRef { label } => {
                             let b = self
@@ -12786,8 +12817,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                             self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push(b);
+                            catch_blocks.push((b, None));
                         }
+                    }
+                }
+
+                for catch_info in &outer_catch_blocks {
+                    if let Some(phi) = catch_info.wasmer_exc_phi {
+                        phi.add_incoming(&[(&wasmer_exc.as_basic_value_enum(), catch_end_block)]);
                     }
                 }
 
@@ -12795,14 +12832,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     selector,
                     rethrow_block,
                     catch_blocks
-                        .into_iter()
+                        .iter()
                         .enumerate()
                         .map(|(i, v)| (
                             self.intrinsics
                                 .i32_ty
                                 .const_int(catch_tag_values[i] as _, false),
-                            v
+                            v.0
                         ))
+                        .chain(outer_catch_blocks.iter().map(|catch_info| (
+                            self.intrinsics.i32_ty.const_int(catch_info.tag as _, false),
+                            catch_info.catch_block
+                        )))
                         .collect::<Vec<_>>()
                         .as_slice()
                 ));
@@ -12820,6 +12861,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 // Move to the block that can throw exceptions
                 self.builder.position_at_end(can_throw_block);
+                // TODO: is this where parameters to the try_table block are supposed to come in?
                 let can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
                     .iter()
                     .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
@@ -12829,13 +12871,24 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.state.push1(phi.as_basic_value());
                 }
 
+                // Note: catch_tag_values also containes outer tags, but zipping with
+                // catch_blocks will let us ignore the extra ones.
+                let catch_tags_and_blocks = catch_tag_values
+                    .into_iter()
+                    .zip(catch_blocks.into_iter())
+                    .map(|(tag, (block, wasmer_exc_phi))| TagCatchInfo {
+                        tag,
+                        catch_block: block,
+                        wasmer_exc_phi,
+                    })
+                    .collect::<Vec<_>>();
                 self.state.push_landingpad(
-                    catch_block,
+                    lpad_block,
                     can_throw_block,
                     can_throw_phis,
                     end_block,
                     end_phis,
-                    &catch_tag_values,
+                    &catch_tags_and_blocks,
                 );
             }
             Operator::Throw { tag_index } => {
@@ -12892,7 +12945,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     err!(self.builder.build_store(ptr, value.0));
                 }
 
-                if let Some(pad) = self.state.get_landingpad_for_tag(tag_index) {
+                if let Some(pad) = self.state.get_innermost_landingpad() {
                     let unreachable_block = self
                         .context
                         .append_basic_block(self.function, "_throw_unreachable");
@@ -12948,7 +13001,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 let exc = self.state.pop1()?;
 
-                if let Some(pad) = self.state.get_landingpad() {
+                if let Some(pad) = self.state.get_innermost_landingpad() {
                     let unreachable_block = self
                         .context
                         .append_basic_block(self.function, "_rethrow_unreachable");

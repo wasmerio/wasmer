@@ -332,7 +332,6 @@
 
 (assert_return (invoke "multiple-catch-targeting-same-block") (i32.const 42))
 
-;; TODO: broken - nested tries don't work? Maybe a rethrow issue?
  (module
    (func $imported-throw (import "test" "throw"))
    (tag $e0)
@@ -355,7 +354,7 @@
    )
  )
  
- ;; (assert_return (invoke "imported-mismatch") (i32.const 3))
+ (assert_return (invoke "imported-mismatch") (i32.const 3))
  
  (assert_malformed
    (module quote "(module (func (catch_all)))")
