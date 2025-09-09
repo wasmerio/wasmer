@@ -16,6 +16,7 @@ pub mod version;
 pub mod volumes;
 
 mod util;
+pub use util::AppIdentArgOpts;
 
 use crate::commands::AsyncCliCommand;
 

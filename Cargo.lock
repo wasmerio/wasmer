@@ -6863,6 +6863,7 @@ dependencies = [
  "anyhow",
  "assert_cmd 2.0.17",
  "async-trait",
+ "base64",
  "bytes",
  "bytesize",
  "cargo_metadata",

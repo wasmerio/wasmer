@@ -1439,6 +1439,23 @@ mod queries {
     }
 
     #[derive(cynic::QueryVariables, Debug)]
+    pub struct GenerateSshTokenVariables {
+        pub app_id: Option<cynic::Id>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "GenerateSshTokenVariables")]
+    pub struct GenerateSshToken {
+        #[arguments(input: { appId: $app_id })]
+        pub generate_ssh_token: Option<GenerateSshTokenPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct GenerateSshTokenPayload {
+        pub token: String,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
     pub struct GetNodeVars {
         pub id: cynic::Id,
     }

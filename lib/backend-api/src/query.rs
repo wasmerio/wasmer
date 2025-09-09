@@ -1720,6 +1720,27 @@ pub async fn generate_deploy_config_token_raw(
         .context("no token returned")
 }
 
+/// Generate an SSH token for accesing Edge over SSH or SFTP.
+///
+/// If an app id is provided, the token will be scoped to that app,
+/// and using the token will open an ssh context for that app.
+pub async fn generate_ssh_token(
+    client: &WasmerClient,
+    app_id: Option<String>,
+) -> Result<String, anyhow::Error> {
+    let res = client
+        .run_graphql_strict(types::GenerateSshToken::build(
+            types::GenerateSshTokenVariables {
+                app_id: app_id.map(cynic::Id::new),
+            },
+        ))
+        .await?;
+
+    res.generate_ssh_token
+        .map(|x| x.token)
+        .context("no token returned")
+}
+
 /// Get pages of logs associated with an application that lie within the
 /// specified date range.
 // NOTE: this is not public due to severe usability issues.
