@@ -1607,6 +1607,19 @@ checksum = "d0881ea181b1df73ff77ffaaf9c7544ecc11e82fba9b5f27b262a3c73a332555"
 [[package]]
 name = "dynasm"
 version = "3.2.1"
+dependencies = [
+ "bitflags 2.9.2",
+ "byteorder",
+ "lazy_static",
+ "proc-macro-error2",
+ "proc-macro2",
+ "quote",
+ "syn 2.0.106",
+]
+
+[[package]]
+name = "dynasm"
+version = "3.2.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7f7d4c414c94bc830797115b8e5f434d58e7e80cb42ba88508c14bc6ea270625"
 dependencies = [
@@ -1626,7 +1639,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "602f7458a3859195fb840e6e0cce5f4330dd9dfbfece0edaf31fe427af346f55"
 dependencies = [
  "byteorder",
- "dynasm",
+ "dynasm 3.2.1 (registry+https://github.com/rust-lang/crates.io-index)",
  "fnv",
  "memmap2 0.9.7",
 ]
@@ -7051,7 +7064,7 @@ name = "wasmer-compiler-singlepass"
 version = "6.1.0-rc.3"
 dependencies = [
  "byteorder",
- "dynasm",
+ "dynasm 3.2.1",
  "dynasmrt",
  "enumset",
  "gimli 0.28.1",

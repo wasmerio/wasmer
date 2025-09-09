@@ -534,51 +534,36 @@ impl EmitterARM64 for Assembler {
     fn emit_str(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; str X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; str W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x1) == 0 && (disp < 0x2000));
                 dynasm!(self ; strh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!(disp < 0x1000);
                 dynasm!(self ; strb W(reg), [X(addr), disp]);
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; str D(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; str S(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -588,9 +573,6 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -606,37 +588,26 @@ impl EmitterARM64 for Assembler {
     fn emit_ldr(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
         match (sz, reg, addr) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 let disp = disp as u32;
                 dynasm!(self ; ldr X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 let disp = disp as u32;
                 dynasm!(self ; ldr W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 assert!((disp & 0x1 == 0) && (disp < 0x2000));
                 let disp = disp as u32;
                 dynasm!(self ; ldrh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 assert!(disp < 0x1000);
                 let disp = disp as u32;
                 dynasm!(self ; ldrb W(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -646,9 +617,6 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -658,23 +626,16 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x7) == 0 && (disp < 0x8000));
                 dynasm!(self ; ldr D(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let disp = disp as u32;
                 assert!((disp & 0x3) == 0 && (disp < 0x4000));
                 dynasm!(self ; ldr S(reg), [X(addr), disp]);
             }
             (Size::S64, Location::SIMD(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -684,9 +645,6 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S32, Location::SIMD(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -709,23 +667,15 @@ impl EmitterARM64 for Assembler {
         assert!((-255..=255).contains(&offset));
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; stur X(reg), [X(addr), offset]);
             }
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; stur W(reg), [X(addr), offset]);
             }
             (Size::S64, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; stur D(reg), [X(addr), offset]);
             }
             (Size::S32, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; stur S(reg), [X(addr), offset]);
             }
             _ => codegen_error!(
@@ -748,23 +698,15 @@ impl EmitterARM64 for Assembler {
         assert!((-255..=255).contains(&offset));
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldur X(reg), [X(addr), offset]);
             }
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldur W(reg), [X(addr), offset]);
             }
             (Size::S64, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldur D(reg), [X(addr), offset]);
             }
             (Size::S32, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldur S(reg), [X(addr), offset]);
             }
             _ => codegen_error!(
@@ -788,13 +730,9 @@ impl EmitterARM64 for Assembler {
         assert!(offset <= 255);
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; str X(reg), [X(addr), -(offset as i32)]!);
             }
             (Size::S64, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; str D(reg), [X(addr), -(offset as i32)]!);
             }
             _ => codegen_error!("singlepass can't emit STRDB"),
@@ -811,13 +749,9 @@ impl EmitterARM64 for Assembler {
         assert!(offset <= 255);
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; str X(reg), [X(addr)], offset as i32);
             }
             (Size::S64, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; str D(reg), [X(addr)], offset as i32);
             }
             _ => codegen_error!("singlepass can't emit STRIA"),
@@ -834,13 +768,9 @@ impl EmitterARM64 for Assembler {
         assert!(offset <= 255);
         match (sz, reg) {
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldr X(reg), [X(addr)], offset as _);
             }
             (Size::S64, Location::SIMD(reg)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldr D(reg), [X(addr)], offset as _);
             }
             _ => codegen_error!("singlepass can't emit LDRIA"),
@@ -859,9 +789,6 @@ impl EmitterARM64 for Assembler {
         assert!(offset <= 255);
         match (sz, reg1, reg2) {
             (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
-                let reg1 = reg1.into_index() as u32;
-                let reg2 = reg2.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; stp X(reg1), X(reg2), [X(addr), -(offset as i32)]!);
             }
             _ => codegen_error!("singlepass can't emit STPDB"),
@@ -879,9 +806,6 @@ impl EmitterARM64 for Assembler {
         assert!(offset <= 255);
         match (sz, reg1, reg2) {
             (Size::S64, Location::GPR(reg1), Location::GPR(reg2)) => {
-                let reg1 = reg1.into_index() as u32;
-                let reg2 = reg2.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 dynasm!(self ; ldp X(reg1), X(reg2), [X(addr)], offset as _);
             }
             _ => codegen_error!("singlepass can't emit LDPIA"),
@@ -892,16 +816,11 @@ impl EmitterARM64 for Assembler {
     fn emit_ldrb(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (reg, dst) {
             (Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!(offset < 0x1000);
                 dynasm!(self ; ldrb W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -917,16 +836,11 @@ impl EmitterARM64 for Assembler {
     fn emit_ldrh(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (reg, dst) {
             (Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; ldrh W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -942,23 +856,16 @@ impl EmitterARM64 for Assembler {
     fn emit_ldrsb(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, reg, dst) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!(offset < 0x1000);
                 dynasm!(self ; ldrsb X(reg), [X(addr), offset]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!(offset < 0x1000);
                 dynasm!(self ; ldrsb W(reg), [X(addr), offset]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -968,9 +875,6 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -986,23 +890,16 @@ impl EmitterARM64 for Assembler {
     fn emit_ldrsh(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, reg, dst) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; ldrsh X(reg), [X(addr), offset]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; ldrsh W(reg), [X(addr), offset]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -1012,9 +909,6 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S32, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -1030,16 +924,11 @@ impl EmitterARM64 for Assembler {
     fn emit_ldrsw(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, reg, dst) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!((offset & 3 == 0) && (offset < 0x4000));
                 dynasm!(self ; ldrsw X(reg), [X(addr), offset]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -1055,16 +944,11 @@ impl EmitterARM64 for Assembler {
     fn emit_strb(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (reg, dst) {
             (Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!(offset < 0x1000);
                 dynasm!(self ; strb W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -1080,16 +964,11 @@ impl EmitterARM64 for Assembler {
     fn emit_strh(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (reg, dst) {
             (Location::GPR(reg), Location::Memory(addr, offset)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
                 let offset = offset as u32;
                 assert!((offset & 1 == 0) && (offset < 0x2000));
                 dynasm!(self ; strh W(reg), [X(addr), offset]);
             }
             (Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
-                let reg = reg.into_index() as u32;
-                let addr = addr.into_index() as u32;
-                let r2 = r2.into_index() as u32;
                 assert!(offs == 0);
                 let mult = mult as u32;
                 match mult {
@@ -1106,13 +985,9 @@ impl EmitterARM64 for Assembler {
     fn emit_ldaxr(&mut self, sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, reg, dst) {
             (Size::S32, Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ldaxr W(reg), [X(dst)]);
             }
             (Size::S64, Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ldaxr X(reg), [X(dst)]);
             }
             _ => codegen_error!("singlepass can't emit LDAXR {:?}, {:?}", reg, dst),
@@ -1122,8 +997,6 @@ impl EmitterARM64 for Assembler {
     fn emit_ldaxrb(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (reg, dst) {
             (Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ldaxrb W(reg), [X(dst)]);
             }
             _ => codegen_error!("singlepass can't emit LDAXRB {:?}, {:?}", reg, dst),
@@ -1133,8 +1006,6 @@ impl EmitterARM64 for Assembler {
     fn emit_ldaxrh(&mut self, _sz: Size, reg: Location, dst: Location) -> Result<(), CompileError> {
         match (reg, dst) {
             (Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ldaxrh W(reg), [X(dst)]);
             }
             _ => codegen_error!("singlepass can't emit LDAXRH {:?}, {:?}", reg, dst),
@@ -1150,15 +1021,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, status, reg, dst) {
             (Size::S32, Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                let status = status.into_index() as u32;
                 dynasm!(self ; stlxr W(status), W(reg), [X(dst)]);
             }
             (Size::S64, Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                let status = status.into_index() as u32;
                 dynasm!(self ; stlxr W(status), X(reg), [X(dst)]);
             }
             _ => codegen_error!("singlepass can't emit STLXR {:?}, {:?}", reg, dst),
@@ -1174,9 +1039,6 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (status, reg, dst) {
             (Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                let status = status.into_index() as u32;
                 dynasm!(self ; stlxrb W(status), W(reg), [X(dst)]);
             }
             _ => codegen_error!("singlepass can't emit STLXRB {:?}, {:?}", reg, dst),
@@ -1192,9 +1054,6 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (status, reg, dst) {
             (Location::GPR(status), Location::GPR(reg), Location::GPR(dst)) => {
-                let reg = reg.into_index() as u32;
-                let dst = dst.into_index() as u32;
-                let status = status.into_index() as u32;
                 dynasm!(self ; stlxrh W(status), W(reg), [X(dst)]);
             }
             _ => codegen_error!("singlepass can't emit STLXRH {:?}, {:?}", reg, dst),
@@ -1205,47 +1064,30 @@ impl EmitterARM64 for Assembler {
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov X(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov W(dst), W(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov V(dst).D[0], V(src).D[0]);
             }
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov V(dst).S[0], V(src).S[0]);
             }
             (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov V(dst).D[0], X(src));
             }
             (Size::S32, Location::GPR(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov V(dst).S[0], W(src));
             }
             (Size::S64, Location::SIMD(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov X(dst), V(src).D[0]);
             }
             (Size::S32, Location::SIMD(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mov W(dst), V(src).S[0]);
             }
             (Size::S32, Location::Imm32(val), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if val < 0x1000 || encode_logical_immediate_32bit(val as _).is_some() {
                     dynasm!(self ; mov W(dst), val);
                 } else {
@@ -1255,7 +1097,6 @@ impl EmitterARM64 for Assembler {
                 }
             }
             (Size::S64, Location::Imm32(val), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if val < 0x1000 {
                     dynasm!(self ; mov W(dst), val);
                 } else if encode_logical_immediate_64bit(val as _).is_some() {
@@ -1267,7 +1108,6 @@ impl EmitterARM64 for Assembler {
                 }
             }
             (Size::S64, Location::Imm64(val), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if val < 0x1000 || encode_logical_immediate_64bit(val as _).is_some() {
                     dynasm!(self ; mov X(dst), val as _);
                 } else {
@@ -1286,11 +1126,9 @@ impl EmitterARM64 for Assembler {
     fn emit_movn(&mut self, sz: Size, reg: Location, val: u32) -> Result<(), CompileError> {
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; movn W(reg), val);
             }
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; movn X(reg), val);
             }
             _ => codegen_error!("singlepass can't emit MOVN"),
@@ -1300,7 +1138,6 @@ impl EmitterARM64 for Assembler {
     fn emit_movz(&mut self, reg: Location, val: u32) -> Result<(), CompileError> {
         match reg {
             Location::GPR(reg) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; movz W(reg), val);
             }
             _ => codegen_error!("singlepass can't emit MOVZ"),
@@ -1310,7 +1147,6 @@ impl EmitterARM64 for Assembler {
     fn emit_movk(&mut self, reg: Location, val: u32, shift: u32) -> Result<(), CompileError> {
         match reg {
             Location::GPR(reg) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; movk X(reg), val, LSL shift);
             }
             _ => codegen_error!("singlepass can't emit MOVK"),
@@ -1321,7 +1157,6 @@ impl EmitterARM64 for Assembler {
     fn emit_mov_imm(&mut self, dst: Location, val: u64) -> Result<(), CompileError> {
         match dst {
             Location::GPR(dst) => {
-                let dst = dst.into_index() as u32;
                 let offset = val.trailing_zeros() & 48;
                 let masked = 0xffff & (val >> offset);
                 if (masked << offset) == val {
@@ -1362,27 +1197,17 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; add XSP(dst), XSP(src1), X(src2), UXTX);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; add WSP(dst), WSP(src1), W(src2), UXTX);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; add XSP(dst), XSP(src1), imm as _);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     unreachable!();
                 }
@@ -1390,8 +1215,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     unreachable!();
                 }
@@ -1400,14 +1223,10 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; add WSP(dst), WSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     unreachable!();
                 }
@@ -1432,46 +1251,30 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self; sub XSP(dst), XSP(src1), X(src2), UXTX 0);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sub WSP(dst), WSP(src1), W(src2), UXTX 0);
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sub XSP(dst), XSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sub WSP(dst), WSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     unreachable!();
                 }
                 dynasm!(self ; sub WSP(dst), WSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     unreachable!();
                 }
                 dynasm!(self ; sub XSP(dst), XSP(src1), imm);
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     unreachable!();
                 }
@@ -1496,15 +1299,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mul X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; mul W(dst), W(src1), W(src2));
             }
             _ => codegen_error!(
@@ -1526,27 +1323,17 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; adds X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; adds W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; adds X(dst), XSP(src1), imm as u32);
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass ADD.S with imm too large {}", imm);
                 }
@@ -1554,14 +1341,10 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; adds W(dst), WSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass ADD.S with imm too large {}", imm);
                 }
@@ -1586,25 +1369,15 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; subs X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; subs W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; subs X(dst), XSP(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; subs W(dst), WSP(src1), imm as u32);
             }
             _ => codegen_error!(
@@ -1627,9 +1400,6 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; add X(dst), X(src1), X(src2), LSL lsl);
             }
             _ => codegen_error!(
@@ -1647,39 +1417,30 @@ impl EmitterARM64 for Assembler {
     fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; cmp X(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; cmp W(dst), W(src));
             }
             (Size::S64, Location::Imm8(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; cmp XSP(dst), imm as u32);
             }
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
                 dynasm!(self ; cmp XSP(dst), imm as u32);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
                 dynasm!(self ; cmp XSP(dst), imm as u32);
             }
             (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; cmp WSP(dst), imm as u32);
             }
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if imm >= 0x1000 {
                     codegen_error!("singlepass CMP with imm too large {}", imm);
                 }
@@ -1693,31 +1454,24 @@ impl EmitterARM64 for Assembler {
     fn emit_tst(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; tst X(dst), X(src));
             }
             (Size::S64, Location::Imm32(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if encode_logical_immediate_64bit(imm as u64).is_none() {
                     codegen_error!("singlepass TST with incompatible imm {}", imm);
                 }
                 dynasm!(self ; tst X(dst), imm as u64);
             }
             (Size::S64, Location::Imm64(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if encode_logical_immediate_64bit(imm as u64).is_none() {
                     codegen_error!("singlepass TST with incompatible imm {}", imm);
                 }
                 dynasm!(self ; tst X(dst), imm as u64);
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; tst W(dst), W(src));
             }
             (Size::S32, Location::Imm32(imm), Location::GPR(dst)) => {
-                let dst = dst.into_index() as u32;
                 if encode_logical_immediate_64bit(imm as u64).is_none() {
                     codegen_error!("singlepass TST with incompatible imm {}", imm);
                 }
@@ -1737,30 +1491,21 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; lsl X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 let imm = imm as u32;
-                let dst = dst.into_index() as u32;
+
                 dynasm!(self ; lsl X(dst), X(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; lsl W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
@@ -1768,8 +1513,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
@@ -1777,8 +1520,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
@@ -1786,8 +1527,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
@@ -1812,30 +1551,21 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; asr X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let imm = imm as u32;
-                let dst = dst.into_index() as u32;
+
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr X(dst), X(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; asr W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
@@ -1843,8 +1573,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
@@ -1852,8 +1580,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
@@ -1861,8 +1587,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
@@ -1887,30 +1611,21 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; lsr X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let imm = imm as u32;
-                let dst = dst.into_index() as u32;
+
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr X(dst), X(src1), imm);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; lsr W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
@@ -1918,8 +1633,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
@@ -1927,8 +1640,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
@@ -1936,8 +1647,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
@@ -1962,16 +1671,12 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ror X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let imm = imm as u32;
-                let dst = dst.into_index() as u32;
+
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -1979,9 +1684,8 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let imm = imm as u32;
-                let dst = dst.into_index() as u32;
+
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -1989,23 +1693,16 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; ror W(dst), W(src1), imm as u32);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ror W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -2013,8 +1710,6 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -2040,33 +1735,25 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; orr X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let src2 = src2 as u64;
-                let dst = dst.into_index() as u32;
+
                 if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     codegen_error!("singlepass OR with incompatible imm {}", src2);
                 }
                 dynasm!(self ; orr XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let src2 = src2 as u32;
-                let dst = dst.into_index() as u32;
+
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass OR with incompatible imm {}", src2);
                 }
                 dynasm!(self ; orr WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; orr W(dst), W(src1), W(src2));
             }
             _ => codegen_error!(
@@ -2088,33 +1775,25 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; and X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let src2 = src2 as u64;
-                let dst = dst.into_index() as u32;
+
                 if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     codegen_error!("singlepass AND with incompatible imm {}", src2);
                 }
                 dynasm!(self ; and XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let src2 = src2 as u32;
-                let dst = dst.into_index() as u32;
+
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass AND with incompatible imm {}", src2);
                 }
                 dynasm!(self ; and WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; and W(dst), W(src1), W(src2));
             }
             _ => codegen_error!(
@@ -2136,33 +1815,25 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; eor X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let src2 = src2 as u64;
-                let dst = dst.into_index() as u32;
+
                 if encode_logical_immediate_64bit(src2 as u64).is_none() {
                     codegen_error!("singlepass EOR with incompatible imm {}", src2);
                 }
                 dynasm!(self ; eor XSP(dst), X(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
                 let src2 = src2 as u32;
-                let dst = dst.into_index() as u32;
+
                 if encode_logical_immediate_32bit(src2).is_none() {
                     codegen_error!("singlepass EOR with incompatible imm {}", src2);
                 }
                 dynasm!(self ; eor WSP(dst), W(src1), src2);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; eor W(dst), W(src1), W(src2));
             }
             _ => codegen_error!(
@@ -2185,10 +1856,10 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, dst) {
             (Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; bfc W(dst as u32), lsb, width);
+                dynasm!(self ; bfc W(dst), lsb, width);
             }
             (Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; bfc X(dst as u32), lsb, width);
+                dynasm!(self ; bfc X(dst), lsb, width);
             }
             _ => codegen_error!("singlepass can't emit BFC"),
         }
@@ -2204,10 +1875,10 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!(self ; bfi W(dst as u32), W(src as u32), lsb, width);
+                dynasm!(self ; bfi W(dst), W(src), lsb, width);
             }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!(self ; bfi X(dst as u32), X(src as u32), lsb, width);
+                dynasm!(self ; bfi X(dst), X(src), lsb, width);
             }
             _ => codegen_error!("singlepass can't emit BFI"),
         }
@@ -2223,15 +1894,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; udiv W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; udiv X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
@@ -2253,15 +1918,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sdiv W(dst), W(src1), W(src2));
             }
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sdiv X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
@@ -2292,10 +1951,6 @@ impl EmitterARM64 for Assembler {
                 Location::GPR(c),
                 Location::GPR(dst),
             ) => {
-                let a = a.into_index() as u32;
-                let b = b.into_index() as u32;
-                let c = c.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; msub W(dst), W(a), W(b), W(c));
             }
             (
@@ -2305,10 +1960,6 @@ impl EmitterARM64 for Assembler {
                 Location::GPR(c),
                 Location::GPR(dst),
             ) => {
-                let a = a.into_index() as u32;
-                let b = b.into_index() as u32;
-                let c = c.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; msub X(dst), X(a), X(b), X(c));
             }
             _ => codegen_error!(
@@ -2326,13 +1977,9 @@ impl EmitterARM64 for Assembler {
     fn emit_sxtb(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sxtb W(dst), W(src));
             }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sxtb X(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit SXTB {:?} {:?} {:?}", sz, src, dst),
@@ -2342,13 +1989,9 @@ impl EmitterARM64 for Assembler {
     fn emit_sxth(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sxth W(dst), W(src));
             }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sxth X(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit SXTH {:?} {:?} {:?}", sz, src, dst),
@@ -2358,8 +2001,6 @@ impl EmitterARM64 for Assembler {
     fn emit_sxtw(&mut self, _sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (src, dst) {
             (Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; sxtw X(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit SXTW {:?} {:?}", src, dst),
@@ -2369,8 +2010,6 @@ impl EmitterARM64 for Assembler {
     fn emit_uxtb(&mut self, _sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (src, dst) {
             (Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; uxtb W(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit UXTB {:?} {:?}", src, dst),
@@ -2380,8 +2019,6 @@ impl EmitterARM64 for Assembler {
     fn emit_uxth(&mut self, _sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (src, dst) {
             (Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; uxth W(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit UXTH {:?} {:?}", src, dst),
@@ -2391,92 +2028,80 @@ impl EmitterARM64 for Assembler {
 
     fn emit_cset(&mut self, sz: Size, dst: Location, cond: Condition) -> Result<(), CompileError> {
         match (sz, dst) {
-            (Size::S32, Location::GPR(reg)) => {
-                let reg = reg as u32;
-                match cond {
-                    Condition::Eq => dynasm!(self ; cset W(reg), eq),
-                    Condition::Ne => dynasm!(self ; cset W(reg), ne),
-                    Condition::Cs => dynasm!(self ; cset W(reg), cs),
-                    Condition::Cc => dynasm!(self ; cset W(reg), cc),
-                    Condition::Mi => dynasm!(self ; cset W(reg), mi),
-                    Condition::Pl => dynasm!(self ; cset W(reg), pl),
-                    Condition::Vs => dynasm!(self ; cset W(reg), vs),
-                    Condition::Vc => dynasm!(self ; cset W(reg), vc),
-                    Condition::Hi => dynasm!(self ; cset W(reg), hi),
-                    Condition::Ls => dynasm!(self ; cset W(reg), ls),
-                    Condition::Ge => dynasm!(self ; cset W(reg), ge),
-                    Condition::Lt => dynasm!(self ; cset W(reg), lt),
-                    Condition::Gt => dynasm!(self ; cset W(reg), gt),
-                    Condition::Le => dynasm!(self ; cset W(reg), le),
-                    Condition::Al => dynasm!(self ; cset W(reg), al),
-                }
-            }
-            (Size::S64, Location::GPR(reg)) => {
-                let reg = reg as u32;
-                match cond {
-                    Condition::Eq => dynasm!(self ; cset X(reg), eq),
-                    Condition::Ne => dynasm!(self ; cset X(reg), ne),
-                    Condition::Cs => dynasm!(self ; cset X(reg), cs),
-                    Condition::Cc => dynasm!(self ; cset X(reg), cc),
-                    Condition::Mi => dynasm!(self ; cset X(reg), mi),
-                    Condition::Pl => dynasm!(self ; cset X(reg), pl),
-                    Condition::Vs => dynasm!(self ; cset X(reg), vs),
-                    Condition::Vc => dynasm!(self ; cset X(reg), vc),
-                    Condition::Hi => dynasm!(self ; cset X(reg), hi),
-                    Condition::Ls => dynasm!(self ; cset X(reg), ls),
-                    Condition::Ge => dynasm!(self ; cset X(reg), ge),
-                    Condition::Lt => dynasm!(self ; cset X(reg), lt),
-                    Condition::Gt => dynasm!(self ; cset X(reg), gt),
-                    Condition::Le => dynasm!(self ; cset X(reg), le),
-                    Condition::Al => dynasm!(self ; cset X(reg), al),
-                }
-            }
+            (Size::S32, Location::GPR(reg)) => match cond {
+                Condition::Eq => dynasm!(self ; cset W(reg), eq),
+                Condition::Ne => dynasm!(self ; cset W(reg), ne),
+                Condition::Cs => dynasm!(self ; cset W(reg), cs),
+                Condition::Cc => dynasm!(self ; cset W(reg), cc),
+                Condition::Mi => dynasm!(self ; cset W(reg), mi),
+                Condition::Pl => dynasm!(self ; cset W(reg), pl),
+                Condition::Vs => dynasm!(self ; cset W(reg), vs),
+                Condition::Vc => dynasm!(self ; cset W(reg), vc),
+                Condition::Hi => dynasm!(self ; cset W(reg), hi),
+                Condition::Ls => dynasm!(self ; cset W(reg), ls),
+                Condition::Ge => dynasm!(self ; cset W(reg), ge),
+                Condition::Lt => dynasm!(self ; cset W(reg), lt),
+                Condition::Gt => dynasm!(self ; cset W(reg), gt),
+                Condition::Le => dynasm!(self ; cset W(reg), le),
+                Condition::Al => dynasm!(self ; cset W(reg), al),
+            },
+            (Size::S64, Location::GPR(reg)) => match cond {
+                Condition::Eq => dynasm!(self ; cset X(reg), eq),
+                Condition::Ne => dynasm!(self ; cset X(reg), ne),
+                Condition::Cs => dynasm!(self ; cset X(reg), cs),
+                Condition::Cc => dynasm!(self ; cset X(reg), cc),
+                Condition::Mi => dynasm!(self ; cset X(reg), mi),
+                Condition::Pl => dynasm!(self ; cset X(reg), pl),
+                Condition::Vs => dynasm!(self ; cset X(reg), vs),
+                Condition::Vc => dynasm!(self ; cset X(reg), vc),
+                Condition::Hi => dynasm!(self ; cset X(reg), hi),
+                Condition::Ls => dynasm!(self ; cset X(reg), ls),
+                Condition::Ge => dynasm!(self ; cset X(reg), ge),
+                Condition::Lt => dynasm!(self ; cset X(reg), lt),
+                Condition::Gt => dynasm!(self ; cset X(reg), gt),
+                Condition::Le => dynasm!(self ; cset X(reg), le),
+                Condition::Al => dynasm!(self ; cset X(reg), al),
+            },
             _ => codegen_error!("singlepass can't emit CSET {:?} {:?} {:?}", sz, dst, cond),
         }
         Ok(())
     }
     fn emit_csetm(&mut self, sz: Size, dst: Location, cond: Condition) -> Result<(), CompileError> {
         match (sz, dst) {
-            (Size::S32, Location::GPR(reg)) => {
-                let reg = reg as u32;
-                match cond {
-                    Condition::Eq => dynasm!(self ; csetm W(reg), eq),
-                    Condition::Ne => dynasm!(self ; csetm W(reg), ne),
-                    Condition::Cs => dynasm!(self ; csetm W(reg), cs),
-                    Condition::Cc => dynasm!(self ; csetm W(reg), cc),
-                    Condition::Mi => dynasm!(self ; csetm W(reg), mi),
-                    Condition::Pl => dynasm!(self ; csetm W(reg), pl),
-                    Condition::Vs => dynasm!(self ; csetm W(reg), vs),
-                    Condition::Vc => dynasm!(self ; csetm W(reg), vc),
-                    Condition::Hi => dynasm!(self ; csetm W(reg), hi),
-                    Condition::Ls => dynasm!(self ; csetm W(reg), ls),
-                    Condition::Ge => dynasm!(self ; csetm W(reg), ge),
-                    Condition::Lt => dynasm!(self ; csetm W(reg), lt),
-                    Condition::Gt => dynasm!(self ; csetm W(reg), gt),
-                    Condition::Le => dynasm!(self ; csetm W(reg), le),
-                    Condition::Al => dynasm!(self ; csetm W(reg), al),
-                }
-            }
-            (Size::S64, Location::GPR(reg)) => {
-                let reg = reg as u32;
-                match cond {
-                    Condition::Eq => dynasm!(self ; csetm X(reg), eq),
-                    Condition::Ne => dynasm!(self ; csetm X(reg), ne),
-                    Condition::Cs => dynasm!(self ; csetm X(reg), cs),
-                    Condition::Cc => dynasm!(self ; csetm X(reg), cc),
-                    Condition::Mi => dynasm!(self ; csetm X(reg), mi),
-                    Condition::Pl => dynasm!(self ; csetm X(reg), pl),
-                    Condition::Vs => dynasm!(self ; csetm X(reg), vs),
-                    Condition::Vc => dynasm!(self ; csetm X(reg), vc),
-                    Condition::Hi => dynasm!(self ; csetm X(reg), hi),
-                    Condition::Ls => dynasm!(self ; csetm X(reg), ls),
-                    Condition::Ge => dynasm!(self ; csetm X(reg), ge),
-                    Condition::Lt => dynasm!(self ; csetm X(reg), lt),
-                    Condition::Gt => dynasm!(self ; csetm X(reg), gt),
-                    Condition::Le => dynasm!(self ; csetm X(reg), le),
-                    Condition::Al => dynasm!(self ; csetm X(reg), al),
-                }
-            }
+            (Size::S32, Location::GPR(reg)) => match cond {
+                Condition::Eq => dynasm!(self ; csetm W(reg), eq),
+                Condition::Ne => dynasm!(self ; csetm W(reg), ne),
+                Condition::Cs => dynasm!(self ; csetm W(reg), cs),
+                Condition::Cc => dynasm!(self ; csetm W(reg), cc),
+                Condition::Mi => dynasm!(self ; csetm W(reg), mi),
+                Condition::Pl => dynasm!(self ; csetm W(reg), pl),
+                Condition::Vs => dynasm!(self ; csetm W(reg), vs),
+                Condition::Vc => dynasm!(self ; csetm W(reg), vc),
+                Condition::Hi => dynasm!(self ; csetm W(reg), hi),
+                Condition::Ls => dynasm!(self ; csetm W(reg), ls),
+                Condition::Ge => dynasm!(self ; csetm W(reg), ge),
+                Condition::Lt => dynasm!(self ; csetm W(reg), lt),
+                Condition::Gt => dynasm!(self ; csetm W(reg), gt),
+                Condition::Le => dynasm!(self ; csetm W(reg), le),
+                Condition::Al => dynasm!(self ; csetm W(reg), al),
+            },
+            (Size::S64, Location::GPR(reg)) => match cond {
+                Condition::Eq => dynasm!(self ; csetm X(reg), eq),
+                Condition::Ne => dynasm!(self ; csetm X(reg), ne),
+                Condition::Cs => dynasm!(self ; csetm X(reg), cs),
+                Condition::Cc => dynasm!(self ; csetm X(reg), cc),
+                Condition::Mi => dynasm!(self ; csetm X(reg), mi),
+                Condition::Pl => dynasm!(self ; csetm X(reg), pl),
+                Condition::Vs => dynasm!(self ; csetm X(reg), vs),
+                Condition::Vc => dynasm!(self ; csetm X(reg), vc),
+                Condition::Hi => dynasm!(self ; csetm X(reg), hi),
+                Condition::Ls => dynasm!(self ; csetm X(reg), ls),
+                Condition::Ge => dynasm!(self ; csetm X(reg), ge),
+                Condition::Lt => dynasm!(self ; csetm X(reg), lt),
+                Condition::Gt => dynasm!(self ; csetm X(reg), gt),
+                Condition::Le => dynasm!(self ; csetm X(reg), le),
+                Condition::Al => dynasm!(self ; csetm X(reg), al),
+            },
             _ => codegen_error!("singlepass can't emit CSETM {:?} {:?} {:?}", sz, dst, cond),
         }
         Ok(())
@@ -2490,8 +2115,6 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 match cond {
                     Condition::Eq => dynasm!(self ; cinc W(dst), W(src), eq),
                     Condition::Ne => dynasm!(self ; cinc W(dst), W(src), ne),
@@ -2511,8 +2134,6 @@ impl EmitterARM64 for Assembler {
                 };
             }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 match cond {
                     Condition::Eq => dynasm!(self ; cinc X(src), X(dst), eq),
                     Condition::Ne => dynasm!(self ; cinc X(src), X(dst), ne),
@@ -2539,13 +2160,9 @@ impl EmitterARM64 for Assembler {
     fn emit_clz(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; clz X(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; clz W(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit CLS {:?} {:?} {:?}", sz, src, dst),
@@ -2555,13 +2172,9 @@ impl EmitterARM64 for Assembler {
     fn emit_rbit(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; rbit X(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; rbit W(dst), W(src));
             }
             _ => codegen_error!("singlepass can't emit CLS {:?} {:?} {:?}", sz, src, dst),
@@ -2574,7 +2187,6 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError> {
-        let reg = reg.into_index() as u32;
         dynasm!(self ; adr X(reg), =>label);
         Ok(())
     }
@@ -2591,11 +2203,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; cbz W(reg), =>label);
             }
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; cbz X(reg), =>label);
             }
             _ => codegen_error!("singlepass can't emit CBZ {:?} {:?} {:?}", sz, reg, label),
@@ -2610,11 +2220,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; cbnz W(reg), =>label);
             }
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; cbnz X(reg), =>label);
             }
             _ => codegen_error!("singlepass can't emit CBNZ {:?} {:?} {:?}", sz, reg, label),
@@ -2632,13 +2240,10 @@ impl EmitterARM64 for Assembler {
 
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
-
                 dynasm!(self ; cbz W(reg), => near_label);
                 dynasm!(self ; b => continue_label);
             }
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; cbz X(reg), => near_label);
                 dynasm!(self ; b => continue_label);
             }
@@ -2660,11 +2265,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; tbz W(reg), n, =>label);
             }
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; tbz X(reg), n, =>label);
             }
             _ => codegen_error!(
@@ -2686,11 +2289,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, reg) {
             (Size::S32, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; tbnz W(reg), n, =>label);
             }
             (Size::S64, Location::GPR(reg)) => {
-                let reg = reg.into_index() as u32;
                 dynasm!(self ; tbnz X(reg), n, =>label);
             }
             _ => codegen_error!(
@@ -2751,16 +2352,14 @@ impl EmitterARM64 for Assembler {
         self.emit_label(cont)?;
         Ok(())
     }
-    fn emit_b_register(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; br X(reg.into_index() as u32));
+    fn emit_b_register(&mut self, _reg: GPR) -> Result<(), CompileError> {
         Ok(())
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         dynasm!(self ; bl =>label);
         Ok(())
     }
-    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; blr X(reg.into_index() as u32));
+    fn emit_call_register(&mut self, _reg: GPR) -> Result<(), CompileError> {
         Ok(())
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
@@ -2784,13 +2383,9 @@ impl EmitterARM64 for Assembler {
     fn emit_fcmp(&mut self, sz: Size, src1: Location, src2: Location) -> Result<(), CompileError> {
         match (sz, src1, src2) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
                 dynasm!(self ; fcmp S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
                 dynasm!(self ; fcmp D(src1), D(src2));
             }
             _ => codegen_error!("singlepass can't emit FCMP {:?} {:?} {:?}", sz, src1, src2),
@@ -2801,13 +2396,9 @@ impl EmitterARM64 for Assembler {
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fneg S(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fneg D(dst), D(src));
             }
             _ => codegen_error!("singlepass can't emit FNEG {:?} {:?} {:?}", sz, src, dst),
@@ -2817,13 +2408,9 @@ impl EmitterARM64 for Assembler {
     fn emit_fsqrt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fsqrt S(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fsqrt D(dst), D(src));
             }
             _ => codegen_error!("singlepass can't emit FSQRT {:?} {:?} {:?}", sz, src, dst),
@@ -2840,15 +2427,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fadd S(dst), S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fadd D(dst), D(src1), D(src2));
             }
             _ => codegen_error!(
@@ -2870,15 +2451,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fsub S(dst), S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fsub D(dst), D(src1), D(src2));
             }
             _ => codegen_error!(
@@ -2900,15 +2475,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmul S(dst), S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmul D(dst), D(src1), D(src2));
             }
             _ => codegen_error!(
@@ -2930,15 +2499,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fdiv S(dst), S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fdiv D(dst), D(src1), D(src2));
             }
             _ => codegen_error!(
@@ -2961,15 +2524,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmin S(dst), S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmin D(dst), D(src1), D(src2));
             }
             _ => codegen_error!(
@@ -2991,15 +2548,9 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmax S(dst), S(src1), S(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmax D(dst), D(src1), D(src2));
             }
             _ => codegen_error!(
@@ -3016,13 +2567,9 @@ impl EmitterARM64 for Assembler {
     fn emit_frintz(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintz S(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintz D(dst), D(src));
             }
             _ => codegen_error!("singlepass can't emit FRINTZ {:?} {:?} {:?}", sz, src, dst),
@@ -3032,13 +2579,9 @@ impl EmitterARM64 for Assembler {
     fn emit_frintn(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintn S(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintn D(dst), D(src));
             }
             _ => codegen_error!("singlepass can't emit FRINTN {:?} {:?} {:?}", sz, src, dst),
@@ -3048,13 +2591,9 @@ impl EmitterARM64 for Assembler {
     fn emit_frintm(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintm S(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintm D(dst), D(src));
             }
             _ => codegen_error!("singlepass can't emit FRINTM {:?} {:?} {:?}", sz, src, dst),
@@ -3064,13 +2603,9 @@ impl EmitterARM64 for Assembler {
     fn emit_frintp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintp S(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; frintp D(dst), D(src));
             }
             _ => codegen_error!("singlepass can't emit FRINTP {:?} {:?} {:?}", sz, src, dst),
@@ -3087,23 +2622,15 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz_in, src, sz_out, dst) {
             (Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; scvtf S(dst), W(src));
             }
             (Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; scvtf S(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; scvtf D(dst), W(src));
             }
             (Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; scvtf D(dst), X(src));
             }
             _ => codegen_error!(
@@ -3125,23 +2652,15 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz_in, src, sz_out, dst) {
             (Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ucvtf S(dst), W(src));
             }
             (Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ucvtf S(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ucvtf D(dst), W(src));
             }
             (Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; ucvtf D(dst), X(src));
             }
             _ => codegen_error!(
@@ -3157,13 +2676,9 @@ impl EmitterARM64 for Assembler {
     fn emit_fcvt(&mut self, sz_in: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz_in, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt D(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt S(dst), D(src));
             }
             _ => codegen_error!(
@@ -3184,23 +2699,15 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz_in, src, sz_out, dst) {
             (Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzs W(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzs W(dst), D(src));
             }
             (Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzs X(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzs X(dst), D(src));
             }
             _ => codegen_error!(
@@ -3222,23 +2729,15 @@ impl EmitterARM64 for Assembler {
     ) -> Result<(), CompileError> {
         match (sz_in, src, sz_out, dst) {
             (Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzu W(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzu W(dst), D(src));
             }
             (Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzu X(dst), S(src));
             }
             (Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvtzu X(dst), D(src));
             }
             _ => codegen_error!(
@@ -3254,30 +2753,30 @@ impl EmitterARM64 for Assembler {
 
     // 1 011 0100 0100 000 => fpcr
     fn emit_read_fpcr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; mrs X(reg as u32), 0b1_011_0100_0100_000);
+        dynasm!(self ; mrs X(reg), 0b1_011_0100_0100_000);
         Ok(())
     }
     fn emit_write_fpcr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; msr 0b1_011_0100_0100_000, X(reg as u32));
+        dynasm!(self ; msr 0b1_011_0100_0100_000, X(reg));
         Ok(())
     }
     // 1 011 0100 0100 001 => fpsr
     fn emit_read_fpsr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; mrs X(reg as u32), 0b1_011_0100_0100_001);
+        dynasm!(self ; mrs X(reg), 0b1_011_0100_0100_001);
         Ok(())
     }
     fn emit_write_fpsr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; msr 0b1_011_0100_0100_001, X(reg as u32));
+        dynasm!(self ; msr 0b1_011_0100_0100_001, X(reg));
         Ok(())
     }
 
     fn emit_cnt(&mut self, src: NEON, dst: NEON) -> Result<(), CompileError> {
-        dynasm!(self ; cnt V(dst.into_index() as u32).B8, V(src.into_index() as u32).B8);
+        dynasm!(self ; cnt V(dst).B8, V(src).B8);
         Ok(())
     }
 
     fn emit_addv(&mut self, src: NEON, dst: NEON) -> Result<(), CompileError> {
-        dynasm!(self ; addv B(dst.into_index() as u32), V(src.into_index() as u32).B8);
+        dynasm!(self ; addv B(dst), V(src).B8);
         Ok(())
     }
 
@@ -3293,8 +2792,8 @@ impl EmitterARM64 for Assembler {
         match (src, dst) {
             (AbstractLocation::GPR(src), AbstractLocation::SIMD(dst)) => {
                 match (src_size, dst_size) {
-                    (Size::S32, Size::S32) => dynasm!(self ; fmov S(dst as u32), W(src as u32)),
-                    (Size::S64, Size::S64) => dynasm!(self ; fmov D(dst as u32), X(src as u32)),
+                    (Size::S32, Size::S32) => dynasm!(self ; fmov S(dst), W(src)),
+                    (Size::S64, Size::S64) => dynasm!(self ; fmov D(dst), X(src)),
                     _ => {
                         err = true;
                     }
@@ -3302,8 +2801,8 @@ impl EmitterARM64 for Assembler {
             }
             (AbstractLocation::SIMD(src), AbstractLocation::GPR(dst)) => {
                 match (src_size, dst_size) {
-                    (Size::S32, Size::S32) => dynasm!(self ; fmov W(dst as u32), S(src as u32)),
-                    (Size::S64, Size::S64) => dynasm!(self ; fmov X(dst as u32), D(src as u32)),
+                    (Size::S32, Size::S32) => dynasm!(self ; fmov W(dst), S(src)),
+                    (Size::S64, Size::S64) => dynasm!(self ; fmov X(dst), D(src)),
                     _ => {
                         err = true;
                     }
@@ -3342,10 +2841,10 @@ pub fn gen_std_trampoline_arm64(
     dynasm!(a
         ; sub sp, sp, 32
         ; stp x29, x30, [sp]
-        ; stp X(fptr as u32), X(args as u32), [sp, 16]
+        ; stp X(fptr), X(args), [sp, 16]
         ; mov x29, sp
-        ; mov X(fptr as u32), x1
-        ; mov X(args as u32), x2
+        ; mov X(fptr), x1
+        ; mov X(args), x2
     );
 
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
@@ -3427,7 +2926,7 @@ pub fn gen_std_trampoline_arm64(
         }
     }
 
-    dynasm!(a  ; blr X(fptr as u32));
+    dynasm!(a  ; blr X(fptr));
 
     // Write return value.
     if !sig.results().is_empty() {
@@ -3436,7 +2935,7 @@ pub fn gen_std_trampoline_arm64(
 
     // Restore stack.
     dynasm!(a
-        ; ldp X(fptr as u32), X(args as u32), [x29, 16]
+        ; ldp X(fptr), X(args), [x29, 16]
         ; ldp x29, x30, [x29]
         ; add sp, sp, 32 + stack_offset as u32
         ; ret

@@ -48,6 +48,12 @@ pub enum GPR {
     XzrSp = 31,
 }
 
+impl From<GPR> for u8 {
+    fn from(val: GPR) -> Self {
+        val as u8
+    }
+}
+
 /// NEON registers.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -86,6 +92,12 @@ pub enum NEON {
     V29 = 29,
     V30 = 30,
     V31 = 31,
+}
+
+impl From<NEON> for u8 {
+    fn from(val: NEON) -> Self {
+        val as u8
+    }
 }
 
 impl AbstractReg for GPR {
