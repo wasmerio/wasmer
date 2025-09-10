@@ -35,9 +35,7 @@ pub enum ControlFrame<'ctx> {
         if_else_state: IfElseState,
     },
     Landingpad {
-        can_throw: BasicBlock<'ctx>, // TODO: also unused, but I assume we'll need it for the block inputs?
         next: BasicBlock<'ctx>,
-        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>, // TODO: this is unused...
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
@@ -481,15 +479,11 @@ impl<'ctx> State<'ctx> {
     pub fn push_landingpad(
         &mut self,
         lpad_block: BasicBlock<'ctx>,
-        can_throw: BasicBlock<'ctx>,
-        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         next: BasicBlock<'ctx>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         tags: &[TagCatchInfo<'ctx>],
     ) {
         self.control_stack.push(ControlFrame::Landingpad {
-            can_throw,
-            can_throw_phis,
             next,
             next_phis,
             stack_size_snapshot: self.stack.len(),

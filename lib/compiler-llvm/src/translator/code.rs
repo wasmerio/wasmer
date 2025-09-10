@@ -1813,7 +1813,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             .build_alloca(self.intrinsics.ptr_ty, "vmctx"));
         err!(self
             .alloca_builder
-            .build_store(vmctx_alloca, self.abi.get_vmctx_ptr_param(&self.function)));
+            .build_store(vmctx_alloca, self.ctx.basic()));
         self.vmctx_alloca = Some(vmctx_alloca);
         Ok(vmctx_alloca)
     }
@@ -12442,7 +12442,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .builder
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
-                let can_throw_block = self.context.append_basic_block(self.function, "try_begin");
                 let lpad_block = self.context.append_basic_block(self.function, "catch");
                 let catch_all_block = self.context.append_basic_block(self.function, "catch_all");
                 let catch_specific_block = self
@@ -12476,19 +12475,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     phis
                 };
 
-                let block_param_types = self
-                    .module_translation
-                    .blocktype_params_results(&try_table.ty)?
-                    .0
-                    .iter()
-                    .map(|&wp_ty| {
-                        err_nt!(wptype_to_type(wp_ty))
-                            .and_then(|wasm_ty| type_to_llvm(self.intrinsics, wasm_ty))
-                    })
-                    .collect::<Result<Vec<_>, _>>()?;
-
-                self.builder.position_at_end(current_block);
-                err!(self.builder.build_unconditional_branch(can_throw_block));
                 self.builder.position_at_end(lpad_block);
 
                 // Collect unique catches. It is not a "hard" error on the wasm side,
@@ -12564,7 +12550,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let pre_selector_is_zero = err!(self.builder.build_int_compare(
                     IntPredicate::EQ,
                     pre_selector.into_int_value(),
-                    self.intrinsics.i32_ty.const_zero(),
+                    self.intrinsics.i32_zero,
                     "pre_selector_is_zero"
                 ));
                 err!(self.builder.build_conditional_branch(
@@ -12859,17 +12845,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // can't reach after an explicit throw!
                 err!(self.builder.build_unreachable());
 
-                // Move to the block that can throw exceptions
-                self.builder.position_at_end(can_throw_block);
-                // TODO: is this where parameters to the try_table block are supposed to come in?
-                let can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]> = block_param_types
-                    .iter()
-                    .map(|&ty| err_nt!(self.builder.build_phi(ty, "")))
-                    .collect::<Result<SmallVec<_>, _>>()?;
-
-                for phi in can_throw_phis.iter() {
-                    self.state.push1(phi.as_basic_value());
-                }
+                // Move back to current block
+                self.builder.position_at_end(current_block);
 
                 // Note: catch_tag_values also containes outer tags, but zipping with
                 // catch_blocks will let us ignore the extra ones.
@@ -12882,14 +12859,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         wasmer_exc_phi,
                     })
                     .collect::<Vec<_>>();
-                self.state.push_landingpad(
-                    lpad_block,
-                    can_throw_block,
-                    can_throw_phis,
-                    end_block,
-                    end_phis,
-                    &catch_tags_and_blocks,
-                );
+                self.state
+                    .push_landingpad(lpad_block, end_block, end_phis, &catch_tags_and_blocks);
             }
             Operator::Throw { tag_index } => {
                 let current_block = self
