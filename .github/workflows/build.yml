@@ -45,14 +45,14 @@ jobs:
       matrix:
         include:
           - build: linux-arm64
-            os: ubuntu-22.04-arm
+            os: ubuntu-24.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             use_sccache: false
             use_rustcache: false
             build_wasm: true
-            enable_llvm: false
+            enable_llvm: true
             enable_v8: false
             enable_wasmi: true
             enable_wamr: true
@@ -177,10 +177,10 @@ jobs:
           LLVM_DIR: .llvm
       - name: Configure LLVM (Windows)
         # The Custom Windows build does not contains llvm-config.exe, so need to setup manualy here
-        if: startsWith(matrix.build, 'windows-x64') && matrix.llvm_url
+        if: (startsWith(matrix.build, 'windows-x64') || startsWith(matrix.build, 'linux-arm64')) && matrix.llvm_url
         shell: bash
         run: |
-          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          LLVM_DIR=$(realpath ./${{ env.LLVM_DIR }})
           echo LLVM_SYS_180_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
@@ -250,14 +250,6 @@ jobs:
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
           echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
         shell: bash
-      - name: Build C API headless
-        shell: bash
-        run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make package-capi-headless
-      - name: Build C API
-        shell: bash
-        run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
@@ -268,6 +260,14 @@ jobs:
           ENABLE_V8: ${{ matrix.enable_v8 }}
           ENABLE_WASMI: ${{ matrix.enable_wasmi }}
           ENABLE_WAMR: ${{ matrix.enable_wamr }}
+      - name: Build C API headless
+        shell: bash
+        run: |
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make package-capi-headless
+      - name: Build C API
+        shell: bash
+        run: |
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
       - name: Build Wasmer on linux-x64
         if: ${{ startsWith(matrix.build, 'linux-x64') }}
         run: |
