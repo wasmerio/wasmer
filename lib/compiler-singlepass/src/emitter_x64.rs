@@ -2380,9 +2380,13 @@ impl EmitterX64 for AssemblerX64 {
         dynasm!(self ; ud2);
         Ok(())
     }
+    #[allow(clippy::useless_conversion)]
     fn emit_ud1_payload(&mut self, payload: u8) -> Result<(), CompileError> {
         assert!(payload & 0xf0 == 0);
-        dynasm!(self ; ud1 Rd((payload>>3)&1), Rd(payload&7));
+        let reg1 = (payload >> 3) & 1;
+        let reg2 = payload & 7;
+
+        dynasm!(self ; ud1 Rd(reg1), Rd(reg2));
         Ok(())
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
