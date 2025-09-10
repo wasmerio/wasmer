@@ -98,6 +98,10 @@ pub struct AppConfigV1 {
     #[serde(skip_serializing_if = "Option::is_none")]
     pub jobs: Option<Vec<Job>>,
 
+    /// Associate an email account with the app
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub enable_email: Option<bool>,
+
     /// Capture extra fields for forwards compatibility.
     #[serde(flatten)]
     pub extra: IndexMap<String, serde_json::Value>,
@@ -397,6 +401,7 @@ scheduled_tasks:
                     regions: vec!["eu-rome".to_string()]
                 }),
                 jobs: None,
+                enable_email: None,
             }
         );
     }
