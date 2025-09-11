@@ -39,14 +39,14 @@
 
 use std::panic;
 mod eh;
-pub use eh::wasmer_eh_personality;
 use eh::UwExceptionWrapper;
 pub(crate) use eh::WasmerException;
+pub use eh::{wasmer_eh_personality, wasmer_eh_personality2};
 
+use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
-use crate::{libcalls::eh::wasmer_eh_personality2, probestack::PROBESTACK};
 use crate::{on_host_stack, VMFuncRef};
 pub use wasmer_types::LibCall;
 use wasmer_types::{

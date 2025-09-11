@@ -189,14 +189,13 @@ impl Instance {
     }
 
     /// Return the indexed `VMSharedTagIndex`.
-    #[allow(unused)]
-    fn shared_tag_ptr(&self, index: TagIndex) -> &VMSharedTagIndex {
+    pub(crate) fn shared_tag_ptr(&self, index: TagIndex) -> &VMSharedTagIndex {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { &*self.shared_tags_ptr().add(index) }
     }
 
     /// Return a pointer to the `VMSharedTagIndex`s.
-    fn shared_tags_ptr(&self) -> *mut VMSharedTagIndex {
+    pub(crate) fn shared_tags_ptr(&self) -> *mut VMSharedTagIndex {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tags_begin()) }
     }
 

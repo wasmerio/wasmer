@@ -12869,7 +12869,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 // catch_blocks will let us ignore the extra ones.
                 let catch_tags_and_blocks = catch_tag_values
                     .into_iter()
-                    .zip(catch_blocks.into_iter())
+                    .zip(catch_blocks)
                     .map(|(tag, (block, wasmer_exc_phi))| TagCatchInfo {
                         tag,
                         catch_block: block,
@@ -12949,7 +12949,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 .i32_ty
                                 .const_int(tag_index as _, false)
                                 .into(),
-                            vmctx_ptr.into(),
+                            vmctx_ptr,
                             exc.into(),
                             size.into()
                         ],

@@ -89,14 +89,10 @@ pub fn resolve_imports(
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
-    for (import_key, import_index) in
-        module
-            .imports
-            .iter()
-            .filter(|(_, import_index)| match import_index {
-                ImportIndex::Tag(_) => false,
-                _ => true,
-            })
+    for (import_key, import_index) in module
+        .imports
+        .iter()
+        .filter(|(_, import_index)| !matches!(import_index, ImportIndex::Tag(_)))
     {
         let ResolvedImport {
             resolved,
@@ -226,14 +222,10 @@ pub fn resolve_tags(
 ) -> Result<BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>, LinkError> {
     let mut tags = PrimaryMap::with_capacity(module.tags.len());
 
-    for (import_key, import_index) in
-        module
-            .imports
-            .iter()
-            .filter(|(_, import_index)| match import_index {
-                ImportIndex::Tag(_) => true,
-                _ => false,
-            })
+    for (import_key, import_index) in module
+        .imports
+        .iter()
+        .filter(|(_, import_index)| matches!(import_index, ImportIndex::Tag(_)))
     {
         let ResolvedImport {
             resolved,
@@ -303,6 +295,7 @@ struct ResolvedImport<'a> {
     extern_type: ExternType,
 }
 
+#[allow(clippy::result_large_err)]
 fn resolve_import<'a>(
     module: &ModuleInfo,
     imports: &'a [VMExtern],

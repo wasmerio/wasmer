@@ -35,9 +35,9 @@
 //! data by mistake.
 
 use libunwind as uw;
-use wasmer_types::{TagIndex, VMOffsets};
+use wasmer_types::TagIndex;
 
-use crate::{VMContext, VMSharedTagIndex};
+use crate::VMContext;
 
 use super::dwarf::eh::{self, EHAction, EHContext};
 
@@ -221,12 +221,9 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
             unreachable!("wasmer_eh_personality2 called without current_frame_info");
         };
 
+        let instance = (*vmctx).instance();
         for tag in current_frame_info.catch_tags {
-            let vmctx_shared_tag_ptr = vmctx
-                .cast::<u8>()
-                .add(VMOffsets::vmctx_vmshared_tag_id_static(TagIndex::from_u32(tag)) as usize)
-                .cast::<VMSharedTagIndex>();
-            let unique_tag = (*vmctx_shared_tag_ptr).index();
+            let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
             if unique_tag == current_frame_info.exception_tag {
                 return tag as i32;
             }
@@ -265,11 +262,10 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context) -> Result<EHAction, 
 
 pub unsafe fn throw(tag: u32, vmctx: *mut VMContext, data_ptr: usize, data_size: u64) -> ! {
     // Look up the unique tag from the VMContext.
-    let vmctx_shared_tag_ptr = vmctx
-        .cast::<u8>()
-        .add(VMOffsets::vmctx_vmshared_tag_id_static(TagIndex::from_u32(tag)) as usize)
-        .cast::<VMSharedTagIndex>();
-    let unique_tag = (*vmctx_shared_tag_ptr).index();
+    let unique_tag = (*vmctx)
+        .instance()
+        .shared_tag_ptr(TagIndex::from_u32(tag))
+        .index();
 
     let exception = Box::new(UwExceptionWrapper::new(unique_tag, data_ptr, data_size));
     let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;

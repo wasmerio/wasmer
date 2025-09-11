@@ -209,8 +209,6 @@ const fn align(offset: u32, width: u32) -> u32 {
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pointer_size: u8,
-    /// The number of tags in the module.
-    num_tags: u32,
     /// The number of signature declarations in the module.
     num_signature_ids: u32,
     /// The number of imported functions in the module.
@@ -219,6 +217,8 @@ pub struct VMOffsets {
     num_imported_tables: u32,
     /// The number of imported memories in the module.
     num_imported_memories: u32,
+    /// The number of tags in the module.
+    num_tags: u32,
     /// The number of imported globals in the module.
     num_imported_globals: u32,
     /// The number of defined tables in the module.
@@ -228,11 +228,11 @@ pub struct VMOffsets {
     /// The number of defined globals in the module.
     num_local_globals: u32,
 
-    // Note: missing vmctx_tags_begin because it HAS to start at the zero index.
     vmctx_signature_ids_begin: u32,
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
+    vmctx_tags_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
     vmctx_memories_begin: u32,
@@ -246,17 +246,15 @@ pub struct VMOffsets {
 }
 
 impl VMOffsets {
-    const VMCTX_TAGS_BEGIN: u32 = 0;
-
     /// Return a new `VMOffsets` instance, for a given pointer size.
     pub fn new(pointer_size: u8, module: &ModuleInfo) -> Self {
         let mut ret = Self {
             pointer_size,
-            num_tags: cast_to_u32(module.tags.len()),
             num_signature_ids: cast_to_u32(module.signatures.len()),
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
+            num_tags: cast_to_u32(module.tags.len()),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
@@ -265,6 +263,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
+            vmctx_tags_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -287,11 +286,11 @@ impl VMOffsets {
     pub fn new_for_trampolines(pointer_size: u8) -> Self {
         Self {
             pointer_size,
-            num_tags: 0,
             num_signature_ids: 0,
             num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
+            num_tags: 0,
             num_imported_globals: 0,
             num_local_tables: 0,
             num_local_memories: 0,
@@ -300,6 +299,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
+            vmctx_tags_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -340,11 +340,7 @@ impl VMOffsets {
             )
         }
 
-        self.vmctx_signature_ids_begin = offset_by_aligned(
-            Self::VMCTX_TAGS_BEGIN,
-            self.num_tags,
-            u32::from(Self::size_of_vmshared_tag_index()),
-        );
+        self.vmctx_signature_ids_begin = 0;
         self.vmctx_imported_functions_begin = offset_by_aligned(
             self.vmctx_signature_ids_begin,
             self.num_signature_ids,
@@ -361,10 +357,16 @@ impl VMOffsets {
             u32::from(self.size_of_vmtable_import()),
         );
 
-        self.vmctx_imported_globals_begin = offset_by_aligned(
+        self.vmctx_tags_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
+        );
+
+        self.vmctx_imported_globals_begin = offset_by_aligned(
+            self.vmctx_tags_begin,
+            self.num_tags,
+            u32::from(self.size_of_vmshared_tag_index()),
         );
 
         self.vmctx_tables_begin = offset_by_aligned(
@@ -586,17 +588,6 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for `VMSharedTagIndex`.
-impl VMOffsets {
-    /// Return the size of `VMSharedTagIndex`.
-    /// Note: this is static because tag indices need to be accessible
-    /// from libcalls which only have the vmctx pointer, not the VMOffsets
-    /// for the specific module.
-    pub const fn size_of_vmshared_tag_index() -> u8 {
-        4
-    }
-}
-
 /// Offsets for `VMSharedSignatureIndex`.
 impl VMOffsets {
     /// Return the size of `VMSharedSignatureIndex`.
@@ -650,13 +641,16 @@ impl VMOffsets {
     }
 }
 
+/// Offsets for `VMSharedTagIndex`.
+impl VMOffsets {
+    /// Return the size of `VMSharedTagIndex`.
+    pub const fn size_of_vmshared_tag_index(&self) -> u8 {
+        4
+    }
+}
+
 /// Offsets for `VMContext`.
 impl VMOffsets {
-    /// The offset of the `tags` array.
-    pub fn vmctx_tags_begin(&self) -> u32 {
-        Self::VMCTX_TAGS_BEGIN
-    }
-
     /// The offset of the `signature_ids` array.
     pub fn vmctx_signature_ids_begin(&self) -> u32 {
         self.vmctx_signature_ids_begin
@@ -684,6 +678,11 @@ impl VMOffsets {
         self.vmctx_imported_globals_begin
     }
 
+    /// The offset of the `tags` array.
+    pub fn vmctx_tags_begin(&self) -> u32 {
+        self.vmctx_tags_begin
+    }
+
     /// The offset of the `tables` array.
     pub fn vmctx_tables_begin(&self) -> u32 {
         self.vmctx_tables_begin
@@ -707,18 +706,6 @@ impl VMOffsets {
     /// Return the size of the `VMContext` allocation.
     pub fn size_of_vmctx(&self) -> u32 {
         self.size_of_vmctx
-    }
-
-    /// Return the offset to `VMSharedTagIndex` index `index`, without a
-    /// `self` reference.
-    pub fn vmctx_vmshared_tag_id_static(index: TagIndex) -> u32 {
-        Self::VMCTX_TAGS_BEGIN + index.as_u32() * u32::from(Self::size_of_vmshared_tag_index())
-    }
-
-    /// Return the offset to `VMSharedTagIndex` index `index`.
-    pub fn vmctx_vmshared_tag_id(&self, index: TagIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_tags);
-        Self::vmctx_vmshared_tag_id_static(index)
     }
 
     /// Return the offset to `VMSharedSignatureIndex` index `index`.
@@ -746,6 +733,12 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(self.size_of_vmmemory_import())
+    }
+
+    /// Return the offset to `VMSharedTagIndex` index `index`.
+    pub fn vmctx_vmshared_tag_id(&self, index: TagIndex) -> u32 {
+        assert_lt!(index.as_u32(), self.num_tags);
+        self.vmctx_tags_begin + index.as_u32() * u32::from(self.size_of_vmshared_tag_index())
     }
 
     /// Return the offset to `VMGlobalImport` index `index`.
