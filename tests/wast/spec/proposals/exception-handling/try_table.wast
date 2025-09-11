@@ -222,16 +222,15 @@
    (i32.const 2)
  )
 
-  ;; TODO: super-broken! codegen fails
-  ;; (func (export "catchless-try") (param i32) (result i32)
-  ;;   (block $h
-  ;;     (try_table (result i32) (catch $e0 $h)
-  ;;       (try_table (result i32) (call $throw-if (local.get 0)))
-  ;;     )
-  ;;     (return)
-  ;;   )
-  ;;   (i32.const 1)
-  ;; )
+  (func (export "catchless-try") (param i32) (result i32)
+    (block $h
+      (try_table (result i32) (catch $e0 $h)
+        (try_table (result i32) (call $throw-if (local.get 0)))
+      )
+      (return)
+    )
+    (i32.const 1)
+  )
 
   (func $throw-void (throw $e0))
   ;; (xdoardo): Disabled for now (requires tail-call proposal implementation)
@@ -253,10 +252,9 @@
   ;;   )
   ;; )
 
-  ;; TODO: super-broken! Codegen fails
-  ;; (func (export "try-with-param")
-  ;;   (i32.const 0) (try_table (param i32) (drop))
-  ;; )
+  (func (export "try-with-param")
+    (i32.const 0) (try_table (param i32) (drop))
+  )
 
  (func (export "multiple-catch-targeting-same-block") (result i32)
    (block $outer
@@ -322,13 +320,13 @@
 (assert_return (invoke "catch-imported") (i32.const 2))
 (assert_return (invoke "catch-imported-alias") (i32.const 2))
 
-;;(assert_return (invoke "catchless-try" (i32.const 0)) (i32.const 0))
-;;(assert_return (invoke "catchless-try" (i32.const 1)) (i32.const 1))
+(assert_return (invoke "catchless-try" (i32.const 0)) (i32.const 0))
+(assert_return (invoke "catchless-try" (i32.const 1)) (i32.const 1))
 
 ;; (assert_exception (invoke "return-call-in-try-catch"))
 ;; (assert_exception (invoke "return-call-indirect-in-try-catch"))
 
-;; (assert_return (invoke "try-with-param"))
+(assert_return (invoke "try-with-param"))
 
 (assert_return (invoke "multiple-catch-targeting-same-block") (i32.const 42))
 

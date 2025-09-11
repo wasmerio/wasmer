@@ -230,7 +230,9 @@ pub struct TagCatchInfo<'ctx> {
 #[derive(Debug)]
 pub struct Landingpad<'ctx> {
     // The block that has the landingpad instruction.
-    pub lpad_block: BasicBlock<'ctx>,
+    // Will be None for catch-less try_table instructions
+    // with no outer landingpads.
+    pub lpad_block: Option<BasicBlock<'ctx>>,
     // The tags that this landingpad can catch
     pub tags: Vec<TagCatchInfo<'ctx>>,
 }
@@ -478,7 +480,7 @@ impl<'ctx> State<'ctx> {
 
     pub fn push_landingpad(
         &mut self,
-        lpad_block: BasicBlock<'ctx>,
+        lpad_block: Option<BasicBlock<'ctx>>,
         next: BasicBlock<'ctx>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         tags: &[TagCatchInfo<'ctx>],
@@ -501,7 +503,11 @@ impl<'ctx> State<'ctx> {
     // the tags that are active in this frame, including the ones from outer
     // landingpads, so there's never a reason to target any other landingpad.
     pub(crate) fn get_innermost_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
-        self.landingpads.back().map(|v| v.lpad_block)
+        self.landingpads
+            .iter()
+            .rev()
+            .filter_map(|v| v.lpad_block)
+            .next()
     }
 
     pub(crate) fn pop_landingpad(&mut self) -> bool {

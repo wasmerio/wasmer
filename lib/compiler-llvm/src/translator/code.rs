@@ -12442,14 +12442,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .builder
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
-                let lpad_block = self.context.append_basic_block(self.function, "catch");
-                let catch_all_block = self.context.append_basic_block(self.function, "catch_all");
-                let catch_specific_block = self
-                    .context
-                    .append_basic_block(self.function, "catch_specific");
-                let catch_end_block = self.context.append_basic_block(self.function, "catch_end");
-
-                let rethrow_block = self.context.append_basic_block(self.function, "rethrow");
 
                 self.builder.position_at_end(current_block);
 
@@ -12474,8 +12466,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.builder.position_at_end(current_block);
                     phis
                 };
-
-                self.builder.position_at_end(lpad_block);
 
                 // Collect unique catches. It is not a "hard" error on the wasm side,
                 // but LLVM will definitely complain about having the same identifier
@@ -12532,318 +12522,345 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     }
                 }
 
-                let res = err!(self.builder.build_landing_pad(
-                    exception_type,
-                    self.intrinsics.personality,
-                    &lpad_clauses,
-                    false,
-                    "exc_struct",
-                ));
-
-                let res = res.into_struct_value();
-
-                let uw_exc = err!(self.builder.build_extract_value(res, 0, "exc_ptr"));
-                let pre_selector = err!(self.builder.build_extract_value(res, 1, "pre_selector"));
-
-                // The pre-selector can be either 0 (for catch-all) or 1 (for a
-                // specific, but as-yet-unknown tag).
-                let pre_selector_is_zero = err!(self.builder.build_int_compare(
-                    IntPredicate::EQ,
-                    pre_selector.into_int_value(),
-                    self.intrinsics.i32_zero,
-                    "pre_selector_is_zero"
-                ));
-                err!(self.builder.build_conditional_branch(
-                    pre_selector_is_zero,
-                    catch_all_block,
-                    catch_specific_block
-                ));
-
-                self.builder.position_at_end(catch_all_block);
-                err!(self.builder.build_unconditional_branch(catch_end_block));
-
-                self.builder.position_at_end(catch_specific_block);
-                let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
-                let vmctx_ptr =
-                    err!(self
-                        .builder
-                        .build_load(self.intrinsics.ptr_ty, vmctx_alloca, "vmctx"));
-                let selector_value = err!(self.builder.build_call(
-                    self.intrinsics.personality2,
-                    &[vmctx_ptr.into(), uw_exc.into()],
-                    "selector"
-                ));
-                err!(self.builder.build_unconditional_branch(catch_end_block));
-
-                self.builder.position_at_end(catch_end_block);
-                let selector = err!(self.builder.build_phi(self.intrinsics.i32_ty, "selector"));
-                selector.add_incoming(&[
-                    (
-                        &self
-                            .intrinsics
-                            .i32_ty
-                            .const_int(CATCH_ALL_TAG_VALUE as u64, false),
-                        catch_all_block,
-                    ),
-                    (
-                        &selector_value
-                            .try_as_basic_value()
-                            .left()
-                            .unwrap()
-                            .into_int_value(),
-                        catch_specific_block,
-                    ),
-                ]);
-
-                // The exception we get at this point is a wrapper around the [`WasmerException`]
-                // type. This is needed because when we create the exception to pass it to
-                // libunwind, the exception object needs to begin with a specific set of fields
-                // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
-                // fields and we need to pass them back when rethrowing. This to say, we need to
-                // keep the original exception passed to us by libunwind to be able to rethrow it.
-                let uw_exc = uw_exc.into_pointer_value();
-                let wasmer_exc = err!(self.builder.build_call(
-                    self.intrinsics.read_exception,
-                    &[uw_exc.into()],
-                    "wasmer_exc_ptr"
-                ));
-
-                let wasmer_exc = wasmer_exc.as_any_value_enum().into_pointer_value();
-                let selector = selector.as_basic_value().into_int_value();
-
+                // If there are no catch clauses, we have to skip everything, since
+                // an lpad without catch clauses is invalid (and won't ever be jumped
+                // to anyway)
+                let mut maybe_lpad_block = None;
                 let mut catch_blocks = vec![];
-                for catch in catches.iter() {
-                    match catch {
-                        Catch::All { label } => {
-                            let b = self
-                                .context
-                                .append_basic_block(self.function, "catch_all_clause");
-                            self.builder.position_at_end(b);
-                            let frame = self.state.frame_at_depth(*label)?;
+                if !lpad_clauses.is_empty() {
+                    let lpad_block = self.context.append_basic_block(self.function, "catch");
+                    let catch_all_block =
+                        self.context.append_basic_block(self.function, "catch_all");
+                    let catch_specific_block = self
+                        .context
+                        .append_basic_block(self.function, "catch_specific");
+                    let catch_end_block =
+                        self.context.append_basic_block(self.function, "catch_end");
+                    let rethrow_block = self.context.append_basic_block(self.function, "rethrow");
 
-                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+                    self.builder.position_at_end(lpad_block);
 
-                            self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push((b, None));
-                        }
-                        Catch::One { tag, label } => {
-                            let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
-                            let signature = &self.wasm_module.signatures[tag_idx];
-                            let params = signature.params();
+                    let res = err!(self.builder.build_landing_pad(
+                        exception_type,
+                        self.intrinsics.personality,
+                        &lpad_clauses,
+                        false,
+                        "exc_struct",
+                    ));
 
-                            let b = self
-                                .context
-                                .append_basic_block(self.function, "catch_one_clause");
-                            self.builder.position_at_end(b);
+                    let res = res.into_struct_value();
 
-                            let wasmer_exc_phi = err!(self
-                                .builder
-                                .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
-                            wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
+                    let uw_exc = err!(self.builder.build_extract_value(res, 0, "exc_ptr"));
+                    let pre_selector =
+                        err!(self.builder.build_extract_value(res, 1, "pre_selector"));
 
-                            // Get the type of the exception.
-                            let inner_exc_ty =
-                                self.get_or_insert_exception_type(*tag, signature)?;
+                    // The pre-selector can be either 0 (for catch-all) or 1 (for a
+                    // specific, but as-yet-unknown tag).
+                    let pre_selector_is_zero = err!(self.builder.build_int_compare(
+                        IntPredicate::EQ,
+                        pre_selector.into_int_value(),
+                        self.intrinsics.i32_zero,
+                        "pre_selector_is_zero"
+                    ));
+                    err!(self.builder.build_conditional_branch(
+                        pre_selector_is_zero,
+                        catch_all_block,
+                        catch_specific_block
+                    ));
 
-                            // Cast the outer exception - a pointer - to a pointer to a struct of
-                            // type WasmerException.
-                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
-                            //     exc,
-                            //     self.intrinsics.exc_ty,
-                            //     "wasmer_exc_ptr"
-                            // ));
-                            //
-                            // Not actually needed, since ptr is a single, unique type.
+                    self.builder.position_at_end(catch_all_block);
+                    err!(self.builder.build_unconditional_branch(catch_end_block));
 
-                            // Points at the `data` field of the exception.
-                            let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
-                                self.intrinsics.exc_ty,
-                                wasmer_exc_phi.as_basic_value().into_pointer_value(),
-                                1,
-                                "wasmer_exc_data_ptr_ptr"
-                            ));
+                    self.builder.position_at_end(catch_specific_block);
+                    let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
+                    let vmctx_ptr = err!(self.builder.build_load(
+                        self.intrinsics.ptr_ty,
+                        vmctx_alloca,
+                        "vmctx"
+                    ));
+                    let selector_value = err!(self.builder.build_call(
+                        self.intrinsics.personality2,
+                        &[vmctx_ptr.into(), uw_exc.into()],
+                        "selector"
+                    ));
+                    err!(self.builder.build_unconditional_branch(catch_end_block));
 
-                            let wasmer_exc_data_ptr = err!(self.builder.build_load(
-                                self.intrinsics.ptr_ty,
-                                wasmer_exc_data_ptr_ptr,
-                                "wasmer_exc_data_ptr"
-                            ));
-
-                            let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
-
-                            // Read each value from the data ptr.
-                            let values = params
-                                .iter()
-                                .enumerate()
-                                .map(|(i, v)| {
-                                    let name = format!("value{i}");
-                                    let ptr = err!(self.builder.build_struct_gep(
-                                        inner_exc_ty,
-                                        wasmer_exc_data_ptr,
-                                        i as u32,
-                                        &(name.clone() + "ptr")
-                                    ));
-                                    err_nt!(self.builder.build_load(
-                                        type_to_llvm(self.intrinsics, *v)?,
-                                        ptr,
-                                        &name,
-                                    ))
-                                })
-                                .collect::<Result<Vec<_>, CompileError>>()?;
-
-                            let frame = self.state.frame_at_depth(*label)?;
-
-                            // todo: check that the types are compatible
-
-                            for (phi, value) in frame.phis().iter().zip(values.iter()) {
-                                phi.add_incoming(&[(value, b)])
-                            }
-
-                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
-
-                            self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push((b, Some(wasmer_exc_phi)));
-                        }
-                        Catch::OneRef { label, tag } => {
-                            let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
-                            let signature = &self.wasm_module.signatures[tag_idx];
-                            let params = signature.params();
-
-                            let b = self
-                                .context
-                                .append_basic_block(self.function, "catch_one_clause");
-                            self.builder.position_at_end(b);
-
-                            let wasmer_exc_phi = err!(self
-                                .builder
-                                .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
-                            wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
-
-                            // Get the type of the exception.
-                            let inner_exc_ty =
-                                self.get_or_insert_exception_type(*tag, signature)?;
-
-                            // Cast the outer exception - a pointer - to a pointer to a struct of
-                            // type WasmerException.
-                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
-                            //     exc,
-                            //     self.intrinsics.exc_ty,
-                            //     "wasmer_exc_ptr"
-                            // ));
-                            //
-                            // Not actually needed, since ptr is a single, unique type.
-
-                            // Points at the `data` field of the exception.
-                            let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
-                                self.intrinsics.exc_ty,
-                                wasmer_exc_phi.as_basic_value().into_pointer_value(),
-                                1,
-                                "wasmer_exc_data_ptr"
-                            ));
-
-                            let wasmer_exc_data_ptr = err!(self.builder.build_load(
-                                self.intrinsics.ptr_ty,
-                                wasmer_exc_data_ptr_ptr,
-                                "wasmer_exc_data_ptr"
-                            ));
-
-                            let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
-
-                            // Read each value from the data ptr.
-                            let mut values = params
-                                .iter()
-                                .enumerate()
-                                .map(|(i, v)| {
-                                    let name = format!("value{i}");
-                                    let ptr = err!(self.builder.build_struct_gep(
-                                        inner_exc_ty,
-                                        wasmer_exc_data_ptr,
-                                        i as u32,
-                                        &(name.clone() + "ptr")
-                                    ));
-                                    err_nt!(self.builder.build_load(
-                                        type_to_llvm(self.intrinsics, *v)?,
-                                        ptr,
-                                        &name,
-                                    ))
-                                })
-                                .collect::<Result<Vec<_>, CompileError>>()?;
-
-                            values.push(uw_exc.as_basic_value_enum());
-
-                            let frame = self.state.frame_at_depth(*label)?;
-
-                            // todo: check that the types are compatible
-
-                            for (phi, value) in frame.phis().iter().zip(values.iter()) {
-                                phi.add_incoming(&[(value, b)])
-                            }
-
-                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
-
-                            self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push((b, Some(wasmer_exc_phi)));
-                        }
-                        Catch::AllRef { label } => {
-                            let b = self
-                                .context
-                                .append_basic_block(self.function, "catch_one_clause");
-                            self.builder.position_at_end(b);
-
-                            let frame = self.state.frame_at_depth(*label)?;
-
-                            let phis = frame.phis();
-
-                            // sanity check (todo): check that the phi has only one element
-
-                            for phi in phis.iter() {
-                                phi.add_incoming(&[(&uw_exc.as_basic_value_enum(), b)])
-                            }
-
-                            err!(self.builder.build_unconditional_branch(*frame.br_dest()));
-
-                            self.builder.position_at_end(catch_end_block);
-                            catch_blocks.push((b, None));
-                        }
-                    }
-                }
-
-                for catch_info in &outer_catch_blocks {
-                    if let Some(phi) = catch_info.wasmer_exc_phi {
-                        phi.add_incoming(&[(&wasmer_exc.as_basic_value_enum(), catch_end_block)]);
-                    }
-                }
-
-                err!(self.builder.build_switch(
-                    selector,
-                    rethrow_block,
-                    catch_blocks
-                        .iter()
-                        .enumerate()
-                        .map(|(i, v)| (
-                            self.intrinsics
+                    self.builder.position_at_end(catch_end_block);
+                    let selector = err!(self.builder.build_phi(self.intrinsics.i32_ty, "selector"));
+                    selector.add_incoming(&[
+                        (
+                            &self
+                                .intrinsics
                                 .i32_ty
-                                .const_int(catch_tag_values[i] as _, false),
-                            v.0
-                        ))
-                        .chain(outer_catch_blocks.iter().map(|catch_info| (
-                            self.intrinsics.i32_ty.const_int(catch_info.tag as _, false),
-                            catch_info.catch_block
-                        )))
-                        .collect::<Vec<_>>()
-                        .as_slice()
-                ));
+                                .const_int(CATCH_ALL_TAG_VALUE as u64, false),
+                            catch_all_block,
+                        ),
+                        (
+                            &selector_value
+                                .try_as_basic_value()
+                                .left()
+                                .unwrap()
+                                .into_int_value(),
+                            catch_specific_block,
+                        ),
+                    ]);
 
-                // -- end
+                    // The exception we get at this point is a wrapper around the [`WasmerException`]
+                    // type. This is needed because when we create the exception to pass it to
+                    // libunwind, the exception object needs to begin with a specific set of fields
+                    // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
+                    // fields and we need to pass them back when rethrowing. This to say, we need to
+                    // keep the original exception passed to us by libunwind to be able to rethrow it.
+                    let uw_exc = uw_exc.into_pointer_value();
+                    let wasmer_exc = err!(self.builder.build_call(
+                        self.intrinsics.read_exception,
+                        &[uw_exc.into()],
+                        "wasmer_exc_ptr"
+                    ));
 
-                // -- The rethrow block
-                self.builder.position_at_end(rethrow_block);
+                    let wasmer_exc = wasmer_exc.as_any_value_enum().into_pointer_value();
+                    let selector = selector.as_basic_value().into_int_value();
 
-                err!(self
-                    .builder
-                    .build_call(self.intrinsics.rethrow, &[uw_exc.into()], "rethrow"));
-                // can't reach after an explicit throw!
-                err!(self.builder.build_unreachable());
+                    for catch in catches.iter() {
+                        match catch {
+                            Catch::All { label } => {
+                                let b = self
+                                    .context
+                                    .append_basic_block(self.function, "catch_all_clause");
+                                self.builder.position_at_end(b);
+                                let frame = self.state.frame_at_depth(*label)?;
+
+                                err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                                self.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, None));
+                            }
+                            Catch::One { tag, label } => {
+                                let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
+                                let signature = &self.wasm_module.signatures[tag_idx];
+                                let params = signature.params();
+
+                                let b = self
+                                    .context
+                                    .append_basic_block(self.function, "catch_one_clause");
+                                self.builder.position_at_end(b);
+
+                                let wasmer_exc_phi = err!(self
+                                    .builder
+                                    .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
+                                wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
+
+                                // Get the type of the exception.
+                                let inner_exc_ty =
+                                    self.get_or_insert_exception_type(*tag, signature)?;
+
+                                // Cast the outer exception - a pointer - to a pointer to a struct of
+                                // type WasmerException.
+                                // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                                //     exc,
+                                //     self.intrinsics.exc_ty,
+                                //     "wasmer_exc_ptr"
+                                // ));
+                                //
+                                // Not actually needed, since ptr is a single, unique type.
+
+                                // Points at the `data` field of the exception.
+                                let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
+                                    self.intrinsics.exc_ty,
+                                    wasmer_exc_phi.as_basic_value().into_pointer_value(),
+                                    1,
+                                    "wasmer_exc_data_ptr_ptr"
+                                ));
+
+                                let wasmer_exc_data_ptr = err!(self.builder.build_load(
+                                    self.intrinsics.ptr_ty,
+                                    wasmer_exc_data_ptr_ptr,
+                                    "wasmer_exc_data_ptr"
+                                ));
+
+                                let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                                // Read each value from the data ptr.
+                                let values = params
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, v)| {
+                                        let name = format!("value{i}");
+                                        let ptr = err!(self.builder.build_struct_gep(
+                                            inner_exc_ty,
+                                            wasmer_exc_data_ptr,
+                                            i as u32,
+                                            &(name.clone() + "ptr")
+                                        ));
+                                        err_nt!(self.builder.build_load(
+                                            type_to_llvm(self.intrinsics, *v)?,
+                                            ptr,
+                                            &name,
+                                        ))
+                                    })
+                                    .collect::<Result<Vec<_>, CompileError>>()?;
+
+                                let frame = self.state.frame_at_depth(*label)?;
+
+                                // todo: check that the types are compatible
+
+                                for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                    phi.add_incoming(&[(value, b)])
+                                }
+
+                                err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                                self.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, Some(wasmer_exc_phi)));
+                            }
+                            Catch::OneRef { label, tag } => {
+                                let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
+                                let signature = &self.wasm_module.signatures[tag_idx];
+                                let params = signature.params();
+
+                                let b = self
+                                    .context
+                                    .append_basic_block(self.function, "catch_one_clause");
+                                self.builder.position_at_end(b);
+
+                                let wasmer_exc_phi = err!(self
+                                    .builder
+                                    .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
+                                wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
+
+                                // Get the type of the exception.
+                                let inner_exc_ty =
+                                    self.get_or_insert_exception_type(*tag, signature)?;
+
+                                // Cast the outer exception - a pointer - to a pointer to a struct of
+                                // type WasmerException.
+                                // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                                //     exc,
+                                //     self.intrinsics.exc_ty,
+                                //     "wasmer_exc_ptr"
+                                // ));
+                                //
+                                // Not actually needed, since ptr is a single, unique type.
+
+                                // Points at the `data` field of the exception.
+                                let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
+                                    self.intrinsics.exc_ty,
+                                    wasmer_exc_phi.as_basic_value().into_pointer_value(),
+                                    1,
+                                    "wasmer_exc_data_ptr"
+                                ));
+
+                                let wasmer_exc_data_ptr = err!(self.builder.build_load(
+                                    self.intrinsics.ptr_ty,
+                                    wasmer_exc_data_ptr_ptr,
+                                    "wasmer_exc_data_ptr"
+                                ));
+
+                                let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                                // Read each value from the data ptr.
+                                let mut values = params
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, v)| {
+                                        let name = format!("value{i}");
+                                        let ptr = err!(self.builder.build_struct_gep(
+                                            inner_exc_ty,
+                                            wasmer_exc_data_ptr,
+                                            i as u32,
+                                            &(name.clone() + "ptr")
+                                        ));
+                                        err_nt!(self.builder.build_load(
+                                            type_to_llvm(self.intrinsics, *v)?,
+                                            ptr,
+                                            &name,
+                                        ))
+                                    })
+                                    .collect::<Result<Vec<_>, CompileError>>()?;
+
+                                values.push(uw_exc.as_basic_value_enum());
+
+                                let frame = self.state.frame_at_depth(*label)?;
+
+                                // todo: check that the types are compatible
+
+                                for (phi, value) in frame.phis().iter().zip(values.iter()) {
+                                    phi.add_incoming(&[(value, b)])
+                                }
+
+                                err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                                self.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, Some(wasmer_exc_phi)));
+                            }
+                            Catch::AllRef { label } => {
+                                let b = self
+                                    .context
+                                    .append_basic_block(self.function, "catch_one_clause");
+                                self.builder.position_at_end(b);
+
+                                let frame = self.state.frame_at_depth(*label)?;
+
+                                let phis = frame.phis();
+
+                                // sanity check (todo): check that the phi has only one element
+
+                                for phi in phis.iter() {
+                                    phi.add_incoming(&[(&uw_exc.as_basic_value_enum(), b)])
+                                }
+
+                                err!(self.builder.build_unconditional_branch(*frame.br_dest()));
+
+                                self.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, None));
+                            }
+                        }
+                    }
+
+                    for catch_info in &outer_catch_blocks {
+                        if let Some(phi) = catch_info.wasmer_exc_phi {
+                            phi.add_incoming(&[(
+                                &wasmer_exc.as_basic_value_enum(),
+                                catch_end_block,
+                            )]);
+                        }
+                    }
+
+                    err!(self.builder.build_switch(
+                        selector,
+                        rethrow_block,
+                        catch_blocks
+                            .iter()
+                            .enumerate()
+                            .map(|(i, v)| (
+                                self.intrinsics
+                                    .i32_ty
+                                    .const_int(catch_tag_values[i] as _, false),
+                                v.0
+                            ))
+                            .chain(outer_catch_blocks.iter().map(|catch_info| (
+                                self.intrinsics.i32_ty.const_int(catch_info.tag as _, false),
+                                catch_info.catch_block
+                            )))
+                            .collect::<Vec<_>>()
+                            .as_slice()
+                    ));
+
+                    // -- end
+
+                    // -- The rethrow block
+                    self.builder.position_at_end(rethrow_block);
+
+                    err!(self.builder.build_call(
+                        self.intrinsics.rethrow,
+                        &[uw_exc.into()],
+                        "rethrow"
+                    ));
+                    // can't reach after an explicit throw!
+                    err!(self.builder.build_unreachable());
+
+                    maybe_lpad_block = Some(lpad_block);
+                }
 
                 // Move back to current block
                 self.builder.position_at_end(current_block);
@@ -12859,8 +12876,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         wasmer_exc_phi,
                     })
                     .collect::<Vec<_>>();
-                self.state
-                    .push_landingpad(lpad_block, end_block, end_phis, &catch_tags_and_blocks);
+                self.state.push_landingpad(
+                    maybe_lpad_block,
+                    end_block,
+                    end_phis,
+                    &catch_tags_and_blocks,
+                );
             }
             Operator::Throw { tag_index } => {
                 let current_block = self
