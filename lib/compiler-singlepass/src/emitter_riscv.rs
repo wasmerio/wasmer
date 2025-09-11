@@ -823,6 +823,12 @@ impl EmitterRiscv for Assembler {
                 }
                 dynasm!(self ; slli X(dst), X(src1), imm as _);
             }
+            (Size::S64, Location::Imm64(imm), Location::GPR(src2), Location::GPR(dst)) => {
+                self.emit_mov_imm(Location::GPR(dst), imm as i64)?;
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; sll X(dst), X(dst), X(src2));
+            }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; sllw X(dst), X(src1), X(src2));
             }
@@ -831,6 +837,12 @@ impl EmitterRiscv for Assembler {
                     codegen_error!("singlepass SLL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; slliw X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::Imm32(imm), Location::GPR(src2), Location::GPR(dst)) => {
+                self.emit_mov_imm(Location::GPR(dst), imm as i64)?;
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; sllw X(dst), X(dst), X(src2));
             }
             _ => codegen_error!(
                 "singlepass can't emit SLL {:?} {:?} {:?} {:?}",
@@ -860,6 +872,12 @@ impl EmitterRiscv for Assembler {
                 }
                 dynasm!(self ; srli X(dst), X(src1), imm as _);
             }
+            (Size::S64, Location::Imm64(imm), Location::GPR(src2), Location::GPR(dst)) => {
+                self.emit_mov_imm(Location::GPR(dst), imm as i64)?;
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; srl X(dst), X(dst), X(src2));
+            }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; srlw X(dst), X(src1), X(src2));
             }
@@ -868,6 +886,12 @@ impl EmitterRiscv for Assembler {
                     codegen_error!("singlepass SRL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; srliw X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::Imm32(imm), Location::GPR(src2), Location::GPR(dst)) => {
+                self.emit_mov_imm(Location::GPR(dst), imm as i64)?;
+                let src2 = src2.into_index();
+                let dst = dst.into_index();
+                dynasm!(self ; srlw X(dst), X(dst), X(src2));
             }
             _ => codegen_error!(
                 "singlepass can't emit SRL {:?} {:?} {:?} {:?}",

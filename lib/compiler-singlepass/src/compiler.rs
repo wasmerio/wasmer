@@ -93,9 +93,12 @@ impl Compiler for SinglepassCompiler {
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
             _ => {
-                return Err(CompileError::UnsupportedTarget(
-                    "Unsupported Calling convention for Singlepass compiler".to_string(),
-                ))
+                match target.triple().architecture {
+                    Architecture::Riscv32(_) | Architecture::Riscv64(_) => CallingConvention::SystemV,
+                    _ => return Err(CompileError::UnsupportedTarget(
+                        "Unsupported Calling convention for Singlepass compiler".to_string(),
+                    )),
+                }
             }
         };
 
