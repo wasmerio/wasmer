@@ -142,7 +142,7 @@ memmap2 = { version = "0.6.2" }
 toml = { version = "0.8", features = ["preserve_order"] }
 indexmap = "2"
 serde = { version = "1", default-features = false }
-serde_yaml = { package = "serde_yml", version = "0.0.12" }
+serde_yaml = { package = "serde_norway", version = "0.9.42" }
 serde_json = { version = "1" }
 bytecheck = { version = "0.6.8" }
 libc = { version = "^0.2", default-features = false }
