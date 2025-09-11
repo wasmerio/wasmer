@@ -2352,14 +2352,16 @@ impl EmitterARM64 for Assembler {
         self.emit_label(cont)?;
         Ok(())
     }
-    fn emit_b_register(&mut self, _reg: GPR) -> Result<(), CompileError> {
+    fn emit_b_register(&mut self, reg: GPR) -> Result<(), CompileError> {
+        dynasm!(self ; br X(reg));
         Ok(())
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         dynasm!(self ; bl =>label);
         Ok(())
     }
-    fn emit_call_register(&mut self, _reg: GPR) -> Result<(), CompileError> {
+    fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
+        dynasm!(self ; blr X(reg));
         Ok(())
     }
     fn emit_ret(&mut self) -> Result<(), CompileError> {
