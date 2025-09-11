@@ -358,9 +358,9 @@ mod tests {
 
         let serialized = r#"
 name: my-job
-trigger: '0/2 12 * JAN-APR 2'
-timeout: '1m'
-max_schedule_drift: '2h'
+trigger: 0/2 12 * JAN-APR 2
+timeout: 1m
+max_schedule_drift: 2h
 action:
   execute:
     package: ns/pkg
