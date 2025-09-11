@@ -13944,7 +13944,7 @@
             dest
         };
         <span class="self">self</span>.assembler
-            .emit_cbz_label(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+            .emit_cbz_label_far(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
         <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         <span class="self">self</span>.assembler.emit_udiv(Size::S64, src1, src2, dest)<span class="question-mark">?</span>;
         <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
@@ -13982,7 +13982,7 @@
             dest
         };
         <span class="self">self</span>.assembler
-            .emit_cbz_label(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
+            .emit_cbz_label_far(Size::S64, src2, integer_division_by_zero)<span class="question-mark">?</span>;
         <span class="kw">let </span>offset = <span class="self">self</span>.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         <span class="self">self</span>.assembler.emit_sdiv(Size::S64, src1, src2, dest)<span class="question-mark">?</span>;
         <span class="comment">// unsigned remainder : src1 - (src1/src2)*src2
