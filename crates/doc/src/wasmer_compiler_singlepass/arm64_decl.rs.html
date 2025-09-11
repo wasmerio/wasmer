@@ -324,7 +324,19 @@
 <a href="#323" id="323">323</a>
 <a href="#324" id="324">324</a>
 <a href="#325" id="325">325</a>
-<a href="#326" id="326">326</a></pre></div><pre class="rust"><code><span class="doccomment">//! ARM64 structures.
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a>
+<a href="#331" id="331">331</a>
+<a href="#332" id="332">332</a>
+<a href="#333" id="333">333</a>
+<a href="#334" id="334">334</a>
+<a href="#335" id="335">335</a>
+<a href="#336" id="336">336</a>
+<a href="#337" id="337">337</a>
+<a href="#338" id="338">338</a></pre></div><pre class="rust"><code><span class="doccomment">//! ARM64 structures.
 
 </span><span class="kw">use crate</span>::{
     common_decl::{MachineState, MachineValue, RegisterIndex},
@@ -374,6 +386,12 @@
     XzrSp = <span class="number">31</span>,
 }
 
+<span class="kw">impl </span>From&lt;GPR&gt; <span class="kw">for </span>u8 {
+    <span class="kw">fn </span>from(val: GPR) -&gt; <span class="self">Self </span>{
+        val <span class="kw">as </span>u8
+    }
+}
+
 <span class="doccomment">/// NEON registers.
 </span><span class="attr">#[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -412,6 +430,12 @@
     V29 = <span class="number">29</span>,
     V30 = <span class="number">30</span>,
     V31 = <span class="number">31</span>,
+}
+
+<span class="kw">impl </span>From&lt;NEON&gt; <span class="kw">for </span>u8 {
+    <span class="kw">fn </span>from(val: NEON) -&gt; <span class="self">Self </span>{
+        val <span class="kw">as </span>u8
+    }
 }
 
 <span class="kw">impl </span>AbstractReg <span class="kw">for </span>GPR {

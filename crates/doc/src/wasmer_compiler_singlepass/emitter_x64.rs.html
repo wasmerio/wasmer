@@ -2421,7 +2421,11 @@
 <a href="#2420" id="2420">2420</a>
 <a href="#2421" id="2421">2421</a>
 <a href="#2422" id="2422">2422</a>
-<a href="#2423" id="2423">2423</a></pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+<a href="#2423" id="2423">2423</a>
+<a href="#2424" id="2424">2424</a>
+<a href="#2425" id="2425">2425</a>
+<a href="#2426" id="2426">2426</a>
+<a href="#2427" id="2427">2427</a></pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     codegen_error, common_decl::Size, location::Location <span class="kw">as </span>AbstractLocation,
     machine_x64::AssemblerX64,
 };
@@ -2899,10 +2903,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$loc</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$loc</span>) {
             (Size::S32, Location::GPR(loc)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(loc <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(loc));
             },
             (Size::S64, Location::GPR(loc)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(loc <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(loc));
             },
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -2913,10 +2917,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$loc</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$loc</span>) {
             (Size::S32, Location::Memory(loc, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(loc <span class="kw">as </span>u8) + disp] );
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(loc) + disp] );
             },
             (Size::S64, Location::Memory(loc, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(loc <span class="kw">as </span>u8) + disp] );
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(loc) + disp] );
             },
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -2935,10 +2939,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::Imm32(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32); <span class="comment">// IMM32_2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst), src <span class="kw">as </span>i32); <span class="comment">// IMM32_2GPR
             </span>},
             (Size::S64, Location::Imm32(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32); <span class="comment">// IMM32_2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst), src <span class="kw">as </span>i32); <span class="comment">// IMM32_2GPR
             </span>},
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -2949,10 +2953,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::Imm32(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(dst) + disp], src <span class="kw">as </span>i32);
             },
             (Size::S64, Location::Imm32(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(dst) + disp], src <span class="kw">as </span>i32);
             },
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -2963,7 +2967,7 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S64, Location::Imm64(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst <span class="kw">as </span>u8), QWORD src <span class="kw">as </span>i64); <span class="comment">// IMM32_2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst), QWORD src <span class="kw">as </span>i64); <span class="comment">// IMM32_2GPR
             </span>},
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -2974,10 +2978,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst <span class="kw">as </span>u8), Rd(src <span class="kw">as </span>u8)); <span class="comment">// GPR2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst), Rd(src)); <span class="comment">// GPR2GPR
             </span>},
             (Size::S64, Location::GPR(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst <span class="kw">as </span>u8), Rq(src <span class="kw">as </span>u8)); <span class="comment">// GPR2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst), Rq(src)); <span class="comment">// GPR2GPR
             </span>},
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -2988,10 +2992,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>[Rq(dst <span class="kw">as </span>u8) + disp], Rd(src <span class="kw">as </span>u8)); <span class="comment">// GPR2MEM
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>[Rq(dst) + disp], Rd(src)); <span class="comment">// GPR2MEM
             </span>},
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>[Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8)); <span class="comment">// GPR2MEM
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>[Rq(dst) + disp], Rq(src)); <span class="comment">// GPR2MEM
             </span>},
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -3002,10 +3006,10 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]); <span class="comment">// MEM2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst), [Rq(src) + disp]); <span class="comment">// MEM2GPR
             </span>},
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]); <span class="comment">// MEM2GPR
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst), [Rq(src) + disp]); <span class="comment">// MEM2GPR
             </span>},
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -3030,28 +3034,28 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$assembler</span>:tt, <span class="macro-nonterminal">$sz</span>:expr, <span class="macro-nonterminal">$src</span>:expr, <span class="macro-nonterminal">$dst</span>:expr, <span class="macro-nonterminal">$otherwise</span>:block) =&gt; {
         <span class="kw">match </span>(<span class="macro-nonterminal">$sz</span>, <span class="macro-nonterminal">$src</span>, <span class="macro-nonterminal">$dst</span>) {
             (Size::S32, Location::GPR(GPR::RCX), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst <span class="kw">as </span>u8), cl);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst), cl);
             },
             (Size::S32, Location::GPR(GPR::RCX), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(dst <span class="kw">as </span>u8) + disp], cl);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(dst) + disp], cl);
             },
             (Size::S32, Location::Imm8(imm), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i8);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rd(dst), imm <span class="kw">as </span>i8);
             },
             (Size::S32, Location::Imm8(imm), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(dst <span class="kw">as </span>u8) + disp], imm <span class="kw">as </span>i8);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>DWORD [Rq(dst) + disp], imm <span class="kw">as </span>i8);
             },
             (Size::S64, Location::GPR(GPR::RCX), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst <span class="kw">as </span>u8), cl);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst), cl);
             },
             (Size::S64, Location::GPR(GPR::RCX), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(dst <span class="kw">as </span>u8) + disp], cl);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(dst) + disp], cl);
             },
             (Size::S64, Location::Imm8(imm), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i8);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>Rq(dst), imm <span class="kw">as </span>i8);
             },
             (Size::S64, Location::Imm8(imm), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(dst <span class="kw">as </span>u8) + disp], imm <span class="kw">as </span>i8);
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$assembler </span>; <span class="macro-nonterminal">$ins </span>QWORD [Rq(dst) + disp], imm <span class="kw">as </span>i8);
             },
             <span class="kw">_ </span>=&gt; <span class="macro-nonterminal">$otherwise
         </span>}
@@ -3076,40 +3080,40 @@
     }
     <span class="kw">match </span>precision {
         Precision::Single =&gt; <span class="kw">match </span>src {
-            XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm0),
-            XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm1),
-            XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm2),
-            XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm3),
-            XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm4),
-            XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm5),
-            XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm6),
-            XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm7),
-            XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm8),
-            XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm9),
-            XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm10),
-            XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm11),
-            XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm12),
-            XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm13),
-            XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm14),
-            XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx((dst <span class="kw">as </span>u8)), xmm15),
+            XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm0),
+            XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm1),
+            XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm2),
+            XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm3),
+            XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm4),
+            XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm5),
+            XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm6),
+            XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm7),
+            XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm8),
+            XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm9),
+            XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm10),
+            XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm11),
+            XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm12),
+            XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm13),
+            XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm14),
+            XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; movss Rx(dst), xmm15),
         },
         Precision::Double =&gt; <span class="kw">match </span>src {
-            XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm0),
-            XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm1),
-            XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm2),
-            XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm3),
-            XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm4),
-            XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm5),
-            XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm6),
-            XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm7),
-            XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm8),
-            XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm9),
-            XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm10),
-            XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm11),
-            XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm12),
-            XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm13),
-            XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm14),
-            XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx((dst <span class="kw">as </span>u8)), xmm15),
+            XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm0),
+            XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm1),
+            XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm2),
+            XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm3),
+            XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm4),
+            XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm5),
+            XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm6),
+            XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm7),
+            XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm8),
+            XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm9),
+            XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm10),
+            XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm11),
+            XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm12),
+            XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm13),
+            XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm14),
+            XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(emitter ; movsd Rx(dst), xmm15),
         },
     }
 }
@@ -3119,40 +3123,40 @@
         <span class="comment">// Dynasm bug: AVX instructions are not encoded correctly.
         </span><span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             XMMOrMemory::XMM(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
-                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, Rx((x <span class="kw">as </span>u8))),
-                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, Rx((x <span class="kw">as </span>u8))),
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm0, Rx(x)),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm1, Rx(x)),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm2, Rx(x)),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm4, Rx(x)),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm3, Rx(x)),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm5, Rx(x)),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm6, Rx(x)),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm7, Rx(x)),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm8, Rx(x)),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm9, Rx(x)),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm10, Rx(x)),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm11, Rx(x)),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm12, Rx(x)),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm13, Rx(x)),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm14, Rx(x)),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm15, Rx(x)),
             },
             XMMOrMemory::Memory(base, disp) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
-                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm0, [Rq(base) + disp]),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm1, [Rq(base) + disp]),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm2, [Rq(base) + disp]),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm3, [Rq(base) + disp]),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm4, [Rq(base) + disp]),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm5, [Rq(base) + disp]),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm6, [Rq(base) + disp]),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm7, [Rq(base) + disp]),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm8, [Rq(base) + disp]),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm9, [Rq(base) + disp]),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm10, [Rq(base) + disp]),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm11, [Rq(base) + disp]),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm12, [Rq(base) + disp]),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm13, [Rq(base) + disp]),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm14, [Rq(base) + disp]),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm15, [Rq(base) + disp]),
             },
         }
     }
@@ -3163,15 +3167,15 @@
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             XMMOrMemory::XMM(x) =&gt; {
                 <span class="kw">if </span>x == <span class="macro-nonterminal">$dst </span>{
-                    <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)))
+                    <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), Rx(<span class="macro-nonterminal">$src1</span>))
                 } <span class="kw">else </span>{
                     move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                    <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)))
+                    <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), Rx(x))
                 }
             }
             XMMOrMemory::Memory(base, disp) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp])
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), [Rq(base) + disp])
             }
         }
     };
@@ -3179,11 +3183,11 @@
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             XMMOrMemory::XMM(x) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>)
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), Rx(x), <span class="macro-nonterminal">$mode</span>)
             }
             XMMOrMemory::Memory(base, disp) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>)
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), [Rq(base) + disp], <span class="macro-nonterminal">$mode</span>)
             }
         }
     };
@@ -3193,40 +3197,40 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
-                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, Rq((x <span class="kw">as </span>u8))),
-                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, Rq((x <span class="kw">as </span>u8))),
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm0, Rq(x)),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm1, Rq(x)),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm2, Rq(x)),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm3, Rq(x)),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm4, Rq(x)),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm5, Rq(x)),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm6, Rq(x)),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm7, Rq(x)),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm8, Rq(x)),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm9, Rq(x)),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm10, Rq(x)),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm11, Rq(x)),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm12, Rq(x)),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm13, Rq(x)),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm14, Rq(x)),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm15, Rq(x)),
             },
             GPROrMemory::Memory(base, disp) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
-                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, QWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm0, QWORD [Rq(base) + disp]),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm1, QWORD [Rq(base) + disp]),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm2, QWORD [Rq(base) + disp]),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm3, QWORD [Rq(base) + disp]),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm4, QWORD [Rq(base) + disp]),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm5, QWORD [Rq(base) + disp]),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm6, QWORD [Rq(base) + disp]),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm7, QWORD [Rq(base) + disp]),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm8, QWORD [Rq(base) + disp]),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm9, QWORD [Rq(base) + disp]),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm10, QWORD [Rq(base) + disp]),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm11, QWORD [Rq(base) + disp]),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm12, QWORD [Rq(base) + disp]),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm13, QWORD [Rq(base) + disp]),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm14, QWORD [Rq(base) + disp]),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm15, QWORD [Rq(base) + disp]),
             },
         }
     }
@@ -3237,11 +3241,11 @@
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rq((x <span class="kw">as </span>u8)))
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), Rq(x))
             },
             GPROrMemory::Memory(base, disp) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), QWORD [Rq((base <span class="kw">as </span>u8)) + disp])
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), QWORD [Rq(base) + disp])
             }
         }
     }
@@ -3251,40 +3255,40 @@
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
-                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, Rd((x <span class="kw">as </span>u8))),
-                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, Rd((x <span class="kw">as </span>u8))),
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm0, Rd(x)),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm1, Rd(x)),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm2, Rd(x)),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm3, Rd(x)),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm4, Rd(x)),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm5, Rd(x)),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm6, Rd(x)),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm7, Rd(x)),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm8, Rd(x)),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm9, Rd(x)),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm10, Rd(x)),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm11, Rd(x)),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm12, Rd(x)),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm13, Rd(x)),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm14, Rd(x)),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm15, Rd(x)),
             },
             GPROrMemory::Memory(base, disp) =&gt; <span class="kw">match </span><span class="macro-nonterminal">$src1 </span>{
-                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm0, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm1, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm2, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm3, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm4, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm5, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm6, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm7, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm8, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm9, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm10, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm11, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm12, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm13, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm14, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
-                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), xmm15, DWORD [Rq((base <span class="kw">as </span>u8)) + disp]),
+                XMM::XMM0 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm0, DWORD [Rq(base) + disp]),
+                XMM::XMM1 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm1, DWORD [Rq(base) + disp]),
+                XMM::XMM2 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm2, DWORD [Rq(base) + disp]),
+                XMM::XMM3 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm3, DWORD [Rq(base) + disp]),
+                XMM::XMM4 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm4, DWORD [Rq(base) + disp]),
+                XMM::XMM5 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm5, DWORD [Rq(base) + disp]),
+                XMM::XMM6 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm6, DWORD [Rq(base) + disp]),
+                XMM::XMM7 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm7, DWORD [Rq(base) + disp]),
+                XMM::XMM8 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm8, DWORD [Rq(base) + disp]),
+                XMM::XMM9 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm9, DWORD [Rq(base) + disp]),
+                XMM::XMM10 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm10, DWORD [Rq(base) + disp]),
+                XMM::XMM11 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm11, DWORD [Rq(base) + disp]),
+                XMM::XMM12 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm12, DWORD [Rq(base) + disp]),
+                XMM::XMM13 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm13, DWORD [Rq(base) + disp]),
+                XMM::XMM14 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm14, DWORD [Rq(base) + disp]),
+                XMM::XMM15 =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), xmm15, DWORD [Rq(base) + disp]),
             },
         }
     }
@@ -3295,11 +3299,11 @@
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
             GPROrMemory::GPR(x) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter</span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), Rd((x <span class="kw">as </span>u8)))
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter</span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$src1</span>), Rd(x))
             },
             GPROrMemory::Memory(base, disp) =&gt; {
                 move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter</span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), DWORD [Rq((base <span class="kw">as </span>u8)) + disp])
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter</span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), DWORD [Rq(base) + disp])
             }
         }
     }
@@ -3308,8 +3312,8 @@
 <span class="macro">macro_rules!</span> avx_round_fn {
     (<span class="macro-nonterminal">$ins</span>:ident, <span class="macro-nonterminal">$mode</span>:expr, <span class="macro-nonterminal">$emitter</span>:ident, <span class="macro-nonterminal">$src1</span>:ident, <span class="macro-nonterminal">$src2</span>:ident, <span class="macro-nonterminal">$dst</span>:ident) =&gt; {
         <span class="kw">match </span><span class="macro-nonterminal">$src2 </span>{
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), Rx((x <span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>),
-            XMMOrMemory::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$src1 </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), Rx(<span class="macro-nonterminal">$src1</span>), Rx(x), <span class="macro-nonterminal">$mode</span>),
+            XMMOrMemory::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), Rx(<span class="macro-nonterminal">$src1</span>), [Rq(base) + disp], <span class="macro-nonterminal">$mode</span>),
         }
     }
 }
@@ -3321,10 +3325,10 @@
                 <span class="kw">if </span>x != <span class="macro-nonterminal">$dst </span>{
                     move_src_to_dst(<span class="macro-nonterminal">$emitter</span>, <span class="macro-nonterminal">$precision</span>, <span class="macro-nonterminal">$src1</span>, <span class="macro-nonterminal">$dst</span>);
                 }
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((x <span class="kw">as </span>u8)), Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), <span class="macro-nonterminal">$mode</span>)
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(x), Rx(<span class="macro-nonterminal">$dst</span>), <span class="macro-nonterminal">$mode</span>)
             }
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx((<span class="macro-nonterminal">$dst </span><span class="kw">as </span>u8)), [Rq((base <span class="kw">as </span>u8)) + disp], <span class="macro-nonterminal">$mode</span>)
+                <span class="macro">dynasm!</span>(<span class="macro-nonterminal">$emitter </span>; <span class="macro-nonterminal">$ins </span>Rx(<span class="macro-nonterminal">$dst</span>), [Rq(base) + disp], <span class="macro-nonterminal">$mode</span>)
             },
         }
     }
@@ -3455,7 +3459,7 @@
     <span class="kw">fn </span>emit_mov(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="comment">// fast path
         </span><span class="kw">if let </span>(Location::Imm32(<span class="number">0</span>), Location::GPR(x)) = (src, dst) {
-            <span class="macro">dynasm!</span>(<span class="self">self </span>; xor Rd(x <span class="kw">as </span>u8), Rd(x <span class="kw">as </span>u8));
+            <span class="macro">dynasm!</span>(<span class="self">self </span>; xor Rd(x), Rd(x));
             <span class="kw">return </span><span class="prelude-val">Ok</span>(());
         }
 
@@ -3463,83 +3467,83 @@
             <span class="macro">binop_imm64_gpr!</span>(mov, <span class="self">self</span>, sz, src, dst, {
                 <span class="kw">match </span>(sz, src, dst) {
                     (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov [Rq(dst <span class="kw">as </span>u8) + disp], Rb(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov [Rq(dst) + disp], Rb(src));
                     }
                     (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rb(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rb(dst), [Rq(src) + disp]);
                     }
                     (Size::S8, Location::Imm32(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rb(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i8);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rb(dst), src <span class="kw">as </span>i8);
                     }
                     (Size::S8, Location::Imm64(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rb(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i8);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rb(dst), src <span class="kw">as </span>i8);
                     }
                     (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov BYTE [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i8);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov BYTE [Rq(dst) + disp], src <span class="kw">as </span>i8);
                     }
                     (Size::S8, Location::Imm64(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov BYTE [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i8);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov BYTE [Rq(dst) + disp], src <span class="kw">as </span>i8);
                     }
                     (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov [Rq(dst <span class="kw">as </span>u8) + disp], Rw(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov [Rq(dst) + disp], Rw(src));
                     }
                     (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rw(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rw(dst), [Rq(src) + disp]);
                     }
                     (Size::S16, Location::Imm32(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rw(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i16);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rw(dst), src <span class="kw">as </span>i16);
                     }
                     (Size::S16, Location::Imm64(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rw(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i16);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rw(dst), src <span class="kw">as </span>i16);
                     }
                     (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov WORD [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i16);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov WORD [Rq(dst) + disp], src <span class="kw">as </span>i16);
                     }
                     (Size::S16, Location::Imm64(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov WORD [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i16);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov WORD [Rq(dst) + disp], src <span class="kw">as </span>i16);
                     }
                     (Size::S32, Location::Imm64(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), src <span class="kw">as </span>i32);
                     }
                     (Size::S32, Location::Imm64(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov DWORD [Rq(dst <span class="kw">as </span>u8) + disp], src <span class="kw">as </span>i32);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov DWORD [Rq(dst) + disp], src <span class="kw">as </span>i32);
                     }
                     (Size::S32, Location::GPR(src), Location::SIMD(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd Rx(dst <span class="kw">as </span>u8), Rd(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd Rx(dst), Rd(src));
                     }
                     (Size::S32, Location::SIMD(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd Rd(dst <span class="kw">as </span>u8), Rx(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd Rd(dst), Rx(src));
                     }
                     (Size::S32, Location::Memory(src, disp), Location::SIMD(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd Rx(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd Rx(dst), [Rq(src) + disp]);
                     }
                     (Size::S32, Location::SIMD(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd [Rq(dst <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movd [Rq(dst) + disp], Rx(src));
                     }
                     (Size::S64, Location::Imm64(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), src <span class="kw">as </span>i32);
                     }
                     (Size::S64, Location::Imm32(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), src <span class="kw">as </span>i32);
                     }
                     (Size::S64, Location::Imm8(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), src <span class="kw">as </span>i32);
                     }
 
                     (Size::S64, Location::GPR(src), Location::SIMD(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst <span class="kw">as </span>u8), Rq(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst), Rq(src));
                     }
                     (Size::S64, Location::SIMD(src), Location::GPR(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rq(dst <span class="kw">as </span>u8), Rx(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rq(dst), Rx(src));
                     }
                     (Size::S64, Location::Memory(src, disp), Location::SIMD(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst), [Rq(src) + disp]);
                     }
                     (Size::S64, Location::SIMD(src), Location::Memory(dst, disp)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq [Rq(dst <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq [Rq(dst) + disp], Rx(src));
                     }
                     (<span class="kw">_</span>, Location::SIMD(src), Location::SIMD(dst)) =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst <span class="kw">as </span>u8), Rx(src <span class="kw">as </span>u8));
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; movq Rx(dst), Rx(src));
                     }
 
                     <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit MOV {:?} {:?} {:?}"</span>, sz, src, dst),
@@ -3551,42 +3555,42 @@
     <span class="kw">fn </span>emit_lea(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst), [Rq(src) + disp]);
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst), [Rq(src) + disp]);
             }
             (Size::S32, Location::Memory2(src1, src2, mult, disp), Location::GPR(dst)) =&gt; {
                 <span class="kw">match </span>mult {
-                    Multiplier::Zero =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + disp]),
+                    Multiplier::Zero =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst), [Rq(src1) + disp]),
                     Multiplier::One =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) + disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst), [Rq(src1) + Rq(src2) + disp])
                     }
                     Multiplier::Two =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) * <span class="number">2 </span>+ disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst), [Rq(src1) + Rq(src2) * <span class="number">2 </span>+ disp])
                     }
                     Multiplier::Four =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) * <span class="number">4 </span>+ disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst), [Rq(src1) + Rq(src2) * <span class="number">4 </span>+ disp])
                     }
                     Multiplier::Height =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) * <span class="number">8 </span>+ disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rd(dst), [Rq(src1) + Rq(src2) * <span class="number">8 </span>+ disp])
                     }
                 };
             }
             (Size::S64, Location::Memory2(src1, src2, mult, disp), Location::GPR(dst)) =&gt; {
                 <span class="kw">match </span>mult {
-                    Multiplier::Zero =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + disp]),
+                    Multiplier::Zero =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst), [Rq(src1) + disp]),
                     Multiplier::One =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) + disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst), [Rq(src1) + Rq(src2) + disp])
                     }
                     Multiplier::Two =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) * <span class="number">2 </span>+ disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst), [Rq(src1) + Rq(src2) * <span class="number">2 </span>+ disp])
                     }
                     Multiplier::Four =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) * <span class="number">4 </span>+ disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst), [Rq(src1) + Rq(src2) * <span class="number">4 </span>+ disp])
                     }
                     Multiplier::Height =&gt; {
-                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst <span class="kw">as </span>u8), [Rq(src1 <span class="kw">as </span>u8) + Rq(src2 <span class="kw">as </span>u8) * <span class="number">8 </span>+ disp])
+                        <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(dst), [Rq(src1) + Rq(src2) * <span class="number">8 </span>+ disp])
                     }
                 };
             }
@@ -3597,7 +3601,7 @@
     <span class="kw">fn </span>emit_lea_label(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>dst {
             Location::GPR(x) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(x <span class="kw">as </span>u8), [=&gt;label]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lea Rq(x), [=&gt;label]);
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit LEA label={:?} {:?}"</span>, label, dst),
         }
@@ -3637,26 +3641,26 @@
     }
     <span class="kw">fn </span>emit_jmp_location(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>loc {
-            Location::GPR(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; jmp Rq(x <span class="kw">as </span>u8)),
-            Location::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; jmp QWORD [Rq(base <span class="kw">as </span>u8) + disp]),
+            Location::GPR(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; jmp Rq(x)),
+            Location::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; jmp QWORD [Rq(base) + disp]),
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit JMP {:?}"</span>, loc),
         }
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_set(<span class="kw-2">&amp;mut </span><span class="self">self</span>, condition: Condition, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>condition {
-            Condition::Above =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; seta Rb(dst <span class="kw">as </span>u8)),
-            Condition::AboveEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setae Rb(dst <span class="kw">as </span>u8)),
-            Condition::Below =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setb Rb(dst <span class="kw">as </span>u8)),
-            Condition::BelowEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setbe Rb(dst <span class="kw">as </span>u8)),
-            Condition::Greater =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setg Rb(dst <span class="kw">as </span>u8)),
-            Condition::GreaterEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setge Rb(dst <span class="kw">as </span>u8)),
-            Condition::Less =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setl Rb(dst <span class="kw">as </span>u8)),
-            Condition::LessEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setle Rb(dst <span class="kw">as </span>u8)),
-            Condition::Equal =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; sete Rb(dst <span class="kw">as </span>u8)),
-            Condition::NotEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setne Rb(dst <span class="kw">as </span>u8)),
-            Condition::Signed =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; sets Rb(dst <span class="kw">as </span>u8)),
-            Condition::Carry =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setc Rb(dst <span class="kw">as </span>u8)),
+            Condition::Above =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; seta Rb(dst)),
+            Condition::AboveEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setae Rb(dst)),
+            Condition::Below =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setb Rb(dst)),
+            Condition::BelowEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setbe Rb(dst)),
+            Condition::Greater =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setg Rb(dst)),
+            Condition::GreaterEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setge Rb(dst)),
+            Condition::Less =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setl Rb(dst)),
+            Condition::LessEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setle Rb(dst)),
+            Condition::Equal =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; sete Rb(dst)),
+            Condition::NotEqual =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setne Rb(dst)),
+            Condition::Signed =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; sets Rb(dst)),
+            Condition::Carry =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; setc Rb(dst)),
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit SET {:?} {:?}"</span>, condition, dst),
         }
         <span class="prelude-val">Ok</span>(())
@@ -3664,9 +3668,9 @@
     <span class="kw">fn </span>emit_push(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, src) {
             (Size::S64, Location::Imm32(src)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; push src <span class="kw">as </span>i32),
-            (Size::S64, Location::GPR(src)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; push Rq(src <span class="kw">as </span>u8)),
+            (Size::S64, Location::GPR(src)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; push Rq(src)),
             (Size::S64, Location::Memory(src, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; push QWORD [Rq(src <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; push QWORD [Rq(src) + disp])
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit PUSH {:?} {:?}"</span>, sz, src),
         }
@@ -3674,9 +3678,9 @@
     }
     <span class="kw">fn </span>emit_pop(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, dst) {
-            (Size::S64, Location::GPR(dst)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; pop Rq(dst <span class="kw">as </span>u8)),
+            (Size::S64, Location::GPR(dst)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; pop Rq(dst)),
             (Size::S64, Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; pop QWORD [Rq(dst <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; pop QWORD [Rq(dst) + disp])
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit POP {:?} {:?}"</span>, sz, dst),
         }
@@ -3729,21 +3733,21 @@
     }
     <span class="kw">fn </span>emit_neg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, value: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, value) {
-            (Size::S8, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rb(value <span class="kw">as </span>u8)),
+            (Size::S8, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rb(value)),
             (Size::S8, Location::Memory(value, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value) + disp])
             }
-            (Size::S16, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rw(value <span class="kw">as </span>u8)),
+            (Size::S16, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rw(value)),
             (Size::S16, Location::Memory(value, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value) + disp])
             }
-            (Size::S32, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rd(value <span class="kw">as </span>u8)),
+            (Size::S32, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rd(value)),
             (Size::S32, Location::Memory(value, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value) + disp])
             }
-            (Size::S64, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rq(value <span class="kw">as </span>u8)),
+            (Size::S64, Location::GPR(value)) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; neg Rq(value)),
             (Size::S64, Location::Memory(value, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; neg [Rq(value) + disp])
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit NEG {:?} {:?}"</span>, sz, value),
         }
@@ -3758,7 +3762,7 @@
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_imul_imm32_gpr64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: u32, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; imul Rq(dst <span class="kw">as </span>u8), Rq(dst <span class="kw">as </span>u8), src <span class="kw">as </span>i32);
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; imul Rq(dst), Rq(dst), src <span class="kw">as </span>i32);
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_div(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, divisor: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
@@ -3854,57 +3858,57 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst <span class="kw">as </span>u8), Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst), Rb(src));
             }
             (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst <span class="kw">as </span>u8), Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst), Rw(src));
             }
             (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst <span class="kw">as </span>u8), BYTE [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst), BYTE [Rq(src) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst <span class="kw">as </span>u8), WORD [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rd(dst), WORD [Rq(src) + disp]);
             }
             (Size::S16, Location::Imm32(imm), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), imm <span class="kw">as </span>i32);
             }
             (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst <span class="kw">as </span>u8), Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst), Rb(src));
             }
             (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst <span class="kw">as </span>u8), Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst), Rw(src));
             }
             (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst <span class="kw">as </span>u8), BYTE [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst), BYTE [Rq(src) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst <span class="kw">as </span>u8), WORD [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movzx Rq(dst), WORD [Rq(src) + disp]);
             }
             (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) =&gt; {
                 <span class="kw">if </span>src != dst {
-                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), Rd(src <span class="kw">as </span>u8));
+                    <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), Rd(src));
                 }
             }
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst <span class="kw">as </span>u8), DWORD [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rd(dst), DWORD [Rq(src) + disp]);
             }
             (Size::S8, Location::Imm32(imm), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst), imm <span class="kw">as </span>i32);
             }
             (Size::S16, Location::Imm32(imm), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst), imm <span class="kw">as </span>i32);
             }
             (Size::S32, Location::Imm32(imm), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst), imm <span class="kw">as </span>i32);
             }
             (Size::S8, Location::Imm64(imm), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst), imm <span class="kw">as </span>i32);
             }
             (Size::S16, Location::Imm64(imm), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst), imm <span class="kw">as </span>i32);
             }
             (Size::S32, Location::Imm64(imm), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst <span class="kw">as </span>u8), imm <span class="kw">as </span>i32);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; mov Rq(dst), imm <span class="kw">as </span>i32);
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">codegen_error!</span>(
@@ -3927,34 +3931,34 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst <span class="kw">as </span>u8), Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst), Rb(src));
             }
             (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst <span class="kw">as </span>u8), Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst), Rw(src));
             }
             (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst <span class="kw">as </span>u8), BYTE [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst), BYTE [Rq(src) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst <span class="kw">as </span>u8), WORD [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rd(dst), WORD [Rq(src) + disp]);
             }
             (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst <span class="kw">as </span>u8), Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst), Rb(src));
             }
             (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst <span class="kw">as </span>u8), Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst), Rw(src));
             }
             (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst <span class="kw">as </span>u8), Rd(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst), Rd(src));
             }
             (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst <span class="kw">as </span>u8), BYTE [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst), BYTE [Rq(src) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst <span class="kw">as </span>u8), WORD [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst), WORD [Rq(src) + disp]);
             }
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst <span class="kw">as </span>u8), DWORD [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movsx Rq(dst), DWORD [Rq(src) + disp]);
             }
             <span class="kw">_ </span>=&gt; {
                 <span class="macro">codegen_error!</span>(
@@ -3972,40 +3976,40 @@
     <span class="kw">fn </span>emit_xchg(<span class="kw-2">&amp;mut </span><span class="self">self</span>, sz: Size, src: Location, dst: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rb(dst <span class="kw">as </span>u8), Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rb(dst), Rb(src));
             }
             (Size::S16, Location::GPR(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rw(dst <span class="kw">as </span>u8), Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rw(dst), Rw(src));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rd(dst <span class="kw">as </span>u8), Rd(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rd(dst), Rd(src));
             }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rq(dst <span class="kw">as </span>u8), Rq(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rq(dst), Rq(src));
             }
             (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rb(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rb(dst), [Rq(src) + disp]);
             }
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst <span class="kw">as </span>u8) + disp], Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst) + disp], Rb(src));
             }
             (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rw(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rw(dst), [Rq(src) + disp]);
             }
             (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst <span class="kw">as </span>u8) + disp], Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst) + disp], Rw(src));
             }
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rd(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rd(dst), [Rq(src) + disp]);
             }
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst <span class="kw">as </span>u8) + disp], Rd(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst) + disp], Rd(src));
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rq(dst <span class="kw">as </span>u8), [Rq(src <span class="kw">as </span>u8) + disp]);
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg Rq(dst), [Rq(src) + disp]);
             }
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; xchg [Rq(dst) + disp], Rq(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit XCHG {:?} {:?} {:?}"</span>, sz, src, dst),
         }
@@ -4020,16 +4024,16 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst <span class="kw">as </span>u8) + disp], Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst) + disp], Rb(src));
             }
             (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst <span class="kw">as </span>u8) + disp], Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst) + disp], Rw(src));
             }
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst <span class="kw">as </span>u8) + disp], Rd(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst) + disp], Rd(src));
             }
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock xadd [Rq(dst) + disp], Rq(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
                 <span class="string">"singlepass can't emit LOCK XADD {:?} {:?} {:?}"</span>,
@@ -4049,16 +4053,16 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst <span class="kw">as </span>u8) + disp], Rb(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst) + disp], Rb(src));
             }
             (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst <span class="kw">as </span>u8) + disp], Rw(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst) + disp], Rw(src));
             }
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst <span class="kw">as </span>u8) + disp], Rd(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst) + disp], Rd(src));
             }
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst <span class="kw">as </span>u8) + disp], Rq(src <span class="kw">as </span>u8));
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; lock cmpxchg [Rq(dst) + disp], Rq(src));
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
                 <span class="string">"singlepass can't emit LOCK CMPXCHG {:?} {:?} {:?}"</span>,
@@ -4075,35 +4079,35 @@
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_btc_gpr_imm8_32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: u8, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; btc Rd(dst <span class="kw">as </span>u8), BYTE src <span class="kw">as </span>i8);
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; btc Rd(dst), BYTE src <span class="kw">as </span>i8);
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>emit_btc_gpr_imm8_64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: u8, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; btc Rq(dst <span class="kw">as </span>u8), BYTE src <span class="kw">as </span>i8);
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; btc Rq(dst), BYTE src <span class="kw">as </span>i8);
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>emit_cmovae_gpr_32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: GPR, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; cmovae Rd(dst <span class="kw">as </span>u8), Rd(src <span class="kw">as </span>u8));
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; cmovae Rd(dst), Rd(src));
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>emit_cmovae_gpr_64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: GPR, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; cmovae Rq(dst <span class="kw">as </span>u8), Rq(src <span class="kw">as </span>u8));
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; cmovae Rq(dst), Rq(src));
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>emit_vmovaps(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: XMMOrMemory) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(src, dst) {
             (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps Rx(dst <span class="kw">as </span>u8), Rx(src <span class="kw">as </span>u8))
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps Rx(dst), Rx(src))
             }
             (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps Rx(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps Rx(dst), [Rq(base) + disp])
             }
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps [Rq(base <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8))
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movaps [Rq(base) + disp], Rx(src))
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit VMOVAPS {:?} {:?}"</span>, src, dst),
         };
@@ -4113,13 +4117,13 @@
     <span class="kw">fn </span>emit_vmovapd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: XMMOrMemory) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>(src, dst) {
             (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd Rx(dst <span class="kw">as </span>u8), Rx(src <span class="kw">as </span>u8))
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd Rx(dst), Rx(src))
             }
             (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd Rx(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd Rx(dst), [Rq(base) + disp])
             }
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd [Rq(base <span class="kw">as </span>u8) + disp], Rx(src <span class="kw">as </span>u8))
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; movapd [Rq(base) + disp], Rx(src))
             }
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit VMOVAPD {:?} {:?}"</span>, src, dst),
         };
@@ -4680,20 +4684,20 @@
             <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="kw">match </span>src2 {
                 XMMOrMemory::XMM(src2) =&gt; {
                     <span class="comment">// TODO: this argument order does not match the documentation??
-                    </span><span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvps Rx(dst <span class="kw">as </span>u8), Rx(mask <span class="kw">as </span>u8), Rx(src2 <span class="kw">as </span>u8), Rx(src1 <span class="kw">as </span>u8))
+                    </span><span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvps Rx(dst), Rx(mask), Rx(src2), Rx(src1))
                 }
                 XMMOrMemory::Memory(base, disp) =&gt; {
-                    <span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvps Rx(dst <span class="kw">as </span>u8), Rx(mask <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp], Rx(src1 <span class="kw">as </span>u8))
+                    <span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvps Rx(dst), Rx(mask), [Rq(base) + disp], Rx(src1))
                 }
             },
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="kw">match </span>src2 {
                 XMMOrMemory::XMM(src2) =&gt; {
                     move_src_to_dst(<span class="self">self</span>, Precision::Single, src1, dst);
-                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvps Rx(dst <span class="kw">as </span>u8), Rx(src2 <span class="kw">as </span>u8))
+                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvps Rx(dst), Rx(src2))
                 }
                 XMMOrMemory::Memory(base, disp) =&gt; {
                     move_src_to_dst(<span class="self">self</span>, Precision::Single, src1, dst);
-                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvps Rx(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvps Rx(dst), [Rq(base) + disp])
                 }
             },
             <span class="kw">_ </span>=&gt; {}
@@ -4713,20 +4717,20 @@
             <span class="prelude-val">Some</span>(CpuFeature::AVX) =&gt; <span class="kw">match </span>src2 {
                 XMMOrMemory::XMM(src2) =&gt; {
                     <span class="comment">// TODO: this argument order does not match the documentation??
-                    </span><span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvpd Rx(dst <span class="kw">as </span>u8), Rx(mask <span class="kw">as </span>u8), Rx(src2 <span class="kw">as </span>u8), Rx(src1 <span class="kw">as </span>u8))
+                    </span><span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvpd Rx(dst), Rx(mask), Rx(src2), Rx(src1))
                 }
                 XMMOrMemory::Memory(base, disp) =&gt; {
-                    <span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvpd Rx(dst <span class="kw">as </span>u8), Rx(mask <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp], Rx(src1 <span class="kw">as </span>u8))
+                    <span class="macro">dynasm!</span>( <span class="self">self</span>; vblendvpd Rx(dst), Rx(mask), [Rq(base) + disp], Rx(src1))
                 }
             },
             <span class="prelude-val">Some</span>(CpuFeature::SSE42) =&gt; <span class="kw">match </span>src2 {
                 XMMOrMemory::XMM(src2) =&gt; {
                     move_src_to_dst(<span class="self">self</span>, Precision::Double, src1, dst);
-                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvpd Rx(dst <span class="kw">as </span>u8), Rx(src2 <span class="kw">as </span>u8))
+                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvpd Rx(dst), Rx(src2))
                 }
                 XMMOrMemory::Memory(base, disp) =&gt; {
                     move_src_to_dst(<span class="self">self</span>, Precision::Double, src1, dst);
-                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvpd Rx(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                    <span class="macro">dynasm!</span>( <span class="self">self</span>; blendvpd Rx(dst), [Rq(base) + disp])
                 }
             },
             <span class="kw">_ </span>=&gt; {}
@@ -4736,9 +4740,9 @@
 
     <span class="kw">fn </span>emit_ucomiss(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>src {
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomiss Rx(dst <span class="kw">as </span>u8), Rx(x <span class="kw">as </span>u8)),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomiss Rx(dst), Rx(x)),
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomiss Rx(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomiss Rx(dst), [Rq(base) + disp])
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -4746,9 +4750,9 @@
 
     <span class="kw">fn </span>emit_ucomisd(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: XMM) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>src {
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomisd Rx(dst <span class="kw">as </span>u8), Rx(x <span class="kw">as </span>u8)),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomisd Rx(dst), Rx(x)),
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomisd Rx(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; ucomisd Rx(dst), [Rq(base) + disp])
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -4756,9 +4760,9 @@
 
     <span class="kw">fn </span>emit_cvttss2si_32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>src {
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rd(dst <span class="kw">as </span>u8), Rx(x <span class="kw">as </span>u8)),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rd(dst), Rx(x)),
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rd(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rd(dst), [Rq(base) + disp])
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -4766,9 +4770,9 @@
 
     <span class="kw">fn </span>emit_cvttss2si_64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>src {
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rq(dst <span class="kw">as </span>u8), Rx(x <span class="kw">as </span>u8)),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rq(dst), Rx(x)),
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rq(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttss2si Rq(dst), [Rq(base) + disp])
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -4776,9 +4780,9 @@
 
     <span class="kw">fn </span>emit_cvttsd2si_32(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>src {
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rd(dst <span class="kw">as </span>u8), Rx(x <span class="kw">as </span>u8)),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rd(dst), Rx(x)),
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rd(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rd(dst), [Rq(base) + disp])
             }
         }
         <span class="prelude-val">Ok</span>(())
@@ -4786,16 +4790,16 @@
 
     <span class="kw">fn </span>emit_cvttsd2si_64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, src: XMMOrMemory, dst: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>src {
-            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rq(dst <span class="kw">as </span>u8), Rx(x <span class="kw">as </span>u8)),
+            XMMOrMemory::XMM(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rq(dst), Rx(x)),
             XMMOrMemory::Memory(base, disp) =&gt; {
-                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rq(dst <span class="kw">as </span>u8), [Rq(base <span class="kw">as </span>u8) + disp])
+                <span class="macro">dynasm!</span>(<span class="self">self </span>; cvttsd2si Rq(dst), [Rq(base) + disp])
             }
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>emit_test_gpr_64(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reg: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; test Rq(reg <span class="kw">as </span>u8), Rq(reg <span class="kw">as </span>u8));
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; test Rq(reg), Rq(reg));
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -4803,9 +4807,13 @@
         <span class="macro">dynasm!</span>(<span class="self">self </span>; ud2);
         <span class="prelude-val">Ok</span>(())
     }
-    <span class="kw">fn </span>emit_ud1_payload(<span class="kw-2">&amp;mut </span><span class="self">self</span>, payload: u8) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+    <span class="attr">#[allow(clippy::useless_conversion)]
+    </span><span class="kw">fn </span>emit_ud1_payload(<span class="kw-2">&amp;mut </span><span class="self">self</span>, payload: u8) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="macro">assert!</span>(payload &amp; <span class="number">0xf0 </span>== <span class="number">0</span>);
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; ud1 Rd((payload&gt;&gt;<span class="number">3</span>)<span class="kw-2">&amp;</span><span class="number">1</span>), Rd(payload<span class="kw-2">&amp;</span><span class="number">7</span>));
+        <span class="kw">let </span>reg1 = (payload &gt;&gt; <span class="number">3</span>) &amp; <span class="number">1</span>;
+        <span class="kw">let </span>reg2 = payload &amp; <span class="number">7</span>;
+
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; ud1 Rd(reg1), Rd(reg2));
         <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn </span>emit_ret(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
@@ -4819,15 +4827,15 @@
     }
     <span class="kw">fn </span>emit_call_location(<span class="kw-2">&amp;mut </span><span class="self">self</span>, loc: Location) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="kw">match </span>loc {
-            Location::GPR(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; call Rq(x <span class="kw">as </span>u8)),
-            Location::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; call QWORD [Rq(base <span class="kw">as </span>u8) + disp]),
+            Location::GPR(x) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; call Rq(x)),
+            Location::Memory(base, disp) =&gt; <span class="macro">dynasm!</span>(<span class="self">self </span>; call QWORD [Rq(base) + disp]),
             <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(<span class="string">"singlepass can't emit CALL {:?}"</span>, loc),
         }
         <span class="prelude-val">Ok</span>(())
     }
 
     <span class="kw">fn </span>emit_call_register(<span class="kw-2">&amp;mut </span><span class="self">self</span>, reg: GPR) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="macro">dynasm!</span>(<span class="self">self </span>; call Rq(reg <span class="kw">as </span>u8));
+        <span class="macro">dynasm!</span>(<span class="self">self </span>; call Rq(reg));
         <span class="prelude-val">Ok</span>(())
     }
 
