@@ -153,6 +153,8 @@ pub enum LibCall {
 
     /// The personality function
     EHPersonality,
+    /// The second stage of the EH personality function
+    EHPersonality2,
 
     /// debug_usize
     DebugUsize,
@@ -209,6 +211,7 @@ impl LibCall {
             Self::Throw => "wasmer_vm_throw",
             Self::Rethrow => "wasmer_vm_rethrow",
             Self::EHPersonality => "wasmer_eh_personality",
+            Self::EHPersonality2 => "wasmer_eh_personality2",
             Self::AllocException => "wasmer_vm_alloc_exception",
             Self::DeleteException => "wasmer_vm_delete_exception",
             Self::ReadException => "wasmer_vm_read_exception",

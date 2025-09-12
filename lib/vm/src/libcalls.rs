@@ -39,9 +39,9 @@
 
 use std::panic;
 mod eh;
-pub use eh::wasmer_eh_personality;
 use eh::UwExceptionWrapper;
 pub(crate) use eh::WasmerException;
+pub use eh::{wasmer_eh_personality, wasmer_eh_personality2};
 
 use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
@@ -670,8 +670,13 @@ pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
 ///
 /// Calls libunwind to perform unwinding magic.
 #[no_mangle]
-pub unsafe extern "C-unwind" fn wasmer_vm_throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
-    eh::throw(tag, data_ptr, data_size)
+pub unsafe extern "C-unwind" fn wasmer_vm_throw(
+    tag: u32,
+    vmctx: *mut VMContext,
+    data_ptr: usize,
+    data_size: u64,
+) -> ! {
+    eh::throw(tag, vmctx, data_ptr, data_size)
 }
 
 /// Implementation for throwing an exception.
@@ -750,7 +755,7 @@ pub unsafe extern "C-unwind" fn wasmer_vm_read_exception(
 /// This function does not follow the standard function ABI, and is called as
 /// part of the function prologue.
 #[no_mangle]
-pub static wasmer_vm_probestack: unsafe extern "C" fn() = PROBESTACK;
+pub static WASMER_VM_PROBESTACK: unsafe extern "C" fn() = PROBESTACK;
 
 /// Implementation of memory.wait32 for locally-defined 32-bit memories.
 ///
@@ -932,7 +937,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::ImportedMemory32Fill => wasmer_vm_imported_memory32_fill as usize,
         LibCall::Memory32Init => wasmer_vm_memory32_init as usize,
         LibCall::DataDrop => wasmer_vm_data_drop as usize,
-        LibCall::Probestack => wasmer_vm_probestack as usize,
+        LibCall::Probestack => WASMER_VM_PROBESTACK as usize,
         LibCall::RaiseTrap => wasmer_vm_raise_trap as usize,
         LibCall::Memory32AtomicWait32 => wasmer_vm_memory32_atomic_wait32 as usize,
         LibCall::ImportedMemory32AtomicWait32 => wasmer_vm_imported_memory32_atomic_wait32 as usize,
@@ -943,6 +948,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::Throw => wasmer_vm_throw as usize,
         LibCall::Rethrow => wasmer_vm_rethrow as usize,
         LibCall::EHPersonality => wasmer_eh_personality as usize,
+        LibCall::EHPersonality2 => wasmer_eh_personality2 as usize,
         LibCall::AllocException => wasmer_vm_alloc_exception as usize,
         LibCall::DeleteException => wasmer_vm_delete_exception as usize,
         LibCall::ReadException => wasmer_vm_read_exception as usize,
