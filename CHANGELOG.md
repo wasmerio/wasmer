@@ -9,10 +9,12 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **Unreleased**
 
 ## 6.1.0-rc.4 - 12/09/2025
+This release includes better support for the Exception Handling proposal in LLVM,
+as well as fixes to the linker and other stability fixes.
 
 ## Added
 
-  - [#5701](https://github.com/wasmerio/wasmer/pull/5701) fix(config): Add missing skip_serializing_if for ssh capability
+  - [#5726](https://github.com/wasmerio/wasmer/pull/5726) Multiple fixes to EH codegen
 
 ## Changed
 
@@ -23,7 +25,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## Fixed
 
-  - [#5726](https://github.com/wasmerio/wasmer/pull/5726) Multiple fixes to EH codegen
+  - [#5701](https://github.com/wasmerio/wasmer/pull/5701) fix(config): Add missing skip_serializing_if for ssh capability
   - [#5716](https://github.com/wasmerio/wasmer/pull/5716) Fix impossible relocation error in emit srem64, urem64 for singlepass compiler/Aarch64
   - [#5700](https://github.com/wasmerio/wasmer/pull/5700) fix(DynamicFunction): allocate space for trap on host stack
   - [#5706](https://github.com/wasmerio/wasmer/pull/5706) Fix caching dlsym results in the linker
