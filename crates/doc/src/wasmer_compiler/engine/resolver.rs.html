@@ -224,20 +224,127 @@
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
 <a href="#225" id="225">225</a>
-<a href="#226" id="226">226</a></pre></div><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a>
+<a href="#300" id="300">300</a>
+<a href="#301" id="301">301</a>
+<a href="#302" id="302">302</a>
+<a href="#303" id="303">303</a>
+<a href="#304" id="304">304</a>
+<a href="#305" id="305">305</a>
+<a href="#306" id="306">306</a>
+<a href="#307" id="307">307</a>
+<a href="#308" id="308">308</a>
+<a href="#309" id="309">309</a>
+<a href="#310" id="310">310</a>
+<a href="#311" id="311">311</a>
+<a href="#312" id="312">312</a>
+<a href="#313" id="313">313</a>
+<a href="#314" id="314">314</a>
+<a href="#315" id="315">315</a>
+<a href="#316" id="316">316</a>
+<a href="#317" id="317">317</a>
+<a href="#318" id="318">318</a>
+<a href="#319" id="319">319</a>
+<a href="#320" id="320">320</a>
+<a href="#321" id="321">321</a>
+<a href="#322" id="322">322</a>
+<a href="#323" id="323">323</a>
+<a href="#324" id="324">324</a>
+<a href="#325" id="325">325</a>
+<a href="#326" id="326">326</a>
+<a href="#327" id="327">327</a>
+<a href="#328" id="328">328</a>
+<a href="#329" id="329">329</a>
+<a href="#330" id="330">330</a></pre></div><pre class="rust"><code><span class="doccomment">//! Custom resolution for external references.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::LinkError;
 <span class="kw">use </span>more_asserts::assert_ge;
-<span class="kw">use </span>wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+<span class="kw">use </span>wasmer_types::{
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
+    TagIndex, TagKind,
+};
 <span class="kw">use </span>wasmer_types::{
     ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
     TagType,
 };
 
 <span class="kw">use </span>wasmer_vm::{
-    FunctionBodyPtr, Imports, LinearMemory, MemoryStyle, StoreObjects, TableStyle, VMExtern,
-    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport, VMTagImport,
+    FunctionBodyPtr, Imports, InternalStoreHandle, LinearMemory, MemoryStyle, StoreObjects,
+    TableStyle, VMExtern, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
+    VMMemoryImport, VMTableImport, VMTag,
 };
 
 <span class="doccomment">/// Get an `ExternType` given a import index.
@@ -295,7 +402,7 @@
 }
 
 <span class="doccomment">/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
-/// a `Resolver`.
+/// a `Resolver`, except for tags which are resolved separately through `resolve_tags`.
 ///
 /// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 </span><span class="attr">#[allow(clippy::result_large_err)]
@@ -309,38 +416,19 @@
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Imports, LinkError&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
     <span class="kw">let </span><span class="kw-2">mut </span>table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
-    <span class="kw">let </span><span class="kw-2">mut </span>tag_imports = PrimaryMap::with_capacity(module.num_imported_tags);
     <span class="kw">let </span><span class="kw-2">mut </span>memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     <span class="kw">let </span><span class="kw-2">mut </span>global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
 
-    <span class="kw">for </span>(
-        wasmer_types::ImportKey {
-            module: module_name,
-            field,
-            import_idx,
-        },
-        import_index,
-    ) <span class="kw">in </span>module.imports.iter()
+    <span class="kw">for </span>(import_key, import_index) <span class="kw">in </span>module
+        .imports
+        .iter()
+        .filter(|(<span class="kw">_</span>, import_index)| !<span class="macro">matches!</span>(import_index, ImportIndex::Tag(<span class="kw">_</span>)))
     {
-        <span class="kw">let </span>import_extern = get_extern_from_import(module, import_index);
-        <span class="kw">let </span>resolved = <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = imports.get(<span class="kw-2">*</span>import_idx <span class="kw">as </span>usize) {
-            r
-        } <span class="kw">else </span>{
-            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-                module_name.to_string(),
-                field.to_string(),
-                ImportError::UnknownImport(import_extern),
-            ));
-        };
-        <span class="kw">let </span>extern_type = get_extern_type(context, resolved);
-        <span class="kw">let </span>runtime_size = get_runtime_size(context, resolved);
-        <span class="kw">if </span>!extern_type.is_compatible_with(<span class="kw-2">&amp;</span>import_extern, runtime_size) {
-            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-                module_name.to_string(),
-                field.to_string(),
-                ImportError::IncompatibleType(import_extern, extern_type),
-            ));
-        }
+        <span class="kw">let </span>ResolvedImport {
+            resolved,
+            import_extern,
+            extern_type,
+        } = resolve_import(module, imports, context, import_key, import_index)<span class="question-mark">?</span>;
         <span class="kw">match </span><span class="kw-2">*</span>resolved {
             VMExtern::Function(handle) =&gt; {
                 <span class="kw">let </span>f = handle.get_mut(context);
@@ -377,8 +465,8 @@
                         <span class="kw">let </span>expected_table_ty = <span class="kw-2">&amp;</span>module.tables[<span class="kw-2">*</span>index];
                         <span class="kw">if </span>import_table_ty.ty != expected_table_ty.ty {
                             <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
-                                module_name.to_string(),
-                                field.to_string(),
+                                import_key.module.to_string(),
+                                import_key.field.to_string(),
                                 ImportError::IncompatibleType(import_extern, extern_type),
                             ));
                         }
@@ -436,9 +524,8 @@
                     handle,
                 });
             }
-            VMExtern::Tag(handle) =&gt; {
-                tag_imports.push(VMTagImport { handle });
-            }
+
+            VMExtern::Tag(<span class="kw">_</span>) =&gt; <span class="macro">unreachable!</span>(<span class="string">"We already filtered tags out"</span>),
         }
     }
 
@@ -446,8 +533,129 @@
         function_imports,
         table_imports,
         memory_imports,
-        tag_imports,
         global_imports,
     ))
+}
+
+<span class="doccomment">/// This function resolves all tags of a `ModuleInfo`. Imported tags are resolved from
+/// the `StoreObjects`, whereas local tags are created and pushed to it. This is because
+/// we need every tag to have a unique `VMSharedTagIndex` in the `StoreObjects`, regardless
+/// of whether it's local or imported, so that exception handling can correctly resolve
+/// cross-module exceptions.
+</span><span class="comment">// TODO: I feel this code can be cleaned up. Maybe we can handle tag indices better, so we don't have to search through the imports again?
+// TODO: don't we create store handles for everything else as well? Should tags get special handling here?
+</span><span class="attr">#[allow(clippy::result_large_err)]
+</span><span class="kw">pub fn </span>resolve_tags(
+    module: <span class="kw-2">&amp;</span>ModuleInfo,
+    imports: <span class="kw-2">&amp;</span>[VMExtern],
+    context: <span class="kw-2">&amp;mut </span>StoreObjects,
+) -&gt; <span class="prelude-ty">Result</span>&lt;BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;, LinkError&gt; {
+    <span class="kw">let </span><span class="kw-2">mut </span>tags = PrimaryMap::with_capacity(module.tags.len());
+
+    <span class="kw">for </span>(import_key, import_index) <span class="kw">in </span>module
+        .imports
+        .iter()
+        .filter(|(<span class="kw">_</span>, import_index)| <span class="macro">matches!</span>(import_index, ImportIndex::Tag(<span class="kw">_</span>)))
+    {
+        <span class="kw">let </span>ResolvedImport {
+            resolved,
+            import_extern,
+            extern_type,
+        } = resolve_import(module, imports, context, import_key, import_index)<span class="question-mark">?</span>;
+        <span class="kw">match </span><span class="kw-2">*</span>resolved {
+            VMExtern::Tag(handle) =&gt; {
+                <span class="kw">let </span>t = handle.get(context);
+                <span class="kw">match </span>import_index {
+                    ImportIndex::Tag(index) =&gt; {
+                        <span class="kw">let </span>import_tag_ty = <span class="kw-2">&amp;</span>t.signature;
+                        <span class="kw">let </span>expected_tag_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(expected_tag_ty) =
+                            module.signatures.get(module.tags[<span class="kw-2">*</span>index])
+                        {
+                            expected_tag_ty
+                        } <span class="kw">else </span>{
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
+                                <span class="string">"Could not find matching signature for tag index {index:?}"
+                            </span>)));
+                        };
+                        <span class="kw">if </span><span class="kw-2">*</span>import_tag_ty != <span class="kw-2">*</span>expected_tag_ty {
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+                                import_key.module.to_string(),
+                                import_key.field.to_string(),
+                                ImportError::IncompatibleType(import_extern, extern_type),
+                            ));
+                        }
+
+                        tags.push(handle);
+                    }
+                    <span class="kw">_ </span>=&gt; {
+                        <span class="macro">unreachable!</span>(<span class="string">"Tag resolution did not match"</span>);
+                    }
+                }
+            }
+            <span class="kw">_ </span>=&gt; <span class="macro">unreachable!</span>(<span class="string">"We already filtered everything else out"</span>),
+        }
+    }
+
+    <span class="comment">// Now, create local tags.
+    // Local tags are created in the StoreObjects once per instance, so that
+    // when two instances of the same module are executing, they don't end
+    // up catching each other's exceptions.
+    </span><span class="kw">for </span>(tag_index, signature_index) <span class="kw">in </span>module.tags.iter() {
+        <span class="kw">if </span>module.is_imported_tag(tag_index) {
+            <span class="kw">continue</span>;
+        }
+        <span class="kw">let </span>sig_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(sig_ty) = module.signatures.get(<span class="kw-2">*</span>signature_index) {
+            sig_ty
+        } <span class="kw">else </span>{
+            <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
+                <span class="string">"Could not find matching signature for tag index {tag_index:?}"
+            </span>)));
+        };
+        <span class="kw">let </span>handle =
+            InternalStoreHandle::new(context, VMTag::new(TagKind::Exception, sig_ty.clone()));
+        tags.push(handle);
+    }
+
+    <span class="prelude-val">Ok</span>(tags.into_boxed_slice())
+}
+
+<span class="kw">struct </span>ResolvedImport&lt;<span class="lifetime">'a</span>&gt; {
+    resolved: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>VMExtern,
+    import_extern: ExternType,
+    extern_type: ExternType,
+}
+
+<span class="attr">#[allow(clippy::result_large_err)]
+</span><span class="kw">fn </span>resolve_import&lt;<span class="lifetime">'a</span>&gt;(
+    module: <span class="kw-2">&amp;</span>ModuleInfo,
+    imports: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[VMExtern],
+    context: <span class="kw-2">&amp;mut </span>StoreObjects,
+    import: <span class="kw-2">&amp;</span>wasmer_types::ImportKey,
+    import_index: <span class="kw-2">&amp;</span>ImportIndex,
+) -&gt; <span class="prelude-ty">Result</span>&lt;ResolvedImport&lt;<span class="lifetime">'a</span>&gt;, LinkError&gt; {
+    <span class="kw">let </span>import_extern = get_extern_from_import(module, import_index);
+    <span class="kw">let </span>resolved = <span class="kw">if let </span><span class="prelude-val">Some</span>(r) = imports.get(import.import_idx <span class="kw">as </span>usize) {
+        r
+    } <span class="kw">else </span>{
+        <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+            import.module.to_string(),
+            import.field.to_string(),
+            ImportError::UnknownImport(import_extern),
+        ));
+    };
+    <span class="kw">let </span>extern_type = get_extern_type(context, resolved);
+    <span class="kw">let </span>runtime_size = get_runtime_size(context, resolved);
+    <span class="kw">if </span>!extern_type.is_compatible_with(<span class="kw-2">&amp;</span>import_extern, runtime_size) {
+        <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Import(
+            import.module.to_string(),
+            import.field.to_string(),
+            ImportError::IncompatibleType(import_extern, extern_type),
+        ));
+    }
+    <span class="prelude-val">Ok</span>(ResolvedImport {
+        resolved,
+        import_extern,
+        extern_type,
+    })
 }
 </code></pre></div></section></main></body></html>

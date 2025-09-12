@@ -372,42 +372,13 @@
 <a href="#371" id="371">371</a>
 <a href="#372" id="372">372</a>
 <a href="#373" id="373">373</a>
-<a href="#374" id="374">374</a>
-<a href="#375" id="375">375</a>
-<a href="#376" id="376">376</a>
-<a href="#377" id="377">377</a>
-<a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a>
-<a href="#380" id="380">380</a>
-<a href="#381" id="381">381</a>
-<a href="#382" id="382">382</a>
-<a href="#383" id="383">383</a>
-<a href="#384" id="384">384</a>
-<a href="#385" id="385">385</a>
-<a href="#386" id="386">386</a>
-<a href="#387" id="387">387</a>
-<a href="#388" id="388">388</a>
-<a href="#389" id="389">389</a>
-<a href="#390" id="390">390</a>
-<a href="#391" id="391">391</a>
-<a href="#392" id="392">392</a>
-<a href="#393" id="393">393</a>
-<a href="#394" id="394">394</a>
-<a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a>
-<a href="#397" id="397">397</a>
-<a href="#398" id="398">398</a>
-<a href="#399" id="399">399</a>
-<a href="#400" id="400">400</a>
-<a href="#401" id="401">401</a>
-<a href="#402" id="402">402</a>
-<a href="#403" id="403">403</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::error::LinkError;
+<a href="#374" id="374">374</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::engine::error::LinkError;
 <span class="kw">use </span>std::ptr::NonNull;
-<span class="kw">use </span>wasmer_types::entity::{EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
+    entity::{EntityRef, PrimaryMap},
     target::{PointerWidth, Target},
-    FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
-    MemoryIndex, MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
+    FunctionType, GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    MemoryType, ModuleInfo, Pages, TableIndex, TableType, TagKind,
 };
 <span class="kw">use </span>wasmer_vm::{InternalStoreHandle, MemoryError, StoreObjects, VMTag};
 <span class="kw">use </span>wasmer_vm::{MemoryStyle, TableStyle};
@@ -530,35 +501,6 @@
             ));
         }
         <span class="prelude-val">Ok</span>(tables)
-    }
-
-    <span class="doccomment">/// Allocate memory for just the tags of the current module,
-    /// with initializers applied.
-    </span><span class="attr">#[allow(clippy::result_large_err)]
-    </span><span class="kw">fn </span>create_tags(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        context: <span class="kw-2">&amp;mut </span>StoreObjects,
-        module: <span class="kw-2">&amp;</span>ModuleInfo,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;PrimaryMap&lt;LocalTagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;, LinkError&gt; {
-        <span class="kw">let </span>num_imports = module.num_imported_tags;
-        <span class="kw">let </span><span class="kw-2">mut </span>vmctx_tags = PrimaryMap::with_capacity(module.tags.len() - num_imports);
-
-        <span class="kw">for </span><span class="kw-2">&amp;</span>tag_type <span class="kw">in </span>module.tags.values().skip(num_imports) {
-            <span class="kw">let </span>sig_ty = <span class="kw">if let </span><span class="prelude-val">Some</span>(sig_ty) = module.signatures.get(tag_type) {
-                sig_ty
-            } <span class="kw">else </span>{
-                <span class="kw">return </span><span class="prelude-val">Err</span>(LinkError::Resource(<span class="macro">format!</span>(
-                    <span class="string">"Could not find matching signature for tag index {tag_type:?}"
-                </span>)));
-            };
-            vmctx_tags.push(InternalStoreHandle::new(
-                context,
-                <span class="self">self</span>.create_tag(wasmer_types::TagKind::Exception, sig_ty.clone())
-                    .map_err(LinkError::Resource)<span class="question-mark">?</span>,
-            ));
-        }
-
-        <span class="prelude-val">Ok</span>(vmctx_tags)
     }
 
     <span class="doccomment">/// Allocate memory for just the globals of the current module,

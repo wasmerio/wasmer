@@ -1582,7 +1582,12 @@
 <a href="#1581" id="1581">1581</a>
 <a href="#1582" id="1582">1582</a>
 <a href="#1583" id="1583">1583</a>
-<a href="#1584" id="1584">1584</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#1584" id="1584">1584</a>
+<a href="#1585" id="1585">1585</a>
+<a href="#1586" id="1586">1586</a>
+<a href="#1587" id="1587">1587</a>
+<a href="#1588" id="1588">1588</a>
+<a href="#1589" id="1589">1589</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! An `Instance` contains all the runtime state used by execution of
@@ -1601,7 +1606,7 @@
     memory32_atomic_check32, memory32_atomic_check64, memory_copy, memory_fill,
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
+    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
 <span class="kw">use crate</span>::{wasmer_call_trampoline, FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag};
@@ -1622,9 +1627,9 @@
 <span class="kw">use </span>wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 <span class="kw">use </span>wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
-    MemoryError, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
-    TagIndex, VMOffsets,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
+    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, TagIndex,
+    VMOffsets,
 };
 
 <span class="doccomment">/// A WebAssembly instance.
@@ -1654,8 +1659,8 @@
     <span class="doccomment">/// WebAssembly global data.
     </span>globals: BoxedSlice&lt;LocalGlobalIndex, InternalStoreHandle&lt;VMGlobal&gt;&gt;,
 
-    <span class="doccomment">/// WebAssembly global data.
-    </span>tags: BoxedSlice&lt;LocalTagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;,
+    <span class="doccomment">/// WebAssembly tag data. Notably, this stores *all* tags, not just local ones.
+    </span>tags: BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;,
 
     <span class="doccomment">/// Pointers to functions in executable memory.
     </span>functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
@@ -1772,15 +1777,15 @@
         <span class="kw">unsafe </span>{ <span class="self">self</span>.vmctx_plus_offset(<span class="self">self</span>.offsets.vmctx_imported_globals_begin()) }
     }
 
-    <span class="doccomment">/// Return the indexed `VMTagImport`.
-    </span><span class="kw">fn </span>imported_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; <span class="kw-2">&amp;</span>VMTagImport {
+    <span class="doccomment">/// Return the indexed `VMSharedTagIndex`.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>shared_tag_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; <span class="kw-2">&amp;</span>VMSharedTagIndex {
         <span class="kw">let </span>index = usize::try_from(index.as_u32()).unwrap();
-        <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span><span class="self">self</span>.imported_tags_ptr().add(index) }
+        <span class="kw">unsafe </span>{ <span class="kw-2">&amp;*</span><span class="self">self</span>.shared_tags_ptr().add(index) }
     }
 
-    <span class="doccomment">/// Return a pointer to the `VMTagImport`s.
-    </span><span class="kw">fn </span>imported_tags_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>VMTagImport {
-        <span class="kw">unsafe </span>{ <span class="self">self</span>.vmctx_plus_offset(<span class="self">self</span>.offsets.vmctx_imported_tags_begin()) }
+    <span class="doccomment">/// Return a pointer to the `VMSharedTagIndex`s.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>shared_tags_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>VMSharedTagIndex {
+        <span class="kw">unsafe </span>{ <span class="self">self</span>.vmctx_plus_offset(<span class="self">self</span>.offsets.vmctx_tag_ids_begin()) }
     }
 
     <span class="doccomment">/// Return the indexed `VMTableDefinition`.
@@ -2630,11 +2635,16 @@
         finished_function_call_trampolines: BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
         finished_memories: BoxedSlice&lt;LocalMemoryIndex, InternalStoreHandle&lt;VMMemory&gt;&gt;,
         finished_tables: BoxedSlice&lt;LocalTableIndex, InternalStoreHandle&lt;VMTable&gt;&gt;,
-        finished_tags: BoxedSlice&lt;LocalTagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;,
         finished_globals: BoxedSlice&lt;LocalGlobalIndex, InternalStoreHandle&lt;VMGlobal&gt;&gt;,
+        tags: BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;,
         imports: Imports,
         vmshared_signatures: BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Trap&gt; {
+        <span class="kw">let </span>vmctx_tags = tags
+            .values()
+            .map(|m| VMSharedTagIndex::new(m.index() <span class="kw">as </span>u32))
+            .collect::&lt;PrimaryMap&lt;TagIndex, <span class="kw">_</span>&gt;&gt;()
+            .into_boxed_slice();
         <span class="kw">let </span>vmctx_globals = finished_globals
             .values()
             .map(|m| m.get(context).vmglobal())
@@ -2661,7 +2671,7 @@
                 offsets,
                 memories: finished_memories,
                 tables: finished_tables,
-                tags: finished_tags,
+                tags,
                 globals: finished_globals,
                 functions: finished_functions,
                 function_call_trampolines: finished_function_call_trampolines,
@@ -2693,6 +2703,11 @@
         };
         <span class="kw">let </span>instance = handle.instance();
 
+        ptr::copy(
+            vmctx_tags.values().as_slice().as_ptr(),
+            instance.shared_tags_ptr(),
+            vmctx_tags.len(),
+        );
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),
             instance.signature_ids_ptr(),
@@ -2866,12 +2881,7 @@
             }
 
             ExportIndex::Tag(index) =&gt; {
-                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_tag_index(index) {
-                    instance.tags[def_index]
-                } <span class="kw">else </span>{
-                    <span class="kw">let </span>import = instance.imported_tag(index);
-                    import.handle
-                };
+                <span class="kw">let </span>handle = instance.tags[index];
                 VMExtern::Tag(handle)
             }
         }

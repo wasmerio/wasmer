@@ -63,7 +63,16 @@
 <a href="#62" id="62">62</a>
 <a href="#63" id="63">63</a>
 <a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a></pre></div><pre class="rust"><code><span class="comment">// Part of the logic, here, is borrowed as-is from rust's stdlib.
+<a href="#65" id="65">65</a>
+<a href="#66" id="66">66</a>
+<a href="#67" id="67">67</a>
+<a href="#68" id="68">68</a>
+<a href="#69" id="69">69</a>
+<a href="#70" id="70">70</a>
+<a href="#71" id="71">71</a>
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a></pre></div><pre class="rust"><code><span class="comment">// Part of the logic, here, is borrowed as-is from rust's stdlib.
 
 </span><span class="kw">mod </span>dwarf;
 
@@ -102,11 +111,20 @@
             <span class="macro">panic!</span>()
         }
 
-        <span class="kw">pub  fn </span>throw(tag: u64, data_ptr: usize, data_size: u64) -&gt; ! {
+        <span class="kw">pub fn </span>wasmer_eh_personality2() {
             <span class="macro">panic!</span>()
         }
 
-        <span class="kw">pub fn </span>rethrow(exc: <span class="kw-2">*mut </span>UwExceptionWrapper) -&gt; ! {
+        <span class="kw">pub unsafe fn </span>throw(
+            _tag: u32,
+            _vmctx: <span class="kw-2">*mut </span><span class="kw">crate</span>::VMContext,
+            _data_ptr: usize,
+            _data_size: u64,
+        ) -&gt; ! {
+            <span class="macro">panic!</span>()
+        }
+
+        <span class="kw">pub fn </span>rethrow(_exc: <span class="kw-2">*mut </span>UwExceptionWrapper) -&gt; ! {
             <span class="macro">panic!</span>()
         }
 

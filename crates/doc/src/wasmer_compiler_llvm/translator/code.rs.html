@@ -12981,14 +12981,117 @@
 <a href="#12980" id="12980">12980</a>
 <a href="#12981" id="12981">12981</a>
 <a href="#12982" id="12982">12982</a>
-<a href="#12983" id="12983">12983</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+<a href="#12983" id="12983">12983</a>
+<a href="#12984" id="12984">12984</a>
+<a href="#12985" id="12985">12985</a>
+<a href="#12986" id="12986">12986</a>
+<a href="#12987" id="12987">12987</a>
+<a href="#12988" id="12988">12988</a>
+<a href="#12989" id="12989">12989</a>
+<a href="#12990" id="12990">12990</a>
+<a href="#12991" id="12991">12991</a>
+<a href="#12992" id="12992">12992</a>
+<a href="#12993" id="12993">12993</a>
+<a href="#12994" id="12994">12994</a>
+<a href="#12995" id="12995">12995</a>
+<a href="#12996" id="12996">12996</a>
+<a href="#12997" id="12997">12997</a>
+<a href="#12998" id="12998">12998</a>
+<a href="#12999" id="12999">12999</a>
+<a href="#13000" id="13000">13000</a>
+<a href="#13001" id="13001">13001</a>
+<a href="#13002" id="13002">13002</a>
+<a href="#13003" id="13003">13003</a>
+<a href="#13004" id="13004">13004</a>
+<a href="#13005" id="13005">13005</a>
+<a href="#13006" id="13006">13006</a>
+<a href="#13007" id="13007">13007</a>
+<a href="#13008" id="13008">13008</a>
+<a href="#13009" id="13009">13009</a>
+<a href="#13010" id="13010">13010</a>
+<a href="#13011" id="13011">13011</a>
+<a href="#13012" id="13012">13012</a>
+<a href="#13013" id="13013">13013</a>
+<a href="#13014" id="13014">13014</a>
+<a href="#13015" id="13015">13015</a>
+<a href="#13016" id="13016">13016</a>
+<a href="#13017" id="13017">13017</a>
+<a href="#13018" id="13018">13018</a>
+<a href="#13019" id="13019">13019</a>
+<a href="#13020" id="13020">13020</a>
+<a href="#13021" id="13021">13021</a>
+<a href="#13022" id="13022">13022</a>
+<a href="#13023" id="13023">13023</a>
+<a href="#13024" id="13024">13024</a>
+<a href="#13025" id="13025">13025</a>
+<a href="#13026" id="13026">13026</a>
+<a href="#13027" id="13027">13027</a>
+<a href="#13028" id="13028">13028</a>
+<a href="#13029" id="13029">13029</a>
+<a href="#13030" id="13030">13030</a>
+<a href="#13031" id="13031">13031</a>
+<a href="#13032" id="13032">13032</a>
+<a href="#13033" id="13033">13033</a>
+<a href="#13034" id="13034">13034</a>
+<a href="#13035" id="13035">13035</a>
+<a href="#13036" id="13036">13036</a>
+<a href="#13037" id="13037">13037</a>
+<a href="#13038" id="13038">13038</a>
+<a href="#13039" id="13039">13039</a>
+<a href="#13040" id="13040">13040</a>
+<a href="#13041" id="13041">13041</a>
+<a href="#13042" id="13042">13042</a>
+<a href="#13043" id="13043">13043</a>
+<a href="#13044" id="13044">13044</a>
+<a href="#13045" id="13045">13045</a>
+<a href="#13046" id="13046">13046</a>
+<a href="#13047" id="13047">13047</a>
+<a href="#13048" id="13048">13048</a>
+<a href="#13049" id="13049">13049</a>
+<a href="#13050" id="13050">13050</a>
+<a href="#13051" id="13051">13051</a>
+<a href="#13052" id="13052">13052</a>
+<a href="#13053" id="13053">13053</a>
+<a href="#13054" id="13054">13054</a>
+<a href="#13055" id="13055">13055</a>
+<a href="#13056" id="13056">13056</a>
+<a href="#13057" id="13057">13057</a>
+<a href="#13058" id="13058">13058</a>
+<a href="#13059" id="13059">13059</a>
+<a href="#13060" id="13060">13060</a>
+<a href="#13061" id="13061">13061</a>
+<a href="#13062" id="13062">13062</a>
+<a href="#13063" id="13063">13063</a>
+<a href="#13064" id="13064">13064</a>
+<a href="#13065" id="13065">13065</a>
+<a href="#13066" id="13066">13066</a>
+<a href="#13067" id="13067">13067</a>
+<a href="#13068" id="13068">13068</a>
+<a href="#13069" id="13069">13069</a>
+<a href="#13070" id="13070">13070</a>
+<a href="#13071" id="13071">13071</a>
+<a href="#13072" id="13072">13072</a>
+<a href="#13073" id="13073">13073</a>
+<a href="#13074" id="13074">13074</a>
+<a href="#13075" id="13075">13075</a>
+<a href="#13076" id="13076">13076</a>
+<a href="#13077" id="13077">13077</a>
+<a href="#13078" id="13078">13078</a>
+<a href="#13079" id="13079">13079</a>
+<a href="#13080" id="13080">13080</a>
+<a href="#13081" id="13081">13081</a>
+<a href="#13082" id="13082">13082</a>
+<a href="#13083" id="13083">13083</a>
+<a href="#13084" id="13084">13084</a>
+<a href="#13085" id="13085">13085</a>
+<a href="#13086" id="13086">13086</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use super</span>::{
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
     <span class="comment">// stackmap::{StackmapEntry, StackmapEntryKind, StackmapRegistry, ValueSemantic},
-    </span>state::{ControlFrame, ExtraInfo, IfElseState, State},
+    </span>state::{ControlFrame, ExtraInfo, IfElseState, State, TagCatchInfo},
 };
 <span class="kw">use </span>inkwell::{
     attributes::AttributeLoc,
@@ -13035,6 +13138,13 @@
 <span class="kw">const </span>FUNCTION_SECTION_ELF: <span class="kw-2">&amp;</span>str = <span class="string">"__TEXT,wasmer_function"</span>;
 <span class="kw">const </span>FUNCTION_SECTION_MACHO: <span class="kw-2">&amp;</span>str = <span class="string">"__TEXT"</span>;
 <span class="kw">const </span>FUNCTION_SEGMENT_MACHO: <span class="kw-2">&amp;</span>str = <span class="string">"wasmer_function"</span>;
+
+<span class="comment">// Since we want to use module-local tag numbers for landing pads,
+// the catch-all tag can't be zero; we instead use i32::MAX, which
+// is hopefully large enough to not conflict with any real tag.
+// If you have 2 billion tags in a single module, you deserve what you get.
+// ( Arshia: that comment above is AI-generated... AI is savage XD )
+</span><span class="kw">const </span>CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
 
 <span class="kw">pub struct </span>FuncTranslator {
     ctx: Context,
@@ -13282,11 +13392,8 @@
             abi: <span class="kw-2">&amp;*</span><span class="self">self</span>.abi,
             config,
             exception_types_cache: HashMap::new(),
+            vmctx_alloca: <span class="prelude-val">None</span>,
             tags_cache: HashMap::new(),
-            ptr_size: <span class="self">self
-                </span>.target_machine
-                .get_target_data()
-                .get_pointer_byte_size(<span class="prelude-val">None</span>),
             binary_fmt: <span class="self">self</span>.binary_fmt,
         };
 
@@ -14467,14 +14574,16 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">fn </span>get_or_insert_global_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: u32) -&gt; BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt; {
+    <span class="comment">// Generates a global constant with the tag's module-local index, which can be used
+    // as the "type info" of a catch clause.
+    </span><span class="kw">fn </span>get_or_insert_tag_type_info_global(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: i32) -&gt; BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt; {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(tag) = <span class="self">self</span>.tags_cache.get(<span class="kw-2">&amp;</span>tag) {
             <span class="kw">return </span><span class="kw-2">*</span>tag;
         }
 
         <span class="kw">let </span>tag_ty = <span class="self">self
             </span>.context
-            .struct_type(<span class="kw-2">&amp;</span>[<span class="self">self</span>.intrinsics.i64_ty.into()], <span class="bool-val">false</span>);
+            .struct_type(<span class="kw-2">&amp;</span>[<span class="self">self</span>.intrinsics.i32_ty.into()], <span class="bool-val">false</span>);
         <span class="kw">let </span>tag_glbl = <span class="self">self</span>.module.add_global(
             tag_ty,
             <span class="prelude-val">Some</span>(AddressSpace::default()),
@@ -14482,11 +14591,7 @@
         );
         tag_glbl.set_initializer(
             <span class="kw-2">&amp;</span>tag_ty
-                .const_named_struct(<span class="kw-2">&amp;</span>[<span class="self">self
-                    </span>.intrinsics
-                    .i64_ty
-                    .const_int(<span class="self">self</span>.encode_tag(tag) <span class="kw">as _</span>, <span class="bool-val">false</span>)
-                    .into()])
+                .const_named_struct(<span class="kw-2">&amp;</span>[<span class="self">self</span>.intrinsics.i32_ty.const_int(tag <span class="kw">as _</span>, <span class="bool-val">false</span>).into()])
                 .as_basic_value_enum(),
         );
 
@@ -14526,28 +14631,6 @@
         <span class="kw">let </span>ty = <span class="self">self</span>.context.struct_type(<span class="kw-2">&amp;</span>types, <span class="bool-val">false</span>);
         <span class="self">self</span>.exception_types_cache.insert(tag, ty);
         <span class="prelude-val">Ok</span>(ty)
-    }
-
-    <span class="comment">// Encode a tag - an u32 identifying an event - into a unique value that can be used in
-    // catch clauses.
-    //
-    // This is to avoid that the #0 tag is reinterpreted as nullptr in the catch clause of a
-    // landing pad.
-    </span><span class="attr">#[inline]
-    </span><span class="kw">fn </span>encode_tag(<span class="kw-2">&amp;</span><span class="self">self</span>, tag: u32) -&gt; usize {
-        <span class="kw">let </span>size = <span class="self">self</span>.ptr_size;
-        <span class="kw">if </span>size == <span class="number">4 </span>{
-            <span class="comment">// Add 1 to the tag value so that we don't have tags with value `0`; this is because
-            // the catches in the landingpad match on the value of the tag, and a value of 0 means
-            // catch_all
-            </span>(tag + <span class="number">1</span>) <span class="kw">as </span>usize
-        } <span class="kw">else if </span>size == <span class="number">8 </span>{
-            <span class="kw">let </span><span class="kw-2">mut </span>base = <span class="macro">vec!</span>[<span class="string">b'w'</span>, <span class="string">b'a'</span>, <span class="string">b's'</span>, <span class="string">b'm'</span>];
-            base.append(<span class="kw-2">&amp;mut </span>tag.to_be_bytes().to_vec());
-            u64::from_be_bytes(base.try_into().unwrap()) <span class="kw">as </span>usize
-        } <span class="kw">else </span>{
-            <span class="macro">panic!</span>()
-        }
     }
 
     <span class="kw">fn </span>build_g0m0_indirect_call(
@@ -14772,7 +14855,7 @@
         }
         */
 
-        </span><span class="kw">let </span>call_site_local = <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.state.get_landingpad() {
+        </span><span class="kw">let </span>call_site_local = <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.state.get_innermost_landingpad() {
             <span class="kw">let </span>then_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"then_block"</span>);
 
             <span class="kw">let </span>ret = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_invoke(
@@ -14804,6 +14887,21 @@
         }
 
         <span class="prelude-val">Ok</span>(call_site_local)
+    }
+
+    <span class="kw">fn </span>build_or_get_vmctx_alloca(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;, CompileError&gt; {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(vmctx_alloca) = <span class="self">self</span>.vmctx_alloca {
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(vmctx_alloca);
+        }
+
+        <span class="kw">let </span>vmctx_alloca = <span class="macro">err!</span>(<span class="self">self
+            </span>.alloca_builder
+            .build_alloca(<span class="self">self</span>.intrinsics.ptr_ty, <span class="string">"vmctx"</span>));
+        <span class="macro">err!</span>(<span class="self">self
+            </span>.alloca_builder
+            .build_store(vmctx_alloca, <span class="self">self</span>.ctx.basic()));
+        <span class="self">self</span>.vmctx_alloca = <span class="prelude-val">Some</span>(vmctx_alloca);
+        <span class="prelude-val">Ok</span>(vmctx_alloca)
     }
 }
 
@@ -14919,9 +15017,9 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
     symbol_registry: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>SymbolRegistry,
     abi: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Abi,
     config: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>LLVM,
-    tags_cache: HashMap&lt;u32, BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    tags_cache: HashMap&lt;i32, BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
     exception_types_cache: HashMap&lt;u32, inkwell::types::StructType&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
-    ptr_size: u32,
+    vmctx_alloca: <span class="prelude-ty">Option</span>&lt;PointerValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
     binary_fmt: target_lexicon::BinaryFormat,
 }
 
@@ -15846,7 +15944,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     }
                 }
                 */
-                </span><span class="kw">let </span>call_site = <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.state.get_landingpad() {
+                </span><span class="kw">let </span>call_site = <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.state.get_innermost_landingpad() {
                     <span class="kw">let </span>then_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"then_block"</span>);
 
                     <span class="kw">let </span>ret = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_indirect_invoke(
@@ -25430,10 +25528,6 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     </span>.builder
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen(<span class="string">"not currently in a block"</span>.to_string()))<span class="question-mark">?</span>;
-                <span class="kw">let </span>can_throw_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"try_begin"</span>);
-                <span class="kw">let </span>catch_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"catch"</span>);
-
-                <span class="kw">let </span>rethrow_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"rethrow"</span>);
 
                 <span class="self">self</span>.builder.position_at_end(current_block);
 
@@ -25459,10 +25553,6 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     phis
                 };
 
-                <span class="self">self</span>.builder.position_at_end(current_block);
-                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(can_throw_block));
-                <span class="self">self</span>.builder.position_at_end(catch_block);
-
                 <span class="comment">// Collect unique catches. It is not a "hard" error on the wasm side,
                 // but LLVM will definitely complain about having the same identifier
                 // match two different branches in the switch below.
@@ -25470,23 +25560,10 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     .catches
                     .into_iter()
                     .unique_by(|v| <span class="kw">match </span>v {
-                        Catch::One { label, .. }
-                        | Catch::OneRef { label, .. }
-                        | Catch::All { label }
-                        | Catch::AllRef { label } =&gt; <span class="kw-2">*</span>label,
+                        Catch::One { tag, .. } | Catch::OneRef { tag, .. } =&gt; <span class="kw-2">*</span>tag <span class="kw">as </span>i32,
+                        Catch::All { .. } | Catch::AllRef { .. } =&gt; CATCH_ALL_TAG_VALUE,
                     })
                     .collect();
-
-                <span class="kw">let </span>block_param_types = <span class="self">self
-                    </span>.module_translation
-                    .blocktype_params_results(<span class="kw-2">&amp;</span>try_table.ty)<span class="question-mark">?
-                    </span>.<span class="number">0
-                    </span>.iter()
-                    .map(|<span class="kw-2">&amp;</span>wp_ty| {
-                        <span class="macro">err_nt!</span>(wptype_to_type(wp_ty))
-                            .and_then(|wasm_ty| type_to_llvm(<span class="self">self</span>.intrinsics, wasm_ty))
-                    })
-                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
                 <span class="comment">// Build the landing pad.
                 </span><span class="kw">let </span>null = <span class="self">self</span>.intrinsics.ptr_ty.const_zero();
@@ -25495,281 +25572,401 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="bool-val">false</span>,
                 );
 
-                <span class="kw">let </span><span class="kw-2">mut </span>tags = <span class="macro">vec!</span>[];
-                <span class="kw">let </span>clauses: Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt; = catches
+                <span class="kw">let </span><span class="kw-2">mut </span>catch_tag_values = <span class="macro">vec!</span>[];
+                <span class="kw">let </span><span class="kw-2">mut </span>lpad_clauses: Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt; = catches
                     .iter()
                     .map(|catch| <span class="kw">match </span>catch {
                         Catch::All { .. } | Catch::AllRef { .. } =&gt; {
-                            tags.push(<span class="number">0</span>);
+                            catch_tag_values.push(CATCH_ALL_TAG_VALUE <span class="kw">as </span>u32);
                             <span class="prelude-val">Ok</span>(null.into())
                         }
                         Catch::One { tag, .. } | Catch::OneRef { tag, .. } =&gt; {
-                            <span class="comment">//let (int_tag, tag_ptr) = self.tag_to_catch_clause(*tag);
-                            //let tag_ptr = tag_ptr?;
-                            //tags.push(int_tag);
-                            //Ok(tag_ptr.into())
-                            </span>tags.push(<span class="kw-2">*</span>tag);
-                            <span class="prelude-val">Ok</span>(<span class="self">self</span>.get_or_insert_global_tag(<span class="kw-2">*</span>tag))
+                            catch_tag_values.push(<span class="kw-2">*</span>tag);
+                            <span class="prelude-val">Ok</span>(<span class="self">self</span>.get_or_insert_tag_type_info_global(<span class="kw-2">*</span>tag <span class="kw">as </span>i32))
                         }
                     })
                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
 
-                <span class="kw">let </span>res = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_landing_pad(
-                    exception_type,
-                    <span class="self">self</span>.intrinsics.personality,
-                    <span class="kw-2">&amp;</span>clauses,
-                    <span class="bool-val">false</span>,
-                    <span class="string">"exc"</span>,
-                ));
-
-                <span class="kw">let </span>res = res.into_struct_value();
-
-                <span class="kw">let </span>uw_exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_value(res, <span class="number">0</span>, <span class="string">"exc"</span>));
-                <span class="kw">let </span>exc_ty = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_value(res, <span class="number">1</span>, <span class="string">"exc_ty"</span>));
-
-                <span class="comment">// The exception we get at this point is a wrapper around the [`WasmerException`]
-                // type. This is needed because when we create the exception to pass it to
-                // libunwind, the exception object needs to begin with a specific set of fields
-                // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
-                // fields and we need to pass them back when rethrowing. This to say, we need to
-                // keep the original exception passed to us by libunwind to be able to rethrow it.
-                </span><span class="kw">let </span>uw_exc = uw_exc.into_pointer_value();
-                <span class="kw">let </span>exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
-                    <span class="self">self</span>.intrinsics.read_exception,
-                    <span class="kw-2">&amp;</span>[uw_exc.into()],
-                    <span class="string">"wasmer_exc_ptr"
-                </span>));
-
-                <span class="kw">let </span>exc = exc.as_any_value_enum().into_pointer_value();
-                <span class="kw">let </span>exc_ty = exc_ty.into_int_value();
-
-                <span class="kw">let </span><span class="kw-2">mut </span>catch_blocks = <span class="macro">vec!</span>[];
-                <span class="kw">for </span>catch <span class="kw">in </span>catches.iter() {
-                    <span class="kw">match </span>catch {
-                        Catch::All { label } =&gt; {
-                            <span class="kw">let </span>b = <span class="self">self
-                                </span>.context
-                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_all_clause"</span>);
-                            <span class="self">self</span>.builder.position_at_end(b);
-                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
-
-                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
-
-                            <span class="self">self</span>.builder.position_at_end(catch_block);
-                            catch_blocks.push(b);
-                        }
-                        Catch::One { tag, label } =&gt; {
-                            <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
-                            <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag_idx];
-                            <span class="kw">let </span>params = signature.params();
-
-                            <span class="kw">let </span>b = <span class="self">self
-                                </span>.context
-                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
-                            <span class="self">self</span>.builder.position_at_end(b);
-
-                            <span class="comment">// Get the type of the exception.
-                            </span><span class="kw">let </span>inner_exc_ty =
-                                <span class="self">self</span>.get_or_insert_exception_type(<span class="kw-2">*</span>tag, signature)<span class="question-mark">?</span>;
-
-                            <span class="comment">// Cast the outer exception - a pointer - to a pointer to a struct of
-                            // type WasmerException.
-                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
-                            //     exc,
-                            //     self.intrinsics.exc_ty,
-                            //     "wasmer_exc_ptr"
-                            // ));
-                            //
-                            // Not actually needed, since ptr is a single, unique type.
-
-                            // Points at the `data` field of the exception.
-                            </span><span class="kw">let </span>wasmer_exc_data_ptr_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
-                                <span class="self">self</span>.intrinsics.exc_ty,
-                                exc,
-                                <span class="number">1</span>,
-                                <span class="string">"wasmer_exc_data_ptr"
-                            </span>));
-
-                            <span class="kw">let </span>wasmer_exc_data_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
-                                <span class="self">self</span>.intrinsics.ptr_ty,
-                                wasmer_exc_data_ptr_ptr,
-                                <span class="string">"wasmer_exc_data_ptr"
-                            </span>));
-
-                            <span class="kw">let </span>wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
-
-                            <span class="comment">// Read each value from the data ptr.
-                            </span><span class="kw">let </span>values = params
-                                .iter()
-                                .enumerate()
-                                .map(|(i, v)| {
-                                    <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"value{i}"</span>);
-                                    <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
-                                        inner_exc_ty,
-                                        wasmer_exc_data_ptr,
-                                        i <span class="kw">as </span>u32,
-                                        <span class="kw-2">&amp;</span>(name.clone() + <span class="string">"ptr"</span>)
-                                    ));
-                                    <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_load(
-                                        type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v)<span class="question-mark">?</span>,
-                                        ptr,
-                                        <span class="kw-2">&amp;</span>name,
-                                    ))
-                                })
-                                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
-
-                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
-
-                            <span class="comment">// todo: check that the types are compatible
-
-                            </span><span class="kw">for </span>(phi, value) <span class="kw">in </span>frame.phis().iter().zip(values.iter()) {
-                                phi.add_incoming(<span class="kw-2">&amp;</span>[(value, b)])
-                            }
-
-                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
-
-                            <span class="self">self</span>.builder.position_at_end(catch_block);
-                            catch_blocks.push(b);
-                        }
-                        Catch::OneRef { label, tag } =&gt; {
-                            <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
-                            <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag_idx];
-                            <span class="kw">let </span>params = signature.params();
-
-                            <span class="kw">let </span>b = <span class="self">self
-                                </span>.context
-                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
-                            <span class="self">self</span>.builder.position_at_end(b);
-
-                            <span class="comment">// Get the type of the exception.
-                            </span><span class="kw">let </span>inner_exc_ty =
-                                <span class="self">self</span>.get_or_insert_exception_type(<span class="kw-2">*</span>tag, signature)<span class="question-mark">?</span>;
-
-                            <span class="comment">// Cast the outer exception - a pointer - to a pointer to a struct of
-                            // type WasmerException.
-                            // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
-                            //     exc,
-                            //     self.intrinsics.exc_ty,
-                            //     "wasmer_exc_ptr"
-                            // ));
-                            //
-                            // Not actually needed, since ptr is a single, unique type.
-
-                            // Points at the `data` field of the exception.
-                            </span><span class="kw">let </span>wasmer_exc_data_ptr_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
-                                <span class="self">self</span>.intrinsics.exc_ty,
-                                exc,
-                                <span class="number">1</span>,
-                                <span class="string">"wasmer_exc_data_ptr"
-                            </span>));
-
-                            <span class="kw">let </span>wasmer_exc_data_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
-                                <span class="self">self</span>.intrinsics.ptr_ty,
-                                wasmer_exc_data_ptr_ptr,
-                                <span class="string">"wasmer_exc_data_ptr"
-                            </span>));
-
-                            <span class="kw">let </span>wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
-
-                            <span class="comment">// Read each value from the data ptr.
-                            </span><span class="kw">let </span><span class="kw-2">mut </span>values = params
-                                .iter()
-                                .enumerate()
-                                .map(|(i, v)| {
-                                    <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"value{i}"</span>);
-                                    <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
-                                        inner_exc_ty,
-                                        wasmer_exc_data_ptr,
-                                        i <span class="kw">as </span>u32,
-                                        <span class="kw-2">&amp;</span>(name.clone() + <span class="string">"ptr"</span>)
-                                    ));
-                                    <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_load(
-                                        type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v)<span class="question-mark">?</span>,
-                                        ptr,
-                                        <span class="kw-2">&amp;</span>name,
-                                    ))
-                                })
-                                .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
-
-                            values.push(uw_exc.as_basic_value_enum());
-
-                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
-
-                            <span class="comment">// todo: check that the types are compatible
-
-                            </span><span class="kw">for </span>(phi, value) <span class="kw">in </span>frame.phis().iter().zip(values.iter()) {
-                                phi.add_incoming(<span class="kw-2">&amp;</span>[(value, b)])
-                            }
-
-                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
-
-                            <span class="self">self</span>.builder.position_at_end(catch_block);
-                            catch_blocks.push(b);
-                        }
-                        Catch::AllRef { label } =&gt; {
-                            <span class="kw">let </span>b = <span class="self">self
-                                </span>.context
-                                .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
-                            <span class="self">self</span>.builder.position_at_end(b);
-
-                            <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
-
-                            <span class="kw">let </span>phis = frame.phis();
-
-                            <span class="comment">// sanity check (todo): check that the phi has only one element
-
-                            </span><span class="kw">for </span>phi <span class="kw">in </span>phis.iter() {
-                                phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc.as_basic_value_enum(), b)])
-                            }
-
-                            <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
-
-                            <span class="self">self</span>.builder.position_at_end(catch_block);
-                            catch_blocks.push(b);
+                <span class="comment">// Since jumping between landingpads is not possible, we need to collect
+                // all tags from outer try_tables as well to build a clause for *every*
+                // possible tag that might be caught.
+                </span><span class="kw">let </span><span class="kw-2">mut </span>outer_catch_blocks = <span class="macro">vec!</span>[];
+                <span class="kw">for </span>outer_landingpad <span class="kw">in </span><span class="self">self</span>.state.landingpads.iter().rev() {
+                    <span class="kw">for </span>catch_info @ TagCatchInfo { tag, .. } <span class="kw">in </span><span class="kw-2">&amp;</span>outer_landingpad.tags {
+                        <span class="kw">if </span>!catch_tag_values.contains(tag) {
+                            catch_tag_values.push(<span class="kw-2">*</span>tag);
+                            lpad_clauses.push(<span class="kw">if </span><span class="kw-2">*</span>tag <span class="kw">as </span>i32 == CATCH_ALL_TAG_VALUE {
+                                null.into()
+                            } <span class="kw">else </span>{
+                                <span class="kw-2">*</span><span class="self">self</span>.tags_cache.get(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span>tag <span class="kw">as </span>i32)).expect(
+                                    <span class="string">"If a previous try_table encountered a tag, \
+                                    it should be in the cache"</span>,
+                                )
+                            });
+                            outer_catch_blocks.push(<span class="kw-2">*</span>catch_info);
                         }
                     }
                 }
 
-                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_switch(
-                    exc_ty,
-                    rethrow_block,
-                    catch_blocks
-                        .into_iter()
-                        .enumerate()
-                        .map(|(i, v)| (<span class="self">self</span>.intrinsics.i32_ty.const_int(tags[i] <span class="kw">as _</span>, <span class="bool-val">false</span>), v))
-                        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-                        .as_slice()
-                ));
+                <span class="comment">// If there are no catch clauses, we have to skip everything, since
+                // an lpad without catch clauses is invalid (and won't ever be jumped
+                // to anyway)
+                </span><span class="kw">let </span><span class="kw-2">mut </span>maybe_lpad_block = <span class="prelude-val">None</span>;
+                <span class="kw">let </span><span class="kw-2">mut </span>catch_blocks = <span class="macro">vec!</span>[];
+                <span class="kw">if </span>!lpad_clauses.is_empty() {
+                    <span class="kw">let </span>lpad_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"catch"</span>);
+                    <span class="kw">let </span>catch_all_block =
+                        <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_all"</span>);
+                    <span class="kw">let </span>catch_specific_block = <span class="self">self
+                        </span>.context
+                        .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_specific"</span>);
+                    <span class="kw">let </span>catch_end_block =
+                        <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_end"</span>);
+                    <span class="kw">let </span>rethrow_block = <span class="self">self</span>.context.append_basic_block(<span class="self">self</span>.function, <span class="string">"rethrow"</span>);
 
-                <span class="comment">// -- end
+                    <span class="self">self</span>.builder.position_at_end(lpad_block);
 
-                // -- The rethrow block
-                </span><span class="self">self</span>.builder.position_at_end(rethrow_block);
+                    <span class="kw">let </span>res = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_landing_pad(
+                        exception_type,
+                        <span class="self">self</span>.intrinsics.personality,
+                        <span class="kw-2">&amp;</span>lpad_clauses,
+                        <span class="bool-val">false</span>,
+                        <span class="string">"exc_struct"</span>,
+                    ));
 
-                <span class="macro">err!</span>(<span class="self">self
-                    </span>.builder
-                    .build_call(<span class="self">self</span>.intrinsics.rethrow, <span class="kw-2">&amp;</span>[uw_exc.into()], <span class="string">"rethrow"</span>));
-                <span class="comment">// can't reach after an explicit throw!
-                </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+                    <span class="kw">let </span>res = res.into_struct_value();
 
-                <span class="comment">// Move to the block that can throw exceptions
-                </span><span class="self">self</span>.builder.position_at_end(can_throw_block);
-                <span class="kw">let </span>can_throw_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt; = block_param_types
-                    .iter()
-                    .map(|<span class="kw-2">&amp;</span>ty| <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_phi(ty, <span class="string">""</span>)))
-                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;SmallVec&lt;<span class="kw">_</span>&gt;, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
+                    <span class="kw">let </span>uw_exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_value(res, <span class="number">0</span>, <span class="string">"exc_ptr"</span>));
+                    <span class="kw">let </span>pre_selector =
+                        <span class="macro">err!</span>(<span class="self">self</span>.builder.build_extract_value(res, <span class="number">1</span>, <span class="string">"pre_selector"</span>));
 
-                <span class="kw">for </span>phi <span class="kw">in </span>can_throw_phis.iter() {
-                    <span class="self">self</span>.state.push1(phi.as_basic_value());
+                    <span class="comment">// The pre-selector can be either 0 (for catch-all) or 1 (for a
+                    // specific, but as-yet-unknown tag).
+                    </span><span class="kw">let </span>pre_selector_is_zero = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_int_compare(
+                        IntPredicate::EQ,
+                        pre_selector.into_int_value(),
+                        <span class="self">self</span>.intrinsics.i32_zero,
+                        <span class="string">"pre_selector_is_zero"
+                    </span>));
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_conditional_branch(
+                        pre_selector_is_zero,
+                        catch_all_block,
+                        catch_specific_block
+                    ));
+
+                    <span class="self">self</span>.builder.position_at_end(catch_all_block);
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(catch_end_block));
+
+                    <span class="self">self</span>.builder.position_at_end(catch_specific_block);
+                    <span class="kw">let </span>vmctx_alloca = <span class="macro">err!</span>(<span class="self">self</span>.build_or_get_vmctx_alloca());
+                    <span class="kw">let </span>vmctx_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
+                        <span class="self">self</span>.intrinsics.ptr_ty,
+                        vmctx_alloca,
+                        <span class="string">"vmctx"
+                    </span>));
+                    <span class="kw">let </span>selector_value = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                        <span class="self">self</span>.intrinsics.personality2,
+                        <span class="kw-2">&amp;</span>[vmctx_ptr.into(), uw_exc.into()],
+                        <span class="string">"selector"
+                    </span>));
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(catch_end_block));
+
+                    <span class="self">self</span>.builder.position_at_end(catch_end_block);
+                    <span class="kw">let </span>selector = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_phi(<span class="self">self</span>.intrinsics.i32_ty, <span class="string">"selector"</span>));
+                    selector.add_incoming(<span class="kw-2">&amp;</span>[
+                        (
+                            <span class="kw-2">&amp;</span><span class="self">self
+                                </span>.intrinsics
+                                .i32_ty
+                                .const_int(CATCH_ALL_TAG_VALUE <span class="kw">as </span>u64, <span class="bool-val">false</span>),
+                            catch_all_block,
+                        ),
+                        (
+                            <span class="kw-2">&amp;</span>selector_value
+                                .try_as_basic_value()
+                                .left()
+                                .unwrap()
+                                .into_int_value(),
+                            catch_specific_block,
+                        ),
+                    ]);
+
+                    <span class="comment">// The exception we get at this point is a wrapper around the [`WasmerException`]
+                    // type. This is needed because when we create the exception to pass it to
+                    // libunwind, the exception object needs to begin with a specific set of fields
+                    // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
+                    // fields and we need to pass them back when rethrowing. This to say, we need to
+                    // keep the original exception passed to us by libunwind to be able to rethrow it.
+                    </span><span class="kw">let </span>uw_exc = uw_exc.into_pointer_value();
+                    <span class="kw">let </span>wasmer_exc = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                        <span class="self">self</span>.intrinsics.read_exception,
+                        <span class="kw-2">&amp;</span>[uw_exc.into()],
+                        <span class="string">"wasmer_exc_ptr"
+                    </span>));
+
+                    <span class="kw">let </span>wasmer_exc = wasmer_exc.as_any_value_enum().into_pointer_value();
+                    <span class="kw">let </span>selector = selector.as_basic_value().into_int_value();
+
+                    <span class="kw">for </span>catch <span class="kw">in </span>catches.iter() {
+                        <span class="kw">match </span>catch {
+                            Catch::All { label } =&gt; {
+                                <span class="kw">let </span>b = <span class="self">self
+                                    </span>.context
+                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_all_clause"</span>);
+                                <span class="self">self</span>.builder.position_at_end(b);
+                                <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                                <span class="self">self</span>.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, <span class="prelude-val">None</span>));
+                            }
+                            Catch::One { tag, label } =&gt; {
+                                <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
+                                <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag_idx];
+                                <span class="kw">let </span>params = signature.params();
+
+                                <span class="kw">let </span>b = <span class="self">self
+                                    </span>.context
+                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                                <span class="self">self</span>.builder.position_at_end(b);
+
+                                <span class="kw">let </span>wasmer_exc_phi = <span class="macro">err!</span>(<span class="self">self
+                                    </span>.builder
+                                    .build_phi(<span class="self">self</span>.intrinsics.ptr_ty, <span class="string">"wasmer_exc_phi"</span>));
+                                wasmer_exc_phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>wasmer_exc, catch_end_block)]);
+
+                                <span class="comment">// Get the type of the exception.
+                                </span><span class="kw">let </span>inner_exc_ty =
+                                    <span class="self">self</span>.get_or_insert_exception_type(<span class="kw-2">*</span>tag, signature)<span class="question-mark">?</span>;
+
+                                <span class="comment">// Cast the outer exception - a pointer - to a pointer to a struct of
+                                // type WasmerException.
+                                // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                                //     exc,
+                                //     self.intrinsics.exc_ty,
+                                //     "wasmer_exc_ptr"
+                                // ));
+                                //
+                                // Not actually needed, since ptr is a single, unique type.
+
+                                // Points at the `data` field of the exception.
+                                </span><span class="kw">let </span>wasmer_exc_data_ptr_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                    <span class="self">self</span>.intrinsics.exc_ty,
+                                    wasmer_exc_phi.as_basic_value().into_pointer_value(),
+                                    <span class="number">1</span>,
+                                    <span class="string">"wasmer_exc_data_ptr_ptr"
+                                </span>));
+
+                                <span class="kw">let </span>wasmer_exc_data_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
+                                    <span class="self">self</span>.intrinsics.ptr_ty,
+                                    wasmer_exc_data_ptr_ptr,
+                                    <span class="string">"wasmer_exc_data_ptr"
+                                </span>));
+
+                                <span class="kw">let </span>wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                                <span class="comment">// Read each value from the data ptr.
+                                </span><span class="kw">let </span>values = params
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, v)| {
+                                        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"value{i}"</span>);
+                                        <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                            inner_exc_ty,
+                                            wasmer_exc_data_ptr,
+                                            i <span class="kw">as </span>u32,
+                                            <span class="kw-2">&amp;</span>(name.clone() + <span class="string">"ptr"</span>)
+                                        ));
+                                        <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_load(
+                                            type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v)<span class="question-mark">?</span>,
+                                            ptr,
+                                            <span class="kw-2">&amp;</span>name,
+                                        ))
+                                    })
+                                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
+
+                                <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                                <span class="comment">// todo: check that the types are compatible
+
+                                </span><span class="kw">for </span>(phi, value) <span class="kw">in </span>frame.phis().iter().zip(values.iter()) {
+                                    phi.add_incoming(<span class="kw-2">&amp;</span>[(value, b)])
+                                }
+
+                                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                                <span class="self">self</span>.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, <span class="prelude-val">Some</span>(wasmer_exc_phi)));
+                            }
+                            Catch::OneRef { label, tag } =&gt; {
+                                <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
+                                <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag_idx];
+                                <span class="kw">let </span>params = signature.params();
+
+                                <span class="kw">let </span>b = <span class="self">self
+                                    </span>.context
+                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                                <span class="self">self</span>.builder.position_at_end(b);
+
+                                <span class="kw">let </span>wasmer_exc_phi = <span class="macro">err!</span>(<span class="self">self
+                                    </span>.builder
+                                    .build_phi(<span class="self">self</span>.intrinsics.ptr_ty, <span class="string">"wasmer_exc_phi"</span>));
+                                wasmer_exc_phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>wasmer_exc, catch_end_block)]);
+
+                                <span class="comment">// Get the type of the exception.
+                                </span><span class="kw">let </span>inner_exc_ty =
+                                    <span class="self">self</span>.get_or_insert_exception_type(<span class="kw-2">*</span>tag, signature)<span class="question-mark">?</span>;
+
+                                <span class="comment">// Cast the outer exception - a pointer - to a pointer to a struct of
+                                // type WasmerException.
+                                // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
+                                //     exc,
+                                //     self.intrinsics.exc_ty,
+                                //     "wasmer_exc_ptr"
+                                // ));
+                                //
+                                // Not actually needed, since ptr is a single, unique type.
+
+                                // Points at the `data` field of the exception.
+                                </span><span class="kw">let </span>wasmer_exc_data_ptr_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                    <span class="self">self</span>.intrinsics.exc_ty,
+                                    wasmer_exc_phi.as_basic_value().into_pointer_value(),
+                                    <span class="number">1</span>,
+                                    <span class="string">"wasmer_exc_data_ptr"
+                                </span>));
+
+                                <span class="kw">let </span>wasmer_exc_data_ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_load(
+                                    <span class="self">self</span>.intrinsics.ptr_ty,
+                                    wasmer_exc_data_ptr_ptr,
+                                    <span class="string">"wasmer_exc_data_ptr"
+                                </span>));
+
+                                <span class="kw">let </span>wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+
+                                <span class="comment">// Read each value from the data ptr.
+                                </span><span class="kw">let </span><span class="kw-2">mut </span>values = params
+                                    .iter()
+                                    .enumerate()
+                                    .map(|(i, v)| {
+                                        <span class="kw">let </span>name = <span class="macro">format!</span>(<span class="string">"value{i}"</span>);
+                                        <span class="kw">let </span>ptr = <span class="macro">err!</span>(<span class="self">self</span>.builder.build_struct_gep(
+                                            inner_exc_ty,
+                                            wasmer_exc_data_ptr,
+                                            i <span class="kw">as </span>u32,
+                                            <span class="kw-2">&amp;</span>(name.clone() + <span class="string">"ptr"</span>)
+                                        ));
+                                        <span class="macro">err_nt!</span>(<span class="self">self</span>.builder.build_load(
+                                            type_to_llvm(<span class="self">self</span>.intrinsics, <span class="kw-2">*</span>v)<span class="question-mark">?</span>,
+                                            ptr,
+                                            <span class="kw-2">&amp;</span>name,
+                                        ))
+                                    })
+                                    .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
+
+                                values.push(uw_exc.as_basic_value_enum());
+
+                                <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                                <span class="comment">// todo: check that the types are compatible
+
+                                </span><span class="kw">for </span>(phi, value) <span class="kw">in </span>frame.phis().iter().zip(values.iter()) {
+                                    phi.add_incoming(<span class="kw-2">&amp;</span>[(value, b)])
+                                }
+
+                                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                                <span class="self">self</span>.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, <span class="prelude-val">Some</span>(wasmer_exc_phi)));
+                            }
+                            Catch::AllRef { label } =&gt; {
+                                <span class="kw">let </span>b = <span class="self">self
+                                    </span>.context
+                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                                <span class="self">self</span>.builder.position_at_end(b);
+
+                                <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
+
+                                <span class="kw">let </span>phis = frame.phis();
+
+                                <span class="comment">// sanity check (todo): check that the phi has only one element
+
+                                </span><span class="kw">for </span>phi <span class="kw">in </span>phis.iter() {
+                                    phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc.as_basic_value_enum(), b)])
+                                }
+
+                                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
+
+                                <span class="self">self</span>.builder.position_at_end(catch_end_block);
+                                catch_blocks.push((b, <span class="prelude-val">None</span>));
+                            }
+                        }
+                    }
+
+                    <span class="kw">for </span>catch_info <span class="kw">in </span><span class="kw-2">&amp;</span>outer_catch_blocks {
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(phi) = catch_info.wasmer_exc_phi {
+                            phi.add_incoming(<span class="kw-2">&amp;</span>[(
+                                <span class="kw-2">&amp;</span>wasmer_exc.as_basic_value_enum(),
+                                catch_end_block,
+                            )]);
+                        }
+                    }
+
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_switch(
+                        selector,
+                        rethrow_block,
+                        catch_blocks
+                            .iter()
+                            .enumerate()
+                            .map(|(i, v)| (
+                                <span class="self">self</span>.intrinsics
+                                    .i32_ty
+                                    .const_int(catch_tag_values[i] <span class="kw">as _</span>, <span class="bool-val">false</span>),
+                                v.<span class="number">0
+                            </span>))
+                            .chain(outer_catch_blocks.iter().map(|catch_info| (
+                                <span class="self">self</span>.intrinsics.i32_ty.const_int(catch_info.tag <span class="kw">as _</span>, <span class="bool-val">false</span>),
+                                catch_info.catch_block
+                            )))
+                            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+                            .as_slice()
+                    ));
+
+                    <span class="comment">// -- end
+
+                    // -- The rethrow block
+                    </span><span class="self">self</span>.builder.position_at_end(rethrow_block);
+
+                    <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                        <span class="self">self</span>.intrinsics.rethrow,
+                        <span class="kw-2">&amp;</span>[uw_exc.into()],
+                        <span class="string">"rethrow"
+                    </span>));
+                    <span class="comment">// can't reach after an explicit throw!
+                    </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_unreachable());
+
+                    maybe_lpad_block = <span class="prelude-val">Some</span>(lpad_block);
                 }
 
+                <span class="comment">// Move back to current block
+                </span><span class="self">self</span>.builder.position_at_end(current_block);
+
+                <span class="comment">// Note: catch_tag_values also containes outer tags, but zipping with
+                // catch_blocks will let us ignore the extra ones.
+                </span><span class="kw">let </span>catch_tags_and_blocks = catch_tag_values
+                    .into_iter()
+                    .zip(catch_blocks)
+                    .map(|(tag, (block, wasmer_exc_phi))| TagCatchInfo {
+                        tag,
+                        catch_block: block,
+                        wasmer_exc_phi,
+                    })
+                    .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
                 <span class="self">self</span>.state.push_landingpad(
-                    catch_block,
-                    can_throw_block,
-                    can_throw_phis,
+                    maybe_lpad_block,
                     end_block,
                     end_phis,
-                    <span class="kw-2">&amp;</span>tags,
+                    <span class="kw-2">&amp;</span>catch_tags_and_blocks,
                 );
             }
             Operator::Throw { tag_index } =&gt; {
@@ -25782,6 +25979,12 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                 <span class="kw">let </span>signature = <span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.signatures[tag];
                 <span class="kw">let </span>params = signature.params();
                 <span class="kw">let </span>values = <span class="self">self</span>.state.popn_save_extra(params.len())<span class="question-mark">?</span>;
+
+                <span class="kw">let </span>vmctx_alloca = <span class="macro">err!</span>(<span class="self">self</span>.build_or_get_vmctx_alloca());
+                <span class="kw">let </span>vmctx_ptr =
+                    <span class="macro">err!</span>(<span class="self">self
+                        </span>.builder
+                        .build_load(<span class="self">self</span>.intrinsics.ptr_ty, vmctx_alloca, <span class="string">"vmctx"</span>));
 
                 values.iter().enumerate().try_for_each(|(i, (v, <span class="kw">_</span>))| {
                     <span class="kw">let </span>t = type_to_llvm(<span class="self">self</span>.intrinsics, params[i])<span class="question-mark">?</span>;
@@ -25820,8 +26023,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="macro">err!</span>(<span class="self">self</span>.builder.build_store(ptr, value.<span class="number">0</span>));
                 }
 
-                <span class="kw">let </span>encoded_tag = <span class="self">self</span>.encode_tag(tag_index);
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(pad) = <span class="self">self</span>.state.get_landingpad_for_tag(tag_index) {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(pad) = <span class="self">self</span>.state.get_innermost_landingpad() {
                     <span class="kw">let </span>unreachable_block = <span class="self">self
                         </span>.context
                         .append_basic_block(<span class="self">self</span>.function, <span class="string">"_throw_unreachable"</span>);
@@ -25830,9 +26032,10 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                         <span class="self">self</span>.intrinsics.throw,
                         <span class="kw-2">&amp;</span>[
                             <span class="self">self</span>.intrinsics
-                                .i64_ty
-                                .const_int(encoded_tag <span class="kw">as _</span>, <span class="bool-val">false</span>)
+                                .i32_ty
+                                .const_int(tag_index <span class="kw">as _</span>, <span class="bool-val">false</span>)
                                 .into(),
+                            vmctx_ptr,
                             exc.into(),
                             size.into()
                         ],
@@ -25850,10 +26053,13 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
                         <span class="self">self</span>.intrinsics.throw,
                         <span class="kw-2">&amp;</span>[
-                            <span class="self">self</span>.intrinsics
-                                .i64_ty
-                                .const_int(encoded_tag <span class="kw">as _</span>, <span class="bool-val">false</span>)
+                            <span class="comment">// We pass in the module-local tag index, but it'll be translated
+                            // to a store-unique index in the `throw` intrinsic.
+                            </span><span class="self">self</span>.intrinsics
+                                .i32_ty
+                                .const_int(tag_index <span class="kw">as _</span>, <span class="bool-val">false</span>)
                                 .into(),
+                            vmctx_ptr.into(),
                             exc.into(),
                             size.into()
                         ],
@@ -25873,7 +26079,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
 
                 <span class="kw">let </span>exc = <span class="self">self</span>.state.pop1()<span class="question-mark">?</span>;
 
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(pad) = <span class="self">self</span>.state.get_landingpad() {
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(pad) = <span class="self">self</span>.state.get_innermost_landingpad() {
                     <span class="kw">let </span>unreachable_block = <span class="self">self
                         </span>.context
                         .append_basic_block(<span class="self">self</span>.function, <span class="string">"_rethrow_unreachable"</span>);

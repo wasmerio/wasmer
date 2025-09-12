@@ -412,7 +412,29 @@
 <a href="#411" id="411">411</a>
 <a href="#412" id="412">412</a>
 <a href="#413" id="413">413</a>
-<a href="#414" id="414">414</a></pre></div><pre class="rust"><code><span class="doccomment">//! Parsing of GCC-style Language-Specific Data Area (LSDA)
+<a href="#414" id="414">414</a>
+<a href="#415" id="415">415</a>
+<a href="#416" id="416">416</a>
+<a href="#417" id="417">417</a>
+<a href="#418" id="418">418</a>
+<a href="#419" id="419">419</a>
+<a href="#420" id="420">420</a>
+<a href="#421" id="421">421</a>
+<a href="#422" id="422">422</a>
+<a href="#423" id="423">423</a>
+<a href="#424" id="424">424</a>
+<a href="#425" id="425">425</a>
+<a href="#426" id="426">426</a>
+<a href="#427" id="427">427</a>
+<a href="#428" id="428">428</a>
+<a href="#429" id="429">429</a>
+<a href="#430" id="430">430</a>
+<a href="#431" id="431">431</a>
+<a href="#432" id="432">432</a>
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a></pre></div><pre class="rust"><code><span class="doccomment">//! Parsing of GCC-style Language-Specific Data Area (LSDA)
 //! For details se*const ():
 //!  * &lt;https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html&gt;
 //!  * &lt;https://refspecs.linuxfoundation.org/LSB_5.0.0/LSB-Core-generic/LSB-Core-generic/dwarfext.html&gt;
@@ -458,7 +480,6 @@
     </span><span class="kw">pub </span>func_start: <span class="kw-2">*const </span>u8,                     <span class="comment">// Pointer to the current function
     </span><span class="kw">pub </span>get_text_start: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn() -&gt; <span class="kw-2">*const </span>u8, <span class="comment">// Get pointer to the code section
     </span><span class="kw">pub </span>get_data_start: <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="kw">dyn </span>Fn() -&gt; <span class="kw-2">*const </span>u8, <span class="comment">// Get pointer to the data section
-    </span><span class="kw">pub </span>tag: u64,                                  <span class="comment">// The tag associated with the WasmerException
 </span>}
 
 <span class="doccomment">/// Landing pad.
@@ -467,9 +488,9 @@
 <span class="attr">#[derive(Debug, Clone)]
 </span><span class="kw">pub enum </span>EHAction {
     <span class="prelude-val">None</span>,
-    Cleanup(LPad),
-    Catch { lpad: LPad, tag: u64 },
-    Filter { lpad: LPad, tag: u64 },
+    CatchAll { lpad: LPad },
+    CatchSpecific { lpad: LPad, tags: Vec&lt;u32&gt; },
+    CatchSpecificOrAll { lpad: LPad, tags: Vec&lt;u32&gt; },
     Terminate,
 }
 
@@ -584,11 +605,13 @@
                         <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::None);
                     } <span class="kw">else </span>{
                         <span class="kw">let </span>lpad = lpad_base.wrapping_add(cs_lpad);
+                        <span class="kw">let </span><span class="kw-2">mut </span>catches = <span class="macro">vec!</span>[];
 
                         <span class="macro">log!</span>(<span class="string">"(pers) lpad sits at {lpad:?}"</span>);
 
                         <span class="kw">if </span>cs_action_entry == <span class="number">0 </span>{
-                            <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Cleanup(lpad));
+                            <span class="comment">// We don't generate cleanup clauses, so this can't happen
+                            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Terminate);
                         }
 
                         <span class="macro">log!</span>(<span class="string">"(pers) read cs_action_entry: {cs_action_entry}"</span>);
@@ -636,22 +659,43 @@
                                 <span class="kw">let </span>tag_ptr = tag_ptr.unwrap();
 
                                 <span class="kw">if </span>tag_ptr.is_null() {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Catch { lpad, tag: <span class="number">0 </span>});
+                                    <span class="kw">if </span>catches.is_empty() {
+                                        <span class="comment">// No specifics so far, so we definitely have a catch-all we should use
+                                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::CatchAll { lpad });
+                                    } <span class="kw">else </span>{
+                                        <span class="comment">// We do have catch clauses that *may* need to be used, so we must
+                                        // defer to phase 2 anyway, but this catch-all will be used if
+                                        // none of those clauses match, so we can return early.
+                                        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::CatchSpecificOrAll {
+                                            lpad,
+                                            tags: catches,
+                                        });
+                                    }
                                 }
 
-                                <span class="kw">let </span>tag = std::mem::transmute::&lt;<span class="kw-2">*const </span>u8, <span class="kw-2">*const </span>u64&gt;(tag_ptr)
+                                <span class="kw">let </span>tag = std::mem::transmute::&lt;<span class="kw-2">*const </span>u8, <span class="kw-2">*const </span>u32&gt;(tag_ptr)
                                     .read_unaligned();
 
-                                <span class="kw">if </span>context.tag == tag {
-                                    <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Catch { lpad, tag });
-                                }
+                                <span class="macro">log!</span>(<span class="string">"(pers) read tag {tag:?}"</span>);
+
+                                <span class="comment">// Since we don't know what this tag corresponds to, we must defer
+                                // the decision to the second phase.
+                                </span>catches.push(tag);
                             } <span class="kw">else if </span>ttype_index == <span class="number">0 </span>{
-                                <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Cleanup(lpad));
+                                <span class="comment">// We don't create cleanup clauses, so this can't happen
+                                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::Terminate);
                             }
 
                             <span class="kw">let </span>action_offset = reader.clone().read_sleb128();
                             <span class="kw">if </span>action_offset == <span class="number">0 </span>{
-                                <span class="kw">return </span><span class="prelude-val">Ok</span>(EHAction::None);
+                                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="kw">if </span>catches.is_empty() {
+                                    EHAction::None
+                                } <span class="kw">else </span>{
+                                    EHAction::CatchSpecific {
+                                        lpad,
+                                        tags: catches,
+                                    }
+                                });
                             }
 
                             action = reader.ptr.wrapping_add(action_offset <span class="kw">as </span>usize);

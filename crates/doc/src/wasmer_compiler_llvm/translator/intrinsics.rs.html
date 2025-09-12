@@ -2133,7 +2133,16 @@
 <a href="#2132" id="2132">2132</a>
 <a href="#2133" id="2133">2133</a>
 <a href="#2134" id="2134">2134</a>
-<a href="#2135" id="2135">2135</a></pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
+<a href="#2135" id="2135">2135</a>
+<a href="#2136" id="2136">2136</a>
+<a href="#2137" id="2137">2137</a>
+<a href="#2138" id="2138">2138</a>
+<a href="#2139" id="2139">2139</a>
+<a href="#2140" id="2140">2140</a>
+<a href="#2141" id="2141">2141</a>
+<a href="#2142" id="2142">2142</a>
+<a href="#2143" id="2143">2143</a>
+<a href="#2144" id="2144">2144</a></pre></div><pre class="rust"><code><span class="doccomment">//! Code for dealing with [LLVM][llvm-intrinsics] and VM intrinsics.
 //!
 //! VM intrinsics are used to interact with the host VM.
 //!
@@ -2288,6 +2297,7 @@
     <span class="kw">pub </span>debug_trap: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
 
     <span class="kw">pub </span>personality: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
+    <span class="kw">pub </span>personality2: FunctionValue&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="kw">pub </span>readonly: Attribute,
     <span class="kw">pub </span>stack_probe: Attribute,
     <span class="kw">pub </span>uwtable: Attribute,
@@ -2854,6 +2864,11 @@
                 ),
                 <span class="prelude-val">None</span>,
             ),
+            personality2: module.add_function(
+                <span class="string">"wasmer_eh_personality2"</span>,
+                i32_ty.fn_type(<span class="kw-2">&amp;</span>[ptr_ty.into(), ptr_ty.into()], <span class="bool-val">false</span>),
+                <span class="prelude-val">None</span>,
+            ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id(<span class="string">"readonly"</span>), <span class="number">0</span>),
             stack_probe: context.create_string_attribute(<span class="string">"probe-stack"</span>, <span class="string">"inline-asm"</span>),
@@ -3157,7 +3172,10 @@
 
             throw: module.add_function(
                 <span class="string">"wasmer_vm_throw"</span>,
-                void_ty.fn_type(<span class="kw-2">&amp;</span>[i64_ty.into(), ptr_ty.into(), i64_ty.into()], <span class="bool-val">false</span>),
+                void_ty.fn_type(
+                    <span class="kw-2">&amp;</span>[i32_ty.into(), ptr_ty.into(), ptr_ty.into(), i64_ty.into()],
+                    <span class="bool-val">false</span>,
+                ),
                 <span class="prelude-val">None</span>,
             ),
             rethrow: module.add_function(

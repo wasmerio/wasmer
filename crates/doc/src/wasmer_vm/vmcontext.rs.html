@@ -839,33 +839,7 @@
 <a href="#838" id="838">838</a>
 <a href="#839" id="839">839</a>
 <a href="#840" id="840">840</a>
-<a href="#841" id="841">841</a>
-<a href="#842" id="842">842</a>
-<a href="#843" id="843">843</a>
-<a href="#844" id="844">844</a>
-<a href="#845" id="845">845</a>
-<a href="#846" id="846">846</a>
-<a href="#847" id="847">847</a>
-<a href="#848" id="848">848</a>
-<a href="#849" id="849">849</a>
-<a href="#850" id="850">850</a>
-<a href="#851" id="851">851</a>
-<a href="#852" id="852">852</a>
-<a href="#853" id="853">853</a>
-<a href="#854" id="854">854</a>
-<a href="#855" id="855">855</a>
-<a href="#856" id="856">856</a>
-<a href="#857" id="857">857</a>
-<a href="#858" id="858">858</a>
-<a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#841" id="841">841</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! This file declares `VMContext` and several related structs which contain
@@ -876,9 +850,9 @@
 <span class="kw">use </span><span class="kw">crate</span>::memory::VMMemory;
 <span class="kw">use </span><span class="kw">crate</span>::store::InternalStoreHandle;
 <span class="kw">use </span><span class="kw">crate</span>::trap::{Trap, TrapCode};
+<span class="kw">use </span><span class="kw">crate</span>::VMFunctionBody;
 <span class="kw">use </span><span class="kw">crate</span>::VMTable;
 <span class="kw">use crate</span>::{VMBuiltinFunctionIndex, VMFunction};
-<span class="kw">use crate</span>::{VMFunctionBody, VMTag};
 <span class="kw">use </span>std::convert::TryFrom;
 <span class="kw">use </span>std::ptr::{<span class="self">self</span>, NonNull};
 <span class="kw">use </span>std::sync::atomic::{AtomicPtr, Ordering};
@@ -1124,51 +1098,7 @@
     }
 }
 
-<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly tag
-/// variable imported from another instance.
-</span><span class="attr">#[derive(Clone)]
-#[repr(C)]
-</span><span class="kw">pub struct </span>VMTagImport {
-    <span class="doccomment">/// A handle to the `Tag` that owns the tag description.
-    </span><span class="kw">pub </span>handle: InternalStoreHandle&lt;VMTag&gt;,
-}
-
-<span class="doccomment">/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize. Additionally, all operations
-/// on `from` are thread-safe through the use of a mutex in [`VMTag`].
-</span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMTagImport {}
-<span class="doccomment">/// # Safety
-/// This data is safe to share between threads because it's plain data that
-/// is the user's responsibility to synchronize. And because it's `Clone`, there's
-/// really no difference between passing it by reference or by value as far as
-/// correctness in a multi-threaded context is concerned.
-</span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMTagImport {}
-
-<span class="comment">//#[cfg(test)]
-//mod test_vmtag_import {
-//    use super::VMTagImport;
-//    use crate::VMOffsets;
-//    use memoffset::offset_of;
-//    use std::mem::size_of;
-//    use wasmer_types::ModuleInfo;
-//
-//    #[test]
-//    fn check_vmtag_import_offsets() {
-//        let module = ModuleInfo::new();
-//        let offsets = VMOffsets::new(size_of::&lt;*mut u8&gt;() as u8, &amp;module);
-//        assert_eq!(
-//            size_of::&lt;VMTagImport&gt;(),
-//            usize::from(offsets.size_of_vmtag_import())
-//        );
-//        assert_eq!(
-//            offset_of!(VMTagImport, handle),
-//            usize::from(offsets.vmtag_import_definition())
-//        );
-//    }
-//}
-
-</span><span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global
+<span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
 </span><span class="attr">#[derive(Clone)]
 #[repr(C)]
@@ -1443,6 +1373,24 @@
             val: Default::default(),
         }
     }
+}
+
+<span class="doccomment">/// A tag index, unique within the Store in which the instance was created.
+/// Usable for translating module-local tag indices to store-unique ones.
+</span><span class="attr">#[repr(C)]
+#[cfg_attr(feature = <span class="string">"artifact-size"</span>, derive(loupe::MemoryUsage))]
+</span><span class="kw">pub struct </span>VMSharedTagIndex(u32);
+
+<span class="kw">impl </span>VMSharedTagIndex {
+    <span class="doccomment">/// Create a new `VMSharedTagIndex`.
+    </span><span class="kw">pub fn </span>new(value: u32) -&gt; <span class="self">Self </span>{
+        <span class="self">Self</span>(value)
+    }
+
+    <span class="doccomment">/// Get the inner value.
+    </span><span class="kw">pub fn </span>index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.<span class="number">0
+    </span>}
 }
 
 <span class="doccomment">/// An index into the shared signature registry, usable for checking signatures

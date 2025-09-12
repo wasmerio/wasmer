@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ControlFrame","IfElseState"],"struct":["ExtraInfo","Landingpad","State"]};
+window.SIDEBAR_ITEMS = {"enum":["ControlFrame","IfElseState"],"struct":["ExtraInfo","Landingpad","State","TagCatchInfo"]};

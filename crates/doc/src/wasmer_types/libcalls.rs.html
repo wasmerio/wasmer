@@ -223,7 +223,10 @@
 <a href="#222" id="222">222</a>
 <a href="#223" id="223">223</a>
 <a href="#224" id="224">224</a>
-<a href="#225" id="225">225</a></pre></div><pre class="rust"><code><span class="kw">use </span>enum_iterator::IntoEnumIterator;
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a></pre></div><pre class="rust"><code><span class="kw">use </span>enum_iterator::IntoEnumIterator;
 <span class="kw">use </span>rkyv::{Archive, Deserialize <span class="kw">as </span>RkyvDeserialize, Serialize <span class="kw">as </span>RkyvSerialize};
 <span class="attr">#[cfg(feature = <span class="string">"enable-serde"</span>)]
 </span><span class="kw">use </span>serde::{Deserialize, Serialize};
@@ -378,6 +381,8 @@
 
     <span class="doccomment">/// The personality function
     </span>EHPersonality,
+    <span class="doccomment">/// The second stage of the EH personality function
+    </span>EHPersonality2,
 
     <span class="doccomment">/// debug_usize
     </span>DebugUsize,
@@ -434,6 +439,7 @@
             <span class="self">Self</span>::Throw =&gt; <span class="string">"wasmer_vm_throw"</span>,
             <span class="self">Self</span>::Rethrow =&gt; <span class="string">"wasmer_vm_rethrow"</span>,
             <span class="self">Self</span>::EHPersonality =&gt; <span class="string">"wasmer_eh_personality"</span>,
+            <span class="self">Self</span>::EHPersonality2 =&gt; <span class="string">"wasmer_eh_personality2"</span>,
             <span class="self">Self</span>::AllocException =&gt; <span class="string">"wasmer_vm_alloc_exception"</span>,
             <span class="self">Self</span>::DeleteException =&gt; <span class="string">"wasmer_vm_delete_exception"</span>,
             <span class="self">Self</span>::ReadException =&gt; <span class="string">"wasmer_vm_read_exception"</span>,

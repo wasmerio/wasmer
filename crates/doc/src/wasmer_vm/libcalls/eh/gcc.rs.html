@@ -198,7 +198,144 @@
 <a href="#197" id="197">197</a>
 <a href="#198" id="198">198</a>
 <a href="#199" id="199">199</a>
-<a href="#200" id="200">200</a></pre></div><pre class="rust"><code><span class="kw">use </span>libunwind <span class="kw">as </span>uw;
+<a href="#200" id="200">200</a>
+<a href="#201" id="201">201</a>
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a>
+<a href="#226" id="226">226</a>
+<a href="#227" id="227">227</a>
+<a href="#228" id="228">228</a>
+<a href="#229" id="229">229</a>
+<a href="#230" id="230">230</a>
+<a href="#231" id="231">231</a>
+<a href="#232" id="232">232</a>
+<a href="#233" id="233">233</a>
+<a href="#234" id="234">234</a>
+<a href="#235" id="235">235</a>
+<a href="#236" id="236">236</a>
+<a href="#237" id="237">237</a>
+<a href="#238" id="238">238</a>
+<a href="#239" id="239">239</a>
+<a href="#240" id="240">240</a>
+<a href="#241" id="241">241</a>
+<a href="#242" id="242">242</a>
+<a href="#243" id="243">243</a>
+<a href="#244" id="244">244</a>
+<a href="#245" id="245">245</a>
+<a href="#246" id="246">246</a>
+<a href="#247" id="247">247</a>
+<a href="#248" id="248">248</a>
+<a href="#249" id="249">249</a>
+<a href="#250" id="250">250</a>
+<a href="#251" id="251">251</a>
+<a href="#252" id="252">252</a>
+<a href="#253" id="253">253</a>
+<a href="#254" id="254">254</a>
+<a href="#255" id="255">255</a>
+<a href="#256" id="256">256</a>
+<a href="#257" id="257">257</a>
+<a href="#258" id="258">258</a>
+<a href="#259" id="259">259</a>
+<a href="#260" id="260">260</a>
+<a href="#261" id="261">261</a>
+<a href="#262" id="262">262</a>
+<a href="#263" id="263">263</a>
+<a href="#264" id="264">264</a>
+<a href="#265" id="265">265</a>
+<a href="#266" id="266">266</a>
+<a href="#267" id="267">267</a>
+<a href="#268" id="268">268</a>
+<a href="#269" id="269">269</a>
+<a href="#270" id="270">270</a>
+<a href="#271" id="271">271</a>
+<a href="#272" id="272">272</a>
+<a href="#273" id="273">273</a>
+<a href="#274" id="274">274</a>
+<a href="#275" id="275">275</a>
+<a href="#276" id="276">276</a>
+<a href="#277" id="277">277</a>
+<a href="#278" id="278">278</a>
+<a href="#279" id="279">279</a>
+<a href="#280" id="280">280</a>
+<a href="#281" id="281">281</a>
+<a href="#282" id="282">282</a>
+<a href="#283" id="283">283</a>
+<a href="#284" id="284">284</a>
+<a href="#285" id="285">285</a>
+<a href="#286" id="286">286</a>
+<a href="#287" id="287">287</a>
+<a href="#288" id="288">288</a>
+<a href="#289" id="289">289</a>
+<a href="#290" id="290">290</a>
+<a href="#291" id="291">291</a>
+<a href="#292" id="292">292</a>
+<a href="#293" id="293">293</a>
+<a href="#294" id="294">294</a>
+<a href="#295" id="295">295</a>
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a></pre></div><pre class="rust"><code><span class="doccomment">//! Implementation of personality function and unwinding support for Wasmer.
+//!
+//! On a native platform, when an exception is thrown, the type info of the
+//! exception is known, and can be matched against the LSDA table within the
+//! personality function (e.g. __gxx_personality_v0 for Itanium ABI).
+//!
+//! However, in WASM, the exception "type" can change between compilation
+//! and instantiation because tags can be imported from other modules. Also,
+//! a single module can be instantiated many times, but all instances share
+//! the same code, differing only in their VMContext data. This means that,
+//! to be able to match the thrown exception against the expected tag in
+//! catch clauses, we need to go through the VMContext of the specific instance
+//! to which the stack frame belongs; nothing else can tell us exactly which
+//! instance we're currently looking at, including the IP which will be the
+//! same for all instances of the same module.
+//!
+//! To achieve this, we use a two-stage personality function. The first stage
+//! is the normal personality function which is called by libunwind; this
+//! function always catches the exception as long as it's a Wasmer exception,
+//! without looking at the specific tags. Afterwards, control is transferred
+//! to the module's landing pad, which can load its VMContext and pass it to
+//! the second stage of the personality function. Afterwards, the second stage
+//! can take the "local tag number" (the tag index as seen from the WASM
+//! module's point of view) from the LSDA and translate it to the unique tag
+//! within the Store, and match that against the thrown exception's tag.
+//!
+//! The throw function also uses the VMContext of its own instance to get the
+//! unique tag from the Store, and uses that as the final exception tag.
+//!
+//! It's important to note that we can't count on libunwind behaving properly
+//! if we make calls from the second stage of the personality function; this is
+//! why the first stage has to extract all the data necessary for the second
+//! stage and place it in the exception object. The second stage will clear
+//! out the data before returning, so further stack frames will not get stale
+//! data by mistake.
+
+</span><span class="kw">use </span>libunwind <span class="kw">as </span>uw;
+<span class="kw">use </span>wasmer_types::TagIndex;
+
+<span class="kw">use </span><span class="kw">crate</span>::VMContext;
 
 <span class="kw">use </span><span class="kw">super</span>::dwarf::eh::{<span class="self">self</span>, EHAction, EHContext};
 
@@ -208,15 +345,31 @@
 </span><span class="kw">static </span>CANARY: u8 = <span class="number">0</span>;
 <span class="kw">const </span>WASMER_EXCEPTION_CLASS: uw::_Unwind_Exception_Class = u64::from_ne_bytes(<span class="kw-2">*</span><span class="string">b"WMERWASM"</span>);
 
+<span class="kw">const </span>CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
+<span class="comment">// This constant is not reflected in the generated code, but the switch block
+// has a default action of rethrowing the exception, which this value should
+// trigger.
+</span><span class="kw">const </span>NO_MATCH_FOUND_TAG_VALUE: i32 = i32::MAX - <span class="number">1</span>;
+
 <span class="attr">#[repr(C)]
 </span><span class="kw">pub struct </span>UwExceptionWrapper {
     <span class="kw">pub </span>_uwe: uw::_Unwind_Exception,
     <span class="kw">pub </span>canary: <span class="kw-2">*const </span>u8,
     <span class="kw">pub </span>cause: Box&lt;<span class="kw">dyn </span>std::any::Any + Send&gt;,
+
+    <span class="comment">// First stage -&gt; second stage communication
+    </span><span class="kw">pub </span>current_frame_info: <span class="prelude-ty">Option</span>&lt;Box&lt;CurrentFrameInfo&gt;&gt;,
+}
+
+<span class="attr">#[repr(C)]
+</span><span class="kw">pub struct </span>CurrentFrameInfo {
+    <span class="kw">pub </span>exception_tag: u32,
+    <span class="kw">pub </span>catch_tags: Vec&lt;u32&gt;,
+    <span class="kw">pub </span>has_catch_all: bool,
 }
 
 <span class="kw">impl </span>UwExceptionWrapper {
-    <span class="kw">pub fn </span>new(tag: u64, data_ptr: usize, data_size: u64) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(tag: u32, data_ptr: usize, data_size: u64) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             _uwe: uw::_Unwind_Exception {
                 exception_class: WASMER_EXCEPTION_CLASS,
@@ -230,6 +383,7 @@
                 data_ptr,
                 data_size,
             }),
+            current_frame_info: <span class="prelude-val">None</span>,
         }
     }
 }
@@ -238,13 +392,14 @@
 #[derive(Debug, thiserror::Error, Clone)]
 #[error(<span class="string">"Uncaught exception in wasm code!"</span>)]
 </span><span class="kw">pub struct </span>WasmerException {
-    <span class="kw">pub </span>tag: u64,
+    <span class="comment">// This is the store-unique tag index.
+    </span><span class="kw">pub </span>tag: u32,
     <span class="kw">pub </span>data_ptr: usize,
     <span class="kw">pub </span>data_size: u64,
 }
 
 <span class="kw">impl </span>WasmerException {
-    <span class="kw">pub fn </span>new(tag: u64, data_ptr: usize, data_size: u64) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>new(tag: u32, data_ptr: usize, data_size: u64) -&gt; <span class="self">Self </span>{
         <span class="self">Self </span>{
             tag,
             data_ptr,
@@ -299,7 +454,7 @@
             }
         };
 
-        <span class="kw">let </span>eh_action = <span class="kw">match </span>find_eh_action(context, wasmer_exc.tag) {
+        <span class="kw">let </span>eh_action = <span class="kw">match </span>find_eh_action(context) {
             <span class="prelude-val">Ok</span>(action) =&gt; action,
             <span class="prelude-val">Err</span>(<span class="kw">_</span>) =&gt; {
                 <span class="kw">return </span>uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
@@ -308,33 +463,36 @@
 
         <span class="kw">if </span>actions <span class="kw">as </span>i32 &amp; uw::_Unwind_Action__UA_SEARCH_PHASE <span class="kw">as </span>i32 != <span class="number">0 </span>{
             <span class="kw">match </span>eh_action {
-                EHAction::None | EHAction::Cleanup(<span class="kw">_</span>) =&gt; {
-                    uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND
-                }
-                EHAction::Catch { .. } | EHAction::Filter { .. } =&gt; {
-                    uw::_Unwind_Reason_Code__URC_HANDLER_FOUND
-                }
+                EHAction::None =&gt; uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
+                EHAction::CatchAll { .. }
+                | EHAction::CatchSpecific { .. }
+                | EHAction::CatchSpecificOrAll { .. } =&gt; uw::_Unwind_Reason_Code__URC_HANDLER_FOUND,
                 EHAction::Terminate =&gt; uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR,
             }
         } <span class="kw">else </span>{
+            <span class="comment">// For the catch-specific vs catch-specific-or-all case below, checked before
+            // we move eh_action out in the match
+            </span><span class="kw">let </span>has_catch_all = <span class="macro">matches!</span>(eh_action, EHAction::CatchSpecificOrAll { .. });
+
             <span class="kw">match </span>eh_action {
                 EHAction::None =&gt; uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
-                <span class="comment">// Forced unwinding hits a terminate action.
-                </span>EHAction::Filter { .. }
-                    <span class="kw">if </span>actions <span class="kw">as </span>i32 &amp; uw::_Unwind_Action__UA_FORCE_UNWIND <span class="kw">as </span>i32 != <span class="number">0 </span>=&gt;
-                {
-                    uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND
-                }
-                EHAction::Cleanup(lpad) =&gt; {
+                EHAction::CatchAll { lpad } =&gt; {
                     uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">0</span>, uw_exc <span class="kw">as _</span>);
-                    uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">0</span>);
+                    <span class="comment">// Zero means immediate catch-all
+                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">0</span>);
                     uw::_Unwind_SetIP(context, lpad <span class="kw">as </span>usize <span class="kw">as _</span>);
                     uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
                 }
-                EHAction::Catch { lpad, tag } | EHAction::Filter { lpad, tag } =&gt; {
+                EHAction::CatchSpecific { lpad, tags }
+                | EHAction::CatchSpecificOrAll { lpad, tags } =&gt; {
+                    (<span class="kw-2">*</span>uw_exc).current_frame_info = <span class="prelude-val">Some</span>(Box::new(CurrentFrameInfo {
+                        exception_tag: wasmer_exc.tag,
+                        catch_tags: tags,
+                        has_catch_all,
+                    }));
                     uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">0</span>, uw_exc <span class="kw">as _</span>);
-                    <span class="attr">#[allow(trivial_numeric_casts)]
-                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, tag <span class="kw">as _</span>);
+                    <span class="comment">// One means enter phase 2
+                    </span>uw::_Unwind_SetGR(context, UNWIND_DATA_REG.<span class="number">1</span>, <span class="number">1</span>);
                     uw::_Unwind_SetIP(context, lpad <span class="kw">as </span>usize <span class="kw">as _</span>);
                     uw::_Unwind_Reason_Code__URC_INSTALL_CONTEXT
                 }
@@ -344,7 +502,40 @@
     }
 }
 
-<span class="kw">unsafe fn </span>find_eh_action(context: <span class="kw-2">*mut </span>uw::_Unwind_Context, tag: u64) -&gt; <span class="prelude-ty">Result</span>&lt;EHAction, ()&gt; {
+<span class="attr">#[no_mangle]
+</span><span class="doccomment">/// The second stage of the  personality function. See module level documentation
+/// for an explanation of the exact procedure used during unwinding.
+///
+/// # Safety
+///
+/// Does pointer accesses, which must be valid.
+</span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasmer_eh_personality2(
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    exception_object: <span class="kw-2">*mut </span>UwExceptionWrapper,
+) -&gt; i32 {
+    <span class="kw">unsafe </span>{
+        <span class="kw">let </span><span class="prelude-val">Some</span>(current_frame_info) = (<span class="kw-2">*</span>exception_object).current_frame_info.take() <span class="kw">else </span>{
+            <span class="comment">// This should never happen
+            </span><span class="macro">unreachable!</span>(<span class="string">"wasmer_eh_personality2 called without current_frame_info"</span>);
+        };
+
+        <span class="kw">let </span>instance = (<span class="kw-2">*</span>vmctx).instance();
+        <span class="kw">for </span>tag <span class="kw">in </span>current_frame_info.catch_tags {
+            <span class="kw">let </span>unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
+            <span class="kw">if </span>unique_tag == current_frame_info.exception_tag {
+                <span class="kw">return </span>tag <span class="kw">as </span>i32;
+            }
+        }
+
+        <span class="kw">if </span>current_frame_info.has_catch_all {
+            CATCH_ALL_TAG_VALUE
+        } <span class="kw">else </span>{
+            NO_MATCH_FOUND_TAG_VALUE
+        }
+    }
+}
+
+<span class="kw">unsafe fn </span>find_eh_action(context: <span class="kw-2">*mut </span>uw::_Unwind_Context) -&gt; <span class="prelude-ty">Result</span>&lt;EHAction, ()&gt; {
     <span class="kw">unsafe </span>{
         <span class="kw">let </span>lsda = uw::_Unwind_GetLanguageSpecificData(context) <span class="kw">as </span><span class="kw-2">*const </span>u8;
         <span class="kw">let </span><span class="kw-2">mut </span>ip_before_instr: std::ffi::c_int = <span class="number">0</span>;
@@ -362,14 +553,19 @@
             func_start: uw::_Unwind_GetRegionStart(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
             get_text_start: <span class="kw-2">&amp;</span>|| uw::_Unwind_GetTextRelBase(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
             get_data_start: <span class="kw-2">&amp;</span>|| uw::_Unwind_GetDataRelBase(context) <span class="kw">as </span><span class="kw-2">*const </span><span class="kw">_</span>,
-            tag,
         };
         eh::find_eh_action(lsda, <span class="kw-2">&amp;</span>eh_context)
     }
 }
 
-<span class="kw">pub unsafe fn </span>throw(tag: u64, data_ptr: usize, data_size: u64) -&gt; ! {
-    <span class="kw">let </span>exception = Box::new(UwExceptionWrapper::new(tag, data_ptr, data_size));
+<span class="kw">pub unsafe fn </span>throw(tag: u32, vmctx: <span class="kw-2">*mut </span>VMContext, data_ptr: usize, data_size: u64) -&gt; ! {
+    <span class="comment">// Look up the unique tag from the VMContext.
+    </span><span class="kw">let </span>unique_tag = (<span class="kw-2">*</span>vmctx)
+        .instance()
+        .shared_tag_ptr(TagIndex::from_u32(tag))
+        .index();
+
+    <span class="kw">let </span>exception = Box::new(UwExceptionWrapper::new(unique_tag, data_ptr, data_size));
     <span class="kw">let </span>exception_param = Box::into_raw(exception) <span class="kw">as </span><span class="kw-2">*mut </span>libunwind::_Unwind_Exception;
 
     <span class="kw">match </span>uw::_Unwind_RaiseException(exception_param) {

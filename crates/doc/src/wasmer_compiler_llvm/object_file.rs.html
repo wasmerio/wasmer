@@ -671,7 +671,9 @@
 <a href="#670" id="670">670</a>
 <a href="#671" id="671">671</a>
 <a href="#672" id="672">672</a>
-<a href="#673" id="673">673</a></pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a></pre></div><pre class="rust"><code><span class="kw">use </span>object::{Object, ObjectSection, ObjectSymbol};
 <span class="kw">use </span>target_lexicon::BinaryFormat;
 
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
@@ -757,6 +759,7 @@
     <span class="string">"wasmer_vm_read_exception" </span>=&gt; LibCall::ReadException,
     <span class="string">"wasmer_vm_dbg_usize" </span>=&gt; LibCall::DebugUsize,
     <span class="string">"wasmer_eh_personality" </span>=&gt; LibCall::EHPersonality,
+    <span class="string">"wasmer_eh_personality2" </span>=&gt; LibCall::EHPersonality2,
     <span class="string">"wasmer_vm_dbg_str" </span>=&gt; LibCall::DebugStr,
 };
 
@@ -816,6 +819,7 @@
     //
     // todo: find out if it is a bug in LLVM or it is expected.
     </span><span class="string">"___gxx_personality_v0" </span>=&gt; LibCall::EHPersonality,
+    <span class="string">"_wasmer_eh_personality2" </span>=&gt; LibCall::EHPersonality2,
     <span class="string">"_wasmer_vm_dbg_str" </span>=&gt; LibCall::DebugStr,
 };
 

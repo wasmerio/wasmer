@@ -1283,8 +1283,7 @@
 <a href="#1282" id="1282">1282</a>
 <a href="#1283" id="1283">1283</a>
 <a href="#1284" id="1284">1284</a>
-<a href="#1285" id="1285">1285</a>
-<a href="#1286" id="1286">1286</a></pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
+<a href="#1285" id="1285">1285</a></pre></div><pre class="rust"><code><span class="doccomment">//! Define `Artifact`, based on `ArtifactBuild`
 //! to allow compiling and instantiating to be done as separate steps.
 
 </span><span class="kw">use </span>std::sync::{
@@ -1295,7 +1294,7 @@
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::ModuleEnvironment;
 <span class="kw">use crate</span>::{
-    engine::link::link_module,
+    engine::{link::link_module, resolver::resolve_tags},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
@@ -1728,7 +1727,7 @@
             }
         };
 
-        <span class="comment">// This needs to be called before publishind the `eh_frame`.
+        <span class="comment">// This needs to be called before publishing the `eh_frame`.
         </span>engine_inner.register_compact_unwind(
             compact_unwind,
             get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
@@ -2131,6 +2130,9 @@
         <span class="self">self</span>.preinstantiate()<span class="question-mark">?</span>;
 
         <span class="kw">let </span>module = <span class="self">self</span>.create_module_info();
+
+        <span class="kw">let </span>tags = resolve_tags(<span class="kw-2">&amp;</span>module, imports, context).map_err(InstantiationError::Link)<span class="question-mark">?</span>;
+
         <span class="kw">let </span>imports = resolve_imports(
             <span class="kw-2">&amp;</span>module,
             imports,
@@ -2164,10 +2166,6 @@
             )
             .map_err(InstantiationError::Link)<span class="question-mark">?
             </span>.into_boxed_slice();
-        <span class="kw">let </span>finished_tags = tunables
-            .create_tags(context, <span class="kw-2">&amp;</span>module)
-            .map_err(InstantiationError::Link)<span class="question-mark">?
-            </span>.into_boxed_slice();
         <span class="kw">let </span>finished_globals = tunables
             .create_globals(context, <span class="kw-2">&amp;</span>module)
             .map_err(InstantiationError::Link)<span class="question-mark">?
@@ -2181,8 +2179,8 @@
             <span class="self">self</span>.finished_function_call_trampolines().clone(),
             finished_memories,
             finished_tables,
-            finished_tags,
             finished_globals,
+            tags,
             imports,
             <span class="self">self</span>.signatures().clone(),
         )

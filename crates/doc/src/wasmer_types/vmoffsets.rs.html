@@ -858,14 +858,7 @@
 <a href="#857" id="857">857</a>
 <a href="#858" id="858">858</a>
 <a href="#859" id="859">859</a>
-<a href="#860" id="860">860</a>
-<a href="#861" id="861">861</a>
-<a href="#862" id="862">862</a>
-<a href="#863" id="863">863</a>
-<a href="#864" id="864">864</a>
-<a href="#865" id="865">865</a>
-<a href="#866" id="866">866</a>
-<a href="#867" id="867">867</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#860" id="860">860</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Offsets and sizes of various structs in wasmer-vm's vmcontext
@@ -875,7 +868,7 @@
 
 </span><span class="kw">use crate</span>::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, TagIndex,
+    ModuleInfo, SignatureIndex, TableIndex,
 };
 <span class="kw">use </span>more_asserts::assert_lt;
 <span class="kw">use </span>std::convert::TryFrom;
@@ -1084,8 +1077,8 @@
     </span>num_imported_tables: u32,
     <span class="doccomment">/// The number of imported memories in the module.
     </span>num_imported_memories: u32,
-    <span class="doccomment">/// The number of imported tags in the module.
-    </span>num_imported_tags: u32,
+    <span class="doccomment">/// The number of tags in the module.
+    </span>num_tag_ids: u32,
     <span class="doccomment">/// The number of imported globals in the module.
     </span>num_imported_globals: u32,
     <span class="doccomment">/// The number of defined tables in the module.
@@ -1099,7 +1092,7 @@
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
-    vmctx_imported_tags_begin: u32,
+    vmctx_tag_ids_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
     vmctx_memories_begin: u32,
@@ -1121,7 +1114,7 @@
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
-            num_imported_tags: cast_to_u32(module.num_imported_tags),
+            num_tag_ids: cast_to_u32(module.tags.len()),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
@@ -1130,7 +1123,7 @@
             vmctx_imported_functions_begin: <span class="number">0</span>,
             vmctx_imported_tables_begin: <span class="number">0</span>,
             vmctx_imported_memories_begin: <span class="number">0</span>,
-            vmctx_imported_tags_begin: <span class="number">0</span>,
+            vmctx_tag_ids_begin: <span class="number">0</span>,
             vmctx_imported_globals_begin: <span class="number">0</span>,
             vmctx_tables_begin: <span class="number">0</span>,
             vmctx_memories_begin: <span class="number">0</span>,
@@ -1157,7 +1150,7 @@
             num_imported_functions: <span class="number">0</span>,
             num_imported_tables: <span class="number">0</span>,
             num_imported_memories: <span class="number">0</span>,
-            num_imported_tags: <span class="number">0</span>,
+            num_tag_ids: <span class="number">0</span>,
             num_imported_globals: <span class="number">0</span>,
             num_local_tables: <span class="number">0</span>,
             num_local_memories: <span class="number">0</span>,
@@ -1166,7 +1159,7 @@
             vmctx_imported_functions_begin: <span class="number">0</span>,
             vmctx_imported_tables_begin: <span class="number">0</span>,
             vmctx_imported_memories_begin: <span class="number">0</span>,
-            vmctx_imported_tags_begin: <span class="number">0</span>,
+            vmctx_tag_ids_begin: <span class="number">0</span>,
             vmctx_imported_globals_begin: <span class="number">0</span>,
             vmctx_tables_begin: <span class="number">0</span>,
             vmctx_memories_begin: <span class="number">0</span>,
@@ -1224,16 +1217,16 @@
             u32::from(<span class="self">self</span>.size_of_vmtable_import()),
         );
 
-        <span class="self">self</span>.vmctx_imported_tags_begin = offset_by_aligned(
+        <span class="self">self</span>.vmctx_tag_ids_begin = offset_by_aligned(
             <span class="self">self</span>.vmctx_imported_memories_begin,
             <span class="self">self</span>.num_imported_memories,
             u32::from(<span class="self">self</span>.size_of_vmmemory_import()),
         );
 
         <span class="self">self</span>.vmctx_imported_globals_begin = offset_by_aligned(
-            <span class="self">self</span>.vmctx_imported_tags_begin,
-            <span class="self">self</span>.num_imported_tags,
-            u32::from(<span class="self">self</span>.size_of_vmtag_import()),
+            <span class="self">self</span>.vmctx_tag_ids_begin,
+            <span class="self">self</span>.num_tag_ids,
+            u32::from(<span class="self">self</span>.size_of_vmshared_tag_index()),
         );
 
         <span class="self">self</span>.vmctx_tables_begin = offset_by_aligned(
@@ -1508,13 +1501,12 @@
     }
 }
 
-<span class="doccomment">/// Offsets for `VMTag` imports.
+<span class="doccomment">/// Offsets for `VMSharedTagIndex`.
 </span><span class="kw">impl </span>VMOffsets {
-    <span class="doccomment">/// Return the size of `VMTagImport`.
-    </span><span class="attr">#[allow(clippy::identity_op)]
-    </span><span class="kw">pub const fn </span>size_of_vmtag_import(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
-        <span class="number">1 </span>* <span class="self">self</span>.pointer_size
-    }
+    <span class="doccomment">/// Return the size of `VMSharedTagIndex`.
+    </span><span class="kw">pub const fn </span>size_of_vmshared_tag_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u8 {
+        <span class="number">4
+    </span>}
 }
 
 <span class="doccomment">/// Offsets for `VMContext`.
@@ -1546,9 +1538,9 @@
         <span class="self">self</span>.vmctx_imported_globals_begin
     }
 
-    <span class="doccomment">/// The offset of the `globals` array.
-    </span><span class="kw">pub fn </span>vmctx_imported_tags_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
-        <span class="self">self</span>.vmctx_imported_tags_begin
+    <span class="doccomment">/// The offset of the `tags` array.
+    </span><span class="kw">pub fn </span>vmctx_tag_ids_begin(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; u32 {
+        <span class="self">self</span>.vmctx_tag_ids_begin
     }
 
     <span class="doccomment">/// The offset of the `tables` array.
@@ -1601,12 +1593,6 @@
         <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_memories);
         <span class="self">self</span>.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmmemory_import())
-    }
-
-    <span class="doccomment">/// Return the offset to `VMTagImport` index `index`.
-    </span><span class="kw">pub fn </span>vmctx_vmtag_import(<span class="kw-2">&amp;</span><span class="self">self</span>, index: TagIndex) -&gt; u32 {
-        <span class="macro">assert_lt!</span>(index.as_u32(), <span class="self">self</span>.num_imported_tags);
-        <span class="self">self</span>.vmctx_imported_tags_begin + index.as_u32() * u32::from(<span class="self">self</span>.size_of_vmtag_import())
     }
 
     <span class="doccomment">/// Return the offset to `VMGlobalImport` index `index`.

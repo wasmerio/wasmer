@@ -258,8 +258,7 @@
 <a href="#257" id="257">257</a>
 <a href="#258" id="258">258</a>
 <a href="#259" id="259">259</a>
-<a href="#260" id="260">260</a>
-<a href="#261" id="261">261</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#260" id="260">260</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Module for System V ABI unwind registry.
@@ -449,18 +448,17 @@
             }
         }
 
-        <span class="comment">// TODO: Enable this check againt when updating the artifact version to 11
-        // assert_eq!(
-        //     last_len, 0,
-        //     "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-        // );
-        // assert_eq!(
-        //     current,
-        //     eh_frame.len(),
-        //     "The `.eh_frame` must be finished after the last record",
-        // );
+        <span class="macro">assert_eq!</span>(
+            last_len, <span class="number">0</span>,
+            <span class="string">"The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+        </span>);
+        <span class="macro">assert_eq!</span>(
+            current,
+            eh_frame.len(),
+            <span class="string">"The `.eh_frame` must be finished after the last record"</span>,
+        );
 
-        </span><span class="kw">for </span>record <span class="kw">in </span>records_to_register {
+        <span class="kw">for </span>record <span class="kw">in </span>records_to_register {
             <span class="comment">// Register the CFI with libgcc
             </span>__register_frame(record <span class="kw">as </span><span class="kw-2">*const </span>u8);
             <span class="self">self</span>.registrations.push(record);

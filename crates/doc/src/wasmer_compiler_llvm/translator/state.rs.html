@@ -514,28 +514,13 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a>
-<a href="#517" id="517">517</a>
-<a href="#518" id="518">518</a>
-<a href="#519" id="519">519</a>
-<a href="#520" id="520">520</a>
-<a href="#521" id="521">521</a>
-<a href="#522" id="522">522</a>
-<a href="#523" id="523">523</a>
-<a href="#524" id="524">524</a>
-<a href="#525" id="525">525</a>
-<a href="#526" id="526">526</a>
-<a href="#527" id="527">527</a>
-<a href="#528" id="528">528</a>
-<a href="#529" id="529">529</a>
-<a href="#530" id="530">530</a>
-<a href="#531" id="531">531</a></pre></div><pre class="rust"><code><span class="kw">use </span>inkwell::{
+<a href="#516" id="516">516</a></pre></div><pre class="rust"><code><span class="kw">use </span>inkwell::{
     basic_block::BasicBlock,
     values::{BasicValue, BasicValueEnum, PhiValue},
 };
 <span class="kw">use </span>smallvec::SmallVec;
 <span class="kw">use </span>std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     ops::{BitAnd, BitOr, BitOrAssign},
 };
 <span class="kw">use </span>wasmer_types::CompileError;
@@ -566,9 +551,7 @@
         if_else_state: IfElseState,
     },
     Landingpad {
-        can_throw: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
         next: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
-        can_throw_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
         next_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
         stack_size_snapshot: usize,
     },
@@ -751,20 +734,30 @@
     }
 }
 
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">struct </span>Landingpad&lt;<span class="lifetime">'ctx</span>&gt; {
-    <span class="comment">// The catch block tied to this landingpad.
+<span class="attr">#[derive(Debug, Clone, Copy)]
+</span><span class="kw">pub struct </span>TagCatchInfo&lt;<span class="lifetime">'ctx</span>&gt; {
+    <span class="kw">pub </span>tag: u32,
+    <span class="comment">// The catch block
     </span><span class="kw">pub </span>catch_block: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
-    <span class="comment">// The tags that this landingpad can catch.
-    </span><span class="kw">pub </span>tags: Vec&lt;u32&gt;,
+    <span class="comment">// The PHI node to receive the exception object
+    </span><span class="kw">pub </span>wasmer_exc_phi: <span class="prelude-ty">Option</span>&lt;PhiValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+}
+
+<span class="attr">#[derive(Debug)]
+</span><span class="kw">pub struct </span>Landingpad&lt;<span class="lifetime">'ctx</span>&gt; {
+    <span class="comment">// The block that has the landingpad instruction.
+    // Will be None for catch-less try_table instructions
+    // with no outer landingpads.
+    </span><span class="kw">pub </span>lpad_block: <span class="prelude-ty">Option</span>&lt;BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    <span class="comment">// The tags that this landingpad can catch
+    </span><span class="kw">pub </span>tags: Vec&lt;TagCatchInfo&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>State&lt;<span class="lifetime">'ctx</span>&gt; {
     <span class="kw">pub </span>stack: Vec&lt;(BasicValueEnum&lt;<span class="lifetime">'ctx</span>&gt;, ExtraInfo)&gt;,
-    control_stack: Vec&lt;ControlFrame&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
-    landingpads: VecDeque&lt;Landingpad&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
-    landingpads_scope: HashMap&lt;u32, VecDeque&lt;BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;&gt;&gt;,
+    <span class="kw">pub </span>control_stack: Vec&lt;ControlFrame&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    <span class="kw">pub </span>landingpads: VecDeque&lt;Landingpad&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
     <span class="kw">pub </span>reachable: bool,
 }
 
@@ -775,7 +768,6 @@
             control_stack: <span class="macro">vec!</span>[],
             reachable: <span class="bool-val">true</span>,
             landingpads: VecDeque::new(),
-            landingpads_scope: HashMap::new(),
         }
     }
 
@@ -1004,60 +996,38 @@
 
     <span class="kw">pub fn </span>push_landingpad(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        catch_block: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
-        can_throw: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
-        can_throw_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        lpad_block: <span class="prelude-ty">Option</span>&lt;BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
         next: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
         next_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
-        tags: <span class="kw-2">&amp;</span>[u32],
+        tags: <span class="kw-2">&amp;</span>[TagCatchInfo&lt;<span class="lifetime">'ctx</span>&gt;],
     ) {
-        <span class="kw">for </span>tag <span class="kw">in </span>tags {
-            <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>v) = <span class="self">self</span>.landingpads_scope.get_mut(tag) {
-                v.push_back(catch_block);
-            } <span class="kw">else </span>{
-                <span class="self">self</span>.landingpads_scope
-                    .insert(<span class="kw-2">*</span>tag, VecDeque::from(<span class="macro">vec!</span>[catch_block]));
-            }
-        }
-
         <span class="self">self</span>.control_stack.push(ControlFrame::Landingpad {
-            can_throw,
-            can_throw_phis,
             next,
             next_phis,
             stack_size_snapshot: <span class="self">self</span>.stack.len(),
         });
 
         <span class="self">self</span>.landingpads.push_back(Landingpad {
-            catch_block,
+            lpad_block,
             tags: tags.to_vec(),
         })
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_landingpad(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;&gt; {
-        <span class="self">self</span>.landingpads.back().map(|v| v.catch_block)
-    }
-
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_landingpad_for_tag(<span class="kw-2">&amp;mut </span><span class="self">self</span>, tag: u32) -&gt; <span class="prelude-ty">Option</span>&lt;BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;&gt; {
-        <span class="comment">// Check if we have a matching landingpad in scope.
-        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(v) = <span class="self">self</span>.landingpads_scope.get(<span class="kw-2">&amp;</span>tag) {
-            v.back().cloned()
-        } <span class="kw">else </span>{
-            <span class="self">self</span>.landingpads.back().map(|v| v.catch_block)
-        }
+    <span class="comment">// Throws and function calls need to be turned into invokes targeting this
+    // landingpad if it exists; otherwise, there is no landingpad within this
+    // frame. Note that the innermost landing pad has catch clauses for *all*
+    // the tags that are active in this frame, including the ones from outer
+    // landingpads, so there's never a reason to target any other landingpad.
+    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_innermost_landingpad(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;&gt; {
+        <span class="self">self</span>.landingpads
+            .iter()
+            .rev()
+            .filter_map(|v| v.lpad_block)
+            .next()
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>pop_landingpad(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; bool {
-        <span class="kw">if let </span><span class="prelude-val">Some</span>(lpad) = <span class="self">self</span>.landingpads.pop_back() {
-            <span class="kw">for </span>tag <span class="kw">in </span>lpad.tags {
-                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>v) = <span class="self">self</span>.landingpads_scope.get_mut(<span class="kw-2">&amp;</span>tag) {
-                    v.pop_back();
-                }
-            }
-            <span class="bool-val">true
-        </span>} <span class="kw">else </span>{
-            <span class="bool-val">false
-        </span>}
+        <span class="self">self</span>.landingpads.pop_back().is_some()
     }
 }
 </code></pre></div></section></main></body></html>

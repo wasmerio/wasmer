@@ -950,7 +950,13 @@
 <a href="#949" id="949">949</a>
 <a href="#950" id="950">950</a>
 <a href="#951" id="951">951</a>
-<a href="#952" id="952">952</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="doccomment">//! Runtime library calls.
@@ -991,9 +997,9 @@
 
 </span><span class="kw">use </span>std::panic;
 <span class="kw">mod </span>eh;
-<span class="kw">pub use </span>eh::wasmer_eh_personality;
 <span class="kw">use </span>eh::UwExceptionWrapper;
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">use </span>eh::WasmerException;
+<span class="kw">pub use </span>eh::{wasmer_eh_personality, wasmer_eh_personality2};
 
 <span class="kw">use </span><span class="kw">crate</span>::probestack::PROBESTACK;
 <span class="kw">use </span><span class="kw">crate</span>::table::{RawTableElement, TableElement};
@@ -1622,8 +1628,13 @@
 ///
 /// Calls libunwind to perform unwinding magic.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_throw(tag: u64, data_ptr: usize, data_size: u64) -&gt; ! {
-    eh::throw(tag, data_ptr, data_size)
+</span><span class="kw">pub unsafe extern </span><span class="string">"C-unwind" </span><span class="kw">fn </span>wasmer_vm_throw(
+    tag: u32,
+    vmctx: <span class="kw-2">*mut </span>VMContext,
+    data_ptr: usize,
+    data_size: u64,
+) -&gt; ! {
+    eh::throw(tag, vmctx, data_ptr, data_size)
 }
 
 <span class="doccomment">/// Implementation for throwing an exception.
@@ -1702,7 +1713,7 @@
 /// This function does not follow the standard function ABI, and is called as
 /// part of the function prologue.
 </span><span class="attr">#[no_mangle]
-</span><span class="kw">pub static </span>wasmer_vm_probestack: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>() = PROBESTACK;
+</span><span class="kw">pub static </span>WASMER_VM_PROBESTACK: <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>() = PROBESTACK;
 
 <span class="doccomment">/// Implementation of memory.wait32 for locally-defined 32-bit memories.
 ///
@@ -1884,7 +1895,7 @@
         LibCall::ImportedMemory32Fill =&gt; wasmer_vm_imported_memory32_fill <span class="kw">as </span>usize,
         LibCall::Memory32Init =&gt; wasmer_vm_memory32_init <span class="kw">as </span>usize,
         LibCall::DataDrop =&gt; wasmer_vm_data_drop <span class="kw">as </span>usize,
-        LibCall::Probestack =&gt; wasmer_vm_probestack <span class="kw">as </span>usize,
+        LibCall::Probestack =&gt; WASMER_VM_PROBESTACK <span class="kw">as </span>usize,
         LibCall::RaiseTrap =&gt; wasmer_vm_raise_trap <span class="kw">as </span>usize,
         LibCall::Memory32AtomicWait32 =&gt; wasmer_vm_memory32_atomic_wait32 <span class="kw">as </span>usize,
         LibCall::ImportedMemory32AtomicWait32 =&gt; wasmer_vm_imported_memory32_atomic_wait32 <span class="kw">as </span>usize,
@@ -1895,6 +1906,7 @@
         LibCall::Throw =&gt; wasmer_vm_throw <span class="kw">as </span>usize,
         LibCall::Rethrow =&gt; wasmer_vm_rethrow <span class="kw">as </span>usize,
         LibCall::EHPersonality =&gt; wasmer_eh_personality <span class="kw">as </span>usize,
+        LibCall::EHPersonality2 =&gt; wasmer_eh_personality2 <span class="kw">as </span>usize,
         LibCall::AllocException =&gt; wasmer_vm_alloc_exception <span class="kw">as </span>usize,
         LibCall::DeleteException =&gt; wasmer_vm_delete_exception <span class="kw">as </span>usize,
         LibCall::ReadException =&gt; wasmer_vm_read_exception <span class="kw">as </span>usize,
