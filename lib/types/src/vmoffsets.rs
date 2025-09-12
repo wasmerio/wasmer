@@ -8,7 +8,7 @@
 
 use crate::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
-    ModuleInfo, SignatureIndex, TableIndex, TagIndex,
+    ModuleInfo, SignatureIndex, TableIndex,
 };
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
@@ -218,7 +218,7 @@ pub struct VMOffsets {
     /// The number of imported memories in the module.
     num_imported_memories: u32,
     /// The number of tags in the module.
-    num_tags: u32,
+    num_tag_ids: u32,
     /// The number of imported globals in the module.
     num_imported_globals: u32,
     /// The number of defined tables in the module.
@@ -232,7 +232,7 @@ pub struct VMOffsets {
     vmctx_imported_functions_begin: u32,
     vmctx_imported_tables_begin: u32,
     vmctx_imported_memories_begin: u32,
-    vmctx_tags_begin: u32,
+    vmctx_tag_ids_begin: u32,
     vmctx_imported_globals_begin: u32,
     vmctx_tables_begin: u32,
     vmctx_memories_begin: u32,
@@ -254,7 +254,7 @@ impl VMOffsets {
             num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
-            num_tags: cast_to_u32(module.tags.len()),
+            num_tag_ids: cast_to_u32(module.tags.len()),
             num_imported_globals: cast_to_u32(module.num_imported_globals),
             num_local_tables: cast_to_u32(module.tables.len()),
             num_local_memories: cast_to_u32(module.memories.len()),
@@ -263,7 +263,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
-            vmctx_tags_begin: 0,
+            vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -290,7 +290,7 @@ impl VMOffsets {
             num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
-            num_tags: 0,
+            num_tag_ids: 0,
             num_imported_globals: 0,
             num_local_tables: 0,
             num_local_memories: 0,
@@ -299,7 +299,7 @@ impl VMOffsets {
             vmctx_imported_functions_begin: 0,
             vmctx_imported_tables_begin: 0,
             vmctx_imported_memories_begin: 0,
-            vmctx_tags_begin: 0,
+            vmctx_tag_ids_begin: 0,
             vmctx_imported_globals_begin: 0,
             vmctx_tables_begin: 0,
             vmctx_memories_begin: 0,
@@ -357,15 +357,15 @@ impl VMOffsets {
             u32::from(self.size_of_vmtable_import()),
         );
 
-        self.vmctx_tags_begin = offset_by_aligned(
+        self.vmctx_tag_ids_begin = offset_by_aligned(
             self.vmctx_imported_memories_begin,
             self.num_imported_memories,
             u32::from(self.size_of_vmmemory_import()),
         );
 
         self.vmctx_imported_globals_begin = offset_by_aligned(
-            self.vmctx_tags_begin,
-            self.num_tags,
+            self.vmctx_tag_ids_begin,
+            self.num_tag_ids,
             u32::from(self.size_of_vmshared_tag_index()),
         );
 
@@ -679,8 +679,8 @@ impl VMOffsets {
     }
 
     /// The offset of the `tags` array.
-    pub fn vmctx_tags_begin(&self) -> u32 {
-        self.vmctx_tags_begin
+    pub fn vmctx_tag_ids_begin(&self) -> u32 {
+        self.vmctx_tag_ids_begin
     }
 
     /// The offset of the `tables` array.
@@ -733,12 +733,6 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin
             + index.as_u32() * u32::from(self.size_of_vmmemory_import())
-    }
-
-    /// Return the offset to `VMSharedTagIndex` index `index`.
-    pub fn vmctx_vmshared_tag_id(&self, index: TagIndex) -> u32 {
-        assert_lt!(index.as_u32(), self.num_tags);
-        self.vmctx_tags_begin + index.as_u32() * u32::from(self.size_of_vmshared_tag_index())
     }
 
     /// Return the offset to `VMGlobalImport` index `index`.

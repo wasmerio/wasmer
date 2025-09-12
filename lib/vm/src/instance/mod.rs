@@ -196,7 +196,7 @@ impl Instance {
 
     /// Return a pointer to the `VMSharedTagIndex`s.
     pub(crate) fn shared_tags_ptr(&self) -> *mut VMSharedTagIndex {
-        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tags_begin()) }
+        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tag_ids_begin()) }
     }
 
     /// Return the indexed `VMTableDefinition`.

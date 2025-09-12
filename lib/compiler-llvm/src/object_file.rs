@@ -144,7 +144,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     //
     // todo: find out if it is a bug in LLVM or it is expected.
     "___gxx_personality_v0" => LibCall::EHPersonality,
-    "wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "_wasmer_eh_personality2" => LibCall::EHPersonality2,
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 

@@ -442,7 +442,7 @@ impl Artifact {
             }
         };
 
-        // This needs to be called before publishind the `eh_frame`.
+        // This needs to be called before publishing the `eh_frame`.
         engine_inner.register_compact_unwind(
             compact_unwind,
             get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
