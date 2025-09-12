@@ -8,6 +8,29 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.1.0-rc.4 - 12/09/2025
+
+## Added
+
+  - [#5701](https://github.com/wasmerio/wasmer/pull/5701) fix(config): Add missing skip_serializing_if for ssh capability
+
+## Changed
+
+  - [#5724](https://github.com/wasmerio/wasmer/pull/5724) Singlepass: simplify dynamic regs usage
+  - [#5715](https://github.com/wasmerio/wasmer/pull/5715) feat(cli): App-specific SSH sessions
+  - [#5707](https://github.com/wasmerio/wasmer/pull/5707) compiler: Ensure unique function symbols by appending function index
+  - [#5703](https://github.com/wasmerio/wasmer/pull/5703) Simplify unwind
+
+## Fixed
+
+  - [#5726](https://github.com/wasmerio/wasmer/pull/5726) Multiple fixes to EH codegen
+  - [#5716](https://github.com/wasmerio/wasmer/pull/5716) Fix impossible relocation error in emit srem64, urem64 for singlepass compiler/Aarch64
+  - [#5700](https://github.com/wasmerio/wasmer/pull/5700) fix(DynamicFunction): allocate space for trap on host stack
+  - [#5706](https://github.com/wasmerio/wasmer/pull/5706) Fix caching dlsym results in the linker
+  - [#5699](https://github.com/wasmerio/wasmer/pull/5699) Fix synchronizing load of multiple modules with internal table space and GOT.func entries
+
+
+
 ## 6.1.0-rc.3 - 20/08/2025
 This release introduces a new reflection syscall for WASIX, RUNTIME_PATH support for
 dynamically-loaded modules, as well as many fixes and improvements across the board.
