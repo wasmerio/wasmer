@@ -37,11 +37,20 @@ cfg_if::cfg_if! {
             panic!()
         }
 
-        pub  fn throw(tag: u64, data_ptr: usize, data_size: u64) -> ! {
+        pub fn wasmer_eh_personality2() {
             panic!()
         }
 
-        pub fn rethrow(exc: *mut UwExceptionWrapper) -> ! {
+        pub unsafe fn throw(
+            _tag: u32,
+            _vmctx: *mut crate::VMContext,
+            _data_ptr: usize,
+            _data_size: u64,
+        ) -> ! {
+            panic!()
+        }
+
+        pub fn rethrow(_exc: *mut UwExceptionWrapper) -> ! {
             panic!()
         }
 

@@ -17,7 +17,7 @@ use crate::vmcontext::{
     memory32_atomic_check32, memory32_atomic_check64, memory_copy, memory_fill,
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionContext,
     VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition,
-    VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTagImport,
+    VMMemoryImport, VMSharedSignatureIndex, VMSharedTagIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
 use crate::{wasmer_call_trampoline, FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag};
@@ -38,9 +38,9 @@ use std::sync::Arc;
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
-    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, LocalTagIndex,
-    MemoryError, MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer,
-    TagIndex, VMOffsets,
+    LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryError,
+    MemoryIndex, ModuleInfo, Pages, SignatureIndex, TableIndex, TableInitializer, TagIndex,
+    VMOffsets,
 };
 
 /// A WebAssembly instance.
@@ -70,8 +70,8 @@ pub(crate) struct Instance {
     /// WebAssembly global data.
     globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
 
-    /// WebAssembly global data.
-    tags: BoxedSlice<LocalTagIndex, InternalStoreHandle<VMTag>>,
+    /// WebAssembly tag data. Notably, this stores *all* tags, not just local ones.
+    tags: BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>,
 
     /// Pointers to functions in executable memory.
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -188,15 +188,15 @@ impl Instance {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_imported_globals_begin()) }
     }
 
-    /// Return the indexed `VMTagImport`.
-    fn imported_tag(&self, index: TagIndex) -> &VMTagImport {
+    /// Return the indexed `VMSharedTagIndex`.
+    pub(crate) fn shared_tag_ptr(&self, index: TagIndex) -> &VMSharedTagIndex {
         let index = usize::try_from(index.as_u32()).unwrap();
-        unsafe { &*self.imported_tags_ptr().add(index) }
+        unsafe { &*self.shared_tags_ptr().add(index) }
     }
 
-    /// Return a pointer to the `VMTagImport`s.
-    fn imported_tags_ptr(&self) -> *mut VMTagImport {
-        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_imported_tags_begin()) }
+    /// Return a pointer to the `VMSharedTagIndex`s.
+    pub(crate) fn shared_tags_ptr(&self) -> *mut VMSharedTagIndex {
+        unsafe { self.vmctx_plus_offset(self.offsets.vmctx_tag_ids_begin()) }
     }
 
     /// Return the indexed `VMTableDefinition`.
@@ -1046,11 +1046,16 @@ impl VMInstance {
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, InternalStoreHandle<VMMemory>>,
         finished_tables: BoxedSlice<LocalTableIndex, InternalStoreHandle<VMTable>>,
-        finished_tags: BoxedSlice<LocalTagIndex, InternalStoreHandle<VMTag>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, InternalStoreHandle<VMGlobal>>,
+        tags: BoxedSlice<TagIndex, InternalStoreHandle<VMTag>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     ) -> Result<Self, Trap> {
+        let vmctx_tags = tags
+            .values()
+            .map(|m| VMSharedTagIndex::new(m.index() as u32))
+            .collect::<PrimaryMap<TagIndex, _>>()
+            .into_boxed_slice();
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.get(context).vmglobal())
@@ -1077,7 +1082,7 @@ impl VMInstance {
                 offsets,
                 memories: finished_memories,
                 tables: finished_tables,
-                tags: finished_tags,
+                tags,
                 globals: finished_globals,
                 functions: finished_functions,
                 function_call_trampolines: finished_function_call_trampolines,
@@ -1109,6 +1114,11 @@ impl VMInstance {
         };
         let instance = handle.instance();
 
+        ptr::copy(
+            vmctx_tags.values().as_slice().as_ptr(),
+            instance.shared_tags_ptr(),
+            vmctx_tags.len(),
+        );
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),
             instance.signature_ids_ptr(),
@@ -1282,12 +1292,7 @@ impl VMInstance {
             }
 
             ExportIndex::Tag(index) => {
-                let handle = if let Some(def_index) = instance.module.local_tag_index(index) {
-                    instance.tags[def_index]
-                } else {
-                    let import = instance.imported_tag(index);
-                    import.handle
-                };
+                let handle = instance.tags[index];
                 VMExtern::Tag(handle)
             }
         }

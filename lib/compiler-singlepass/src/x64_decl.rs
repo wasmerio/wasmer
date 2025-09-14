@@ -30,6 +30,12 @@ pub enum GPR {
     R15 = 15,
 }
 
+impl From<GPR> for u8 {
+    fn from(val: GPR) -> Self {
+        val as u8
+    }
+}
+
 /// XMM registers.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
@@ -51,6 +57,12 @@ pub enum XMM {
     XMM13 = 13,
     XMM14 = 14,
     XMM15 = 15,
+}
+
+impl From<XMM> for u8 {
+    fn from(val: XMM) -> Self {
+        val as u8
+    }
 }
 
 impl AbstractReg for GPR {

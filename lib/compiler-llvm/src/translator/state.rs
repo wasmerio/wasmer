@@ -4,7 +4,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 use std::{
-    collections::{HashMap, VecDeque},
+    collections::VecDeque,
     ops::{BitAnd, BitOr, BitOrAssign},
 };
 use wasmer_types::CompileError;
@@ -35,9 +35,7 @@ pub enum ControlFrame<'ctx> {
         if_else_state: IfElseState,
     },
     Landingpad {
-        can_throw: BasicBlock<'ctx>,
         next: BasicBlock<'ctx>,
-        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         stack_size_snapshot: usize,
     },
@@ -220,20 +218,30 @@ impl BitAnd for ExtraInfo {
     }
 }
 
-#[derive(Debug)]
-struct Landingpad<'ctx> {
-    // The catch block tied to this landingpad.
+#[derive(Debug, Clone, Copy)]
+pub struct TagCatchInfo<'ctx> {
+    pub tag: u32,
+    // The catch block
     pub catch_block: BasicBlock<'ctx>,
-    // The tags that this landingpad can catch.
-    pub tags: Vec<u32>,
+    // The PHI node to receive the exception object
+    pub wasmer_exc_phi: Option<PhiValue<'ctx>>,
+}
+
+#[derive(Debug)]
+pub struct Landingpad<'ctx> {
+    // The block that has the landingpad instruction.
+    // Will be None for catch-less try_table instructions
+    // with no outer landingpads.
+    pub lpad_block: Option<BasicBlock<'ctx>>,
+    // The tags that this landingpad can catch
+    pub tags: Vec<TagCatchInfo<'ctx>>,
 }
 
 #[derive(Debug)]
 pub struct State<'ctx> {
     pub stack: Vec<(BasicValueEnum<'ctx>, ExtraInfo)>,
-    control_stack: Vec<ControlFrame<'ctx>>,
-    landingpads: VecDeque<Landingpad<'ctx>>,
-    landingpads_scope: HashMap<u32, VecDeque<BasicBlock<'ctx>>>,
+    pub control_stack: Vec<ControlFrame<'ctx>>,
+    pub landingpads: VecDeque<Landingpad<'ctx>>,
     pub reachable: bool,
 }
 
@@ -244,7 +252,6 @@ impl<'ctx> State<'ctx> {
             control_stack: vec![],
             reachable: true,
             landingpads: VecDeque::new(),
-            landingpads_scope: HashMap::new(),
         }
     }
 
@@ -473,59 +480,37 @@ impl<'ctx> State<'ctx> {
 
     pub fn push_landingpad(
         &mut self,
-        catch_block: BasicBlock<'ctx>,
-        can_throw: BasicBlock<'ctx>,
-        can_throw_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        lpad_block: Option<BasicBlock<'ctx>>,
         next: BasicBlock<'ctx>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
-        tags: &[u32],
+        tags: &[TagCatchInfo<'ctx>],
     ) {
-        for tag in tags {
-            if let Some(ref mut v) = self.landingpads_scope.get_mut(tag) {
-                v.push_back(catch_block);
-            } else {
-                self.landingpads_scope
-                    .insert(*tag, VecDeque::from(vec![catch_block]));
-            }
-        }
-
         self.control_stack.push(ControlFrame::Landingpad {
-            can_throw,
-            can_throw_phis,
             next,
             next_phis,
             stack_size_snapshot: self.stack.len(),
         });
 
         self.landingpads.push_back(Landingpad {
-            catch_block,
+            lpad_block,
             tags: tags.to_vec(),
         })
     }
 
-    pub(crate) fn get_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
-        self.landingpads.back().map(|v| v.catch_block)
-    }
-
-    pub(crate) fn get_landingpad_for_tag(&mut self, tag: u32) -> Option<BasicBlock<'ctx>> {
-        // Check if we have a matching landingpad in scope.
-        if let Some(v) = self.landingpads_scope.get(&tag) {
-            v.back().cloned()
-        } else {
-            self.landingpads.back().map(|v| v.catch_block)
-        }
+    // Throws and function calls need to be turned into invokes targeting this
+    // landingpad if it exists; otherwise, there is no landingpad within this
+    // frame. Note that the innermost landing pad has catch clauses for *all*
+    // the tags that are active in this frame, including the ones from outer
+    // landingpads, so there's never a reason to target any other landingpad.
+    pub(crate) fn get_innermost_landingpad(&mut self) -> Option<BasicBlock<'ctx>> {
+        self.landingpads
+            .iter()
+            .rev()
+            .filter_map(|v| v.lpad_block)
+            .next()
     }
 
     pub(crate) fn pop_landingpad(&mut self) -> bool {
-        if let Some(lpad) = self.landingpads.pop_back() {
-            for tag in lpad.tags {
-                if let Some(ref mut v) = self.landingpads_scope.get_mut(&tag) {
-                    v.pop_back();
-                }
-            }
-            true
-        } else {
-            false
-        }
+        self.landingpads.pop_back().is_some()
     }
 }

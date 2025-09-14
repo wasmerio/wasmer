@@ -9,7 +9,7 @@ use std::sync::{
 #[cfg(feature = "compiler")]
 use crate::ModuleEnvironment;
 use crate::{
-    engine::link::link_module,
+    engine::{link::link_module, resolver::resolve_tags},
     lib::std::vec::IntoIter,
     register_frame_info, resolve_imports,
     serialize::{MetadataHeader, SerializableModule},
@@ -442,7 +442,7 @@ impl Artifact {
             }
         };
 
-        // This needs to be called before publishind the `eh_frame`.
+        // This needs to be called before publishing the `eh_frame`.
         engine_inner.register_compact_unwind(
             compact_unwind,
             get_got_address(RelocationTarget::LibCall(wasmer_vm::LibCall::EHPersonality)),
@@ -845,6 +845,9 @@ impl Artifact {
         self.preinstantiate()?;
 
         let module = self.create_module_info();
+
+        let tags = resolve_tags(&module, imports, context).map_err(InstantiationError::Link)?;
+
         let imports = resolve_imports(
             &module,
             imports,
@@ -878,10 +881,6 @@ impl Artifact {
             )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
-        let finished_tags = tunables
-            .create_tags(context, &module)
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
         let finished_globals = tunables
             .create_globals(context, &module)
             .map_err(InstantiationError::Link)?
@@ -895,8 +894,8 @@ impl Artifact {
             self.finished_function_call_trampolines().clone(),
             finished_memories,
             finished_tables,
-            finished_tags,
             finished_globals,
+            tags,
             imports,
             self.signatures().clone(),
         )

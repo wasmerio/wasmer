@@ -44,7 +44,6 @@ pub struct EHContext<'a> {
     pub func_start: *const u8,                     // Pointer to the current function
     pub get_text_start: &'a dyn Fn() -> *const u8, // Get pointer to the code section
     pub get_data_start: &'a dyn Fn() -> *const u8, // Get pointer to the data section
-    pub tag: u64,                                  // The tag associated with the WasmerException
 }
 
 /// Landing pad.
@@ -53,9 +52,9 @@ type LPad = *const u8;
 #[derive(Debug, Clone)]
 pub enum EHAction {
     None,
-    Cleanup(LPad),
-    Catch { lpad: LPad, tag: u64 },
-    Filter { lpad: LPad, tag: u64 },
+    CatchAll { lpad: LPad },
+    CatchSpecific { lpad: LPad, tags: Vec<u32> },
+    CatchSpecificOrAll { lpad: LPad, tags: Vec<u32> },
     Terminate,
 }
 
@@ -170,11 +169,13 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                         return Ok(EHAction::None);
                     } else {
                         let lpad = lpad_base.wrapping_add(cs_lpad);
+                        let mut catches = vec![];
 
                         log!("(pers) lpad sits at {lpad:?}");
 
                         if cs_action_entry == 0 {
-                            return Ok(EHAction::Cleanup(lpad));
+                            // We don't generate cleanup clauses, so this can't happen
+                            return Ok(EHAction::Terminate);
                         }
 
                         log!("(pers) read cs_action_entry: {cs_action_entry}");
@@ -222,22 +223,43 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                 let tag_ptr = tag_ptr.unwrap();
 
                                 if tag_ptr.is_null() {
-                                    return Ok(EHAction::Catch { lpad, tag: 0 });
+                                    if catches.is_empty() {
+                                        // No specifics so far, so we definitely have a catch-all we should use
+                                        return Ok(EHAction::CatchAll { lpad });
+                                    } else {
+                                        // We do have catch clauses that *may* need to be used, so we must
+                                        // defer to phase 2 anyway, but this catch-all will be used if
+                                        // none of those clauses match, so we can return early.
+                                        return Ok(EHAction::CatchSpecificOrAll {
+                                            lpad,
+                                            tags: catches,
+                                        });
+                                    }
                                 }
 
-                                let tag = std::mem::transmute::<*const u8, *const u64>(tag_ptr)
+                                let tag = std::mem::transmute::<*const u8, *const u32>(tag_ptr)
                                     .read_unaligned();
 
-                                if context.tag == tag {
-                                    return Ok(EHAction::Catch { lpad, tag });
-                                }
+                                log!("(pers) read tag {tag:?}");
+
+                                // Since we don't know what this tag corresponds to, we must defer
+                                // the decision to the second phase.
+                                catches.push(tag);
                             } else if ttype_index == 0 {
-                                return Ok(EHAction::Cleanup(lpad));
+                                // We don't create cleanup clauses, so this can't happen
+                                return Ok(EHAction::Terminate);
                             }
 
                             let action_offset = reader.clone().read_sleb128();
                             if action_offset == 0 {
-                                return Ok(EHAction::None);
+                                return Ok(if catches.is_empty() {
+                                    EHAction::None
+                                } else {
+                                    EHAction::CatchSpecific {
+                                        lpad,
+                                        tags: catches,
+                                    }
+                                });
                             }
 
                             action = reader.ptr.wrapping_add(action_offset as usize);

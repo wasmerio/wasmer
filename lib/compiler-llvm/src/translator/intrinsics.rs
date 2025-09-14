@@ -153,6 +153,7 @@ pub struct Intrinsics<'ctx> {
     pub debug_trap: FunctionValue<'ctx>,
 
     pub personality: FunctionValue<'ctx>,
+    pub personality2: FunctionValue<'ctx>,
     pub readonly: Attribute,
     pub stack_probe: Attribute,
     pub uwtable: Attribute,
@@ -719,6 +720,11 @@ impl<'ctx> Intrinsics<'ctx> {
                 ),
                 None,
             ),
+            personality2: module.add_function(
+                "wasmer_eh_personality2",
+                i32_ty.fn_type(&[ptr_ty.into(), ptr_ty.into()], false),
+                None,
+            ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
@@ -1022,7 +1028,10 @@ impl<'ctx> Intrinsics<'ctx> {
 
             throw: module.add_function(
                 "wasmer_vm_throw",
-                void_ty.fn_type(&[i64_ty.into(), ptr_ty.into(), i64_ty.into()], false),
+                void_ty.fn_type(
+                    &[i32_ty.into(), ptr_ty.into(), ptr_ty.into(), i64_ty.into()],
+                    false,
+                ),
                 None,
             ),
             rethrow: module.add_function(

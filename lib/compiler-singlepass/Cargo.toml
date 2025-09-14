@@ -14,14 +14,14 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.3", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.3", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.4", features = ["translator", "compiler"], default-features = false }
+wasmer-types = { path = "../types", version = "=6.1.0-rc.4", default-features = false, features = ["std"] }
 hashbrown = { workspace = true, optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
 more-asserts.workspace = true
-dynasm = "3.2.0"
-dynasmrt = "3.2.0"
+dynasm = "4.0.0"
+dynasmrt = "4.0.0"
 byteorder.workspace = true
 smallvec.workspace = true
 tempfile = "3.6.0"
