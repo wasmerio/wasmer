@@ -383,56 +383,38 @@ impl EmitterRiscv for Assembler {
         // TODO: refactor the disp checks
         match (sz, signed, reg, addr) {
             (Size::S64, _, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; ld X(reg), [X(addr), disp]);
             }
             (Size::S32, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lwu X(reg), [X(addr), disp]);
             }
             (Size::S32, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
             (Size::S16, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lhu X(reg), [X(addr), disp]);
             }
             (Size::S16, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lh X(reg), [X(addr), disp]);
             }
             (Size::S8, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lbu X(reg), [X(addr), disp]);
             }
             (Size::S8, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lb X(reg), [X(addr), disp]);
             }
             (Size::S64, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; fld F(reg), [X(addr), disp]);
             }
             (Size::S32, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; flw F(reg), [X(addr), disp]);
             }
@@ -446,38 +428,26 @@ impl EmitterRiscv for Assembler {
         // TODO: refactor the disp checks
         match (sz, reg, addr) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sw X(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sh X(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sb X(reg), [X(addr), disp]);
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; fsd F(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                let reg = reg.into_index();
-                let addr = addr.into_index();
                 assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; fsw F(reg), [X(addr), disp]);
             }
@@ -527,42 +497,26 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; add X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
             | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; addw X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
             | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12.compatible_imm(imm as i64));
                 dynasm!(self ; addiw X(dst), X(src1), imm as _);
             }
 
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fadd.s F(dst), F(src1), F(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fadd.d F(dst), F(src1), F(src2));
             }
             _ => codegen_error!(
@@ -585,40 +539,24 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; sub X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; addi X(dst), X(src1), -(imm as i32) as _);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; subw X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; addiw X(dst), X(src1), -(imm as i32) as _);
             }
 
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fsub.s F(dst), F(src1), F(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fsub.d F(dst), F(src1), F(src2));
             }
             _ => codegen_error!(
@@ -641,28 +579,16 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; mul X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; mulw X(dst), X(src1), X(src2));
             }
 
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmul.s F(dst), F(src1), F(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmul.d F(dst), F(src1), F(src2));
             }
 
@@ -686,15 +612,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; divuw X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; divu X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
@@ -716,15 +636,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; divw X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; div X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
@@ -747,15 +661,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; remuw X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; remu X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
@@ -777,15 +685,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; remw X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; rem X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
@@ -813,20 +715,13 @@ impl EmitterRiscv for Assembler {
                 Location::GPR(src2),
                 Location::GPR(dst),
             ) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; and X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; andi X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; andi X(dst), X(src1), imm as _);
             }
@@ -855,20 +750,13 @@ impl EmitterRiscv for Assembler {
                 Location::GPR(src2),
                 Location::GPR(dst),
             ) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; or X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; ori X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; ori X(dst), X(src1), imm as _);
             }
@@ -897,20 +785,13 @@ impl EmitterRiscv for Assembler {
                 Location::GPR(src2),
                 Location::GPR(dst),
             ) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; xor X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; xori X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; xori X(dst), X(src1), imm as _);
             }
@@ -934,28 +815,18 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; sll X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 if imm >= u64::BITS as _ {
                     codegen_error!("singlepass SLL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; slli X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; sllw X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 if imm >= u32::BITS {
                     codegen_error!("singlepass SLL with incompatible imm {}", imm);
                 }
@@ -981,28 +852,18 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; srl X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 if imm >= u64::BITS as _ {
                     codegen_error!("singlepass SRL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; srli X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; srlw X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 if imm >= u32::BITS {
                     codegen_error!("singlepass SRL with incompatible imm {}", imm);
                 }
@@ -1028,28 +889,18 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; sra X(dst), X(src1), X(src2));
             }
             (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 if imm >= u64::BITS as _ {
                     codegen_error!("singlepass SRA with incompatible imm {}", imm);
                 }
                 dynasm!(self ; srai X(dst), X(src1), imm as _);
             }
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let src2 = src2.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; sraw X(dst), X(src1), X(src2));
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
-                let src1 = src1.into_index();
-                let dst = dst.into_index();
                 if imm >= u32::BITS {
                     codegen_error!("singlepass SRA with incompatible imm {}", imm);
                 }
@@ -1082,16 +933,12 @@ impl EmitterRiscv for Assembler {
 
         match (signed, src, dst) {
             (true, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self
                     ; slli X(dst), X(src), bit_shift
                     ; srai X(dst), X(dst), bit_shift
                 );
             }
             (false, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self
                     ; slli X(dst), X(src), bit_shift
                     ; srli X(dst), X(dst), bit_shift
@@ -1105,8 +952,6 @@ impl EmitterRiscv for Assembler {
     fn emit_not(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; not X(dst), X(src));
             }
             _ => codegen_error!("singlepass can't emit NOT {:?} {:?} {:?}", sz, src, dst),
@@ -1118,8 +963,6 @@ impl EmitterRiscv for Assembler {
     fn emit_neg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; neg X(dst), X(src));
             }
             _ => codegen_error!("singlepass can't emit NEG {:?} {:?} {:?}", sz, src, dst),
@@ -1131,46 +974,30 @@ impl EmitterRiscv for Assembler {
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; mv X(dst), X(src));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self
                     ; slli X(dst), X(src), 32
                     ; srli X(dst), X(dst), 32
                 );
             }
             (Size::S64, Location::GPR(src), Location::SIMD(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmv.d.x F(dst), X(src));
             }
             (Size::S64, Location::SIMD(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmv.x.d X(dst), F(src));
             }
             (Size::S32, Location::GPR(src), Location::SIMD(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmv.s.x F(dst), X(src));
             }
             (Size::S32, Location::SIMD(src), Location::GPR(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmv.x.s X(dst), F(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmv.d F(dst), F(src));
             }
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fmv.s F(dst), F(src));
             }
             // TODO: add more variants
@@ -1195,18 +1022,14 @@ impl EmitterRiscv for Assembler {
         };
 
         match dst {
-            Location::GPR(dst) => {
-                let dst = dst.into_index();
-
-                match used_bits {
-                    0..=12 => dynasm!(self ; li.12 X(dst), val as _),
-                    13..=32 => dynasm!(self ; li.32 X(dst), val as _),
-                    33..=43 => dynasm!(self ; li.43 X(dst), val),
-                    44..=54 => dynasm!(self ; li.54 X(dst), val),
-                    55..=64 => dynasm!(self ; li X(dst), val),
-                    _ => unreachable!(),
-                }
-            }
+            Location::GPR(dst) => match used_bits {
+                0..=12 => dynasm!(self ; li.12 X(dst), val as _),
+                13..=32 => dynasm!(self ; li.32 X(dst), val as _),
+                33..=43 => dynasm!(self ; li.43 X(dst), val),
+                44..=54 => dynasm!(self ; li.54 X(dst), val),
+                55..=64 => dynasm!(self ; li X(dst), val),
+                _ => unreachable!(),
+            },
             _ => codegen_error!("singlepass can't emit MOVIMM {:?}", dst),
         }
         Ok(())
@@ -1215,13 +1038,9 @@ impl EmitterRiscv for Assembler {
     fn emit_fneg(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fneg.d F(dst), F(src));
             }
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index();
-                let dst = dst.into_index();
                 dynasm!(self ; fneg.s F(dst), F(src));
             }
             _ => codegen_error!("singlepass can't emit FNEG {:?} {:?} {:?}", sz, src, dst),
@@ -1239,15 +1058,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmin.s F(dst), F(src1), F(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmin.d F(dst), F(src1), F(src2));
             }
             _ => codegen_error!(
@@ -1270,15 +1083,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmax.s F(dst), F(src1), F(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fmax.d F(dst), F(src1), F(src2));
             }
             _ => codegen_error!(
@@ -1301,15 +1108,9 @@ impl EmitterRiscv for Assembler {
     ) -> Result<(), CompileError> {
         match (sz, src1, src2, dst) {
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fdiv.s F(dst), F(src1), F(src2));
             }
             (Size::S64, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
-                let src1 = src1.into_index() as u32;
-                let src2 = src2.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fdiv.d F(dst), F(src1), F(src2));
             }
             _ => codegen_error!(
@@ -1326,13 +1127,9 @@ impl EmitterRiscv for Assembler {
     fn emit_fsqrt(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
         match (sz, src, dst) {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fsqrt.s F(dst), F(src));
             }
             (Size::S64, Location::SIMD(src), Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fsqrt.d F(dst), F(src));
             }
             _ => codegen_error!("singlepass can't emit FSQRT {:?} {:?} {:?}", sz, src, dst),
@@ -1351,96 +1148,60 @@ impl EmitterRiscv for Assembler {
         match (signed, sz_in, src, sz_out, dst) {
             // floating-point -> floating-point types
             (_, Size::S32, Location::SIMD(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.d.s F(dst), F(src));
             }
             (_, Size::S64, Location::SIMD(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.s.d F(dst), F(src));
             }
             // floating-point -> int types
             (true, Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.w.s X(dst), F(src), rtz);
             }
             (true, Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.w.d X(dst), F(src), rtz);
             }
             (true, Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.l.s X(dst), F(src), rtz);
             }
             (true, Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.l.d X(dst), F(src), rtz);
             }
             (false, Size::S32, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.wu.s X(dst), F(src), rtz);
             }
             (false, Size::S64, Location::SIMD(src), Size::S32, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.wu.d X(dst), F(src), rtz);
             }
             (false, Size::S32, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.lu.s X(dst), F(src), rtz);
             }
             (false, Size::S64, Location::SIMD(src), Size::S64, Location::GPR(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.lu.d X(dst), F(src), rtz);
             }
             // int -> floating-point types
             (true, Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.s.w F(dst), X(src));
             }
             (true, Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.s.l F(dst), X(src));
             }
             (true, Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.d.w F(dst), X(src));
             }
             (true, Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.d.l F(dst), X(src));
             }
 
             (false, Size::S32, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.s.wu F(dst), X(src));
             }
             (false, Size::S64, Location::GPR(src), Size::S32, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.s.lu F(dst), X(src));
             }
             (false, Size::S32, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.d.wu F(dst), X(src));
             }
             (false, Size::S64, Location::GPR(src), Size::S64, Location::SIMD(dst)) => {
-                let src = src.into_index() as u32;
-                let dst = dst.into_index() as u32;
                 dynasm!(self ; fcvt.d.lu F(dst), X(src));
             }
             _ => codegen_error!(
@@ -1471,10 +1232,6 @@ impl EmitterRiscv for Assembler {
                 rounding
             )
         };
-
-        let src = src.into_index();
-        let dst = dst.into_index();
-        let tmp = tmp.into_index();
 
         match (size, rounding) {
             (Size::S32, RoundingMode::Rne) => {
@@ -1537,15 +1294,12 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_write_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        let dst = GPR::XZero.into_index();
-        let src = reg.into_index();
-        dynasm!(self ; fscsr X(dst), X(src));
+        dynasm!(self ; fscsr X(GPR::XZero), X(reg));
         Ok(())
     }
 
     fn emit_read_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        let dst = reg.into_index();
-        dynasm!(self ; frcsr X(dst));
+        dynasm!(self ; frcsr X(reg));
         Ok(())
     }
 
@@ -1565,10 +1319,6 @@ impl EmitterRiscv for Assembler {
                 ret
             );
         };
-
-        let loc_a = loc_a.into_index();
-        let loc_b = loc_b.into_index();
-        let ret = ret.into_index();
 
         match c {
             // signed comparison operations
@@ -1639,10 +1389,6 @@ impl EmitterRiscv for Assembler {
             );
         };
 
-        let loc_a = loc_a.into_index();
-        let loc_b = loc_b.into_index();
-        let ret = ret.into_index();
-
         match (size, c) {
             (Size::S32, Condition::Lt) => {
                 dynasm!(self ; flt.s X(ret), F(loc_a), F(loc_b));
@@ -1699,7 +1445,6 @@ impl EmitterRiscv for Assembler {
     fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
         match cond {
             Location::GPR(cond) => {
-                let cond = cond.into_index();
                 dynasm!(self; beqz X(cond), => label);
             }
             _ if cond.is_imm() => {
@@ -1720,7 +1465,6 @@ impl EmitterRiscv for Assembler {
         let cont: Label = self.get_label();
         match cond {
             Location::GPR(cond) => {
-                let cond = cond.into_index();
                 // Use the negative condition to jump after the "j" instruction that will
                 // go to the requsted `label`.
                 dynasm!(self; bnez X(cond), => cont);
@@ -1743,7 +1487,6 @@ impl EmitterRiscv for Assembler {
     fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError> {
         match cond {
             Location::GPR(cond) => {
-                let cond = cond.into_index();
                 dynasm!(self; bnez X(cond), => label);
             }
             _ if cond.is_imm() => {
@@ -1761,7 +1504,6 @@ impl EmitterRiscv for Assembler {
         let jump_label: Label = self.get_label();
         match cond {
             Location::GPR(cond) => {
-                let cond = cond.into_index();
                 dynasm!(self; bnez X(cond), => jump_label);
             }
             _ if cond.is_imm() => {
@@ -1790,7 +1532,6 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_j_register(&mut self, reg: GPR) -> Result<(), CompileError> {
-        let reg = reg.into_index();
         dynasm!(self ; jalr zero, X(reg), 0);
         Ok(())
     }
@@ -1801,13 +1542,11 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
-        let reg = reg.into_index();
         dynasm!(self ; jalr ra, X(reg), 0);
         Ok(())
     }
 
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError> {
-        let reg = reg.into_index() as _;
         dynasm!(self ; la X(reg), => label);
         Ok(())
     }
@@ -1825,10 +1564,6 @@ impl EmitterRiscv for Assembler {
         addr: GPR,
         source: GPR,
     ) -> Result<(), CompileError> {
-        let dest = dest.into_index();
-        let addr = addr.into_index();
-        let source = source.into_index();
-
         match (size, op) {
             (Size::S64, AtomicBinaryOp::Add) => {
                 dynasm!(self ; amoadd.d.aqrl X(dest), X(source), [X(addr)])
@@ -1868,9 +1603,6 @@ impl EmitterRiscv for Assembler {
     }
 
     fn emit_reserved_ld(&mut self, size: Size, reg: GPR, addr: GPR) -> Result<(), CompileError> {
-        let reg = reg.into_index();
-        let addr = addr.into_index();
-
         match size {
             Size::S32 => {
                 dynasm!(self ; lr.w.aqrl X(reg), [X(addr)])
@@ -1891,10 +1623,6 @@ impl EmitterRiscv for Assembler {
         addr: GPR,
         source: GPR,
     ) -> Result<(), CompileError> {
-        let dest = dest.into_index();
-        let addr = addr.into_index();
-        let source = source.into_index();
-
         match size {
             Size::S32 => {
                 dynasm!(self ; sc.w.rl X(dest), X(source), [X(addr)])
@@ -1923,11 +1651,11 @@ pub fn gen_std_trampoline_riscv(
         ; addi sp, sp, -32
         ; sd s0, [sp,24]
         ; sd ra, [sp,16]
-        ; sd X(fptr as u32), [sp, 8]
-        ; sd X(args as u32), [sp, 0]
+        ; sd X(fptr), [sp, 8]
+        ; sd X(args), [sp, 0]
         ; mv s0, sp // use frame-pointer register for later restore
-        ; mv X(fptr as u32), a1
-        ; mv X(args as u32), a2
+        ; mv X(fptr), a1
+        ; mv X(args), a2
     );
 
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
@@ -1990,7 +1718,7 @@ pub fn gen_std_trampoline_riscv(
     }
 
     dynasm!(a
-        ; jalr ra, X(fptr as u32), 0);
+        ; jalr ra, X(fptr), 0);
 
     // Write return value.
     if !sig.results().is_empty() {
@@ -2003,8 +1731,8 @@ pub fn gen_std_trampoline_riscv(
 
     // Restore stack.
     dynasm!(a
-        ; ld X(args as u32), [s0,0]
-        ; ld X(fptr as u32), [s0,8]
+        ; ld X(args), [s0,0]
+        ; ld X(fptr), [s0,8]
         ; ld ra, [s0,16]
         ; ld s0, [s0,24]
         ; addi sp, sp, 32 + stack_offset as i32

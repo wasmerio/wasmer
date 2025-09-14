@@ -90,6 +90,12 @@ pub enum GPR {
     X31 = 31,
 }
 
+impl From<GPR> for u8 {
+    fn from(val: GPR) -> Self {
+        val as u8
+    }
+}
+
 impl AbstractReg for GPR {
     fn is_callee_save(self) -> bool {
         todo!();
@@ -225,6 +231,12 @@ pub enum FPR {
     F29 = 29,
     F30 = 30,
     F31 = 31,
+}
+
+impl From<FPR> for u8 {
+    fn from(val: FPR) -> Self {
+        val as u8
+    }
 }
 
 impl AbstractReg for FPR {
