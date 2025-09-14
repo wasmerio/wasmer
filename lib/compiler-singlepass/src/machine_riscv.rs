@@ -1655,11 +1655,9 @@ impl MachineRiscv {
             .emit_mov_imm(Location::GPR(tmp), canonical_nan as _)?;
         self.assembler.emit_mov(size, Location::GPR(tmp), dest)?;
         self.assembler
+            .emit_fcmp(Condition::Eq, size, loc, loc, Location::GPR(cond))?;
+        self.assembler
             .emit_on_false_label(Location::GPR(cond), label_after)?;
-        self.assembler
-            .emit_fcmp(Condition::Eq, size, loc, loc, Location::GPR(tmp))?;
-        self.assembler
-            .emit_on_false_label(Location::GPR(tmp), label_after)?;
 
         // TODO: refactor the constants
         if size == Size::S64 {
@@ -1701,6 +1699,9 @@ impl MachineRiscv {
             self.release_simd(r);
         }
         self.release_gpr(tmp);
+        self.release_gpr(cond);
+        self.release_simd(tmp1);
+        self.release_simd(tmp2);
         Ok(())
     }
 }
