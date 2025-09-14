@@ -2271,7 +2271,6 @@ pub fn gen_import_call_trampoline_riscv(
     // from Ctx and jumps to it.
 
     let offset = vmoffsets.vmctx_vmfunction_import(index);
-    dbg!(offset);
 
     a.emit_ld(
         Size::S64,
