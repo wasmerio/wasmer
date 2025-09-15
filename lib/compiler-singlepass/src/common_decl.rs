@@ -288,7 +288,7 @@ pub(crate) fn save_assembly_to_file(suffix: &str, body: &[u8]) {
     };
 
     let base = PathBuf::from(dir);
-    create_dir_all(&base).unwrap_or_else(|_| panic!("cannot create dirs: {:?}", base));
+    create_dir_all(&base).unwrap_or_else(|_| panic!("cannot create dirs: {base:?}"));
 
     let mut file = tempfile::Builder::new()
         .suffix(suffix)
@@ -298,5 +298,5 @@ pub(crate) fn save_assembly_to_file(suffix: &str, body: &[u8]) {
     file.write_all(body).expect("Write failed");
     let filename = file.keep().expect("persist failed").1;
 
-    eprintln!("Saving assembly output: {:?}", filename);
+    eprintln!("Saving assembly output: {filename:?}");
 }
