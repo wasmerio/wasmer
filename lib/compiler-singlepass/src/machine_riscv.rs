@@ -347,8 +347,8 @@ impl MachineRiscv {
             panic!("emit_relaxed_atomic_binop3 expects locations in registers");
         };
 
-        // RISC-V does not provide atomic operations binary operations for S8 and S16 types. And so we must rely on 32-bit atomic operations
-        // with a proper masking.
+        // RISC-V does not provide atomic operations for binary operations for S8 and S16 types.
+        // And so we must rely on 32-bit atomic operations with a proper masking.
         match sz {
             Size::S32 | Size::S64 => {
                 if op == AtomicBinaryOp::Sub {
@@ -368,6 +368,7 @@ impl MachineRiscv {
                     self.assembler
                         .emit_atomic_binop(op, sz, dest, addr, source)?;
                 }
+                self.assembler.emit_rwfence()?;
             }
             Size::S8 | Size::S16 => {
                 let aligned_addr = self.acquire_temp_gpr().ok_or_else(|| {
@@ -439,7 +440,8 @@ impl MachineRiscv {
                         })?;
 
                         // Loop
-                        let label_loop = self.get_label();
+                        let label_retry = self.get_label();
+                        self.emit_label(label_retry)?;
 
                         self.assembler
                             .emit_reserved_ld(Size::S32, loaded_value, aligned_addr)?;
@@ -486,9 +488,9 @@ impl MachineRiscv {
                         self.assembler
                             .emit_reserved_sd(Size::S32, tmp, aligned_addr, tmp)?;
                         self.assembler
-                            .emit_on_false_label(Location::GPR(tmp), label_loop)?;
+                            .emit_on_true_label(Location::GPR(tmp), label_retry)?;
 
-                        self.emit_label(label_loop)?;
+                        self.assembler.emit_rwfence()?;
 
                         // Return the previous value
                         self.assembler.emit_and(
@@ -512,6 +514,7 @@ impl MachineRiscv {
                             aligned_addr,
                             source,
                         )?;
+                        self.assembler.emit_rwfence()?;
                         self.assembler.emit_and(
                             Size::S32,
                             Location::GPR(dest),
@@ -549,6 +552,7 @@ impl MachineRiscv {
                             aligned_addr,
                             source,
                         )?;
+                        self.assembler.emit_rwfence()?;
                         self.assembler.emit_and(
                             Size::S32,
                             Location::GPR(dest),
@@ -621,6 +625,7 @@ impl MachineRiscv {
                     .emit_on_true_label(Location::GPR(cond), label_retry)?;
 
                 // after re-try get the previous value
+                self.assembler.emit_rwfence()?;
                 self.emit_label(label_after_retry)?;
 
                 self.assembler.emit_mov(size, Location::GPR(value), dst)?;
@@ -746,6 +751,7 @@ impl MachineRiscv {
                     .emit_on_true_label(Location::GPR(cond), label_retry)?;
 
                 // After re-try get the previous value
+                self.assembler.emit_rwfence()?;
                 self.emit_label(label_after_retry)?;
 
                 self.assembler.emit_and(
