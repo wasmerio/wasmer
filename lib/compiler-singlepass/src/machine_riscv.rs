@@ -1067,7 +1067,8 @@ impl MachineRiscv {
         )?;
 
         // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
-        self.jmp_on_false(Location::GPR(cond), heap_access_oob)?;
+        self.assembler
+            .emit_on_false_label_far(Location::GPR(cond), heap_access_oob)?;
 
         self.release_gpr(tmp_bound);
         self.release_gpr(cond);
