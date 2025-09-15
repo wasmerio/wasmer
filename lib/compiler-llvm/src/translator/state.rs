@@ -433,11 +433,20 @@ impl<'ctx> State<'ctx> {
         Ok(())
     }
 
-    pub fn push_block(&mut self, next: BasicBlock<'ctx>, phis: SmallVec<[PhiValue<'ctx>; 1]>) {
+    pub fn push_block(
+        &mut self,
+        next: BasicBlock<'ctx>,
+        phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        num_inputs: usize,
+    ) {
         self.control_stack.push(ControlFrame::Block {
             next,
             phis,
-            stack_size_snapshot: self.stack.len(),
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
     }
 
@@ -447,13 +456,18 @@ impl<'ctx> State<'ctx> {
         next: BasicBlock<'ctx>,
         loop_body_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        num_inputs: usize,
     ) {
         self.control_stack.push(ControlFrame::Loop {
             body,
             next,
             loop_body_phis,
             phis,
-            stack_size_snapshot: self.stack.len(),
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
     }
 
@@ -465,6 +479,7 @@ impl<'ctx> State<'ctx> {
         then_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         else_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
+        num_inputs: usize,
     ) {
         self.control_stack.push(ControlFrame::IfElse {
             if_then,
@@ -473,8 +488,12 @@ impl<'ctx> State<'ctx> {
             then_phis,
             else_phis,
             next_phis,
-            stack_size_snapshot: self.stack.len(),
             if_else_state: IfElseState::If,
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
     }
 
@@ -484,11 +503,16 @@ impl<'ctx> State<'ctx> {
         next: BasicBlock<'ctx>,
         next_phis: SmallVec<[PhiValue<'ctx>; 1]>,
         tags: &[TagCatchInfo<'ctx>],
+        num_inputs: usize,
     ) {
         self.control_stack.push(ControlFrame::Landingpad {
             next,
             next_phis,
-            stack_size_snapshot: self.stack.len(),
+            stack_size_snapshot: self
+                .stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect("Internal codegen error: not enough inputs on stack"),
         });
 
         self.landingpads.push_back(Landingpad {

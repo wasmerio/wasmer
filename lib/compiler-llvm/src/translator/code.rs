@@ -193,7 +193,7 @@ impl FuncTranslator {
                 type_to_llvm(&intrinsics, wasm_ty).map(|ty| builder.build_phi(ty, "").unwrap())
             })
             .collect::<Result<_, _>>()?;
-        state.push_block(return_, phis);
+        state.push_block(return_, phis, 0);
         builder.position_at_end(start_of_code);
 
         let mut reader = MiddlewareBinaryReader::new_with_offset(
@@ -1938,20 +1938,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
-    //fn add_fn_to_got(&mut self, func: &FunctionValue<'ctx>, name: &str) {
-    //    //let throw_intrinsic = self.intrinsics.throw.as_global_value().as_pointer_value();
-    //    if !self.got_cache.contains(name) {
-    //        let func_ptr = func.as_global_value().as_pointer_value();
-    //        let global =
-    //            self.module
-    //                .add_global(func_ptr.get_type(), Some(AddressSpace::from(1u16)), name);
-
-    //        global.set_initializer(&func_ptr);
-    //        global.set_section(Some("__DATA_CONST,__got"));
-    //        self.got_cache.insert(name.to_string());
-    //    }
-    //}
-
     fn translate_operator(&mut self, op: Operator, _source_loc: u32) -> Result<(), CompileError> {
         // TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
@@ -2011,7 +1997,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     })
                     .collect::<Result<_, _>>()?;
 
-                self.state.push_block(end_block, phis);
+                self.state.push_block(
+                    end_block,
+                    phis,
+                    self.module_translation
+                        .blocktype_params_results(&blockty)?
+                        .0
+                        .len(),
+                );
                 self.builder.position_at_end(current_block);
             }
             Operator::Loop { blockty } => {
@@ -2053,39 +2046,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.state.push1(phi.as_basic_value());
                 }
 
-                /*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Loop,
-                            &self.self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        );
-                        let signal_mem = ctx.signal_mem();
-                        let iv = self.builder
-                            .build_store(signal_mem, self.context.i8_type().const_zero());
-                        // Any 'store' can be made volatile.
-                        iv.set_volatile(true).unwrap();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Loop,
-                            offset,
-                        );
-                    }
-                }
-                */
-
-                self.state.push_loop(loop_body, loop_next, loop_phis, phis);
+                let num_inputs = loop_phis.len();
+                self.state
+                    .push_loop(loop_body, loop_next, loop_phis, phis, num_inputs);
             }
             Operator::Br { relative_depth } => {
                 let frame = self.state.frame_at_depth(relative_depth)?;
@@ -2297,6 +2260,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     then_phis,
                     else_phis,
                     end_phis,
+                    block_param_types.len(),
                 );
             }
             Operator::Else => {
@@ -2384,6 +2348,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     if phi.count_incoming() != 0 {
                         self.state.push1(phi.as_basic_value());
                     } else {
+                        // TODO if there are no incoming phi values, it means
+                        // this block has no predecessors, and we can skip it
+                        // altogether. However, fixing this is non-trivial as
+                        // some places in the code rely on code getting generated
+                        // for unreachable end blocks. For now, we let LLVM remove
+                        // the block during dead code elimination instead.
                         let basic_ty = phi.as_basic_value().get_type();
                         let placeholder_value = basic_ty.const_zero();
                         self.state.push1(placeholder_value);
@@ -2410,40 +2380,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             }
 
             Operator::Unreachable => {
-                // Emit an unreachable instruction.
-                // If llvm cannot prove that this is never reached,
-                // it will emit a `ud2` instruction on x86_64 arches.
-
-                // Comment out this `if` block to allow spectests to pass.
-                // TODO: fix this
-                /*
-                if let Some(offset) = opcode_offset {
-                    if self.track_state {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Trappable,
-                            &self.self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        );
-                        self.builder.build_call(self.intrinsics.trap, &[], "trap");
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &mut *stackmaps,
-                            StackmapEntryKind::Trappable,
-                            offset,
-                        );
-                    }
-                }
-                */
-
                 err!(self.builder.build_call(
                     self.intrinsics.throw_trap,
                     &[self.intrinsics.trap_unreachable.into()],
@@ -12881,6 +12817,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     end_block,
                     end_phis,
                     &catch_tags_and_blocks,
+                    self.module_translation
+                        .blocktype_params_results(&try_table.ty)?
+                        .0
+                        .len(),
                 );
             }
             Operator::Throw { tag_index } => {
