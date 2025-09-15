@@ -1122,7 +1122,7 @@ impl MachineRiscv {
                     temps.push(tmp);
                 }
             }
-            _ => codegen_error!("singplass emit_relaxed_load unreachable"),
+            _ => codegen_error!("singlepass emit_relaxed_load unreachable"),
         }
         if dst != dest {
             self.move_location(sz, dest, dst)?;
@@ -1214,7 +1214,7 @@ impl MachineRiscv {
 
         let imm = match sz {
             Size::S32 | Size::S64 => Location::Imm32(sz.bits() as u32),
-            _ => codegen_error!("singplass emit_ror unreachable"),
+            _ => codegen_error!("singlepass emit_ror unreachable"),
         };
         let imm = self.location_to_reg(sz, imm, &mut temps, ImmType::None, false, None)?;
 
@@ -1263,7 +1263,7 @@ impl MachineRiscv {
         let one_imm = match sz {
             Size::S32 => Location::Imm32(1),
             Size::S64 => Location::Imm64(1),
-            _ => codegen_error!("singplass emit_popcnt unreachable"),
+            _ => codegen_error!("singlepass emit_popcnt unreachable"),
         };
 
         let label_loop = self.assembler.get_label();
@@ -1310,7 +1310,7 @@ impl MachineRiscv {
         let one_imm = match sz {
             Size::S32 => Location::Imm32(1),
             Size::S64 => Location::Imm64(1),
-            _ => codegen_error!("singplass emit_ctz unreachable"),
+            _ => codegen_error!("singlepass emit_ctz unreachable"),
         };
 
         let label_loop = self.assembler.get_label();
@@ -1361,7 +1361,7 @@ impl MachineRiscv {
         let one_imm = match sz {
             Size::S32 => Location::Imm32(1),
             Size::S64 => Location::Imm64(1),
-            _ => codegen_error!("singplass emit_ctz unreachable"),
+            _ => codegen_error!("singlepass emit_ctz unreachable"),
         };
 
         let label_loop = self.assembler.get_label();

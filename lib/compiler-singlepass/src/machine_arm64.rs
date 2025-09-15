@@ -573,7 +573,7 @@ impl MachineARM64 {
                     temps.push(tmp);
                 }
             }
-            _ => codegen_error!("singplass emit_relaxed_ldr64 unreachable"),
+            _ => codegen_error!("singlepass emit_relaxed_ldr64 unreachable"),
         }
         if dst != dest {
             self.move_location(sz, dest, dst)?;
