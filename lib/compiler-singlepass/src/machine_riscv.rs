@@ -984,27 +984,12 @@ impl MachineRiscv {
             Location::GPR(tmp_base),
             Location::GPR(tmp_bound),
         )?;
-        if ImmType::Bits12Subtraction.compatible_imm(value_size) {
-            self.assembler.emit_sub(
-                Size::S64,
-                Location::GPR(tmp_bound),
-                Location::Imm64(value_size as _),
-                Location::GPR(tmp_bound),
-            )?;
-        } else {
-            let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            self.assembler
-                .emit_mov_imm(Location::GPR(tmp2), value_size)?;
-            self.assembler.emit_sub(
-                Size::S64,
-                Location::GPR(tmp_bound),
-                Location::GPR(tmp2),
-                Location::GPR(tmp_bound),
-            )?;
-            self.release_gpr(tmp2);
-        }
+        self.assembler.emit_sub(
+            Size::S64,
+            Location::GPR(tmp_bound),
+            Location::Imm64(value_size as _),
+            Location::GPR(tmp_bound),
+        )?;
 
         // Load effective address.
         // `base_loc` and `bound_loc` becomes INVALID after this line, because `tmp_addr`
@@ -1013,15 +998,10 @@ impl MachineRiscv {
 
         // Add offset to memory address.
         if memarg.offset != 0 {
-            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-            })?;
-            self.move_location(Size::S32, Location::GPR(tmp_addr), Location::GPR(tmp))?;
-
             if ImmType::Bits12.compatible_imm(memarg.offset as _) {
                 self.assembler.emit_add(
-                    Size::S32,
-                    Location::Imm32(memarg.offset as u32),
+                    Size::S64,
+                    Location::Imm64(memarg.offset),
                     Location::GPR(tmp_addr),
                     Location::GPR(tmp_addr),
                 )?;
@@ -1032,7 +1012,7 @@ impl MachineRiscv {
                 self.assembler
                     .emit_mov_imm(Location::GPR(tmp), memarg.offset as _)?;
                 self.assembler.emit_add(
-                    Size::S32,
+                    Size::S64,
                     Location::GPR(tmp_addr),
                     Location::GPR(tmp),
                     Location::GPR(tmp_addr),
@@ -1040,16 +1020,19 @@ impl MachineRiscv {
                 self.release_gpr(tmp);
             }
 
-            // Trap if offset calculation overflowed.
-            self.assembler.emit_cmp(
-                Condition::Geu,
+            // Trap if offset calculation overflowed in 32-bits by checking
+            // the upper half of the 64-bit register.
+            let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            self.assembler.emit_srl(
+                Size::S64,
                 Location::GPR(tmp_addr),
-                Location::GPR(tmp),
+                Location::Imm64(32),
                 Location::GPR(tmp),
             )?;
             self.assembler
-                .emit_on_false_label_far(Location::GPR(tmp), heap_access_oob)?;
-
+                .emit_on_true_label_far(Location::GPR(tmp), heap_access_oob)?;
             self.release_gpr(tmp);
         }
 
