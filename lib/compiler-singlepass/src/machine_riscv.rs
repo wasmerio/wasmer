@@ -918,6 +918,9 @@ impl MachineRiscv {
         Ok(())
     }
 
+    /// NOTE: As observed on the VisionFive 2 board, when an unaligned memory write happens to write out of bounds (and thus triggers SIGSEGV),
+    /// the memory is partially modified and observable for a subsequent memory read operations.
+    /// Thus, we always check the boundaries.
     #[allow(clippy::too_many_arguments)]
     fn memory_op<F: FnOnce(&mut Self, GPR) -> Result<(), CompileError>>(
         &mut self,
@@ -925,7 +928,6 @@ impl MachineRiscv {
         memarg: &MemArg,
         check_alignment: bool,
         value_size: usize,
-        need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -964,40 +966,38 @@ impl MachineRiscv {
         // Load base into temporary register.
         self.emit_relaxed_load(Size::S64, false, Location::GPR(tmp_base), base_loc)?;
 
-        // Load bound into temporary register, if needed.
-        if need_check {
-            self.emit_relaxed_load(Size::S64, false, Location::GPR(tmp_bound), bound_loc)?;
+        // Load bound into temporary register.
+        self.emit_relaxed_load(Size::S64, false, Location::GPR(tmp_bound), bound_loc)?;
 
-            // Wasm -> Effective.
-            // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
-            // since the first page from 0x0 to 0x1000 is not accepted by mmap.
-            self.assembler.emit_add(
+        // Wasm -> Effective.
+        // Assuming we never underflow - should always be true on Linux/macOS and Windows >=8,
+        // since the first page from 0x0 to 0x1000 is not accepted by mmap.
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(tmp_bound),
+            Location::GPR(tmp_base),
+            Location::GPR(tmp_bound),
+        )?;
+        if ImmType::Bits12Subtraction.compatible_imm(value_size) {
+            self.assembler.emit_sub(
                 Size::S64,
                 Location::GPR(tmp_bound),
-                Location::GPR(tmp_base),
+                Location::Imm64(value_size as _),
                 Location::GPR(tmp_bound),
             )?;
-            if ImmType::Bits12.compatible_imm(value_size) {
-                self.assembler.emit_sub(
-                    Size::S64,
-                    Location::GPR(tmp_bound),
-                    Location::Imm32(value_size as _),
-                    Location::GPR(tmp_bound),
-                )?;
-            } else {
-                let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-                })?;
-                self.assembler
-                    .emit_mov_imm(Location::GPR(tmp2), value_size)?;
-                self.assembler.emit_sub(
-                    Size::S64,
-                    Location::GPR(tmp_bound),
-                    Location::GPR(tmp2),
-                    Location::GPR(tmp_bound),
-                )?;
-                self.release_gpr(tmp2);
-            }
+        } else {
+            let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            self.assembler
+                .emit_mov_imm(Location::GPR(tmp2), value_size)?;
+            self.assembler.emit_sub(
+                Size::S64,
+                Location::GPR(tmp_bound),
+                Location::GPR(tmp2),
+                Location::GPR(tmp_bound),
+            )?;
+            self.release_gpr(tmp2);
         }
 
         // Load effective address.
@@ -1058,18 +1058,16 @@ impl MachineRiscv {
         // tmp_base is already unused
         let cond = tmp_base;
 
-        if need_check {
-            // Trap if the end address of the requested area is above that of the linear memory.
-            self.assembler.emit_cmp(
-                Condition::Le,
-                Location::GPR(tmp_bound),
-                Location::GPR(tmp_addr),
-                Location::GPR(cond),
-            )?;
+        // Trap if the end address of the requested area is above that of the linear memory.
+        self.assembler.emit_cmp(
+            Condition::Le,
+            Location::GPR(tmp_addr),
+            Location::GPR(tmp_bound),
+            Location::GPR(cond),
+        )?;
 
-            // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
-            self.jmp_on_false(Location::GPR(cond), heap_access_oob)?;
-        }
+        // `tmp_bound` is inclusive. So trap only if `tmp_addr > tmp_bound`.
+        self.jmp_on_false(Location::GPR(cond), heap_access_oob)?;
 
         self.release_gpr(tmp_bound);
         self.release_gpr(cond);
@@ -3074,7 +3072,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3098,7 +3095,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3122,7 +3118,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3146,7 +3141,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3170,7 +3164,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3194,7 +3187,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3218,7 +3210,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3242,7 +3233,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3266,7 +3256,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3290,7 +3279,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3314,7 +3302,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3338,7 +3325,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3363,7 +3349,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3388,7 +3373,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3414,7 +3398,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3441,7 +3424,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3468,7 +3450,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3495,7 +3476,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3522,7 +3502,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3549,7 +3528,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3576,7 +3554,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3603,7 +3580,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3630,7 +3606,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3657,7 +3632,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3684,7 +3658,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3711,7 +3684,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3738,7 +3710,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3765,7 +3736,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3792,7 +3762,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3819,7 +3788,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3846,7 +3814,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3873,7 +3840,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3901,7 +3867,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3927,7 +3892,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -3953,7 +3917,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4352,7 +4315,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4376,7 +4338,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4400,7 +4361,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4424,7 +4384,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4448,7 +4407,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4472,7 +4430,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4496,7 +4453,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4520,7 +4476,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4544,7 +4499,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4568,7 +4522,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4592,7 +4545,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4616,7 +4568,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4640,7 +4591,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4664,7 +4614,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4688,7 +4637,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4712,7 +4660,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4737,7 +4684,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4762,7 +4708,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4787,7 +4732,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4813,7 +4757,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4840,7 +4783,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4867,7 +4809,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4894,7 +4835,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4921,7 +4861,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4948,7 +4887,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -4975,7 +4913,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5002,7 +4939,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5029,7 +4965,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5056,7 +4991,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5083,7 +5017,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5110,7 +5043,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5137,7 +5069,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5164,7 +5095,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5191,7 +5121,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5218,7 +5147,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5245,7 +5173,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5272,7 +5199,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5299,7 +5225,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5326,7 +5251,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5353,7 +5277,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5380,7 +5303,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5407,7 +5329,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5434,7 +5355,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5462,7 +5382,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5488,7 +5407,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             1,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5514,7 +5432,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             2,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5540,7 +5457,6 @@ impl Machine for MachineRiscv {
             memarg,
             true,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5564,7 +5480,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5590,7 +5505,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             4,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5620,7 +5534,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
@@ -5646,7 +5559,6 @@ impl Machine for MachineRiscv {
             memarg,
             false,
             8,
-            need_check,
             imported_memories,
             offset,
             heap_access_oob,
