@@ -1,4 +1,6 @@
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
+use std::task::{Context, Poll, Waker};
+use std::future::poll_fn;
 
 use crate::{
     os::task::{
@@ -38,16 +40,46 @@ pub async fn spawn_exec(
     // any longer
     drop(binary);
 
-    // Transfering the module and env to a new thread may be expensive...
-    // We may also be able to use the wasix runtime to spawn the task although that may run in tokio too...
-    if let Ok(_) = tokio::runtime::Handle::try_current() {
-        let cloned_runtime = runtime.clone();
-        tokio::task::spawn_blocking(move || spawn_exec_module(module, env, &cloned_runtime))
-            .await
-            .unwrap()
-    } else {
-        spawn_exec_module(module, env, runtime)
+    struct State {
+        result: Option<Result<TaskJoinHandle, SpawnError>>,
+        waker: Option<Waker>,
     }
+    let state = Arc::new(Mutex::new(State {
+        result: None,
+        waker: None,
+    }));
+
+    let cloned_state = state.clone();
+    let future = poll_fn(move |cx: &mut Context<'_>| {
+        let mut state = cloned_state.lock().unwrap();
+
+        if let Some(result) = state.result.take() {
+            Poll::Ready(result)
+        } else {
+            state.waker = Some(cx.waker().clone());
+            Poll::Pending
+        }
+    });
+
+    let cloned_runtime = runtime.clone();
+    runtime
+        .task_manager()
+        .spawn_with_module(
+            module,
+            Box::new(move |module| {
+                let result = spawn_exec_module(module, env, &cloned_runtime);
+                let waker = {
+                    let mut state = state.lock().unwrap();
+                    state.result = Some(result);
+                    state.waker.take()
+                };
+                if let Some(waker) = waker {
+                    waker.wake();
+                }
+            }),
+        )
+        .unwrap();
+    future.await
 }
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name))]
