@@ -4,7 +4,6 @@
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
-use crate::unwind::UnwindRegister;
 use std::collections::BTreeMap;
 use std::slice::Iter;
 use wasmer_types::{target::CallingConvention, CompileError, Type};
@@ -113,13 +112,13 @@ impl AbstractReg for GPR {
 
         match self {
             GPR::RAX => X86_64::RAX,
-            GPR::RDX => X86_64::RDX,
             GPR::RCX => X86_64::RCX,
+            GPR::RDX => X86_64::RDX,
             GPR::RBX => X86_64::RBX,
+            GPR::RSP => X86_64::RSP,
+            GPR::RBP => X86_64::RBP,
             GPR::RSI => X86_64::RSI,
             GPR::RDI => X86_64::RDI,
-            GPR::RBP => X86_64::RBP,
-            GPR::RSP => X86_64::RSP,
             GPR::R8 => X86_64::R8,
             GPR::R9 => X86_64::R9,
             GPR::R10 => X86_64::R10,
@@ -194,17 +193,6 @@ impl AbstractReg for XMM {
             XMM::XMM13 => X86_64::XMM13,
             XMM::XMM14 => X86_64::XMM14,
             XMM::XMM15 => X86_64::XMM15,
-        }
-    }
-}
-
-impl UnwindRegister<GPR, XMM> {
-    pub(crate) fn windows_unwind_index(&self) -> u8 {
-        match self {
-            UnwindRegister::GPR(reg) => {
-                [0, 2, 1, 3, 6, 7, 5, 4, 8, 9, 10, 11, 12, 13, 14, 15][reg.into_index()]
-            }
-            UnwindRegister::FPR(reg) => reg.into_index() as u8,
         }
     }
 }

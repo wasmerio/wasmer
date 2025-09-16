@@ -1,6 +1,7 @@
 //! Windows x64 ABI unwind information.
 
 use crate::{
+    location::Reg,
     unwind::{UnwindOps, UnwindRegister},
     x64_decl::{GPR, XMM},
 };
@@ -263,14 +264,16 @@ pub(crate) fn create_unwind_info_from_insts(
                 unwind_codes.push(UnwindCode::SetFPReg { instruction_offset });
             }
             UnwindOps::SaveRegister { reg, bp_neg_offset } => match reg {
-                UnwindRegister::GPR(_) => unwind_codes.push(UnwindCode::SaveReg {
+                UnwindRegister::GPR(reg) => unwind_codes.push(UnwindCode::SaveReg {
                     instruction_offset,
-                    reg: reg.windows_unwind_index(),
+                    // NOTE: We declare the register order in the same way as expected by the x64 exception handling ABI.
+                    reg: reg.into_index() as u8,
                     stack_offset: bp_neg_offset as u32,
                 }),
-                UnwindRegister::FPR(_) => unwind_codes.push(UnwindCode::SaveXmm {
+                UnwindRegister::FPR(reg) => unwind_codes.push(UnwindCode::SaveXmm {
                     instruction_offset,
-                    reg: reg.windows_unwind_index(),
+                    // NOTE: We declare the register order in the same way as expected by the x64 exception handling ABI.
+                    reg: reg.into_index() as u8,
                     stack_offset: bp_neg_offset as u32,
                 }),
             },
