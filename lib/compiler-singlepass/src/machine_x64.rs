@@ -8219,7 +8219,7 @@ impl Machine for MachineX86_64 {
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(reg.to_dwarf(), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
                 UnwindOps::Push2Regs { .. } => unimplemented!(),
             }

@@ -9,13 +9,14 @@ use wasmer_types::target::Architecture;
 use crate::location;
 
 #[derive(Clone, Debug, Copy)]
+#[allow(clippy::upper_case_acronyms)]
 pub enum UnwindRegister<R: location::Reg, S: location::Reg> {
     GPR(R),
     FPR(S),
 }
 
 impl<R: location::Reg, S: location::Reg> UnwindRegister<R, S> {
-    pub(crate) fn to_dwarf(&self) -> gimli::Register {
+    pub(crate) fn dwarf_index(&self) -> gimli::Register {
         match self {
             Self::GPR(reg) => reg.to_dwarf(),
             Self::FPR(reg) => reg.to_dwarf(),

@@ -8466,11 +8466,11 @@ impl Machine for MachineARM64 {
                     ));
                     instructions.push((
                         instruction_offset,
-                        CallFrameInstruction::Offset(reg2.to_dwarf(), -(up_to_sp as i32) + 8),
+                        CallFrameInstruction::Offset(reg2.dwarf_index(), -(up_to_sp as i32) + 8),
                     ));
                     instructions.push((
                         instruction_offset,
-                        CallFrameInstruction::Offset(reg1.to_dwarf(), -(up_to_sp as i32)),
+                        CallFrameInstruction::Offset(reg1.dwarf_index(), -(up_to_sp as i32)),
                     ));
                 }
                 UnwindOps::DefineNewFrame => {
@@ -8481,7 +8481,7 @@ impl Machine for MachineARM64 {
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(reg.to_dwarf(), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
             }
         }
