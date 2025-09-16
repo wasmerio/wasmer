@@ -17,7 +17,7 @@ use std::{
 
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{CompileError, Module, RuntimeError};
+use wasmer::{CompileError, Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -155,8 +155,9 @@ where
     fn load_module<'a>(
         &'a self,
         module: HashedModuleData,
+        engine: Option<&wasmer::Engine>,
     ) -> BoxFuture<'a, Result<Module, SpawnError>> {
-        let engine = self.engine();
+        let engine = engine.cloned().unwrap_or_else(|| self.engine());
         let module_cache = self.module_cache();
 
         let task = async move { load_module(&engine, &module_cache, &module).await };
@@ -167,8 +168,12 @@ where
     /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
     ///
     /// Non-async version of [`Self::load_module`].
-    fn load_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
-        InlineWaker::block_on(self.load_module(wasm))
+    fn load_module_sync(
+        &self,
+        wasm: HashedModuleData,
+        engine: Option<&Engine>,
+    ) -> Result<Module, SpawnError> {
+        InlineWaker::block_on(self.load_module(wasm, engine))
     }
 
     /// Callback thats invokes whenever the instance is tainted, tainting can occur
@@ -630,23 +635,30 @@ impl Runtime for OverriddenRuntime {
     fn load_module<'a>(
         &'a self,
         data: HashedModuleData,
+        engine: Option<&wasmer::Engine>,
     ) -> BoxFuture<'a, Result<Module, SpawnError>> {
-        if self.engine.is_some() || self.module_cache.is_some() {
-            let engine = self.engine();
-            let module_cache = self.module_cache();
+        let engine = engine.or_else(|| self.engine.as_ref());
 
+        if let (Some(engine), Some(module_cache)) = (engine, self.module_cache.clone()) {
+            let engine = engine.clone();
             let task = async move { load_module(&engine, &module_cache, &data).await };
             Box::pin(task)
         } else {
-            self.inner.load_module(data)
+            self.inner.load_module(data, engine)
         }
     }
 
-    fn load_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
-        if self.engine.is_some() || self.module_cache.is_some() {
-            InlineWaker::block_on(self.load_module(wasm))
+    fn load_module_sync(
+        &self,
+        wasm: HashedModuleData,
+        engine: Option<&Engine>,
+    ) -> Result<Module, SpawnError> {
+        let engine = engine.or_else(|| self.engine.as_ref());
+
+        if engine.is_some() || self.module_cache.is_some() {
+            InlineWaker::block_on(self.load_module(wasm, engine))
         } else {
-            self.inner.load_module_sync(wasm)
+            self.inner.load_module_sync(wasm, engine)
         }
     }
 }
