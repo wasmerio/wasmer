@@ -850,7 +850,7 @@ impl ExecutableTarget {
 
                 pb.set_message("Compiling to WebAssembly");
                 let module = runtime
-                    .load_module_sync(module_data)
+                    .load_module_sync(module_data, None)
                     .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
 
                 Ok(ExecutableTarget::WebAssembly {

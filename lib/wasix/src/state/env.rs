@@ -421,6 +421,7 @@ impl WasiEnv {
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
+        let engine = self.runtime().engine();
         let mut func_env = WasiFunctionEnv::new(&mut store, self);
 
         let is_dl = super::linker::is_dynamically_linked(&module);
@@ -451,6 +452,7 @@ impl WasiEnv {
 
                     // TODO: make stack size configurable
                     Linker::new(
+                        engine,
                         &module,
                         &mut store,
                         memory,
