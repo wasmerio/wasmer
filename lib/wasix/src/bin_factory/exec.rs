@@ -89,7 +89,7 @@ pub async fn spawn_load_module(
     wasm: HashedModuleData,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<Module, SpawnError> {
-    match runtime.load_hashed_module(wasm).await {
+    match runtime.load_hashed_module(wasm, None).await {
         Ok(module) => Ok(module),
         Err(err) => {
             tracing::error!(

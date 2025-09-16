@@ -277,8 +277,8 @@ use tracing::trace;
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
 use virtual_mio::InlineWaker;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
-    FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
+    AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
+    FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
     InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
     Value, WasmTypeList, WASM_PAGE_SIZE,
 };
@@ -817,6 +817,8 @@ struct InstanceGroupState {
 
 // There is only one LinkerState for all instance groups
 struct LinkerState {
+    engine: Engine,
+
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
 
@@ -947,6 +949,7 @@ impl Linker {
     /// running, and a Linker instance is returned which can then be used for the
     /// loading/linking of further side modules.
     pub fn new(
+        engine: Engine,
         main_module: &Module,
         store: &mut StoreMut<'_>,
         memory: Option<Memory>,
@@ -1082,6 +1085,7 @@ impl Linker {
         };
 
         let mut linker_state = LinkerState {
+            engine,
             main_module: main_module.clone(),
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
@@ -2310,14 +2314,14 @@ impl LinkerState {
                 }
 
                 (
-                    HashedModuleData::new_sha256(bytes),
+                    HashedModuleData::new(bytes),
                     Some((full_path, ld_library_path)),
                 )
             }
-            DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new_sha256(bytes), None),
+            DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new(bytes), None),
         };
 
-        let module = runtime.load_hashed_module_sync(module_data)?;
+        let module = runtime.load_hashed_module_sync(module_data, Some(&self.engine))?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 

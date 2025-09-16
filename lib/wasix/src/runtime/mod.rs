@@ -17,7 +17,7 @@ use std::{
 
 use futures::future::BoxFuture;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{CompileError, Module, RuntimeError};
+use wasmer::{CompileError, Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -76,14 +76,14 @@ where
     fn source(&self) -> Arc<dyn Source + Send + Sync>;
 
     /// Get a [`wasmer::Engine`] for module compilation.
-    fn engine(&self) -> wasmer::Engine {
-        wasmer::Engine::default()
+    fn engine(&self) -> Engine {
+        Engine::default()
     }
 
     fn engine_with_suggested_opts(
         &self,
         suggested_opts: &SuggestedCompilerOptimizations,
-    ) -> Result<wasmer::Engine, CompileError> {
+    ) -> Result<Engine, CompileError> {
         let mut engine = self.engine();
         engine.with_opts(&WasmerSuggestedCompilerOptimizations {
             pass_params: suggested_opts.pass_params,
@@ -157,7 +157,7 @@ where
     fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
-        let data = HashedModuleData::new_xxhash(wasm.to_vec());
+        let data = HashedModuleData::new(wasm.to_vec());
         let task = async move { load_module(&engine, &module_cache, &data).await };
         Box::pin(task)
     }
@@ -178,16 +178,21 @@ where
     fn load_hashed_module(
         &self,
         module: HashedModuleData,
+        engine: Option<&Engine>,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let engine = self.engine();
+        let engine = engine.cloned().unwrap_or_else(|| self.engine());
         let module_cache = self.module_cache();
         let task = async move { load_module(&engine, &module_cache, &module).await };
         Box::pin(task)
     }
 
     /// Synchronous version of [`Self::load_hashed_module`].
-    fn load_hashed_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
-        InlineWaker::block_on(self.load_hashed_module(wasm))
+    fn load_hashed_module_sync(
+        &self,
+        wasm: HashedModuleData,
+        engine: Option<&Engine>,
+    ) -> Result<Module, SpawnError> {
+        InlineWaker::block_on(self.load_hashed_module(wasm, engine))
     }
 
     /// Callback thats invokes whenever the instance is tainted, tainting can occur
@@ -223,7 +228,7 @@ pub type DynRuntime = dyn Runtime + Send + Sync;
 // implementing [`Runtime::load_module`], so custom logic can be added on top.
 #[tracing::instrument(level = "debug", skip_all)]
 pub async fn load_module(
-    engine: &wasmer::Engine,
+    engine: &Engine,
     module_cache: &(dyn ModuleCache + Send + Sync),
     module: &HashedModuleData,
 ) -> Result<Module, crate::SpawnError> {
@@ -291,7 +296,7 @@ pub struct PluggableRuntime {
     pub http_client: Option<DynHttpClient>,
     pub package_loader: Arc<dyn PackageLoader + Send + Sync>,
     pub source: Arc<dyn Source + Send + Sync>,
-    pub engine: wasmer::Engine,
+    pub engine: Engine,
     pub module_cache: Arc<dyn ModuleCache + Send + Sync>,
     pub tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
@@ -347,7 +352,7 @@ impl PluggableRuntime {
         self
     }
 
-    pub fn set_engine(&mut self, engine: wasmer::Engine) -> &mut Self {
+    pub fn set_engine(&mut self, engine: Engine) -> &mut Self {
         self.engine = engine;
         self
     }
@@ -416,7 +421,7 @@ impl Runtime for PluggableRuntime {
         Arc::clone(&self.source)
     }
 
-    fn engine(&self) -> wasmer::Engine {
+    fn engine(&self) -> Engine {
         self.engine.clone()
     }
 
@@ -462,7 +467,7 @@ pub struct OverriddenRuntime {
     http_client: Option<DynHttpClient>,
     package_loader: Option<Arc<dyn PackageLoader + Send + Sync>>,
     source: Option<Arc<dyn Source + Send + Sync>>,
-    engine: Option<wasmer::Engine>,
+    engine: Option<Engine>,
     module_cache: Option<Arc<dyn ModuleCache + Send + Sync>>,
     tty: Option<Arc<dyn TtyBridge + Send + Sync>>,
     #[cfg(feature = "journal")]
@@ -518,7 +523,7 @@ impl OverriddenRuntime {
         self
     }
 
-    pub fn with_engine(mut self, engine: wasmer::Engine) -> Self {
+    pub fn with_engine(mut self, engine: Engine) -> Self {
         self.engine.replace(engine);
         self
     }
@@ -587,7 +592,7 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn engine(&self) -> wasmer::Engine {
+    fn engine(&self) -> Engine {
         if let Some(engine) = self.engine.clone() {
             engine
         } else {
@@ -646,17 +651,16 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
-        if self.engine.is_some() || self.module_cache.is_some() {
-            let engine = self.engine();
-            let module_cache = self.module_cache();
-
-            let data = HashedModuleData::new_xxhash(wasm.to_vec());
-            let task = async move { load_module(&engine, &module_cache, &data).await };
+    fn load_module<'a>(&'a self, data: &[u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        #[allow(deprecated)]
+        if let (Some(engine), Some(module_cache)) = (&self.engine, self.module_cache.clone()) {
+            let engine = engine.clone();
+            let hashed_data = HashedModuleData::new(data.to_vec());
+            let task = async move { load_module(&engine, &module_cache, &hashed_data).await };
             Box::pin(task)
         } else {
-            #[allow(deprecated)]
-            self.inner.load_module(wasm)
+            let data = data.to_vec();
+            Box::pin(async move { self.inner.load_module(&data).await })
         }
     }
 
@@ -672,6 +676,7 @@ impl Runtime for OverriddenRuntime {
     fn load_hashed_module(
         &self,
         data: HashedModuleData,
+        engine: Option<&Engine>,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
@@ -679,15 +684,19 @@ impl Runtime for OverriddenRuntime {
             let task = async move { load_module(&engine, &module_cache, &data).await };
             Box::pin(task)
         } else {
-            self.inner.load_hashed_module(data)
+            self.inner.load_hashed_module(data, engine)
         }
     }
 
-    fn load_hashed_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
+    fn load_hashed_module_sync(
+        &self,
+        wasm: HashedModuleData,
+        engine: Option<&Engine>,
+    ) -> Result<Module, SpawnError> {
         if self.engine.is_some() || self.module_cache.is_some() {
-            InlineWaker::block_on(self.load_hashed_module(wasm))
+            InlineWaker::block_on(self.load_hashed_module(wasm, engine))
         } else {
-            self.inner.load_hashed_module_sync(wasm)
+            self.inner.load_hashed_module_sync(wasm, engine)
         }
     }
 }
