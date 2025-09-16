@@ -189,6 +189,7 @@ jobs:
       - name: Install wasixcc, sysroot and LLVM
         run: |
           export RUST_LOG=wasixcc=trace
+          export GITHUB_TOKEN=${{ secrets.GITHUB_TOKEN }}
           rustup toolchain install 1.89 --profile minimal --no-self-update
           cargo +1.89 install wasixcc -F bin
           mkdir wasixcc-install

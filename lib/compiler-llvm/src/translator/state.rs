@@ -471,6 +471,7 @@ impl<'ctx> State<'ctx> {
         });
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn push_if(
         &mut self,
         if_then: BasicBlock<'ctx>,
