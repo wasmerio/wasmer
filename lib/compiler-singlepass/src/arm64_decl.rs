@@ -153,8 +153,44 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
-    fn to_dwarf(self) -> u16 {
-        self.into_index() as u16
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::AArch64;
+
+        match self {
+            GPR::X0 => AArch64::X0,
+            GPR::X1 => AArch64::X1,
+            GPR::X2 => AArch64::X2,
+            GPR::X3 => AArch64::X3,
+            GPR::X4 => AArch64::X4,
+            GPR::X5 => AArch64::X5,
+            GPR::X6 => AArch64::X6,
+            GPR::X7 => AArch64::X7,
+            GPR::X8 => AArch64::X8,
+            GPR::X9 => AArch64::X9,
+            GPR::X10 => AArch64::X10,
+            GPR::X11 => AArch64::X11,
+            GPR::X12 => AArch64::X12,
+            GPR::X13 => AArch64::X13,
+            GPR::X14 => AArch64::X14,
+            GPR::X15 => AArch64::X15,
+            GPR::X16 => AArch64::X16,
+            GPR::X17 => AArch64::X17,
+            GPR::X18 => AArch64::X18,
+            GPR::X19 => AArch64::X19,
+            GPR::X20 => AArch64::X20,
+            GPR::X21 => AArch64::X21,
+            GPR::X22 => AArch64::X22,
+            GPR::X23 => AArch64::X23,
+            GPR::X24 => AArch64::X24,
+            GPR::X25 => AArch64::X25,
+            GPR::X26 => AArch64::X26,
+            GPR::X27 => AArch64::X27,
+            GPR::X28 => AArch64::X28,
+            GPR::X29 => AArch64::X29,
+            GPR::X30 => AArch64::X30,
+            GPR::XzrSp => AArch64::SP,
+        }
     }
 }
 
@@ -211,8 +247,44 @@ impl AbstractReg for NEON {
         ];
         NEONS.iter()
     }
-    fn to_dwarf(self) -> u16 {
-        self.into_index() as u16 + 64
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::AArch64;
+
+        match self {
+            NEON::V0 => AArch64::V0,
+            NEON::V1 => AArch64::V1,
+            NEON::V2 => AArch64::V2,
+            NEON::V3 => AArch64::V3,
+            NEON::V4 => AArch64::V4,
+            NEON::V5 => AArch64::V5,
+            NEON::V6 => AArch64::V6,
+            NEON::V7 => AArch64::V7,
+            NEON::V8 => AArch64::V8,
+            NEON::V9 => AArch64::V9,
+            NEON::V10 => AArch64::V10,
+            NEON::V11 => AArch64::V11,
+            NEON::V12 => AArch64::V12,
+            NEON::V13 => AArch64::V13,
+            NEON::V14 => AArch64::V14,
+            NEON::V15 => AArch64::V15,
+            NEON::V16 => AArch64::V16,
+            NEON::V17 => AArch64::V17,
+            NEON::V18 => AArch64::V18,
+            NEON::V19 => AArch64::V19,
+            NEON::V20 => AArch64::V20,
+            NEON::V21 => AArch64::V21,
+            NEON::V22 => AArch64::V22,
+            NEON::V23 => AArch64::V23,
+            NEON::V24 => AArch64::V24,
+            NEON::V25 => AArch64::V25,
+            NEON::V26 => AArch64::V26,
+            NEON::V27 => AArch64::V27,
+            NEON::V28 => AArch64::V28,
+            NEON::V29 => AArch64::V29,
+            NEON::V30 => AArch64::V30,
+            NEON::V31 => AArch64::V31,
+        }
     }
 }
 

@@ -23,88 +23,11 @@ use crate::{
     emitter_arm64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    unwind::{UnwindInstructions, UnwindOps},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 type Location = AbstractLocation<GPR, NEON>;
-
-#[cfg(feature = "unwind")]
-fn dwarf_index(reg: u16) -> gimli::Register {
-    static DWARF_GPR: [gimli::Register; 32] = [
-        AArch64::X0,
-        AArch64::X1,
-        AArch64::X2,
-        AArch64::X3,
-        AArch64::X4,
-        AArch64::X5,
-        AArch64::X6,
-        AArch64::X7,
-        AArch64::X8,
-        AArch64::X9,
-        AArch64::X10,
-        AArch64::X11,
-        AArch64::X12,
-        AArch64::X13,
-        AArch64::X14,
-        AArch64::X15,
-        AArch64::X16,
-        AArch64::X17,
-        AArch64::X18,
-        AArch64::X19,
-        AArch64::X20,
-        AArch64::X21,
-        AArch64::X22,
-        AArch64::X23,
-        AArch64::X24,
-        AArch64::X25,
-        AArch64::X26,
-        AArch64::X27,
-        AArch64::X28,
-        AArch64::X29,
-        AArch64::X30,
-        AArch64::SP,
-    ];
-    static DWARF_NEON: [gimli::Register; 32] = [
-        AArch64::V0,
-        AArch64::V1,
-        AArch64::V2,
-        AArch64::V3,
-        AArch64::V4,
-        AArch64::V5,
-        AArch64::V6,
-        AArch64::V7,
-        AArch64::V8,
-        AArch64::V9,
-        AArch64::V10,
-        AArch64::V11,
-        AArch64::V12,
-        AArch64::V13,
-        AArch64::V14,
-        AArch64::V15,
-        AArch64::V16,
-        AArch64::V17,
-        AArch64::V18,
-        AArch64::V19,
-        AArch64::V20,
-        AArch64::V21,
-        AArch64::V22,
-        AArch64::V23,
-        AArch64::V24,
-        AArch64::V25,
-        AArch64::V26,
-        AArch64::V27,
-        AArch64::V28,
-        AArch64::V29,
-        AArch64::V30,
-        AArch64::V31,
-    ];
-    match reg {
-        0..=31 => DWARF_GPR[reg as usize],
-        64..=95 => DWARF_NEON[reg as usize - 64],
-        _ => panic!("Unknown register index {reg}"),
-    }
-}
 
 pub struct MachineARM64 {
     assembler: Assembler,
@@ -119,7 +42,7 @@ pub struct MachineARM64 {
     /// is last push on a 8byte multiple or 16bytes?
     pushed: bool,
     /// Vector of unwind operations with offset
-    unwind_ops: Vec<(usize, UnwindOps)>,
+    unwind_ops: Vec<(usize, UnwindOps<GPR, NEON>)>,
     /// A boolean flag signaling if this machine supports NEON.
     has_neon: bool,
 }
@@ -1410,7 +1333,7 @@ impl MachineARM64 {
         self.used_simd &= !(1 << r.into_index());
         ret
     }
-    fn emit_unwind_op(&mut self, op: UnwindOps) {
+    fn emit_unwind_op(&mut self, op: UnwindOps<GPR, NEON>) {
         self.unwind_ops.push((self.get_offset().0, op));
     }
     fn emit_illegal_op_internal(&mut self, trap: TrapCode) -> Result<(), CompileError> {
@@ -1802,11 +1725,11 @@ impl Machine for MachineARM64 {
         }
         match location {
             Location::GPR(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::<GPR, NEON>::GPR(x),
                 bp_neg_offset: stack_offset,
             }),
             Location::SIMD(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::FPR(x),
                 bp_neg_offset: stack_offset,
             }),
             _ => (),
@@ -2325,14 +2248,14 @@ impl Machine for MachineARM64 {
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
         self.emit_double_push(Size::S64, Location::GPR(GPR::X29), Location::GPR(GPR::X30))?; // save LR too
         self.emit_unwind_op(UnwindOps::Push2Regs {
-            reg1: GPR::X29.to_dwarf(),
-            reg2: GPR::X30.to_dwarf(),
+            reg1: UnwindRegister::GPR(GPR::X29),
+            reg2: UnwindRegister::GPR(GPR::X30),
             up_to_sp: 16,
         });
         self.emit_double_push(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X28))?;
         self.emit_unwind_op(UnwindOps::Push2Regs {
-            reg1: GPR::X27.to_dwarf(),
-            reg2: GPR::X28.to_dwarf(),
+            reg1: UnwindRegister::GPR(GPR::X27),
+            reg2: UnwindRegister::GPR(GPR::X28),
             up_to_sp: 32,
         });
         // cannot use mov, because XSP is XZR there. Need to use ADD with #0
@@ -8543,11 +8466,11 @@ impl Machine for MachineARM64 {
                     ));
                     instructions.push((
                         instruction_offset,
-                        CallFrameInstruction::Offset(dwarf_index(reg2), -(up_to_sp as i32) + 8),
+                        CallFrameInstruction::Offset(reg2.to_dwarf(), -(up_to_sp as i32) + 8),
                     ));
                     instructions.push((
                         instruction_offset,
-                        CallFrameInstruction::Offset(dwarf_index(reg1), -(up_to_sp as i32)),
+                        CallFrameInstruction::Offset(reg1.to_dwarf(), -(up_to_sp as i32)),
                     ));
                 }
                 UnwindOps::DefineNewFrame => {
@@ -8558,7 +8481,7 @@ impl Machine for MachineARM64 {
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.to_dwarf(), -bp_neg_offset),
                 )),
             }
         }

@@ -4,6 +4,7 @@
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
+use crate::unwind::UnwindRegister;
 use std::collections::BTreeMap;
 use std::slice::Iter;
 use wasmer_types::{target::CallingConvention, CompileError, Type};
@@ -106,24 +107,27 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
-    fn to_dwarf(self) -> u16 {
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::X86_64;
+
         match self {
-            GPR::RAX => 0,
-            GPR::RDX => 1,
-            GPR::RCX => 2,
-            GPR::RBX => 3,
-            GPR::RSI => 4,
-            GPR::RDI => 5,
-            GPR::RBP => 6,
-            GPR::RSP => 7,
-            GPR::R8 => 8,
-            GPR::R9 => 9,
-            GPR::R10 => 10,
-            GPR::R11 => 11,
-            GPR::R12 => 12,
-            GPR::R13 => 13,
-            GPR::R14 => 14,
-            GPR::R15 => 15,
+            GPR::RAX => X86_64::RAX,
+            GPR::RDX => X86_64::RDX,
+            GPR::RCX => X86_64::RCX,
+            GPR::RBX => X86_64::RBX,
+            GPR::RSI => X86_64::RSI,
+            GPR::RDI => X86_64::RDI,
+            GPR::RBP => X86_64::RBP,
+            GPR::RSP => X86_64::RSP,
+            GPR::R8 => X86_64::R8,
+            GPR::R9 => X86_64::R9,
+            GPR::R10 => X86_64::R10,
+            GPR::R11 => X86_64::R11,
+            GPR::R12 => X86_64::R12,
+            GPR::R13 => X86_64::R13,
+            GPR::R14 => X86_64::R14,
+            GPR::R15 => X86_64::R15,
         }
     }
 }
@@ -169,8 +173,39 @@ impl AbstractReg for XMM {
         ];
         XMMS.iter()
     }
-    fn to_dwarf(self) -> u16 {
-        self.into_index() as u16 + 17
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::X86_64;
+
+        match self {
+            XMM::XMM0 => X86_64::XMM0,
+            XMM::XMM1 => X86_64::XMM1,
+            XMM::XMM2 => X86_64::XMM2,
+            XMM::XMM3 => X86_64::XMM3,
+            XMM::XMM4 => X86_64::XMM4,
+            XMM::XMM5 => X86_64::XMM5,
+            XMM::XMM6 => X86_64::XMM6,
+            XMM::XMM7 => X86_64::XMM7,
+            XMM::XMM8 => X86_64::XMM8,
+            XMM::XMM9 => X86_64::XMM9,
+            XMM::XMM10 => X86_64::XMM10,
+            XMM::XMM11 => X86_64::XMM11,
+            XMM::XMM12 => X86_64::XMM12,
+            XMM::XMM13 => X86_64::XMM13,
+            XMM::XMM14 => X86_64::XMM14,
+            XMM::XMM15 => X86_64::XMM15,
+        }
+    }
+}
+
+impl UnwindRegister<GPR, XMM> {
+    pub(crate) fn windows_unwind_index(&self) -> u8 {
+        match self {
+            UnwindRegister::GPR(reg) => {
+                [0, 2, 1, 3, 6, 7, 5, 4, 8, 9, 10, 11, 12, 13, 14, 15][reg.into_index()]
+            }
+            UnwindRegister::FPR(reg) => reg.into_index() as u8,
+        }
     }
 }
 
