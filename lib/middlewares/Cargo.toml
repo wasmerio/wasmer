@@ -13,15 +13,15 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { path = "../api", version = "=6.1.0-rc.4", default-features = false, features = [
+wasmer = { path = "../api", version = "=6.1.0-rc.5", default-features = false, features = [
 	"compiler",
 	"wasmparser",
 ] }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.4" }
-wasmer-vm = { path = "../vm", version = "=6.1.0-rc.4" }
+wasmer-types = { path = "../types", version = "=6.1.0-rc.5" }
+wasmer-vm = { path = "../vm", version = "=6.1.0-rc.5" }
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "=6.1.0-rc.4", features = [
+wasmer = { path = "../api", version = "=6.1.0-rc.5", features = [
 	"compiler",
 	"wasmparser",
 ] }
