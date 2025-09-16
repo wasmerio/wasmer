@@ -13024,67 +13024,7 @@
 <a href="#13023" id="13023">13023</a>
 <a href="#13024" id="13024">13024</a>
 <a href="#13025" id="13025">13025</a>
-<a href="#13026" id="13026">13026</a>
-<a href="#13027" id="13027">13027</a>
-<a href="#13028" id="13028">13028</a>
-<a href="#13029" id="13029">13029</a>
-<a href="#13030" id="13030">13030</a>
-<a href="#13031" id="13031">13031</a>
-<a href="#13032" id="13032">13032</a>
-<a href="#13033" id="13033">13033</a>
-<a href="#13034" id="13034">13034</a>
-<a href="#13035" id="13035">13035</a>
-<a href="#13036" id="13036">13036</a>
-<a href="#13037" id="13037">13037</a>
-<a href="#13038" id="13038">13038</a>
-<a href="#13039" id="13039">13039</a>
-<a href="#13040" id="13040">13040</a>
-<a href="#13041" id="13041">13041</a>
-<a href="#13042" id="13042">13042</a>
-<a href="#13043" id="13043">13043</a>
-<a href="#13044" id="13044">13044</a>
-<a href="#13045" id="13045">13045</a>
-<a href="#13046" id="13046">13046</a>
-<a href="#13047" id="13047">13047</a>
-<a href="#13048" id="13048">13048</a>
-<a href="#13049" id="13049">13049</a>
-<a href="#13050" id="13050">13050</a>
-<a href="#13051" id="13051">13051</a>
-<a href="#13052" id="13052">13052</a>
-<a href="#13053" id="13053">13053</a>
-<a href="#13054" id="13054">13054</a>
-<a href="#13055" id="13055">13055</a>
-<a href="#13056" id="13056">13056</a>
-<a href="#13057" id="13057">13057</a>
-<a href="#13058" id="13058">13058</a>
-<a href="#13059" id="13059">13059</a>
-<a href="#13060" id="13060">13060</a>
-<a href="#13061" id="13061">13061</a>
-<a href="#13062" id="13062">13062</a>
-<a href="#13063" id="13063">13063</a>
-<a href="#13064" id="13064">13064</a>
-<a href="#13065" id="13065">13065</a>
-<a href="#13066" id="13066">13066</a>
-<a href="#13067" id="13067">13067</a>
-<a href="#13068" id="13068">13068</a>
-<a href="#13069" id="13069">13069</a>
-<a href="#13070" id="13070">13070</a>
-<a href="#13071" id="13071">13071</a>
-<a href="#13072" id="13072">13072</a>
-<a href="#13073" id="13073">13073</a>
-<a href="#13074" id="13074">13074</a>
-<a href="#13075" id="13075">13075</a>
-<a href="#13076" id="13076">13076</a>
-<a href="#13077" id="13077">13077</a>
-<a href="#13078" id="13078">13078</a>
-<a href="#13079" id="13079">13079</a>
-<a href="#13080" id="13080">13080</a>
-<a href="#13081" id="13081">13081</a>
-<a href="#13082" id="13082">13082</a>
-<a href="#13083" id="13083">13083</a>
-<a href="#13084" id="13084">13084</a>
-<a href="#13085" id="13085">13085</a>
-<a href="#13086" id="13086">13086</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+<a href="#13026" id="13026">13026</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use super</span>::{
     intrinsics::{
@@ -13279,7 +13219,7 @@
                 type_to_llvm(<span class="kw-2">&amp;</span>intrinsics, wasm_ty).map(|ty| builder.build_phi(ty, <span class="string">""</span>).unwrap())
             })
             .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
-        state.push_block(return_, phis);
+        state.push_block(return_, phis, <span class="number">0</span>);
         builder.position_at_end(start_of_code);
 
         <span class="kw">let </span><span class="kw-2">mut </span>reader = MiddlewareBinaryReader::new_with_offset(
@@ -15024,21 +14964,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
 }
 
 <span class="kw">impl</span>&lt;<span class="lifetime">'ctx</span>&gt; LLVMFunctionCodeGenerator&lt;<span class="lifetime">'ctx</span>, <span class="lifetime">'_</span>&gt; {
-    <span class="comment">//fn add_fn_to_got(&amp;mut self, func: &amp;FunctionValue&lt;'ctx&gt;, name: &amp;str) {
-    //    //let throw_intrinsic = self.intrinsics.throw.as_global_value().as_pointer_value();
-    //    if !self.got_cache.contains(name) {
-    //        let func_ptr = func.as_global_value().as_pointer_value();
-    //        let global =
-    //            self.module
-    //                .add_global(func_ptr.get_type(), Some(AddressSpace::from(1u16)), name);
-
-    //        global.set_initializer(&amp;func_ptr);
-    //        global.set_section(Some("__DATA_CONST,__got"));
-    //        self.got_cache.insert(name.to_string());
-    //    }
-    //}
-
-    </span><span class="kw">fn </span>translate_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: Operator, _source_loc: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+    <span class="kw">fn </span>translate_operator(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: Operator, _source_loc: u32) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="comment">// TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
         </span><span class="kw">let </span>vmctx = <span class="kw-2">&amp;</span><span class="self">self</span>.ctx.basic().into_pointer_value();
@@ -15097,7 +15023,14 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     })
                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;()<span class="question-mark">?</span>;
 
-                <span class="self">self</span>.state.push_block(end_block, phis);
+                <span class="self">self</span>.state.push_block(
+                    end_block,
+                    phis,
+                    <span class="self">self</span>.module_translation
+                        .blocktype_params_results(<span class="kw-2">&amp;</span>blockty)<span class="question-mark">?
+                        </span>.<span class="number">0
+                        </span>.len(),
+                );
                 <span class="self">self</span>.builder.position_at_end(current_block);
             }
             Operator::Loop { blockty } =&gt; {
@@ -15139,39 +15072,9 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="self">self</span>.state.push1(phi.as_basic_value());
                 }
 
-                <span class="comment">/*
-                if self.track_state {
-                    if let Some(offset) = opcode_offset {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &amp;mut *stackmaps,
-                            StackmapEntryKind::Loop,
-                            &amp;self.self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        );
-                        let signal_mem = ctx.signal_mem();
-                        let iv = self.builder
-                            .build_store(signal_mem, self.context.i8_type().const_zero());
-                        // Any 'store' can be made volatile.
-                        iv.set_volatile(true).unwrap();
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &amp;mut *stackmaps,
-                            StackmapEntryKind::Loop,
-                            offset,
-                        );
-                    }
-                }
-                */
-
-                </span><span class="self">self</span>.state.push_loop(loop_body, loop_next, loop_phis, phis);
+                <span class="kw">let </span>num_inputs = loop_phis.len();
+                <span class="self">self</span>.state
+                    .push_loop(loop_body, loop_next, loop_phis, phis, num_inputs);
             }
             Operator::Br { relative_depth } =&gt; {
                 <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(relative_depth)<span class="question-mark">?</span>;
@@ -15383,6 +15286,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     then_phis,
                     else_phis,
                     end_phis,
+                    block_param_types.len(),
                 );
             }
             Operator::Else =&gt; {
@@ -15470,7 +15374,13 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     <span class="kw">if </span>phi.count_incoming() != <span class="number">0 </span>{
                         <span class="self">self</span>.state.push1(phi.as_basic_value());
                     } <span class="kw">else </span>{
-                        <span class="kw">let </span>basic_ty = phi.as_basic_value().get_type();
+                        <span class="comment">// TODO if there are no incoming phi values, it means
+                        // this block has no predecessors, and we can skip it
+                        // altogether. However, fixing this is non-trivial as
+                        // some places in the code rely on code getting generated
+                        // for unreachable end blocks. For now, we let LLVM remove
+                        // the block during dead code elimination instead.
+                        </span><span class="kw">let </span>basic_ty = phi.as_basic_value().get_type();
                         <span class="kw">let </span>placeholder_value = basic_ty.const_zero();
                         <span class="self">self</span>.state.push1(placeholder_value);
                         phi.as_instruction().erase_from_basic_block();
@@ -15496,41 +15406,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
             }
 
             Operator::Unreachable =&gt; {
-                <span class="comment">// Emit an unreachable instruction.
-                // If llvm cannot prove that this is never reached,
-                // it will emit a `ud2` instruction on x86_64 arches.
-
-                // Comment out this `if` block to allow spectests to pass.
-                // TODO: fix this
-                /*
-                if let Some(offset) = opcode_offset {
-                    if self.track_state {
-                        let mut stackmaps = self.stackmaps.borrow_mut();
-                        emit_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &amp;mut *stackmaps,
-                            StackmapEntryKind::Trappable,
-                            &amp;self.self.locals,
-                            state,
-                            ctx,
-                            offset,
-                        );
-                        self.builder.build_call(self.intrinsics.trap, &amp;[], "trap");
-                        finalize_opcode_stack_map(
-                            self.intrinsics,
-                            self.builder,
-                            self.index,
-                            &amp;mut *stackmaps,
-                            StackmapEntryKind::Trappable,
-                            offset,
-                        );
-                    }
-                }
-                */
-
-                </span><span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
+                <span class="macro">err!</span>(<span class="self">self</span>.builder.build_call(
                     <span class="self">self</span>.intrinsics.throw_trap,
                     <span class="kw-2">&amp;</span>[<span class="self">self</span>.intrinsics.trap_unreachable.into()],
                     <span class="string">"throw"</span>,
@@ -25967,6 +25843,10 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                     end_block,
                     end_phis,
                     <span class="kw-2">&amp;</span>catch_tags_and_blocks,
+                    <span class="self">self</span>.module_translation
+                        .blocktype_params_results(<span class="kw-2">&amp;</span>try_table.ty)<span class="question-mark">?
+                        </span>.<span class="number">0
+                        </span>.len(),
                 );
             }
             Operator::Throw { tag_index } =&gt; {

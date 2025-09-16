@@ -514,7 +514,32 @@
 <a href="#513" id="513">513</a>
 <a href="#514" id="514">514</a>
 <a href="#515" id="515">515</a>
-<a href="#516" id="516">516</a></pre></div><pre class="rust"><code><span class="kw">use </span>inkwell::{
+<a href="#516" id="516">516</a>
+<a href="#517" id="517">517</a>
+<a href="#518" id="518">518</a>
+<a href="#519" id="519">519</a>
+<a href="#520" id="520">520</a>
+<a href="#521" id="521">521</a>
+<a href="#522" id="522">522</a>
+<a href="#523" id="523">523</a>
+<a href="#524" id="524">524</a>
+<a href="#525" id="525">525</a>
+<a href="#526" id="526">526</a>
+<a href="#527" id="527">527</a>
+<a href="#528" id="528">528</a>
+<a href="#529" id="529">529</a>
+<a href="#530" id="530">530</a>
+<a href="#531" id="531">531</a>
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a></pre></div><pre class="rust"><code><span class="kw">use </span>inkwell::{
     basic_block::BasicBlock,
     values::{BasicValue, BasicValueEnum, PhiValue},
 };
@@ -949,11 +974,20 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub fn </span>push_block(<span class="kw-2">&amp;mut </span><span class="self">self</span>, next: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;, phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;) {
+    <span class="kw">pub fn </span>push_block(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        next: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
+        phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        num_inputs: usize,
+    ) {
         <span class="self">self</span>.control_stack.push(ControlFrame::Block {
             next,
             phis,
-            stack_size_snapshot: <span class="self">self</span>.stack.len(),
+            stack_size_snapshot: <span class="self">self
+                </span>.stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect(<span class="string">"Internal codegen error: not enough inputs on stack"</span>),
         });
     }
 
@@ -963,17 +997,23 @@
         next: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
         loop_body_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
         phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        num_inputs: usize,
     ) {
         <span class="self">self</span>.control_stack.push(ControlFrame::Loop {
             body,
             next,
             loop_body_phis,
             phis,
-            stack_size_snapshot: <span class="self">self</span>.stack.len(),
+            stack_size_snapshot: <span class="self">self
+                </span>.stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect(<span class="string">"Internal codegen error: not enough inputs on stack"</span>),
         });
     }
 
-    <span class="kw">pub fn </span>push_if(
+    <span class="attr">#[allow(clippy::too_many_arguments)]
+    </span><span class="kw">pub fn </span>push_if(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
         if_then: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
         if_else: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
@@ -981,6 +1021,7 @@
         then_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
         else_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
         next_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
+        num_inputs: usize,
     ) {
         <span class="self">self</span>.control_stack.push(ControlFrame::IfElse {
             if_then,
@@ -989,8 +1030,12 @@
             then_phis,
             else_phis,
             next_phis,
-            stack_size_snapshot: <span class="self">self</span>.stack.len(),
             if_else_state: IfElseState::If,
+            stack_size_snapshot: <span class="self">self
+                </span>.stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect(<span class="string">"Internal codegen error: not enough inputs on stack"</span>),
         });
     }
 
@@ -1000,11 +1045,16 @@
         next: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
         next_phis: SmallVec&lt;[PhiValue&lt;<span class="lifetime">'ctx</span>&gt;; <span class="number">1</span>]&gt;,
         tags: <span class="kw-2">&amp;</span>[TagCatchInfo&lt;<span class="lifetime">'ctx</span>&gt;],
+        num_inputs: usize,
     ) {
         <span class="self">self</span>.control_stack.push(ControlFrame::Landingpad {
             next,
             next_phis,
-            stack_size_snapshot: <span class="self">self</span>.stack.len(),
+            stack_size_snapshot: <span class="self">self
+                </span>.stack
+                .len()
+                .checked_sub(num_inputs)
+                .expect(<span class="string">"Internal codegen error: not enough inputs on stack"</span>),
         });
 
         <span class="self">self</span>.landingpads.push_back(Landingpad {
