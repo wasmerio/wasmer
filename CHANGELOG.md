@@ -8,28 +8,22 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
-## 6.1.0-rc.5 - 16/09/2025
 
 ## Added
 
 
 ## Changed
 
-  - [#5736](https://github.com/wasmerio/wasmer/pull/5736) LLVM codegen: truncate stack to correct size when leaving a WASM block
-  - [#5741](https://github.com/wasmerio/wasmer/pull/5741) Replace serde_yml with serde_yaml
-
 ## Fixed
 
 
 
 
-## 6.1.0-rc.4 - 12/09/2025
+## 6.1.0-rc.5 - 16/09/2025
 This release includes better support for the Exception Handling proposal in LLVM,
 as well as fixes to the linker and other stability fixes.
 
 ## Added
-
-  - [#5726](https://github.com/wasmerio/wasmer/pull/5726) Multiple fixes to EH codegen
 
 ## Changed
 
@@ -37,9 +31,12 @@ as well as fixes to the linker and other stability fixes.
   - [#5715](https://github.com/wasmerio/wasmer/pull/5715) feat(cli): App-specific SSH sessions
   - [#5707](https://github.com/wasmerio/wasmer/pull/5707) compiler: Ensure unique function symbols by appending function index
   - [#5703](https://github.com/wasmerio/wasmer/pull/5703) Simplify unwind
+  - [#5741](https://github.com/wasmerio/wasmer/pull/5741) Replace serde_yml with serde_yaml
 
 ## Fixed
 
+  - [#5726](https://github.com/wasmerio/wasmer/pull/5726) Multiple fixes to EH codegen
+  - [#5736](https://github.com/wasmerio/wasmer/pull/5736) LLVM codegen: truncate stack to correct size when leaving a WASM block
   - [#5701](https://github.com/wasmerio/wasmer/pull/5701) fix(config): Add missing skip_serializing_if for ssh capability
   - [#5716](https://github.com/wasmerio/wasmer/pull/5716) Fix impossible relocation error in emit srem64, urem64 for singlepass compiler/Aarch64
   - [#5700](https://github.com/wasmerio/wasmer/pull/5700) fix(DynamicFunction): allocate space for trap on host stack
