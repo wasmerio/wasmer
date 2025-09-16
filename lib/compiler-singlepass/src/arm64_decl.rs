@@ -314,15 +314,6 @@ impl CombinedRegister for ARM64Register {
     fn from_simd(x: u16) -> Self {
         ARM64Register::NEON(NEON::from_index(x as usize).unwrap())
     }
-
-    /// Converts a DWARF regnum to ARM64Register.
-    fn _from_dwarf_regnum(x: u16) -> Option<ARM64Register> {
-        Some(match x {
-            0..=31 => ARM64Register::GPR(GPR::from_index(x as usize).unwrap()),
-            64..=95 => ARM64Register::NEON(NEON::from_index(x as usize - 64).unwrap()),
-            _ => return None,
-        })
-    }
 }
 
 /// An allocator that allocates registers for function arguments according to the System V ABI.

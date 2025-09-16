@@ -234,6 +234,7 @@ impl CombinedRegister for X64Register {
     fn from_simd(x: u16) -> Self {
         X64Register::XMM(XMM::from_index(x as usize).unwrap())
     }
+
     /* x86_64-abi-0.99.pdf
      * Register Name                    | Number | Abbreviation
      * General Purpose Register RAX     | 0      | %rax
@@ -267,32 +268,6 @@ impl CombinedRegister for X64Register {
      * x87 Control Word                 | 65     | %fcw
      * x87 Status Word                  | 66     | %fsw
      */
-    /// Converts a DWARF regnum to X64Register.
-    fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
-        static DWARF_REGS: [GPR; 16] = [
-            GPR::RAX,
-            GPR::RDX,
-            GPR::RCX,
-            GPR::RBX,
-            GPR::RSI,
-            GPR::RDI,
-            GPR::RBP,
-            GPR::RSP,
-            GPR::R8,
-            GPR::R9,
-            GPR::R10,
-            GPR::R11,
-            GPR::R12,
-            GPR::R13,
-            GPR::R14,
-            GPR::R15,
-        ];
-        Some(match x {
-            0..=15 => X64Register::GPR(DWARF_REGS[x as usize]),
-            17..=24 => X64Register::XMM(XMM::from_index(x as usize - 17).unwrap()),
-            _ => return None,
-        })
-    }
 }
 
 /// An allocator that allocates registers for function arguments according to the System V ABI.

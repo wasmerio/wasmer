@@ -73,8 +73,6 @@ pub trait Descriptor<R: Reg, S: Reg> {
 pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
     /// Returns the index of the register.
     fn to_index(&self) -> RegisterIndex;
-    /// Converts a DWARF regnum to CombinedRegister.
-    fn _from_dwarf_regnum(x: u16) -> Option<Self>;
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self;
     /// Convert from an SIMD register
