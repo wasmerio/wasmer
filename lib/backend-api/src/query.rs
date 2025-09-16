@@ -861,6 +861,56 @@ pub async fn get_signed_url_for_package_upload(
         .await
         .map(|r| r.get_signed_url_for_package_upload)
 }
+
+/// Request a signed URL for uploading an app archive via the autobuild flow.
+pub async fn generate_upload_url(
+    client: &WasmerClient,
+    filename: &str,
+    name: Option<&str>,
+    version: Option<&str>,
+    expires_after_seconds: Option<i32>,
+) -> Result<SignedUrl, anyhow::Error> {
+    let payload = client
+        .run_graphql_strict(types::GenerateUploadUrl::build(
+            GenerateUploadUrlVariables {
+                expires_after_seconds,
+                filename,
+                name,
+                version,
+            },
+        ))
+        .await
+        .and_then(|res| {
+            res.generate_upload_url
+                .context("generateUploadUrl mutation did not return data")
+        })?;
+
+    Ok(payload.signed_url)
+}
+
+/// Retrieve autobuild metadata derived from a previously uploaded archive.
+pub async fn autobuild_config_for_zip_upload(
+    client: &WasmerClient,
+    upload_url: &str,
+) -> Result<Option<types::AutobuildConfigForZipUploadPayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::AutobuildConfigForZipUpload::build(
+            AutobuildConfigForZipUploadVariables { upload_url },
+        ))
+        .await
+        .map(|res| res.autobuild_config_for_zip_upload)
+}
+
+/// Trigger an autobuild deployment for an uploaded archive or repository.
+pub async fn deploy_via_autobuild<'a>(
+    client: &WasmerClient,
+    vars: DeployViaAutobuildVars<'a>,
+) -> Result<Option<types::DeployViaAutobuildPayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::DeployViaAutobuild::build(vars))
+        .await
+        .map(|res| res.deploy_via_autobuild)
+}
 /// Push a package to the registry.
 pub async fn push_package_release(
     client: &WasmerClient,
