@@ -38,7 +38,16 @@ pub async fn spawn_exec(
     // any longer
     drop(binary);
 
-    spawn_exec_module(module, env, runtime)
+    // Transfering the module and env to a new thread may be expensive...
+    // We may also be able to use the wasix runtime to spawn the task although that may run in tokio too...
+    if let Ok(_) = tokio::runtime::Handle::try_current() {
+        let cloned_runtime = runtime.clone();
+        tokio::task::spawn_blocking(move || spawn_exec_module(module, env, &cloned_runtime))
+            .await
+            .unwrap()
+    } else {
+        spawn_exec_module(module, env, runtime)
+    }
 }
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name))]
