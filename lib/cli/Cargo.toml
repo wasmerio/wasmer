@@ -133,7 +133,7 @@ wasmer-wasix = { path = "../wasix", version = "=0.601.0-rc.5", features = [
 wasmer-wast = { version = "=6.1.0-rc.5", path = "../../tests/lib/wast", optional = true }
 wasmer-types = { version = "=6.1.0-rc.5", path = "../types", features = [
 	"enable-serde",
-	"detect-wasm-features"
+	"detect-wasm-features",
 ] }
 virtual-fs = { version = "0.601.0-rc.5", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
@@ -211,7 +211,8 @@ uuid = { version = "1.3.0", features = ["v4"] }
 time = { workspace = true, features = ["macros"] }
 serde_yaml.workspace = true
 base64.workspace = true
-comfy-table = "7.0.1"
+# FIXME: 7.2 is not compatible with Rust 1.84
+comfy-table = "=7.1.4"
 
 
 # Used by tuntap and connect
