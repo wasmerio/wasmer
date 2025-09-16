@@ -36,3 +36,7 @@ This is a simple test to check that a divide by zero is correctly trapped
 ## Atomic Load: `atomic_load.wast`
 
 This is a simple test to check that load an atomic "to far" in memory trigger a OutOfBound trap
+
+## Nested Unreachable Blocks: `nested_unreachable_blocks.wast`
+
+This was broken at one point in our LLVM backend. Otherwise, it's nothing specific.
