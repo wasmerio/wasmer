@@ -8,6 +8,21 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.1.0-rc.5 - 16/09/2025
+
+## Added
+
+
+## Changed
+
+  - [#5736](https://github.com/wasmerio/wasmer/pull/5736) LLVM codegen: truncate stack to correct size when leaving a WASM block
+  - [#5741](https://github.com/wasmerio/wasmer/pull/5741) Replace serde_yml with serde_yaml
+
+## Fixed
+
+
+
+
 ## 6.1.0-rc.4 - 12/09/2025
 This release includes better support for the Exception Handling proposal in LLVM,
 as well as fixes to the linker and other stability fixes.
