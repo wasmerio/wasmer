@@ -86,7 +86,7 @@ impl BinFactory {
             // Execute
             match executable {
                 Executable::Wasm(bytes) => {
-                    let data = HashedModuleData::new_xxhash(bytes.clone());
+                    let data = HashedModuleData::new(bytes.clone());
                     spawn_exec_wasm(data, name.as_str(), env, &self.runtime).await
                 }
                 Executable::BinaryPackage(pkg) => {

@@ -139,7 +139,7 @@ impl CmdWasmer {
                     spawn_exec(binary, name, env, &self.runtime).await
                 }
                 Executable::Wasm(bytes) => {
-                    let data = HashedModuleData::new_xxhash(bytes);
+                    let data = HashedModuleData::new(bytes);
                     spawn_exec_wasm(data, name, env, &self.runtime).await
                 }
             }

@@ -50,7 +50,9 @@ use wasmer_wasix::{
         MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
-        module_cache::CacheError, package_loader::PackageLoader, resolver::QueryError,
+        module_cache::{CacheError, HashedModuleData},
+        package_loader::PackageLoader,
+        resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
     Runtime, WasiError,
@@ -843,15 +845,17 @@ impl ExecutableTarget {
         match TargetOnDisk::from_file(path)? {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
+                let module_data = HashedModuleData::new(wasm);
+                let module_hash = *module_data.hash();
 
                 pb.set_message("Compiling to WebAssembly");
                 let module = runtime
-                    .load_module_sync(&wasm)
+                    .load_hashed_module_sync(module_data, None)
                     .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash: ModuleHash::xxhash(&wasm),
+                    module_hash,
                     path: path.to_path_buf(),
                 })
             }
