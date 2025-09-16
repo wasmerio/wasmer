@@ -24,20 +24,20 @@ crate-type = ["staticlib", "cdylib"] #"cdylib", "rlib", "staticlib"]
 [dependencies]
 # We rename `wasmer` to `wasmer-api` to avoid the conflict with this
 # library name (see `[lib]`).
-wasmer-api = { version = "=6.1.0-rc.4", path = "../api", default-features = false, package = "wasmer" }
-wasmer-compiler = { version = "=6.1.0-rc.4", path = "../compiler", optional = true }
-wasmer-compiler-cranelift = { version = "=6.1.0-rc.4", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-llvm = { version = "=6.1.0-rc.4", path = "../compiler-llvm", optional = true }
-wasmer-compiler-singlepass = { version = "=6.1.0-rc.4", path = "../compiler-singlepass", optional = true }
-wasmer-middlewares = { version = "=6.1.0-rc.4", path = "../middlewares", optional = true }
-wasmer-types = { version = "=6.1.0-rc.4", path = "../types" }
-wasmer-wasix = { path = "../wasix", version = "=0.601.0-rc.4", features = [
+wasmer-api = { version = "=6.1.0-rc.5", path = "../api", default-features = false, package = "wasmer" }
+wasmer-compiler = { version = "=6.1.0-rc.5", path = "../compiler", optional = true }
+wasmer-compiler-cranelift = { version = "=6.1.0-rc.5", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-llvm = { version = "=6.1.0-rc.5", path = "../compiler-llvm", optional = true }
+wasmer-compiler-singlepass = { version = "=6.1.0-rc.5", path = "../compiler-singlepass", optional = true }
+wasmer-middlewares = { version = "=6.1.0-rc.5", path = "../middlewares", optional = true }
+wasmer-types = { version = "=6.1.0-rc.5", path = "../types" }
+wasmer-wasix = { path = "../wasix", version = "=0.601.0-rc.5", features = [
 	"host-fs",
 	"host-vnet",
 	"sys",
 ], default-features = false, optional = true }
 webc = { workspace = true, optional = true }
-virtual-fs = { version = "0.601.0-rc.4", path = "../virtual-fs", optional = true, default-features = false, features = [
+virtual-fs = { version = "0.601.0-rc.5", path = "../virtual-fs", optional = true, default-features = false, features = [
 	"static-fs",
 ] }
 enumset.workspace = true
