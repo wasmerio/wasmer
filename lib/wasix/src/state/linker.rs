@@ -2289,6 +2289,7 @@ impl LinkerState {
                 module_spec,
                 ld_library_path,
             } => {
+                // This is one of the problematic inline wakers
                 let (full_path, bytes) = InlineWaker::block_on(locate_module(
                     module_spec,
                     ld_library_path,
