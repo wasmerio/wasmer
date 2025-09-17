@@ -2604,23 +2604,25 @@ impl Machine for MachineARM64 {
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_b_label(label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Eq, label)
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Ne, label)
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Hi, label)
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Cs, label)
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Ls, label)
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Cs, label)
+
+    fn jmp_on_condition(
+        &mut self,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation<Self::GPR, Self::SIMD>,
+        dest: AbstractLocation<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)?;
+        let cond = match cond {
+            UnsignedCondition::Equal => Condition::Eq,
+            UnsignedCondition::NotEqual => Condition::Ne,
+            UnsignedCondition::Above => Condition::Hi,
+            UnsignedCondition::AboveEqual => Condition::Cs,
+            UnsignedCondition::Below => Condition::Cc,
+            UnsignedCondition::BelowEqual => Condition::Ls,
+        };
+        self.assembler.emit_bcond_label_far(cond, label)
     }
 
     // jmp table
