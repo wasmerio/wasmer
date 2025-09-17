@@ -10,11 +10,13 @@ use crate::location;
 
 #[derive(Clone, Debug, Copy)]
 #[allow(clippy::upper_case_acronyms)]
+#[cfg(feature = "unwind")]
 pub enum UnwindRegister<R: location::Reg, S: location::Reg> {
     GPR(R),
     FPR(S),
 }
 
+#[cfg(feature = "unwind")]
 impl<R: location::Reg, S: location::Reg> UnwindRegister<R, S> {
     pub(crate) fn dwarf_index(&self) -> gimli::Register {
         match self {
