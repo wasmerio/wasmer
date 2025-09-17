@@ -6,19 +6,28 @@ use crate::{
     utils::load_package_manifest,
 };
 use anyhow::Context;
+use bytesize::ByteSize;
 use colored::Colorize;
 use dialoguer::Confirm;
+use futures::StreamExt;
 use is_terminal::IsTerminal;
+use reqwest::header::CONTENT_TYPE;
 use std::io::Write;
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+    time::Duration,
+};
+use walkdir::WalkDir;
 use wasmer_backend_api::{
-    types::{DeployApp, DeployAppVersion},
+    types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
     WasmerClient,
 };
 use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
+use zip::{write::SimpleFileOptions, CompressionMethod};
 
 static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
     http::HeaderName::from_static("x-edge-app-version-id");
@@ -94,6 +103,10 @@ pub struct CmdAppDeploy {
     /// operation.
     #[clap(long)]
     pub quiet: bool,
+
+    /// Use Wasmer's remote autobuild pipeline instead of building locally.
+    #[clap(long)]
+    pub remote: bool,
 
     // - App creation -
     /// A reference to the template to use when creating an app to deploy.
@@ -231,6 +244,10 @@ impl AsyncCliCommand for CmdAppDeploy {
 
     async fn run_async(self) -> Result<Self::Output, anyhow::Error> {
         let client = login_user(&self.env, !self.non_interactive, "deploy an app").await?;
+
+        if self.remote && self.publish_package {
+            anyhow::bail!("--remote cannot be combined with --publish-package");
+        }
 
         let base_dir_path = self.dir.clone().unwrap_or_else(|| {
             self.path
@@ -380,102 +397,136 @@ impl AsyncCliCommand for CmdAppDeploy {
         };
 
         let mut app_cfg_new = app_config.clone();
-        let opts = match &app_cfg_new.package {
-            PackageSource::Path(ref path) => {
-                let path = PathBuf::from(path);
-
-                let path = if path.is_absolute() {
-                    path
-                } else {
-                    app_config_path.parent().unwrap().join(path)
-                };
-
-                if !self.quiet {
-                    eprintln!("Loading local package (manifest path: {})", path.display());
-                }
-
-                let package_id = self.publish(&client, owner.clone(), path).await?;
-
-                app_cfg_new.package = package_id.into();
-
-                DeployAppOpts {
-                    app: &app_cfg_new,
-                    original_config: Some(app_config.clone().to_yaml_value().unwrap()),
-                    allow_create: true,
-                    make_default: !self.no_default,
-                    owner: Some(owner),
-                    wait,
+        let opts = if self.remote {
+            match &app_cfg_new.package {
+                PackageSource::Path(_) => {}
+                other => {
+                    anyhow::bail!(
+                        "remote deployments require the app's package to reference a local path (found `{other}`)"
+                    );
                 }
             }
-            PackageSource::Ident(PackageIdent::Named(n)) => {
-                // We need to check if we have a manifest with the same name in the
-                // same directory as the `app.yaml`.
-                //
-                // Release v<insert current version> introduced a breaking change on the
-                // deployment flow, and we want old CI to explicitly fail.
 
-                if let Ok(Some((manifest_path, manifest))) = load_package_manifest(&base_dir_path) {
-                    if let Some(package) = &manifest.package {
-                        if let Some(name) = &package.name {
-                            if name == &n.full_name() {
-                                if !self.quiet {
-                                    eprintln!(
-                                        "Found local package (manifest path: {}).",
-                                        manifest_path.display()
-                                    );
-                                    eprintln!("The `package` field in `app.yaml` specified the same named package ({name}).");
-                                    eprintln!("This behaviour is deprecated.");
-                                }
+            DeployAppOpts {
+                app: &app_cfg_new,
+                original_config: Some(app_config.clone().to_yaml_value().unwrap()),
+                allow_create: true,
+                make_default: !self.no_default,
+                owner: Some(owner),
+                wait,
+            }
+        } else {
+            match &app_cfg_new.package {
+                PackageSource::Path(ref path) => {
+                    let path = PathBuf::from(path);
 
-                                let theme = dialoguer::theme::ColorfulTheme::default();
-                                if self.non_interactive {
-                                    if !self.quiet {
-                                        eprintln!("Hint: replace `package: {n}` with `package: .` to replicate the intended behaviour.");
-                                    }
-                                    anyhow::bail!("deprecated deploy behaviour")
-                                } else if Confirm::with_theme(&theme)
-                                    .with_prompt("Change package to '.' in app.yaml?")
-                                    .interact()?
-                                {
-                                    app_config.package = PackageSource::Path(String::from("."));
-                                    // We have to write it right now.
-                                    let new_config_raw = serde_yaml::to_string(&app_config)?;
-                                    std::fs::write(&app_config_path, new_config_raw).with_context(
-                                        || {
-                                            format!(
-                                                "Could not write file: '{}'",
-                                                app_config_path.display()
-                                            )
-                                        },
-                                    )?;
+                    let path = if path.is_absolute() {
+                        path
+                    } else {
+                        app_config_path.parent().unwrap().join(path)
+                    };
 
-                                    log::info!(
-                                        "Using package {} ({})",
-                                        app_config.package,
-                                        n.full_name()
-                                    );
+                    if !self.quiet {
+                        eprintln!("Loading local package (manifest path: {})", path.display());
+                    }
 
-                                    let package_id =
-                                        self.publish(&client, owner.clone(), manifest_path).await?;
+                    let package_id = self.publish(&client, owner.clone(), path).await?;
 
-                                    app_config.package = package_id.into();
+                    app_cfg_new.package = package_id.into();
 
-                                    DeployAppOpts {
-                                        app: &app_config,
-                                        original_config: Some(
-                                            app_config.clone().to_yaml_value().unwrap(),
-                                        ),
-                                        allow_create: true,
-                                        make_default: !self.no_default,
-                                        owner: Some(owner),
-                                        wait,
-                                    }
-                                } else {
+                    DeployAppOpts {
+                        app: &app_cfg_new,
+                        original_config: Some(app_config.clone().to_yaml_value().unwrap()),
+                        allow_create: true,
+                        make_default: !self.no_default,
+                        owner: Some(owner),
+                        wait,
+                    }
+                }
+                PackageSource::Ident(PackageIdent::Named(n)) => {
+                    // We need to check if we have a manifest with the same name in the
+                    // same directory as the `app.yaml`.
+                    //
+                    // Release v<insert current version> introduced a breaking change on the
+                    // deployment flow, and we want old CI to explicitly fail.
+
+                    if let Ok(Some((manifest_path, manifest))) =
+                        load_package_manifest(&base_dir_path)
+                    {
+                        if let Some(package) = &manifest.package {
+                            if let Some(name) = &package.name {
+                                if name == &n.full_name() {
                                     if !self.quiet {
                                         eprintln!(
-                                        "{}: the package will not be published and the deployment will fail if the package does not already exist.",
-                                        "Warning".yellow().bold());
+                                            "Found local package (manifest path: {}).",
+                                            manifest_path.display()
+                                        );
+                                        eprintln!("The `package` field in `app.yaml` specified the same named package ({name}).");
+                                        eprintln!("This behaviour is deprecated.");
                                     }
+
+                                    let theme = dialoguer::theme::ColorfulTheme::default();
+                                    if self.non_interactive {
+                                        if !self.quiet {
+                                            eprintln!("Hint: replace `package: {n}` with `package: .` to replicate the intended behaviour.");
+                                        }
+                                        anyhow::bail!("deprecated deploy behaviour")
+                                    } else if Confirm::with_theme(&theme)
+                                        .with_prompt("Change package to '.' in app.yaml?")
+                                        .interact()?
+                                    {
+                                        app_config.package = PackageSource::Path(String::from("."));
+                                        // We have to write it right now.
+                                        let new_config_raw = serde_yaml::to_string(&app_config)?;
+                                        std::fs::write(&app_config_path, new_config_raw)
+                                            .with_context(|| {
+                                                format!(
+                                                    "Could not write file: '{}'",
+                                                    app_config_path.display()
+                                                )
+                                            })?;
+
+                                        log::info!(
+                                            "Using package {} ({})",
+                                            app_config.package,
+                                            n.full_name()
+                                        );
+
+                                        let package_id = self
+                                            .publish(&client, owner.clone(), manifest_path)
+                                            .await?;
+
+                                        app_config.package = package_id.into();
+
+                                        DeployAppOpts {
+                                            app: &app_config,
+                                            original_config: Some(
+                                                app_config.clone().to_yaml_value().unwrap(),
+                                            ),
+                                            allow_create: true,
+                                            make_default: !self.no_default,
+                                            owner: Some(owner),
+                                            wait,
+                                        }
+                                    } else {
+                                        if !self.quiet {
+                                            eprintln!(
+                                                "{}: the package will not be published and the deployment will fail if the package does not already exist.",
+                                                "Warning".yellow().bold()
+                                            );
+                                        }
+                                        DeployAppOpts {
+                                            app: &app_config,
+                                            original_config: Some(
+                                                app_config.clone().to_yaml_value().unwrap(),
+                                            ),
+                                            allow_create: true,
+                                            make_default: !self.no_default,
+                                            owner: Some(owner),
+                                            wait,
+                                        }
+                                    }
+                                } else {
                                     DeployAppOpts {
                                         app: &app_config,
                                         original_config: Some(
@@ -510,6 +561,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                             }
                         }
                     } else {
+                        log::info!("Using package {}", app_config.package.to_string());
                         DeployAppOpts {
                             app: &app_config,
                             original_config: Some(app_config.clone().to_yaml_value().unwrap()),
@@ -519,7 +571,8 @@ impl AsyncCliCommand for CmdAppDeploy {
                             wait,
                         }
                     }
-                } else {
+                }
+                _ => {
                     log::info!("Using package {}", app_config.package.to_string());
                     DeployAppOpts {
                         app: &app_config,
@@ -529,17 +582,6 @@ impl AsyncCliCommand for CmdAppDeploy {
                         owner: Some(owner),
                         wait,
                     }
-                }
-            }
-            _ => {
-                log::info!("Using package {}", app_config.package.to_string());
-                DeployAppOpts {
-                    app: &app_config,
-                    original_config: Some(app_config.clone().to_yaml_value().unwrap()),
-                    allow_create: true,
-                    make_default: !self.no_default,
-                    owner: Some(owner),
-                    wait,
                 }
             }
         };
@@ -568,7 +610,11 @@ impl AsyncCliCommand for CmdAppDeploy {
             eprintln!("\nDeploying app {pretty_name} to Wasmer Edge...\n");
         }
 
-        let app_version = deploy_app(&client, opts.clone()).await?;
+        let app_version = if self.remote {
+            deploy_app_remote(&client, opts.clone(), &base_dir_path, self.quiet).await?
+        } else {
+            deploy_app(&client, opts.clone()).await?
+        };
 
         let mut new_app_config = app_config_from_api(&app_version)?;
 
@@ -617,6 +663,338 @@ pub struct DeployAppOpts<'a> {
     pub make_default: bool,
     pub owner: Option<String>,
     pub wait: WaitMode,
+}
+
+pub async fn deploy_app_remote(
+    client: &WasmerClient,
+    opts: DeployAppOpts<'_>,
+    base_dir: &Path,
+    quiet: bool,
+) -> Result<DeployAppVersion, anyhow::Error> {
+    if !base_dir.is_dir() {
+        anyhow::bail!(
+            "deployment directory '{}' does not exist",
+            base_dir.display()
+        );
+    }
+
+    let app = opts.app;
+    let owner = opts
+        .owner
+        .clone()
+        .or_else(|| app.owner.clone())
+        .context("owner must be specified for remote deployments")?;
+
+    let app_name = app.name.clone();
+    let app_id = app.app_id.clone();
+
+    if app_name.is_none() && app_id.is_none() {
+        anyhow::bail!(
+            "remote deployments require `app.yaml` to define either an app name or an app_id"
+        );
+    }
+
+    let archive = create_remote_deploy_archive(base_dir)?;
+
+    if !quiet {
+        eprintln!(
+            "Packaging project directory ({} files, {})",
+            archive.file_count,
+            ByteSize(archive.bytes.len() as u64)
+        );
+    }
+
+    let UploadArchive { bytes, .. } = archive;
+
+    let base_for_filename = app_name.as_deref().or_else(|| app_id.as_deref()).unwrap();
+    let filename = format!("{}-upload.zip", sanitize_archive_name(base_for_filename));
+
+    if !quiet {
+        eprintln!("Requesting upload target...");
+    }
+
+    let signed_url = wasmer_backend_api::query::generate_upload_url(
+        client,
+        &filename,
+        app_name.as_deref(),
+        None,
+        Some(300),
+    )
+    .await?;
+
+    if !quiet {
+        eprintln!(
+            "Uploading archive ({} bytes) to Wasmer...",
+            ByteSize(bytes.len() as u64)
+        );
+    }
+
+    reqwest::Client::new()
+        .put(&signed_url.url)
+        .header(CONTENT_TYPE, "application/zip")
+        .body(bytes)
+        .send()
+        .await
+        .context("failed to upload archive")?
+        .error_for_status()
+        .context("upload rejected by storage service")?;
+
+    let upload_url = signed_url.url;
+    if !quiet {
+        match wasmer_backend_api::query::autobuild_config_for_zip_upload(client, &upload_url).await
+        {
+            Ok(Some(details)) => {
+                if let Some(cfg) = details.build_config {
+                    eprintln!(
+                        "Detected previous autobuild preset `{}` (build: `{}`, install: `{}`, database: {})",
+                        cfg.preset_name,
+                        cfg.build_cmd,
+                        cfg.install_cmd,
+                        if cfg.setup_db { "enabled" } else { "disabled" }
+                    );
+                }
+
+                if let Some(apps) = details.deployed_apps {
+                    let deployed: Vec<String> = apps
+                        .into_iter()
+                        .flatten()
+                        .map(|app| format!("{} ({})", app.name, app.owner.global_name))
+                        .collect();
+                    if !deployed.is_empty() {
+                        eprintln!(
+                            "Apps previously deployed from this archive: {}",
+                            deployed.join(", ")
+                        );
+                    }
+                }
+            }
+            Ok(None) => {}
+            Err(err) => {
+                log::debug!("failed to inspect autobuild config for uploaded archive: {err:?}");
+            }
+        }
+
+        eprintln!("Starting remote autobuild job...");
+    }
+
+    let app_id_value = app_id
+        .as_ref()
+        .map(|id| wasmer_backend_api::types::Id::from(id.clone()));
+    let domains: Option<Vec<Option<&str>>> = app
+        .domains
+        .as_ref()
+        .map(|d| d.iter().map(|value| Some(value.as_str())).collect());
+
+    let deploy_response = wasmer_backend_api::query::deploy_via_autobuild(
+        client,
+        wasmer_backend_api::types::DeployViaAutobuildVars {
+            repo_url: None,
+            upload_url: Some(upload_url.as_str()),
+            app_name: app_name.as_deref(),
+            app_id: app_id_value.as_ref(),
+            owner: Some(owner.as_str()),
+            build_cmd: None,
+            install_cmd: None,
+            enable_database: None,
+            secrets: None,
+            extra_data: None,
+            params: None,
+            managed: None,
+            kind: None,
+            wait_for_screenshot_generation: Some(false),
+            region: None,
+            branch: None,
+            allow_existing_app: Some(true),
+            jobs: None,
+            domains,
+            client_mutation_id: None,
+        },
+    )
+    .await?
+    .context("deployViaAutobuild mutation did not return data")?;
+
+    if !deploy_response.success {
+        anyhow::bail!("remote deployment request was rejected by the API");
+    }
+
+    let build_id = deploy_response.build_id.0;
+
+    if !quiet {
+        eprintln!("Streaming autobuild logs (build id {})", build_id);
+    }
+
+    let mut stream =
+        wasmer_backend_api::subscription::autobuild_deployment(client, &build_id).await?;
+
+    let mut final_version: Option<DeployAppVersion> = None;
+
+    while let Some(event) = stream.next().await {
+        let event = event?;
+        if let Some(data) = event.data {
+            if let Some(log) = data.autobuild_deployment {
+                let message = log.message.clone();
+                if !quiet {
+                    if let Some(msg) = message.as_ref() {
+                        eprintln!("[{}] {}", format_autobuild_kind(log.kind), msg);
+                    }
+                }
+
+                match log.kind {
+                    AutoBuildDeployAppLogKind::Failed => {
+                        let msg = message.unwrap_or_else(|| "remote deployment failed".into());
+                        anyhow::bail!(msg);
+                    }
+                    AutoBuildDeployAppLogKind::Complete => {
+                        let version = log.app_version.ok_or_else(|| {
+                            anyhow::anyhow!(
+                                "remote deployment completed but no app version was returned"
+                            )
+                        })?;
+
+                        if !quiet && message.is_none() {
+                            eprintln!("[{}] complete", format_autobuild_kind(log.kind));
+                        }
+
+                        final_version = Some(version);
+                        break;
+                    }
+                    _ => {}
+                }
+            }
+        }
+    }
+
+    let version = final_version.ok_or_else(|| {
+        anyhow::anyhow!("remote deployment stream ended without a completion event")
+    })?;
+
+    if !quiet {
+        eprintln!("Remote autobuild finished successfully.\n");
+    }
+
+    Ok(version)
+}
+
+struct UploadArchive {
+    bytes: Vec<u8>,
+    file_count: usize,
+}
+
+fn create_remote_deploy_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
+    if !base_dir.join(AppConfigV1::CANONICAL_FILE_NAME).is_file() {
+        anyhow::bail!(
+            "{} does not contain an {} file",
+            base_dir.display(),
+            AppConfigV1::CANONICAL_FILE_NAME
+        );
+    }
+
+    let mut has_app_yaml = false;
+    let mut file_count = 0usize;
+    let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
+
+    let mut entries = WalkDir::new(base_dir).into_iter();
+    while let Some(entry) = entries.next() {
+        let entry = entry?;
+
+        if entry.depth() == 0 {
+            continue;
+        }
+
+        let rel_path = entry.path().strip_prefix(base_dir)?;
+        if should_skip_archive_entry(rel_path) {
+            if entry.file_type().is_dir() {
+                entries.skip_current_dir();
+            }
+            continue;
+        }
+
+        if entry.file_type().is_symlink() {
+            anyhow::bail!(
+                "cannot deploy projects containing symbolic links (found '{}')",
+                rel_path.display()
+            );
+        }
+
+        let rel_str = rel_path.to_string_lossy().replace('\\', "/");
+
+        if entry.file_type().is_dir() {
+            writer.add_directory(format!("{rel_str}/"), SimpleFileOptions::default())?;
+        } else if entry.file_type().is_file() {
+            if rel_path == Path::new(AppConfigV1::CANONICAL_FILE_NAME) {
+                has_app_yaml = true;
+            }
+
+            file_count += 1;
+            writer.start_file(
+                rel_str,
+                SimpleFileOptions::default().compression_method(CompressionMethod::Deflated),
+            )?;
+            let mut file = std::fs::File::open(entry.path())?;
+            std::io::copy(&mut file, &mut writer)?;
+        }
+    }
+
+    if !has_app_yaml {
+        anyhow::bail!("app.yaml must be included at the project root");
+    }
+
+    let cursor = writer.finish()?;
+    let bytes = cursor.into_inner();
+
+    Ok(UploadArchive { bytes, file_count })
+}
+
+fn should_skip_archive_entry(path: &Path) -> bool {
+    const SKIP_DIRS: &[&str] = &["target", ".git", ".wasmer", "node_modules"]; // Large or generated directories.
+
+    if let Some(first) = path
+        .components()
+        .next()
+        .and_then(|c| c.as_os_str().to_str())
+    {
+        SKIP_DIRS.contains(&first)
+    } else {
+        false
+    }
+}
+
+fn sanitize_archive_name(input: &str) -> String {
+    let mut slug = input
+        .chars()
+        .map(|c| {
+            if c.is_ascii_alphanumeric() {
+                c.to_ascii_lowercase()
+            } else {
+                '-'
+            }
+        })
+        .collect::<String>();
+
+    while slug.starts_with('-') {
+        slug.remove(0);
+    }
+    while slug.ends_with('-') {
+        slug.pop();
+    }
+
+    if slug.is_empty() {
+        "app".to_string()
+    } else {
+        slug
+    }
+}
+
+fn format_autobuild_kind(kind: AutoBuildDeployAppLogKind) -> &'static str {
+    match kind {
+        AutoBuildDeployAppLogKind::Log => "log",
+        AutoBuildDeployAppLogKind::PreparingToDeployStatus => "prepare",
+        AutoBuildDeployAppLogKind::FetchingPlanStatus => "plan",
+        AutoBuildDeployAppLogKind::BuildStatus => "build",
+        AutoBuildDeployAppLogKind::DeployStatus => "deploy",
+        AutoBuildDeployAppLogKind::Complete => "complete",
+        AutoBuildDeployAppLogKind::Failed => "failed",
+    }
 }
 
 pub async fn deploy_app(
