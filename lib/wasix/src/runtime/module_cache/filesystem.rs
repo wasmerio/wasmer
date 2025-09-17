@@ -1,3 +1,4 @@
+use std::io::Write;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
@@ -46,6 +47,48 @@ async fn tokio_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError>
     let deserialized = tokio::task::spawn_blocking(move || deserialize(&bytes, &engine))
         .await
         .unwrap();
+    match deserialized {
+        Ok(m) => {
+            tracing::debug!("Cache hit!");
+            Ok(m)
+        }
+        Err(e) => {
+            tracing::debug!(
+                path=%path.display(),
+                error=&e as &dyn std::error::Error,
+                "Deleting the cache file because the artifact couldn't be deserialized",
+            );
+
+            if let Err(e) = std::fs::remove_file(&path) {
+                tracing::warn!(
+                    path=%path.display(),
+                    error=&e as &dyn std::error::Error,
+                    "Unable to remove the corrupted cache file",
+                );
+            }
+            Err(e)
+        }
+    }
+}
+
+fn read_file_sync(path: &Path) -> Result<Vec<u8>, CacheError> {
+    match std::fs::read(path) {
+        Ok(bytes) => Ok(bytes),
+        Err(e) if e.kind() == std::io::ErrorKind::NotFound => Err(CacheError::NotFound),
+        Err(error) => Err(CacheError::FileRead {
+            path: path.to_path_buf(),
+            error,
+        }),
+    }
+}
+
+/// Loads a module from the filesystem cache.
+///
+/// A tokio reactor must be available
+#[tracing::instrument(level = "debug", skip_all, fields(? path))]
+fn sync_load(path: PathBuf, engine: Engine) -> Result<Module, CacheError> {
+    let bytes = read_file_sync(&path)?;
+    let deserialized = deserialize(&bytes, &engine);
     match deserialized {
         Ok(m) => {
             tracing::debug!("Cache hit!");
@@ -126,6 +169,48 @@ async fn tokio_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
     Ok(())
 }
 
+/// Saves the module to the filesystem cache.
+///
+/// A tokio reactor must be available
+#[tracing::instrument(level = "debug", skip_all, fields(? path))]
+fn sync_save(path: PathBuf, module: Module) -> Result<(), CacheError> {
+    let parent = path
+        .parent()
+        .expect("Unreachable - always created by joining onto cache_dir");
+
+    if let Err(e) = std::fs::create_dir_all(parent) {
+        tracing::warn!(
+            dir=%parent.display(),
+            error=&e as &dyn std::error::Error,
+            "Unable to create the cache directory",
+        );
+    }
+
+    // TODO: NamedTempFile is blocking and we should use the appropriate tokio function instead.
+    // Note: We save to a temporary file and persist() it at the end so
+    // concurrent readers won't see a partially written module.
+    let (file, temp) = NamedTempFile::new_in(parent)
+        .map_err(CacheError::other)?
+        .into_parts();
+
+    let mut file = file;
+
+    let serialized = module.serialize()?;
+
+    let mut writer = std::io::BufWriter::new(&mut file);
+    if let Err(error) = writer.write_all(&serialized) {
+        return Err(CacheError::FileWrite { path, error });
+    }
+    if let Err(error) = writer.flush() {
+        return Err(CacheError::FileWrite { path, error });
+    }
+
+    temp.persist(&path).map_err(CacheError::other)?;
+    tracing::debug!(path=%path.display(), "Saved to disk");
+
+    Ok(())
+}
+
 #[async_trait::async_trait]
 impl ModuleCache for FileSystemCache {
     #[tracing::instrument(level = "debug", skip_all, fields(% key))]
@@ -135,11 +220,7 @@ impl ModuleCache for FileSystemCache {
 
         // Use the bundled tokio runtime instead of the given async runtime
         // This is necessary because this function can also be called with a futures_executor
-        self.task_manager
-            .runtime_handle()
-            .spawn(tokio_load(path, engine))
-            .await
-            .unwrap()
+        sync_load(path, engine)
     }
 
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
@@ -166,11 +247,7 @@ impl ModuleCache for FileSystemCache {
 
         // Use the bundled tokio runtime instead of the given async runtime
         // This is necessary because this function can also be called with a futures_executor
-        self.task_manager
-            .runtime_handle()
-            .spawn(tokio_save(path, module))
-            .await
-            .unwrap()
+        sync_save(path, module)
     }
 }
 
