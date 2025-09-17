@@ -69,4 +69,3 @@ main-args = ["--root", "/public"]
     publish_package(&client, path, opts, |_| {}).await?;
     Ok(())
 }
-

@@ -176,7 +176,7 @@ where
     // Determine if push needed
     let push_needed = wasmer_backend_api::query::get_package_release(client, &hash.to_string())
         .await
-        .map_err(|e| PublishError::Api(e.into()))?
+        .map_err(PublishError::Api)?
         .is_none();
     if push_needed {
         let hash_string = hash.to_string();
@@ -188,7 +188,7 @@ where
             None,
         )
         .await
-        .map_err(|e| PublishError::Api(e.into()))?
+        .map_err(PublishError::Api)?
         .ok_or_else(|| anyhow::anyhow!("backend did not return upload url"))?
         .url;
 
@@ -245,7 +245,7 @@ where
             Some(manifest.package.as_ref().map_or(true, |p| p.private)),
         )
         .await
-        .map_err(|e| PublishError::Api(e.into()))?
+        .map_err(PublishError::Api)?
         .ok_or_else(|| anyhow::anyhow!("push response empty"))?;
     }
 
@@ -253,7 +253,7 @@ where
     progress(PublishProgress::Tagging);
     let package_release = wasmer_backend_api::query::get_package_release(client, &hash.to_string())
         .await
-        .map_err(|e| PublishError::Api(e.into()))?
+        .map_err(PublishError::Api)?
         .ok_or_else(|| anyhow::anyhow!("package not found after push"))?;
     let version = opts
         .version
@@ -304,7 +304,7 @@ where
         &id.version.to_string(),
     )
     .await
-    .map_err(|e| PublishError::Api(e.into()))?
+    .map_err(PublishError::Api)?
     .ok_or_else(|| anyhow::anyhow!("tag package failed"))?;
 
     if let PublishWait::None = opts.wait {

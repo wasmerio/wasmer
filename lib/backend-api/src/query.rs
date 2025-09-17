@@ -902,9 +902,9 @@ pub async fn autobuild_config_for_zip_upload(
 }
 
 /// Trigger an autobuild deployment for an uploaded archive or repository.
-pub async fn deploy_via_autobuild<'a>(
+pub async fn deploy_via_autobuild(
     client: &WasmerClient,
-    vars: DeployViaAutobuildVars<'a>,
+    vars: DeployViaAutobuildVars,
 ) -> Result<Option<types::DeployViaAutobuildPayload>, anyhow::Error> {
     client
         .run_graphql_strict(types::DeployViaAutobuild::build(vars))

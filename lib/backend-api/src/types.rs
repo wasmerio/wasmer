@@ -1381,51 +1381,51 @@ mod queries {
     }
 
     #[derive(cynic::InputObject, Debug, Clone)]
-    pub struct WordpressDeploymentExtraData<'a> {
-        pub site_name: &'a str,
-        pub admin_username: &'a str,
-        pub admin_password: &'a str,
-        pub admin_email: &'a str,
-        pub language: Option<&'a str>,
+    pub struct WordpressDeploymentExtraData {
+        pub site_name: String,
+        pub admin_username: String,
+        pub admin_password: String,
+        pub admin_email: String,
+        pub language: Option<String>,
     }
 
     #[derive(cynic::InputObject, Debug, Clone)]
-    pub struct AutobuildDeploymentExtraData<'a> {
-        pub wordpress: Option<WordpressDeploymentExtraData<'a>>,
+    pub struct AutobuildDeploymentExtraData {
+        pub wordpress: Option<WordpressDeploymentExtraData>,
     }
 
     #[derive(cynic::InputObject, Debug, Clone)]
-    pub struct JobDefinitionInput<'a> {
-        pub name: Option<&'a str>,
-        pub package: Option<&'a str>,
-        pub command: &'a str,
-        pub cli_args: Option<Vec<Option<&'a str>>>,
-        pub env: Option<Vec<Option<&'a str>>>,
-        pub timeout: Option<&'a str>,
+    pub struct JobDefinitionInput {
+        pub name: Option<String>,
+        pub package: Option<String>,
+        pub command: String,
+        pub cli_args: Option<Vec<Option<String>>>,
+        pub env: Option<Vec<Option<String>>>,
+        pub timeout: Option<String>,
     }
 
-    #[derive(cynic::QueryVariables, Debug)]
-    pub struct DeployViaAutobuildVars<'a> {
-        pub repo_url: Option<&'a str>,
-        pub upload_url: Option<&'a str>,
-        pub app_name: Option<&'a str>,
-        pub app_id: Option<&'a cynic::Id>,
-        pub owner: Option<&'a str>,
-        pub build_cmd: Option<&'a str>,
-        pub install_cmd: Option<&'a str>,
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct DeployViaAutobuildVars {
+        pub repo_url: Option<String>,
+        pub upload_url: Option<String>,
+        pub app_name: Option<String>,
+        pub app_id: Option<cynic::Id>,
+        pub owner: Option<String>,
+        pub build_cmd: Option<String>,
+        pub install_cmd: Option<String>,
         pub enable_database: Option<bool>,
         pub secrets: Option<Vec<SecretInput>>,
-        pub extra_data: Option<AutobuildDeploymentExtraData<'a>>,
-        pub params: Option<AutobuildDeploymentExtraData<'a>>,
+        pub extra_data: Option<AutobuildDeploymentExtraData>,
+        pub params: Option<AutobuildDeploymentExtraData>,
         pub managed: Option<bool>,
-        pub kind: Option<&'a str>,
+        pub kind: Option<String>,
         pub wait_for_screenshot_generation: Option<bool>,
-        pub region: Option<&'a str>,
-        pub branch: Option<&'a str>,
+        pub region: Option<String>,
+        pub branch: Option<String>,
         pub allow_existing_app: Option<bool>,
-        pub jobs: Option<Vec<JobDefinitionInput<'a>>>,
-        pub domains: Option<Vec<Option<&'a str>>>,
-        pub client_mutation_id: Option<&'a str>,
+        pub jobs: Option<Vec<JobDefinitionInput>>,
+        pub domains: Option<Vec<Option<String>>>,
+        pub client_mutation_id: Option<String>,
     }
 
     #[derive(cynic::QueryFragment, Debug)]
@@ -1779,7 +1779,7 @@ mod queries {
         pub success: bool,
     }
 
-    #[derive(cynic::InputObject, Debug)]
+    #[derive(cynic::InputObject, Debug, Clone)]
     pub struct SecretInput {
         pub name: String,
         pub value: String,
