@@ -272,6 +272,7 @@ use std::{
 
 use bus::Bus;
 use derive_more::Debug;
+use shared_buffer::OwnedBuffer;
 use tracing::trace;
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
 use virtual_mio::InlineWaker;
@@ -284,8 +285,9 @@ use wasmer::{
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
-    WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
+    fs::WasiFsRoot, import_object_for_all_wasi_versions, runtime::module_cache::HashedModuleData,
+    Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles,
+    WasiProcess, WasiThreadId,
 };
 
 use super::{WasiModuleInstanceHandles, WasiState};
@@ -2284,7 +2286,7 @@ impl LinkerState {
         }
 
         // Locate and load the module bytes
-        let (module_bytes, paths) = match module_spec {
+        let (module_data, paths) = match module_spec {
             DlModuleSpec::FileSystem {
                 module_spec,
                 ld_library_path,
@@ -2307,12 +2309,18 @@ impl LinkerState {
                     return Ok(INVALID_MODULE_HANDLE);
                 }
 
-                (Cow::Owned(bytes), Some((full_path, ld_library_path)))
+                (
+                    HashedModuleData::new_sha256(bytes),
+                    Some((full_path, ld_library_path)),
+                )
             }
-            DlModuleSpec::Memory { bytes, .. } => (Cow::Borrowed(bytes), None),
+            DlModuleSpec::Memory { bytes, .. } => (
+                HashedModuleData::new_sha256(bytes),
+                None,
+            ),
         };
 
-        let module = runtime.load_module_sync(module_bytes.as_ref())?;
+        let module = runtime.load_module_sync(module_data)?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
@@ -3922,11 +3930,11 @@ async fn locate_module(
     runtime_path: &[impl AsRef<str>],
     calling_module_path: Option<impl AsRef<Path>>,
     fs: &WasiFs,
-) -> Result<(PathBuf, Vec<u8>), LinkError> {
+) -> Result<(PathBuf, OwnedBuffer), LinkError> {
     async fn try_load(
         fs: &WasiFsRoot,
         path: impl AsRef<Path>,
-    ) -> Result<(PathBuf, Vec<u8>), FsError> {
+    ) -> Result<(PathBuf, OwnedBuffer), FsError> {
         let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
             Ok(f) => f,
             // Fallback for cases where the module thinks it's running on unix,
@@ -3938,8 +3946,14 @@ async fn locate_module(
             Err(e) => return Err(e),
         };
 
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).await?;
+        let buf = if let Some(buf) = file.as_owned_buffer() {
+            buf
+        } else {
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).await?;
+            OwnedBuffer::from(buf)
+        };
+
         Ok((path.as_ref().to_owned(), buf))
     }
 

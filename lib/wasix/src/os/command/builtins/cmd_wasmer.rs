@@ -3,9 +3,10 @@ use std::{any::Any, path::PathBuf, sync::Arc};
 use crate::{
     bin_factory::spawn_exec_wasm,
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    runtime::task_manager::InlineWaker,
+    runtime::{module_cache::HashedModuleData, task_manager::InlineWaker},
     SpawnError,
 };
+use shared_buffer::OwnedBuffer;
 use virtual_fs::{AsyncReadExt, FileSystem};
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
@@ -50,6 +51,12 @@ impl CmdWasmer {
     }
 }
 
+#[derive(Debug, Clone)]
+enum Executable {
+    Wasm(OwnedBuffer),
+    BinaryPackage(BinaryPackage),
+}
+
 impl CmdWasmer {
     async fn run(
         &self,
@@ -59,11 +66,6 @@ impl CmdWasmer {
         what: Option<String>,
         mut args: Vec<String>,
     ) -> Result<TaskJoinHandle, SpawnError> {
-        pub enum Executable {
-            Wasm(bytes::Bytes),
-            BinaryPackage(BinaryPackage),
-        }
-
         // If the first argument is a '--' then skip it
         if args.first().map(|a| a.as_str()) == Some("--") {
             args = args.into_iter().skip(1).collect();
@@ -102,7 +104,7 @@ impl CmdWasmer {
 
                     Executable::BinaryPackage(pkg)
                 } else {
-                    Executable::Wasm(bytes)
+                    Executable::Wasm(OwnedBuffer::from_bytes(bytes))
                 }
             } else if let Ok(pkg) = self.get_package(&what).await {
                 Executable::BinaryPackage(pkg)
@@ -136,7 +138,10 @@ impl CmdWasmer {
                     // Now run the module
                     spawn_exec(binary, name, env, &self.runtime).await
                 }
-                Executable::Wasm(bytes) => spawn_exec_wasm(&bytes, name, env, &self.runtime).await,
+                Executable::Wasm(bytes) => {
+                    let data = HashedModuleData::new_xxhash(bytes);
+                    spawn_exec_wasm(data, name, env, &self.runtime).await
+                }
             }
         } else {
             let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
