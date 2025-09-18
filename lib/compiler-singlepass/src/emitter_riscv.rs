@@ -1775,7 +1775,7 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
     // Allocate argument array.
     let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len());
 
-    // Save RA and X28, as scratch register
+    // Save RA and the scratch register
     a.emit_push(Size::S64, Location::GPR(GPR::X1))?;
     a.emit_push(Size::S64, Location::GPR(SCRATCH_REG))?;
 
@@ -1847,7 +1847,7 @@ pub fn gen_std_dynamic_import_trampoline_riscv(
         Size::S64,
         Location::GPR(GPR::Sp),
         Location::Imm64(0),
-        Location::GPR(GPR::X1),
+        Location::GPR(GPR::X11),
     )?;
 
     // Call target.
@@ -1908,16 +1908,28 @@ pub fn gen_import_call_trampoline_riscv(
 
     // Singlepass internally treats all arguments as integers
     // For the standard System V calling convention requires
-    //  floating point arguments to be passed in NEON registers.
+    //  floating point arguments to be passed in FPR registers.
     //  Translation is expensive, so only do it if needed.
     if sig
         .params()
         .iter()
         .any(|&x| x == Type::F32 || x == Type::F64)
     {
+        const PARAM_REGS: &[GPR] = &[
+            // X10 is skipped intentionally
+            GPR::X11,
+            GPR::X12,
+            GPR::X13,
+            GPR::X14,
+            GPR::X15,
+            GPR::X16,
+            GPR::X17,
+        ];
+        const PARAM_REGS_COUNT: usize = PARAM_REGS.len();
+
         // Allocate stack space for arguments.
-        let stack_offset: i32 = if sig.params().len() > 8 {
-            8 * 8
+        let stack_offset: i32 = if sig.params().len() > PARAM_REGS_COUNT {
+            (PARAM_REGS_COUNT * 8) as i32
         } else {
             (sig.params().len() as i32) * 8
         };
@@ -1941,27 +1953,18 @@ pub fn gen_import_call_trampoline_riscv(
         }
 
         // Store all arguments to the stack to prevent overwrite.
-        static PARAM_REGS: &[GPR] = &[
-            GPR::X10,
-            GPR::X11,
-            GPR::X12,
-            GPR::X13,
-            GPR::X14,
-            GPR::X15,
-            GPR::X16,
-            GPR::X17,
-        ];
+
         let mut param_locations = vec![];
         /* Clippy is wrong about using `i` to index `PARAM_REGS` here. */
         #[allow(clippy::needless_range_loop)]
         for i in 0..sig.params().len() {
             let loc = match i {
-                0..=7 => {
+                0..PARAM_REGS_COUNT => {
                     let loc = Location::Memory(GPR::Sp, (i * 8) as i32);
                     a.emit_sd(Size::S64, Location::GPR(PARAM_REGS[i]), loc)?;
                     loc
                 }
-                _ => Location::Memory(GPR::Sp, stack_offset + ((i - 8) * 8) as i32),
+                _ => Location::Memory(GPR::Sp, stack_offset + ((i - PARAM_REGS_COUNT) * 8) as i32),
             };
             param_locations.push(loc);
         }
