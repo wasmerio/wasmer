@@ -6,13 +6,40 @@ use std::fmt::Debug;
 #[cfg(feature = "unwind")]
 use wasmer_types::target::Architecture;
 
-#[allow(dead_code)]
+use crate::location;
+
+#[derive(Clone, Debug, Copy)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum UnwindRegister<R: location::Reg, S: location::Reg> {
+    GPR(R),
+    FPR(S),
+}
+
+#[cfg(feature = "unwind")]
+impl<R: location::Reg, S: location::Reg> UnwindRegister<R, S> {
+    pub(crate) fn dwarf_index(&self) -> gimli::Register {
+        match self {
+            Self::GPR(reg) => reg.to_dwarf(),
+            Self::FPR(reg) => reg.to_dwarf(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
-pub enum UnwindOps {
-    PushFP { up_to_sp: u32 },
-    Push2Regs { reg1: u16, reg2: u16, up_to_sp: u32 },
+pub enum UnwindOps<R: location::Reg, S: location::Reg> {
+    PushFP {
+        up_to_sp: u32,
+    },
+    Push2Regs {
+        reg1: UnwindRegister<R, S>,
+        reg2: UnwindRegister<R, S>,
+        up_to_sp: u32,
+    },
     DefineNewFrame,
-    SaveRegister { reg: u16, bp_neg_offset: i32 },
+    SaveRegister {
+        reg: UnwindRegister<R, S>,
+        bp_neg_offset: i32,
+    },
 }
 
 #[cfg(not(feature = "unwind"))]
