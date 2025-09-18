@@ -1964,7 +1964,20 @@ impl Machine for MachineRiscv {
         )
     }
     fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        todo!()
+        let delta_stack_offset = delta_stack_offset as i64;
+        let delta = if ImmType::Bits12.compatible_imm(delta_stack_offset) {
+            Location::Imm64(delta_stack_offset as _)
+        } else {
+            self.assembler
+                .emit_mov_imm(Location::GPR(SCRATCH_REG), delta_stack_offset)?;
+            Location::GPR(SCRATCH_REG)
+        };
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(GPR::Sp),
+            delta,
+            Location::GPR(GPR::Sp),
+        )
     }
     fn zero_location(&mut self, size: Size, location: Location) -> Result<(), CompileError> {
         self.move_location(size, Location::GPR(GPR::XZero), location)
