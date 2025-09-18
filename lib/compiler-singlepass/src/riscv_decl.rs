@@ -149,8 +149,44 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
-    fn to_dwarf(self) -> u16 {
-        self.into_index() as u16
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::RiscV;
+
+        match self {
+            GPR::XZero => RiscV::ZERO,
+            GPR::X1 => RiscV::X1,
+            GPR::Sp => RiscV::SP,
+            GPR::X3 => RiscV::X3,
+            GPR::X4 => RiscV::X4,
+            GPR::X5 => RiscV::X5,
+            GPR::X6 => RiscV::X6,
+            GPR::X7 => RiscV::X7,
+            // TODO: use new constant: https://github.com/gimli-rs/gimli/pull/802
+            GPR::Fp => RiscV::X8,
+            GPR::X9 => RiscV::X9,
+            GPR::X10 => RiscV::X10,
+            GPR::X11 => RiscV::X11,
+            GPR::X12 => RiscV::X12,
+            GPR::X13 => RiscV::X13,
+            GPR::X14 => RiscV::X14,
+            GPR::X15 => RiscV::X15,
+            GPR::X16 => RiscV::X16,
+            GPR::X17 => RiscV::X17,
+            GPR::X18 => RiscV::X18,
+            GPR::X19 => RiscV::X19,
+            GPR::X20 => RiscV::X20,
+            GPR::X21 => RiscV::X21,
+            GPR::X22 => RiscV::X22,
+            GPR::X23 => RiscV::X23,
+            GPR::X24 => RiscV::X24,
+            GPR::X25 => RiscV::X25,
+            GPR::X26 => RiscV::X26,
+            GPR::X27 => RiscV::X27,
+            GPR::X28 => RiscV::X28,
+            GPR::X29 => RiscV::X29,
+            GPR::X30 => RiscV::X30,
+            GPR::X31 => RiscV::X31,
+        }
     }
 }
 
@@ -294,9 +330,44 @@ impl AbstractReg for FPR {
         ];
         FPRS.iter()
     }
-    fn to_dwarf(self) -> u16 {
-        // TODO: map FPR register to DWARF register number.
-        todo!()
+
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::RiscV;
+
+        match self {
+            FPR::F0 => RiscV::F0,
+            FPR::F1 => RiscV::F1,
+            FPR::F2 => RiscV::F2,
+            FPR::F3 => RiscV::F3,
+            FPR::F4 => RiscV::F4,
+            FPR::F5 => RiscV::F5,
+            FPR::F6 => RiscV::F6,
+            FPR::F7 => RiscV::F7,
+            FPR::F8 => RiscV::F8,
+            FPR::F9 => RiscV::F9,
+            FPR::F10 => RiscV::F10,
+            FPR::F11 => RiscV::F11,
+            FPR::F12 => RiscV::F12,
+            FPR::F13 => RiscV::F13,
+            FPR::F14 => RiscV::F14,
+            FPR::F15 => RiscV::F15,
+            FPR::F16 => RiscV::F16,
+            FPR::F17 => RiscV::F17,
+            FPR::F18 => RiscV::F18,
+            FPR::F19 => RiscV::F19,
+            FPR::F20 => RiscV::F20,
+            FPR::F21 => RiscV::F21,
+            FPR::F22 => RiscV::F22,
+            FPR::F23 => RiscV::F23,
+            FPR::F24 => RiscV::F24,
+            FPR::F25 => RiscV::F25,
+            FPR::F26 => RiscV::F26,
+            FPR::F27 => RiscV::F27,
+            FPR::F28 => RiscV::F28,
+            FPR::F29 => RiscV::F29,
+            FPR::F30 => RiscV::F30,
+            FPR::F31 => RiscV::F31,
+        }
     }
 }
 
@@ -322,10 +393,6 @@ impl CombinedRegister for RiscvRegister {
     }
     fn from_simd(x: u16) -> Self {
         RiscvRegister::FPR(FPR::from_index(x as usize).unwrap())
-    }
-    fn _from_dwarf_regnum(x: u16) -> Option<Self> {
-        // TODO: map DWARF register number to RiscvRegister
-        None
     }
 }
 

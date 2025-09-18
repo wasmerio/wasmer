@@ -8491,6 +8491,7 @@ impl Machine for MachineARM64 {
                     instruction_offset,
                     CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
+                UnwindOps::SubtractFP { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {

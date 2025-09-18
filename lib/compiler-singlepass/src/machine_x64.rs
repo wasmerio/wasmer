@@ -8229,7 +8229,7 @@ impl Machine for MachineX86_64 {
                     instruction_offset,
                     CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
-                UnwindOps::Push2Regs { .. } => unimplemented!(),
+                UnwindOps::Push2Regs { .. } | UnwindOps::SubtractFP { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {

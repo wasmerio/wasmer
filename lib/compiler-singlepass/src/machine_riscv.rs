@@ -28,7 +28,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::*,
     riscv_decl::{new_machine_state, FPR, GPR},
-    unwind::{UnwindInstructions, UnwindOps},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
 type Assembler = VecAssembler<RiscvRelocation>;
@@ -75,12 +75,6 @@ impl DerefMut for AssemblerRiscv {
     }
 }
 
-#[cfg(feature = "unwind")]
-fn dwarf_index(reg: u16) -> gimli::Register {
-    // TODO: map DWARF register numbers for RISC-V.
-    todo!()
-}
-
 /// The RISC-V machine state and code emitter.
 pub struct MachineRiscv {
     assembler: AssemblerRiscv,
@@ -93,7 +87,7 @@ pub struct MachineRiscv {
     /// The source location for the current operator.
     src_loc: u32,
     /// Vector of unwind operations with offset.
-    unwind_ops: Vec<(usize, UnwindOps)>,
+    unwind_ops: Vec<(usize, UnwindOps<GPR, FPR>)>,
     /// Flag indicating if this machine supports floating-point.
     has_fpu: bool,
 }
@@ -1692,6 +1686,10 @@ impl MachineRiscv {
         self.release_simd(tmp2);
         Ok(())
     }
+
+    fn emit_unwind_op(&mut self, op: UnwindOps<GPR, FPR>) {
+        self.unwind_ops.push((self.get_offset().0, op));
+    }
 }
 
 #[allow(dead_code)]
@@ -2027,7 +2025,20 @@ impl Machine for MachineRiscv {
             Size::S64,
             location,
             Location::Memory(GPR::Fp, -stack_offset),
-        )
+        )?;
+
+        match location {
+            Location::GPR(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
+                reg: UnwindRegister::GPR(x),
+                bp_neg_offset: stack_offset,
+            }),
+            Location::SIMD(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
+                reg: UnwindRegister::FPR(x),
+                bp_neg_offset: stack_offset,
+            }),
+            _ => (),
+        }
+        Ok(())
     }
     fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
         vec![]
@@ -2275,7 +2286,7 @@ impl Machine for MachineRiscv {
         })
     }
     fn get_offset(&self) -> Offset {
-        todo!()
+        self.assembler.get_offset()
     }
     fn finalize_function(&mut self) -> Result<(), CompileError> {
         self.assembler.finalize_function()?;
@@ -2283,14 +2294,13 @@ impl Machine for MachineRiscv {
     }
 
     fn emit_function_prolog(&mut self) -> Result<(), CompileError> {
-        // TODO: support emission of unwinding info
-
         self.assembler.emit_sub(
             Size::S64,
             Location::GPR(GPR::Sp),
             Location::Imm64(16),
             Location::GPR(GPR::Sp),
         )?;
+        self.emit_unwind_op(UnwindOps::SubtractFP { up_to_sp: 16 });
 
         self.assembler.emit_sd(
             Size::S64,
@@ -2302,8 +2312,18 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::Fp),
             Location::Memory(GPR::Sp, 0),
         )?;
+        self.emit_unwind_op(UnwindOps::SaveRegister {
+            reg: UnwindRegister::GPR(GPR::X1),
+            bp_neg_offset: 8,
+        });
+        self.emit_unwind_op(UnwindOps::SaveRegister {
+            reg: UnwindRegister::GPR(GPR::Fp),
+            bp_neg_offset: 16,
+        });
+
         self.assembler
             .emit_mov(Size::S64, Location::GPR(GPR::Sp), Location::GPR(GPR::Fp))?;
+        self.emit_unwind_op(UnwindOps::DefineNewFrame);
         Ok(())
     }
 
@@ -6095,11 +6115,47 @@ impl Machine for MachineRiscv {
     }
     #[cfg(feature = "unwind")]
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
-        todo!();
+        let mut instructions = vec![];
+        for &(instruction_offset, ref inst) in &self.unwind_ops {
+            let instruction_offset = instruction_offset as u32;
+            match *inst {
+                UnwindOps::PushFP { up_to_sp } => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaOffset(up_to_sp as i32),
+                    ));
+                    instructions.push((
+                        instruction_offset,
+                        // TODO: use RiscV::FP: https://github.com/gimli-rs/gimli/pull/802
+                        CallFrameInstruction::Offset(RiscV::X8, -(up_to_sp as i32)),
+                    ));
+                }
+                UnwindOps::DefineNewFrame => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaRegister(RiscV::X8),
+                    ));
+                }
+                UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
+                    instruction_offset,
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
+                )),
+                UnwindOps::SubtractFP { up_to_sp } => {
+                    instructions.push((
+                        instruction_offset,
+                        CallFrameInstruction::CfaOffset(up_to_sp as i32),
+                    ));
+                }
+                UnwindOps::Push2Regs { .. } => unimplemented!(),
+            }
+        }
+        Some(UnwindInstructions {
+            instructions,
+            len: code_len as u32,
+        })
     }
-
     #[cfg(not(feature = "unwind"))]
-    fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions> {
+    fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
         None
     }
     fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>> {

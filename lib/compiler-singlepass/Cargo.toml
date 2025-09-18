@@ -36,8 +36,7 @@ target-lexicon = { workspace = true, default-features = false }
 maintenance = { status = "actively-developed" }
 
 [features]
-# TODO: add "unwind" to the default set of features
-default = ["std", "rayon", "avx", "riscv"]
+default = ["std", "rayon", "unwind", "avx", "riscv"]
 wasm = ["std", "unwind", "avx"]
 std = ["wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
