@@ -20,8 +20,8 @@ hashbrown = { workspace = true, optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
 more-asserts.workspace = true
-dynasm = "4.0.0"
-dynasmrt = "4.0.0"
+dynasm = "4.0.1"
+dynasmrt = "4.0.1"
 byteorder.workspace = true
 smallvec.workspace = true
 tempfile = "3.6.0"
