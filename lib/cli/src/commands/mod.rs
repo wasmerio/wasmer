@@ -1,6 +1,7 @@
 //! The commands available in the Wasmer binary.
 mod add;
 mod app;
+mod artifact_version;
 mod auth;
 #[cfg(target_os = "linux")]
 mod binfmt;
@@ -215,6 +216,7 @@ impl WasmerCmd {
             Some(Cmd::Ssh(ssh)) => ssh.run(),
             Some(Cmd::Namespace(namespace)) => namespace.run(),
             Some(Cmd::Domain(namespace)) => namespace.run(),
+            Some(Cmd::ArtifactVersion(cmd)) => cmd.run(),
             None => {
                 WasmerCmd::command().print_long_help()?;
                 // Note: clap uses an exit code of 2 when CLI parsing fails
@@ -445,6 +447,10 @@ enum Cmd {
     /// Generate man pages
     #[clap(name = "gen-man", hide = true)]
     GenManPage(crate::commands::gen_manpage::CmdGenManPage),
+
+    /// Print the current artifact version
+    #[clap(name = "print-artifact-version", hide = true)]
+    ArtifactVersion(crate::commands::artifact_version::CmdArtifactVersion),
 }
 
 fn is_binfmt_interpreter() -> bool {
