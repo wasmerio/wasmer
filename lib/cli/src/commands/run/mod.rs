@@ -25,8 +25,8 @@ use url::Url;
 #[cfg(feature = "sys")]
 use wasmer::sys::NativeEngineExt;
 use wasmer::{
-    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, Store, Type,
-    TypedFunction, Value,
+    AsStoreMut, DeserializeError, Engine, Function, Imports, Instance, Module, RuntimeError, Store,
+    Type, TypedFunction, Value,
 };
 
 use wasmer_types::{target::Target, Features};
@@ -501,18 +501,24 @@ impl Run {
             }
         };
 
-        let return_values = invoke_function(&instance, &mut store, entry_function, &self.args)?;
+        let result = invoke_function(&instance, &mut store, entry_function, &self.args)?;
 
-        println!(
-            "{}",
-            return_values
-                .iter()
-                .map(|val| val.to_string())
-                .collect::<Vec<String>>()
-                .join(" ")
-        );
-
-        Ok(())
+        match result {
+            Ok(return_values) => {
+                println!(
+                    "{}",
+                    return_values
+                        .iter()
+                        .map(|val| val.to_string())
+                        .collect::<Vec<String>>()
+                        .join(" ")
+                );
+                Ok(())
+            }
+            Err(err) => {
+                bail!("{}", err.display(&mut store));
+            }
+        }
     }
 
     fn build_wasi_runner(
@@ -650,7 +656,7 @@ fn invoke_function(
     store: &mut Store,
     func: &Function,
     args: &[String],
-) -> Result<Box<[Value]>, Error> {
+) -> Result<Result<Box<[Value]>, RuntimeError>, Error> {
     let func_ty = func.ty(store);
     let required_arguments = func_ty.params().len();
     let provided_arguments = args.len();
@@ -671,9 +677,7 @@ fn invoke_function(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    let return_values = func.call(store, &invoke_args)?;
-
-    Ok(return_values)
+    Ok(func.call(store, &invoke_args))
 }
 
 fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {

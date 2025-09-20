@@ -126,11 +126,11 @@ impl Instance {
         &self.module
     }
 
-    fn context(&self) -> &StoreObjects {
+    pub(crate) fn context(&self) -> &StoreObjects {
         unsafe { &*self.context }
     }
 
-    fn context_mut(&mut self) -> &mut StoreObjects {
+    pub(crate) fn context_mut(&mut self) -> &mut StoreObjects {
         unsafe { &mut *self.context }
     }
 

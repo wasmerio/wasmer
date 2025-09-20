@@ -17,6 +17,7 @@ pub union RawValue {
     pub u128: u128,
     pub funcref: usize,
     pub externref: usize,
+    pub exnref: u32,
     pub bytes: [u8; 16],
 }
 

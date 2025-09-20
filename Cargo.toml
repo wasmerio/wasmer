@@ -439,3 +439,9 @@ required-features = ["cranelift"]
 name = "http-dynamic-size"
 path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]
+
+
+[[example]]
+name = "throw-exception"
+path = "examples/throw_exception.rs"
+required-features = ["llvm"]

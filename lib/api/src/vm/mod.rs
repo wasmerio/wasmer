@@ -438,7 +438,6 @@ define_vm_like!(Trampoline);
 define_vm_like!(Function, Debug);
 define_vm_like!(Global, Debug);
 define_vm_like!(Tag, Debug);
-define_vm_like!(Exception, Debug);
 define_vm_like!(Memory, Debug, @From);
 define_vm_like!(SharedMemory);
 define_vm_like!(Table, Debug);
