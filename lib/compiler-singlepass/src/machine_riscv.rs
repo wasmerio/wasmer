@@ -1159,6 +1159,7 @@ impl MachineRiscv {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
+        allow_imm: ImmType,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let size_bits = sz.bits();
@@ -1179,7 +1180,7 @@ impl MachineRiscv {
             tmp1
         };
 
-        self.emit_ror(sz, loc_a, src2, ret)?;
+        self.emit_ror(sz, loc_a, src2, ret, allow_imm)?;
 
         for r in temps {
             self.release_gpr(r);
@@ -1193,6 +1194,7 @@ impl MachineRiscv {
         loc_a: Location,
         loc_b: Location,
         ret: Location,
+        allow_imm: ImmType,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
 
@@ -1211,14 +1213,20 @@ impl MachineRiscv {
             loc_a,
             loc_b,
             Location::GPR(tmp1),
-            ImmType::Bits12,
+            allow_imm,
         )?;
 
         let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        self.assembler
-            .emit_sub(sz, imm, loc_b, Location::GPR(tmp2))?;
+        self.emit_relaxed_binop3(
+            Assembler::emit_sub,
+            sz,
+            imm,
+            loc_b,
+            Location::GPR(tmp2),
+            allow_imm,
+        )?;
         self.emit_relaxed_binop3(
             Assembler::emit_sll,
             sz,
@@ -1705,13 +1713,15 @@ impl MachineRiscv {
 }
 
 #[allow(dead_code)]
-#[derive(PartialEq)]
+#[derive(PartialEq, Copy, Clone)]
 pub(crate) enum ImmType {
     None,
     Bits12,
     // `add(w) X(rd) -imm` is used for subtraction with an immediate, so we need to check
     // the range of negated value.
     Bits12Subtraction,
+    Shift32,
+    Shift64,
 }
 
 impl ImmType {
@@ -1720,6 +1730,8 @@ impl ImmType {
             ImmType::None => false,
             ImmType::Bits12 => (-0x800..0x800).contains(&imm),
             ImmType::Bits12Subtraction => (-0x801..0x801).contains(&imm),
+            ImmType::Shift32 => (0..32).contains(&imm),
+            ImmType::Shift64 => (0..64).contains(&imm),
         }
     }
 }
@@ -3054,7 +3066,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::Bits12,
+            ImmType::Shift32,
         )
     }
     fn i32_shr(
@@ -3069,7 +3081,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::Bits12,
+            ImmType::Shift32,
         )
     }
     fn i32_sar(
@@ -3084,7 +3096,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::Bits12,
+            ImmType::Shift32,
         )
     }
     fn i32_rol(
@@ -3093,7 +3105,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_rol(Size::S32, loc_a, loc_b, ret)
+        self.emit_rol(Size::S32, loc_a, loc_b, ret, ImmType::Shift32)
     }
     fn i32_ror(
         &mut self,
@@ -3101,7 +3113,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_ror(Size::S32, loc_a, loc_b, ret)
+        self.emit_ror(Size::S32, loc_a, loc_b, ret, ImmType::Shift32)
     }
     fn i32_load(
         &mut self,
@@ -4297,7 +4309,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::Bits12,
+            ImmType::Shift64,
         )
     }
     fn i64_shr(
@@ -4312,7 +4324,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::Bits12,
+            ImmType::Shift64,
         )
     }
     fn i64_sar(
@@ -4327,7 +4339,7 @@ impl Machine for MachineRiscv {
             loc_a,
             loc_b,
             ret,
-            ImmType::Bits12,
+            ImmType::Shift64,
         )
     }
     fn i64_rol(
@@ -4336,7 +4348,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_rol(Size::S64, loc_a, loc_b, ret)
+        self.emit_rol(Size::S64, loc_a, loc_b, ret, ImmType::Shift64)
     }
     fn i64_ror(
         &mut self,
@@ -4344,7 +4356,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        self.emit_ror(Size::S64, loc_a, loc_b, ret)
+        self.emit_ror(Size::S64, loc_a, loc_b, ret, ImmType::Shift64)
     }
     fn i64_load(
         &mut self,
