@@ -55,17 +55,27 @@ impl BackendException {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(s) => s.is_from_store(store),
-            // #[cfg(feature = "wamr")]
-            // Self::Wamr(s) => s.is_from_store(store),
-            // #[cfg(feature = "wasmi")]
-            // Self::Wasmi(s) => s.is_from_store(store),
-            // #[cfg(feature = "v8")]
-            // Self::V8(s) => s.is_from_store(store),
-            // #[cfg(feature = "js")]
-            // Self::Js(s) => s.is_from_store(store),
-            // #[cfg(feature = "jsc")]
-            // Self::Jsc(s) => s.is_from_store(store),
-            _ => unimplemented!("is_from_store is not yet implemented for this backend"),
+            _ => unimplemented!("is_from_store is only implemented for the sys backend"),
+        }
+    }
+
+    /// Gets the exception tag.
+    #[inline]
+    pub fn tag(&self, store: &impl AsStoreRef) -> Tag {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.tag(store),
+            _ => unimplemented!("tag is only implemented for the sys backend"),
+        }
+    }
+
+    /// Gets the exception payload values.
+    #[inline]
+    pub fn payload(&self, store: &mut impl AsStoreMut) -> Vec<Value> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.payload(store),
+            _ => unimplemented!("payload is only implemented for the sys backend"),
         }
     }
 

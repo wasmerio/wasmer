@@ -297,6 +297,28 @@ impl WasiRuntimeError {
             None
         }
     }
+
+    pub fn display<'a>(&'a self, store: &'a mut impl AsStoreMut) -> WasiRuntimeErrorDisplay<'a> {
+        if let WasiRuntimeError::Runtime(err) = self {
+            WasiRuntimeErrorDisplay::Runtime(err.display(store))
+        } else {
+            WasiRuntimeErrorDisplay::Other(self)
+        }
+    }
+}
+
+pub enum WasiRuntimeErrorDisplay<'a> {
+    Runtime(wasmer::RuntimeErrorDisplay<'a>),
+    Other(&'a WasiRuntimeError),
+}
+
+impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            WasiRuntimeErrorDisplay::Runtime(display) => write!(f, "{display}"),
+            WasiRuntimeErrorDisplay::Other(err) => write!(f, "{err}"),
+        }
+    }
 }
 
 #[allow(clippy::result_large_err)]

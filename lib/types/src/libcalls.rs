@@ -141,7 +141,7 @@ pub enum LibCall {
 
     /// allocate exception object and get an exnref for it
     AllocException,
-    /// Get the tag and values out of an exnref
+    /// Get the values buffer pointer out of an exnref
     ReadExnRef,
     /// Given a caught native exception pointer, get the exnref and delete the exception itself
     NativeExceptionIntoExnRef,

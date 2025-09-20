@@ -18,14 +18,25 @@ use crate::{
 pub struct Exception(pub(crate) BackendException);
 
 impl Exception {
-    /// Create a new exception with the given tag type and payload.
+    /// Create a new exception with the given tag and payload, and also creates
+    /// a reference to it, returning the reference.
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
         Self(BackendException::new(store, tag, payload))
     }
 
-    /// Checks whether this `Exception` comes from the given store.
+    /// Check whether this `Exception` comes from the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
+    }
+
+    /// Get the exception tag.
+    pub fn tag(&self, store: &impl AsStoreRef) -> Tag {
+        self.0.tag(store)
+    }
+
+    /// Get the exception payload values.
+    pub fn payload(&self, store: &mut impl AsStoreMut) -> Vec<Value> {
+        self.0.payload(store)
     }
 
     /// Get the `VMExceptionRef` corresponding to this `Exception`.
@@ -33,7 +44,7 @@ impl Exception {
         self.0.vm_exceptionref()
     }
 
-    /// Creates an `Exception` from a `VMExceptionRef`.
+    /// Create an `Exception` from a `VMExceptionRef`.
     pub fn from_vm_exceptionref(exnref: VMExceptionRef) -> Self {
         Self(BackendException::from_vm_exceptionref(exnref))
     }

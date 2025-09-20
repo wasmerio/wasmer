@@ -41,17 +41,46 @@ impl Exception {
         Self { exnref }
     }
 
+    pub fn exnref(&self) -> wasmer_vm::VMExceptionRef {
+        self.exnref.clone()
+    }
+
     pub fn from_exnref(exnref: wasmer_vm::VMExceptionRef) -> Self {
         Self { exnref }
     }
 
-    /// Checks whether this `Exception` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.exnref.0.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub fn exnref(&self) -> wasmer_vm::VMExceptionRef {
-        self.exnref.clone()
+    pub fn tag(&self, store: &impl AsStoreRef) -> Tag {
+        if !self.is_from_store(store) {
+            panic!("Exception is from another Store");
+        }
+        let ctx = store.as_store_ref().objects().as_sys();
+        let exception = self.exnref.0.get(ctx);
+        let tag_handle = exception.tag();
+        Tag(BackendTag::Sys(crate::sys::tag::Tag {
+            handle: unsafe { StoreHandle::from_internal(ctx.id(), tag_handle) },
+        }))
+    }
+
+    pub fn payload(&self, store: &mut impl AsStoreMut) -> Vec<Value> {
+        if !self.is_from_store(store) {
+            panic!("Exception is from another Store");
+        }
+        let ctx = store.as_store_ref().objects().as_sys();
+        let exception = self.exnref.0.get(ctx);
+        let params_ty = exception.tag().get(ctx).signature.params().to_vec();
+        let payload_ptr = exception.payload();
+
+        assert_eq!(params_ty.len(), payload_ptr.len());
+
+        params_ty
+            .iter()
+            .zip(unsafe { payload_ptr.as_ref().iter() })
+            .map(|(ty, raw)| unsafe { Value::from_raw(store, *ty, *raw) })
+            .collect()
     }
 }
 

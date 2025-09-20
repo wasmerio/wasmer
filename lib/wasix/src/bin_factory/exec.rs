@@ -372,8 +372,9 @@ fn call_module(
         match err.as_exit_code() {
             Some(s) => s,
             None => {
-                error!("{err}");
-                eprintln!("{err}");
+                let err_display = err.display(&mut store);
+                error!("{err_display}");
+                eprintln!("{err_display}");
                 Errno::Noexec.into()
             }
         }
