@@ -521,7 +521,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C-unwind" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -543,7 +543,19 @@ macro_rules! impl_host_function {
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    Ok(Err(trap)) => raise_user_trap(trap),
+                    Ok(Err(trap)) => {
+                        // TODO: is it safe to do all this on the WASM stack?
+                        let dyn_err_ref = trap.as_ref() as &dyn Error;
+                        if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>() {
+                            if let Some(exception) = runtime_error.to_exception() {
+                                wasmer_vm::libcalls::throw(
+                                    store.as_store_ref().objects().as_sys(),
+                                    exception.vm_exceptionref().as_sys().to_u32_exnref()
+                                );
+                            }
+                        }
+                        raise_user_trap(trap)
+                    }
                     Err(panic) => resume_panic(panic) ,
                 }
             }
@@ -585,7 +597,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C-unwind" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                 where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -613,7 +625,19 @@ macro_rules! impl_host_function {
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
                     Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    Ok(Err(trap)) => raise_user_trap(trap),
+                    Ok(Err(trap)) => {
+                        // TODO: is it safe to do all this on the WASM stack?
+                        let dyn_err_ref = trap.as_ref() as &dyn Error;
+                        if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>() {
+                            if let Some(exception) = runtime_error.to_exception() {
+                                wasmer_vm::libcalls::throw(
+                                    store.as_store_ref().objects().as_sys(),
+                                    exception.vm_exceptionref().as_sys().to_u32_exnref()
+                                );
+                            }
+                        }
+                        raise_user_trap(trap)
+                    }
                     Err(panic) => resume_panic(panic),
                 }
             }

@@ -153,6 +153,26 @@ impl RuntimeError {
         }
     }
 
+    /// Creates a `RuntimeError` containing an exception.
+    ///
+    /// If this error is returned from an imported function, the exception
+    /// will be thrown in the WebAssembly code instead of the usual trapping.
+    pub fn exception(ctx: &impl AsStoreRef, exception: Exception) -> Self {
+        let exnref = exception.vm_exceptionref();
+        let store = ctx.as_store_ref();
+        match store.inner.objects {
+            #[cfg(feature = "sys")]
+            crate::StoreObjects::Sys(ref store_objects) => {
+                crate::backend::sys::vm::Trap::uncaught_exception(
+                    exnref.as_sys().clone(),
+                    store_objects,
+                )
+                .into()
+            }
+            _ => panic!("exceptions are only supported in the `sys` backend"),
+        }
+    }
+
     /// Returns a reference the `message` stored in `Trap`.
     pub fn message(&self) -> String {
         if let Some(trap_code) = self.inner.trap_code {

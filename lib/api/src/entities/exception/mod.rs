@@ -20,7 +20,7 @@ pub struct Exception(pub(crate) BackendException);
 impl Exception {
     /// Create a new exception with the given tag and payload, and also creates
     /// a reference to it, returning the reference.
-    pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
+    pub fn new(store: &mut impl AsStoreMut, tag: &Tag, payload: &[Value]) -> Self {
         Self(BackendException::new(store, tag, payload))
     }
 

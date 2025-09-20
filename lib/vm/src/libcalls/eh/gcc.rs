@@ -39,7 +39,7 @@ use std::ffi::c_void;
 use libunwind::{self as uw};
 use wasmer_types::TagIndex;
 
-use crate::{InternalStoreHandle, StoreHandle, VMContext, VMExceptionRef};
+use crate::{InternalStoreHandle, StoreHandle, StoreObjects, VMContext, VMExceptionRef};
 
 use super::dwarf::eh::{self, EHAction, EHContext};
 
@@ -173,7 +173,7 @@ pub unsafe extern "C" fn wasmer_eh_personality(
 }
 
 #[no_mangle]
-/// The second stage of the  personality function. See module level documentation
+/// The second stage of the personality function. See module level documentation
 /// for an explanation of the exact procedure used during unwinding.
 ///
 /// # Safety
@@ -238,7 +238,7 @@ pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
     }
 }
 
-pub unsafe fn throw(vmctx: *mut VMContext, exnref: u32) -> ! {
+pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
     if exnref == 0 {
         crate::raise_lib_trap(crate::Trap::lib(
             wasmer_types::TrapCode::UninitializedExnRef,
@@ -252,12 +252,11 @@ pub unsafe fn throw(vmctx: *mut VMContext, exnref: u32) -> ! {
         libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
             delete_exception(exception_ptr as *mut c_void);
 
-            let instance = unsafe { (*vmctx).instance() };
             let exnref = VMExceptionRef(StoreHandle::from_internal(
-                instance.context().id(),
+                ctx.id(),
                 InternalStoreHandle::from_index(exnref as usize).unwrap(),
             ));
-            crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, instance.context()))
+            crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
         }
         _ => {
             unreachable!()

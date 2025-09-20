@@ -48,6 +48,7 @@ use crate::{
     table::{RawTableElement, TableElement},
     InternalStoreHandle,
 };
+pub use eh::throw;
 pub use wasmer_types::LibCall;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, RawValue,
@@ -691,7 +692,8 @@ pub extern "C-unwind" fn wasmer_vm_dbg_str(ptr: usize, len: u32) {
 /// Calls libunwind to perform unwinding magic.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u32) -> ! {
-    eh::throw(vmctx, exnref)
+    let instance = unsafe { (*vmctx).instance() };
+    eh::throw(instance.context(), exnref)
 }
 
 /// Implementation for allocating an exception. Returns the exnref, i.e. a handle to the

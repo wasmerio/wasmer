@@ -18,7 +18,7 @@ cfg_if::cfg_if! {
             panic!()
         }
 
-        pub unsafe fn throw(_vmctx: *mut VMContext, _exnref: u32) -> ! {
+        pub unsafe fn throw(_ctx: &crate::StoreObjects, _exnref: u32) -> ! {
             panic!()
         }
 

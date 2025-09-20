@@ -16,7 +16,7 @@ impl Exception {
     /// Creates a new exception with the given tag and payload, and also creates
     /// a reference to it, returning the reference.
     #[allow(irrefutable_let_patterns)]
-    pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
+    pub fn new(store: &mut impl AsStoreMut, tag: &Tag, payload: &[Value]) -> Self {
         if !tag.is_from_store(store) {
             panic!("cannot create Exception with Tag from another Store");
         }
@@ -25,11 +25,24 @@ impl Exception {
             panic!("cannot create Exception with Tag from another backend");
         };
 
-        let store_id = store.objects_mut().id();
+        let store_objects = store.as_store_ref().objects().as_sys();
+        let store_id = store_objects.id();
+
+        let tag_ty = tag.handle.get(store_objects).signature.params();
+
+        if tag_ty.len() != payload.len() {
+            panic!("payload length mismatch");
+        }
 
         let values = payload
             .iter()
-            .map(|v| v.as_raw(store))
+            .enumerate()
+            .map(|(i, v)| {
+                if v.ty() != tag_ty[i] {
+                    panic!("payload type mismatch");
+                }
+                v.as_raw(store)
+            })
             .collect::<Vec<_>>()
             .into_boxed_slice();
 

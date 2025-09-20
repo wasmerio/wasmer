@@ -73,8 +73,13 @@ impl VMExceptionRef {
     /// Converts the [`VMExceptionRef`] into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
         RawValue {
-            exnref: self.0.internal_handle().index() as u32,
+            exnref: self.to_u32_exnref(),
         }
+    }
+
+    /// Gets the raw u32 exnref value.
+    pub fn to_u32_exnref(&self) -> u32 {
+        self.0.internal_handle().index() as u32
     }
 
     /// Extracts a `VMExceptionRef` from a `RawValue`.
