@@ -1,3 +1,5 @@
+#[cfg(feature = "sys")]
+use crate::vm::VMExceptionRef;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
@@ -50,6 +52,42 @@ impl BackendException {
     /// Checks whether this `Exception` can be used with the given store.
     #[inline]
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        todo!()
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.is_from_store(store),
+            // #[cfg(feature = "wamr")]
+            // Self::Wamr(s) => s.is_from_store(store),
+            // #[cfg(feature = "wasmi")]
+            // Self::Wasmi(s) => s.is_from_store(store),
+            // #[cfg(feature = "v8")]
+            // Self::V8(s) => s.is_from_store(store),
+            // #[cfg(feature = "js")]
+            // Self::Js(s) => s.is_from_store(store),
+            // #[cfg(feature = "jsc")]
+            // Self::Jsc(s) => s.is_from_store(store),
+            _ => unimplemented!("is_from_store is not yet implemented for this backend"),
+        }
+    }
+
+    /// Get the `VMExceptionRef` corresponding to this `Exception`.
+    #[inline]
+    pub fn vm_exceptionref(&self) -> VMExceptionRef {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => VMExceptionRef::Sys(s.exnref()),
+            _ => unimplemented!("vm_exceptionref is only implemented for the sys backend"),
+        }
+    }
+
+    /// Creates a new `Exception` from a `VMExceptionRef`.
+    #[inline]
+    pub fn from_vm_exceptionref(exnref: VMExceptionRef) -> Self {
+        match exnref {
+            #[cfg(feature = "sys")]
+            VMExceptionRef::Sys(s) => {
+                Self::Sys(crate::backend::sys::exception::Exception::from_exnref(s))
+            }
+            _ => unimplemented!("from_vm_exceptionref is only implemented for the sys backend"),
+        }
     }
 }

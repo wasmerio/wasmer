@@ -2,85 +2,56 @@
 use std::any::Any;
 
 use wasmer_types::{TagType, Type};
-use wasmer_vm::StoreHandle;
+use wasmer_vm::{StoreHandle, StoreId};
 
-use crate::{
-    sys::vm::{VMException, VMExceptionRef},
-    AsStoreMut, AsStoreRef, Tag, Value,
-};
+use crate::{sys::vm::VMExceptionRef, AsStoreMut, AsStoreRef, BackendTag, Tag, Value};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// A WebAssembly `exception` in the `sys` runtime.
+/// A WebAssembly `exnref` in the `sys` runtime.
 pub(crate) struct Exception {
-    pub(crate) handle: VMException,
+    exnref: wasmer_vm::VMExceptionRef,
 }
-
-unsafe impl Send for Exception {}
-unsafe impl Sync for Exception {}
 
 impl Exception {
-    /// Create a new [`Exception`].
+    /// Creates a new exception with the given tag and payload, and also creates
+    /// a reference to it, returning the reference.
+    #[allow(irrefutable_let_patterns)]
     pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(transparent)]
-/// A WebAssembly `extern ref` in the `sys` runtime.
-pub(crate) struct ExceptionRef {
-    handle: StoreHandle<wasmer_vm::VMExceptionObj>,
-}
-
-impl ExceptionRef {
-    /// Make a new extern reference
-    pub fn new<T>(store: &mut impl AsStoreMut, value: T) -> Self
-    where
-        T: Any + Send + Sync + 'static + Sized,
-    {
-        Self {
-            handle: crate::backend::sys::store::StoreHandle::new(
-                store.objects_mut().as_sys_mut(),
-                wasmer_vm::VMExceptionObj::new(value),
-            ),
+        if !tag.is_from_store(store) {
+            panic!("cannot create Exception with Tag from another Store");
         }
+
+        let BackendTag::Sys(tag) = &tag.0 else {
+            panic!("cannot create Exception with Tag from another backend");
+        };
+
+        let store_id = store.objects_mut().id();
+
+        let values = payload
+            .iter()
+            .map(|v| v.as_raw(store))
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let ctx = store.objects_mut().as_sys_mut();
+        let exception = wasmer_vm::VMExceptionObj::new(tag.handle.internal_handle(), values);
+        let exn_handle = wasmer_vm::StoreHandle::new(ctx, exception);
+        let exnref = wasmer_vm::VMExceptionRef(exn_handle);
+
+        Self { exnref }
     }
 
-    /// Try to downcast to the given value.
-    pub fn downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T>
-    where
-        T: Any + Send + Sync + 'static + Sized,
-    {
-        self.handle
-            .get(store.as_store_ref().objects().as_sys())
-            .as_ref()
-            .downcast_ref::<T>()
+    pub fn from_exnref(exnref: wasmer_vm::VMExceptionRef) -> Self {
+        Self { exnref }
     }
 
-    /// Create a [`VMExceptionRef`] from [`Self`].
-    pub(crate) fn vm_exceptionref(&self) -> VMExceptionRef {
-        wasmer_vm::VMExceptionRef(self.handle.internal_handle())
-    }
-
-    /// Create an instance of [`Self`] from a [`VMExceptionRef`].
-    pub(crate) unsafe fn from_vm_exceptionref(
-        store: &mut impl AsStoreMut,
-        vm_exceptionref: VMExceptionRef,
-    ) -> Self {
-        Self {
-            handle: StoreHandle::from_internal(store.objects_mut().id(), vm_exceptionref.0),
-        }
-    }
-
-    /// Checks whether this `ExceptionRef` can be used with the given context.
-    ///
-    /// Primitive (`i32`, `i64`, etc) and null funcref/exceptionref values are not
-    /// tied to a context and can be freely shared between contexts.
-    ///
-    /// exceptionref and funcref values are tied to a context and can only be used
-    /// with that context.
+    /// Checks whether this `Exception` can be used with the given context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+        self.exnref.0.store_id() == store.as_store_ref().objects().id()
+    }
+
+    pub fn exnref(&self) -> wasmer_vm::VMExceptionRef {
+        self.exnref.clone()
     }
 }
 

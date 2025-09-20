@@ -223,8 +223,8 @@ pub struct TagCatchInfo<'ctx> {
     pub tag: u32,
     // The catch block
     pub catch_block: BasicBlock<'ctx>,
-    // The PHI node to receive the exception object
-    pub wasmer_exc_phi: Option<PhiValue<'ctx>>,
+    // The PHI node to receive the exnref
+    pub exnref_phi: Option<PhiValue<'ctx>>,
 }
 
 #[derive(Debug)]

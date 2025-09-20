@@ -34,10 +34,12 @@
 //! out the data before returning, so further stack frames will not get stale
 //! data by mistake.
 
-use libunwind as uw;
+use std::ffi::c_void;
+
+use libunwind::{self as uw};
 use wasmer_types::TagIndex;
 
-use crate::VMContext;
+use crate::{InternalStoreHandle, StoreHandle, VMContext, VMExceptionRef};
 
 use super::dwarf::eh::{self, EHAction, EHContext};
 
@@ -57,7 +59,7 @@ const NO_MATCH_FOUND_TAG_VALUE: i32 = i32::MAX - 1;
 pub struct UwExceptionWrapper {
     pub _uwe: uw::_Unwind_Exception,
     pub canary: *const u8,
-    pub cause: Box<dyn std::any::Any + Send>,
+    pub exnref: u32,
 
     // First stage -> second stage communication
     pub current_frame_info: Option<Box<CurrentFrameInfo>>,
@@ -65,47 +67,22 @@ pub struct UwExceptionWrapper {
 
 #[repr(C)]
 pub struct CurrentFrameInfo {
-    pub exception_tag: u32,
     pub catch_tags: Vec<u32>,
     pub has_catch_all: bool,
 }
 
 impl UwExceptionWrapper {
-    pub fn new(tag: u32, data_ptr: usize, data_size: u64) -> Self {
+    pub fn new(exnref: u32) -> Self {
         Self {
             _uwe: uw::_Unwind_Exception {
                 exception_class: WASMER_EXCEPTION_CLASS,
-                exception_cleanup: None,
+                exception_cleanup: Some(deallocate_exception),
                 private_1: core::ptr::null::<u8>() as usize as _,
                 private_2: 0,
             },
             canary: &CANARY,
-            cause: Box::new(WasmerException {
-                tag,
-                data_ptr,
-                data_size,
-            }),
+            exnref,
             current_frame_info: None,
-        }
-    }
-}
-
-#[repr(C)]
-#[derive(Debug, thiserror::Error, Clone)]
-#[error("Uncaught exception in wasm code!")]
-pub struct WasmerException {
-    // This is the store-unique tag index.
-    pub tag: u32,
-    pub data_ptr: usize,
-    pub data_size: u64,
-}
-
-impl WasmerException {
-    pub fn new(tag: u32, data_ptr: usize, data_size: u64) -> Self {
-        Self {
-            tag,
-            data_ptr,
-            data_size,
         }
     }
 }
@@ -148,14 +125,6 @@ pub unsafe extern "C" fn wasmer_eh_personality(
             return uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND;
         }
 
-        let wasmer_exc = (*uw_exc).cause.downcast_ref::<WasmerException>();
-        let wasmer_exc = match wasmer_exc {
-            Some(e) => e,
-            None => {
-                return uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND;
-            }
-        };
-
         let eh_action = match find_eh_action(context) {
             Ok(action) => action,
             Err(_) => {
@@ -188,7 +157,6 @@ pub unsafe extern "C" fn wasmer_eh_personality(
                 EHAction::CatchSpecific { lpad, tags }
                 | EHAction::CatchSpecificOrAll { lpad, tags } => {
                     (*uw_exc).current_frame_info = Some(Box::new(CurrentFrameInfo {
-                        exception_tag: wasmer_exc.tag,
                         catch_tags: tags,
                         has_catch_all,
                     }));
@@ -222,9 +190,11 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
         };
 
         let instance = (*vmctx).instance();
+        let exn = super::exn_obj_from_exnref(vmctx, (*exception_object).exnref);
+
         for tag in current_frame_info.catch_tags {
             let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
-            if unique_tag == current_frame_info.exception_tag {
+            if unique_tag == (*exn).tag_index() {
                 return tag as i32;
             }
         }
@@ -260,19 +230,34 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context) -> Result<EHAction, 
     }
 }
 
-pub unsafe fn throw(tag: u32, vmctx: *mut VMContext, data_ptr: usize, data_size: u64) -> ! {
-    // Look up the unique tag from the VMContext.
-    let unique_tag = (*vmctx)
-        .instance()
-        .shared_tag_ptr(TagIndex::from_u32(tag))
-        .index();
+pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
+    if exception.is_null() {
+        0
+    } else {
+        (*(exception as *mut UwExceptionWrapper)).exnref
+    }
+}
 
-    let exception = Box::new(UwExceptionWrapper::new(unique_tag, data_ptr, data_size));
-    let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;
+pub unsafe fn throw(vmctx: *mut VMContext, exnref: u32) -> ! {
+    if exnref == 0 {
+        crate::raise_lib_trap(crate::Trap::lib(
+            wasmer_types::TrapCode::UninitializedExnRef,
+        ))
+    }
 
-    match uw::_Unwind_RaiseException(exception_param) {
+    let exception = Box::new(UwExceptionWrapper::new(exnref));
+    let exception_ptr = Box::into_raw(exception);
+
+    match uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception) {
         libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+            delete_exception(exception_ptr as *mut c_void);
+
+            let instance = unsafe { (*vmctx).instance() };
+            let exnref = VMExceptionRef(StoreHandle::from_internal(
+                instance.context().id(),
+                InternalStoreHandle::from_index(exnref as usize).unwrap(),
+            ));
+            crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, instance.context()))
         }
         _ => {
             unreachable!()
@@ -280,19 +265,16 @@ pub unsafe fn throw(tag: u32, vmctx: *mut VMContext, data_ptr: usize, data_size:
     }
 }
 
-pub unsafe fn rethrow(exc: *mut UwExceptionWrapper) -> ! {
-    if exc.is_null() {
-        panic!();
+pub unsafe fn delete_exception(exception: *mut c_void) {
+    if !exception.is_null() {
+        uw::_Unwind_DeleteException(exception as *mut uw::_Unwind_Exception);
     }
+}
 
-    match uw::_Unwind_Resume_or_Rethrow(std::mem::transmute::<
-        *mut UwExceptionWrapper,
-        *mut libunwind::_Unwind_Exception,
-    >(exc))
-    {
-        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
-        }
-        _ => unreachable!(),
-    }
+unsafe extern "C" fn deallocate_exception(
+    _: uw::_Unwind_Reason_Code,
+    exception: *mut uw::_Unwind_Exception,
+) {
+    let exception = Box::from_raw(exception as *mut UwExceptionWrapper);
+    drop(exception);
 }

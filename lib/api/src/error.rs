@@ -2,7 +2,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{FrameInfo, ImportError, TrapCode};
 
-use crate::BackendTrap as Trap;
+use crate::{AsStoreRef, BackendTrap as Trap, Exception};
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).
@@ -197,6 +197,27 @@ impl RuntimeError {
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: std::error::Error + 'static>(&self) -> bool {
         self.inner.source.is::<T>()
+    }
+
+    /// Returns true if the `RuntimeError` is an uncaught exception.
+    pub fn is_exception(&self) -> bool {
+        match &self.inner.source {
+            #[cfg(feature = "sys")]
+            Trap::Sys(crate::backend::sys::vm::Trap::UncaughtException { .. }) => true,
+            _ => false,
+        }
+    }
+
+    /// If the `RuntimeError` is an uncaught exception, returns it.
+    pub fn to_exception(&self) -> Option<Exception> {
+        match &self.inner.source {
+            #[cfg(feature = "sys")]
+            Trap::Sys(crate::backend::sys::vm::Trap::UncaughtException { exnref, .. }) => Some(
+                Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(exnref.clone())),
+            ),
+
+            _ => None,
+        }
     }
 }
 

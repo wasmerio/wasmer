@@ -78,13 +78,12 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
     "wasmer_vm_throw" => LibCall::Throw,
-    "wasmer_vm_rethrow" => LibCall::Rethrow,
     "wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "wasmer_vm_delete_exception" => LibCall::DeleteException,
-    "wasmer_vm_read_exception" => LibCall::ReadException,
-    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "wasmer_vm_exception_into_exnref" => LibCall::NativeExceptionIntoExnRef,
     "wasmer_eh_personality" => LibCall::EHPersonality,
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
@@ -133,18 +132,18 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_imported_memory32_atomic_wait64" => LibCall::ImportedMemory32AtomicWait64,
     "_wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "_wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
+
     "_wasmer_vm_throw" => LibCall::Throw,
-    "_wasmer_vm_rethrow" => LibCall::Rethrow,
     "_wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "_wasmer_vm_delete_exception" => LibCall::DeleteException,
-    "_wasmer_vm_read_exception" => LibCall::ReadException,
-    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "_wasmer_vm_exception_into_exnref" => LibCall::NativeExceptionIntoExnRef,
     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
     // will generate things differently than "normal", wreaking havoc.
     //
     // todo: find out if it is a bug in LLVM or it is expected.
     "___gxx_personality_v0" => LibCall::EHPersonality,
     "_wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 

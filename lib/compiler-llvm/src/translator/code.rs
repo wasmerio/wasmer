@@ -16,7 +16,7 @@ use inkwell::{
     targets::{FileType, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
-        AnyValue, BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
+        BasicMetadataValueEnum, BasicValue, BasicValueEnum, CallSiteValue, FloatValue,
         FunctionValue, InstructionOpcode, InstructionValue, IntValue, PhiValue, PointerValue,
         VectorValue,
     },
@@ -305,8 +305,6 @@ impl FuncTranslator {
             symbol_registry,
             abi: &*self.abi,
             config,
-            exception_types_cache: HashMap::new(),
-            vmctx_alloca: None,
             tags_cache: HashMap::new(),
             binary_fmt: self.binary_fmt,
         };
@@ -1528,25 +1526,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         tag_glbl
     }
 
-    fn get_or_insert_exception_type(
-        &mut self,
-        tag: u32,
-        signature: &FunctionType,
-    ) -> Result<inkwell::types::StructType<'ctx>, CompileError> {
-        if let Some(ty) = self.exception_types_cache.get(&tag) {
-            return Ok(*ty);
-        }
-        let types = signature
-            .params()
-            .iter()
-            .map(|v| type_to_llvm(self.intrinsics, *v))
-            .collect::<Result<Vec<_>, CompileError>>()?;
-
-        let ty = self.context.struct_type(&types, false);
-        self.exception_types_cache.insert(tag, ty);
-        Ok(ty)
-    }
-
     fn build_g0m0_indirect_call(
         &mut self,
         table_index: u32,
@@ -1802,21 +1781,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
         Ok(call_site_local)
     }
-
-    fn build_or_get_vmctx_alloca(&mut self) -> Result<PointerValue<'ctx>, CompileError> {
-        if let Some(vmctx_alloca) = self.vmctx_alloca {
-            return Ok(vmctx_alloca);
-        }
-
-        let vmctx_alloca = err!(self
-            .alloca_builder
-            .build_alloca(self.intrinsics.ptr_ty, "vmctx"));
-        err!(self
-            .alloca_builder
-            .build_store(vmctx_alloca, self.ctx.basic()));
-        self.vmctx_alloca = Some(vmctx_alloca);
-        Ok(vmctx_alloca)
-    }
 }
 
 /*
@@ -1932,8 +1896,6 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     abi: &'a dyn Abi,
     config: &'a LLVM,
     tags_cache: HashMap<i32, BasicValueEnum<'ctx>>,
-    exception_types_cache: HashMap<u32, inkwell::types::StructType<'ctx>>,
-    vmctx_alloca: Option<PointerValue<'ctx>>,
     binary_fmt: target_lexicon::BinaryFormat,
 }
 
@@ -12417,10 +12379,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                 // Build the landing pad.
                 let null = self.intrinsics.ptr_ty.const_zero();
-                let exception_type = self.context.struct_type(
-                    &[self.intrinsics.ptr_ty.into(), self.intrinsics.i32_ty.into()],
-                    false,
-                );
 
                 let mut catch_tag_values = vec![];
                 let mut lpad_clauses: Vec<BasicValueEnum<'ctx>> = catches
@@ -12477,7 +12435,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.builder.position_at_end(lpad_block);
 
                     let res = err!(self.builder.build_landing_pad(
-                        exception_type,
+                        self.intrinsics.lpad_exception_ty,
                         self.intrinsics.personality,
                         &lpad_clauses,
                         false,
@@ -12508,15 +12466,16 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     err!(self.builder.build_unconditional_branch(catch_end_block));
 
                     self.builder.position_at_end(catch_specific_block);
-                    let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
-                    let vmctx_ptr = err!(self.builder.build_load(
-                        self.intrinsics.ptr_ty,
-                        vmctx_alloca,
-                        "vmctx"
-                    ));
+                    // TODO: do we need to do this?
+                    // let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
+                    // let vmctx_ptr = err!(self.builder.build_load(
+                    //     self.intrinsics.ptr_ty,
+                    //     vmctx_alloca,
+                    //     "vmctx"
+                    // ));
                     let selector_value = err!(self.builder.build_call(
                         self.intrinsics.personality2,
-                        &[vmctx_ptr.into(), uw_exc.into()],
+                        &[self.ctx.basic().into(), uw_exc.into()],
                         "selector"
                     ));
                     err!(self.builder.build_unconditional_branch(catch_end_block));
@@ -12541,20 +12500,58 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         ),
                     ]);
 
-                    // The exception we get at this point is a wrapper around the [`WasmerException`]
-                    // type. This is needed because when we create the exception to pass it to
-                    // libunwind, the exception object needs to begin with a specific set of fields
-                    // (those in `__Unwind_Exception`). During unwinding, libunwind uses some of these
-                    // fields and we need to pass them back when rethrowing. This to say, we need to
-                    // keep the original exception passed to us by libunwind to be able to rethrow it.
+                    // Now we're done looking at the exception, it's time to deallocate and get
+                    // the exnref out of it. When an exception is caught, "rethrowing" simply
+                    // means starting another unwind by calling _Unwind_RaiseException with the
+                    // same exception bits. Instead of keeping the same exception around, we
+                    // deallocate the exception once it's caught, and if we need to rethrow, we
+                    // just re-allocate a new exception.
+                    //
+                    // Note that this is different from how it's done in C++ land, where the
+                    // exception object is kept around for rethrowing; this discrepency exists
+                    // because in C++, exception handling is lexical (i.e. there's an implicit
+                    // "current exception" in catch blocks) whereas in WASM, you rethrow with
+                    // an exnref that may very well have come from somewhere else; consider this
+                    // (badly implemented and erroneous) pseudo-module:
+                    //
+                    // (module
+                    //   (global $e (mut exnref) (ref.null exn))
+                    //   ;; Store the given exnref, return the previous one
+                    //   (func $delay_exnref (param exnref) (result exnref)
+                    //     (global.get $e)
+                    //     (local.get 0)
+                    //     (global.set $e)
+                    //   )
+                    //   (func foo
+                    //     (block $catch (result exnref)
+                    //       (try_table (catch_all_ref $catch)
+                    //         ...
+                    //       )
+                    //     )
+                    //     (call $delay_exnref) ;; store the exnref caught above
+                    //     throw_ref ;; throw the previous exnref
+                    //   )
+                    // )
+                    //
+                    // Here, it's impossible to reuse the same exception object since the
+                    // exnref given to throw_ref is a different one than the one we caught
+                    // with the try_table.
+                    //
+                    // Another difference is that C++ exceptions may well carry lots of data
+                    // around; a WASM exception is just an exnref, backed by a u32, which is
+                    // just 4 bytes, and is cheap to reallocate. C++ exceptions may also carry
+                    // things with dtors around; another thing that doesn't exist in WASM.
+                    //
+                    // All of this is to say that putting exception deallocation and exnref
+                    // retrieval in the same function has been a very deliberate choice.
                     let uw_exc = uw_exc.into_pointer_value();
-                    let wasmer_exc = err!(self.builder.build_call(
-                        self.intrinsics.read_exception,
+                    let exnref = err!(self.builder.build_call(
+                        self.intrinsics.exception_into_exnref,
                         &[uw_exc.into()],
-                        "wasmer_exc_ptr"
+                        "exnref"
                     ));
 
-                    let wasmer_exc = wasmer_exc.as_any_value_enum().into_pointer_value();
+                    let exnref = exnref.try_as_basic_value().left().unwrap().into_int_value();
                     let selector = selector.as_basic_value().into_int_value();
 
                     for catch in catches.iter() {
@@ -12576,58 +12573,46 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 let signature = &self.wasm_module.signatures[tag_idx];
                                 let params = signature.params();
 
-                                let b = self
-                                    .context
-                                    .append_basic_block(self.function, "catch_one_clause");
+                                let b = self.context.append_basic_block(
+                                    self.function,
+                                    format!("catch_one_clause_{tag}").as_str(),
+                                );
                                 self.builder.position_at_end(b);
 
-                                let wasmer_exc_phi = err!(self
+                                let exnref_phi = err!(self
                                     .builder
-                                    .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
-                                wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
+                                    .build_phi(self.intrinsics.i32_ty, "exnref_phi"));
+                                exnref_phi.add_incoming(&[(&exnref, catch_end_block)]);
 
-                                // Get the type of the exception.
-                                let inner_exc_ty =
-                                    self.get_or_insert_exception_type(*tag, signature)?;
-
-                                // Cast the outer exception - a pointer - to a pointer to a struct of
-                                // type WasmerException.
-                                // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
-                                //     exc,
-                                //     self.intrinsics.exc_ty,
-                                //     "wasmer_exc_ptr"
-                                // ));
-                                //
-                                // Not actually needed, since ptr is a single, unique type.
-
-                                // Points at the `data` field of the exception.
-                                let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
-                                    self.intrinsics.exc_ty,
-                                    wasmer_exc_phi.as_basic_value().into_pointer_value(),
-                                    1,
-                                    "wasmer_exc_data_ptr_ptr"
+                                // Get the payload pointer.
+                                let exn_payload_ptr = err!(self.builder.build_direct_call(
+                                    self.intrinsics.read_exnref,
+                                    &[self.ctx.basic().into(), exnref_phi.as_basic_value().into()],
+                                    "exn_ptr",
                                 ));
-
-                                let wasmer_exc_data_ptr = err!(self.builder.build_load(
-                                    self.intrinsics.ptr_ty,
-                                    wasmer_exc_data_ptr_ptr,
-                                    "wasmer_exc_data_ptr"
-                                ));
-
-                                let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+                                let exn_payload_ptr = exn_payload_ptr
+                                    .try_as_basic_value()
+                                    .left()
+                                    .unwrap()
+                                    .into_pointer_value();
 
                                 // Read each value from the data ptr.
                                 let values = params
                                     .iter()
                                     .enumerate()
                                     .map(|(i, v)| {
-                                        let name = format!("value{i}");
-                                        let ptr = err!(self.builder.build_struct_gep(
-                                            inner_exc_ty,
-                                            wasmer_exc_data_ptr,
-                                            i as u32,
-                                            &(name.clone() + "ptr")
-                                        ));
+                                        let name = format!("value_{i}");
+                                        let ptr = err!(unsafe {
+                                            self.builder.build_gep(
+                                                self.intrinsics.i128_ty,
+                                                exn_payload_ptr,
+                                                &[self
+                                                    .intrinsics
+                                                    .i32_ty
+                                                    .const_int(i as u64, false)],
+                                                format!("{name}_ptr").as_str(),
+                                            )
+                                        });
                                         err_nt!(self.builder.build_load(
                                             type_to_llvm(self.intrinsics, *v)?,
                                             ptr,
@@ -12638,8 +12623,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
-                                // todo: check that the types are compatible
-
                                 for (phi, value) in frame.phis().iter().zip(values.iter()) {
                                     phi.add_incoming(&[(value, b)])
                                 }
@@ -12647,65 +12630,53 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, Some(wasmer_exc_phi)));
+                                catch_blocks.push((b, Some(exnref_phi)));
                             }
                             Catch::OneRef { label, tag } => {
                                 let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
                                 let signature = &self.wasm_module.signatures[tag_idx];
                                 let params = signature.params();
 
-                                let b = self
-                                    .context
-                                    .append_basic_block(self.function, "catch_one_clause");
+                                let b = self.context.append_basic_block(
+                                    self.function,
+                                    format!("catch_one_ref_clause_{tag}").as_str(),
+                                );
                                 self.builder.position_at_end(b);
 
-                                let wasmer_exc_phi = err!(self
+                                let exnref_phi = err!(self
                                     .builder
-                                    .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
-                                wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
+                                    .build_phi(self.intrinsics.i32_ty, "exnref_phi"));
+                                exnref_phi.add_incoming(&[(&exnref, catch_end_block)]);
 
-                                // Get the type of the exception.
-                                let inner_exc_ty =
-                                    self.get_or_insert_exception_type(*tag, signature)?;
-
-                                // Cast the outer exception - a pointer - to a pointer to a struct of
-                                // type WasmerException.
-                                // let wasmer_exc_ptr = err!(self.builder.build_pointer_cast(
-                                //     exc,
-                                //     self.intrinsics.exc_ty,
-                                //     "wasmer_exc_ptr"
-                                // ));
-                                //
-                                // Not actually needed, since ptr is a single, unique type.
-
-                                // Points at the `data` field of the exception.
-                                let wasmer_exc_data_ptr_ptr = err!(self.builder.build_struct_gep(
-                                    self.intrinsics.exc_ty,
-                                    wasmer_exc_phi.as_basic_value().into_pointer_value(),
-                                    1,
-                                    "wasmer_exc_data_ptr"
+                                // Get the payload pointer.
+                                let exn_payload_ptr = err!(self.builder.build_direct_call(
+                                    self.intrinsics.read_exnref,
+                                    &[self.ctx.basic().into(), exnref_phi.as_basic_value().into()],
+                                    "exn_ptr",
                                 ));
-
-                                let wasmer_exc_data_ptr = err!(self.builder.build_load(
-                                    self.intrinsics.ptr_ty,
-                                    wasmer_exc_data_ptr_ptr,
-                                    "wasmer_exc_data_ptr"
-                                ));
-
-                                let wasmer_exc_data_ptr = wasmer_exc_data_ptr.into_pointer_value();
+                                let exn_payload_ptr = exn_payload_ptr
+                                    .try_as_basic_value()
+                                    .left()
+                                    .unwrap()
+                                    .into_pointer_value();
 
                                 // Read each value from the data ptr.
                                 let mut values = params
                                     .iter()
                                     .enumerate()
                                     .map(|(i, v)| {
-                                        let name = format!("value{i}");
-                                        let ptr = err!(self.builder.build_struct_gep(
-                                            inner_exc_ty,
-                                            wasmer_exc_data_ptr,
-                                            i as u32,
-                                            &(name.clone() + "ptr")
-                                        ));
+                                        let name = format!("value_{i}");
+                                        let ptr = err!(unsafe {
+                                            self.builder.build_gep(
+                                                self.intrinsics.i128_ty,
+                                                exn_payload_ptr,
+                                                &[self
+                                                    .intrinsics
+                                                    .i32_ty
+                                                    .const_int(i as u64, false)],
+                                                format!("{name}_ptr").as_str(),
+                                            )
+                                        });
                                         err_nt!(self.builder.build_load(
                                             type_to_llvm(self.intrinsics, *v)?,
                                             ptr,
@@ -12714,11 +12685,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                     })
                                     .collect::<Result<Vec<_>, CompileError>>()?;
 
-                                values.push(uw_exc.as_basic_value_enum());
+                                values.push(exnref_phi.as_basic_value().into());
 
                                 let frame = self.state.frame_at_depth(*label)?;
-
-                                // todo: check that the types are compatible
 
                                 for (phi, value) in frame.phis().iter().zip(values.iter()) {
                                     phi.add_incoming(&[(value, b)])
@@ -12727,23 +12696,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, Some(wasmer_exc_phi)));
+                                catch_blocks.push((b, Some(exnref_phi)));
                             }
                             Catch::AllRef { label } => {
                                 let b = self
                                     .context
-                                    .append_basic_block(self.function, "catch_one_clause");
+                                    .append_basic_block(self.function, "catch_all_ref_clause");
                                 self.builder.position_at_end(b);
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
                                 let phis = frame.phis();
 
-                                // sanity check (todo): check that the phi has only one element
-
-                                for phi in phis.iter() {
-                                    phi.add_incoming(&[(&uw_exc.as_basic_value_enum(), b)])
-                                }
+                                assert_eq!(phis.len(), 1);
+                                phis[0].add_incoming(&[(&exnref, b)]);
 
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
@@ -12754,11 +12720,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     }
 
                     for catch_info in &outer_catch_blocks {
-                        if let Some(phi) = catch_info.wasmer_exc_phi {
-                            phi.add_incoming(&[(
-                                &wasmer_exc.as_basic_value_enum(),
-                                catch_end_block,
-                            )]);
+                        if let Some(phi) = catch_info.exnref_phi {
+                            phi.add_incoming(&[(&exnref, catch_end_block)]);
                         }
                     }
 
@@ -12788,8 +12751,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.builder.position_at_end(rethrow_block);
 
                     err!(self.builder.build_call(
-                        self.intrinsics.rethrow,
-                        &[uw_exc.into()],
+                        self.intrinsics.throw,
+                        &[self.ctx.basic().into(), exnref.into()],
                         "rethrow"
                     ));
                     // can't reach after an explicit throw!
@@ -12806,10 +12769,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let catch_tags_and_blocks = catch_tag_values
                     .into_iter()
                     .zip(catch_blocks)
-                    .map(|(tag, (block, wasmer_exc_phi))| TagCatchInfo {
+                    .map(|(tag, (block, exnref_phi))| TagCatchInfo {
                         tag,
                         catch_block: block,
-                        wasmer_exc_phi,
+                        exnref_phi,
                     })
                     .collect::<Vec<_>>();
                 self.state.push_landingpad(
@@ -12829,16 +12792,10 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let tag = self.wasm_module.tags[TagIndex::from_u32(tag_index)];
-                let signature = &self.wasm_module.signatures[tag];
+                let sig_index = self.wasm_module.tags[TagIndex::from_u32(tag_index)];
+                let signature = &self.wasm_module.signatures[sig_index];
                 let params = signature.params();
                 let values = self.state.popn_save_extra(params.len())?;
-
-                let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
-                let vmctx_ptr =
-                    err!(self
-                        .builder
-                        .build_load(self.intrinsics.ptr_ty, vmctx_alloca, "vmctx"));
 
                 values.iter().enumerate().try_for_each(|(i, (v, _))| {
                     let t = type_to_llvm(self.intrinsics, params[i])?;
@@ -12853,27 +12810,40 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     Ok(())
                 })?;
 
-                let exception_type: inkwell::types::StructType =
-                    self.get_or_insert_exception_type(tag_index, signature)?;
-
-                let size = exception_type.size_of().unwrap();
-
                 // Allocate the necessary bytes for the exception.
-                let exc = err!(self.builder.build_direct_call(
+                let exnref = err!(self.builder.build_direct_call(
                     self.intrinsics.alloc_exception,
-                    &[size.into()],
-                    "exception_ptr",
+                    &[
+                        self.ctx.basic().into(),
+                        self.intrinsics
+                            .i32_ty
+                            .const_int(tag_index as _, false)
+                            .into()
+                    ],
+                    "exnref",
                 ));
-                let exc = exc.try_as_basic_value().left().unwrap();
-                let exc = exc.into_pointer_value();
+                let exnref = exnref.try_as_basic_value().left().unwrap();
+
+                let exn_payload_ptr = err!(self.builder.build_direct_call(
+                    self.intrinsics.read_exnref,
+                    &[self.ctx.basic().into(), exnref.into()],
+                    "exn_ptr",
+                ));
+                let exn_payload_ptr = exn_payload_ptr
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_pointer_value();
 
                 for (i, value) in values.into_iter().enumerate() {
-                    let ptr = err!(self.builder.build_struct_gep(
-                        exception_type,
-                        exc,
-                        i as u32,
-                        i.to_string().as_str(),
-                    ));
+                    let ptr = err!(unsafe {
+                        self.builder.build_gep(
+                            self.intrinsics.i128_ty,
+                            exn_payload_ptr,
+                            &[self.intrinsics.i32_ty.const_int(i as u64, false)],
+                            format!("value_{i}_ptr").as_str(),
+                        )
+                    });
                     err!(self.builder.build_store(ptr, value.0));
                 }
 
@@ -12884,15 +12854,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                     err!(self.builder.build_invoke(
                         self.intrinsics.throw,
-                        &[
-                            self.intrinsics
-                                .i32_ty
-                                .const_int(tag_index as _, false)
-                                .into(),
-                            vmctx_ptr,
-                            exc.into(),
-                            size.into()
-                        ],
+                        &[self.ctx.basic().into(), exnref],
                         unreachable_block,
                         pad,
                         "throw",
@@ -12906,17 +12868,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 } else {
                     err!(self.builder.build_call(
                         self.intrinsics.throw,
-                        &[
-                            // We pass in the module-local tag index, but it'll be translated
-                            // to a store-unique index in the `throw` intrinsic.
-                            self.intrinsics
-                                .i32_ty
-                                .const_int(tag_index as _, false)
-                                .into(),
-                            vmctx_ptr.into(),
-                            exc.into(),
-                            size.into()
-                        ],
+                        &[self.ctx.basic().into(), exnref.into()],
                         "throw"
                     ));
                     // can't reach after an explicit throw!
@@ -12931,7 +12883,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let exc = self.state.pop1()?;
+                let exnref = self.state.pop1()?;
 
                 if let Some(pad) = self.state.get_innermost_landingpad() {
                     let unreachable_block = self
@@ -12939,8 +12891,8 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .append_basic_block(self.function, "_rethrow_unreachable");
 
                     err!(self.builder.build_invoke(
-                        self.intrinsics.rethrow,
-                        &[exc],
+                        self.intrinsics.throw,
+                        &[self.ctx.basic().into(), exnref.into()],
                         unreachable_block,
                         pad,
                         "throw",
@@ -12953,9 +12905,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     self.builder.position_at_end(current_block);
                 } else {
                     err!(self.builder.build_call(
-                        self.intrinsics.rethrow,
-                        &[exc.into(),],
-                        "rethrow"
+                        self.intrinsics.throw,
+                        &[self.ctx.basic().into(), exnref.into()],
+                        "throw"
                     ));
                     // can't reach after an explicit throw!
                     err!(self.builder.build_unreachable());

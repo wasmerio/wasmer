@@ -1,12 +1,9 @@
-pub(crate) mod exnref;
-pub use exnref::*;
-
 pub(crate) mod inner;
 pub(crate) use inner::*;
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    vm::{VMExtern, VMExternTag},
+    vm::{VMExceptionRef, VMExtern, VMExternTag},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, Tag, Value,
 };
 
@@ -29,5 +26,15 @@ impl Exception {
     /// Checks whether this `Exception` comes from the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
         self.0.is_from_store(store)
+    }
+
+    /// Get the `VMExceptionRef` corresponding to this `Exception`.
+    pub fn vm_exceptionref(&self) -> VMExceptionRef {
+        self.0.vm_exceptionref()
+    }
+
+    /// Creates an `Exception` from a `VMExceptionRef`.
+    pub fn from_vm_exceptionref(exnref: VMExceptionRef) -> Self {
+        Self(BackendException::from_vm_exceptionref(exnref))
     }
 }

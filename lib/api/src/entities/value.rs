@@ -1,7 +1,7 @@
 use wasmer_types::{RawValue, Type};
 
 use crate::{
-    entities::{ExceptionRef, ExternRef, Function},
+    entities::{Exception, ExternRef, Function},
     vm::{VMExceptionRef, VMExternRef, VMFuncRef},
     AsStoreRef, Tag,
 };
@@ -41,7 +41,7 @@ pub enum Value {
     FuncRef(Option<Function>),
 
     /// A nullable first-class reference to a WebAssembly exception.
-    ExceptionRef(Option<ExceptionRef>),
+    ExceptionRef(Option<Exception>),
 }
 
 macro_rules! accessors {
@@ -97,7 +97,7 @@ impl Value {
             Self::F64(f64) => RawValue { f64 },
             Self::V128(u128) => RawValue { u128 },
             Self::ExceptionRef(Some(ref f)) => f.vm_exceptionref().into_raw(),
-            Self::ExceptionRef(None) => RawValue { funcref: 0 },
+            Self::ExceptionRef(None) => RawValue { exnref: 0 },
             Self::FuncRef(Some(ref f)) => f.vm_funcref(store).into_raw(),
             Self::FuncRef(None) => RawValue { funcref: 0 },
             Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
@@ -201,40 +201,43 @@ impl Value {
             Type::ExceptionRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
                 crate::BackendStore::Sys(_) => Self::ExceptionRef(
-                    crate::backend::sys::vm::VMExceptionRef::from_raw(raw)
-                        .map(VMExceptionRef::Sys)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                    crate::backend::sys::vm::VMExceptionRef::from_raw(
+                        store.as_store_ref().objects().id(),
+                        raw,
+                    )
+                    .map(VMExceptionRef::Sys)
+                    .map(|f| Exception::from_vm_exceptionref(f)),
                 ),
                 #[cfg(feature = "wamr")]
                 crate::BackendStore::Wamr(_) => Self::ExceptionRef(
                     crate::backend::wamr::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Wamr)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(|f| Exception::from_vm_exceptionref(f)),
                 ),
                 #[cfg(feature = "wasmi")]
                 crate::BackendStore::Wasmi(_) => Self::ExceptionRef(
                     crate::backend::wasmi::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Wasmi)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(|f| Exception::from_vm_exceptionref(f)),
                 ),
 
                 #[cfg(feature = "v8")]
                 crate::BackendStore::V8(_) => Self::ExceptionRef(
                     crate::backend::v8::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::V8)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(|f| Exception::from_vm_exceptionref(f)),
                 ),
                 #[cfg(feature = "js")]
                 crate::BackendStore::Js(_) => Self::ExceptionRef(
                     crate::backend::js::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Js)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(|f| Exception::from_vm_exceptionref(f)),
                 ),
                 #[cfg(feature = "jsc")]
                 crate::BackendStore::Jsc(_) => Self::ExceptionRef(
                     crate::backend::jsc::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Jsc)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(|f| Exception::from_vm_exceptionref(f)),
                 ),
             },
         }
@@ -387,14 +390,14 @@ impl From<Option<ExternRef>> for Value {
     }
 }
 
-impl From<ExceptionRef> for Value {
-    fn from(val: ExceptionRef) -> Self {
+impl From<Exception> for Value {
+    fn from(val: Exception) -> Self {
         Self::ExceptionRef(Some(val))
     }
 }
 
-impl From<Option<ExceptionRef>> for Value {
-    fn from(val: Option<ExceptionRef>) -> Self {
+impl From<Option<Exception>> for Value {
+    fn from(val: Option<Exception>) -> Self {
         Self::ExceptionRef(val)
     }
 }
@@ -477,7 +480,7 @@ impl TryFrom<Value> for Option<ExternRef> {
     }
 }
 
-impl TryFrom<Value> for Option<ExceptionRef> {
+impl TryFrom<Value> for Option<Exception> {
     type Error = &'static str;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {
