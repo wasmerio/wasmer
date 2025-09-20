@@ -2612,7 +2612,13 @@ impl Machine for MachineRiscv {
         cond: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.assembler.emit_on_false_label_far(cond, label)
+        let mut temps = vec![];
+        let cond = self.location_to_reg(Size::S64, cond, &mut temps, ImmType::None, true, None)?;
+        self.assembler.emit_on_false_label_far(cond, label)?;
+        for r in temps {
+            self.release_gpr(r);
+        }
+        Ok(())
     }
 
     // jmp table
