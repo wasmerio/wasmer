@@ -1205,16 +1205,28 @@ impl MachineRiscv {
         let tmp1 = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
-        self.assembler
-            .emit_srl(sz, loc_a, loc_b, Location::GPR(tmp1))?;
+        self.emit_relaxed_binop3(
+            Assembler::emit_srl,
+            sz,
+            loc_a,
+            loc_b,
+            Location::GPR(tmp1),
+            ImmType::Bits12,
+        )?;
 
         let tmp2 = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
         self.assembler
             .emit_sub(sz, imm, loc_b, Location::GPR(tmp2))?;
-        self.assembler
-            .emit_sll(sz, loc_a, Location::GPR(tmp2), Location::GPR(tmp2))?;
+        self.emit_relaxed_binop3(
+            Assembler::emit_sll,
+            sz,
+            loc_a,
+            Location::GPR(tmp2),
+            Location::GPR(tmp2),
+            ImmType::Bits12,
+        )?;
         self.assembler.emit_or(
             sz,
             Location::GPR(tmp1),
