@@ -2173,6 +2173,15 @@ impl Machine for MachineRiscv {
                 };
                 self.assembler.emit_sd(size, source, addr)
             }
+            (Location::SIMD(_), Location::Memory(..)) => {
+                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+                })?;
+                self.move_location(size, source, Location::GPR(tmp))?;
+                self.move_location(size, Location::GPR(tmp), dest)?;
+                self.release_gpr(tmp);
+                Ok(())
+            }
             (Location::Memory(_, _), Location::GPR(_)) => {
                 self.assembler.emit_ld(size, false, dest, source)
             }
