@@ -2277,10 +2277,16 @@ impl Machine for MachineRiscv {
         self.assembler.emit_sd(
             Size::S64,
             Location::GPR(GPR::XZero),
-            Location::Memory(dest, 8),
+            Location::Memory(dest, 0),
         )?;
         self.assembler
             .emit_sub(Size::S64, cnt, Location::Imm64(1), cnt)?;
+        self.assembler.emit_add(
+            Size::S64,
+            Location::GPR(dest),
+            Location::Imm64(8),
+            Location::GPR(dest),
+        )?;
         self.assembler.emit_on_true_label(cnt, label)?;
         for r in temps {
             self.release_gpr(r);
