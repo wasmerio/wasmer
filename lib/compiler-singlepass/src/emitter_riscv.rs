@@ -403,11 +403,11 @@ impl EmitterRiscv for Assembler {
                 dynasm!(self ; lh X(reg), [X(addr), disp]);
             }
             (Size::S8, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                assert!(ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lbu X(reg), [X(addr), disp]);
             }
             (Size::S8, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                assert!(ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; lb X(reg), [X(addr), disp]);
             }
             (Size::S64, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
@@ -440,7 +440,7 @@ impl EmitterRiscv for Assembler {
                 dynasm!(self ; sh X(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+                assert!(ImmType::Bits12.compatible_imm(disp as i64));
                 dynasm!(self ; sb X(reg), [X(addr), disp]);
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
@@ -556,7 +556,10 @@ impl EmitterRiscv for Assembler {
                 assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
                 dynasm!(self ; addiw X(dst), X(src1), -(imm as i32) as _);
             }
-
+            (Size::S32, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                assert!(ImmType::Bits12Subtraction.compatible_imm(imm as i64));
+                dynasm!(self ; addiw X(dst), X(src1), -(imm as i32) as _);
+            }
             (Size::S32, Location::SIMD(src1), Location::SIMD(src2), Location::SIMD(dst)) => {
                 dynasm!(self ; fsub.s F(dst), F(src1), F(src2));
             }
@@ -881,6 +884,12 @@ impl EmitterRiscv for Assembler {
             }
             (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm >= u32::BITS {
+                    codegen_error!("singlepass SRL with incompatible imm {}", imm);
+                }
+                dynasm!(self ; srliw X(dst), X(src1), imm as _);
+            }
+            (Size::S32, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
+                if imm >= u32::BITS as _ {
                     codegen_error!("singlepass SRL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; srliw X(dst), X(src1), imm as _);

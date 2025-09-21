@@ -1117,6 +1117,222 @@ impl MachineRiscv {
         Ok(())
     }
 
+    fn emit_maybe_unaligned_load(
+        &mut self,
+        sz: Size,
+        signed: bool,
+        dst: Location,
+        src: GPR,
+    ) -> Result<(), CompileError> {
+        if let Size::S8 = sz {
+            return self.emit_relaxed_load(sz, signed, dst, Location::Memory(src, 0));
+        }
+
+        let label_unaligned = self.get_label();
+        let label_completed = self.get_label();
+        let mut temps = vec![];
+        let tmp_cond = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(tmp_cond);
+        let dest = self.location_to_reg(sz, dst, &mut temps, ImmType::None, false, None)?;
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(src),
+            Location::Imm64((sz.bits() / 8 - 1) as u64),
+            Location::GPR(tmp_cond),
+        )?;
+        self.assembler
+            .emit_on_true_label_far(Location::GPR(tmp_cond), label_unaligned)?;
+        // Aligned load
+        self.assembler
+            .emit_ld(sz, signed, dest, Location::Memory(src, 0))?;
+        self.jmp_unconditionnal(label_completed)?;
+        self.emit_label(label_unaligned)?;
+        // Unaligned load
+        let tmp_value = tmp_cond;
+        match sz {
+            Size::S8 => unreachable!(),
+            // We assume little-endian for now
+            Size::S16 => {
+                self.assembler
+                    .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    signed,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 1),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(8),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+            }
+            Size::S32 => {
+                self.assembler
+                    .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 1),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(8),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 2),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(16),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    signed,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 3),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(24),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+            }
+            Size::S64 => {
+                self.assembler
+                    .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 1),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(8),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 2),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(16),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 3),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(24),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 4),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(32),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 5),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(40),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 6),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(48),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+                self.assembler.emit_ld(
+                    Size::S8,
+                    false,
+                    Location::GPR(tmp_value),
+                    Location::Memory(src, 7),
+                )?;
+                self.assembler.emit_sll(
+                    Size::S64,
+                    Location::GPR(tmp_value),
+                    Location::Imm64(56),
+                    Location::GPR(tmp_value),
+                )?;
+                self.assembler
+                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
+            }
+        }
+        // Load completed
+        self.emit_label(label_completed)?;
+        if dst != dest {
+            self.move_location(sz, dest, dst)?;
+        }
+
+        for tmp in temps {
+            self.release_gpr(tmp);
+        }
+        Ok(())
+    }
+
     fn emit_relaxed_store(
         &mut self,
         sz: Size,
@@ -1149,6 +1365,112 @@ impl MachineRiscv {
         }
         for r in temps {
             self.release_gpr(r);
+        }
+        Ok(())
+    }
+
+    fn emit_maybe_unaligned_store(
+        &mut self,
+        sz: Size,
+        src: Location,
+        dst: GPR,
+    ) -> Result<(), CompileError> {
+        if let Size::S8 = sz {
+            // `emit_relaxed_store` uses wrong order of src and dst.
+            // The `src` parameter of `emit_relaxed_store` actually stores
+            // the destination address, while the `dst` parameter of
+            // `emit_relaxed_store` actually contains the source register.
+            return self.emit_relaxed_store(sz, src, Location::Memory(dst, 0));
+        }
+
+        let label_unaligned = self.get_label();
+        let label_completed = self.get_label();
+        let mut temps = vec![];
+        let tmp_cond = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(tmp_cond);
+        let src_value =
+            self.location_to_reg(Size::S64, src, &mut temps, ImmType::None, true, None)?;
+        self.assembler.emit_and(
+            Size::S64,
+            Location::GPR(dst),
+            Location::Imm64((sz.bits() / 8 - 1) as u64),
+            Location::GPR(tmp_cond),
+        )?;
+        self.assembler
+            .emit_on_true_label_far(Location::GPR(tmp_cond), label_unaligned)?;
+        // Aligned store
+        self.assembler
+            .emit_sd(sz, src_value, Location::Memory(dst, 0))?;
+        self.jmp_unconditionnal(label_completed)?;
+        self.emit_label(label_unaligned)?;
+        // Unaligned store
+        match sz {
+            Size::S8 => unreachable!(),
+            // We assume little-endian for now
+            Size::S16 => {
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 0))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 1))?;
+            }
+            Size::S32 => {
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 0))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 1))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 2))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 3))?;
+            }
+            Size::S64 => {
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 0))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 1))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 2))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 3))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 4))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 5))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 6))?;
+                self.assembler
+                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
+                self.assembler
+                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 7))?;
+            }
+        }
+        // Store completed
+        self.emit_label(label_completed)?;
+
+        for tmp in temps {
+            self.release_gpr(tmp);
         }
         Ok(())
     }
@@ -3144,7 +3466,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S32, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S32, true, ret, addr),
         )
     }
     fn i32_load_8u(
@@ -3167,7 +3489,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S8, false, ret, addr),
         )
     }
     fn i32_load_8s(
@@ -3190,7 +3512,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S8, true, ret, addr),
         )
     }
     fn i32_load_16u(
@@ -3213,7 +3535,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S16, false, ret, addr),
         )
     }
     fn i32_load_16s(
@@ -3236,7 +3558,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S16, true, ret, addr),
         )
     }
     fn i32_atomic_load(
@@ -3328,7 +3650,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S32, value, addr),
         )
     }
     fn i32_save_8(
@@ -3351,7 +3673,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S8, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S8, value, addr),
         )
     }
     fn i32_save_16(
@@ -3374,7 +3696,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S16, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S16, value, addr),
         )
     }
     fn i32_atomic_save(
@@ -4387,7 +4709,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S64, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S64, true, ret, addr),
         )
     }
     fn i64_load_8u(
@@ -4410,7 +4732,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, false, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S8, false, ret, addr),
         )
     }
     fn i64_load_8s(
@@ -4433,7 +4755,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S8, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S8, true, ret, addr),
         )
     }
     fn i64_load_32u(
@@ -4456,7 +4778,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S32, false, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S32, false, ret, addr),
         )
     }
     fn i64_load_32s(
@@ -4479,7 +4801,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S32, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S32, true, ret, addr),
         )
     }
     fn i64_load_16u(
@@ -4502,7 +4824,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, false, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S16, false, ret, addr),
         )
     }
     fn i64_load_16s(
@@ -4525,7 +4847,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_load(Size::S16, true, ret, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_load(Size::S16, true, ret, addr),
         )
     }
     fn i64_atomic_load(
@@ -4640,7 +4962,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S64, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S64, value, addr),
         )
     }
     fn i64_save_8(
@@ -4663,7 +4985,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S8, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S8, value, addr),
         )
     }
     fn i64_save_16(
@@ -4686,7 +5008,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S16, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S16, value, addr),
         )
     }
     fn i64_save_32(
@@ -4709,7 +5031,7 @@ impl Machine for MachineRiscv {
             offset,
             heap_access_oob,
             unaligned_atomic,
-            |this, addr| this.emit_relaxed_store(Size::S32, value, Location::Memory(addr, 0)),
+            |this, addr| this.emit_maybe_unaligned_store(Size::S32, value, addr),
         )
     }
     fn i64_atomic_save(
