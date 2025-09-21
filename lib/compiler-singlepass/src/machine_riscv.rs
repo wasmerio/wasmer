@@ -1139,188 +1139,40 @@ impl MachineRiscv {
         self.assembler.emit_and(
             Size::S64,
             Location::GPR(src),
-            Location::Imm64((sz.bits() / 8 - 1) as u64),
+            Location::Imm64((sz.bytes() - 1) as u64),
             Location::GPR(tmp_cond),
         )?;
         self.assembler
-            .emit_on_true_label_far(Location::GPR(tmp_cond), label_unaligned)?;
+            .emit_on_true_label(Location::GPR(tmp_cond), label_unaligned)?;
         // Aligned load
         self.assembler
             .emit_ld(sz, signed, dest, Location::Memory(src, 0))?;
         self.jmp_unconditionnal(label_completed)?;
         self.emit_label(label_unaligned)?;
+
         // Unaligned load
         let tmp_value = tmp_cond;
-        match sz {
-            Size::S8 => unreachable!(),
-            // We assume little-endian for now
-            Size::S16 => {
-                self.assembler
-                    .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    signed,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 1),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(8),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-            }
-            Size::S32 => {
-                self.assembler
-                    .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 1),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(8),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 2),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(16),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    signed,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 3),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(24),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-            }
-            Size::S64 => {
-                self.assembler
-                    .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 1),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(8),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 2),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(16),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 3),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(24),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 4),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(32),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 5),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(40),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 6),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(48),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-                self.assembler.emit_ld(
-                    Size::S8,
-                    false,
-                    Location::GPR(tmp_value),
-                    Location::Memory(src, 7),
-                )?;
-                self.assembler.emit_sll(
-                    Size::S64,
-                    Location::GPR(tmp_value),
-                    Location::Imm64(56),
-                    Location::GPR(tmp_value),
-                )?;
-                self.assembler
-                    .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
-            }
+
+        // We assume little-endian for now
+        self.assembler
+            .emit_ld(Size::S8, false, dest, Location::Memory(src, 0))?;
+        for i in 1..sz.bytes() {
+            self.assembler.emit_ld(
+                Size::S8,
+                if i == sz.bytes() - 1 { signed } else { false },
+                Location::GPR(tmp_value),
+                Location::Memory(src, i as _),
+            )?;
+            self.assembler.emit_sll(
+                Size::S64,
+                Location::GPR(tmp_value),
+                Location::Imm64(8 * i as u64),
+                Location::GPR(tmp_value),
+            )?;
+            self.assembler
+                .emit_or(Size::S64, dest, Location::GPR(tmp_value), dest)?;
         }
+
         // Load completed
         self.emit_label(label_completed)?;
         if dst != dest {
@@ -1395,77 +1247,29 @@ impl MachineRiscv {
         self.assembler.emit_and(
             Size::S64,
             Location::GPR(dst),
-            Location::Imm64((sz.bits() / 8 - 1) as u64),
+            Location::Imm64((sz.bytes() - 1) as u64),
             Location::GPR(tmp_cond),
         )?;
         self.assembler
-            .emit_on_true_label_far(Location::GPR(tmp_cond), label_unaligned)?;
+            .emit_on_true_label(Location::GPR(tmp_cond), label_unaligned)?;
         // Aligned store
         self.assembler
             .emit_sd(sz, src_value, Location::Memory(dst, 0))?;
         self.jmp_unconditionnal(label_completed)?;
         self.emit_label(label_unaligned)?;
+
         // Unaligned store
-        match sz {
-            Size::S8 => unreachable!(),
-            // We assume little-endian for now
-            Size::S16 => {
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 0))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 1))?;
-            }
-            Size::S32 => {
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 0))?;
+        let size_bytes = sz.bytes();
+        // We assume little-endian for now
+        for i in 0..size_bytes {
+            self.assembler
+                .emit_sd(Size::S8, src_value, Location::Memory(dst, i as _))?;
+            if i != size_bytes - 1 {
                 self.assembler
                     .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 1))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 2))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 3))?;
-            }
-            Size::S64 => {
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 0))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 1))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 2))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 3))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 4))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 5))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 6))?;
-                self.assembler
-                    .emit_srl(Size::S64, src_value, Location::Imm64(8), src_value)?;
-                self.assembler
-                    .emit_sd(Size::S8, src_value, Location::Memory(dst, 7))?;
             }
         }
+
         // Store completed
         self.emit_label(label_completed)?;
 

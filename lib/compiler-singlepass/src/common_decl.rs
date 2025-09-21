@@ -118,11 +118,15 @@ pub enum Size {
 
 impl Size {
     pub fn bits(&self) -> u32 {
+        8 * self.bytes()
+    }
+
+    pub fn bytes(&self) -> u32 {
         match self {
-            Size::S8 => 8,
-            Size::S16 => 16,
-            Size::S32 => 32,
-            Size::S64 => 64,
+            Size::S8 => 1,
+            Size::S16 => 2,
+            Size::S32 => 4,
+            Size::S64 => 8,
         }
     }
 }
