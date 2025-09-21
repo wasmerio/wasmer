@@ -75,6 +75,7 @@ fn build_wamr() {
                 "Release"
             },
         )
+        .define("CMAKE_POLICY_VERSION_MINIMUM", "3.5")
         .define("WAMR_BUILD_AOT", "0")
         //.define("WAMR_BUILD_TAIL_CALL", "1")
         //.define("WAMR_BUILD_DUMP_CALL_STACK", "1")

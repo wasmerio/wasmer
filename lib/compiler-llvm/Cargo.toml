@@ -14,12 +14,12 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.4", features = [
+wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.5", features = [
 	"translator",
 	"compiler",
 ] }
-wasmer-vm = { path = "../vm", version = "=6.1.0-rc.4" }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.4" }
+wasmer-vm = { path = "../vm", version = "=6.1.0-rc.5" }
+wasmer-types = { path = "../types", version = "=6.1.0-rc.5" }
 target-lexicon = { workspace = true, default-features = false }
 smallvec.workspace = true
 object = { workspace = true, features = ["read"] }

@@ -12,6 +12,9 @@ on:
     tags:
       # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - "[0-9]+.[0-9]+.[0-9]+*"
+  pull_request:
+    branches:
+      - "main"
   workflow_dispatch:
     inputs:
       release:
@@ -38,6 +41,7 @@ jobs:
 
   build:
     name: Build on ${{ matrix.build }}
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ${{ matrix.os }}
     needs: setup
     strategy:
@@ -334,6 +338,7 @@ jobs:
 
   windows_gnu:
     name: Windows GNU
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -402,6 +407,7 @@ jobs:
 
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-13
     steps:
       - uses: actions/checkout@v5
@@ -435,6 +441,7 @@ jobs:
 
   darwin_x86_64_jsc:
     name: macOS x86_64 (JSC)
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-13
     steps:
       - uses: actions/checkout@v5
@@ -464,6 +471,7 @@ jobs:
 
   linux_riscv64:
     name: Linux riscv64
+    if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v5
@@ -530,7 +538,7 @@ jobs:
   release:
     needs: [setup, build, windows_gnu, linux_riscv64]
     runs-on: ubuntu-latest
-    if: needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != ''
+    if: (needs.setup.outputs.DOING_RELEASE == '1' || github.event.inputs.release != '') && github.event_name != 'pull_request'
     steps:
       - name: Download the Artifacts
         uses: actions/download-artifact@v4

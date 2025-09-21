@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-package"
-version = "0.601.0-rc.4"
+version = "0.601.0-rc.5"
 description = "Packaging related types and functions for Wasmer"
 
 authors.workspace = true
@@ -14,8 +14,8 @@ rust-version.workspace = true
 
 [dependencies]
 webc.workspace = true
-wasmer-config = { version = "0.601.0-rc.4", path = "../config" }
-wasmer-types = { version = "6.1.0-rc.4", path = "../types", features = ["detect-wasm-features"] }
+wasmer-config = { version = "0.601.0-rc.5", path = "../config" }
+wasmer-types = { version = "6.1.0-rc.5", path = "../types", features = ["detect-wasm-features"] }
 toml.workspace = true
 bytes.workspace = true
 sha2.workspace = true
