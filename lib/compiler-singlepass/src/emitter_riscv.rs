@@ -380,75 +380,67 @@ impl EmitterRiscv for Assembler {
         reg: Location,
         addr: Location,
     ) -> Result<(), CompileError> {
-        // TODO: refactor the disp checks
-        match (sz, signed, reg, addr) {
-            (Size::S64, _, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+        let Location::Memory(addr, disp) = addr else {
+            codegen_error!("singlepass can't emit LD {:?}, {:?}, {:?}", sz, reg, addr);
+        };
+        assert!(ImmType::Bits12.compatible_imm(disp as i64));
+
+        match (sz, signed, reg) {
+            (Size::S64, _, Location::GPR(reg)) => {
                 dynasm!(self ; ld X(reg), [X(addr), disp]);
             }
-            (Size::S32, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S32, false, Location::GPR(reg)) => {
                 dynasm!(self ; lwu X(reg), [X(addr), disp]);
             }
-            (Size::S32, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S32, true, Location::GPR(reg)) => {
                 dynasm!(self ; lw X(reg), [X(addr), disp]);
             }
-            (Size::S16, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S16, false, Location::GPR(reg)) => {
                 dynasm!(self ; lhu X(reg), [X(addr), disp]);
             }
-            (Size::S16, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S16, true, Location::GPR(reg)) => {
                 dynasm!(self ; lh X(reg), [X(addr), disp]);
             }
-            (Size::S8, false, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!(ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S8, false, Location::GPR(reg)) => {
                 dynasm!(self ; lbu X(reg), [X(addr), disp]);
             }
-            (Size::S8, true, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!(ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S8, true, Location::GPR(reg)) => {
                 dynasm!(self ; lb X(reg), [X(addr), disp]);
             }
-            (Size::S64, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S64, _, Location::SIMD(reg)) => {
                 dynasm!(self ; fld F(reg), [X(addr), disp]);
             }
-            (Size::S32, _, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S32, _, Location::SIMD(reg)) => {
                 dynasm!(self ; flw F(reg), [X(addr), disp]);
             }
-            // TODO: add more variants
             _ => codegen_error!("singlepass can't emit LD {:?}, {:?}, {:?}", sz, reg, addr),
         }
         Ok(())
     }
 
     fn emit_sd(&mut self, sz: Size, reg: Location, addr: Location) -> Result<(), CompileError> {
-        // TODO: refactor the disp checks
-        match (sz, reg, addr) {
-            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+        let Location::Memory(addr, disp) = addr else {
+            codegen_error!("singlepass can't emit SD {:?}, {:?}, {:?}", sz, reg, addr);
+        };
+        assert!(ImmType::Bits12.compatible_imm(disp as i64));
+
+        match (sz, reg) {
+            (Size::S64, Location::GPR(reg)) => {
                 dynasm!(self ; sd X(reg), [X(addr), disp]);
             }
-            (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S32, Location::GPR(reg)) => {
                 dynasm!(self ; sw X(reg), [X(addr), disp]);
             }
-            (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S16, Location::GPR(reg)) => {
                 dynasm!(self ; sh X(reg), [X(addr), disp]);
             }
-            (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
-                assert!(ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S8, Location::GPR(reg)) => {
                 dynasm!(self ; sb X(reg), [X(addr), disp]);
             }
-            (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S64, Location::SIMD(reg)) => {
                 dynasm!(self ; fsd F(reg), [X(addr), disp]);
             }
-            (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
-                assert!((disp & 0x3) == 0 && ImmType::Bits12.compatible_imm(disp as i64));
+            (Size::S32, Location::SIMD(reg)) => {
                 dynasm!(self ; fsw F(reg), [X(addr), disp]);
             }
             _ => codegen_error!("singlepass can't emit SD {:?}, {:?}, {:?}", sz, reg, addr),
