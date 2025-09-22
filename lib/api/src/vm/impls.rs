@@ -56,7 +56,9 @@ impl VMExceptionRef {
     /// Converts the `VMExternRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
         match self {
+            #[cfg(feature = "sys")]
             Self::Sys(s) => s.into_raw(),
+
             _ => unimplemented!("VMExceptionRef::into_raw is only implemented for the sys backend"),
         }
     }

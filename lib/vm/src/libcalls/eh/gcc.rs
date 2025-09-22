@@ -238,6 +238,9 @@ pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
     }
 }
 
+/// # Safety
+///
+/// Performs libunwind unwinding magic. Highly unsafe.
 pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
     if exnref == 0 {
         crate::raise_lib_trap(crate::Trap::lib(

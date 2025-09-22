@@ -14,7 +14,7 @@ cfg_if::cfg_if! {
             panic!()
         }
 
-        pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
+        pub unsafe fn read_exnref(exception: *mut std::ffi::c_void) -> u32 {
             panic!()
         }
 
@@ -22,7 +22,7 @@ cfg_if::cfg_if! {
             panic!()
         }
 
-        pub unsafe fn delete_exception(exception: *mut c_void) {
+        pub unsafe fn delete_exception(exception: *mut std::ffi::c_void) {
             panic!()
         }
     } else if #[cfg(any(

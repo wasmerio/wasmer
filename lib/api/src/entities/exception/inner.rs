@@ -82,3 +82,6 @@ impl BackendException {
         }
     }
 }
+
+#[cfg(not(feature = "sys"))]
+struct VMExceptionRef();
