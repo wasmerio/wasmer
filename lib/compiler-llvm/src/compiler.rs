@@ -117,7 +117,7 @@ impl ModuleBasedSymbolRegistry {
     fn fixup_problematic_name(name: &str) -> Cow<str> {
         for prefix in Self::PROBLEMATIC_PREFIXES {
             if name.starts_with(prefix) {
-                return format!("_{}", name).into();
+                return format!("_{name}").into();
             }
         }
         name.into()
@@ -127,16 +127,15 @@ impl ModuleBasedSymbolRegistry {
     // remove the underscore to get back the original name. This is necessary to be able
     // to match the name back to the original name in the wasm module.
     fn unfixup_problematic_name(name: &str) -> &str {
-        if name.starts_with('_') {
+        if let Some(stripped_name) = name.strip_prefix('_') {
             for prefix in Self::PROBLEMATIC_PREFIXES {
-                if name[1..].starts_with(prefix) {
-                    return &name[1..];
+                if stripped_name.starts_with(prefix) {
+                    return stripped_name;
                 }
             }
-            name
-        } else {
-            name
         }
+
+        name
     }
 }
 
