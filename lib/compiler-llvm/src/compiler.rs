@@ -10,6 +10,7 @@ use inkwell::DLLStorageClass;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use rayon::ThreadPoolBuilder;
+use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
@@ -91,6 +92,11 @@ struct ModuleBasedSymbolRegistry {
 }
 
 impl ModuleBasedSymbolRegistry {
+    const PROBLEMATIC_PREFIXES: &[&'static str] = &[
+        ".L",    // .L is used for local symbols
+        "llvm.", // llvm. is used for LLVM's own intrinsics
+    ];
+
     fn new(wasm_module: Arc<ModuleInfo>) -> Self {
         let local_func_names = HashMap::from_iter(
             wasm_module
@@ -106,6 +112,31 @@ impl ModuleBasedSymbolRegistry {
             short_names: ShortNames {},
         }
     }
+
+    // If the name starts with a problematic prefix, we prefix it with an underscore.
+    fn fixup_problematic_name(name: &str) -> Cow<str> {
+        for prefix in Self::PROBLEMATIC_PREFIXES {
+            if name.starts_with(prefix) {
+                return format!("_{name}").into();
+            }
+        }
+        name.into()
+    }
+
+    // If the name starts with an underscore and the rest starts with a problematic prefix,
+    // remove the underscore to get back the original name. This is necessary to be able
+    // to match the name back to the original name in the wasm module.
+    fn unfixup_problematic_name(name: &str) -> &str {
+        if let Some(stripped_name) = name.strip_prefix('_') {
+            for prefix in Self::PROBLEMATIC_PREFIXES {
+                if stripped_name.starts_with(prefix) {
+                    return stripped_name;
+                }
+            }
+        }
+
+        name
+    }
 }
 
 impl SymbolRegistry for ModuleBasedSymbolRegistry {
@@ -115,13 +146,14 @@ impl SymbolRegistry for ModuleBasedSymbolRegistry {
                 .wasm_module
                 .function_names
                 .get(&self.wasm_module.func_index(index))
-                .map(|name| format!("{}_{}", name, index.as_u32()))
+                .map(|name| format!("{}_{}", Self::fixup_problematic_name(name), index.as_u32()))
                 .unwrap_or(self.short_names.symbol_to_name(symbol)),
             _ => self.short_names.symbol_to_name(symbol),
         }
     }
 
     fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
+        let name = Self::unfixup_problematic_name(name);
         if let Some(idx) = self.local_func_names.get(name) {
             Some(Symbol::LocalFunction(*idx))
         } else {
