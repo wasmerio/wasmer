@@ -1136,7 +1136,11 @@
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
 <a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a></pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a></pre></div><pre class="rust"><code><span class="attr">#![allow(missing_docs, unused)]
 
 </span><span class="kw">mod </span>capabilities;
 <span class="kw">mod </span>wasi;
@@ -1188,7 +1192,9 @@
         MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
-        module_cache::CacheError, package_loader::PackageLoader, resolver::QueryError,
+        module_cache::{CacheError, HashedModuleData},
+        package_loader::PackageLoader,
+        resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
     Runtime, WasiError,
@@ -1981,15 +1987,17 @@
         <span class="kw">match </span>TargetOnDisk::from_file(path)<span class="question-mark">? </span>{
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat =&gt; {
                 <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
+                <span class="kw">let </span>module_data = HashedModuleData::new(wasm);
+                <span class="kw">let </span>module_hash = <span class="kw-2">*</span>module_data.hash();
 
                 pb.set_message(<span class="string">"Compiling to WebAssembly"</span>);
                 <span class="kw">let </span>module = runtime
-                    .load_module_sync(<span class="kw-2">&amp;</span>wasm)
+                    .load_hashed_module_sync(module_data, <span class="prelude-val">None</span>)
                     .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to compile \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
 
                 <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash: ModuleHash::xxhash(<span class="kw-2">&amp;</span>wasm),
+                    module_hash,
                     path: path.to_path_buf(),
                 })
             }

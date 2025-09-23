@@ -575,7 +575,7 @@
     wasm: HashedModuleData,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
-    <span class="kw">match </span>runtime.load_hashed_module(wasm).<span class="kw">await </span>{
+    <span class="kw">match </span>runtime.load_hashed_module(wasm, <span class="prelude-val">None</span>).<span class="kw">await </span>{
         <span class="prelude-val">Ok</span>(module) =&gt; <span class="prelude-val">Ok</span>(module),
         <span class="prelude-val">Err</span>(err) =&gt; {
             <span class="macro">tracing::error!</span>(

@@ -691,7 +691,16 @@
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a></pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a>
+<a href="#698" id="698">698</a>
+<a href="#699" id="699">699</a>
+<a href="#700" id="700">700</a>
+<a href="#701" id="701">701</a>
+<a href="#702" id="702">702</a></pre></div><pre class="rust"><code><span class="kw">pub mod </span>module_cache;
 <span class="kw">pub mod </span>package_loader;
 <span class="kw">pub mod </span>resolver;
 <span class="kw">pub mod </span>task_manager;
@@ -710,7 +719,7 @@
 
 <span class="kw">use </span>futures::future::BoxFuture;
 <span class="kw">use </span>virtual_net::{DynVirtualNetworking, VirtualNetworking};
-<span class="kw">use </span>wasmer::{CompileError, Module, RuntimeError};
+<span class="kw">use </span>wasmer::{CompileError, Engine, Module, RuntimeError};
 <span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 
 <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -769,14 +778,14 @@
     </span><span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;;
 
     <span class="doccomment">/// Get a [`wasmer::Engine`] for module compilation.
-    </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
-        wasmer::Engine::default()
+    </span><span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Engine {
+        Engine::default()
     }
 
     <span class="kw">fn </span>engine_with_suggested_opts(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         suggested_opts: <span class="kw-2">&amp;</span>SuggestedCompilerOptimizations,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;wasmer::Engine, CompileError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Engine, CompileError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>engine = <span class="self">self</span>.engine();
         engine.with_opts(<span class="kw-2">&amp;</span>WasmerSuggestedCompilerOptimizations {
             pass_params: suggested_opts.pass_params,
@@ -850,7 +859,7 @@
     </span><span class="kw">fn </span>load_module&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
         <span class="kw">let </span>engine = <span class="self">self</span>.engine();
         <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
-        <span class="kw">let </span>data = HashedModuleData::new_xxhash(wasm.to_vec());
+        <span class="kw">let </span>data = HashedModuleData::new(wasm.to_vec());
         <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, <span class="kw-2">&amp;</span>data).<span class="kw">await </span>};
         Box::pin(task)
     }
@@ -871,16 +880,21 @@
     </span><span class="kw">fn </span>load_hashed_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         module: HashedModuleData,
+        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
     ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
-        <span class="kw">let </span>engine = <span class="self">self</span>.engine();
+        <span class="kw">let </span>engine = engine.cloned().unwrap_or_else(|| <span class="self">self</span>.engine());
         <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
         <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, <span class="kw-2">&amp;</span>module).<span class="kw">await </span>};
         Box::pin(task)
     }
 
     <span class="doccomment">/// Synchronous version of [`Self::load_hashed_module`].
-    </span><span class="kw">fn </span>load_hashed_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: HashedModuleData) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
-        InlineWaker::block_on(<span class="self">self</span>.load_hashed_module(wasm))
+    </span><span class="kw">fn </span>load_hashed_module_sync(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        wasm: HashedModuleData,
+        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
+        InlineWaker::block_on(<span class="self">self</span>.load_hashed_module(wasm, engine))
     }
 
     <span class="doccomment">/// Callback thats invokes whenever the instance is tainted, tainting can occur
@@ -916,7 +930,7 @@
 // implementing [`Runtime::load_module`], so custom logic can be added on top.
 </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
 </span><span class="kw">pub async fn </span>load_module(
-    engine: <span class="kw-2">&amp;</span>wasmer::Engine,
+    engine: <span class="kw-2">&amp;</span>Engine,
     module_cache: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>ModuleCache + Send + Sync),
     module: <span class="kw-2">&amp;</span>HashedModuleData,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, <span class="kw">crate</span>::SpawnError&gt; {
@@ -984,7 +998,7 @@
     <span class="kw">pub </span>http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
     <span class="kw">pub </span>package_loader: Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt;,
     <span class="kw">pub </span>source: Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;,
-    <span class="kw">pub </span>engine: wasmer::Engine,
+    <span class="kw">pub </span>engine: Engine,
     <span class="kw">pub </span>module_cache: Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;,
     <span class="kw">pub </span>tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -1040,7 +1054,7 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: wasmer::Engine) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: Engine) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
         <span class="self">self</span>.engine = engine;
         <span class="self">self
     </span>}
@@ -1109,7 +1123,7 @@
         Arc::clone(<span class="kw-2">&amp;</span><span class="self">self</span>.source)
     }
 
-    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
+    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Engine {
         <span class="self">self</span>.engine.clone()
     }
 
@@ -1155,7 +1169,7 @@
     http_client: <span class="prelude-ty">Option</span>&lt;DynHttpClient&gt;,
     package_loader: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>PackageLoader + Send + Sync&gt;&gt;,
     source: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>Source + Send + Sync&gt;&gt;,
-    engine: <span class="prelude-ty">Option</span>&lt;wasmer::Engine&gt;,
+    engine: <span class="prelude-ty">Option</span>&lt;Engine&gt;,
     module_cache: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>ModuleCache + Send + Sync&gt;&gt;,
     tty: <span class="prelude-ty">Option</span>&lt;Arc&lt;<span class="kw">dyn </span>TtyBridge + Send + Sync&gt;&gt;,
     <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -1211,7 +1225,7 @@
         <span class="self">self
     </span>}
 
-    <span class="kw">pub fn </span>with_engine(<span class="kw-2">mut </span><span class="self">self</span>, engine: wasmer::Engine) -&gt; <span class="self">Self </span>{
+    <span class="kw">pub fn </span>with_engine(<span class="kw-2">mut </span><span class="self">self</span>, engine: Engine) -&gt; <span class="self">Self </span>{
         <span class="self">self</span>.engine.replace(engine);
         <span class="self">self
     </span>}
@@ -1280,7 +1294,7 @@
         }
     }
 
-    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
+    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Engine {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(engine) = <span class="self">self</span>.engine.clone() {
             engine
         } <span class="kw">else </span>{
@@ -1339,17 +1353,16 @@
         }
     }
 
-    <span class="kw">fn </span>load_module&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, wasm: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
-        <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
-            <span class="kw">let </span>engine = <span class="self">self</span>.engine();
-            <span class="kw">let </span>module_cache = <span class="self">self</span>.module_cache();
-
-            <span class="kw">let </span>data = HashedModuleData::new_xxhash(wasm.to_vec());
-            <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, <span class="kw-2">&amp;</span>data).<span class="kw">await </span>};
+    <span class="kw">fn </span>load_module&lt;<span class="lifetime">'a</span>&gt;(<span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8]) -&gt; BoxFuture&lt;<span class="lifetime">'a</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
+        <span class="attr">#[allow(deprecated)]
+        </span><span class="kw">if let </span>(<span class="prelude-val">Some</span>(engine), <span class="prelude-val">Some</span>(module_cache)) = (<span class="kw-2">&amp;</span><span class="self">self</span>.engine, <span class="self">self</span>.module_cache.clone()) {
+            <span class="kw">let </span>engine = engine.clone();
+            <span class="kw">let </span>hashed_data = HashedModuleData::new(data.to_vec());
+            <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, <span class="kw-2">&amp;</span>hashed_data).<span class="kw">await </span>};
             Box::pin(task)
         } <span class="kw">else </span>{
-            <span class="attr">#[allow(deprecated)]
-            </span><span class="self">self</span>.inner.load_module(wasm)
+            <span class="kw">let </span>data = data.to_vec();
+            Box::pin(<span class="kw">async move </span>{ <span class="self">self</span>.inner.load_module(<span class="kw-2">&amp;</span>data).<span class="kw">await </span>})
         }
     }
 
@@ -1365,6 +1378,7 @@
     <span class="kw">fn </span>load_hashed_module(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         data: HashedModuleData,
+        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
     ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
         <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
             <span class="kw">let </span>engine = <span class="self">self</span>.engine();
@@ -1372,15 +1386,19 @@
             <span class="kw">let </span>task = <span class="kw">async move </span>{ load_module(<span class="kw-2">&amp;</span>engine, <span class="kw-2">&amp;</span>module_cache, <span class="kw-2">&amp;</span>data).<span class="kw">await </span>};
             Box::pin(task)
         } <span class="kw">else </span>{
-            <span class="self">self</span>.inner.load_hashed_module(data)
+            <span class="self">self</span>.inner.load_hashed_module(data, engine)
         }
     }
 
-    <span class="kw">fn </span>load_hashed_module_sync(<span class="kw-2">&amp;</span><span class="self">self</span>, wasm: HashedModuleData) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
+    <span class="kw">fn </span>load_hashed_module_sync(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        wasm: HashedModuleData,
+        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
         <span class="kw">if </span><span class="self">self</span>.engine.is_some() || <span class="self">self</span>.module_cache.is_some() {
-            InlineWaker::block_on(<span class="self">self</span>.load_hashed_module(wasm))
+            InlineWaker::block_on(<span class="self">self</span>.load_hashed_module(wasm, engine))
         } <span class="kw">else </span>{
-            <span class="self">self</span>.inner.load_hashed_module_sync(wasm)
+            <span class="self">self</span>.inner.load_hashed_module_sync(wasm, engine)
         }
     }
 }

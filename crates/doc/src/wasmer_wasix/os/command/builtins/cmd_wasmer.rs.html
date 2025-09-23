@@ -357,7 +357,7 @@ ARGS:
                     </span>spawn_exec(binary, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
                 </span>}
                 Executable::Wasm(bytes) =&gt; {
-                    <span class="kw">let </span>data = HashedModuleData::new_xxhash(bytes);
+                    <span class="kw">let </span>data = HashedModuleData::new(bytes);
                     spawn_exec_wasm(data, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
                 </span>}
             }

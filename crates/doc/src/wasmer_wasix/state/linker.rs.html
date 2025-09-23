@@ -4293,7 +4293,11 @@
 <a href="#4292" id="4292">4292</a>
 <a href="#4293" id="4293">4293</a>
 <a href="#4294" id="4294">4294</a>
-<a href="#4295" id="4295">4295</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4295" id="4295">4295</a>
+<a href="#4296" id="4296">4296</a>
+<a href="#4297" id="4297">4297</a>
+<a href="#4298" id="4298">4298</a>
+<a href="#4299" id="4299">4299</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4572,8 +4576,8 @@
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem, FsError};
 <span class="kw">use </span>virtual_mio::InlineWaker;
 <span class="kw">use </span>wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
-    FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
+    AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
+    FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
     InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
     Value, WasmTypeList, WASM_PAGE_SIZE,
 };
@@ -5112,6 +5116,8 @@
 
 <span class="comment">// There is only one LinkerState for all instance groups
 </span><span class="kw">struct </span>LinkerState {
+    engine: Engine,
+
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
 
@@ -5242,6 +5248,7 @@
     /// running, and a Linker instance is returned which can then be used for the
     /// loading/linking of further side modules.
     </span><span class="kw">pub fn </span>new(
+        engine: Engine,
         main_module: <span class="kw-2">&amp;</span>Module,
         store: <span class="kw-2">&amp;mut </span>StoreMut&lt;<span class="lifetime">'_</span>&gt;,
         memory: <span class="prelude-ty">Option</span>&lt;Memory&gt;,
@@ -5377,6 +5384,7 @@
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>linker_state = LinkerState {
+            engine,
             main_module: main_module.clone(),
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
@@ -6605,14 +6613,14 @@
                 }
 
                 (
-                    HashedModuleData::new_sha256(bytes),
+                    HashedModuleData::new(bytes),
                     <span class="prelude-val">Some</span>((full_path, ld_library_path)),
                 )
             }
-            DlModuleSpec::Memory { bytes, .. } =&gt; (HashedModuleData::new_sha256(bytes), <span class="prelude-val">None</span>),
+            DlModuleSpec::Memory { bytes, .. } =&gt; (HashedModuleData::new(bytes), <span class="prelude-val">None</span>),
         };
 
-        <span class="kw">let </span>module = runtime.load_hashed_module_sync(module_data)<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = runtime.load_hashed_module_sync(module_data, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.engine))<span class="question-mark">?</span>;
 
         <span class="kw">let </span>dylink_info = parse_dylink0_section(<span class="kw-2">&amp;</span>module)<span class="question-mark">?</span>;
 
