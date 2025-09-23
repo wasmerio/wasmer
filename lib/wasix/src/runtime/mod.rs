@@ -114,6 +114,8 @@ where
 
     /// Load the module for a command.
     ///
+    /// Will load the module from the cache if possible, otherwise will compile.
+    ///
     /// NOTE: This always be preferred over [`Self::load_module`] to avoid
     /// re-hashing the module!
     fn load_command_module(
@@ -145,30 +147,47 @@ where
         InlineWaker::block_on(self.load_command_module(cmd))
     }
 
-    /// Load a a Webassembly module.
+    /// Load a WebAssembly module from raw bytes.
     ///
-    /// Should try to use a cached version of the module, if possible.
-    /// Otherwise compiles the module.
+    /// Will load the module from the cache if possible, otherwise will compile.
+    #[deprecated(
+        since = "0.601.0",
+        note = "Use `load_command_module` or `load_hashed_module` instead - this method can have high overhead"
+    )]
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        let engine = self.engine();
+        let module_cache = self.module_cache();
+        let data = HashedModuleData::new_xxhash(wasm.to_vec());
+        let task = async move { load_module(&engine, &module_cache, &data).await };
+        Box::pin(task)
+    }
+
+    /// Synchronous version of [`Self::load_module`].
+    #[deprecated(
+        since = "0.601.0",
+        note = "Use `load_command_module` or `load_hashed_module` instead - this method can have high overhead"
+    )]
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
+        #[allow(deprecated)]
+        InlineWaker::block_on(self.load_module(wasm))
+    }
+
+    /// Load a WebAssembly module from pre-hashed data.
     ///
-    /// Receives a [`HashedModule`] to allow fast cache retrieval through the
-    /// hash.
-    fn load_module<'a>(
+    /// Will load the module from the cache if possible, otherwise will compile.
+    fn load_hashed_module<'a>(
         &'a self,
         module: HashedModuleData,
     ) -> BoxFuture<'a, Result<Module, SpawnError>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
-
         let task = async move { load_module(&engine, &module_cache, &module).await };
-
         Box::pin(task)
     }
 
-    /// Load a a Webassembly module, trying to use a pre-compiled version if possible.
-    ///
-    /// Non-async version of [`Self::load_module`].
-    fn load_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
-        InlineWaker::block_on(self.load_module(wasm))
+    /// Synchronous version of [`Self::load_hashed_module`].
+    fn load_hashed_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
+        InlineWaker::block_on(self.load_hashed_module(wasm))
     }
 
     /// Callback thats invokes whenever the instance is tainted, tainting can occur
@@ -627,26 +646,48 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn load_module<'a>(
+    fn load_module<'a>(&'a self, wasm: &'a [u8]) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        if self.engine.is_some() || self.module_cache.is_some() {
+            let engine = self.engine();
+            let module_cache = self.module_cache();
+
+            let data = HashedModuleData::new_xxhash(wasm.to_vec());
+            let task = async move { load_module(&engine, &module_cache, &data).await };
+            Box::pin(task)
+        } else {
+            #[allow(deprecated)]
+            self.inner.load_module(wasm)
+        }
+    }
+
+    fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
+        #[allow(deprecated)]
+        if self.engine.is_some() || self.module_cache.is_some() {
+            InlineWaker::block_on(self.load_module(wasm))
+        } else {
+            self.inner.load_module_sync(wasm)
+        }
+    }
+
+    fn load_hashed_module<'a>(
         &'a self,
         data: HashedModuleData,
     ) -> BoxFuture<'a, Result<Module, SpawnError>> {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
             let module_cache = self.module_cache();
-
             let task = async move { load_module(&engine, &module_cache, &data).await };
             Box::pin(task)
         } else {
-            self.inner.load_module(data)
+            self.inner.load_hashed_module(data)
         }
     }
 
-    fn load_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
+    fn load_hashed_module_sync(&self, wasm: HashedModuleData) -> Result<Module, SpawnError> {
         if self.engine.is_some() || self.module_cache.is_some() {
-            InlineWaker::block_on(self.load_module(wasm))
+            InlineWaker::block_on(self.load_hashed_module(wasm))
         } else {
-            self.inner.load_module_sync(wasm)
+            self.inner.load_hashed_module_sync(wasm)
         }
     }
 }

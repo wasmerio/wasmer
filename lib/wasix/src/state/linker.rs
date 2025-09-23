@@ -2314,13 +2314,10 @@ impl LinkerState {
                     Some((full_path, ld_library_path)),
                 )
             }
-            DlModuleSpec::Memory { bytes, .. } => (
-                HashedModuleData::new_sha256(bytes),
-                None,
-            ),
+            DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new_sha256(bytes), None),
         };
 
-        let module = runtime.load_module_sync(module_data)?;
+        let module = runtime.load_hashed_module_sync(module_data)?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
