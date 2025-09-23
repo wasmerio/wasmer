@@ -175,10 +175,10 @@ where
     /// Load a WebAssembly module from pre-hashed data.
     ///
     /// Will load the module from the cache if possible, otherwise will compile.
-    fn load_hashed_module<'a>(
-        &'a self,
+    fn load_hashed_module(
+        &self,
         module: HashedModuleData,
-    ) -> BoxFuture<'a, Result<Module, SpawnError>> {
+    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
         let engine = self.engine();
         let module_cache = self.module_cache();
         let task = async move { load_module(&engine, &module_cache, &module).await };
@@ -227,7 +227,7 @@ pub async fn load_module(
     module_cache: &(dyn ModuleCache + Send + Sync),
     module: &HashedModuleData,
 ) -> Result<Module, crate::SpawnError> {
-    let wasm_hash = module.hash().clone();
+    let wasm_hash = *module.hash();
     let result = module_cache.load(wasm_hash, engine).await;
 
     match result {
@@ -669,10 +669,10 @@ impl Runtime for OverriddenRuntime {
         }
     }
 
-    fn load_hashed_module<'a>(
-        &'a self,
+    fn load_hashed_module(
+        &self,
         data: HashedModuleData,
-    ) -> BoxFuture<'a, Result<Module, SpawnError>> {
+    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
         if self.engine.is_some() || self.module_cache.is_some() {
             let engine = self.engine();
             let module_cache = self.module_cache();
