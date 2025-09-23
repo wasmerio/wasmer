@@ -34,7 +34,22 @@ impl InlineWaker {
         unsafe { Waker::from_raw(raw_waker) }
     }
 
-    #[cfg(not(feature = "js"))]
+    #[cfg(all(not(feature = "js"), feature = "tokio"))]
+    pub fn block_on<'a, A>(task: impl Future<Output = A> + 'a) -> A {
+        if let Ok(handle) = tokio::runtime::Handle::try_current() {
+            // Reuse existing runtime if possible
+            handle.block_on(task)
+        } else {
+            // TODO: Maybe reuse runtime
+            let rt = tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap();
+            rt.block_on(task)
+        }
+    }
+
+    #[cfg(all(not(feature = "js"), not(feature = "tokio")))]
     pub fn block_on<'a, A>(task: impl Future<Output = A> + 'a) -> A {
         futures::executor::block_on(task)
     }
