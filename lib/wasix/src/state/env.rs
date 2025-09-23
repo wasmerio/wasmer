@@ -1287,12 +1287,11 @@ impl WasiEnv {
                     .extend_from_slice(env_vars.as_slice());
             }
 
-            if let Some(args) = main_args {
-                self.state
-                    .args
-                    .lock()
-                    .unwrap()
-                    .extend_from_slice(args.as_slice());
+            if let Some(main_args) = main_args {
+                let mut args: std::sync::MutexGuard<'_, Vec<String>> =
+                    self.state.args.lock().unwrap();
+                // Insert main-args before user args
+                args.splice(1..1, main_args);
             }
 
             if let Some(exec_name) = exec_name {
