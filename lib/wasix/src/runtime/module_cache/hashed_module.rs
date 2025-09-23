@@ -39,7 +39,7 @@ impl HashedModuleData {
     /// This is very cheap, as the hash is already available in the command.
     pub fn from_command(command: &BinaryPackageCommand) -> Self {
         Self {
-            hash: command.hash().clone(),
+            hash: *command.hash(),
             wasm: command.atom(),
         }
     }
