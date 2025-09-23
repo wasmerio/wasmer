@@ -648,7 +648,39 @@
 <a href="#647" id="647">647</a>
 <a href="#648" id="648">648</a>
 <a href="#649" id="649">649</a>
-<a href="#650" id="650">650</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::LLVM;
+<a href="#650" id="650">650</a>
+<a href="#651" id="651">651</a>
+<a href="#652" id="652">652</a>
+<a href="#653" id="653">653</a>
+<a href="#654" id="654">654</a>
+<a href="#655" id="655">655</a>
+<a href="#656" id="656">656</a>
+<a href="#657" id="657">657</a>
+<a href="#658" id="658">658</a>
+<a href="#659" id="659">659</a>
+<a href="#660" id="660">660</a>
+<a href="#661" id="661">661</a>
+<a href="#662" id="662">662</a>
+<a href="#663" id="663">663</a>
+<a href="#664" id="664">664</a>
+<a href="#665" id="665">665</a>
+<a href="#666" id="666">666</a>
+<a href="#667" id="667">667</a>
+<a href="#668" id="668">668</a>
+<a href="#669" id="669">669</a>
+<a href="#670" id="670">670</a>
+<a href="#671" id="671">671</a>
+<a href="#672" id="672">672</a>
+<a href="#673" id="673">673</a>
+<a href="#674" id="674">674</a>
+<a href="#675" id="675">675</a>
+<a href="#676" id="676">676</a>
+<a href="#677" id="677">677</a>
+<a href="#678" id="678">678</a>
+<a href="#679" id="679">679</a>
+<a href="#680" id="680">680</a>
+<a href="#681" id="681">681</a>
+<a href="#682" id="682">682</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::config::LLVM;
 <span class="kw">use </span><span class="kw">crate</span>::trampoline::FuncTrampoline;
 <span class="kw">use </span><span class="kw">crate</span>::translator::FuncTranslator;
 <span class="kw">use </span><span class="kw">crate</span>::CompiledKind;
@@ -660,6 +692,7 @@
 <span class="kw">use </span>rayon::iter::ParallelBridge;
 <span class="kw">use </span>rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 <span class="kw">use </span>rayon::ThreadPoolBuilder;
+<span class="kw">use </span>std::borrow::Cow;
 <span class="kw">use </span>std::collections::{HashMap, HashSet};
 <span class="kw">use </span>std::sync::Arc;
 <span class="kw">use </span>wasmer_compiler::types::function::{Compilation, UnwindInfo};
@@ -741,6 +774,11 @@
 }
 
 <span class="kw">impl </span>ModuleBasedSymbolRegistry {
+    <span class="kw">const </span>PROBLEMATIC_PREFIXES: <span class="kw-2">&amp;</span>[<span class="kw-2">&amp;</span><span class="lifetime">'static </span>str] = <span class="kw-2">&amp;</span>[
+        <span class="string">".L"</span>,    <span class="comment">// .L is used for local symbols
+        </span><span class="string">"llvm."</span>, <span class="comment">// llvm. is used for LLVM's own intrinsics
+    </span>];
+
     <span class="kw">fn </span>new(wasm_module: Arc&lt;ModuleInfo&gt;) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span>local_func_names = HashMap::from_iter(
             wasm_module
@@ -756,6 +794,31 @@
             short_names: ShortNames {},
         }
     }
+
+    <span class="comment">// If the name starts with a problematic prefix, we prefix it with an underscore.
+    </span><span class="kw">fn </span>fixup_problematic_name(name: <span class="kw-2">&amp;</span>str) -&gt; Cow&lt;str&gt; {
+        <span class="kw">for </span>prefix <span class="kw">in </span><span class="self">Self</span>::PROBLEMATIC_PREFIXES {
+            <span class="kw">if </span>name.starts_with(prefix) {
+                <span class="kw">return </span><span class="macro">format!</span>(<span class="string">"_{name}"</span>).into();
+            }
+        }
+        name.into()
+    }
+
+    <span class="comment">// If the name starts with an underscore and the rest starts with a problematic prefix,
+    // remove the underscore to get back the original name. This is necessary to be able
+    // to match the name back to the original name in the wasm module.
+    </span><span class="kw">fn </span>unfixup_problematic_name(name: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;</span>str {
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(stripped_name) = name.strip_prefix(<span class="string">'_'</span>) {
+            <span class="kw">for </span>prefix <span class="kw">in </span><span class="self">Self</span>::PROBLEMATIC_PREFIXES {
+                <span class="kw">if </span>stripped_name.starts_with(prefix) {
+                    <span class="kw">return </span>stripped_name;
+                }
+            }
+        }
+
+        name
+    }
 }
 
 <span class="kw">impl </span>SymbolRegistry <span class="kw">for </span>ModuleBasedSymbolRegistry {
@@ -765,13 +828,14 @@
                 </span>.wasm_module
                 .function_names
                 .get(<span class="kw-2">&amp;</span><span class="self">self</span>.wasm_module.func_index(index))
-                .map(|name| <span class="macro">format!</span>(<span class="string">"{}_{}"</span>, name, index.as_u32()))
+                .map(|name| <span class="macro">format!</span>(<span class="string">"{}_{}"</span>, <span class="self">Self</span>::fixup_problematic_name(name), index.as_u32()))
                 .unwrap_or(<span class="self">self</span>.short_names.symbol_to_name(symbol)),
             <span class="kw">_ </span>=&gt; <span class="self">self</span>.short_names.symbol_to_name(symbol),
         }
     }
 
     <span class="kw">fn </span>name_to_symbol(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;Symbol&gt; {
+        <span class="kw">let </span>name = <span class="self">Self</span>::unfixup_problematic_name(name);
         <span class="kw">if let </span><span class="prelude-val">Some</span>(idx) = <span class="self">self</span>.local_func_names.get(name) {
             <span class="prelude-val">Some</span>(Symbol::LocalFunction(<span class="kw-2">*</span>idx))
         } <span class="kw">else </span>{
