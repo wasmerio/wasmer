@@ -200,7 +200,27 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a>
+<a href="#209" id="209">209</a>
+<a href="#210" id="210">210</a>
+<a href="#211" id="211">211</a>
+<a href="#212" id="212">212</a>
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a>
+<a href="#219" id="219">219</a>
+<a href="#220" id="220">220</a>
+<a href="#221" id="221">221</a>
+<a href="#222" id="222">222</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,
     ops::Deref,
@@ -210,6 +230,7 @@
 };
 
 <span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
 <span class="kw">use </span>wasmer::FunctionEnvMut;
 <span class="kw">use </span>wasmer_package::utils::from_bytes;
@@ -226,6 +247,7 @@
 };
 <span class="kw">use crate</span>::{
     os::{command::Commands, task::TaskJoinHandle},
+    runtime::module_cache::HashedModuleData,
     Runtime, SpawnError, WasiEnv,
 };
 
@@ -286,7 +308,8 @@
             <span class="comment">// Execute
             </span><span class="kw">match </span>executable {
                 Executable::Wasm(bytes) =&gt; {
-                    spawn_exec_wasm(<span class="kw-2">&amp;</span>bytes, name.as_str(), env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+                    <span class="kw">let </span>data = HashedModuleData::new_xxhash(bytes.clone());
+                    spawn_exec_wasm(data, name.as_str(), env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
                 </span>}
                 Executable::BinaryPackage(pkg) =&gt; {
                     <span class="comment">// Get the command that is going to be executed
@@ -372,7 +395,7 @@
 }
 
 <span class="kw">pub enum </span>Executable {
-    Wasm(bytes::Bytes),
+    Wasm(OwnedBuffer),
     BinaryPackage(BinaryPackage),
 }
 
@@ -387,19 +410,36 @@
         .open(path)
         .context(<span class="string">"Unable to open the file"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(f.size() <span class="kw">as </span>usize);
-    f.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.context(<span class="string">"Read failed"</span>)<span class="question-mark">?</span>;
+    <span class="comment">// Fast path if the file is fully available in memory.
+    // Prevents redundant copying of the file data.
+    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(buf) = f.as_owned_buffer() {
+        <span class="kw">if </span>wasmer_package::utils::is_container(buf.as_slice()) {
+            <span class="kw">let </span>bytes = buf.clone().into_bytes();
+            <span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = from_bytes(bytes.clone()) {
+                <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, rt)
+                    .<span class="kw">await
+                    </span>.context(<span class="string">"Unable to load the package"</span>)<span class="question-mark">?</span>;
 
-    <span class="kw">let </span>bytes: bytes::Bytes = data.into();
+                <span class="kw">return </span><span class="prelude-val">Ok</span>(Executable::BinaryPackage(pkg));
+            }
+        }
 
-    <span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = from_bytes(bytes.clone()) {
-        <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, rt)
-            .<span class="kw">await
-            </span>.context(<span class="string">"Unable to load the package"</span>)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(Executable::BinaryPackage(pkg))
+        <span class="prelude-val">Ok</span>(Executable::Wasm(buf))
     } <span class="kw">else </span>{
-        <span class="prelude-val">Ok</span>(Executable::Wasm(bytes))
+        <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(f.size() <span class="kw">as </span>usize);
+        f.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.context(<span class="string">"Read failed"</span>)<span class="question-mark">?</span>;
+
+        <span class="kw">let </span>bytes: bytes::Bytes = data.into();
+
+        <span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = from_bytes(bytes.clone()) {
+            <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, rt)
+                .<span class="kw">await
+                </span>.context(<span class="string">"Unable to load the package"</span>)<span class="question-mark">?</span>;
+
+            <span class="prelude-val">Ok</span>(Executable::BinaryPackage(pkg))
+        } <span class="kw">else </span>{
+            <span class="prelude-val">Ok</span>(Executable::Wasm(OwnedBuffer::from_bytes(bytes)))
+        }
     }
 }
 </code></pre></div></section></main></body></html>

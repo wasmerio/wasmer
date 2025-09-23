@@ -760,7 +760,17 @@
 <a href="#759" id="759">759</a>
 <a href="#760" id="760">760</a>
 <a href="#761" id="761">761</a>
-<a href="#762" id="762">762</a></pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+<a href="#762" id="762">762</a>
+<a href="#763" id="763">763</a>
+<a href="#764" id="764">764</a>
+<a href="#765" id="765">765</a>
+<a href="#766" id="766">766</a>
+<a href="#767" id="767">767</a>
+<a href="#768" id="768">768</a>
+<a href="#769" id="769">769</a>
+<a href="#770" id="770">770</a>
+<a href="#771" id="771">771</a>
+<a href="#772" id="772">772</a></pre></div><pre class="rust"><code><span class="attr">#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
 #[cfg(test)]
 #[macro_use]
@@ -1173,6 +1183,16 @@
             <span class="prelude-val">Ok</span>(())
         })
     }
+
+    <span class="doccomment">/// Get the full contents of this file as an [`OwnedBuffer`].
+    ///
+    /// **NOTE**: Only implement this if the file is already available in-memory
+    /// and can be cloned cheaply!
+    ///
+    /// Allows consumers to do zero-copy cloning of the underlying data.
+    </span><span class="kw">fn </span>as_owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;OwnedBuffer&gt; {
+        <span class="prelude-val">None
+    </span>}
 
     <span class="doccomment">/// Polls the file for when there is data to be read
     </span><span class="kw">fn </span>poll_read_ready(<span class="self">self</span>: Pin&lt;<span class="kw-2">&amp;mut </span><span class="self">Self</span>&gt;, cx: <span class="kw-2">&amp;mut </span>Context&lt;<span class="lifetime">'_</span>&gt;) -&gt; Poll&lt;io::Result&lt;usize&gt;&gt;;

@@ -483,7 +483,8 @@
 <a href="#482" id="482">482</a>
 <a href="#483" id="483">483</a>
 <a href="#484" id="484">484</a>
-<a href="#485" id="485">485</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
+<a href="#485" id="485">485</a>
+<a href="#486" id="486">486</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::sync::Arc;
 
 <span class="kw">use crate</span>::{
     os::task::{
@@ -491,6 +492,7 @@
         TaskJoinHandle,
     },
     runtime::{
+        module_cache::HashedModuleData,
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
@@ -528,7 +530,7 @@
 
 <span class="attr">#[tracing::instrument(level = <span class="string">"trace"</span>, skip_all, fields(%name))]
 </span><span class="kw">pub async fn </span>spawn_exec_wasm(
-    wasm: <span class="kw-2">&amp;</span>[u8],
+    wasm: HashedModuleData,
     name: <span class="kw-2">&amp;</span>str,
     env: WasiEnv,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
@@ -570,10 +572,10 @@
 
 <span class="kw">pub async fn </span>spawn_load_module(
     name: <span class="kw-2">&amp;</span>str,
-    wasm: <span class="kw-2">&amp;</span>[u8],
+    wasm: HashedModuleData,
     runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt; {
-    <span class="kw">match </span>runtime.load_module(wasm).<span class="kw">await </span>{
+    <span class="kw">match </span>runtime.load_hashed_module(wasm).<span class="kw">await </span>{
         <span class="prelude-val">Ok</span>(module) =&gt; <span class="prelude-val">Ok</span>(module),
         <span class="prelude-val">Err</span>(err) =&gt; {
             <span class="macro">tracing::error!</span>(

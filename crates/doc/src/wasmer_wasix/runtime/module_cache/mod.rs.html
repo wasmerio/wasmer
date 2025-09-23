@@ -70,7 +70,10 @@
 <a href="#69" id="69">69</a>
 <a href="#70" id="70">70</a>
 <a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a></pre></div><pre class="rust"><code><span class="doccomment">//! Cache pre-compiled [`wasmer::Module`]s.
+<a href="#72" id="72">72</a>
+<a href="#73" id="73">73</a>
+<a href="#74" id="74">74</a>
+<a href="#75" id="75">75</a></pre></div><pre class="rust"><code><span class="doccomment">//! Cache pre-compiled [`wasmer::Module`]s.
 //!
 //! The core of this module is the [`ModuleCache`] trait, which is designed to
 //! be implemented by different cache storage strategies, such as in-memory
@@ -103,7 +106,9 @@
 //! caching strategies. For example, you could use the [`FallbackCache`] to
 //! chain a fast in-memory cache with a slower file-based cache as a fallback.
 
-</span><span class="kw">mod </span>fallback;
+</span><span class="kw">mod </span>hashed_module;
+
+<span class="kw">mod </span>fallback;
 <span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
 </span><span class="kw">mod </span>filesystem;
 <span class="kw">mod </span>shared;
@@ -112,6 +117,7 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     fallback::FallbackCache,
+    hashed_module::HashedModuleData,
     shared::SharedCache,
     thread_local::ThreadLocalCache,
     types::{CacheError, ModuleCache},

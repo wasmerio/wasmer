@@ -691,7 +691,11 @@
 <a href="#690" id="690">690</a>
 <a href="#691" id="691">691</a>
 <a href="#692" id="692">692</a>
-<a href="#693" id="693">693</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#693" id="693">693</a>
+<a href="#694" id="694">694</a>
+<a href="#695" id="695">695</a>
+<a href="#696" id="696">696</a>
+<a href="#697" id="697">697</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     convert::{TryFrom, TryInto},
     io::Cursor,
     path::{Path, PathBuf},
@@ -943,6 +947,10 @@
         _cx: <span class="kw-2">&amp;mut </span>std::task::Context&lt;<span class="lifetime">'_</span>&gt;,
     ) -&gt; Poll&lt;std::io::Result&lt;usize&gt;&gt; {
         Poll::Ready(<span class="prelude-val">Err</span>(std::io::ErrorKind::PermissionDenied.into()))
+    }
+
+    <span class="kw">fn </span>as_owned_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;SharedBytes&gt; {
+        <span class="prelude-val">Some</span>(<span class="self">self</span>.content.get_ref().clone())
     }
 }
 

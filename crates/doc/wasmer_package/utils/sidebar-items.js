@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["features_to_wasm_annotations","from_bytes","from_disk","is_tarball","parse_dir","parse_tarball","parse_v1_mmap","parse_v2_mmap","parse_v3_mmap","wasm_annotations_to_features"]};
+window.SIDEBAR_ITEMS = {"fn":["features_to_wasm_annotations","from_bytes","from_disk","is_container","is_tarball","parse_dir","parse_tarball","parse_v1_mmap","parse_v2_mmap","parse_v3_mmap","wasm_annotations_to_features"]};

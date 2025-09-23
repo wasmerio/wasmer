@@ -211,14 +211,20 @@
 <a href="#210" id="210">210</a>
 <a href="#211" id="211">211</a>
 <a href="#212" id="212">212</a>
-<a href="#213" id="213">213</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{any::Any, path::PathBuf, sync::Arc};
+<a href="#213" id="213">213</a>
+<a href="#214" id="214">214</a>
+<a href="#215" id="215">215</a>
+<a href="#216" id="216">216</a>
+<a href="#217" id="217">217</a>
+<a href="#218" id="218">218</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{any::Any, path::PathBuf, sync::Arc};
 
 <span class="kw">use crate</span>::{
     bin_factory::spawn_exec_wasm,
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    runtime::task_manager::InlineWaker,
+    runtime::{module_cache::HashedModuleData, task_manager::InlineWaker},
     SpawnError,
 };
+<span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
 <span class="kw">use </span>wasmer::FunctionEnvMut;
 <span class="kw">use </span>wasmer_package::utils::from_bytes;
@@ -263,6 +269,12 @@ ARGS:
     }
 }
 
+<span class="attr">#[derive(Debug, Clone)]
+</span><span class="kw">enum </span>Executable {
+    Wasm(OwnedBuffer),
+    BinaryPackage(BinaryPackage),
+}
+
 <span class="kw">impl </span>CmdWasmer {
     <span class="kw">async fn </span>run(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
@@ -272,11 +284,6 @@ ARGS:
         what: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw-2">mut </span>args: Vec&lt;String&gt;,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
-        <span class="kw">pub enum </span>Executable {
-            Wasm(bytes::Bytes),
-            BinaryPackage(BinaryPackage),
-        }
-
         <span class="comment">// If the first argument is a '--' then skip it
         </span><span class="kw">if </span>args.first().map(|a| a.as_str()) == <span class="prelude-val">Some</span>(<span class="string">"--"</span>) {
             args = args.into_iter().skip(<span class="number">1</span>).collect();
@@ -315,7 +322,7 @@ ARGS:
 
                     Executable::BinaryPackage(pkg)
                 } <span class="kw">else </span>{
-                    Executable::Wasm(bytes)
+                    Executable::Wasm(OwnedBuffer::from_bytes(bytes))
                 }
             } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(pkg) = <span class="self">self</span>.get_package(<span class="kw-2">&amp;</span>what).<span class="kw">await </span>{
                 Executable::BinaryPackage(pkg)
@@ -349,7 +356,10 @@ ARGS:
                     <span class="comment">// Now run the module
                     </span>spawn_exec(binary, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
                 </span>}
-                Executable::Wasm(bytes) =&gt; spawn_exec_wasm(<span class="kw-2">&amp;</span>bytes, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await</span>,
+                Executable::Wasm(bytes) =&gt; {
+                    <span class="kw">let </span>data = HashedModuleData::new_xxhash(bytes);
+                    spawn_exec_wasm(data, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+                </span>}
             }
         } <span class="kw">else </span>{
             <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.<span class="kw">await</span>;

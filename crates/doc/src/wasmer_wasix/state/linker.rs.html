@@ -4282,7 +4282,18 @@
 <a href="#4281" id="4281">4281</a>
 <a href="#4282" id="4282">4282</a>
 <a href="#4283" id="4283">4283</a>
-<a href="#4284" id="4284">4284</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4284" id="4284">4284</a>
+<a href="#4285" id="4285">4285</a>
+<a href="#4286" id="4286">4286</a>
+<a href="#4287" id="4287">4287</a>
+<a href="#4288" id="4288">4288</a>
+<a href="#4289" id="4289">4289</a>
+<a href="#4290" id="4290">4290</a>
+<a href="#4291" id="4291">4291</a>
+<a href="#4292" id="4292">4292</a>
+<a href="#4293" id="4293">4293</a>
+<a href="#4294" id="4294">4294</a>
+<a href="#4295" id="4295">4295</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -4556,6 +4567,7 @@
 
 <span class="kw">use </span>bus::Bus;
 <span class="kw">use </span>derive_more::Debug;
+<span class="kw">use </span>shared_buffer::OwnedBuffer;
 <span class="kw">use </span>tracing::trace;
 <span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem, FsError};
 <span class="kw">use </span>virtual_mio::InlineWaker;
@@ -4568,8 +4580,9 @@
 <span class="kw">use </span>wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 <span class="kw">use crate</span>::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
-    WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
+    fs::WasiFsRoot, import_object_for_all_wasi_versions, runtime::module_cache::HashedModuleData,
+    Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles,
+    WasiProcess, WasiThreadId,
 };
 
 <span class="kw">use super</span>::{WasiModuleInstanceHandles, WasiState};
@@ -6568,7 +6581,7 @@
         }
 
         <span class="comment">// Locate and load the module bytes
-        </span><span class="kw">let </span>(module_bytes, paths) = <span class="kw">match </span>module_spec {
+        </span><span class="kw">let </span>(module_data, paths) = <span class="kw">match </span>module_spec {
             DlModuleSpec::FileSystem {
                 module_spec,
                 ld_library_path,
@@ -6591,12 +6604,15 @@
                     </span><span class="kw">return </span><span class="prelude-val">Ok</span>(INVALID_MODULE_HANDLE);
                 }
 
-                (Cow::Owned(bytes), <span class="prelude-val">Some</span>((full_path, ld_library_path)))
+                (
+                    HashedModuleData::new_sha256(bytes),
+                    <span class="prelude-val">Some</span>((full_path, ld_library_path)),
+                )
             }
-            DlModuleSpec::Memory { bytes, .. } =&gt; (Cow::Borrowed(bytes), <span class="prelude-val">None</span>),
+            DlModuleSpec::Memory { bytes, .. } =&gt; (HashedModuleData::new_sha256(bytes), <span class="prelude-val">None</span>),
         };
 
-        <span class="kw">let </span>module = runtime.load_module_sync(module_bytes.as_ref())<span class="question-mark">?</span>;
+        <span class="kw">let </span>module = runtime.load_hashed_module_sync(module_data)<span class="question-mark">?</span>;
 
         <span class="kw">let </span>dylink_info = parse_dylink0_section(<span class="kw-2">&amp;</span>module)<span class="question-mark">?</span>;
 
@@ -8206,11 +8222,11 @@
     runtime_path: <span class="kw-2">&amp;</span>[<span class="kw">impl </span>AsRef&lt;str&gt;],
     calling_module_path: <span class="prelude-ty">Option</span>&lt;<span class="kw">impl </span>AsRef&lt;Path&gt;&gt;,
     fs: <span class="kw-2">&amp;</span>WasiFs,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(PathBuf, Vec&lt;u8&gt;), LinkError&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(PathBuf, OwnedBuffer), LinkError&gt; {
     <span class="kw">async fn </span>try_load(
         fs: <span class="kw-2">&amp;</span>WasiFsRoot,
         path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
-    ) -&gt; <span class="prelude-ty">Result</span>&lt;(PathBuf, Vec&lt;u8&gt;), FsError&gt; {
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(PathBuf, OwnedBuffer), FsError&gt; {
         <span class="kw">let </span><span class="kw-2">mut </span>file = <span class="kw">match </span>fs.new_open_options().read(<span class="bool-val">true</span>).open(path.as_ref()) {
             <span class="prelude-val">Ok</span>(f) =&gt; f,
             <span class="comment">// Fallback for cases where the module thinks it's running on unix,
@@ -8222,8 +8238,14 @@
             <span class="prelude-val">Err</span>(e) =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(e),
         };
 
-        <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
-        file.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>buf = <span class="kw">if let </span><span class="prelude-val">Some</span>(buf) = file.as_owned_buffer() {
+            buf
+        } <span class="kw">else </span>{
+            <span class="kw">let </span><span class="kw-2">mut </span>buf = Vec::new();
+            file.read_to_end(<span class="kw-2">&amp;mut </span>buf).<span class="kw">await</span><span class="question-mark">?</span>;
+            OwnedBuffer::from(buf)
+        };
+
         <span class="prelude-val">Ok</span>((path.as_ref().to_owned(), buf))
     }
 

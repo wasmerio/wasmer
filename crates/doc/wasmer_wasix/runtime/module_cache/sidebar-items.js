@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CacheError"],"fn":["in_memory"],"mod":["fallback","filesystem","shared","thread_local","types"],"struct":["FallbackCache","FileSystemCache","SharedCache","ThreadLocalCache"],"trait":["ModuleCache"]};
+window.SIDEBAR_ITEMS = {"enum":["CacheError"],"fn":["in_memory"],"mod":["fallback","filesystem","hashed_module","shared","thread_local","types"],"struct":["FallbackCache","FileSystemCache","HashedModuleData","SharedCache","ThreadLocalCache"],"trait":["ModuleCache"]};
