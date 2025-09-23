@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Compiling module...");
     // Let's compile the Wasm module.
     let data = wasmer_wasix::runtime::module_cache::HashedModuleData::new_sha256(wasm_bytes);
-    let module = runtime.load_module_sync(data)?;
+    let module = runtime.load_hashed_module_sync(data)?;
 
     // Create a pipe for the module's stdout.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();
