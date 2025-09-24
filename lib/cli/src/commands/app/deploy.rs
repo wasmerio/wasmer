@@ -12,7 +12,7 @@ use dialoguer::Confirm;
 use indexmap::IndexMap;
 use is_terminal::IsTerminal;
 use std::io::Write;
-use std::{path::PathBuf, str::FromStr, time::Duration};
+use std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
 use wasmer_backend_api::{
     types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
     WasmerClient,
@@ -128,6 +128,13 @@ pub struct CmdAppDeploy {
     /// Whether or not to search (and use) a local manifest when creating an app to deploy.
     #[clap(long, conflicts_with = "template", conflicts_with = "package")]
     pub use_local_manifest: bool,
+}
+
+struct RemoteBuildInput {
+    app_config: AppConfigV1,
+    owner: String,
+    original_config: Option<serde_yaml::Value>,
+    config_path: Option<PathBuf>,
 }
 
 impl CmdAppDeploy {
@@ -265,145 +272,42 @@ impl CmdAppDeploy {
             WaitMode::Reachable
         };
 
-        if app_config_path.is_file() {
-            let config_str = std::fs::read_to_string(&app_config_path)
-                .with_context(|| format!("Could not read file '{}'", &app_config_path.display()))?;
+        let prep = if app_config_path.is_file() {
+            self.prepare_remote_build_from_file(client, &app_config_path, &base_dir_path)
+                .await?
+        } else {
+            self.prepare_remote_build_without_config(client, &base_dir_path)
+                .await?
+        };
 
-            let mut app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
-            let maybe_edge_app =
-                if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
-                    wasmer_backend_api::query::get_app_by_id(client, app_id.to_owned())
-                        .await
-                        .ok()
-                } else {
-                    None
-                };
+        let RemoteBuildInput {
+            app_config,
+            owner,
+            original_config,
+            config_path,
+        } = prep;
 
-            let mut owner = self
-                .get_owner(client, &mut app_yaml, maybe_edge_app.as_ref())
-                .await?;
+        let opts = DeployAppOpts {
+            app: &app_config,
+            original_config: original_config.clone(),
+            allow_create: true,
+            make_default: !self.no_default,
+            owner: Some(owner.clone()),
+            wait,
+        };
 
-            if !wasmer_backend_api::query::viewer_can_deploy_to_namespace(client, &owner).await? {
-                eprintln!("It seems you don't have access to {}", owner.bold());
-                if self.non_interactive {
-                    anyhow::bail!(
-                        "Please, change the owner before deploying or check your current user with `{} whoami`.",
-                        std::env::args().next().unwrap_or("wasmer".into())
-                    );
-                } else {
-                    let user =
-                        wasmer_backend_api::query::current_user_with_namespaces(client, None)
-                            .await?;
-                    owner = crate::utils::prompts::prompt_for_namespace(
-                        "Who should own this app?",
-                        None,
-                        Some(&user),
-                    )?;
-
-                    app_yaml
-                        .as_mapping_mut()
-                        .unwrap()
-                        .insert("owner".into(), owner.clone().into());
-
-                    if app_yaml.get("app_id").is_some() {
-                        app_yaml.as_mapping_mut().unwrap().remove("app_id");
-                    }
-
-                    if app_yaml.get("name").is_some() {
-                        app_yaml.as_mapping_mut().unwrap().remove("name");
-                    }
-                }
-            }
-
-            if app_yaml.get("name").is_none() && self.app_name.is_some() {
-                app_yaml.as_mapping_mut().unwrap().insert(
-                    "name".into(),
-                    self.app_name.as_ref().unwrap().to_string().into(),
-                );
-            } else if app_yaml.get("name").is_none() && maybe_edge_app.is_some() {
-                app_yaml.as_mapping_mut().unwrap().insert(
-                    "name".into(),
-                    maybe_edge_app
-                        .as_ref()
-                        .map(|v| v.name.to_string())
-                        .unwrap()
-                        .into(),
-                );
-            } else if app_yaml.get("name").is_none() {
-                if !self.non_interactive {
-                    let default_name = std::env::current_dir().ok().and_then(|dir| {
-                        dir.file_name()
-                            .and_then(|f| f.to_str())
-                            .map(|s| s.to_owned())
-                    });
-                    let app_name = crate::utils::prompts::prompt_new_app_name(
-                        "Enter the name of the app",
-                        default_name.as_deref(),
-                        &owner,
-                        Some(client),
-                    )
-                    .await?;
-
-                    app_yaml
-                        .as_mapping_mut()
-                        .unwrap()
-                        .insert("name".into(), app_name.into());
-                } else {
-                    if !self.quiet {
-                        eprintln!("The app.yaml does not specify any app name.");
-                        eprintln!(
-                            "Please, use the --app_name <app_name> to specify the name of the app."
-                        );
-                    }
-
-                    anyhow::bail!(
-                        "Cannot proceed with the deployment as the app spec in path {} does not have
-                        a 'name' field.",
-                        app_config_path.display()
-                    )
-                }
-            }
-
-            let original_app_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
-            std::fs::write(
-                &app_config_path,
-                serde_yaml::to_string(&original_app_config)?,
-            )
-            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
-
-            let mut app_config = original_app_config.clone();
-
-            app_config.owner = Some(owner.clone());
-
-            match &app_config.package {
-                PackageSource::Path(_) => {}
-                other => {
-                    anyhow::bail!(
-                        "remote deployments require the app's package to reference a local path (found `{other}`)"
-                    );
-                }
-            }
-
-            let opts = DeployAppOpts {
-                app: &app_config,
-                original_config: Some(app_config.clone().to_yaml_value()?),
-                allow_create: true,
-                make_default: !self.no_default,
+        let app_version = deploy_app_remote(
+            client,
+            DeployRemoteOpts {
+                app: app_config.clone(),
                 owner: Some(owner.clone()),
-                wait,
-            };
+            },
+            &base_dir_path,
+            remote_progress_handler(self.quiet),
+        )
+        .await?;
 
-            let app_version = deploy_app_remote(
-                client,
-                DeployRemoteOpts {
-                    app: app_config.clone(),
-                    owner: Some(owner.clone()),
-                },
-                &base_dir_path,
-                remote_progress_handler(self.quiet),
-            )
-            .await?;
-
+        if let Some(path) = config_path {
             let mut new_app_config = app_config_from_api(&app_version)?;
 
             if self.no_persist_id {
@@ -418,118 +322,213 @@ impl CmdAppDeploy {
                     &new_app_config.to_yaml_value()?,
                 );
                 let new_config_raw = serde_yaml::to_string(&new_merged)?;
-                std::fs::write(&app_config_path, new_config_raw).with_context(|| {
-                    format!("Could not write file: '{}'", app_config_path.display())
-                })?;
+                std::fs::write(&path, new_config_raw)
+                    .with_context(|| format!("Could not write file: '{}'", path.display()))?;
             }
+        }
 
-            wait_app(client, opts.clone(), app_version.clone(), self.quiet).await?;
+        wait_app(client, opts.clone(), app_version.clone(), self.quiet).await?;
 
-            if self.fmt.format == Some(crate::utils::render::ItemFormat::Json) {
-                println!("{}", serde_json::to_string_pretty(&app_version)?);
-            }
+        if self.fmt.format == Some(crate::utils::render::ItemFormat::Json) {
+            println!("{}", serde_json::to_string_pretty(&app_version)?);
+        }
 
-            Ok(())
+        Ok(())
+    }
+
+    async fn prepare_remote_build_from_file(
+        &self,
+        client: &WasmerClient,
+        app_config_path: &Path,
+        base_dir_path: &Path,
+    ) -> anyhow::Result<RemoteBuildInput> {
+        let config_str = std::fs::read_to_string(app_config_path)
+            .with_context(|| format!("Could not read file '{}'", app_config_path.display()))?;
+
+        let mut app_yaml: serde_yaml::Value = serde_yaml::from_str(&config_str)?;
+        let maybe_edge_app = if let Some(app_id) = app_yaml.get("app_id").and_then(|s| s.as_str()) {
+            wasmer_backend_api::query::get_app_by_id(client, app_id.to_owned())
+                .await
+                .ok()
         } else {
-            let mut owner = if let Some(owner) = &self.owner {
-                owner.clone()
-            } else if self.non_interactive {
-                anyhow::bail!("No owner specified: use --owner XXX");
-            } else {
-                let user =
-                    wasmer_backend_api::query::current_user_with_namespaces(client, None).await?;
-                crate::utils::prompts::prompt_for_namespace(
-                    "Who should own this app?",
-                    None,
-                    Some(&user),
-                )?
-            };
+            None
+        };
 
-            if !wasmer_backend_api::query::viewer_can_deploy_to_namespace(client, &owner).await? {
-                eprintln!("It seems you don't have access to {}", owner.bold());
-                if self.non_interactive {
-                    anyhow::bail!(
-                        "Please, change the owner before deploying or check your current user with `{} whoami`.",
-                        std::env::args().next().unwrap_or("wasmer".into())
-                    );
-                } else {
-                    let user =
-                        wasmer_backend_api::query::current_user_with_namespaces(client, None)
-                            .await?;
-                    owner = crate::utils::prompts::prompt_for_namespace(
-                        "Who should own this app?",
-                        None,
-                        Some(&user),
-                    )?;
-                }
-            }
+        let mut owner = self
+            .get_owner(client, &mut app_yaml, maybe_edge_app.as_ref())
+            .await?;
+        let previous_owner = owner.clone();
+        owner = self.ensure_owner_access(client, owner).await?;
 
-            let app_name = if let Some(name) = &self.app_name {
-                name.clone()
-            } else if self.non_interactive {
-                anyhow::bail!("Cannot determine app name: use --app_name <app_name>");
-            } else {
+        let mapping = app_yaml
+            .as_mapping_mut()
+            .context("app config must be a mapping")?;
+        mapping.insert("owner".into(), owner.clone().into());
+        if owner != previous_owner {
+            mapping.remove("app_id");
+            mapping.remove("name");
+        }
+
+        if mapping.get("name").is_none() && self.app_name.is_some() {
+            mapping.insert(
+                "name".into(),
+                self.app_name.as_ref().unwrap().to_string().into(),
+            );
+        } else if mapping.get("name").is_none() && maybe_edge_app.is_some() {
+            mapping.insert(
+                "name".into(),
+                maybe_edge_app.as_ref().unwrap().name.to_string().into(),
+            );
+        } else if mapping.get("name").is_none() {
+            if !self.non_interactive {
                 let default_name = base_dir_path
                     .file_name()
                     .and_then(|f| f.to_str())
                     .map(|s| s.to_owned());
-                crate::utils::prompts::prompt_new_app_name(
+                let app_name = crate::utils::prompts::prompt_new_app_name(
                     "Enter the name of the app",
                     default_name.as_deref(),
                     &owner,
                     Some(client),
                 )
-                .await?
-            };
+                .await?;
 
-            let app_config = AppConfigV1 {
-                name: Some(app_name.clone()),
-                app_id: None,
-                owner: Some(owner.clone()),
-                package: PackageSource::Path(String::from(".")),
-                domains: None,
-                locality: None,
-                env: IndexMap::new(),
-                cli_args: None,
-                capabilities: None,
-                scheduled_tasks: None,
-                volumes: None,
-                health_checks: None,
-                debug: None,
-                scaling: None,
-                redirect: None,
-                jobs: None,
-                extra: IndexMap::new(),
-            };
+                mapping.insert("name".into(), app_name.into());
+            } else {
+                if !self.quiet {
+                    eprintln!("The app.yaml does not specify any app name.");
+                    eprintln!(
+                        "Please, use the --app_name <app_name> to specify the name of the app."
+                    );
+                }
 
-            let opts = DeployAppOpts {
-                app: &app_config,
-                original_config: Some(app_config.clone().to_yaml_value()?),
-                allow_create: true,
-                make_default: !self.no_default,
-                owner: Some(owner.clone()),
-                wait,
-            };
-
-            let app_version = deploy_app_remote(
-                client,
-                DeployRemoteOpts {
-                    app: app_config.clone(),
-                    owner: Some(owner.clone()),
-                },
-                &base_dir_path,
-                remote_progress_handler(self.quiet),
-            )
-            .await?;
-
-            wait_app(client, opts.clone(), app_version.clone(), self.quiet).await?;
-
-            if self.fmt.format == Some(crate::utils::render::ItemFormat::Json) {
-                println!("{}", serde_json::to_string_pretty(&app_version)?);
+                anyhow::bail!(
+                    "Cannot proceed with the deployment as the app spec in path {} does not have\n                        a 'name' field.",
+                    app_config_path.display()
+                );
             }
-
-            Ok(())
         }
+
+        let current_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())?;
+        std::fs::write(app_config_path, serde_yaml::to_string(&current_config)?)
+            .with_context(|| format!("Could not write file: '{}'", app_config_path.display()))?;
+
+        let mut app_config = current_config.clone();
+        app_config.owner = Some(owner.clone());
+
+        match &app_config.package {
+            PackageSource::Path(_) => {}
+            other => {
+                anyhow::bail!(
+                    "remote deployments require the app's package to reference a local path (found `{other}`)"
+                );
+            }
+        }
+
+        let original_config = Some(app_config.clone().to_yaml_value()?);
+
+        Ok(RemoteBuildInput {
+            app_config,
+            owner,
+            original_config,
+            config_path: Some(app_config_path.to_path_buf()),
+        })
+    }
+
+    async fn prepare_remote_build_without_config(
+        &self,
+        client: &WasmerClient,
+        base_dir_path: &Path,
+    ) -> anyhow::Result<RemoteBuildInput> {
+        let initial_owner = if let Some(owner) = &self.owner {
+            owner.clone()
+        } else if self.non_interactive {
+            anyhow::bail!("No owner specified: use --owner XXX");
+        } else {
+            let user =
+                wasmer_backend_api::query::current_user_with_namespaces(client, None).await?;
+            crate::utils::prompts::prompt_for_namespace(
+                "Who should own this app?",
+                None,
+                Some(&user),
+            )?
+        };
+
+        let owner = self.ensure_owner_access(client, initial_owner).await?;
+
+        let app_name = if let Some(name) = &self.app_name {
+            name.clone()
+        } else if self.non_interactive {
+            anyhow::bail!("Cannot determine app name: use --app_name <app_name>");
+        } else {
+            let default_name = base_dir_path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .map(|s| s.to_owned());
+            crate::utils::prompts::prompt_new_app_name(
+                "Enter the name of the app",
+                default_name.as_deref(),
+                &owner,
+                Some(client),
+            )
+            .await?
+        };
+
+        let app_config = AppConfigV1 {
+            name: Some(app_name.clone()),
+            app_id: None,
+            owner: Some(owner.clone()),
+            package: PackageSource::Path(String::from(".")),
+            domains: None,
+            locality: None,
+            env: IndexMap::new(),
+            cli_args: None,
+            capabilities: None,
+            scheduled_tasks: None,
+            volumes: None,
+            health_checks: None,
+            debug: None,
+            scaling: None,
+            redirect: None,
+            jobs: None,
+            extra: IndexMap::new(),
+        };
+
+        let original_config = Some(app_config.clone().to_yaml_value()?);
+
+        Ok(RemoteBuildInput {
+            app_config,
+            owner,
+            original_config,
+            config_path: None,
+        })
+    }
+
+    async fn ensure_owner_access(
+        &self,
+        client: &WasmerClient,
+        owner: String,
+    ) -> anyhow::Result<String> {
+        if wasmer_backend_api::query::viewer_can_deploy_to_namespace(client, &owner).await? {
+            return Ok(owner);
+        }
+
+        eprintln!("It seems you don't have access to {}", owner.bold());
+        if self.non_interactive {
+            anyhow::bail!(
+                "Please, change the owner before deploying or check your current user with `{} whoami`.",
+                std::env::args().next().unwrap_or("wasmer".into())
+            );
+        }
+
+        let user = wasmer_backend_api::query::current_user_with_namespaces(client, None).await?;
+        let owner = crate::utils::prompts::prompt_for_namespace(
+            "Who should own this app?",
+            None,
+            Some(&user),
+        )?;
+
+        Ok(owner)
     }
 }
 

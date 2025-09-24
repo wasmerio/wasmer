@@ -200,39 +200,45 @@ where
         build_id: build_id.clone(),
     });
 
-    let mut stream =
-        wasmer_backend_api::subscription::autobuild_deployment(client, &build_id).await?;
-
     let mut final_version: Option<DeployAppVersion> = None;
+    'OUTER: loop {
+        let mut stream =
+            wasmer_backend_api::subscription::autobuild_deployment(client, &build_id).await?;
 
-    while let Some(event) = stream.next().await {
-        tracing::debug!(?event, "received autobuild event");
-        let event = event?;
-        if let Some(data) = event.data {
-            if let Some(log) = data.autobuild_deployment {
-                on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
-                let message = log.message.clone();
-                let kind = log.kind;
+        while let Some(event) = stream.next().await {
+            tracing::debug!(?event, "received autobuild event");
+            let event = event?;
+            if let Some(data) = event.data {
+                if let Some(log) = data.autobuild_deployment {
+                    on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
+                    let message = log.message.clone();
+                    let kind = log.kind;
 
-                match kind {
-                    AutoBuildDeployAppLogKind::Failed => {
-                        let msg = message.unwrap_or_else(|| "remote deployment failed".into());
-                        bail!(msg);
+                    match kind {
+                        AutoBuildDeployAppLogKind::Failed => {
+                            let msg = message.unwrap_or_else(|| "remote deployment failed".into());
+                            bail!(msg);
+                        }
+                        AutoBuildDeployAppLogKind::Complete => {
+                            let version = log.app_version.ok_or_else(|| {
+                                anyhow::anyhow!(
+                                    "remote deployment completed but no app version was returned"
+                                )
+                            })?;
+
+                            final_version = Some(version);
+                            break 'OUTER;
+                        }
+                        _ => {}
                     }
-                    AutoBuildDeployAppLogKind::Complete => {
-                        let version = log.app_version.ok_or_else(|| {
-                            anyhow::anyhow!(
-                                "remote deployment completed but no app version was returned"
-                            )
-                        })?;
-
-                        final_version = Some(version);
-                        break;
-                    }
-                    _ => {}
                 }
             }
         }
+
+        if final_version.is_some() {
+            break;
+        }
+        tracing::warn!("autobuild event stream ended, reconnecting...");
     }
 
     let version = final_version.ok_or_else(|| {
@@ -250,15 +256,14 @@ struct UploadArchive {
 }
 
 fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
-    if !base_dir.join(AppConfigV1::CANONICAL_FILE_NAME).is_file() {
-        bail!(
-            "{} does not contain an {} file",
-            base_dir.display(),
-            AppConfigV1::CANONICAL_FILE_NAME
-        );
-    }
+    // if !base_dir.join(AppConfigV1::CANONICAL_FILE_NAME).is_file() {
+    //     bail!(
+    //         "{} does not contain an {} file",
+    //         base_dir.display(),
+    //         AppConfigV1::CANONICAL_FILE_NAME
+    //     );
+    // }
 
-    let mut has_app_yaml = false;
     let mut file_count = 0usize;
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
 
@@ -290,10 +295,6 @@ fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
         if entry.file_type().is_dir() {
             writer.add_directory(format!("{rel_str}/"), SimpleFileOptions::default())?;
         } else if entry.file_type().is_file() {
-            if rel_path == Path::new(AppConfigV1::CANONICAL_FILE_NAME) {
-                has_app_yaml = true;
-            }
-
             file_count += 1;
             writer.start_file(
                 rel_str,
@@ -302,10 +303,6 @@ fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
             let mut file = std::fs::File::open(entry.path())?;
             std::io::copy(&mut file, &mut writer)?;
         }
-    }
-
-    if !has_app_yaml {
-        bail!("app.yaml must be included at the project root");
     }
 
     let cursor = writer.finish()?;
