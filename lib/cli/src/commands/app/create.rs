@@ -750,6 +750,7 @@ the app:\n"
                 owner: Some(String::from(owner)),
                 app_name: Some(app_name.into()),
                 bump: false,
+                build_remote: false,
                 template: None,
                 package: None,
                 use_local_manifest: self.use_local_manifest,

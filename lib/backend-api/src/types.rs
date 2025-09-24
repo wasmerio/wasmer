@@ -2,6 +2,12 @@ pub use queries::*;
 
 pub use cynic::Id;
 
+#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+pub struct Paginated<T> {
+    pub items: Vec<T>,
+    pub next_cursor: Option<String>,
+}
+
 #[cynic::schema_for_derives(file = r#"schema.graphql"#, module = "schema")]
 mod queries {
     use serde::Serialize;
@@ -591,6 +597,27 @@ mod queries {
         pub url: String,
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct GenerateUploadUrlVariables<'a> {
+        pub expires_after_seconds: Option<i32>,
+        pub filename: &'a str,
+        pub name: Option<&'a str>,
+        pub version: Option<&'a str>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "GenerateUploadUrlVariables")]
+    pub struct GenerateUploadUrl {
+        #[arguments(input: { expiresAfterSeconds: $expires_after_seconds, filename: $filename, name: $name, version: $version })]
+        pub generate_upload_url: Option<GenerateUploadUrlPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct GenerateUploadUrlPayload {
+        #[cynic(rename = "signedUrl")]
+        pub signed_url: SignedUrl,
+    }
+
     #[derive(cynic::QueryFragment, Debug)]
     pub struct PackageWebcConnection {
         pub page_info: PageInfo,
@@ -632,6 +659,7 @@ mod queries {
 
     #[derive(cynic::QueryVariables, Debug)]
     pub struct GetCurrentUserWithAppsVars {
+        pub first: Option<i32>,
         pub after: Option<String>,
         pub sort: Option<DeployAppsSortBy>,
     }
@@ -648,7 +676,7 @@ mod queries {
     pub struct UserWithApps {
         pub id: cynic::Id,
         pub username: String,
-        #[arguments(after: $after, sortBy: $sort)]
+        #[arguments(after: $after, sortBy: $sort, first: $first)]
         pub apps: DeployAppConnection,
     }
 
@@ -1319,6 +1347,100 @@ mod queries {
         }
     }
 
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct AutobuildConfigForZipUploadVariables<'a> {
+        pub upload_url: &'a str,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = "Mutation",
+        variables = "AutobuildConfigForZipUploadVariables"
+    )]
+    pub struct AutobuildConfigForZipUpload {
+        #[arguments(input: { uploadUrl: $upload_url })]
+        pub autobuild_config_for_zip_upload: Option<AutobuildConfigForZipUploadPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct AutobuildConfigForZipUploadPayload {
+        pub build_config: Option<BuildConfig>,
+        pub deployed_apps: Option<Vec<Option<DeployApp>>>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct BuildConfig {
+        pub build_cmd: String,
+        pub install_cmd: String,
+        pub setup_db: bool,
+        pub preset_name: String,
+        pub app_name: String,
+        pub can_deploy_without_repo: bool,
+        pub completion_time_in_seconds: i32,
+        pub branch: Option<String>,
+    }
+
+    #[derive(cynic::InputObject, Debug, Clone)]
+    pub struct WordpressDeploymentExtraData {
+        pub site_name: String,
+        pub admin_username: String,
+        pub admin_password: String,
+        pub admin_email: String,
+        pub language: Option<String>,
+    }
+
+    #[derive(cynic::InputObject, Debug, Clone)]
+    pub struct AutobuildDeploymentExtraData {
+        pub wordpress: Option<WordpressDeploymentExtraData>,
+    }
+
+    #[derive(cynic::InputObject, Debug, Clone)]
+    pub struct JobDefinitionInput {
+        pub name: Option<String>,
+        pub package: Option<String>,
+        pub command: String,
+        pub cli_args: Option<Vec<Option<String>>>,
+        pub env: Option<Vec<Option<String>>>,
+        pub timeout: Option<String>,
+    }
+
+    #[derive(cynic::QueryVariables, Debug, Clone)]
+    pub struct DeployViaAutobuildVars {
+        pub repo_url: Option<String>,
+        pub upload_url: Option<String>,
+        pub app_name: Option<String>,
+        pub app_id: Option<cynic::Id>,
+        pub owner: Option<String>,
+        pub build_cmd: Option<String>,
+        pub install_cmd: Option<String>,
+        pub enable_database: Option<bool>,
+        pub secrets: Option<Vec<SecretInput>>,
+        pub extra_data: Option<AutobuildDeploymentExtraData>,
+        pub params: Option<AutobuildDeploymentExtraData>,
+        pub managed: Option<bool>,
+        pub kind: Option<String>,
+        pub wait_for_screenshot_generation: Option<bool>,
+        pub region: Option<String>,
+        pub branch: Option<String>,
+        pub allow_existing_app: Option<bool>,
+        pub jobs: Option<Vec<JobDefinitionInput>>,
+        pub domains: Option<Vec<Option<String>>>,
+        pub client_mutation_id: Option<String>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = "Mutation", variables = "DeployViaAutobuildVars")]
+    pub struct DeployViaAutobuild {
+        #[arguments(input: { repoUrl: $repo_url, uploadUrl: $upload_url, appName: $app_name, appId: $app_id, owner: $owner, buildCmd: $build_cmd, installCmd: $install_cmd, enableDatabase: $enable_database, secrets: $secrets, extraData: $extra_data, params: $params, managed: $managed, kind: $kind, waitForScreenshotGeneration: $wait_for_screenshot_generation, region: $region, branch: $branch, allowExistingApp: $allow_existing_app, jobs: $jobs, domains: $domains, clientMutationId: $client_mutation_id })]
+        pub deploy_via_autobuild: Option<DeployViaAutobuildPayload>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug)]
+    pub struct DeployViaAutobuildPayload {
+        pub success: bool,
+        pub build_id: Uuid,
+    }
+
     #[derive(cynic::Scalar, Debug, Clone)]
     #[cynic(graphql_type = "UUID")]
     pub struct Uuid(pub String);
@@ -1420,6 +1542,42 @@ mod queries {
         pub timestamp: f64,
         pub stream: Option<LogStream>,
         pub instance_id: String,
+    }
+
+    #[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+    pub enum AutoBuildDeployAppLogKind {
+        Log,
+        PreparingToDeployStatus,
+        FetchingPlanStatus,
+        BuildStatus,
+        DeployStatus,
+        Complete,
+        Failed,
+    }
+
+    #[derive(cynic::QueryVariables, Debug)]
+    pub struct AutobuildDeploymentSubscriptionVariables {
+        pub build_id: Uuid,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    #[cynic(
+        graphql_type = "Subscription",
+        variables = "AutobuildDeploymentSubscriptionVariables"
+    )]
+    pub struct AutobuildDeploymentSubscription {
+        #[arguments(buildId: $build_id)]
+        pub autobuild_deployment: Option<AutobuildLog>,
+    }
+
+    #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    pub struct AutobuildLog {
+        pub kind: AutoBuildDeployAppLogKind,
+        pub message: Option<String>,
+        pub app_version: Option<DeployAppVersion>,
+        pub timestamp: String,
+        pub datetime: DateTime,
+        pub stream: Option<LogStream>,
     }
 
     #[derive(cynic::QueryVariables, Debug)]
@@ -1621,7 +1779,7 @@ mod queries {
         pub success: bool,
     }
 
-    #[derive(cynic::InputObject, Debug)]
+    #[derive(cynic::InputObject, Debug, Clone)]
     pub struct SecretInput {
         pub name: String,
         pub value: String,
