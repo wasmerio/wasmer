@@ -3,7 +3,7 @@ use std::{any::Any, path::PathBuf, sync::Arc};
 use crate::{
     bin_factory::spawn_exec_wasm,
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    runtime::{module_cache::HashedModuleData, task_manager::InlineWaker},
+    runtime::{module_cache::HashedModuleData, task_manager::{InlineWaker, VirtualTaskManagerExt}},
     SpawnError,
 };
 use shared_buffer::OwnedBuffer;
@@ -58,7 +58,7 @@ enum Executable {
 }
 
 impl CmdWasmer {
-    async fn run(
+    fn run(
         &self,
         parent_ctx: &FunctionEnvMut<'_, WasiEnv>,
         name: &str,
@@ -73,6 +73,7 @@ impl CmdWasmer {
 
         if let Some(what) = what {
             let mut env = config.take().ok_or(SpawnError::UnknownError)?;
+            let tm = env.runtime().task_manager().clone();
 
             // Set the arguments of the environment by replacing the state
             let mut state = env.state.fork();
@@ -93,23 +94,25 @@ impl CmdWasmer {
             let f = fs.new_open_options().read(true).open(&file_path);
             let executable = if let Ok(mut file) = f {
                 let mut data = Vec::with_capacity(file.size() as usize);
-                file.read_to_end(&mut data).await.unwrap();
+                tm.block_on_shared(file.read_to_end(&mut data)).unwrap().unwrap();
+
 
                 let bytes: bytes::Bytes = data.into();
 
                 if let Ok(container) = from_bytes(bytes.clone()) {
-                    let pkg = BinaryPackage::from_webc(&container, &*self.runtime)
-                        .await
-                        .unwrap();
+                    let pkg = tm.block_on_shared(BinaryPackage::from_webc(&container, &*self.runtime)
+                )
+                        .unwrap().unwrap();
 
                     Executable::BinaryPackage(pkg)
                 } else {
                     Executable::Wasm(OwnedBuffer::from_bytes(bytes))
                 }
-            } else if let Ok(pkg) = self.get_package(&what).await {
+            } else if let Ok(pkg) = tm.block_on_shared(self.get_package(&what)).unwrap() {
                 Executable::BinaryPackage(pkg)
             } else {
-                let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
+                // TODO: stderr_write returns a box future that we should await
+                let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) };
                 let handle =
                     OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
                 return Ok(handle);
@@ -133,37 +136,34 @@ impl CmdWasmer {
 
                     env.prepare_spawn(cmd);
 
-                    env.use_package_async(&binary).await.unwrap();
+                    tm.block_on_shared(env.use_package_async(&binary)).unwrap().unwrap();
 
                     // Now run the module
-                    spawn_exec(binary, name, env, &self.runtime).await
+                    tm.block_on_shared(spawn_exec(binary, name, env, &self.runtime)).unwrap()
                 }
                 Executable::Wasm(bytes) => {
                     let data = HashedModuleData::new(bytes);
-                    spawn_exec_wasm(data, name, env, &self.runtime).await
+                    tm.block_on_shared(spawn_exec_wasm(data, name, env, &self.runtime)).unwrap()
                 }
             }
         } else {
-            let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
+                // TODO: stderr_write returns a box future that we should await
+            
+            let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) };
             let handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
             Ok(handle)
         }
     }
 
     pub async fn get_package(&self, name: &str) -> Result<BinaryPackage, anyhow::Error> {
-        // Need to make sure this task runs on the main runtime.
-        let (tx, rx) = tokio::sync::oneshot::channel();
+        // Need to make sure this task runs on the shared runtime.
+
         let specifier = name.parse()?;
         let rt = self.runtime.clone();
-        self.runtime.task_manager().task_shared(Box::new(|| {
-            Box::pin(async move {
-                let res = BinaryPackage::from_registry(&specifier, rt.as_ref()).await;
-                tx.send(res)
-                    .expect("could not send response to output channel");
-            })
-        }))?;
-        rx.await
-            .map_err(|_| anyhow::anyhow!("package retrieval response channel died"))?
+        let result = self.runtime.task_manager().spawn_shared( async move {
+            BinaryPackage::from_registry(&specifier, rt.as_ref()).await
+        }).await?;
+        result
     }
 }
 
@@ -188,18 +188,18 @@ impl VirtualCommand for CmdWasmer {
         let mut args = args.iter().map(|s| s.as_str());
         let _alias = args.next();
         let cmd = args.next();
+        let tm = env_inner.runtime().task_manager().clone();
 
         // Check the command
-        let fut = async {
+        let result = {
             match cmd {
                 Some("run") => {
                     let what = args.next().map(|a| a.to_string());
                     let args = args.map(|a| a.to_string()).collect();
-                    self.run(parent_ctx, name, env, what, args).await
+                    self.run(parent_ctx, name, env, what, args)
                 }
                 Some("--help") | None => {
-                    unsafe { stderr_write(parent_ctx, HELP.as_bytes()) }
-                        .await
+                    env_inner.runtime().task_manager().block_on_shared(unsafe { stderr_write(parent_ctx, HELP.as_bytes()) })
                         .ok();
                     let handle =
                         OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
@@ -208,11 +208,11 @@ impl VirtualCommand for CmdWasmer {
                 Some(what) => {
                     let what = Some(what.to_string());
                     let args = args.map(|a| a.to_string()).collect();
-                    self.run(parent_ctx, name, env, what, args).await
+                    self.run(parent_ctx, name, env, what, args)
                 }
             }
         };
 
-        InlineWaker::block_on(fut)
+        result
     }
 }

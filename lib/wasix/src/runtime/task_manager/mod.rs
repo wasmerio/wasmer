@@ -273,6 +273,10 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
     /// Returns the amount of parallelism that is possible on this platform.
     fn thread_parallelism(&self) -> Result<usize, WasiThreadError>;
 
+    fn maybe_handle(&self) -> Option<tokio::RuntimeOrHandle> {
+        None
+    }
+
     /// Schedule a blocking task to run on the threadpool, explicitly
     /// transferring a [`Module`] to the task.
     ///
@@ -347,6 +351,10 @@ where
         task: Box<dyn FnOnce(Module) + Send + 'static>,
     ) -> Result<(), WasiThreadError> {
         (**self).spawn_with_module(module, task)
+    }
+
+    fn maybe_handle(&self) -> Option<tokio::RuntimeOrHandle> {
+        (**self).maybe_handle()
     }
 }
 
@@ -451,6 +459,20 @@ pub trait VirtualTaskManagerExt {
     ) -> Result<A, anyhow::Error>
     where
         A: Send + 'static;
+    
+    /// Runs the work in the background via the task managers shared background
+    /// threads while blocking the current execution until it finishs
+    async fn spawn_shared<A>(
+        &self,
+        task: impl Future<Output = A> + Send + 'static,
+    ) -> Result<A, anyhow::Error>
+    where
+        A: Send + 'static;
+    
+    fn block_on_shared<F: Future>(
+        &self,
+        future: F,
+    ) -> Result<F::Output, WasiThreadError>;
 
     fn spawn_await<O, F>(
         &self,
@@ -483,6 +505,30 @@ where
         self.task_shared(Box::new(move || work)).unwrap();
         rx.blocking_recv()
             .map_err(|_| anyhow::anyhow!("task execution failed - result channel dropped"))
+    }
+
+    fn block_on_shared<F: Future>(
+        &self,
+        future: F,
+    ) -> Result<F::Output, WasiThreadError> {
+        let rt = self.maybe_handle().ok_or(WasiThreadError::Unsupported)?;
+        Ok(rt.handle().block_on(future))
+    }
+
+        async fn spawn_shared<A>(
+        &self,
+        task: impl Future<Output = A> + Send + 'static,
+    ) -> Result<A, anyhow::Error>
+    where
+        A: Send + 'static,
+         {
+        let (tx, rx) = ::tokio::sync::oneshot::channel();
+        let work = Box::pin(async move {
+            let ret = task.await;
+            tx.send(ret).ok();
+        });
+        self.task_shared(Box::new(move || work)).unwrap();
+        rx.await.map_err(|_| anyhow::anyhow!("task execution failed - result channel dropped"))
     }
 
     fn spawn_await<O, F>(

@@ -138,6 +138,19 @@ impl VirtualTaskManager for TokioTaskManager {
         Ok(())
     }
 
+    // /// See [`VirtualTaskManager::task_shared`].
+    // fn block_on_shared<F: Future>(
+    //     &self,
+    //     future: F,
+    // ) -> Result<F::Output, WasiThreadError> {
+    //     let result = Ok(self.rt.handle().block_on(future));
+    //     result
+    // }
+    
+    fn maybe_handle(&self) -> Option<self::RuntimeOrHandle> {
+        Some(self.rt.clone())
+    }
+
     /// See [`VirtualTaskManager::task_wasm`].
     fn task_wasm(&self, task: TaskWasm) -> Result<(), WasiThreadError> {
         let run = task.run;
@@ -161,7 +174,9 @@ impl VirtualTaskManager for TokioTaskManager {
         // See the comment below for why we can't do it there yet.
         //
         // For now block_in_place at least ensures that we don't block the async runtime
-        let ret = tokio::task::block_in_place(move || {
+        let maybe_handle = tokio::runtime::Handle::try_current().ok();
+        println!("maybe_handle!!! = {:?}", maybe_handle);
+        let ret = 
             if let SpawnType::NewLinkerInstanceGroup(linker, func_env, mut store) = task.spawn_type
             {
                 WasiFunctionEnv::new_with_store(
@@ -183,8 +198,7 @@ impl VirtualTaskManager for TokioTaskManager {
                     task.call_initialize,
                     None,
                 )
-            }
-        });
+            };
 
         if let Some(trigger) = task.trigger {
             tracing::trace!("spawning task_wasm trigger in async pool");

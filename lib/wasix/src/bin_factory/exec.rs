@@ -420,10 +420,11 @@ fn resume_vfork(
             eprintln!("{err}");
         }
 
-        InlineWaker::block_on(
-            unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
+        let fs = &unsafe { ctx.data(store).get_memory_and_wasi_state(store, 0) }
                 .1
-                .fs
+                .fs;
+        InlineWaker::block_on(
+            fs
                 .close_all(),
         );
 
