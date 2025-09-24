@@ -30,6 +30,11 @@ pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>)
             trap_code,
             backtrace,
         } => (wasm_trace(&info, None, backtrace), Some(*trap_code)),
+        // An uncaught exception
+        Trap::UncaughtException { backtrace, .. } => (
+            wasm_trace(&info, None, backtrace),
+            Some(TrapCode::UncaughtException),
+        ),
     }
 }
 

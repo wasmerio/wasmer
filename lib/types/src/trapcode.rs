@@ -63,6 +63,9 @@ pub enum TrapCode {
 
     /// An exception was thrown but it was left uncaught.
     UncaughtException = 11,
+
+    /// A throw_ref was executed but the exnref was not initialized.
+    UninitializedExnRef = 12,
 }
 
 impl TrapCode {
@@ -81,6 +84,7 @@ impl TrapCode {
             Self::UnreachableCodeReached => "unreachable",
             Self::UnalignedAtomic => "unaligned atomic access",
             Self::UncaughtException => "uncaught exception",
+            Self::UninitializedExnRef => "uninitialized exnref",
         }
     }
 }
@@ -100,6 +104,7 @@ impl Display for TrapCode {
             Self::UnreachableCodeReached => "unreachable",
             Self::UnalignedAtomic => "unalign_atom",
             Self::UncaughtException => "uncaught_exception",
+            Self::UninitializedExnRef => "uninitialized_exnref",
         };
         f.write_str(identifier)
     }
@@ -121,6 +126,8 @@ impl FromStr for TrapCode {
             "bad_toint" => Ok(Self::BadConversionToInteger),
             "unreachable" => Ok(Self::UnreachableCodeReached),
             "unalign_atom" => Ok(Self::UnalignedAtomic),
+            "uncaught_exception" => Ok(Self::UncaughtException),
+            "uninitialized_exnref" => Ok(Self::UninitializedExnRef),
             _ => Err(()),
         }
     }
