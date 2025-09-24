@@ -75,13 +75,7 @@
 <a href="#74" id="74">74</a>
 <a href="#75" id="75">75</a>
 <a href="#76" id="76">76</a>
-<a href="#77" id="77">77</a>
-<a href="#78" id="78">78</a>
-<a href="#79" id="79">79</a>
-<a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a>
-<a href="#82" id="82">82</a>
-<a href="#83" id="83">83</a></pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code, unused)]
+<a href="#77" id="77">77</a></pre></div><pre class="rust"><code><span class="attr">#![allow(dead_code, unused)]
 </span><span class="kw">use </span>std::{
     sync::{Arc, Condvar, Mutex},
     task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
@@ -117,13 +111,7 @@
         <span class="kw">unsafe </span>{ Waker::from_raw(raw_waker) }
     }
 
-    <span class="attr">#[cfg(not(feature = <span class="string">"js"</span>))]
-    </span><span class="kw">pub fn </span>block_on&lt;<span class="lifetime">'a</span>, A&gt;(task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">'a</span>) -&gt; A {
-        futures::executor::block_on(task)
-    }
-
-    <span class="attr">#[cfg(feature = <span class="string">"js"</span>)]
-    </span><span class="kw">pub fn </span>block_on&lt;<span class="lifetime">'a</span>, A&gt;(task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">'a</span>) -&gt; A {
+    <span class="kw">pub fn </span>block_on&lt;<span class="lifetime">'a</span>, A&gt;(task: <span class="kw">impl </span>Future&lt;Output = A&gt; + <span class="lifetime">'a</span>) -&gt; A {
         <span class="comment">// Create the waker
         </span><span class="kw">let </span>inline_waker = <span class="self">Self</span>::new();
         <span class="kw">let </span>waker = inline_waker.as_waker();
