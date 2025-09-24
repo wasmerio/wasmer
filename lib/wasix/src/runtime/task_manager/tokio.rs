@@ -157,29 +157,34 @@ impl VirtualTaskManager for TokioTaskManager {
             }
         };
 
-        let ret = if let SpawnType::NewLinkerInstanceGroup(linker, func_env, mut store) =
-            task.spawn_type
-        {
-            WasiFunctionEnv::new_with_store(
-                task.module,
-                env,
-                task.globals,
-                make_memory,
-                task.update_layout,
-                task.call_initialize,
-                Some((linker, &mut func_env.into_mut(&mut store))),
-            )
-        } else {
-            WasiFunctionEnv::new_with_store(
-                task.module,
-                env,
-                task.globals,
-                make_memory,
-                task.update_layout,
-                task.call_initialize,
-                None,
-            )
-        };
+        // This should actually run in the blocking thread, just like the task itself.
+        // See the comment below for why we can't do it there yet.
+        //
+        // For now block_in_place at least ensures that we don't block the async runtime
+        let ret = tokio::task::block_in_place(move || {
+            if let SpawnType::NewLinkerInstanceGroup(linker, func_env, mut store) = task.spawn_type
+            {
+                WasiFunctionEnv::new_with_store(
+                    task.module,
+                    env,
+                    task.globals,
+                    make_memory,
+                    task.update_layout,
+                    task.call_initialize,
+                    Some((linker, &mut func_env.into_mut(&mut store))),
+                )
+            } else {
+                WasiFunctionEnv::new_with_store(
+                    task.module,
+                    env,
+                    task.globals,
+                    make_memory,
+                    task.update_layout,
+                    task.call_initialize,
+                    None,
+                )
+            }
+        });
 
         if let Some(trigger) = task.trigger {
             tracing::trace!("spawning task_wasm trigger in async pool");
