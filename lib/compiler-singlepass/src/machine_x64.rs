@@ -682,7 +682,7 @@ impl MachineX86_64 {
             },
         )?;
 
-        self.jmp_on_different(retry)?;
+        self.assembler.emit_jmp(Condition::NotEqual, retry)?;
 
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
         self.release_gpr(compare);
@@ -2751,28 +2751,30 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.assembler.emit_cmp(size, source, dest)
     }
-    // (un)conditionnal jmp
-    // (un)conditionnal jmp
+
+    // unconditionnal jmp
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::None, label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Equal, label)
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::NotEqual, label)
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Above, label)
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::AboveEqual, label)
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::BelowEqual, label)
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Carry, label)
+
+    fn jmp_on_condition(
+        &mut self,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation<Self::GPR, Self::SIMD>,
+        dest: AbstractLocation<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_cmp(size, source, dest)?;
+        let cond = match cond {
+            UnsignedCondition::Equal => Condition::Equal,
+            UnsignedCondition::NotEqual => Condition::NotEqual,
+            UnsignedCondition::Above => Condition::Above,
+            UnsignedCondition::AboveEqual => Condition::AboveEqual,
+            UnsignedCondition::Below => Condition::Below,
+            UnsignedCondition::BelowEqual => Condition::BelowEqual,
+        };
+        self.assembler.emit_jmp(cond, label)
     }
 
     // jmp table
