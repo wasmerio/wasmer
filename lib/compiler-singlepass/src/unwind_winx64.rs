@@ -1,6 +1,10 @@
 //! Windows x64 ABI unwind information.
 
-use crate::unwind::UnwindOps;
+use crate::{
+    location::Reg,
+    unwind::{UnwindOps, UnwindRegister},
+    x64_decl::{GPR, XMM},
+};
 
 /// Maximum (inclusive) size of a "small" stack allocation
 const SMALL_ALLOC_MAX_SIZE: u32 = 128;
@@ -240,7 +244,9 @@ impl UnwindInfo {
 
 const UNWIND_RBP_REG: u8 = 5;
 
-pub(crate) fn create_unwind_info_from_insts(insts: &[(usize, UnwindOps)]) -> Option<UnwindInfo> {
+pub(crate) fn create_unwind_info_from_insts(
+    insts: &[(usize, UnwindOps<GPR, XMM>)],
+) -> Option<UnwindInfo> {
     let mut unwind_codes = vec![];
     let mut frame_register_offset = 0;
     let mut max_unwind_offset = 0;
@@ -258,26 +264,18 @@ pub(crate) fn create_unwind_info_from_insts(insts: &[(usize, UnwindOps)]) -> Opt
                 unwind_codes.push(UnwindCode::SetFPReg { instruction_offset });
             }
             UnwindOps::SaveRegister { reg, bp_neg_offset } => match reg {
-                0..=15 => {
-                    // GPR reg
-                    static FROM_DWARF: [u8; 16] =
-                        [0, 2, 1, 3, 6, 7, 5, 4, 8, 9, 10, 11, 12, 13, 14, 15];
-                    unwind_codes.push(UnwindCode::SaveReg {
-                        instruction_offset,
-                        reg: FROM_DWARF[reg as usize],
-                        stack_offset: bp_neg_offset as u32,
-                    });
-                }
-                17..=32 => {
-                    unwind_codes.push(UnwindCode::SaveXmm {
-                        instruction_offset,
-                        reg: reg as u8 - 17,
-                        stack_offset: bp_neg_offset as u32,
-                    });
-                }
-                _ => {
-                    unreachable!("unknown register index {}", reg);
-                }
+                UnwindRegister::GPR(reg) => unwind_codes.push(UnwindCode::SaveReg {
+                    instruction_offset,
+                    // NOTE: We declare the register order in the same way as expected by the x64 exception handling ABI.
+                    reg: reg.into_index() as u8,
+                    stack_offset: bp_neg_offset as u32,
+                }),
+                UnwindRegister::FPR(reg) => unwind_codes.push(UnwindCode::SaveXmm {
+                    instruction_offset,
+                    // NOTE: We declare the register order in the same way as expected by the x64 exception handling ABI.
+                    reg: reg.into_index() as u8,
+                    stack_offset: bp_neg_offset as u32,
+                }),
             },
             UnwindOps::Push2Regs { .. } => {
                 unreachable!("no aarch64 on x64");
