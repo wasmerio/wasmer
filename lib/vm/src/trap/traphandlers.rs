@@ -112,13 +112,35 @@ unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
             None
         }
     }
-    match val.and_then(|val| {
-        if val & MAGIC == MAGIC {
-            Some(val & 0xf)
+    if cfg!(target_arch = "riscv64") {
+        let addr = addr as *mut u32;
+        // Check if 'unimp' instruction
+        val = if read(addr) == 0xc0001073 {
+            // Read from the instruction we emitted: 'addi a0, xzero, $payload'
+            // and take the encoded immediate value (upper 12-bits).
+            let prev_insn = read(addr.sub(1));
+            if (prev_insn & 0xffff) == 0x0513 {
+                Some((prev_insn >> 20) as u8)
+            } else {
+                None
+            }
         } else {
             None
-        }
-    }) {
+        };
+    }
+
+    // The direct encoding of a trap into the instruction is unused on RISC-V:
+    if cfg!(target_arch = "x86_64") || cfg!(target_arch = "aarch64") {
+        val = val.and_then(|val| {
+            if val & MAGIC == MAGIC {
+                Some(val & 0xf)
+            } else {
+                None
+            }
+        });
+    }
+
+    match val {
         None => None,
         Some(val) => match val {
             0 => Some(TrapCode::StackOverflow),

@@ -6,12 +6,43 @@ use std::fmt::Debug;
 #[cfg(feature = "unwind")]
 use wasmer_types::target::Architecture;
 
+use crate::location;
+
+#[derive(Clone, Debug, Copy)]
+#[allow(clippy::upper_case_acronyms)]
+pub enum UnwindRegister<R: location::Reg, S: location::Reg> {
+    GPR(R),
+    FPR(S),
+}
+
+#[cfg(feature = "unwind")]
+impl<R: location::Reg, S: location::Reg> UnwindRegister<R, S> {
+    pub(crate) fn dwarf_index(&self) -> gimli::Register {
+        match self {
+            Self::GPR(reg) => reg.to_dwarf(),
+            Self::FPR(reg) => reg.to_dwarf(),
+        }
+    }
+}
+
 #[derive(Clone, Debug)]
-pub enum UnwindOps {
-    PushFP { up_to_sp: u32 },
-    Push2Regs { reg1: u16, reg2: u16, up_to_sp: u32 },
+pub enum UnwindOps<R: location::Reg, S: location::Reg> {
+    PushFP {
+        up_to_sp: u32,
+    },
+    SubtractFP {
+        up_to_sp: u32,
+    },
+    Push2Regs {
+        reg1: UnwindRegister<R, S>,
+        reg2: UnwindRegister<R, S>,
+        up_to_sp: u32,
+    },
     DefineNewFrame,
-    SaveRegister { reg: u16, bp_neg_offset: i32 },
+    SaveRegister {
+        reg: UnwindRegister<R, S>,
+        bp_neg_offset: i32,
+    },
 }
 
 #[cfg(not(feature = "unwind"))]
@@ -74,6 +105,22 @@ pub fn create_systemv_cie(arch: Architecture) -> Option<gimli::write::CommonInfo
                 AArch64::X30,
             );
             entry.add_instruction(CallFrameInstruction::Cfa(AArch64::SP, 0));
+            Some(entry)
+        }
+        Architecture::Riscv64(_) => {
+            use gimli::RiscV;
+
+            let mut entry = CommonInformationEntry::new(
+                Encoding {
+                    address_size: 8,
+                    format: Format::Dwarf32,
+                    version: 1,
+                },
+                1,
+                -8,
+                RiscV::RA,
+            );
+            entry.add_instruction(CallFrameInstruction::Cfa(RiscV::SP, 0));
             Some(entry)
         }
         _ => None,
