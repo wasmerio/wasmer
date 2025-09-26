@@ -53,7 +53,7 @@ impl InterestGuard {
 
     pub fn interest(&mut self, interest: InterestType) {
         if let Some(selector) = self.selector.upgrade() {
-            selector.handle(self.token, |h| h.push_interest(interest));
+            selector.push_interest(self.token, interest);
         }
     }
 
