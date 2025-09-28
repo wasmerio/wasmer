@@ -872,23 +872,7 @@ impl MachineRiscv {
         ret: Location,
         signed: bool,
     ) -> Result<(), CompileError> {
-        match ret {
-            Location::GPR(_) => {
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32, signed)?;
-            }
-            Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-                })?;
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32, signed)?;
-                self.move_location(Size::S32, Location::GPR(tmp), ret)?;
-                self.release_gpr(tmp);
-            }
-            _ => {
-                codegen_error!("singlepass emit_cmpop_i32_dynamic_b unreachable");
-            }
-        }
-        Ok(())
+        self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S32, signed)
     }
 
     /// I64 comparison with.
@@ -899,23 +883,7 @@ impl MachineRiscv {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
-        match ret {
-            Location::GPR(_) => {
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64, false)?;
-            }
-            Location::Memory(_, _) => {
-                let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-                    CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-                })?;
-                self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64, false)?;
-                self.move_location(Size::S64, Location::GPR(tmp), ret)?;
-                self.release_gpr(tmp);
-            }
-            _ => {
-                codegen_error!("singlepass emit_cmpop_64_dynamic_b unreachable");
-            }
-        }
-        Ok(())
+        self.emit_relaxed_cmp(c, loc_a, loc_b, ret, Size::S64, false)
     }
 
     /// NOTE: As observed on the VisionFive 2 board, when an unaligned memory write happens to write out of bounds (and thus triggers SIGSEGV),
