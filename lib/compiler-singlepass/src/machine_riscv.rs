@@ -97,9 +97,6 @@ const CANONICAL_NAN_F64: u64 = 0x7ff8000000000000;
 const CANONICAL_NAN_F32: u32 = 0x7fc00000;
 
 impl MachineRiscv {
-    /// The number of locals that fit in a GPR.
-    const LOCALS_IN_REGS: usize = 10;
-
     /// Creates a new RISC-V machine for code generation.
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
         let has_fpu = match target {
@@ -2123,7 +2120,7 @@ impl Machine for MachineRiscv {
     }
 
     fn is_local_on_stack(&self, idx: usize) -> bool {
-        idx > Self::LOCALS_IN_REGS
+        idx > 9
     }
 
     // Determine a local's location.
@@ -2140,13 +2137,7 @@ impl Machine for MachineRiscv {
             7 => Location::GPR(GPR::X24),
             8 => Location::GPR(GPR::X25),
             9 => Location::GPR(GPR::X26),
-            _ => {
-                assert!(idx >= Self::LOCALS_IN_REGS);
-                Location::Memory(
-                    GPR::Fp,
-                    -(((idx - Self::LOCALS_IN_REGS) * 8 + callee_saved_regs_size) as i32),
-                )
-            }
+            _ => Location::Memory(GPR::Fp, -(((idx - 9) * 8 + callee_saved_regs_size) as i32)),
         }
     }
 
