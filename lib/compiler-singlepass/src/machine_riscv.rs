@@ -1074,7 +1074,8 @@ impl MachineRiscv {
             _ => codegen_error!("singlepass emit_relaxed_load unreachable"),
         }
         if dst != dest {
-            self.move_location(sz, dest, dst)?;
+            // Memory location is used for a local, save the entire register!
+            self.move_location(Size::S64, dest, dst)?;
         }
         for r in temps {
             self.release_gpr(r);
@@ -1141,7 +1142,8 @@ impl MachineRiscv {
         // Load completed
         self.emit_label(label_completed)?;
         if dst != dest {
-            self.move_location(sz, dest, dst)?;
+            // Memory location is used for a local, save the entire register!
+            self.move_location(Size::S64, dest, dst)?;
         }
 
         for tmp in temps {
