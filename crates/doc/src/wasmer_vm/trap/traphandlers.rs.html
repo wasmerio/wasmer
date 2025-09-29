@@ -1136,7 +1136,9 @@
 <a href="#1135" id="1135">1135</a>
 <a href="#1136" id="1136">1136</a>
 <a href="#1137" id="1137">1137</a>
-<a href="#1138" id="1138">1138</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a></pre></div><pre class="rust"><code><span class="comment">// This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/main/docs/ATTRIBUTIONS.md
 
 </span><span class="attr">#![allow(static_mut_refs)]
@@ -1150,7 +1152,7 @@
 <span class="kw">use </span>core::ptr::{read, read_unaligned};
 <span class="kw">use </span>corosensei::stack::DefaultStack;
 <span class="kw">use </span>corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-<span class="kw">use </span>corosensei::{Coroutine, CoroutineResult, Yielder};
+<span class="kw">use </span>corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
 <span class="kw">use </span>scopeguard::defer;
 <span class="kw">use </span>std::any::Any;
 <span class="kw">use </span>std::cell::Cell;
@@ -2088,7 +2090,7 @@
     <span class="kw">let </span><span class="kw-2">mut </span>stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     <span class="comment">// Create a coroutine with a new stack to run the function on.
-    </span><span class="kw">let </span><span class="kw-2">mut </span>coro = Coroutine::with_stack(<span class="kw-2">&amp;mut *</span>stack, <span class="kw">move </span>|yielder, ()| {
+    </span><span class="kw">let </span>coro = ScopedCoroutine::with_stack(<span class="kw-2">&amp;mut *</span>stack, <span class="kw">move </span>|yielder, ()| {
         <span class="comment">// Save the yielder to TLS so that it can be used later.
         </span>YIELDER.with(|cell| cell.set(<span class="prelude-val">Some</span>(yielder.into())));
 
@@ -2100,20 +2102,22 @@
         YIELDER.with(|cell| cell.set(<span class="prelude-val">None</span>));
     }
 
-    <span class="comment">// Set up metadata for the trap handler for the duration of the coroutine
-    // execution. This is restored to its previous value afterwards.
-    </span>TrapHandlerContext::install(trap_handler, coro.trap_handler(), || {
-        <span class="kw">match </span>coro.resume(()) {
-            CoroutineResult::Yield(trap) =&gt; {
-                <span class="comment">// This came from unwind_with which requires that there be only
-                // Wasm code on the stack.
-                </span><span class="kw">unsafe </span>{
-                    coro.force_reset();
+    coro.scope(|<span class="kw-2">mut </span>coro_ref| {
+        <span class="comment">// Set up metadata for the trap handler for the duration of the coroutine
+        // execution. This is restored to its previous value afterwards.
+        </span>TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
+            <span class="kw">match </span>coro_ref.resume(()) {
+                CoroutineResult::Yield(trap) =&gt; {
+                    <span class="comment">// This came from unwind_with which requires that there be only
+                    // Wasm code on the stack.
+                    </span><span class="kw">unsafe </span>{
+                        coro_ref.force_reset();
+                    }
+                    <span class="prelude-val">Err</span>(trap)
                 }
-                <span class="prelude-val">Err</span>(trap)
+                CoroutineResult::Return(result) =&gt; result,
             }
-            CoroutineResult::Return(result) =&gt; result,
-        }
+        })
     })
 }
 
