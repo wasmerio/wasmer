@@ -12,7 +12,7 @@ use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-use corosensei::{Coroutine, CoroutineResult, Yielder};
+use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
 use std::any::Any;
 use std::cell::Cell;
@@ -950,7 +950,7 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
 
     // Create a coroutine with a new stack to run the function on.
-    let mut coro = Coroutine::with_stack(&mut *stack, move |yielder, ()| {
+    let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
         // Save the yielder to TLS so that it can be used later.
         YIELDER.with(|cell| cell.set(Some(yielder.into())));
 
@@ -962,20 +962,22 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
         YIELDER.with(|cell| cell.set(None));
     }
 
-    // Set up metadata for the trap handler for the duration of the coroutine
-    // execution. This is restored to its previous value afterwards.
-    TrapHandlerContext::install(trap_handler, coro.trap_handler(), || {
-        match coro.resume(()) {
-            CoroutineResult::Yield(trap) => {
-                // This came from unwind_with which requires that there be only
-                // Wasm code on the stack.
-                unsafe {
-                    coro.force_reset();
+    coro.scope(|mut coro_ref| {
+        // Set up metadata for the trap handler for the duration of the coroutine
+        // execution. This is restored to its previous value afterwards.
+        TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
+            match coro_ref.resume(()) {
+                CoroutineResult::Yield(trap) => {
+                    // This came from unwind_with which requires that there be only
+                    // Wasm code on the stack.
+                    unsafe {
+                        coro_ref.force_reset();
+                    }
+                    Err(trap)
                 }
-                Err(trap)
+                CoroutineResult::Return(result) => result,
             }
-            CoroutineResult::Return(result) => result,
-        }
+        })
     })
 }
 
