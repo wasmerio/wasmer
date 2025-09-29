@@ -6972,6 +6972,7 @@ dependencies = [
  "wasmer-compiler-singlepass",
  "wasmer-config",
  "wasmer-package",
+ "wasmer-sdk",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasix",
@@ -7255,6 +7256,34 @@ dependencies = [
  "wasmer-config",
  "wasmer-types",
  "webc",
+]
+
+[[package]]
+name = "wasmer-sdk"
+version = "6.1.0-rc.5"
+dependencies = [
+ "anyhow",
+ "bytes",
+ "bytesize",
+ "futures-util",
+ "ignore",
+ "rand 0.9.2",
+ "reqwest",
+ "semver 1.0.27",
+ "serde",
+ "serde_yaml",
+ "sha2",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "toml 0.8.23",
+ "tracing",
+ "url",
+ "walkdir",
+ "wasmer-backend-api",
+ "wasmer-config",
+ "wasmer-package",
+ "zip",
 ]
 
 [[package]]

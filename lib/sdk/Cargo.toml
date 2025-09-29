@@ -1,0 +1,38 @@
+[package]
+name = "wasmer-sdk"
+description = "The Wasmer SDK - provides Wasmer and Wasmer Edge related functionality."
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+readme = "README.md"
+
+[dependencies]
+wasmer-backend-api = { path = "../backend-api", version = "=0.601.0-rc.5" }
+wasmer-config = { path = "../config", version = "=0.601.0-rc.5" }
+wasmer-package = { path = "../package", version = "=0.601.0-rc.5" }
+
+reqwest = { workspace = true, default-features = false, features = ["rustls-tls", "json", "multipart", "gzip", "stream"] }
+tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
+bytes = { workspace = true }
+futures-util = { workspace = true }
+serde = { workspace = true, features = ["derive"] }
+serde_yaml = { workspace = true }
+thiserror = { workspace = true }
+anyhow = { workspace = true }
+sha2 = { workspace = true }
+semver = { workspace = true }
+toml = { workspace = true }
+bytesize = { workspace = true }
+walkdir = "2"
+zip = { version = "2.4", default-features = false, features = ["deflate"] }
+tracing = { workspace = true }
+ignore.workspace = true
+
+[dev-dependencies]
+rand = "0.9.1"
+tempfile = "3"
+url = "2"

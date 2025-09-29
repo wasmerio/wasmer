@@ -57,6 +57,7 @@ members = [
 	"lib/derive",
 	"lib/sys-utils",
 	"lib/types",
+	"lib/sdk",
 	"lib/virtual-io",
 	"lib/virtual-fs",
 	"lib/virtual-net",
@@ -72,7 +73,7 @@ members = [
 	"tests/lib/compiler-test-derive",
 	"tests/lib/wast",
 	"tests/wasi-wast",
-	"tests/wasmer-argus",
+	"tests/wasmer-argus", "lib/sdk",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
@@ -91,6 +92,7 @@ version = "6.1.0-rc.5"
 wasmer-package = { version = "0.601.0-rc.5", path = "lib/package" }
 wasmer-config = { path = "./lib/config" }
 wasmer-wasix = { path = "./lib/wasix" }
+wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
 webc = "=9.0"
@@ -167,6 +169,7 @@ derive_more = { version = "2.0.1", features = ["debug", "display"] }
 wasm-encoder = { version = "0.235.0", default-features = false, features = [
 	"std",
 ] }
+ignore = "0.4"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

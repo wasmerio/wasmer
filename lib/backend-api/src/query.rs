@@ -861,6 +861,56 @@ pub async fn get_signed_url_for_package_upload(
         .await
         .map(|r| r.get_signed_url_for_package_upload)
 }
+
+/// Request a signed URL for uploading an app archive via the autobuild flow.
+pub async fn generate_upload_url(
+    client: &WasmerClient,
+    filename: &str,
+    name: Option<&str>,
+    version: Option<&str>,
+    expires_after_seconds: Option<i32>,
+) -> Result<SignedUrl, anyhow::Error> {
+    let payload = client
+        .run_graphql_strict(types::GenerateUploadUrl::build(
+            GenerateUploadUrlVariables {
+                expires_after_seconds,
+                filename,
+                name,
+                version,
+            },
+        ))
+        .await
+        .and_then(|res| {
+            res.generate_upload_url
+                .context("generateUploadUrl mutation did not return data")
+        })?;
+
+    Ok(payload.signed_url)
+}
+
+/// Retrieve autobuild metadata derived from a previously uploaded archive.
+pub async fn autobuild_config_for_zip_upload(
+    client: &WasmerClient,
+    upload_url: &str,
+) -> Result<Option<types::AutobuildConfigForZipUploadPayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::AutobuildConfigForZipUpload::build(
+            AutobuildConfigForZipUploadVariables { upload_url },
+        ))
+        .await
+        .map(|res| res.autobuild_config_for_zip_upload)
+}
+
+/// Trigger an autobuild deployment for an uploaded archive or repository.
+pub async fn deploy_via_autobuild(
+    client: &WasmerClient,
+    vars: DeployViaAutobuildVars,
+) -> Result<Option<types::DeployViaAutobuildPayload>, anyhow::Error> {
+    client
+        .run_graphql_strict(types::DeployViaAutobuild::build(vars))
+        .await
+        .map(|res| res.deploy_via_autobuild)
+}
 /// Push a package to the registry.
 pub async fn push_package_release(
     client: &WasmerClient,
@@ -1362,6 +1412,39 @@ pub async fn get_app_version_by_id_with_app(
     Ok((app, version))
 }
 
+pub async fn user_apps_page(
+    client: &WasmerClient,
+    sort: types::DeployAppsSortBy,
+    cursor: Option<String>,
+) -> Result<Paginated<types::DeployApp>, anyhow::Error> {
+    let user = client
+        .run_graphql(types::GetCurrentUserWithApps::build(
+            GetCurrentUserWithAppsVars {
+                after: cursor,
+                first: Some(10),
+                sort: Some(sort),
+            },
+        ))
+        .await?
+        .viewer
+        .context("not logged in")?;
+
+    let apps: Vec<_> = user
+        .apps
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    let out = Paginated {
+        items: apps,
+        next_cursor: user.apps.page_info.end_cursor,
+    };
+
+    Ok(out)
+}
+
 /// List all apps that are accessible by the current user.
 ///
 /// NOTE: this will only include the first pages and does not provide pagination.
@@ -1373,6 +1456,7 @@ pub async fn user_apps(
         let user = client
             .run_graphql(types::GetCurrentUserWithApps::build(
                 GetCurrentUserWithAppsVars {
+                    first: Some(10),
                     after: cursor,
                     sort: Some(sort),
                 },
@@ -1434,6 +1518,43 @@ pub async fn user_accessible_apps(
     }
 
     Ok((user_apps, ns_apps.merge()).merge())
+}
+
+/// Get apps for a specific namespace.
+///
+/// NOTE: only retrieves the first page and does not do pagination.
+pub async fn namespace_apps_page(
+    client: &WasmerClient,
+    namespace: String,
+    sort: types::DeployAppsSortBy,
+    cursor: Option<String>,
+) -> Result<Paginated<types::DeployApp>, anyhow::Error> {
+    let namespace = namespace.clone();
+
+    let res = client
+        .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
+            name: namespace.to_string(),
+            after: cursor,
+            sort: Some(sort),
+        }))
+        .await?
+        .get_namespace
+        .context("namespace not found")?
+        .apps;
+
+    let apps: Vec<_> = res
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    let out = Paginated {
+        items: apps,
+        next_cursor: res.page_info.end_cursor,
+    };
+
+    Ok(out)
 }
 
 /// Get apps for a specific namespace.
