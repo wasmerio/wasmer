@@ -169,6 +169,7 @@ derive_more = { version = "2.0.1", features = ["debug", "display"] }
 wasm-encoder = { version = "0.235.0", default-features = false, features = [
 	"std",
 ] }
+ignore = "0.4"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

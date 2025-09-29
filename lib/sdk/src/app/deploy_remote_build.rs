@@ -10,7 +10,6 @@ use std::{
 use anyhow::{bail, Context as _};
 use futures_util::StreamExt;
 use reqwest::header::CONTENT_TYPE;
-use walkdir::WalkDir;
 use wasmer_backend_api::{
     types::{AutoBuildDeployAppLogKind, AutobuildLog, DeployAppVersion, Id},
     WasmerClient,
@@ -25,6 +24,8 @@ pub use wasmer_backend_api::types::BuildConfig;
 pub struct DeployRemoteOpts {
     pub app: AppConfigV1,
     pub owner: Option<String>,
+    // Don't respect the default ignores.
+    pub no_ignore: bool,
 }
 
 /// Events emitted during the remote deployment process.
@@ -99,7 +100,11 @@ where
     on_progress(DeployRemoteEvent::CreatingArchive {
         path: base_dir.to_path_buf(),
     });
-    let archive = create_zip_archive(base_dir)?;
+
+    let zip_opts = ZipOptions {
+        standard_ignores: !opts.no_ignore,
+    };
+    let archive = create_zip_archive(base_dir, zip_opts)?;
     on_progress(DeployRemoteEvent::ArchiveCreated {
         file_count: archive.file_count,
         archive_size: archive.bytes.len() as u64,
@@ -255,35 +260,50 @@ struct UploadArchive {
     file_count: usize,
 }
 
-fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
-    // if !base_dir.join(AppConfigV1::CANONICAL_FILE_NAME).is_file() {
-    //     bail!(
-    //         "{} does not contain an {} file",
-    //         base_dir.display(),
-    //         AppConfigV1::CANONICAL_FILE_NAME
-    //     );
-    // }
+struct ZipOptions {
+    standard_ignores: bool,
+}
 
+fn create_zip_archive(base_dir: &Path, opts: ZipOptions) -> Result<UploadArchive, anyhow::Error> {
     let mut file_count = 0usize;
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
 
-    let mut entries = WalkDir::new(base_dir).into_iter();
-    while let Some(entry) = entries.next() {
+    let walker = {
+        let mut b = ignore::WalkBuilder::new(base_dir);
+        b.follow_links(false)
+            .standard_filters(opts.standard_ignores)
+            .git_ignore(opts.standard_ignores)
+            .git_global(opts.standard_ignores)
+            .git_exclude(opts.standard_ignores)
+            .ignore(opts.standard_ignores)
+            .require_git(false);
+
+        // Ignore .shipit directories, since they are for local use only.
+        let mut overrides = ignore::overrides::OverrideBuilder::new(".");
+        overrides.add("!.shipit").ok();
+        b.overrides(overrides.build()?);
+
+        if opts.standard_ignores {
+            b.add_custom_ignore_filename(".wasmerignore");
+        }
+
+        b.build()
+    };
+
+    let entries = walker.into_iter();
+    for entry in entries {
         let entry = entry?;
 
-        if entry.depth() == 0 {
-            continue;
-        }
+        let ty = entry.file_type().ok_or_else(|| {
+            anyhow::anyhow!(
+                "failed to determine file type for '{}'",
+                entry.path().display()
+            )
+        })?;
 
         let rel_path = entry.path().strip_prefix(base_dir)?;
-        if should_skip_archive_entry(rel_path) {
-            if entry.file_type().is_dir() {
-                entries.skip_current_dir();
-            }
-            continue;
-        }
 
-        if entry.file_type().is_symlink() {
+        if ty.is_symlink() {
             bail!(
                 "cannot deploy projects containing symbolic links (found '{}')",
                 rel_path.display()
@@ -292,9 +312,9 @@ fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
 
         let rel_str = rel_path.to_string_lossy().replace('\\', "/");
 
-        if entry.file_type().is_dir() {
+        if ty.is_dir() {
             writer.add_directory(format!("{rel_str}/"), SimpleFileOptions::default())?;
-        } else if entry.file_type().is_file() {
+        } else if ty.is_file() {
             file_count += 1;
             writer.start_file(
                 rel_str,
@@ -309,29 +329,6 @@ fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
     let bytes = cursor.into_inner();
 
     Ok(UploadArchive { bytes, file_count })
-}
-
-fn should_skip_archive_entry(path: &Path) -> bool {
-    const SKIP_DIRS: &[&str] = &[".git", ".wasmer"];
-
-    if let Some(first) = path
-        .components()
-        .next()
-        .and_then(|c| c.as_os_str().to_str())
-    {
-        if SKIP_DIRS.contains(&first) {
-            return true;
-        }
-    } else {
-        return false;
-    }
-
-    // Skip the local runtime cache shipped by the CLI.
-    if path == Path::new("wasmer.app") {
-        return true;
-    }
-
-    false
 }
 
 fn sanitize_archive_name(input: &str) -> String {
@@ -358,61 +355,79 @@ fn sanitize_archive_name(input: &str) -> String {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use std::{fs, io::Cursor};
-    use tempfile::tempdir;
-    use zip::ZipArchive;
+    use std::{collections::HashSet, fs, io::Cursor, path::Path};
+    use tempfile::TempDir;
 
     #[test]
-    fn create_zip_archive_ignores_wasmer_app_file() {
-        let tmp = tempdir().unwrap();
-        let base = tmp.path();
+    fn create_zip_archive_respects_ignore_files() -> anyhow::Result<()> {
+        let project = create_sample_project()?;
+        let archive = create_zip_archive(
+            project.path(),
+            ZipOptions {
+                standard_ignores: true,
+            },
+        )?;
 
-        // Required app configuration file.
-        fs::write(
-            base.join(AppConfigV1::CANONICAL_FILE_NAME),
-            "name: demo\nowner: demo\n",
-        )
-        .unwrap();
-        // Extra file that should be kept in the archive.
-        fs::write(base.join("README.md"), "# demo\n").unwrap();
-        // Local runtime cache file that must be ignored.
-        fs::write(base.join("wasmer.app"), "{}\n").unwrap();
-        // Directories that should be skipped entirely.
-        fs::create_dir_all(base.join(".git/subdir")).unwrap();
-        fs::write(base.join(".git/config"), "[core]\n").unwrap();
-        fs::create_dir_all(base.join(".wasmer/cache")).unwrap();
-        fs::write(base.join(".wasmer/cache/index"), "cache").unwrap();
+        let names = archive_file_names(&archive.bytes)?;
 
-        let archive = create_zip_archive(base).expect("archive generation should succeed");
+        assert!(names.contains("app.yaml"));
+        assert!(names.contains("keep_dir/keep.txt"));
+        assert!(!names.contains("ignored.txt"));
+        assert!(!names.contains("ignored_dir/file.txt"));
+        assert!(!names.contains("custom.txt"));
 
-        assert_eq!(archive.file_count, 2, "wasmer.app should not be counted");
+        Ok(())
+    }
 
-        let cursor = Cursor::new(archive.bytes);
-        let mut zip = ZipArchive::new(cursor).expect("zip should be readable");
-        let mut entries = Vec::new();
-        for idx in 0..zip.len() {
-            let entry = zip.by_index(idx).expect("zip entry should open");
-            entries.push(entry.name().to_string());
+    #[test]
+    fn create_zip_archive_can_disable_standard_ignores() -> anyhow::Result<()> {
+        let project = create_sample_project()?;
+        let archive = create_zip_archive(
+            project.path(),
+            ZipOptions {
+                standard_ignores: false,
+            },
+        )?;
+
+        let names = archive_file_names(&archive.bytes)?;
+
+        assert!(names.contains("ignored.txt"));
+        assert!(names.contains("ignored_dir/file.txt"));
+        assert!(names.contains("custom.txt"));
+
+        Ok(())
+    }
+
+    fn archive_file_names(bytes: &[u8]) -> anyhow::Result<HashSet<String>> {
+        let cursor = Cursor::new(bytes);
+        let mut archive = zip::ZipArchive::new(cursor)?;
+        let mut names = HashSet::new();
+
+        for idx in 0..archive.len() {
+            let file = archive.by_index(idx)?;
+            names.insert(file.name().to_string());
         }
 
-        assert!(entries
-            .iter()
-            .any(|name| name == AppConfigV1::CANONICAL_FILE_NAME));
-        assert!(entries.iter().any(|name| name == "README.md"));
-        assert!(
-            !entries.iter().any(|name| name == "wasmer.app"),
-            "archive unexpectedly contains wasmer.app: {:?}",
-            entries
-        );
-        assert!(
-            entries.iter().all(|name| !name.starts_with(".git/")),
-            "archive unexpectedly contains .git entries: {:?}",
-            entries
-        );
-        assert!(
-            entries.iter().all(|name| !name.starts_with(".wasmer/")),
-            "archive unexpectedly contains .wasmer entries: {:?}",
-            entries
-        );
+        Ok(names)
+    }
+
+    fn create_sample_project() -> anyhow::Result<TempDir> {
+        let dir = tempfile::tempdir()?;
+        populate_project(dir.path())?;
+        Ok(dir)
+    }
+
+    fn populate_project(base: &Path) -> anyhow::Result<()> {
+        fs::write(base.join("app.yaml"), "name = \"demo\"\n")?;
+        fs::write(base.join(".gitignore"), "ignored.txt\nignored_dir/\n")?;
+        fs::write(base.join(".wasmerignore"), "custom.txt\n")?;
+        fs::write(base.join("ignored.txt"), "ignore me")?;
+        fs::write(base.join("custom.txt"), "ignore me too")?;
+        fs::write(base.join("keep.txt"), "keep me")?;
+        fs::create_dir_all(base.join("ignored_dir"))?;
+        fs::write(base.join("ignored_dir/file.txt"), "ignored dir file")?;
+        fs::create_dir_all(base.join("keep_dir"))?;
+        fs::write(base.join("keep_dir/keep.txt"), "keep dir file")?;
+        Ok(())
     }
 }

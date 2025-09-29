@@ -32,7 +32,7 @@ insta = { version = "1", features = ["filters", "yaml"] }
 flate2.workspace = true
 tar.workspace = true
 tempfile.workspace = true
-ignore = "0.4"
+ignore.workspace = true
 
 [target.'cfg(all(target_family = "wasm", target_os = "wasi"))'.dependencies]
 libc.workspace = true

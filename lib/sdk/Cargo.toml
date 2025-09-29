@@ -30,6 +30,7 @@ bytesize = { workspace = true }
 walkdir = "2"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
 tracing = { workspace = true }
+ignore.workspace = true
 
 [dev-dependencies]
 rand = "0.9.1"
