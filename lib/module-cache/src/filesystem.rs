@@ -1,26 +1,51 @@
 use std::path::{Path, PathBuf};
-use std::sync::Arc;
 
 use tempfile::NamedTempFile;
-use tokio::io::AsyncWriteExt;
+use tokio::{io::AsyncWriteExt, runtime::Handle};
 use wasmer::{Engine, Module};
+use wasmer_types::{MetadataHeader, ModuleHash};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
-use crate::runtime::task_manager::tokio::TokioTaskManager;
+use crate::{CacheError, ModuleCache};
+
+/// Abstraction over something that can provide access to a Tokio [`Handle`].
+pub trait TokioHandleProvider {
+    fn runtime_handle(&self) -> Handle;
+}
+
+impl TokioHandleProvider for Handle {
+    fn runtime_handle(&self) -> Handle {
+        self.clone()
+    }
+}
+
+impl TokioHandleProvider for tokio::runtime::Runtime {
+    fn runtime_handle(&self) -> Handle {
+        self.handle().clone()
+    }
+}
+
+impl<T> TokioHandleProvider for std::sync::Arc<T>
+where
+    T: TokioHandleProvider + ?Sized,
+{
+    fn runtime_handle(&self) -> Handle {
+        (**self).runtime_handle()
+    }
+}
 
 /// A cache that saves modules to a folder on the host filesystem using
 /// [`Module::serialize()`].
 #[derive(Debug, Clone)]
 pub struct FileSystemCache {
     cache_dir: PathBuf,
-    task_manager: Arc<TokioTaskManager>,
+    runtime_handle: Handle,
 }
 
 impl FileSystemCache {
-    pub fn new(cache_dir: impl Into<PathBuf>, task_manager: Arc<TokioTaskManager>) -> Self {
+    pub fn new(cache_dir: impl Into<PathBuf>, runtime: impl TokioHandleProvider) -> Self {
         FileSystemCache {
             cache_dir: cache_dir.into(),
-            task_manager,
+            runtime_handle: runtime.runtime_handle(),
         }
     }
 
@@ -29,7 +54,7 @@ impl FileSystemCache {
     }
 
     fn path(&self, key: ModuleHash, deterministic_id: &str) -> PathBuf {
-        let artifact_version = wasmer_types::MetadataHeader::CURRENT_VERSION;
+        let artifact_version = MetadataHeader::CURRENT_VERSION;
         self.cache_dir
             .join(format!("{deterministic_id}-v{artifact_version}"))
             .join(key.to_string())
@@ -133,10 +158,7 @@ impl ModuleCache for FileSystemCache {
         let path = self.path(key, &engine.deterministic_id());
         let engine = engine.clone();
 
-        // Use the bundled tokio runtime instead of the given async runtime
-        // This is necessary because this function can also be called with a futures_executor
-        self.task_manager
-            .runtime_handle()
+        self.runtime_handle
             .spawn(tokio_load(path, engine))
             .await
             .unwrap()
@@ -145,10 +167,7 @@ impl ModuleCache for FileSystemCache {
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError> {
         let path = self.path(key, &engine.deterministic_id());
 
-        // Use the bundled tokio runtime instead of the given async runtime
-        // This is necessary because this function can also be called with a futures_executor
-        self.task_manager
-            .runtime_handle()
+        self.runtime_handle
             .spawn(tokio_contains(path))
             .await
             .unwrap()
@@ -164,10 +183,7 @@ impl ModuleCache for FileSystemCache {
         let path = self.path(key, &engine.deterministic_id());
         let module = module.clone();
 
-        // Use the bundled tokio runtime instead of the given async runtime
-        // This is necessary because this function can also be called with a futures_executor
-        self.task_manager
-            .runtime_handle()
+        self.runtime_handle
             .spawn(tokio_save(path, module))
             .await
             .unwrap()
@@ -219,10 +235,8 @@ fn deserialize(bytes: &[u8], engine: &Engine) -> Result<Module, CacheError> {
 
 #[cfg(test)]
 mod tests {
-    use crate::runtime::task_manager::tokio::TokioTaskManager;
-    use tempfile::TempDir;
-
     use super::*;
+    use tempfile::TempDir;
 
     const ADD_WAT: &[u8] = br#"(
         module
@@ -234,8 +248,8 @@ mod tests {
                 (i64.add (local.get $x) (local.get $y)))
         )"#;
 
-    fn create_tokio_task_manager() -> Arc<TokioTaskManager> {
-        Arc::new(TokioTaskManager::new(tokio::runtime::Handle::current()))
+    fn handle() -> Handle {
+        tokio::runtime::Handle::current()
     }
 
     #[tokio::test]
@@ -243,7 +257,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
+        let cache = FileSystemCache::new(temp.path(), handle());
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
         let expected_path = cache.path(key, &engine.deterministic_id());
 
@@ -259,7 +273,7 @@ mod tests {
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let cache_dir = temp.path().join("this").join("doesn't").join("exist");
         assert!(!cache_dir.exists());
-        let cache = FileSystemCache::new(&cache_dir, create_tokio_task_manager());
+        let cache = FileSystemCache::new(&cache_dir, handle());
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
 
         cache.save(key, &engine, &module).await.unwrap();
@@ -272,7 +286,7 @@ mod tests {
         let temp = TempDir::new().unwrap();
         let engine = Engine::default();
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
+        let cache = FileSystemCache::new(temp.path(), handle());
 
         let err = cache.load(key, &engine).await.unwrap_err();
 
@@ -285,7 +299,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
+        let cache = FileSystemCache::new(temp.path(), handle());
         let expected_path = cache.path(key, &engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();
@@ -308,7 +322,7 @@ mod tests {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
-        let cache = FileSystemCache::new(temp.path(), create_tokio_task_manager());
+        let cache = FileSystemCache::new(temp.path(), handle());
         let expected_path = cache.path(key, &engine.deterministic_id());
         std::fs::create_dir_all(expected_path.parent().unwrap()).unwrap();
         let serialized = module.serialize().unwrap();

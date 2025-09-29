@@ -7227,6 +7227,23 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-module-cache"
+version = "6.1.0-rc.5"
+dependencies = [
+ "async-trait",
+ "cfg-if",
+ "dashmap 6.1.0",
+ "futures",
+ "tempfile",
+ "thiserror 1.0.69",
+ "tokio",
+ "tracing",
+ "wasmer",
+ "wasmer-types",
+ "weezl",
+]
+
+[[package]]
 name = "wasmer-package"
 version = "0.601.0-rc.5"
 dependencies = [
@@ -7415,6 +7432,7 @@ dependencies = [
  "wasmer",
  "wasmer-config",
  "wasmer-journal",
+ "wasmer-module-cache",
  "wasmer-package",
  "wasmer-types",
  "wasmer-wasix-types",

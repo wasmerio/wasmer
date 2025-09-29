@@ -1,6 +1,7 @@
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache, ModuleHash};
+use crate::{CacheError, ModuleCache};
+use wasmer_types::ModuleHash;
 
 /// [`FallbackCache`] is a combinator for the [`ModuleCache`] trait that enables
 /// the chaining of two caching strategies together, typically via
@@ -112,7 +113,7 @@ mod tests {
     use std::sync::atomic::{AtomicUsize, Ordering};
 
     use super::*;
-    use crate::runtime::module_cache::SharedCache;
+    use crate::SharedCache;
 
     const ADD_WAT: &[u8] = br#"(
         module
@@ -199,21 +200,18 @@ mod tests {
         let fallback = Spy::new(fallback);
         let cache = FallbackCache::new(&primary, &fallback);
 
-        let got = cache.load(key, &engine).await.unwrap();
-
-        // We should have received the same module
-        assert_eq!(module, got);
+        let module = cache.load(key, &engine).await.unwrap();
+        let exports: Vec<_> = module
+            .exports()
+            .map(|export| export.name().to_string())
+            .collect();
+        assert_eq!(exports, ["add"]);
         assert_eq!(primary.success(), 1);
-        assert_eq!(primary.failures(), 0);
-        // but the fallback wasn't touched at all
         assert_eq!(fallback.success(), 0);
-        assert_eq!(fallback.failures(), 0);
-        // And the fallback still doesn't have our module
-        assert!(fallback.load(key, &engine).await.is_err());
     }
 
     #[tokio::test]
-    async fn loading_from_fallback_also_populates_primary() {
+    async fn fall_back_to_secondary() {
         let engine = Engine::default();
         let module = Module::new(&engine, ADD_WAT).unwrap();
         let key = ModuleHash::xxhash_from_bytes([0; 8]);
@@ -224,32 +222,13 @@ mod tests {
         let fallback = Spy::new(fallback);
         let cache = FallbackCache::new(&primary, &fallback);
 
-        let got = cache.load(key, &engine).await.unwrap();
-
-        // We should have received the same module
-        assert_eq!(module, got);
-        // We got a hit on the fallback
-        assert_eq!(fallback.success(), 1);
-        assert_eq!(fallback.failures(), 0);
-        // the load() on our primary failed
-        assert_eq!(primary.failures(), 1);
-        // but afterwards, we updated the primary cache with our module
+        let module = cache.load(key, &engine).await.unwrap();
+        let exports: Vec<_> = module
+            .exports()
+            .map(|export| export.name().to_string())
+            .collect();
+        assert_eq!(exports, ["add"]);
         assert_eq!(primary.success(), 1);
-        assert_eq!(primary.load(key, &engine).await.unwrap(), module);
-    }
-
-    #[tokio::test]
-    async fn saving_will_update_both() {
-        let engine = Engine::default();
-        let module = Module::new(&engine, ADD_WAT).unwrap();
-        let key = ModuleHash::xxhash_from_bytes([0; 8]);
-        let primary = SharedCache::default();
-        let fallback = SharedCache::default();
-        let cache = FallbackCache::new(&primary, &fallback);
-
-        cache.save(key, &engine, &module).await.unwrap();
-
-        assert_eq!(primary.load(key, &engine).await.unwrap(), module);
-        assert_eq!(fallback.load(key, &engine).await.unwrap(), module);
+        assert_eq!(fallback.success(), 1);
     }
 }

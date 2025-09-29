@@ -1,7 +1,7 @@
 use dashmap::DashMap;
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache};
+use crate::{CacheError, ModuleCache};
 use wasmer_types::ModuleHash;
 
 /// A [`ModuleCache`] based on a <code>[DashMap]<[ModuleHash], [Module]></code>.

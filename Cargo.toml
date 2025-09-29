@@ -67,6 +67,7 @@ members = [
 	"lib/journal",
 	"lib/swift",
 	"lib/package",
+	"lib/module-cache",
 	"tests/integration/cli",
 	"tests/integration/ios",
 	"tests/lib/compiler-test-derive",

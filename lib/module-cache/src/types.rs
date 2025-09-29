@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Deref, path::PathBuf};
 use wasmer::{Engine, Module};
 use wasmer_types::ModuleHash;
 
-use crate::runtime::module_cache::FallbackCache;
+use crate::FallbackCache;
 
 /// A cache for compiled WebAssembly modules.
 ///
@@ -51,17 +51,16 @@ pub trait ModuleCache: Debug {
     /// be significantly slower than the previous one.
     ///
     /// ```rust
-    /// use wasmer_wasix::runtime::module_cache::{
-    ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
-    /// };
-    /// use wasmer_wasix::runtime::task_manager::tokio::{RuntimeOrHandle, TokioTaskManager};
+    /// use wasmer_module_cache::{ModuleCache, SharedCache, ThreadLocalCache};
+    /// #[cfg(feature = "sys-thread")]
+    /// use wasmer_module_cache::{FileSystemCache, TokioHandleProvider};
     ///
-    /// let runtime = tokio::runtime::Runtime::new().unwrap();
-    /// let rt_handle = RuntimeOrHandle::from(runtime);
-    /// let task_manager = std::sync::Arc::new(TokioTaskManager::new(rt_handle));
-    ///
+    /// #[cfg(feature = "sys-thread")]
+    /// # async fn demo(cache_dir: &std::path::Path, handle: &tokio::runtime::Handle) {
     /// let cache = SharedCache::default()
-    ///     .with_fallback(FileSystemCache::new("~/.local/cache", task_manager));
+    ///     .with_fallback(FileSystemCache::new(cache_dir, handle));
+    /// # let _: Box<dyn ModuleCache> = Box::new(cache);
+    /// # }
     /// ```
     fn with_fallback<C>(self, other: C) -> FallbackCache<Self, C>
     where

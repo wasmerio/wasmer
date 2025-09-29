@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap};
 
 use wasmer::{Engine, Module};
 
-use crate::runtime::module_cache::{CacheError, ModuleCache};
+use crate::{CacheError, ModuleCache};
 use wasmer_types::ModuleHash;
 
 std::thread_local! {

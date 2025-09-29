@@ -1,0 +1,49 @@
+[package]
+name = "wasmer-module-cache"
+authors.workspace = true
+edition.workspace = true
+homepage.workspace = true
+license.workspace = true
+repository.workspace = true
+rust-version.workspace = true
+version.workspace = true
+
+[features]
+default = []
+js = ["wasmer/js"]
+sys-thread = [
+    "dep:tokio",
+    "dep:tempfile",
+    "dep:weezl",
+    "tokio/fs",
+    "tokio/io-util",
+    "tokio/rt",
+    "tokio/rt-multi-thread",
+    "tokio/sync",
+    "wasmer/sys",
+]
+
+[dependencies]
+async-trait = { version = "^0.1" }
+cfg-if.workspace = true
+dashmap.workspace = true
+futures = { version = "0.3" }
+thiserror.workspace = true
+tracing.workspace = true
+wasmer = { path = "../api", version = "=6.1.0-rc.5", default-features = false }
+wasmer-types = { path = "../types", version = "=6.1.0-rc.5", default-features = false }
+
+# Optional dependencies for the filesystem cache implementation.
+tokio = { version = "1.39", optional = true, default-features = false, features = ["fs", "io-util", "rt", "sync", "time"] }
+tempfile = { workspace = true, optional = true }
+weezl = { version = "^0.1", optional = true }
+
+[dev-dependencies]
+tokio = { version = "1.39", default-features = false, features = [
+    "macros",
+    "rt",
+    "rt-multi-thread",
+    "fs",
+    "io-util",
+    "sync",
+] }

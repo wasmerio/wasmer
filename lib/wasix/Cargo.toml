@@ -28,6 +28,7 @@ virtual-net = { path = "../virtual-net", version = "0.601.0-rc.5", default-featu
 ] }
 wasmer-journal = { path = "../journal", version = "0.601.0-rc.5", default-features = false }
 wasmer-config = { version = "0.601.0-rc.5", path = "../config" }
+wasmer-module-cache = { path = "../module-cache", version = "=6.1.0-rc.5" }
 
 http.workspace = true
 dashmap.workspace = true
@@ -220,11 +221,13 @@ sys = [
 	"ctrlc",
 	"wasmer/wat",
 	"wasmer/js-serializable-module",
+	"wasmer-module-cache/js",
 ]
+
 sys-default = ["sys", "wasmer/sys"]
 sys-poll = []
 extra-logging = []
-sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool"]
+sys-thread = ["tokio/rt", "tokio/time", "tokio/rt-multi-thread", "rusty_pool", "wasmer-module-cache/sys-thread"]
 journal = ["tokio/fs", "wasmer-journal/log-file"]
 
 # Deprecated. Kept it for compatibility
@@ -242,7 +245,9 @@ js = [
 	"wasmer/wasm-types-polyfill",
 	"wasmer/wat",
 	"wasmer/js-serializable-module",
+	"wasmer-module-cache/js",
 ]
+
 js-default = ["js"]
 test-js = ["js", "wasmer/wat"]
 
