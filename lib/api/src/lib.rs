@@ -413,29 +413,143 @@
 //! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
 #[cfg(not(any(
+    feature = "singlepass",
+    feature = "cranelift",
+    feature = "llvm",
+    feature = "wamr",
+    feature = "wasmi",
+    feature = "v8",
+    feature = "js",
+    feature = "jsc"
+)))]
+compile_error!(
+    "wasmer requires enabling at least one backend feature: `sys`, `wamr`, `wasmi`, `v8`, `js`, or `jsc`."
+);
+
+#[cfg(all(
     feature = "sys",
+    not(any(feature = "singlepass", feature = "cranelift", feature = "llvm"))
+))]
+compile_error!(
+    "the `sys` feature requires enabling at least one compiler backend: `singlepass`, `cranelift`, or `llvm`."
+);
+
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
     feature = "js",
     feature = "jsc",
     feature = "wamr",
     feature = "v8",
     feature = "wasmi"
-)))]
-compile_error!(
-    "One of: `sys`, `js`, `jsc` `wamr`, `wasmi` or `v8` features must be enabled. Please, pick one."
-);
-
+))]
 mod utils;
+
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 pub use utils::*;
 
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 mod entities;
+
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 pub use entities::memory::{location::MemoryLocation, MemoryView};
+
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 pub use entities::*;
 
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 mod error;
+
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 pub use error::*;
 
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 mod backend;
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 pub use backend::*;
+#[cfg(any(
+    feature = "cranelift",
+    feature = "singlepass",
+    feature = "llvm",
+    feature = "js",
+    feature = "jsc",
+    feature = "wamr",
+    feature = "v8",
+    feature = "wasmi"
+))]
 mod vm;
 
 pub use wasmer_types::{
