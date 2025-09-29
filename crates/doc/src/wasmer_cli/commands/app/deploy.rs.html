@@ -816,7 +816,395 @@
 <a href="#815" id="815">815</a>
 <a href="#816" id="816">816</a>
 <a href="#817" id="817">817</a>
-<a href="#818" id="818">818</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
+<a href="#818" id="818">818</a>
+<a href="#819" id="819">819</a>
+<a href="#820" id="820">820</a>
+<a href="#821" id="821">821</a>
+<a href="#822" id="822">822</a>
+<a href="#823" id="823">823</a>
+<a href="#824" id="824">824</a>
+<a href="#825" id="825">825</a>
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a>
+<a href="#903" id="903">903</a>
+<a href="#904" id="904">904</a>
+<a href="#905" id="905">905</a>
+<a href="#906" id="906">906</a>
+<a href="#907" id="907">907</a>
+<a href="#908" id="908">908</a>
+<a href="#909" id="909">909</a>
+<a href="#910" id="910">910</a>
+<a href="#911" id="911">911</a>
+<a href="#912" id="912">912</a>
+<a href="#913" id="913">913</a>
+<a href="#914" id="914">914</a>
+<a href="#915" id="915">915</a>
+<a href="#916" id="916">916</a>
+<a href="#917" id="917">917</a>
+<a href="#918" id="918">918</a>
+<a href="#919" id="919">919</a>
+<a href="#920" id="920">920</a>
+<a href="#921" id="921">921</a>
+<a href="#922" id="922">922</a>
+<a href="#923" id="923">923</a>
+<a href="#924" id="924">924</a>
+<a href="#925" id="925">925</a>
+<a href="#926" id="926">926</a>
+<a href="#927" id="927">927</a>
+<a href="#928" id="928">928</a>
+<a href="#929" id="929">929</a>
+<a href="#930" id="930">930</a>
+<a href="#931" id="931">931</a>
+<a href="#932" id="932">932</a>
+<a href="#933" id="933">933</a>
+<a href="#934" id="934">934</a>
+<a href="#935" id="935">935</a>
+<a href="#936" id="936">936</a>
+<a href="#937" id="937">937</a>
+<a href="#938" id="938">938</a>
+<a href="#939" id="939">939</a>
+<a href="#940" id="940">940</a>
+<a href="#941" id="941">941</a>
+<a href="#942" id="942">942</a>
+<a href="#943" id="943">943</a>
+<a href="#944" id="944">944</a>
+<a href="#945" id="945">945</a>
+<a href="#946" id="946">946</a>
+<a href="#947" id="947">947</a>
+<a href="#948" id="948">948</a>
+<a href="#949" id="949">949</a>
+<a href="#950" id="950">950</a>
+<a href="#951" id="951">951</a>
+<a href="#952" id="952">952</a>
+<a href="#953" id="953">953</a>
+<a href="#954" id="954">954</a>
+<a href="#955" id="955">955</a>
+<a href="#956" id="956">956</a>
+<a href="#957" id="957">957</a>
+<a href="#958" id="958">958</a>
+<a href="#959" id="959">959</a>
+<a href="#960" id="960">960</a>
+<a href="#961" id="961">961</a>
+<a href="#962" id="962">962</a>
+<a href="#963" id="963">963</a>
+<a href="#964" id="964">964</a>
+<a href="#965" id="965">965</a>
+<a href="#966" id="966">966</a>
+<a href="#967" id="967">967</a>
+<a href="#968" id="968">968</a>
+<a href="#969" id="969">969</a>
+<a href="#970" id="970">970</a>
+<a href="#971" id="971">971</a>
+<a href="#972" id="972">972</a>
+<a href="#973" id="973">973</a>
+<a href="#974" id="974">974</a>
+<a href="#975" id="975">975</a>
+<a href="#976" id="976">976</a>
+<a href="#977" id="977">977</a>
+<a href="#978" id="978">978</a>
+<a href="#979" id="979">979</a>
+<a href="#980" id="980">980</a>
+<a href="#981" id="981">981</a>
+<a href="#982" id="982">982</a>
+<a href="#983" id="983">983</a>
+<a href="#984" id="984">984</a>
+<a href="#985" id="985">985</a>
+<a href="#986" id="986">986</a>
+<a href="#987" id="987">987</a>
+<a href="#988" id="988">988</a>
+<a href="#989" id="989">989</a>
+<a href="#990" id="990">990</a>
+<a href="#991" id="991">991</a>
+<a href="#992" id="992">992</a>
+<a href="#993" id="993">993</a>
+<a href="#994" id="994">994</a>
+<a href="#995" id="995">995</a>
+<a href="#996" id="996">996</a>
+<a href="#997" id="997">997</a>
+<a href="#998" id="998">998</a>
+<a href="#999" id="999">999</a>
+<a href="#1000" id="1000">1000</a>
+<a href="#1001" id="1001">1001</a>
+<a href="#1002" id="1002">1002</a>
+<a href="#1003" id="1003">1003</a>
+<a href="#1004" id="1004">1004</a>
+<a href="#1005" id="1005">1005</a>
+<a href="#1006" id="1006">1006</a>
+<a href="#1007" id="1007">1007</a>
+<a href="#1008" id="1008">1008</a>
+<a href="#1009" id="1009">1009</a>
+<a href="#1010" id="1010">1010</a>
+<a href="#1011" id="1011">1011</a>
+<a href="#1012" id="1012">1012</a>
+<a href="#1013" id="1013">1013</a>
+<a href="#1014" id="1014">1014</a>
+<a href="#1015" id="1015">1015</a>
+<a href="#1016" id="1016">1016</a>
+<a href="#1017" id="1017">1017</a>
+<a href="#1018" id="1018">1018</a>
+<a href="#1019" id="1019">1019</a>
+<a href="#1020" id="1020">1020</a>
+<a href="#1021" id="1021">1021</a>
+<a href="#1022" id="1022">1022</a>
+<a href="#1023" id="1023">1023</a>
+<a href="#1024" id="1024">1024</a>
+<a href="#1025" id="1025">1025</a>
+<a href="#1026" id="1026">1026</a>
+<a href="#1027" id="1027">1027</a>
+<a href="#1028" id="1028">1028</a>
+<a href="#1029" id="1029">1029</a>
+<a href="#1030" id="1030">1030</a>
+<a href="#1031" id="1031">1031</a>
+<a href="#1032" id="1032">1032</a>
+<a href="#1033" id="1033">1033</a>
+<a href="#1034" id="1034">1034</a>
+<a href="#1035" id="1035">1035</a>
+<a href="#1036" id="1036">1036</a>
+<a href="#1037" id="1037">1037</a>
+<a href="#1038" id="1038">1038</a>
+<a href="#1039" id="1039">1039</a>
+<a href="#1040" id="1040">1040</a>
+<a href="#1041" id="1041">1041</a>
+<a href="#1042" id="1042">1042</a>
+<a href="#1043" id="1043">1043</a>
+<a href="#1044" id="1044">1044</a>
+<a href="#1045" id="1045">1045</a>
+<a href="#1046" id="1046">1046</a>
+<a href="#1047" id="1047">1047</a>
+<a href="#1048" id="1048">1048</a>
+<a href="#1049" id="1049">1049</a>
+<a href="#1050" id="1050">1050</a>
+<a href="#1051" id="1051">1051</a>
+<a href="#1052" id="1052">1052</a>
+<a href="#1053" id="1053">1053</a>
+<a href="#1054" id="1054">1054</a>
+<a href="#1055" id="1055">1055</a>
+<a href="#1056" id="1056">1056</a>
+<a href="#1057" id="1057">1057</a>
+<a href="#1058" id="1058">1058</a>
+<a href="#1059" id="1059">1059</a>
+<a href="#1060" id="1060">1060</a>
+<a href="#1061" id="1061">1061</a>
+<a href="#1062" id="1062">1062</a>
+<a href="#1063" id="1063">1063</a>
+<a href="#1064" id="1064">1064</a>
+<a href="#1065" id="1065">1065</a>
+<a href="#1066" id="1066">1066</a>
+<a href="#1067" id="1067">1067</a>
+<a href="#1068" id="1068">1068</a>
+<a href="#1069" id="1069">1069</a>
+<a href="#1070" id="1070">1070</a>
+<a href="#1071" id="1071">1071</a>
+<a href="#1072" id="1072">1072</a>
+<a href="#1073" id="1073">1073</a>
+<a href="#1074" id="1074">1074</a>
+<a href="#1075" id="1075">1075</a>
+<a href="#1076" id="1076">1076</a>
+<a href="#1077" id="1077">1077</a>
+<a href="#1078" id="1078">1078</a>
+<a href="#1079" id="1079">1079</a>
+<a href="#1080" id="1080">1080</a>
+<a href="#1081" id="1081">1081</a>
+<a href="#1082" id="1082">1082</a>
+<a href="#1083" id="1083">1083</a>
+<a href="#1084" id="1084">1084</a>
+<a href="#1085" id="1085">1085</a>
+<a href="#1086" id="1086">1086</a>
+<a href="#1087" id="1087">1087</a>
+<a href="#1088" id="1088">1088</a>
+<a href="#1089" id="1089">1089</a>
+<a href="#1090" id="1090">1090</a>
+<a href="#1091" id="1091">1091</a>
+<a href="#1092" id="1092">1092</a>
+<a href="#1093" id="1093">1093</a>
+<a href="#1094" id="1094">1094</a>
+<a href="#1095" id="1095">1095</a>
+<a href="#1096" id="1096">1096</a>
+<a href="#1097" id="1097">1097</a>
+<a href="#1098" id="1098">1098</a>
+<a href="#1099" id="1099">1099</a>
+<a href="#1100" id="1100">1100</a>
+<a href="#1101" id="1101">1101</a>
+<a href="#1102" id="1102">1102</a>
+<a href="#1103" id="1103">1103</a>
+<a href="#1104" id="1104">1104</a>
+<a href="#1105" id="1105">1105</a>
+<a href="#1106" id="1106">1106</a>
+<a href="#1107" id="1107">1107</a>
+<a href="#1108" id="1108">1108</a>
+<a href="#1109" id="1109">1109</a>
+<a href="#1110" id="1110">1110</a>
+<a href="#1111" id="1111">1111</a>
+<a href="#1112" id="1112">1112</a>
+<a href="#1113" id="1113">1113</a>
+<a href="#1114" id="1114">1114</a>
+<a href="#1115" id="1115">1115</a>
+<a href="#1116" id="1116">1116</a>
+<a href="#1117" id="1117">1117</a>
+<a href="#1118" id="1118">1118</a>
+<a href="#1119" id="1119">1119</a>
+<a href="#1120" id="1120">1120</a>
+<a href="#1121" id="1121">1121</a>
+<a href="#1122" id="1122">1122</a>
+<a href="#1123" id="1123">1123</a>
+<a href="#1124" id="1124">1124</a>
+<a href="#1125" id="1125">1125</a>
+<a href="#1126" id="1126">1126</a>
+<a href="#1127" id="1127">1127</a>
+<a href="#1128" id="1128">1128</a>
+<a href="#1129" id="1129">1129</a>
+<a href="#1130" id="1130">1130</a>
+<a href="#1131" id="1131">1131</a>
+<a href="#1132" id="1132">1132</a>
+<a href="#1133" id="1133">1133</a>
+<a href="#1134" id="1134">1134</a>
+<a href="#1135" id="1135">1135</a>
+<a href="#1136" id="1136">1136</a>
+<a href="#1137" id="1137">1137</a>
+<a href="#1138" id="1138">1138</a>
+<a href="#1139" id="1139">1139</a>
+<a href="#1140" id="1140">1140</a>
+<a href="#1141" id="1141">1141</a>
+<a href="#1142" id="1142">1142</a>
+<a href="#1143" id="1143">1143</a>
+<a href="#1144" id="1144">1144</a>
+<a href="#1145" id="1145">1145</a>
+<a href="#1146" id="1146">1146</a>
+<a href="#1147" id="1147">1147</a>
+<a href="#1148" id="1148">1148</a>
+<a href="#1149" id="1149">1149</a>
+<a href="#1150" id="1150">1150</a>
+<a href="#1151" id="1151">1151</a>
+<a href="#1152" id="1152">1152</a>
+<a href="#1153" id="1153">1153</a>
+<a href="#1154" id="1154">1154</a>
+<a href="#1155" id="1155">1155</a>
+<a href="#1156" id="1156">1156</a>
+<a href="#1157" id="1157">1157</a>
+<a href="#1158" id="1158">1158</a>
+<a href="#1159" id="1159">1159</a>
+<a href="#1160" id="1160">1160</a>
+<a href="#1161" id="1161">1161</a>
+<a href="#1162" id="1162">1162</a>
+<a href="#1163" id="1163">1163</a>
+<a href="#1164" id="1164">1164</a>
+<a href="#1165" id="1165">1165</a>
+<a href="#1166" id="1166">1166</a>
+<a href="#1167" id="1167">1167</a>
+<a href="#1168" id="1168">1168</a>
+<a href="#1169" id="1169">1169</a>
+<a href="#1170" id="1170">1170</a>
+<a href="#1171" id="1171">1171</a>
+<a href="#1172" id="1172">1172</a>
+<a href="#1173" id="1173">1173</a>
+<a href="#1174" id="1174">1174</a>
+<a href="#1175" id="1175">1175</a>
+<a href="#1176" id="1176">1176</a>
+<a href="#1177" id="1177">1177</a>
+<a href="#1178" id="1178">1178</a>
+<a href="#1179" id="1179">1179</a>
+<a href="#1180" id="1180">1180</a>
+<a href="#1181" id="1181">1181</a>
+<a href="#1182" id="1182">1182</a>
+<a href="#1183" id="1183">1183</a>
+<a href="#1184" id="1184">1184</a>
+<a href="#1185" id="1185">1185</a>
+<a href="#1186" id="1186">1186</a>
+<a href="#1187" id="1187">1187</a>
+<a href="#1188" id="1188">1188</a>
+<a href="#1189" id="1189">1189</a>
+<a href="#1190" id="1190">1190</a>
+<a href="#1191" id="1191">1191</a>
+<a href="#1192" id="1192">1192</a>
+<a href="#1193" id="1193">1193</a>
+<a href="#1194" id="1194">1194</a>
+<a href="#1195" id="1195">1195</a>
+<a href="#1196" id="1196">1196</a>
+<a href="#1197" id="1197">1197</a>
+<a href="#1198" id="1198">1198</a>
+<a href="#1199" id="1199">1199</a>
+<a href="#1200" id="1200">1200</a>
+<a href="#1201" id="1201">1201</a>
+<a href="#1202" id="1202">1202</a>
+<a href="#1203" id="1203">1203</a>
+<a href="#1204" id="1204">1204</a>
+<a href="#1205" id="1205">1205</a>
+<a href="#1206" id="1206">1206</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
     config::WasmerEnv,
@@ -824,18 +1212,23 @@
     utils::load_package_manifest,
 };
 <span class="kw">use </span>anyhow::Context;
+<span class="kw">use </span>bytesize::ByteSize;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>dialoguer::Confirm;
+<span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>std::io::Write;
-<span class="kw">use </span>std::{path::PathBuf, str::FromStr, time::Duration};
+<span class="kw">use </span>std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
 <span class="kw">use </span>wasmer_backend_api::{
-    types::{DeployApp, DeployAppVersion},
+    types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
     WasmerClient,
 };
 <span class="kw">use </span>wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
+};
+<span class="kw">use </span>wasmer_sdk::app::deploy_remote_build::{
+    deploy_app_remote, DeployRemoteEvent, DeployRemoteOpts,
 };
 
 <span class="kw">static </span>EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
@@ -885,6 +1278,13 @@
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>no_persist_id: bool,
 
+    <span class="doccomment">/// Do not respected `.gitignore` and `.wasmerignore` files when building a package.
+    ///
+    /// NOTE: FOR NOW this flag is only used when `--build-remote` is also specified.
+    </span><span class="comment">// TODO: implement no-ignore support for local builds too.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>no_ignore: bool,
+
     <span class="doccomment">/// Specify the owner (user or namespace) of the app.
     ///
     /// If specified via this flag, the owner will be overridden.  Otherwise, the `app.yaml` is
@@ -913,6 +1313,10 @@
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>quiet: bool,
 
+    <span class="doccomment">/// Use Wasmer's remote autobuild pipeline instead of building locally.
+    </span><span class="attr">#[clap(long)]
+    </span><span class="kw">pub </span>build_remote: bool,
+
     <span class="comment">// - App creation -
     </span><span class="doccomment">/// A reference to the template to use when creating an app to deploy.
     ///
@@ -937,6 +1341,13 @@
     <span class="doccomment">/// Whether or not to search (and use) a local manifest when creating an app to deploy.
     </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"template"</span>, conflicts_with = <span class="string">"package"</span>)]
     </span><span class="kw">pub </span>use_local_manifest: bool,
+}
+
+<span class="kw">struct </span>RemoteBuildInput {
+    app_config: AppConfigV1,
+    owner: String,
+    original_config: <span class="prelude-ty">Option</span>&lt;serde_yaml::Value&gt;,
+    config_path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 }
 
 <span class="kw">impl </span>CmdAppDeploy {
@@ -1041,6 +1452,298 @@
 
         create_cmd.run_async().<span class="kw">await
     </span>}
+
+    <span class="kw">fn </span>resolve_app_paths(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;(PathBuf, PathBuf)&gt; {
+        <span class="kw">let </span>base = <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.dir {
+            dir.clone()
+        } <span class="kw">else if let </span><span class="prelude-val">Some</span>(path) = <span class="kw-2">&amp;</span><span class="self">self</span>.path {
+            path.clone()
+        } <span class="kw">else </span>{
+            std::env::current_dir()
+                .context(<span class="string">"could not determine current directory for deployment"</span>)<span class="question-mark">?
+        </span>};
+
+        <span class="kw">if </span>base.is_file() {
+            <span class="kw">let </span>base_dir = base
+                .parent()
+                .map(PathBuf::from)
+                .context(<span class="string">"could not determine parent directory for app config"</span>)<span class="question-mark">?</span>;
+            <span class="prelude-val">Ok</span>((base, base_dir))
+        } <span class="kw">else if </span>base.is_dir() {
+            <span class="kw">let </span>config = base.join(AppConfigV1::CANONICAL_FILE_NAME);
+            <span class="prelude-val">Ok</span>((config, base))
+        } <span class="kw">else </span>{
+            <span class="macro">anyhow::bail!</span>(<span class="string">"No such file or directory '{}'"</span>, base.display());
+        }
+    }
+
+    <span class="kw">async fn </span>handle_remote_build(<span class="kw-2">&amp;</span><span class="self">self</span>, client: <span class="kw-2">&amp;</span>WasmerClient) -&gt; anyhow::Result&lt;()&gt; {
+        <span class="kw">let </span>(app_config_path, base_dir_path) = <span class="self">self</span>.resolve_app_paths()<span class="question-mark">?</span>;
+        <span class="kw">let </span>wait = <span class="kw">if </span><span class="self">self</span>.no_wait {
+            WaitMode::Deployed
+        } <span class="kw">else </span>{
+            WaitMode::Reachable
+        };
+
+        <span class="kw">let </span>prep = <span class="kw">if </span>app_config_path.is_file() {
+            <span class="self">self</span>.prepare_remote_build_from_file(client, <span class="kw-2">&amp;</span>app_config_path, <span class="kw-2">&amp;</span>base_dir_path)
+                .<span class="kw">await</span><span class="question-mark">?
+        </span>} <span class="kw">else </span>{
+            <span class="self">self</span>.prepare_remote_build_without_config(client, <span class="kw-2">&amp;</span>base_dir_path)
+                .<span class="kw">await</span><span class="question-mark">?
+        </span>};
+
+        <span class="kw">let </span>RemoteBuildInput {
+            app_config,
+            owner,
+            original_config,
+            config_path,
+        } = prep;
+
+        <span class="kw">let </span>opts = DeployAppOpts {
+            app: <span class="kw-2">&amp;</span>app_config,
+            original_config: original_config.clone(),
+            allow_create: <span class="bool-val">true</span>,
+            make_default: !<span class="self">self</span>.no_default,
+            owner: <span class="prelude-val">Some</span>(owner.clone()),
+            wait,
+        };
+
+        <span class="kw">let </span>app_version = deploy_app_remote(
+            client,
+            DeployRemoteOpts {
+                app: app_config.clone(),
+                owner: <span class="prelude-val">Some</span>(owner.clone()),
+                no_ignore: <span class="self">self</span>.no_ignore,
+            },
+            <span class="kw-2">&amp;</span>base_dir_path,
+            remote_progress_handler(<span class="self">self</span>.quiet),
+        )
+        .<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if let </span><span class="prelude-val">Some</span>(path) = config_path {
+            <span class="kw">let </span><span class="kw-2">mut </span>new_app_config = app_config_from_api(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>;
+
+            <span class="kw">if </span><span class="self">self</span>.no_persist_id {
+                new_app_config.app_id = <span class="prelude-val">None</span>;
+            }
+
+            new_app_config.package = app_config.package.clone();
+
+            <span class="kw">if </span>new_app_config != app_config {
+                <span class="kw">let </span>new_merged = <span class="kw">crate</span>::utils::merge_yaml_values(
+                    <span class="kw-2">&amp;</span>app_config.clone().to_yaml_value()<span class="question-mark">?</span>,
+                    <span class="kw-2">&amp;</span>new_app_config.to_yaml_value()<span class="question-mark">?</span>,
+                );
+                <span class="kw">let </span>new_config_raw = serde_yaml::to_string(<span class="kw-2">&amp;</span>new_merged)<span class="question-mark">?</span>;
+                std::fs::write(<span class="kw-2">&amp;</span>path, new_config_raw)
+                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Could not write file: '{}'"</span>, path.display()))<span class="question-mark">?</span>;
+            }
+        }
+
+        wait_app(client, opts.clone(), app_version.clone(), <span class="self">self</span>.quiet).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">if </span><span class="self">self</span>.fmt.format == <span class="prelude-val">Some</span>(<span class="kw">crate</span>::utils::render::ItemFormat::Json) {
+            <span class="macro">println!</span>(<span class="string">"{}"</span>, serde_json::to_string_pretty(<span class="kw-2">&amp;</span>app_version)<span class="question-mark">?</span>);
+        }
+
+        <span class="prelude-val">Ok</span>(())
+    }
+
+    <span class="kw">async fn </span>prepare_remote_build_from_file(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        app_config_path: <span class="kw-2">&amp;</span>Path,
+        base_dir_path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; anyhow::Result&lt;RemoteBuildInput&gt; {
+        <span class="kw">let </span>config_str = std::fs::read_to_string(app_config_path)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Could not read file '{}'"</span>, app_config_path.display()))<span class="question-mark">?</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>app_yaml: serde_yaml::Value = serde_yaml::from_str(<span class="kw-2">&amp;</span>config_str)<span class="question-mark">?</span>;
+        <span class="kw">let </span>maybe_edge_app = <span class="kw">if let </span><span class="prelude-val">Some</span>(app_id) = app_yaml.get(<span class="string">"app_id"</span>).and_then(|s| s.as_str()) {
+            wasmer_backend_api::query::get_app_by_id(client, app_id.to_owned())
+                .<span class="kw">await
+                </span>.ok()
+        } <span class="kw">else </span>{
+            <span class="prelude-val">None
+        </span>};
+
+        <span class="kw">let </span><span class="kw-2">mut </span>owner = <span class="self">self
+            </span>.get_owner(client, <span class="kw-2">&amp;mut </span>app_yaml, maybe_edge_app.as_ref())
+            .<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>previous_owner = owner.clone();
+        owner = <span class="self">self</span>.ensure_owner_access(client, owner).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">let </span>mapping = app_yaml
+            .as_mapping_mut()
+            .context(<span class="string">"app config must be a mapping"</span>)<span class="question-mark">?</span>;
+        mapping.insert(<span class="string">"owner"</span>.into(), owner.clone().into());
+        <span class="kw">if </span>owner != previous_owner {
+            mapping.remove(<span class="string">"app_id"</span>);
+            mapping.remove(<span class="string">"name"</span>);
+        }
+
+        <span class="kw">if </span>mapping.get(<span class="string">"name"</span>).is_none() &amp;&amp; <span class="self">self</span>.app_name.is_some() {
+            mapping.insert(
+                <span class="string">"name"</span>.into(),
+                <span class="self">self</span>.app_name.as_ref().unwrap().to_string().into(),
+            );
+        } <span class="kw">else if </span>mapping.get(<span class="string">"name"</span>).is_none() &amp;&amp; maybe_edge_app.is_some() {
+            mapping.insert(
+                <span class="string">"name"</span>.into(),
+                maybe_edge_app.as_ref().unwrap().name.to_string().into(),
+            );
+        } <span class="kw">else if </span>mapping.get(<span class="string">"name"</span>).is_none() {
+            <span class="kw">if </span>!<span class="self">self</span>.non_interactive {
+                <span class="kw">let </span>default_name = base_dir_path
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.to_owned());
+                <span class="kw">let </span>app_name = <span class="kw">crate</span>::utils::prompts::prompt_new_app_name(
+                    <span class="string">"Enter the name of the app"</span>,
+                    default_name.as_deref(),
+                    <span class="kw-2">&amp;</span>owner,
+                    <span class="prelude-val">Some</span>(client),
+                )
+                .<span class="kw">await</span><span class="question-mark">?</span>;
+
+                mapping.insert(<span class="string">"name"</span>.into(), app_name.into());
+            } <span class="kw">else </span>{
+                <span class="kw">if </span>!<span class="self">self</span>.quiet {
+                    <span class="macro">eprintln!</span>(<span class="string">"The app.yaml does not specify any app name."</span>);
+                    <span class="macro">eprintln!</span>(
+                        <span class="string">"Please, use the --app_name &lt;app_name&gt; to specify the name of the app."
+                    </span>);
+                }
+
+                <span class="macro">anyhow::bail!</span>(
+                    <span class="string">"Cannot proceed with the deployment as the app spec in path {} does not have\n                        a 'name' field."</span>,
+                    app_config_path.display()
+                );
+            }
+        }
+
+        <span class="kw">let </span>current_config: AppConfigV1 = serde_yaml::from_value(app_yaml.clone())<span class="question-mark">?</span>;
+        std::fs::write(app_config_path, serde_yaml::to_string(<span class="kw-2">&amp;</span>current_config)<span class="question-mark">?</span>)
+            .with_context(|| <span class="macro">format!</span>(<span class="string">"Could not write file: '{}'"</span>, app_config_path.display()))<span class="question-mark">?</span>;
+
+        <span class="kw">let </span><span class="kw-2">mut </span>app_config = current_config.clone();
+        app_config.owner = <span class="prelude-val">Some</span>(owner.clone());
+
+        <span class="kw">match </span><span class="kw-2">&amp;</span>app_config.package {
+            PackageSource::Path(<span class="kw">_</span>) =&gt; {}
+            other =&gt; {
+                <span class="macro">anyhow::bail!</span>(
+                    <span class="string">"remote deployments require the app's package to reference a local path (found `{other}`)"
+                </span>);
+            }
+        }
+
+        <span class="kw">let </span>original_config = <span class="prelude-val">Some</span>(app_config.clone().to_yaml_value()<span class="question-mark">?</span>);
+
+        <span class="prelude-val">Ok</span>(RemoteBuildInput {
+            app_config,
+            owner,
+            original_config,
+            config_path: <span class="prelude-val">Some</span>(app_config_path.to_path_buf()),
+        })
+    }
+
+    <span class="kw">async fn </span>prepare_remote_build_without_config(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        base_dir_path: <span class="kw-2">&amp;</span>Path,
+    ) -&gt; anyhow::Result&lt;RemoteBuildInput&gt; {
+        <span class="kw">let </span>initial_owner = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span><span class="self">self</span>.owner {
+            owner.clone()
+        } <span class="kw">else if </span><span class="self">self</span>.non_interactive {
+            <span class="macro">anyhow::bail!</span>(<span class="string">"No owner specified: use --owner XXX"</span>);
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>user =
+                wasmer_backend_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+                <span class="string">"Who should own this app?"</span>,
+                <span class="prelude-val">None</span>,
+                <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+            )<span class="question-mark">?
+        </span>};
+
+        <span class="kw">let </span>owner = <span class="self">self</span>.ensure_owner_access(client, initial_owner).<span class="kw">await</span><span class="question-mark">?</span>;
+
+        <span class="kw">let </span>app_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_name {
+            name.clone()
+        } <span class="kw">else if </span><span class="self">self</span>.non_interactive {
+            <span class="macro">anyhow::bail!</span>(<span class="string">"Cannot determine app name: use --app_name &lt;app_name&gt;"</span>);
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>default_name = base_dir_path
+                .file_name()
+                .and_then(|f| f.to_str())
+                .map(|s| s.to_owned());
+            <span class="kw">crate</span>::utils::prompts::prompt_new_app_name(
+                <span class="string">"Enter the name of the app"</span>,
+                default_name.as_deref(),
+                <span class="kw-2">&amp;</span>owner,
+                <span class="prelude-val">Some</span>(client),
+            )
+            .<span class="kw">await</span><span class="question-mark">?
+        </span>};
+
+        <span class="kw">let </span>app_config = AppConfigV1 {
+            name: <span class="prelude-val">Some</span>(app_name.clone()),
+            app_id: <span class="prelude-val">None</span>,
+            owner: <span class="prelude-val">Some</span>(owner.clone()),
+            package: PackageSource::Path(String::from(<span class="string">"."</span>)),
+            domains: <span class="prelude-val">None</span>,
+            locality: <span class="prelude-val">None</span>,
+            env: IndexMap::new(),
+            cli_args: <span class="prelude-val">None</span>,
+            capabilities: <span class="prelude-val">None</span>,
+            scheduled_tasks: <span class="prelude-val">None</span>,
+            volumes: <span class="prelude-val">None</span>,
+            health_checks: <span class="prelude-val">None</span>,
+            debug: <span class="prelude-val">None</span>,
+            scaling: <span class="prelude-val">None</span>,
+            redirect: <span class="prelude-val">None</span>,
+            jobs: <span class="prelude-val">None</span>,
+            extra: IndexMap::new(),
+        };
+
+        <span class="kw">let </span>original_config = <span class="prelude-val">Some</span>(app_config.clone().to_yaml_value()<span class="question-mark">?</span>);
+
+        <span class="prelude-val">Ok</span>(RemoteBuildInput {
+            app_config,
+            owner,
+            original_config,
+            config_path: <span class="prelude-val">None</span>,
+        })
+    }
+
+    <span class="kw">async fn </span>ensure_owner_access(
+        <span class="kw-2">&amp;</span><span class="self">self</span>,
+        client: <span class="kw-2">&amp;</span>WasmerClient,
+        owner: String,
+    ) -&gt; anyhow::Result&lt;String&gt; {
+        <span class="kw">if </span>wasmer_backend_api::query::viewer_can_deploy_to_namespace(client, <span class="kw-2">&amp;</span>owner).<span class="kw">await</span><span class="question-mark">? </span>{
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(owner);
+        }
+
+        <span class="macro">eprintln!</span>(<span class="string">"It seems you don't have access to {}"</span>, owner.bold());
+        <span class="kw">if </span><span class="self">self</span>.non_interactive {
+            <span class="macro">anyhow::bail!</span>(
+                <span class="string">"Please, change the owner before deploying or check your current user with `{} whoami`."</span>,
+                std::env::args().next().unwrap_or(<span class="string">"wasmer"</span>.into())
+            );
+        }
+
+        <span class="kw">let </span>user = wasmer_backend_api::query::current_user_with_namespaces(client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span>owner = <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+            <span class="string">"Who should own this app?"</span>,
+            <span class="prelude-val">None</span>,
+            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+        )<span class="question-mark">?</span>;
+
+        <span class="prelude-val">Ok</span>(owner)
+    }
 }
 
 <span class="attr">#[async_trait::async_trait]
@@ -1050,26 +1753,21 @@
     <span class="kw">async fn </span>run_async(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>::Output, anyhow::Error&gt; {
         <span class="kw">let </span>client = login_user(<span class="kw-2">&amp;</span><span class="self">self</span>.env, !<span class="self">self</span>.non_interactive, <span class="string">"deploy an app"</span>).<span class="kw">await</span><span class="question-mark">?</span>;
 
-        <span class="kw">let </span>base_dir_path = <span class="self">self</span>.dir.clone().unwrap_or_else(|| {
-            <span class="self">self</span>.path
-                .clone()
-                .unwrap_or_else(|| std::env::current_dir().unwrap())
-        });
+        <span class="kw">if </span><span class="self">self</span>.build_remote &amp;&amp; <span class="self">self</span>.publish_package {
+            <span class="macro">anyhow::bail!</span>(<span class="string">"--build-remote cannot be combined with --publish-package"</span>);
+        }
 
-        <span class="kw">let </span>(app_config_path, base_dir_path) = {
-            <span class="kw">if </span>base_dir_path.is_file() {
-                (
-                    base_dir_path.clone(),
-                    base_dir_path.clone().parent().unwrap().to_path_buf(),
-                )
-            } <span class="kw">else if </span>base_dir_path.is_dir() {
-                <span class="kw">let </span>f = base_dir_path.join(AppConfigV1::CANONICAL_FILE_NAME);
+        <span class="comment">// TODO: implement no-ignore support for local builds too.
+        </span><span class="kw">if </span><span class="self">self</span>.no_ignore &amp;&amp; !<span class="self">self</span>.build_remote {
+            <span class="macro">anyhow::bail!</span>(<span class="string">"--no-ignore is currently only supported with --build-remote"</span>);
+        }
 
-                (f, base_dir_path.clone())
-            } <span class="kw">else </span>{
-                <span class="macro">anyhow::bail!</span>(<span class="string">"No such file or directory '{}'"</span>, base_dir_path.display());
-            }
-        };
+        <span class="kw">if </span><span class="self">self</span>.build_remote {
+            <span class="self">self</span>.handle_remote_build(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+        }
+
+        <span class="kw">let </span>(app_config_path, base_dir_path) = <span class="self">self</span>.resolve_app_paths()<span class="question-mark">?</span>;
 
         <span class="kw">if </span>!app_config_path.is_file()
             || <span class="self">self</span>.template.is_some()
@@ -1241,14 +1939,18 @@
                                         <span class="string">"Found local package (manifest path: {})."</span>,
                                         manifest_path.display()
                                     );
-                                    <span class="macro">eprintln!</span>(<span class="string">"The `package` field in `app.yaml` specified the same named package ({name})."</span>);
+                                    <span class="macro">eprintln!</span>(
+                                        <span class="string">"The `package` field in `app.yaml` specified the same named package ({name})."
+                                    </span>);
                                     <span class="macro">eprintln!</span>(<span class="string">"This behaviour is deprecated."</span>);
                                 }
 
                                 <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
                                 <span class="kw">if </span><span class="self">self</span>.non_interactive {
                                     <span class="kw">if </span>!<span class="self">self</span>.quiet {
-                                        <span class="macro">eprintln!</span>(<span class="string">"Hint: replace `package: {n}` with `package: .` to replicate the intended behaviour."</span>);
+                                        <span class="macro">eprintln!</span>(
+                                            <span class="string">"Hint: replace `package: {n}` with `package: .` to replicate the intended behaviour."
+                                        </span>);
                                     }
                                     <span class="macro">anyhow::bail!</span>(<span class="string">"deprecated deploy behaviour"</span>)
                                 } <span class="kw">else if </span>Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
@@ -1291,8 +1993,9 @@
                                 } <span class="kw">else </span>{
                                     <span class="kw">if </span>!<span class="self">self</span>.quiet {
                                         <span class="macro">eprintln!</span>(
-                                        <span class="string">"{}: the package will not be published and the deployment will fail if the package does not already exist."</span>,
-                                        <span class="string">"Warning"</span>.yellow().bold());
+                                            <span class="string">"{}: the package will not be published and the deployment will fail if the package does not already exist."</span>,
+                                            <span class="string">"Warning"</span>.yellow().bold()
+                                        );
                                     }
                                     DeployAppOpts {
                                         app: <span class="kw-2">&amp;</span>app_config,
@@ -1435,6 +2138,79 @@
     <span class="kw">pub </span>make_default: bool,
     <span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;String&gt;,
     <span class="kw">pub </span>wait: WaitMode,
+}
+
+<span class="kw">fn </span>format_autobuild_kind(kind: AutoBuildDeployAppLogKind) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str {
+    <span class="kw">match </span>kind {
+        AutoBuildDeployAppLogKind::Log =&gt; <span class="string">"log"</span>,
+        AutoBuildDeployAppLogKind::PreparingToDeployStatus =&gt; <span class="string">"prepare"</span>,
+        AutoBuildDeployAppLogKind::FetchingPlanStatus =&gt; <span class="string">"plan"</span>,
+        AutoBuildDeployAppLogKind::BuildStatus =&gt; <span class="string">"build"</span>,
+        AutoBuildDeployAppLogKind::DeployStatus =&gt; <span class="string">"deploy"</span>,
+        AutoBuildDeployAppLogKind::Complete =&gt; <span class="string">"complete"</span>,
+        AutoBuildDeployAppLogKind::Failed =&gt; <span class="string">"failed"</span>,
+    }
+}
+
+<span class="kw">fn </span>remote_progress_handler(quiet: bool) -&gt; <span class="kw">impl </span>FnMut(DeployRemoteEvent) {
+    <span class="kw">move </span>|event| {
+        <span class="kw">if </span>quiet {
+            <span class="kw">return</span>;
+        }
+
+        <span class="kw">match </span>event {
+            DeployRemoteEvent::CreatingArchive { path } =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Creating deployment archive from {}..."</span>, path.display());
+            }
+            DeployRemoteEvent::ArchiveCreated {
+                file_count,
+                archive_size,
+            } =&gt; {
+                <span class="macro">eprintln!</span>(
+                    <span class="string">"Packaging project directory ({} files, {})"</span>,
+                    file_count,
+                    ByteSize(archive_size)
+                );
+            }
+            DeployRemoteEvent::GeneratingUploadUrl =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Requesting upload target..."</span>);
+            }
+            DeployRemoteEvent::UploadArchiveStart { archive_size } =&gt; {
+                <span class="macro">eprintln!</span>(
+                    <span class="string">"Uploading archive ({} bytes) to Wasmer..."</span>,
+                    ByteSize(archive_size)
+                );
+            }
+            DeployRemoteEvent::DeterminingBuildConfiguration =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Determining build configuration..."</span>);
+            }
+            DeployRemoteEvent::BuildConfigDetermined { config } =&gt; {
+                <span class="macro">eprintln!</span>(
+                    <span class="string">"Build configuration determined (preset: {})"</span>,
+                    config.preset_name
+                );
+            }
+            DeployRemoteEvent::InitiatingBuild { .. } =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Requesting remote build..."</span>);
+            }
+            DeployRemoteEvent::StreamingAutobuildLogs { build_id } =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Streaming autobuild logs (build id {build_id})"</span>);
+            }
+            DeployRemoteEvent::AutobuildLog { log } =&gt; {
+                <span class="kw">let </span>kind = log.kind;
+                <span class="kw">let </span>message = log.message;
+
+                <span class="kw">if let </span><span class="prelude-val">Some</span>(msg) = message {
+                    <span class="macro">eprintln!</span>(<span class="string">"[{}] {}"</span>, format_autobuild_kind(kind), msg);
+                } <span class="kw">else if </span><span class="macro">matches!</span>(kind, AutoBuildDeployAppLogKind::Complete) {
+                    <span class="macro">eprintln!</span>(<span class="string">"[{}] complete"</span>, format_autobuild_kind(kind));
+                }
+            }
+            DeployRemoteEvent::Finished =&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Remote autobuild finished successfully.\n"</span>);
+            }
+        }
+    }
 }
 
 <span class="kw">pub async fn </span>deploy_app(

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"enum":["DeployRemoteEvent"],"fn":["create_zip_archive","deploy_app_remote","sanitize_archive_name"],"struct":["BuildConfig","DeployRemoteOpts","UploadArchive","ZipOptions"]};

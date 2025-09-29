@@ -2153,7 +2153,128 @@
 <a href="#2152" id="2152">2152</a>
 <a href="#2153" id="2153">2153</a>
 <a href="#2154" id="2154">2154</a>
-<a href="#2155" id="2155">2155</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
+<a href="#2155" id="2155">2155</a>
+<a href="#2156" id="2156">2156</a>
+<a href="#2157" id="2157">2157</a>
+<a href="#2158" id="2158">2158</a>
+<a href="#2159" id="2159">2159</a>
+<a href="#2160" id="2160">2160</a>
+<a href="#2161" id="2161">2161</a>
+<a href="#2162" id="2162">2162</a>
+<a href="#2163" id="2163">2163</a>
+<a href="#2164" id="2164">2164</a>
+<a href="#2165" id="2165">2165</a>
+<a href="#2166" id="2166">2166</a>
+<a href="#2167" id="2167">2167</a>
+<a href="#2168" id="2168">2168</a>
+<a href="#2169" id="2169">2169</a>
+<a href="#2170" id="2170">2170</a>
+<a href="#2171" id="2171">2171</a>
+<a href="#2172" id="2172">2172</a>
+<a href="#2173" id="2173">2173</a>
+<a href="#2174" id="2174">2174</a>
+<a href="#2175" id="2175">2175</a>
+<a href="#2176" id="2176">2176</a>
+<a href="#2177" id="2177">2177</a>
+<a href="#2178" id="2178">2178</a>
+<a href="#2179" id="2179">2179</a>
+<a href="#2180" id="2180">2180</a>
+<a href="#2181" id="2181">2181</a>
+<a href="#2182" id="2182">2182</a>
+<a href="#2183" id="2183">2183</a>
+<a href="#2184" id="2184">2184</a>
+<a href="#2185" id="2185">2185</a>
+<a href="#2186" id="2186">2186</a>
+<a href="#2187" id="2187">2187</a>
+<a href="#2188" id="2188">2188</a>
+<a href="#2189" id="2189">2189</a>
+<a href="#2190" id="2190">2190</a>
+<a href="#2191" id="2191">2191</a>
+<a href="#2192" id="2192">2192</a>
+<a href="#2193" id="2193">2193</a>
+<a href="#2194" id="2194">2194</a>
+<a href="#2195" id="2195">2195</a>
+<a href="#2196" id="2196">2196</a>
+<a href="#2197" id="2197">2197</a>
+<a href="#2198" id="2198">2198</a>
+<a href="#2199" id="2199">2199</a>
+<a href="#2200" id="2200">2200</a>
+<a href="#2201" id="2201">2201</a>
+<a href="#2202" id="2202">2202</a>
+<a href="#2203" id="2203">2203</a>
+<a href="#2204" id="2204">2204</a>
+<a href="#2205" id="2205">2205</a>
+<a href="#2206" id="2206">2206</a>
+<a href="#2207" id="2207">2207</a>
+<a href="#2208" id="2208">2208</a>
+<a href="#2209" id="2209">2209</a>
+<a href="#2210" id="2210">2210</a>
+<a href="#2211" id="2211">2211</a>
+<a href="#2212" id="2212">2212</a>
+<a href="#2213" id="2213">2213</a>
+<a href="#2214" id="2214">2214</a>
+<a href="#2215" id="2215">2215</a>
+<a href="#2216" id="2216">2216</a>
+<a href="#2217" id="2217">2217</a>
+<a href="#2218" id="2218">2218</a>
+<a href="#2219" id="2219">2219</a>
+<a href="#2220" id="2220">2220</a>
+<a href="#2221" id="2221">2221</a>
+<a href="#2222" id="2222">2222</a>
+<a href="#2223" id="2223">2223</a>
+<a href="#2224" id="2224">2224</a>
+<a href="#2225" id="2225">2225</a>
+<a href="#2226" id="2226">2226</a>
+<a href="#2227" id="2227">2227</a>
+<a href="#2228" id="2228">2228</a>
+<a href="#2229" id="2229">2229</a>
+<a href="#2230" id="2230">2230</a>
+<a href="#2231" id="2231">2231</a>
+<a href="#2232" id="2232">2232</a>
+<a href="#2233" id="2233">2233</a>
+<a href="#2234" id="2234">2234</a>
+<a href="#2235" id="2235">2235</a>
+<a href="#2236" id="2236">2236</a>
+<a href="#2237" id="2237">2237</a>
+<a href="#2238" id="2238">2238</a>
+<a href="#2239" id="2239">2239</a>
+<a href="#2240" id="2240">2240</a>
+<a href="#2241" id="2241">2241</a>
+<a href="#2242" id="2242">2242</a>
+<a href="#2243" id="2243">2243</a>
+<a href="#2244" id="2244">2244</a>
+<a href="#2245" id="2245">2245</a>
+<a href="#2246" id="2246">2246</a>
+<a href="#2247" id="2247">2247</a>
+<a href="#2248" id="2248">2248</a>
+<a href="#2249" id="2249">2249</a>
+<a href="#2250" id="2250">2250</a>
+<a href="#2251" id="2251">2251</a>
+<a href="#2252" id="2252">2252</a>
+<a href="#2253" id="2253">2253</a>
+<a href="#2254" id="2254">2254</a>
+<a href="#2255" id="2255">2255</a>
+<a href="#2256" id="2256">2256</a>
+<a href="#2257" id="2257">2257</a>
+<a href="#2258" id="2258">2258</a>
+<a href="#2259" id="2259">2259</a>
+<a href="#2260" id="2260">2260</a>
+<a href="#2261" id="2261">2261</a>
+<a href="#2262" id="2262">2262</a>
+<a href="#2263" id="2263">2263</a>
+<a href="#2264" id="2264">2264</a>
+<a href="#2265" id="2265">2265</a>
+<a href="#2266" id="2266">2266</a>
+<a href="#2267" id="2267">2267</a>
+<a href="#2268" id="2268">2268</a>
+<a href="#2269" id="2269">2269</a>
+<a href="#2270" id="2270">2270</a>
+<a href="#2271" id="2271">2271</a>
+<a href="#2272" id="2272">2272</a>
+<a href="#2273" id="2273">2273</a>
+<a href="#2274" id="2274">2274</a>
+<a href="#2275" id="2275">2275</a>
+<a href="#2276" id="2276">2276</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashSet, time::Duration};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>cynic::{MutationBuilder, QueryBuilder};
@@ -3016,6 +3137,56 @@
         .<span class="kw">await
         </span>.map(|r| r.get_signed_url_for_package_upload)
 }
+
+<span class="doccomment">/// Request a signed URL for uploading an app archive via the autobuild flow.
+</span><span class="kw">pub async fn </span>generate_upload_url(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    filename: <span class="kw-2">&amp;</span>str,
+    name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+    expires_after_seconds: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;SignedUrl, anyhow::Error&gt; {
+    <span class="kw">let </span>payload = client
+        .run_graphql_strict(types::GenerateUploadUrl::build(
+            GenerateUploadUrlVariables {
+                expires_after_seconds,
+                filename,
+                name,
+                version,
+            },
+        ))
+        .<span class="kw">await
+        </span>.and_then(|res| {
+            res.generate_upload_url
+                .context(<span class="string">"generateUploadUrl mutation did not return data"</span>)
+        })<span class="question-mark">?</span>;
+
+    <span class="prelude-val">Ok</span>(payload.signed_url)
+}
+
+<span class="doccomment">/// Retrieve autobuild metadata derived from a previously uploaded archive.
+</span><span class="kw">pub async fn </span>autobuild_config_for_zip_upload(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    upload_url: <span class="kw-2">&amp;</span>str,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;types::AutobuildConfigForZipUploadPayload&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::AutobuildConfigForZipUpload::build(
+            AutobuildConfigForZipUploadVariables { upload_url },
+        ))
+        .<span class="kw">await
+        </span>.map(|res| res.autobuild_config_for_zip_upload)
+}
+
+<span class="doccomment">/// Trigger an autobuild deployment for an uploaded archive or repository.
+</span><span class="kw">pub async fn </span>deploy_via_autobuild(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    vars: DeployViaAutobuildVars,
+) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;types::DeployViaAutobuildPayload&gt;, anyhow::Error&gt; {
+    client
+        .run_graphql_strict(types::DeployViaAutobuild::build(vars))
+        .<span class="kw">await
+        </span>.map(|res| res.deploy_via_autobuild)
+}
 <span class="doccomment">/// Push a package to the registry.
 </span><span class="kw">pub async fn </span>push_package_release(
     client: <span class="kw-2">&amp;</span>WasmerClient,
@@ -3517,6 +3688,39 @@
     <span class="prelude-val">Ok</span>((app, version))
 }
 
+<span class="kw">pub async fn </span>user_apps_page(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    sort: types::DeployAppsSortBy,
+    cursor: <span class="prelude-ty">Option</span>&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Paginated&lt;types::DeployApp&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>user = client
+        .run_graphql(types::GetCurrentUserWithApps::build(
+            GetCurrentUserWithAppsVars {
+                after: cursor,
+                first: <span class="prelude-val">Some</span>(<span class="number">10</span>),
+                sort: <span class="prelude-val">Some</span>(sort),
+            },
+        ))
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>.viewer
+        .context(<span class="string">"not logged in"</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let </span>apps: Vec&lt;<span class="kw">_</span>&gt; = user
+        .apps
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    <span class="kw">let </span>out = Paginated {
+        items: apps,
+        next_cursor: user.apps.page_info.end_cursor,
+    };
+
+    <span class="prelude-val">Ok</span>(out)
+}
+
 <span class="doccomment">/// List all apps that are accessible by the current user.
 ///
 /// NOTE: this will only include the first pages and does not provide pagination.
@@ -3528,6 +3732,7 @@
         <span class="kw">let </span>user = client
             .run_graphql(types::GetCurrentUserWithApps::build(
                 GetCurrentUserWithAppsVars {
+                    first: <span class="prelude-val">Some</span>(<span class="number">10</span>),
                     after: cursor,
                     sort: <span class="prelude-val">Some</span>(sort),
                 },
@@ -3589,6 +3794,43 @@
     }
 
     <span class="prelude-val">Ok</span>((user_apps, ns_apps.merge()).merge())
+}
+
+<span class="doccomment">/// Get apps for a specific namespace.
+///
+/// NOTE: only retrieves the first page and does not do pagination.
+</span><span class="kw">pub async fn </span>namespace_apps_page(
+    client: <span class="kw-2">&amp;</span>WasmerClient,
+    namespace: String,
+    sort: types::DeployAppsSortBy,
+    cursor: <span class="prelude-ty">Option</span>&lt;String&gt;,
+) -&gt; <span class="prelude-ty">Result</span>&lt;Paginated&lt;types::DeployApp&gt;, anyhow::Error&gt; {
+    <span class="kw">let </span>namespace = namespace.clone();
+
+    <span class="kw">let </span>res = client
+        .run_graphql(types::GetNamespaceApps::build(GetNamespaceAppsVars {
+            name: namespace.to_string(),
+            after: cursor,
+            sort: <span class="prelude-val">Some</span>(sort),
+        }))
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>.get_namespace
+        .context(<span class="string">"namespace not found"</span>)<span class="question-mark">?
+        </span>.apps;
+
+    <span class="kw">let </span>apps: Vec&lt;<span class="kw">_</span>&gt; = res
+        .edges
+        .into_iter()
+        .flatten()
+        .filter_map(|x| x.node)
+        .collect();
+
+    <span class="kw">let </span>out = Paginated {
+        items: apps,
+        next_cursor: res.page_info.end_cursor,
+    };
+
+    <span class="prelude-val">Ok</span>(out)
 }
 
 <span class="doccomment">/// Get apps for a specific namespace.

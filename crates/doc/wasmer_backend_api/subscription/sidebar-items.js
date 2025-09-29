@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["package_version_ready"]};
+window.SIDEBAR_ITEMS = {"fn":["autobuild_deployment","package_version_ready"]};

@@ -824,7 +824,9 @@
 <a href="#823" id="823">823</a>
 <a href="#824" id="824">824</a>
 <a href="#825" id="825">825</a>
-<a href="#826" id="826">826</a></pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
+<a href="#826" id="826">826</a>
+<a href="#827" id="827">827</a>
+<a href="#828" id="828">828</a></pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
     env,
@@ -1562,6 +1564,7 @@ the app:\n"
             <span class="kw">let </span>cmd_deploy = CmdAppDeploy {
                 quiet: <span class="bool-val">false</span>,
                 env: <span class="self">self</span>.env.clone(),
+                no_ignore: <span class="bool-val">false</span>,
                 fmt: ItemFormatOpts {
                     format: <span class="self">self</span>.fmt.format,
                 },
@@ -1576,6 +1579,7 @@ the app:\n"
                 owner: <span class="prelude-val">Some</span>(String::from(owner)),
                 app_name: <span class="prelude-val">Some</span>(app_name.into()),
                 bump: <span class="bool-val">false</span>,
+                build_remote: <span class="bool-val">false</span>,
                 template: <span class="prelude-val">None</span>,
                 package: <span class="prelude-val">None</span>,
                 use_local_manifest: <span class="self">self</span>.use_local_manifest,

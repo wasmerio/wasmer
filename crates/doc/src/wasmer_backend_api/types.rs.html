@@ -2363,9 +2363,173 @@
 <a href="#2362" id="2362">2362</a>
 <a href="#2363" id="2363">2363</a>
 <a href="#2364" id="2364">2364</a>
-<a href="#2365" id="2365">2365</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
+<a href="#2365" id="2365">2365</a>
+<a href="#2366" id="2366">2366</a>
+<a href="#2367" id="2367">2367</a>
+<a href="#2368" id="2368">2368</a>
+<a href="#2369" id="2369">2369</a>
+<a href="#2370" id="2370">2370</a>
+<a href="#2371" id="2371">2371</a>
+<a href="#2372" id="2372">2372</a>
+<a href="#2373" id="2373">2373</a>
+<a href="#2374" id="2374">2374</a>
+<a href="#2375" id="2375">2375</a>
+<a href="#2376" id="2376">2376</a>
+<a href="#2377" id="2377">2377</a>
+<a href="#2378" id="2378">2378</a>
+<a href="#2379" id="2379">2379</a>
+<a href="#2380" id="2380">2380</a>
+<a href="#2381" id="2381">2381</a>
+<a href="#2382" id="2382">2382</a>
+<a href="#2383" id="2383">2383</a>
+<a href="#2384" id="2384">2384</a>
+<a href="#2385" id="2385">2385</a>
+<a href="#2386" id="2386">2386</a>
+<a href="#2387" id="2387">2387</a>
+<a href="#2388" id="2388">2388</a>
+<a href="#2389" id="2389">2389</a>
+<a href="#2390" id="2390">2390</a>
+<a href="#2391" id="2391">2391</a>
+<a href="#2392" id="2392">2392</a>
+<a href="#2393" id="2393">2393</a>
+<a href="#2394" id="2394">2394</a>
+<a href="#2395" id="2395">2395</a>
+<a href="#2396" id="2396">2396</a>
+<a href="#2397" id="2397">2397</a>
+<a href="#2398" id="2398">2398</a>
+<a href="#2399" id="2399">2399</a>
+<a href="#2400" id="2400">2400</a>
+<a href="#2401" id="2401">2401</a>
+<a href="#2402" id="2402">2402</a>
+<a href="#2403" id="2403">2403</a>
+<a href="#2404" id="2404">2404</a>
+<a href="#2405" id="2405">2405</a>
+<a href="#2406" id="2406">2406</a>
+<a href="#2407" id="2407">2407</a>
+<a href="#2408" id="2408">2408</a>
+<a href="#2409" id="2409">2409</a>
+<a href="#2410" id="2410">2410</a>
+<a href="#2411" id="2411">2411</a>
+<a href="#2412" id="2412">2412</a>
+<a href="#2413" id="2413">2413</a>
+<a href="#2414" id="2414">2414</a>
+<a href="#2415" id="2415">2415</a>
+<a href="#2416" id="2416">2416</a>
+<a href="#2417" id="2417">2417</a>
+<a href="#2418" id="2418">2418</a>
+<a href="#2419" id="2419">2419</a>
+<a href="#2420" id="2420">2420</a>
+<a href="#2421" id="2421">2421</a>
+<a href="#2422" id="2422">2422</a>
+<a href="#2423" id="2423">2423</a>
+<a href="#2424" id="2424">2424</a>
+<a href="#2425" id="2425">2425</a>
+<a href="#2426" id="2426">2426</a>
+<a href="#2427" id="2427">2427</a>
+<a href="#2428" id="2428">2428</a>
+<a href="#2429" id="2429">2429</a>
+<a href="#2430" id="2430">2430</a>
+<a href="#2431" id="2431">2431</a>
+<a href="#2432" id="2432">2432</a>
+<a href="#2433" id="2433">2433</a>
+<a href="#2434" id="2434">2434</a>
+<a href="#2435" id="2435">2435</a>
+<a href="#2436" id="2436">2436</a>
+<a href="#2437" id="2437">2437</a>
+<a href="#2438" id="2438">2438</a>
+<a href="#2439" id="2439">2439</a>
+<a href="#2440" id="2440">2440</a>
+<a href="#2441" id="2441">2441</a>
+<a href="#2442" id="2442">2442</a>
+<a href="#2443" id="2443">2443</a>
+<a href="#2444" id="2444">2444</a>
+<a href="#2445" id="2445">2445</a>
+<a href="#2446" id="2446">2446</a>
+<a href="#2447" id="2447">2447</a>
+<a href="#2448" id="2448">2448</a>
+<a href="#2449" id="2449">2449</a>
+<a href="#2450" id="2450">2450</a>
+<a href="#2451" id="2451">2451</a>
+<a href="#2452" id="2452">2452</a>
+<a href="#2453" id="2453">2453</a>
+<a href="#2454" id="2454">2454</a>
+<a href="#2455" id="2455">2455</a>
+<a href="#2456" id="2456">2456</a>
+<a href="#2457" id="2457">2457</a>
+<a href="#2458" id="2458">2458</a>
+<a href="#2459" id="2459">2459</a>
+<a href="#2460" id="2460">2460</a>
+<a href="#2461" id="2461">2461</a>
+<a href="#2462" id="2462">2462</a>
+<a href="#2463" id="2463">2463</a>
+<a href="#2464" id="2464">2464</a>
+<a href="#2465" id="2465">2465</a>
+<a href="#2466" id="2466">2466</a>
+<a href="#2467" id="2467">2467</a>
+<a href="#2468" id="2468">2468</a>
+<a href="#2469" id="2469">2469</a>
+<a href="#2470" id="2470">2470</a>
+<a href="#2471" id="2471">2471</a>
+<a href="#2472" id="2472">2472</a>
+<a href="#2473" id="2473">2473</a>
+<a href="#2474" id="2474">2474</a>
+<a href="#2475" id="2475">2475</a>
+<a href="#2476" id="2476">2476</a>
+<a href="#2477" id="2477">2477</a>
+<a href="#2478" id="2478">2478</a>
+<a href="#2479" id="2479">2479</a>
+<a href="#2480" id="2480">2480</a>
+<a href="#2481" id="2481">2481</a>
+<a href="#2482" id="2482">2482</a>
+<a href="#2483" id="2483">2483</a>
+<a href="#2484" id="2484">2484</a>
+<a href="#2485" id="2485">2485</a>
+<a href="#2486" id="2486">2486</a>
+<a href="#2487" id="2487">2487</a>
+<a href="#2488" id="2488">2488</a>
+<a href="#2489" id="2489">2489</a>
+<a href="#2490" id="2490">2490</a>
+<a href="#2491" id="2491">2491</a>
+<a href="#2492" id="2492">2492</a>
+<a href="#2493" id="2493">2493</a>
+<a href="#2494" id="2494">2494</a>
+<a href="#2495" id="2495">2495</a>
+<a href="#2496" id="2496">2496</a>
+<a href="#2497" id="2497">2497</a>
+<a href="#2498" id="2498">2498</a>
+<a href="#2499" id="2499">2499</a>
+<a href="#2500" id="2500">2500</a>
+<a href="#2501" id="2501">2501</a>
+<a href="#2502" id="2502">2502</a>
+<a href="#2503" id="2503">2503</a>
+<a href="#2504" id="2504">2504</a>
+<a href="#2505" id="2505">2505</a>
+<a href="#2506" id="2506">2506</a>
+<a href="#2507" id="2507">2507</a>
+<a href="#2508" id="2508">2508</a>
+<a href="#2509" id="2509">2509</a>
+<a href="#2510" id="2510">2510</a>
+<a href="#2511" id="2511">2511</a>
+<a href="#2512" id="2512">2512</a>
+<a href="#2513" id="2513">2513</a>
+<a href="#2514" id="2514">2514</a>
+<a href="#2515" id="2515">2515</a>
+<a href="#2516" id="2516">2516</a>
+<a href="#2517" id="2517">2517</a>
+<a href="#2518" id="2518">2518</a>
+<a href="#2519" id="2519">2519</a>
+<a href="#2520" id="2520">2520</a>
+<a href="#2521" id="2521">2521</a>
+<a href="#2522" id="2522">2522</a>
+<a href="#2523" id="2523">2523</a></pre></div><pre class="rust"><code><span class="kw">pub use </span>queries::<span class="kw-2">*</span>;
 
 <span class="kw">pub use </span>cynic::Id;
+
+<span class="attr">#[derive(serde::Serialize, serde::Deserialize, Clone, Debug)]
+</span><span class="kw">pub struct </span>Paginated&lt;T&gt; {
+    <span class="kw">pub </span>items: Vec&lt;T&gt;,
+    <span class="kw">pub </span>next_cursor: <span class="prelude-ty">Option</span>&lt;String&gt;,
+}
 
 <span class="attr">#[cynic::schema_for_derives(file = <span class="string">r#"schema.graphql"#</span>, module = <span class="string">"schema"</span>)]
 </span><span class="kw">mod </span>queries {
@@ -2956,6 +3120,27 @@
         <span class="kw">pub </span>url: String,
     }
 
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>GenerateUploadUrlVariables&lt;<span class="lifetime">'a</span>&gt; {
+        <span class="kw">pub </span>expires_after_seconds: <span class="prelude-ty">Option</span>&lt;i32&gt;,
+        <span class="kw">pub </span>filename: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+        <span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+        <span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'a </span>str&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">"Mutation"</span>, variables = <span class="string">"GenerateUploadUrlVariables"</span>)]
+    </span><span class="kw">pub struct </span>GenerateUploadUrl {
+        <span class="attr">#[arguments(input: { expiresAfterSeconds: <span class="macro-nonterminal">$expires_after_seconds</span>, filename: <span class="macro-nonterminal">$filename</span>, name: <span class="macro-nonterminal">$name</span>, version: <span class="macro-nonterminal">$version </span>})]
+        </span><span class="kw">pub </span>generate_upload_url: <span class="prelude-ty">Option</span>&lt;GenerateUploadUrlPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>GenerateUploadUrlPayload {
+        <span class="attr">#[cynic(rename = <span class="string">"signedUrl"</span>)]
+        </span><span class="kw">pub </span>signed_url: SignedUrl,
+    }
+
     <span class="attr">#[derive(cynic::QueryFragment, Debug)]
     </span><span class="kw">pub struct </span>PackageWebcConnection {
         <span class="kw">pub </span>page_info: PageInfo,
@@ -2997,6 +3182,7 @@
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
     </span><span class="kw">pub struct </span>GetCurrentUserWithAppsVars {
+        <span class="kw">pub </span>first: <span class="prelude-ty">Option</span>&lt;i32&gt;,
         <span class="kw">pub </span>after: <span class="prelude-ty">Option</span>&lt;String&gt;,
         <span class="kw">pub </span>sort: <span class="prelude-ty">Option</span>&lt;DeployAppsSortBy&gt;,
     }
@@ -3013,7 +3199,7 @@
     </span><span class="kw">pub struct </span>UserWithApps {
         <span class="kw">pub </span>id: cynic::Id,
         <span class="kw">pub </span>username: String,
-        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>, sortBy: <span class="macro-nonterminal">$sort</span>)]
+        <span class="attr">#[arguments(after: <span class="macro-nonterminal">$after</span>, sortBy: <span class="macro-nonterminal">$sort</span>, first: <span class="macro-nonterminal">$first</span>)]
         </span><span class="kw">pub </span>apps: DeployAppConnection,
     }
 
@@ -3684,6 +3870,100 @@
         }
     }
 
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>AutobuildConfigForZipUploadVariables&lt;<span class="lifetime">'a</span>&gt; {
+        <span class="kw">pub </span>upload_url: <span class="kw-2">&amp;</span><span class="lifetime">'a </span>str,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(
+        graphql_type = <span class="string">"Mutation"</span>,
+        variables = <span class="string">"AutobuildConfigForZipUploadVariables"
+    </span>)]
+    </span><span class="kw">pub struct </span>AutobuildConfigForZipUpload {
+        <span class="attr">#[arguments(input: { uploadUrl: <span class="macro-nonterminal">$upload_url </span>})]
+        </span><span class="kw">pub </span>autobuild_config_for_zip_upload: <span class="prelude-ty">Option</span>&lt;AutobuildConfigForZipUploadPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    </span><span class="kw">pub struct </span>AutobuildConfigForZipUploadPayload {
+        <span class="kw">pub </span>build_config: <span class="prelude-ty">Option</span>&lt;BuildConfig&gt;,
+        <span class="kw">pub </span>deployed_apps: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;DeployApp&gt;&gt;&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    </span><span class="kw">pub struct </span>BuildConfig {
+        <span class="kw">pub </span>build_cmd: String,
+        <span class="kw">pub </span>install_cmd: String,
+        <span class="kw">pub </span>setup_db: bool,
+        <span class="kw">pub </span>preset_name: String,
+        <span class="kw">pub </span>app_name: String,
+        <span class="kw">pub </span>can_deploy_without_repo: bool,
+        <span class="kw">pub </span>completion_time_in_seconds: i32,
+        <span class="kw">pub </span>branch: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::InputObject, Debug, Clone)]
+    </span><span class="kw">pub struct </span>WordpressDeploymentExtraData {
+        <span class="kw">pub </span>site_name: String,
+        <span class="kw">pub </span>admin_username: String,
+        <span class="kw">pub </span>admin_password: String,
+        <span class="kw">pub </span>admin_email: String,
+        <span class="kw">pub </span>language: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::InputObject, Debug, Clone)]
+    </span><span class="kw">pub struct </span>AutobuildDeploymentExtraData {
+        <span class="kw">pub </span>wordpress: <span class="prelude-ty">Option</span>&lt;WordpressDeploymentExtraData&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::InputObject, Debug, Clone)]
+    </span><span class="kw">pub struct </span>JobDefinitionInput {
+        <span class="kw">pub </span>name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>package: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>command: String,
+        <span class="kw">pub </span>cli_args: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;&gt;,
+        <span class="kw">pub </span>env: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;&gt;,
+        <span class="kw">pub </span>timeout: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug, Clone)]
+    </span><span class="kw">pub struct </span>DeployViaAutobuildVars {
+        <span class="kw">pub </span>repo_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>upload_url: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>app_name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>app_id: <span class="prelude-ty">Option</span>&lt;cynic::Id&gt;,
+        <span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>build_cmd: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>install_cmd: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>enable_database: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        <span class="kw">pub </span>secrets: <span class="prelude-ty">Option</span>&lt;Vec&lt;SecretInput&gt;&gt;,
+        <span class="kw">pub </span>extra_data: <span class="prelude-ty">Option</span>&lt;AutobuildDeploymentExtraData&gt;,
+        <span class="kw">pub </span>params: <span class="prelude-ty">Option</span>&lt;AutobuildDeploymentExtraData&gt;,
+        <span class="kw">pub </span>managed: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        <span class="kw">pub </span>kind: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>wait_for_screenshot_generation: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        <span class="kw">pub </span>region: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>branch: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>allow_existing_app: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+        <span class="kw">pub </span>jobs: <span class="prelude-ty">Option</span>&lt;Vec&lt;JobDefinitionInput&gt;&gt;,
+        <span class="kw">pub </span>domains: <span class="prelude-ty">Option</span>&lt;Vec&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;&gt;,
+        <span class="kw">pub </span>client_mutation_id: <span class="prelude-ty">Option</span>&lt;String&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    #[cynic(graphql_type = <span class="string">"Mutation"</span>, variables = <span class="string">"DeployViaAutobuildVars"</span>)]
+    </span><span class="kw">pub struct </span>DeployViaAutobuild {
+        <span class="attr">#[arguments(input: { repoUrl: <span class="macro-nonterminal">$repo_url</span>, uploadUrl: <span class="macro-nonterminal">$upload_url</span>, appName: <span class="macro-nonterminal">$app_name</span>, appId: <span class="macro-nonterminal">$app_id</span>, owner: <span class="macro-nonterminal">$owner</span>, buildCmd: <span class="macro-nonterminal">$build_cmd</span>, installCmd: <span class="macro-nonterminal">$install_cmd</span>, enableDatabase: <span class="macro-nonterminal">$enable_database</span>, secrets: <span class="macro-nonterminal">$secrets</span>, extraData: <span class="macro-nonterminal">$extra_data</span>, params: <span class="macro-nonterminal">$params</span>, managed: <span class="macro-nonterminal">$managed</span>, kind: <span class="macro-nonterminal">$kind</span>, waitForScreenshotGeneration: <span class="macro-nonterminal">$wait_for_screenshot_generation</span>, region: <span class="macro-nonterminal">$region</span>, branch: <span class="macro-nonterminal">$branch</span>, allowExistingApp: <span class="macro-nonterminal">$allow_existing_app</span>, jobs: <span class="macro-nonterminal">$jobs</span>, domains: <span class="macro-nonterminal">$domains</span>, clientMutationId: <span class="macro-nonterminal">$client_mutation_id </span>})]
+        </span><span class="kw">pub </span>deploy_via_autobuild: <span class="prelude-ty">Option</span>&lt;DeployViaAutobuildPayload&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug)]
+    </span><span class="kw">pub struct </span>DeployViaAutobuildPayload {
+        <span class="kw">pub </span>success: bool,
+        <span class="kw">pub </span>build_id: Uuid,
+    }
+
     <span class="attr">#[derive(cynic::Scalar, Debug, Clone)]
     #[cynic(graphql_type = <span class="string">"UUID"</span>)]
     </span><span class="kw">pub struct </span>Uuid(<span class="kw">pub </span>String);
@@ -3785,6 +4065,42 @@
         </span><span class="kw">pub </span>timestamp: f64,
         <span class="kw">pub </span>stream: <span class="prelude-ty">Option</span>&lt;LogStream&gt;,
         <span class="kw">pub </span>instance_id: String,
+    }
+
+    <span class="attr">#[derive(cynic::Enum, Clone, Copy, Debug, PartialEq, Eq)]
+    </span><span class="kw">pub enum </span>AutoBuildDeployAppLogKind {
+        Log,
+        PreparingToDeployStatus,
+        FetchingPlanStatus,
+        BuildStatus,
+        DeployStatus,
+        Complete,
+        Failed,
+    }
+
+    <span class="attr">#[derive(cynic::QueryVariables, Debug)]
+    </span><span class="kw">pub struct </span>AutobuildDeploymentSubscriptionVariables {
+        <span class="kw">pub </span>build_id: Uuid,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    #[cynic(
+        graphql_type = <span class="string">"Subscription"</span>,
+        variables = <span class="string">"AutobuildDeploymentSubscriptionVariables"
+    </span>)]
+    </span><span class="kw">pub struct </span>AutobuildDeploymentSubscription {
+        <span class="attr">#[arguments(buildId: <span class="macro-nonterminal">$build_id</span>)]
+        </span><span class="kw">pub </span>autobuild_deployment: <span class="prelude-ty">Option</span>&lt;AutobuildLog&gt;,
+    }
+
+    <span class="attr">#[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
+    </span><span class="kw">pub struct </span>AutobuildLog {
+        <span class="kw">pub </span>kind: AutoBuildDeployAppLogKind,
+        <span class="kw">pub </span>message: <span class="prelude-ty">Option</span>&lt;String&gt;,
+        <span class="kw">pub </span>app_version: <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt;,
+        <span class="kw">pub </span>timestamp: String,
+        <span class="kw">pub </span>datetime: DateTime,
+        <span class="kw">pub </span>stream: <span class="prelude-ty">Option</span>&lt;LogStream&gt;,
     }
 
     <span class="attr">#[derive(cynic::QueryVariables, Debug)]
@@ -3986,7 +4302,7 @@
         <span class="kw">pub </span>success: bool,
     }
 
-    <span class="attr">#[derive(cynic::InputObject, Debug)]
+    <span class="attr">#[derive(cynic::InputObject, Debug, Clone)]
     </span><span class="kw">pub struct </span>SecretInput {
         <span class="kw">pub </span>name: String,
         <span class="kw">pub </span>value: String,
