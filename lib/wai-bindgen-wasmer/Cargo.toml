@@ -14,7 +14,7 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-async-trait = { version = "0.1.50", optional = true }
+async-trait = { workspace = true, optional = true }
 bitflags = "1.2"
 once_cell.workspace = true
 thiserror.workspace = true

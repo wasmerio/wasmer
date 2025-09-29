@@ -69,7 +69,7 @@ tokio = { workspace = true, features = [
 tokio-stream = { version = "0.1", features = ["sync"] }
 futures = { version = "0.3" }
 # used by feature='os'
-async-trait = { version = "^0.1" }
+async-trait = { workspace = true }
 urlencoding = { version = "^2" }
 serde_derive = { version = "^1" }
 serde_json.workspace = true

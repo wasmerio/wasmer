@@ -12,7 +12,7 @@ rust-version.workspace = true
 [dependencies]
 thiserror.workspace = true
 bytes.workspace = true
-async-trait = { version = "^0.1" }
+async-trait = { workspace = true }
 tracing.workspace = true
 
 mio = { workspace = true, features = ["os-poll"], optional = true }

@@ -18,7 +18,7 @@ ipnet = "2.10.1"
 iprange = "0.6.7"
 thiserror.workspace = true
 bytes.workspace = true
-async-trait = { version = "^0.1" }
+async-trait = { workspace = true }
 tracing.workspace = true
 tokio = { workspace = true, default-features = false, features = ["io-util"] }
 libc = { workspace = true, optional = true }
