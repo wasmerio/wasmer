@@ -170,9 +170,9 @@ impl Selector {
     ) -> io::Result<()> {
         self.queue_modification(SelectorModification::Remove { token });
         // CONCURRENCY: This should never result in a deadlock, as long as source.deregister does not call remove or add again.
-        let inner_registry = self.registry.try_lock().unwrap();
         if let Some(source) = source {
-            inner_registry.deregister(source)?;
+            let inner_registry = self.registry.lock().unwrap();
+            source.deregister(&inner_registry)?;
         }
         Ok(())
     }
