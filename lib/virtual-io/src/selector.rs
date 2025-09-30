@@ -37,7 +37,7 @@ impl SelectorModification {
             SelectorModification::Add { token, handler } => {
                 lookup.insert(token, handler);
             }
-            SelectorModification::Remove { token, .. } => {
+            SelectorModification::Remove { token } => {
                 lookup.remove(&token);
             }
             SelectorModification::Replace { token, mut handler } => {
