@@ -8,7 +8,7 @@ use url::Url;
 
 use wasmer_backend_api::WasmerClient;
 
-use wasmer_sdk::package::{publish_package, PublishOptions, PublishWait};
+use wasmer_sdk::package::publish::{publish_package_directory, PublishOptions, PublishWait};
 
 /// Integration test for the package publishing logic.
 #[tokio::test]
@@ -62,10 +62,9 @@ main-args = ["--root", "/public"]
         version: Some(Version::parse("0.0.1")?),
         timeout: Duration::from_secs(180),
         wait: PublishWait::None,
-        bump: false,
     };
 
     // Execute the publish logic.
-    publish_package(&client, path, opts, |_| {}).await?;
+    publish_package_directory(&client, path, opts, |_| {}).await?;
     Ok(())
 }

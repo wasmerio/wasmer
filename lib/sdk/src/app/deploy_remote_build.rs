@@ -104,7 +104,11 @@ where
     let zip_opts = ZipOptions {
         standard_ignores: !opts.no_ignore,
     };
-    let archive = create_zip_archive(base_dir, zip_opts)?;
+    let archive = tokio::task::spawn_blocking({
+        let base_dir = base_dir.to_path_buf();
+        move || create_zip_archive(&base_dir, zip_opts)
+    })
+    .await??;
     on_progress(DeployRemoteEvent::ArchiveCreated {
         file_count: archive.file_count,
         archive_size: archive.bytes.len() as u64,
