@@ -1,10 +1,12 @@
+use mio::{Registry, Token};
 use std::{
     collections::HashMap,
     io,
-    sync::{Arc, Mutex},
+    sync::{
+        atomic::{AtomicUsize, Ordering},
+        Arc, Mutex,
+    },
 };
-
-use mio::{Registry, Token};
 
 use crate::{InterestHandler, InterestType};
 
@@ -25,11 +27,12 @@ pub enum SelectorModification {
         interest: InterestType,
     },
 }
+
 impl SelectorModification {
     /// Apply the modification to a handler lookup table
     ///
     /// This function must be called with care, as `SelectorModification::PushInterest` may trigger handler code.
-    fn apply(self, lookup: &mut HashMap<Token, Box<dyn InterestHandler + Send + Sync>>) -> () {
+    fn apply(self, lookup: &mut HashMap<Token, Box<dyn InterestHandler + Send + Sync>>) {
         match self {
             SelectorModification::Add { token, handler } => {
                 lookup.insert(token, handler);
@@ -78,7 +81,7 @@ impl std::fmt::Debug for SelectorModification {
                 f.debug_struct("Replace").field("token", token).finish()
             }
             SelectorModification::PushInterest { token, interest } => f
-                .debug_struct("Replace")
+                .debug_struct("PushInterest")
                 .field("token", token)
                 .field("interest", interest)
                 .finish(),
@@ -89,12 +92,15 @@ impl std::fmt::Debug for SelectorModification {
 #[derive(Debug)]
 pub struct Selector {
     token_close: Token,
+    token_wakeup: Token,
     /// The core assumption here is that this will always be the innermost lock, so we will never deadlock
     registry: Mutex<Registry>,
     /// See the comment in `run` for the concurrency model
     lookup: Mutex<HashMap<Token, Box<dyn InterestHandler + Send + Sync>>>,
-    previous_seed: Mutex<usize>,
+    next_seed: AtomicUsize,
     closer: mio::Waker,
+    // Artifical waker to wake up after PushInterest
+    wakeup: mio::Waker,
     /// Queued up modifications that will be processed when we can acquire `inner_lookup` the next time
     /// The core assumption here is that this will always be the innermost lock, so we will never deadlock
     queued_modifications: Mutex<Vec<SelectorModification>>,
@@ -108,10 +114,14 @@ impl Selector {
             .try_clone()
             .expect("the selector registry failed to clone");
 
+        let token_close = Token(0);
+        let token_wakeup = Token(1);
         let engine = Arc::new(Selector {
-            closer: mio::Waker::new(poll.registry(), Token(0)).unwrap(),
-            token_close: Token(1),
-            previous_seed: Mutex::new(10),
+            closer: mio::Waker::new(poll.registry(), token_close).unwrap(),
+            wakeup: mio::Waker::new(poll.registry(), token_wakeup).unwrap(),
+            token_close,
+            token_wakeup,
+            next_seed: 10.into(),
             lookup: Mutex::new(Default::default()),
             registry: Mutex::new(registry),
             queued_modifications: Mutex::new(Vec::new()),
@@ -138,11 +148,11 @@ impl Selector {
         source: &mut dyn mio::event::Source,
         interests: mio::Interest,
     ) -> io::Result<Token> {
-        let token = self.generate_token();
+        let token = self.new_token();
 
         self.queue_modification(SelectorModification::Add { handler, token });
 
-        // CONCURRENCY: This should never result in a deadlock, as inner_registry is only locked for non-blocking operations.
+        // CONCURRENCY: This should never result in a deadlock, as long as source.deregister does not call remove or add again.
         let inner_registry = self.registry.lock().unwrap();
         match source.register(&inner_registry, token, interests) {
             Ok(()) => {}
@@ -162,8 +172,8 @@ impl Selector {
         source: Option<&mut dyn mio::event::Source>,
     ) -> io::Result<()> {
         self.queue_modification(SelectorModification::Remove { token });
-        // CONCURRENCY: This should never result in a deadlock, as inner_registry is only locked for non-blocking operations.
-        let inner_registry = self.registry.lock().unwrap();
+        // CONCURRENCY: This should never result in a deadlock, as long as source.deregister does not call remove or add again.
+        let inner_registry = self.registry.try_lock().unwrap();
         if let Some(source) = source {
             inner_registry.deregister(source)?;
         }
@@ -178,49 +188,36 @@ impl Selector {
         self.queue_modification(SelectorModification::Replace { token, handler });
     }
 
-        /// Generate a new unique token
+    /// Generate a new unique token
     #[must_use = "the token must be consumed"]
-    fn generate_token(&self) -> Token {
-        // CONCURRENCY: This is safe because inner_seed is only locked here and this function does not do recursion.
-        let mut inner_seed = self.previous_seed.lock().unwrap();
-        *inner_seed = inner_seed
-            .checked_add(1)
-            .expect("selector has ran out of token seeds");
-
-        Token(*inner_seed)
+    fn new_token(&self) -> Token {
+        Token(self.next_seed.fetch_add(1, Ordering::Relaxed))
     }
 
     /// Try to process a modification immediately, otherwise queue it up
     fn queue_modification(&self, modification: SelectorModification) {
-        // CONCURRENCY: This is safe, because we only lock `queued_modifications` nested which is also safe.
-        if let Ok(mut inner_lookup) = self.lookup.try_lock() {
-            // We got the inner_lookup lock
-            // Process all queued modifications first, to assure they are processed in the correct order
-            self.process_queued_modifications(&mut inner_lookup);
-            modification.apply(&mut inner_lookup);
-        } else {
-            // CONCURRENCY: This will never deadlock as queued_modifications is always the innermost lock and we don't call any potentially blocking functions while holding the lock.
-            self.queued_modifications.lock().unwrap().push(modification);
+        // Replace and PushInterest can cause external code to be called so it is a good idea to process them asap so they don't get delayed too long
+        let needs_wakeup = matches!(
+            &modification,
+            SelectorModification::PushInterest { .. } | SelectorModification::Replace { .. }
+        );
+
+        // CONCURRENCY: This will never deadlock as queued_modifications is always the innermost lock and we don't call any potentially blocking functions while holding the lock.
+        self.queued_modifications.lock().unwrap().push(modification);
+
+        if needs_wakeup {
+            self.wakeup.wake().ok();
         }
     }
 
-    /// Process all queued modifications
-    ///
-    /// This function must be called with the lookup lock held.
-    fn process_queued_modifications(
-        &self,
-        lookup: &mut HashMap<Token, Box<dyn InterestHandler + Send + Sync>>,
-    ) {
+    /// Drain the queued modifications queue and return the modifications
+    fn take_queued_modifications(&self) -> Vec<SelectorModification> {
         // CONCURRENCY: This will never deadlock as queued_modifications is always the innermost lock and we don't call any potentially blocking functions while holding the lock.
-        let queued_modifications = self
-            .queued_modifications
+        self.queued_modifications
             .lock()
             .unwrap()
             .drain(..)
-            .collect::<Vec<_>>();
-        for modification in queued_modifications {
-            modification.apply(lookup);
-        }
+            .collect::<Vec<_>>()
     }
 
     fn run(engine: Arc<Selector>, mut poll: mio::Poll) {
@@ -238,12 +235,23 @@ impl Selector {
                 panic!("Unexpected error in selector poll loop: {e:?}");
             }
 
+            // Handler changes that may be queued up between the poll completing and taking the queued modifications can be a problem but we can not eliminate that fully.
+
+            let queued_modifications = engine.take_queued_modifications();
+
+            // Handler changes here are not a problem as they will not effect the current set of events
+
             // CONCURRENCY: Here is a risk for a deadlock because it has a nested lock for `self.queued_modifications`.
             //              See the comment at the nested lock for why this is safe here.
             // CONCURRENCY: Here is a risk for a deadlock because calls the registered handlers which may result in any of the other selector functions being called.
             //              We mitigate that by ensuring ALL OTHER instances of locking `self.inner_lookup` are non-blocking (try_lock) and will just queue up modifications if the lock can not be acquired.
             //              However that still leaves the risk of a recursive call to this function. We prevent that by ???
             let mut inner_lookup = engine.lookup.lock().unwrap();
+
+            // Process any queued up modifications that were caused by the handlers in the last polling of evetns
+            for modification in queued_modifications {
+                modification.apply(&mut inner_lookup);
+            }
 
             for event in events.iter() {
                 // If the event is already dropped then ignore it
@@ -252,6 +260,10 @@ impl Selector {
                 // If its the close event then exit
                 if token == engine.token_close {
                     return;
+                }
+                if token == engine.token_wakeup {
+                    // Just a wake up call, continue to process queued modifications
+                    continue;
                 }
 
                 // Get the handler
@@ -282,17 +294,10 @@ impl Selector {
                 }
             }
 
-            // Process any queued up modifications that were caused by the handlers above
-            //
-            // While we could process the queued modifications already in each loop iteration above, we will do it here because:
-            // * If new modifications were added or removed while processing events (in the loop above), they will have been already registered with the source.
-            //   We can not delay that as, we only have a reference to the source when adding/removing, so we can not store it for later processing here.
-            // * However, as all events have already been collected _before_ entering the loop above, it does not matter if we change the set of registered events in there.
-            // * However if we were to switch out the handlers above, we would change the handler for already collected events.
-            // * By delaying the processing of the queued handler modifications until here, we ensure that all events will be processed with the handler that was active when the event was collected.
-            //
-            // tldr; I think this is the right place to process the queued modifications.
-            engine.process_queued_modifications(&mut inner_lookup);
+            // TODO: Race condition: another threade could queue up a modification
+            // engine.process_queued_modifications(&mut inner_lookup);
+            // Release inner_lookup
+            // Release queue
         }
     }
 }
