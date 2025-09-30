@@ -1,5 +1,6 @@
 use std::time::Duration;
 
+use anyhow::Context as _;
 use reqwest;
 use thiserror::Error;
 use wasmer_backend_api::{
@@ -8,7 +9,9 @@ use wasmer_backend_api::{
 };
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
-use crate::package::{publish_package, PublishOptions, PublishProgress, PublishWait};
+use crate::package::publish::{
+    publish_package_directory, PackagePublishError, PublishOptions, PublishProgress, PublishWait,
+};
 
 /// When waiting for an app deployment.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -51,6 +54,7 @@ impl Default for DeployOptions {
     }
 }
 
+/// Error that can occur during app deployment.
 #[derive(Debug, Error)]
 pub enum DeployError {
     #[error("missing owner in configuration or options")]
@@ -58,13 +62,14 @@ pub enum DeployError {
     #[error("missing app name in configuration")]
     MissingName,
     #[error("package publish error: {0}")]
-    Publish(#[from] crate::package::PublishError),
+    Publish(#[from] PackagePublishError),
     #[error("yaml error: {0}")]
     Yaml(#[from] serde_yaml::Error),
     #[error("backend API error: {0}")]
     Api(#[from] anyhow::Error),
 }
 
+/// Deploy an app based on the provided app configuration and options.
 pub async fn deploy_app<F>(
     client: &WasmerClient,
     mut config: AppConfigV1,
@@ -92,7 +97,7 @@ where
                 wait: PublishWait::Container,
                 ..Default::default()
             };
-            let ident = publish_package(client, path.as_ref(), publish_opts, |e| {
+            let ident = publish_package_directory(client, path.as_ref(), publish_opts, |e| {
                 progress(DeployProgress::Publishing(e));
             })
             .await?;
@@ -151,7 +156,7 @@ async fn wait_app(
                 .timeout(Duration::from_secs(90))
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
-                .unwrap();
+                .context("failed to build HTTP client")?;
             let start = tokio::time::Instant::now();
             let mut sleep_ms = 1_000u64;
             loop {
