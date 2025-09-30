@@ -27,7 +27,7 @@ serde_json.workspace = true
 wasmer = { version = "6.1.0-rc.5", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
 derive_more.workspace = true
 webc.workspace = true
-async-trait = "0.1.77"
+async-trait = { workspace = true }
 wasmer-backend-api = { path = "../../lib/backend-api" }
 shared-buffer.workspace = true
 
