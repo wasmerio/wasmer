@@ -200,7 +200,13 @@
 <a href="#199" id="199">199</a>
 <a href="#200" id="200">200</a>
 <a href="#201" id="201">201</a>
-<a href="#202" id="202">202</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::random_file::RandomFile;
+<a href="#202" id="202">202</a>
+<a href="#203" id="203">203</a>
+<a href="#204" id="204">204</a>
+<a href="#205" id="205">205</a>
+<a href="#206" id="206">206</a>
+<a href="#207" id="207">207</a>
+<a href="#208" id="208">208</a></pre></div><pre class="rust"><code><span class="kw">use </span><span class="kw">crate</span>::random_file::RandomFile;
 <span class="kw">use crate</span>::{FileSystem, VirtualFile};
 <span class="kw">use </span>std::path::{Path, PathBuf};
 <span class="kw">use </span>tracing::<span class="kw-2">*</span>;
@@ -324,6 +330,8 @@
                 PathBuf::from(<span class="string">"/dev/tty"</span>),
                 <span class="self">self</span>.tty.unwrap_or_else(|| Box::&lt;NullFile&gt;::default()),
             );
+
+            <span class="kw">let _ </span>= tmp.create_dir(Path::new(<span class="string">"/dev/shm"</span>));
         }
         tmp
     }
@@ -332,6 +340,7 @@
 <span class="attr">#[cfg(test)]
 </span><span class="kw">mod </span>test_builder {
     <span class="kw">use crate</span>::{FileSystem, RootFileSystemBuilder};
+    <span class="kw">use </span>std::path::Path;
     <span class="kw">use </span>tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     <span class="attr">#[tokio::test]
@@ -400,6 +409,9 @@
             .open(<span class="string">"/dev/stderr"</span>)
             .unwrap();
         <span class="macro">assert_eq!</span>(dev_stderr.get_special_fd().unwrap(), <span class="number">2</span>);
+
+        <span class="kw">let </span>dev_shm_metadata = root_fs.metadata(Path::new(<span class="string">"/dev/shm"</span>)).unwrap();
+        <span class="macro">assert!</span>(dev_shm_metadata.is_dir());
     }
 }
 </code></pre></div></section></main></body></html>
