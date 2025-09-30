@@ -17,6 +17,8 @@ use wasmer_backend_api::{
 use wasmer_config::app::AppConfigV1;
 use zip::{write::SimpleFileOptions, CompressionMethod};
 
+use thiserror::Error;
+
 pub use wasmer_backend_api::types::BuildConfig;
 
 /// Options for remote deployments through [`deploy_app_remote`].
@@ -32,6 +34,7 @@ pub struct DeployRemoteOpts {
 ///
 /// Used by the `on_progress` callback in [`deploy_app_remote`].
 #[derive(Debug, Clone)]
+#[non_exhaustive]
 pub enum DeployRemoteEvent {
     /// Starting creation of the archive file.
     CreatingArchive {
@@ -62,6 +65,34 @@ pub enum DeployRemoteEvent {
     Finished,
 }
 
+/// Errors that can occur during remote deployments.
+#[derive(Debug, Error)]
+pub enum DeployRemoteError {
+    #[error("deployment directory '{0}' does not exist")]
+    MissingDeploymentDirectory(String),
+    #[error("owner must be specified for remote deployments")]
+    MissingOwner,
+    #[error("remote deployments require `app.yaml` to define either an app name or an app_id")]
+    MissingAppIdentifier,
+    #[error("remote deployment request was rejected by the API")]
+    RequestRejected,
+    #[error("remote deployment failed: {0}")]
+    DeploymentFailed(String),
+    // TODO: should not use anyhow here... but backend-api crate does.
+    #[error("backend API error: {0}")]
+    Api(anyhow::Error),
+    #[error(transparent)]
+    Http(#[from] reqwest::Error),
+    #[error("remote deployment completed but no app version was returned")]
+    MissingAppVersion,
+    #[error("remote deployment stream ended without a completion event")]
+    MissingCompletionEvent,
+    #[error("zip archive creation failed: {0}")]
+    ZipCreation(anyhow::Error),
+    #[error("unexpected error: {0}")]
+    Other(Box<dyn std::error::Error + Send + Sync>),
+}
+
 /// Deploy an application using the remote autobuild zip upload flow.
 ///
 /// It will build a ZIP archive of the specified `base_dir`, upload it to Wasmer,
@@ -73,15 +104,14 @@ pub async fn deploy_app_remote<F>(
     opts: DeployRemoteOpts,
     base_dir: &Path,
     mut on_progress: F,
-) -> Result<DeployAppVersion, anyhow::Error>
+) -> Result<DeployAppVersion, DeployRemoteError>
 where
     F: FnMut(DeployRemoteEvent) + Send,
 {
     if !base_dir.is_dir() {
-        bail!(
-            "deployment directory '{}' does not exist",
-            base_dir.display()
-        );
+        return Err(DeployRemoteError::MissingDeploymentDirectory(
+            base_dir.display().to_string(),
+        ));
     }
 
     let app = opts.app;
@@ -89,12 +119,12 @@ where
         .owner
         .clone()
         .or_else(|| app.owner.clone())
-        .context("owner must be specified for remote deployments")?;
+        .ok_or(DeployRemoteError::MissingOwner)?;
 
     let app_name = app.name.clone();
     let app_id = app.app_id.clone();
     if app_name.is_none() && app_id.is_none() {
-        bail!("remote deployments require `app.yaml` to define either an app name or an app_id");
+        return Err(DeployRemoteError::MissingAppIdentifier);
     }
 
     on_progress(DeployRemoteEvent::CreatingArchive {
@@ -108,7 +138,9 @@ where
         let base_dir = base_dir.to_path_buf();
         move || create_zip_archive(&base_dir, zip_opts)
     })
-    .await??;
+    .await
+    .map_err(|e| DeployRemoteError::Other(e.into()))?
+    .map_err(DeployRemoteError::ZipCreation)?;
     on_progress(DeployRemoteEvent::ArchiveCreated {
         file_count: archive.file_count,
         archive_size: archive.bytes.len() as u64,
@@ -128,7 +160,8 @@ where
         None,
         Some(300),
     )
-    .await?;
+    .await
+    .map_err(DeployRemoteError::Api)?;
 
     on_progress(DeployRemoteEvent::UploadArchiveStart {
         archive_size: bytes.len() as u64,
@@ -137,7 +170,7 @@ where
     let http_client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(10))
         .build()
-        .context("failed to create HTTP client")?;
+        .map_err(|e| DeployRemoteError::Other(e.into()))?;
 
     tracing::debug!("uploading archive to signed URL: {}", signed_url.url);
     http_client
@@ -145,21 +178,24 @@ where
         .header(CONTENT_TYPE, "application/zip")
         .body(bytes)
         .send()
-        .await
-        .context("failed to upload archive")?
-        .error_for_status()
-        .context("upload rejected by storage service")?;
+        .await?
+        .error_for_status()?;
 
     let upload_url = signed_url.url;
     on_progress(DeployRemoteEvent::DeterminingBuildConfiguration);
     let config_res =
         wasmer_backend_api::query::autobuild_config_for_zip_upload(client, &upload_url)
             .await
-            .context("failed to query autobuild config for uploaded archive")?
-            .context("no autobuild config found for uploaded archive")?;
-    let config = config_res.build_config.context(
-        "Could not determine appropriate build config - project does not seem to be supported.",
-    )?;
+            .context("failed to query autobuild config for uploaded archive")
+            .map_err(DeployRemoteError::Api)?
+            .context("no autobuild config found for uploaded archive")
+            .map_err(DeployRemoteError::Api)?;
+    let config = config_res
+        .build_config
+        .context(
+            "Could not determine appropriate build config - project does not seem to be supported.",
+        )
+        .map_err(DeployRemoteError::Api)?;
     tracing::debug!(?config, "determined build config");
     on_progress(DeployRemoteEvent::BuildConfigDetermined {
         config: config.clone(),
@@ -196,11 +232,13 @@ where
     };
     on_progress(DeployRemoteEvent::InitiatingBuild { vars: vars.clone() });
     let deploy_response = wasmer_backend_api::query::deploy_via_autobuild(client, vars)
-        .await?
-        .context("deployViaAutobuild mutation did not return data")?;
+        .await
+        .map_err(DeployRemoteError::Api)?
+        .context("deployViaAutobuild mutation did not return data")
+        .map_err(DeployRemoteError::Api)?;
 
     if !deploy_response.success {
-        bail!("remote deployment request was rejected by the API");
+        return Err(DeployRemoteError::RequestRejected);
     }
 
     let build_id = deploy_response.build_id.0;
@@ -211,12 +249,13 @@ where
 
     let mut final_version: Option<DeployAppVersion> = None;
     'OUTER: loop {
-        let mut stream =
-            wasmer_backend_api::subscription::autobuild_deployment(client, &build_id).await?;
+        let mut stream = wasmer_backend_api::subscription::autobuild_deployment(client, &build_id)
+            .await
+            .map_err(DeployRemoteError::Api)?;
 
         while let Some(event) = stream.next().await {
             tracing::debug!(?event, "received autobuild event");
-            let event = event?;
+            let event = event.map_err(|err| DeployRemoteError::Other(err.into()))?;
             if let Some(data) = event.data {
                 if let Some(log) = data.autobuild_deployment {
                     on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
@@ -226,14 +265,12 @@ where
                     match kind {
                         AutoBuildDeployAppLogKind::Failed => {
                             let msg = message.unwrap_or_else(|| "remote deployment failed".into());
-                            bail!(msg);
+                            return Err(DeployRemoteError::DeploymentFailed(msg));
                         }
                         AutoBuildDeployAppLogKind::Complete => {
-                            let version = log.app_version.ok_or_else(|| {
-                                anyhow::anyhow!(
-                                    "remote deployment completed but no app version was returned"
-                                )
-                            })?;
+                            let version = log
+                                .app_version
+                                .ok_or(DeployRemoteError::MissingAppVersion)?;
 
                             final_version = Some(version);
                             break 'OUTER;
@@ -250,9 +287,7 @@ where
         tracing::warn!("autobuild event stream ended, reconnecting...");
     }
 
-    let version = final_version.ok_or_else(|| {
-        anyhow::anyhow!("remote deployment stream ended without a completion event")
-    })?;
+    let version = final_version.ok_or(DeployRemoteError::MissingCompletionEvent)?;
 
     on_progress(DeployRemoteEvent::Finished);
 
