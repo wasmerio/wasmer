@@ -56,6 +56,7 @@ impl Default for DeployOptions {
 
 /// Error that can occur during app deployment.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum DeployError {
     #[error("missing owner in configuration or options")]
     MissingOwner,
