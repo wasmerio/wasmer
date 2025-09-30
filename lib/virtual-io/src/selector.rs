@@ -3,7 +3,7 @@ use std::{
     collections::HashMap,
     io,
     sync::{
-        atomic::{AtomicUsize, Ordering},
+        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
     },
 };
@@ -91,17 +91,16 @@ impl std::fmt::Debug for SelectorModification {
 
 #[derive(Debug)]
 pub struct Selector {
-    token_close: Token,
+    /// Set to true when exiting the poll loop
+    close_requested: AtomicBool,
     token_wakeup: Token,
     /// The core assumption here is that this will always be the innermost lock, so we will never deadlock
     registry: Mutex<Registry>,
-    /// See the comment in `run` for the concurrency model
-    lookup: Mutex<HashMap<Token, Box<dyn InterestHandler + Send + Sync>>>,
     next_seed: AtomicUsize,
-    closer: mio::Waker,
-    // Artifical waker to wake up after PushInterest
+    /// Waker to wake up the selectors own poll loop
     wakeup: mio::Waker,
-    /// Queued up modifications that will be processed when we can acquire `inner_lookup` the next time
+    /// Queued up modifications that will be processed immediately after we get new events
+    ///
     /// The core assumption here is that this will always be the innermost lock, so we will never deadlock
     queued_modifications: Mutex<Vec<SelectorModification>>,
 }
@@ -114,15 +113,12 @@ impl Selector {
             .try_clone()
             .expect("the selector registry failed to clone");
 
-        let token_close = Token(0);
-        let token_wakeup = Token(1);
+        let token_wakeup = Token(0);
         let engine = Arc::new(Selector {
-            closer: mio::Waker::new(poll.registry(), token_close).unwrap(),
             wakeup: mio::Waker::new(poll.registry(), token_wakeup).unwrap(),
-            token_close,
+            close_requested: false.into(),
             token_wakeup,
             next_seed: 10.into(),
-            lookup: Mutex::new(Default::default()),
             registry: Mutex::new(registry),
             queued_modifications: Mutex::new(Vec::new()),
         });
@@ -138,7 +134,8 @@ impl Selector {
     }
 
     pub fn shutdown(&self) {
-        self.closer.wake().ok();
+        self.close_requested.store(true, Ordering::Relaxed);
+        self.wakeup.wake().ok();
     }
 
     #[must_use = "the token must be consumed"]
@@ -224,6 +221,8 @@ impl Selector {
         // The outer loop is used to release the scope of the
         // read lock whenever it needs to do so
         let mut events = mio::Events::with_capacity(128);
+        let mut handler_map: HashMap<Token, Box<dyn InterestHandler + Send + Sync>> =
+            HashMap::new();
         loop {
             // Wait for an event to trigger
             if let Err(e) = poll.poll(&mut events, None) {
@@ -238,41 +237,27 @@ impl Selector {
             // Handler changes that may be queued up between the poll completing and taking the queued modifications can be a problem but we can not eliminate that fully.
 
             let queued_modifications = engine.take_queued_modifications();
-
-            // Handler changes here are not a problem as they will not effect the current set of events
-
-            // CONCURRENCY: Here is a risk for a deadlock because it has a nested lock for `self.queued_modifications`.
-            //              See the comment at the nested lock for why this is safe here.
-            // CONCURRENCY: Here is a risk for a deadlock because calls the registered handlers which may result in any of the other selector functions being called.
-            //              We mitigate that by ensuring ALL OTHER instances of locking `self.inner_lookup` are non-blocking (try_lock) and will just queue up modifications if the lock can not be acquired.
-            //              However that still leaves the risk of a recursive call to this function. We prevent that by ???
-            let mut inner_lookup = engine.lookup.lock().unwrap();
-
-            // Process any queued up modifications that were caused by the handlers in the last polling of evetns
             for modification in queued_modifications {
-                modification.apply(&mut inner_lookup);
+                modification.apply(&mut handler_map);
             }
 
             for event in events.iter() {
                 // If the event is already dropped then ignore it
                 let token = event.token();
 
-                // If its the close event then exit
-                if token == engine.token_close {
-                    return;
-                }
                 if token == engine.token_wakeup {
+                    if engine.close_requested.load(Ordering::Relaxed) {
+                        // If exiting was requested, exit the loop
+                        return;
+                    }
                     // Just a wake up call, continue to process queued modifications
                     continue;
                 }
 
                 // Get the handler
-                let handler = match inner_lookup.get_mut(&token) {
-                    Some(h) => h,
-                    None => {
-                        tracing::debug!(token = token.0, "orphaned event");
-                        continue;
-                    }
+                let Some(handler) = handler_map.get_mut(&token) else {
+                    tracing::debug!(token = token.0, "orphaned event");
+                    continue;
                 };
 
                 // Otherwise this is a waker we need to wake
@@ -293,11 +278,6 @@ impl Selector {
                     handler.push_interest(InterestType::Error);
                 }
             }
-
-            // TODO: Race condition: another threade could queue up a modification
-            // engine.process_queued_modifications(&mut inner_lookup);
-            // Release inner_lookup
-            // Release queue
         }
     }
 }
