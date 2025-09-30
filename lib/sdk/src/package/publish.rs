@@ -107,6 +107,7 @@ impl Default for PublishOptions {
 
 /// Errors that may occur during package publishing.
 #[derive(Debug, Error)]
+#[non_exhaustive]
 pub enum PackagePublishError {
     #[error("manifest not found at {0}")]
     ManifestNotFound(PathBuf),
