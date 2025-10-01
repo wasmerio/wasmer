@@ -12569,7 +12569,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, None));
+                                catch_blocks.push((b, None, None));
                             }
                             Catch::One { tag, label } => {
                                 let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
@@ -12647,7 +12647,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, Some(wasmer_exc_phi)));
+                                catch_blocks.push((b, Some(wasmer_exc_phi), None));
                             }
                             Catch::OneRef { label, tag } => {
                                 let tag_idx = self.wasm_module.tags[TagIndex::from_u32(*tag)];
@@ -12656,13 +12656,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                                 let b = self
                                     .context
-                                    .append_basic_block(self.function, "catch_one_clause");
+                                    .append_basic_block(self.function, "catch_one_ref_clause");
                                 self.builder.position_at_end(b);
 
                                 let wasmer_exc_phi = err!(self
                                     .builder
                                     .build_phi(self.intrinsics.ptr_ty, "wasmer_exc_phi"));
                                 wasmer_exc_phi.add_incoming(&[(&wasmer_exc, catch_end_block)]);
+
+                                let uw_exc_ptr_phi = err!(self
+                                    .builder
+                                    .build_phi(self.intrinsics.ptr_ty, "uw_exc_ptr_phi"));
+                                uw_exc_ptr_phi.add_incoming(&[(&uw_exc, catch_end_block)]);
 
                                 // Get the type of the exception.
                                 let inner_exc_ty =
@@ -12714,7 +12719,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                     })
                                     .collect::<Result<Vec<_>, CompileError>>()?;
 
-                                values.push(uw_exc.as_basic_value_enum());
+                                values.push(uw_exc_ptr_phi.as_basic_value());
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
@@ -12727,13 +12732,18 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, Some(wasmer_exc_phi)));
+                                catch_blocks.push((b, Some(wasmer_exc_phi), Some(uw_exc_ptr_phi)));
                             }
                             Catch::AllRef { label } => {
                                 let b = self
                                     .context
-                                    .append_basic_block(self.function, "catch_one_clause");
+                                    .append_basic_block(self.function, "catch_all_ref_clause");
                                 self.builder.position_at_end(b);
+
+                                let uw_exc_ptr_phi = err!(self
+                                    .builder
+                                    .build_phi(self.intrinsics.ptr_ty, "uw_exc_ptr_phi"));
+                                uw_exc_ptr_phi.add_incoming(&[(&uw_exc, catch_end_block)]);
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
@@ -12742,13 +12752,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 // sanity check (todo): check that the phi has only one element
 
                                 for phi in phis.iter() {
-                                    phi.add_incoming(&[(&uw_exc.as_basic_value_enum(), b)])
+                                    phi.add_incoming(&[(&uw_exc_ptr_phi.as_basic_value(), b)])
                                 }
 
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, None));
+                                catch_blocks.push((b, None, Some(uw_exc_ptr_phi)));
                             }
                         }
                     }
@@ -12759,6 +12769,9 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 &wasmer_exc.as_basic_value_enum(),
                                 catch_end_block,
                             )]);
+                        }
+                        if let Some(phi) = catch_info.uw_exc_ptr_phi {
+                            phi.add_incoming(&[(&uw_exc.as_basic_value_enum(), catch_end_block)]);
                         }
                     }
 
@@ -12806,11 +12819,14 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 let catch_tags_and_blocks = catch_tag_values
                     .into_iter()
                     .zip(catch_blocks)
-                    .map(|(tag, (block, wasmer_exc_phi))| TagCatchInfo {
-                        tag,
-                        catch_block: block,
-                        wasmer_exc_phi,
-                    })
+                    .map(
+                        |(tag, (block, wasmer_exc_phi, uw_exc_ptr_phi))| TagCatchInfo {
+                            tag,
+                            catch_block: block,
+                            wasmer_exc_phi,
+                            uw_exc_ptr_phi,
+                        },
+                    )
                     .collect::<Vec<_>>();
                 self.state.push_landingpad(
                     maybe_lpad_block,
