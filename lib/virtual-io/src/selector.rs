@@ -281,3 +281,151 @@ impl Selector {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::io::Write;
+    use std::sync::mpsc;
+    use std::thread;
+    use std::time::Duration;
+
+    #[derive(Debug)]
+    struct TestHandler {
+        success_sender: mpsc::Sender<()>,
+    }
+    impl InterestHandler for TestHandler {
+        fn push_interest(&mut self, _interest: InterestType) {
+            // Send if we received an interest
+            self.success_sender.send(()).unwrap();
+        }
+
+        fn pop_interest(&mut self, _interest: InterestType) -> bool {
+            false
+        }
+
+        fn has_interest(&self, interest: InterestType) -> bool {
+            interest == InterestType::Readable
+        }
+    }
+
+    #[derive(Debug)]
+    struct DeadlockingHandler {
+        selector: Arc<Selector>,
+        token: Arc<Mutex<Option<Token>>>,
+        success_sender: mpsc::Sender<()>,
+    }
+    impl InterestHandler for DeadlockingHandler {
+        fn push_interest(&mut self, _interest: InterestType) {
+            // This would deadlock without a queue
+            self.selector
+                .remove(self.token.lock().unwrap().unwrap().clone(), None)
+                .unwrap();
+            self.success_sender.send(()).unwrap();
+        }
+
+        fn pop_interest(&mut self, _interest: InterestType) -> bool {
+            false
+        }
+
+        fn has_interest(&self, interest: InterestType) -> bool {
+            interest == InterestType::Readable
+        }
+    }
+
+    #[test]
+    fn test_push_interest() {
+        let (mut sender, mut receiver) = mio::unix::pipe::new().unwrap();
+        let (success_sender, success_receiver) = std::sync::mpsc::channel();
+
+        let selector = Selector::new();
+
+        let handler = Box::new(TestHandler { success_sender });
+
+        let token = selector
+            .add(handler, &mut receiver, mio::Interest::READABLE)
+            .unwrap();
+
+        assert!(
+            success_receiver.try_recv().is_err(),
+            "Received success before sending data. Something is wrong"
+        );
+
+        thread::sleep(Duration::from_millis(10));
+
+        // Works once
+        sender.write(&[1, 2, 3]).unwrap();
+        sender.flush().unwrap();
+        thread::sleep(Duration::from_millis(10));
+        assert!(
+            success_receiver.try_recv().is_ok(),
+            "Did not receive success signal from handler"
+        );
+        assert!(
+            success_receiver.try_recv().is_err(),
+            "Did receive more than once from handler"
+        );
+        thread::sleep(Duration::from_millis(10));
+
+        // Works multiple times
+        sender.write(&[1, 2, 3]).unwrap();
+        sender.flush().unwrap();
+        thread::sleep(Duration::from_millis(10));
+        assert!(
+            success_receiver.try_recv().is_ok(),
+            "Did not receive success signal from handler"
+        );
+        assert!(
+            success_receiver.try_recv().is_err(),
+            "Did receive more than once from handler"
+        );
+        thread::sleep(Duration::from_millis(10));
+
+        // No signal after removing the handler
+        selector.remove(token, Some(&mut receiver)).unwrap();
+        sender.write(&[1, 2, 3]).unwrap();
+        sender.flush().unwrap();
+        thread::sleep(Duration::from_millis(10));
+        assert!(
+            success_receiver.try_recv().is_err(),
+            "Did receive even though the handler was removed"
+        );
+        thread::sleep(Duration::from_millis(10));
+
+        selector.shutdown();
+    }
+
+    #[test]
+    fn test_selector_no_deadlock_when_modifying_the_selector_from_push_interest() {
+        let (mut sender, mut receiver) = mio::unix::pipe::new().unwrap();
+        let (success_sender, success_receiver) = std::sync::mpsc::channel();
+
+        let selector = Selector::new();
+
+        // The deadlocking handler will try to remove itself from the selector when it receives an interest
+        let handler = Box::new(DeadlockingHandler {
+            selector: selector.clone(),
+            token: Default::default(),
+            success_sender,
+        });
+        let handler_token_arcmutex = handler.token.clone();
+
+        let token = selector
+            .add(handler, &mut receiver, mio::Interest::READABLE)
+            .unwrap();
+        handler_token_arcmutex.lock().unwrap().replace(token);
+
+        sender.write(&[1, 2, 3]).unwrap();
+        sender.flush().unwrap();
+
+        thread::sleep(Duration::from_millis(100));
+        selector.shutdown();
+        thread::sleep(Duration::from_millis(100));
+
+        let received_result = success_receiver.try_recv();
+        assert!(
+            received_result.is_ok(),
+            "Did not receive success signal from handler, deadlocked?"
+        );
+    }
+}
