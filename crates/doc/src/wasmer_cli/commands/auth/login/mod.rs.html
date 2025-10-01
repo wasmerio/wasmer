@@ -394,7 +394,11 @@
 <a href="#393" id="393">393</a>
 <a href="#394" id="394">394</a>
 <a href="#395" id="395">395</a>
-<a href="#396" id="396">396</a></pre></div><pre class="rust"><code><span class="kw">mod </span>auth_server;
+<a href="#396" id="396">396</a>
+<a href="#397" id="397">397</a>
+<a href="#398" id="398">398</a>
+<a href="#399" id="399">399</a>
+<a href="#400" id="400">400</a></pre></div><pre class="rust"><code><span class="kw">mod </span>auth_server;
 <span class="kw">use </span>auth_server::<span class="kw-2">*</span>;
 <span class="kw">use </span>colored::Colorize;
 <span class="kw">use </span>hyper::{server::conn::http1::Builder, service::service_fn};
@@ -497,6 +501,10 @@
 
         <span class="comment">// if failed to open the browser, then don't error out just print the auth_url with a message
         </span><span class="macro">println!</span>(<span class="string">"Opening auth link in your default browser: {}"</span>, <span class="kw-2">&amp;</span>auth_url);
+        <span class="macro">println!</span>(
+            <span class="string">"{}: If browser driven login does not work, manually create a token at https://wasmer.io/settings/access-tokens and log in with `wasmer login &lt;TOKEN&gt;`"</span>,
+            <span class="string">"NOTE"</span>.yellow().bold()
+        );
         opener::open_browser(<span class="kw-2">&amp;</span>auth_url).unwrap_or_else(|<span class="kw">_</span>| {
             <span class="macro">println!</span>(
                 <span class="string">"⚠️ Failed to open the browser.\n
