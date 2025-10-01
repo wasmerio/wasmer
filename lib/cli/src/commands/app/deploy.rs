@@ -1003,6 +1003,9 @@ fn remote_progress_handler(quiet: bool) -> impl FnMut(DeployRemoteEvent) {
             DeployRemoteEvent::Finished => {
                 eprintln!("Remote autobuild finished successfully.\n");
             }
+            _ => {
+                eprintln!("Unknown event: {event:?}");
+            }
         }
     }
 }
