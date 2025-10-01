@@ -282,7 +282,8 @@ impl Selector {
     }
 }
 
-#[cfg(test)]
+// Tests only run on unix because they depend on mio's unix pipe implementation
+#[cfg(all(unix, test))]
 mod tests {
     use super::*;
     use std::io::Write;
