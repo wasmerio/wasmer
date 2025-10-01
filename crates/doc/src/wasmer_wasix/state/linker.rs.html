@@ -4293,11 +4293,7 @@
 <a href="#4292" id="4292">4292</a>
 <a href="#4293" id="4293">4293</a>
 <a href="#4294" id="4294">4294</a>
-<a href="#4295" id="4295">4295</a>
-<a href="#4296" id="4296">4296</a>
-<a href="#4297" id="4297">4297</a>
-<a href="#4298" id="4298">4298</a>
-<a href="#4299" id="4299">4299</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
+<a href="#4295" id="4295">4295</a></pre></div><pre class="rust"><code><span class="comment">// TODO: The linker *can* exist in the runtime, since technically, there's nothing that
 // prevents us from having a non-WASIX linker. However, there is currently no use-case
 // for a non-WASIX linker, so we'll refrain from making it generic for the time being.
 
@@ -7086,13 +7082,9 @@
             <span class="string">"Applying resolved function"
         </span>);
 
-        <span class="kw">let </span>instance = <span class="kw-2">&amp;</span><span class="self">self
-            </span>.side_instances
-            .get(<span class="kw-2">&amp;</span>resolved_from)
-            .unwrap_or_else(|| {
-                <span class="macro">panic!</span>(<span class="string">"Internal error: module {resolved_from:?} not loaded by this group"</span>)
-            })
-            .instance;
+        <span class="kw">let </span>instance = <span class="kw-2">&amp;</span><span class="self">self</span>.try_instance(resolved_from).unwrap_or_else(|| {
+            <span class="macro">panic!</span>(<span class="string">"Internal error: module {resolved_from:?} not loaded by this group"</span>)
+        });
 
         <span class="kw">let </span>func = instance.exports.get_function(name).unwrap_or_else(|e| {
             <span class="macro">panic!</span>(<span class="string">"Internal error: failed to resolve exported function {name}: {e:?}"</span>)
