@@ -2787,13 +2787,9 @@ impl InstanceGroupState {
             "Applying resolved function"
         );
 
-        let instance = &self
-            .side_instances
-            .get(&resolved_from)
-            .unwrap_or_else(|| {
-                panic!("Internal error: module {resolved_from:?} not loaded by this group")
-            })
-            .instance;
+        let instance = &self.try_instance(resolved_from).unwrap_or_else(|| {
+            panic!("Internal error: module {resolved_from:?} not loaded by this group")
+        });
 
         let func = instance.exports.get_function(name).unwrap_or_else(|e| {
             panic!("Internal error: failed to resolve exported function {name}: {e:?}")
