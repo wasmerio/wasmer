@@ -174,7 +174,11 @@ impl VirtualNetworking for LocalNetworking {
             }
         }
 
-        let stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        let std_stream = std::net::TcpStream::connect(peer).map_err(io_err_into_net_error)?;
+        std_stream
+            .set_nonblocking(true)
+            .map_err(io_err_into_net_error)?;
+        let stream = mio::net::TcpStream::from_std(std_stream);
 
         if let Ok(p) = stream.peer_addr() {
             peer = p;
