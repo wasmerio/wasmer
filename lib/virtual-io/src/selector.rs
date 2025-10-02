@@ -134,7 +134,7 @@ impl Selector {
     }
 
     pub fn shutdown(&self) {
-        self.close_requested.store(true, Ordering::Relaxed);
+        self.close_requested.store(true, Ordering::SeqCst);
         self.wakeup.wake().ok();
     }
 
@@ -246,7 +246,7 @@ impl Selector {
                 let token = event.token();
 
                 if token == engine.token_wakeup {
-                    if engine.close_requested.load(Ordering::Relaxed) {
+                    if engine.close_requested.load(Ordering::SeqCst) {
                         // If exiting was requested, exit the loop
                         return;
                     }
