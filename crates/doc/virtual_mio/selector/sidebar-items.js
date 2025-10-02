@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["EngineInner","Selector"]};
+window.SIDEBAR_ITEMS = {"enum":["SelectorModification"],"struct":["Selector"]};

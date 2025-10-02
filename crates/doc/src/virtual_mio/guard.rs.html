@@ -148,7 +148,7 @@
 
     <span class="kw">pub fn </span>interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interest: InterestType) {
         <span class="kw">if let </span><span class="prelude-val">Some</span>(selector) = <span class="self">self</span>.selector.upgrade() {
-            selector.handle(<span class="self">self</span>.token, |h| h.push_interest(interest));
+            selector.push_interest(<span class="self">self</span>.token, interest);
         }
     }
 
