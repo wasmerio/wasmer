@@ -13024,7 +13024,23 @@
 <a href="#13023" id="13023">13023</a>
 <a href="#13024" id="13024">13024</a>
 <a href="#13025" id="13025">13025</a>
-<a href="#13026" id="13026">13026</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
+<a href="#13026" id="13026">13026</a>
+<a href="#13027" id="13027">13027</a>
+<a href="#13028" id="13028">13028</a>
+<a href="#13029" id="13029">13029</a>
+<a href="#13030" id="13030">13030</a>
+<a href="#13031" id="13031">13031</a>
+<a href="#13032" id="13032">13032</a>
+<a href="#13033" id="13033">13033</a>
+<a href="#13034" id="13034">13034</a>
+<a href="#13035" id="13035">13035</a>
+<a href="#13036" id="13036">13036</a>
+<a href="#13037" id="13037">13037</a>
+<a href="#13038" id="13038">13038</a>
+<a href="#13039" id="13039">13039</a>
+<a href="#13040" id="13040">13040</a>
+<a href="#13041" id="13041">13041</a>
+<a href="#13042" id="13042">13042</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::collections::HashMap;
 
 <span class="kw">use super</span>::{
     intrinsics::{
@@ -25595,7 +25611,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                                 <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
 
                                 <span class="self">self</span>.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, <span class="prelude-val">None</span>));
+                                catch_blocks.push((b, <span class="prelude-val">None</span>, <span class="prelude-val">None</span>));
                             }
                             Catch::One { tag, label } =&gt; {
                                 <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
@@ -25673,7 +25689,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                                 <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
 
                                 <span class="self">self</span>.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, <span class="prelude-val">Some</span>(wasmer_exc_phi)));
+                                catch_blocks.push((b, <span class="prelude-val">Some</span>(wasmer_exc_phi), <span class="prelude-val">None</span>));
                             }
                             Catch::OneRef { label, tag } =&gt; {
                                 <span class="kw">let </span>tag_idx = <span class="self">self</span>.wasm_module.tags[TagIndex::from_u32(<span class="kw-2">*</span>tag)];
@@ -25682,13 +25698,18 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
 
                                 <span class="kw">let </span>b = <span class="self">self
                                     </span>.context
-                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_ref_clause"</span>);
                                 <span class="self">self</span>.builder.position_at_end(b);
 
                                 <span class="kw">let </span>wasmer_exc_phi = <span class="macro">err!</span>(<span class="self">self
                                     </span>.builder
                                     .build_phi(<span class="self">self</span>.intrinsics.ptr_ty, <span class="string">"wasmer_exc_phi"</span>));
                                 wasmer_exc_phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>wasmer_exc, catch_end_block)]);
+
+                                <span class="kw">let </span>uw_exc_ptr_phi = <span class="macro">err!</span>(<span class="self">self
+                                    </span>.builder
+                                    .build_phi(<span class="self">self</span>.intrinsics.ptr_ty, <span class="string">"uw_exc_ptr_phi"</span>));
+                                uw_exc_ptr_phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc, catch_end_block)]);
 
                                 <span class="comment">// Get the type of the exception.
                                 </span><span class="kw">let </span>inner_exc_ty =
@@ -25740,7 +25761,7 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                                     })
                                     .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, CompileError&gt;&gt;()<span class="question-mark">?</span>;
 
-                                values.push(uw_exc.as_basic_value_enum());
+                                values.push(uw_exc_ptr_phi.as_basic_value());
 
                                 <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
 
@@ -25753,13 +25774,18 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                                 <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
 
                                 <span class="self">self</span>.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, <span class="prelude-val">Some</span>(wasmer_exc_phi)));
+                                catch_blocks.push((b, <span class="prelude-val">Some</span>(wasmer_exc_phi), <span class="prelude-val">Some</span>(uw_exc_ptr_phi)));
                             }
                             Catch::AllRef { label } =&gt; {
                                 <span class="kw">let </span>b = <span class="self">self
                                     </span>.context
-                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_one_clause"</span>);
+                                    .append_basic_block(<span class="self">self</span>.function, <span class="string">"catch_all_ref_clause"</span>);
                                 <span class="self">self</span>.builder.position_at_end(b);
+
+                                <span class="kw">let </span>uw_exc_ptr_phi = <span class="macro">err!</span>(<span class="self">self
+                                    </span>.builder
+                                    .build_phi(<span class="self">self</span>.intrinsics.ptr_ty, <span class="string">"uw_exc_ptr_phi"</span>));
+                                uw_exc_ptr_phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc, catch_end_block)]);
 
                                 <span class="kw">let </span>frame = <span class="self">self</span>.state.frame_at_depth(<span class="kw-2">*</span>label)<span class="question-mark">?</span>;
 
@@ -25768,13 +25794,13 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                                 <span class="comment">// sanity check (todo): check that the phi has only one element
 
                                 </span><span class="kw">for </span>phi <span class="kw">in </span>phis.iter() {
-                                    phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc.as_basic_value_enum(), b)])
+                                    phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc_ptr_phi.as_basic_value(), b)])
                                 }
 
                                 <span class="macro">err!</span>(<span class="self">self</span>.builder.build_unconditional_branch(<span class="kw-2">*</span>frame.br_dest()));
 
                                 <span class="self">self</span>.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, <span class="prelude-val">None</span>));
+                                catch_blocks.push((b, <span class="prelude-val">None</span>, <span class="prelude-val">Some</span>(uw_exc_ptr_phi)));
                             }
                         }
                     }
@@ -25785,6 +25811,9 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                                 <span class="kw-2">&amp;</span>wasmer_exc.as_basic_value_enum(),
                                 catch_end_block,
                             )]);
+                        }
+                        <span class="kw">if let </span><span class="prelude-val">Some</span>(phi) = catch_info.uw_exc_ptr_phi {
+                            phi.add_incoming(<span class="kw-2">&amp;</span>[(<span class="kw-2">&amp;</span>uw_exc.as_basic_value_enum(), catch_end_block)]);
                         }
                     }
 
@@ -25832,11 +25861,14 @@ fn finalize_opcode_stack_map&lt;'ctx&gt;(
                 </span><span class="kw">let </span>catch_tags_and_blocks = catch_tag_values
                     .into_iter()
                     .zip(catch_blocks)
-                    .map(|(tag, (block, wasmer_exc_phi))| TagCatchInfo {
-                        tag,
-                        catch_block: block,
-                        wasmer_exc_phi,
-                    })
+                    .map(
+                        |(tag, (block, wasmer_exc_phi, uw_exc_ptr_phi))| TagCatchInfo {
+                            tag,
+                            catch_block: block,
+                            wasmer_exc_phi,
+                            uw_exc_ptr_phi,
+                        },
+                    )
                     .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
                 <span class="self">self</span>.state.push_landingpad(
                     maybe_lpad_block,

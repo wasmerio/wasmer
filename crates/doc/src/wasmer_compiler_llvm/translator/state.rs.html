@@ -539,7 +539,10 @@
 <a href="#538" id="538">538</a>
 <a href="#539" id="539">539</a>
 <a href="#540" id="540">540</a>
-<a href="#541" id="541">541</a></pre></div><pre class="rust"><code><span class="kw">use </span>inkwell::{
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a></pre></div><pre class="rust"><code><span class="kw">use </span>inkwell::{
     basic_block::BasicBlock,
     values::{BasicValue, BasicValueEnum, PhiValue},
 };
@@ -766,6 +769,9 @@
     </span><span class="kw">pub </span>catch_block: BasicBlock&lt;<span class="lifetime">'ctx</span>&gt;,
     <span class="comment">// The PHI node to receive the exception object
     </span><span class="kw">pub </span>wasmer_exc_phi: <span class="prelude-ty">Option</span>&lt;PhiValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
+    <span class="comment">// The PHI node to receive the libunwind exception pointer,
+    // which stands in as the exnref for now
+    </span><span class="kw">pub </span>uw_exc_ptr_phi: <span class="prelude-ty">Option</span>&lt;PhiValue&lt;<span class="lifetime">'ctx</span>&gt;&gt;,
 }
 
 <span class="attr">#[derive(Debug)]
