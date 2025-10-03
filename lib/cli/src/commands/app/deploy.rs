@@ -72,13 +72,6 @@ pub struct CmdAppDeploy {
     #[clap(long)]
     pub no_persist_id: bool,
 
-    /// Do not respected `.gitignore` and `.wasmerignore` files when building a package.
-    ///
-    /// NOTE: FOR NOW this flag is only used when `--build-remote` is also specified.
-    // TODO: implement no-ignore support for local builds too.
-    #[clap(long)]
-    pub no_ignore: bool,
-
     /// Specify the owner (user or namespace) of the app.
     ///
     /// If specified via this flag, the owner will be overridden.  Otherwise, the `app.yaml` is
@@ -308,7 +301,6 @@ impl CmdAppDeploy {
             DeployRemoteOpts {
                 app: app_config.clone(),
                 owner: Some(owner.clone()),
-                no_ignore: self.no_ignore,
             },
             &base_dir_path,
             remote_progress_handler(self.quiet),
@@ -549,11 +541,6 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         if self.build_remote && self.publish_package {
             anyhow::bail!("--build-remote cannot be combined with --publish-package");
-        }
-
-        // TODO: implement no-ignore support for local builds too.
-        if self.no_ignore && !self.build_remote {
-            anyhow::bail!("--no-ignore is currently only supported with --build-remote");
         }
 
         if self.build_remote {

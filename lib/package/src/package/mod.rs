@@ -7,7 +7,10 @@ pub(crate) mod volume;
 
 pub use self::{
     manifest::ManifestError,
-    package::{Package, WasmerPackageError},
+    package::{
+        include_everything_walker, wasmer_ignore_walker, Package, WalkBuilderFactory,
+        WasmerPackageError,
+    },
     strictness::Strictness,
     volume::{fs::*, in_memory::*, WasmerPackageVolume},
 };
