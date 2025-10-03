@@ -1204,7 +1204,10 @@
 <a href="#1203" id="1203">1203</a>
 <a href="#1204" id="1204">1204</a>
 <a href="#1205" id="1205">1205</a>
-<a href="#1206" id="1206">1206</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
+<a href="#1206" id="1206">1206</a>
+<a href="#1207" id="1207">1207</a>
+<a href="#1208" id="1208">1208</a>
+<a href="#1209" id="1209">1209</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
     config::WasmerEnv,
@@ -2208,6 +2211,9 @@
             }
             DeployRemoteEvent::Finished =&gt; {
                 <span class="macro">eprintln!</span>(<span class="string">"Remote autobuild finished successfully.\n"</span>);
+            }
+            <span class="kw">_ </span>=&gt; {
+                <span class="macro">eprintln!</span>(<span class="string">"Unknown event: {event:?}"</span>);
             }
         }
     }

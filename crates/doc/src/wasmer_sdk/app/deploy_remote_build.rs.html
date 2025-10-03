@@ -431,7 +431,46 @@
 <a href="#430" id="430">430</a>
 <a href="#431" id="431">431</a>
 <a href="#432" id="432">432</a>
-<a href="#433" id="433">433</a></pre></div><pre class="rust"><code><span class="doccomment">//! Functionality for deploying applications to Wasmer Edge through the
+<a href="#433" id="433">433</a>
+<a href="#434" id="434">434</a>
+<a href="#435" id="435">435</a>
+<a href="#436" id="436">436</a>
+<a href="#437" id="437">437</a>
+<a href="#438" id="438">438</a>
+<a href="#439" id="439">439</a>
+<a href="#440" id="440">440</a>
+<a href="#441" id="441">441</a>
+<a href="#442" id="442">442</a>
+<a href="#443" id="443">443</a>
+<a href="#444" id="444">444</a>
+<a href="#445" id="445">445</a>
+<a href="#446" id="446">446</a>
+<a href="#447" id="447">447</a>
+<a href="#448" id="448">448</a>
+<a href="#449" id="449">449</a>
+<a href="#450" id="450">450</a>
+<a href="#451" id="451">451</a>
+<a href="#452" id="452">452</a>
+<a href="#453" id="453">453</a>
+<a href="#454" id="454">454</a>
+<a href="#455" id="455">455</a>
+<a href="#456" id="456">456</a>
+<a href="#457" id="457">457</a>
+<a href="#458" id="458">458</a>
+<a href="#459" id="459">459</a>
+<a href="#460" id="460">460</a>
+<a href="#461" id="461">461</a>
+<a href="#462" id="462">462</a>
+<a href="#463" id="463">463</a>
+<a href="#464" id="464">464</a>
+<a href="#465" id="465">465</a>
+<a href="#466" id="466">466</a>
+<a href="#467" id="467">467</a>
+<a href="#468" id="468">468</a>
+<a href="#469" id="469">469</a>
+<a href="#470" id="470">470</a>
+<a href="#471" id="471">471</a>
+<a href="#472" id="472">472</a></pre></div><pre class="rust"><code><span class="doccomment">//! Functionality for deploying applications to Wasmer Edge through the
 //! "autobuild zip upload" flow, which just uploads a zip directory and
 //! lets the Wasmer backend handle building and deploying it.
 
@@ -450,6 +489,8 @@
 <span class="kw">use </span>wasmer_config::app::AppConfigV1;
 <span class="kw">use </span>zip::{write::SimpleFileOptions, CompressionMethod};
 
+<span class="kw">use </span>thiserror::Error;
+
 <span class="kw">pub use </span>wasmer_backend_api::types::BuildConfig;
 
 <span class="doccomment">/// Options for remote deployments through [`deploy_app_remote`].
@@ -465,6 +506,7 @@
 ///
 /// Used by the `on_progress` callback in [`deploy_app_remote`].
 </span><span class="attr">#[derive(Debug, Clone)]
+#[non_exhaustive]
 </span><span class="kw">pub enum </span>DeployRemoteEvent {
     <span class="doccomment">/// Starting creation of the archive file.
     </span>CreatingArchive {
@@ -495,6 +537,34 @@
     Finished,
 }
 
+<span class="doccomment">/// Errors that can occur during remote deployments.
+</span><span class="attr">#[derive(Debug, Error)]
+</span><span class="kw">pub enum </span>DeployRemoteError {
+    <span class="attr">#[error(<span class="string">"deployment directory '{0}' does not exist"</span>)]
+    </span>MissingDeploymentDirectory(String),
+    <span class="attr">#[error(<span class="string">"owner must be specified for remote deployments"</span>)]
+    </span>MissingOwner,
+    <span class="attr">#[error(<span class="string">"remote deployments require `app.yaml` to define either an app name or an app_id"</span>)]
+    </span>MissingAppIdentifier,
+    <span class="attr">#[error(<span class="string">"remote deployment request was rejected by the API"</span>)]
+    </span>RequestRejected,
+    <span class="attr">#[error(<span class="string">"remote deployment failed: {0}"</span>)]
+    </span>DeploymentFailed(String),
+    <span class="comment">// TODO: should not use anyhow here... but backend-api crate does.
+    </span><span class="attr">#[error(<span class="string">"backend API error: {0}"</span>)]
+    </span>Api(anyhow::Error),
+    <span class="attr">#[error(transparent)]
+    </span>Http(<span class="attr">#[from] </span>reqwest::Error),
+    <span class="attr">#[error(<span class="string">"remote deployment completed but no app version was returned"</span>)]
+    </span>MissingAppVersion,
+    <span class="attr">#[error(<span class="string">"remote deployment stream ended without a completion event"</span>)]
+    </span>MissingCompletionEvent,
+    <span class="attr">#[error(<span class="string">"zip archive creation failed: {0}"</span>)]
+    </span>ZipCreation(anyhow::Error),
+    <span class="attr">#[error(<span class="string">"unexpected error: {0}"</span>)]
+    </span>Other(Box&lt;<span class="kw">dyn </span>std::error::Error + Send + Sync&gt;),
+}
+
 <span class="doccomment">/// Deploy an application using the remote autobuild zip upload flow.
 ///
 /// It will build a ZIP archive of the specified `base_dir`, upload it to Wasmer,
@@ -506,15 +576,14 @@
     opts: DeployRemoteOpts,
     base_dir: <span class="kw-2">&amp;</span>Path,
     <span class="kw-2">mut </span>on_progress: F,
-) -&gt; <span class="prelude-ty">Result</span>&lt;DeployAppVersion, anyhow::Error&gt;
+) -&gt; <span class="prelude-ty">Result</span>&lt;DeployAppVersion, DeployRemoteError&gt;
 <span class="kw">where
     </span>F: FnMut(DeployRemoteEvent) + Send,
 {
     <span class="kw">if </span>!base_dir.is_dir() {
-        <span class="macro">bail!</span>(
-            <span class="string">"deployment directory '{}' does not exist"</span>,
-            base_dir.display()
-        );
+        <span class="kw">return </span><span class="prelude-val">Err</span>(DeployRemoteError::MissingDeploymentDirectory(
+            base_dir.display().to_string(),
+        ));
     }
 
     <span class="kw">let </span>app = opts.app;
@@ -522,12 +591,12 @@
         .owner
         .clone()
         .or_else(|| app.owner.clone())
-        .context(<span class="string">"owner must be specified for remote deployments"</span>)<span class="question-mark">?</span>;
+        .ok_or(DeployRemoteError::MissingOwner)<span class="question-mark">?</span>;
 
     <span class="kw">let </span>app_name = app.name.clone();
     <span class="kw">let </span>app_id = app.app_id.clone();
     <span class="kw">if </span>app_name.is_none() &amp;&amp; app_id.is_none() {
-        <span class="macro">bail!</span>(<span class="string">"remote deployments require `app.yaml` to define either an app name or an app_id"</span>);
+        <span class="kw">return </span><span class="prelude-val">Err</span>(DeployRemoteError::MissingAppIdentifier);
     }
 
     on_progress(DeployRemoteEvent::CreatingArchive {
@@ -537,7 +606,13 @@
     <span class="kw">let </span>zip_opts = ZipOptions {
         standard_ignores: !opts.no_ignore,
     };
-    <span class="kw">let </span>archive = create_zip_archive(base_dir, zip_opts)<span class="question-mark">?</span>;
+    <span class="kw">let </span>archive = tokio::task::spawn_blocking({
+        <span class="kw">let </span>base_dir = base_dir.to_path_buf();
+        <span class="kw">move </span>|| create_zip_archive(<span class="kw-2">&amp;</span>base_dir, zip_opts)
+    })
+    .<span class="kw">await
+    </span>.map_err(|e| DeployRemoteError::Other(e.into()))<span class="question-mark">?
+    </span>.map_err(DeployRemoteError::ZipCreation)<span class="question-mark">?</span>;
     on_progress(DeployRemoteEvent::ArchiveCreated {
         file_count: archive.file_count,
         archive_size: archive.bytes.len() <span class="kw">as </span>u64,
@@ -557,7 +632,8 @@
         <span class="prelude-val">None</span>,
         <span class="prelude-val">Some</span>(<span class="number">300</span>),
     )
-    .<span class="kw">await</span><span class="question-mark">?</span>;
+    .<span class="kw">await
+    </span>.map_err(DeployRemoteError::Api)<span class="question-mark">?</span>;
 
     on_progress(DeployRemoteEvent::UploadArchiveStart {
         archive_size: bytes.len() <span class="kw">as </span>u64,
@@ -566,7 +642,7 @@
     <span class="kw">let </span>http_client = reqwest::Client::builder()
         .connect_timeout(Duration::from_secs(<span class="number">10</span>))
         .build()
-        .context(<span class="string">"failed to create HTTP client"</span>)<span class="question-mark">?</span>;
+        .map_err(|e| DeployRemoteError::Other(e.into()))<span class="question-mark">?</span>;
 
     <span class="macro">tracing::debug!</span>(<span class="string">"uploading archive to signed URL: {}"</span>, signed_url.url);
     http_client
@@ -574,21 +650,24 @@
         .header(CONTENT_TYPE, <span class="string">"application/zip"</span>)
         .body(bytes)
         .send()
-        .<span class="kw">await
-        </span>.context(<span class="string">"failed to upload archive"</span>)<span class="question-mark">?
-        </span>.error_for_status()
-        .context(<span class="string">"upload rejected by storage service"</span>)<span class="question-mark">?</span>;
+        .<span class="kw">await</span><span class="question-mark">?
+        </span>.error_for_status()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>upload_url = signed_url.url;
     on_progress(DeployRemoteEvent::DeterminingBuildConfiguration);
     <span class="kw">let </span>config_res =
         wasmer_backend_api::query::autobuild_config_for_zip_upload(client, <span class="kw-2">&amp;</span>upload_url)
             .<span class="kw">await
-            </span>.context(<span class="string">"failed to query autobuild config for uploaded archive"</span>)<span class="question-mark">?
-            </span>.context(<span class="string">"no autobuild config found for uploaded archive"</span>)<span class="question-mark">?</span>;
-    <span class="kw">let </span>config = config_res.build_config.context(
-        <span class="string">"Could not determine appropriate build config - project does not seem to be supported."</span>,
-    )<span class="question-mark">?</span>;
+            </span>.context(<span class="string">"failed to query autobuild config for uploaded archive"</span>)
+            .map_err(DeployRemoteError::Api)<span class="question-mark">?
+            </span>.context(<span class="string">"no autobuild config found for uploaded archive"</span>)
+            .map_err(DeployRemoteError::Api)<span class="question-mark">?</span>;
+    <span class="kw">let </span>config = config_res
+        .build_config
+        .context(
+            <span class="string">"Could not determine appropriate build config - project does not seem to be supported."</span>,
+        )
+        .map_err(DeployRemoteError::Api)<span class="question-mark">?</span>;
     <span class="macro">tracing::debug!</span>(<span class="question-mark">?</span>config, <span class="string">"determined build config"</span>);
     on_progress(DeployRemoteEvent::BuildConfigDetermined {
         config: config.clone(),
@@ -625,11 +704,13 @@
     };
     on_progress(DeployRemoteEvent::InitiatingBuild { vars: vars.clone() });
     <span class="kw">let </span>deploy_response = wasmer_backend_api::query::deploy_via_autobuild(client, vars)
-        .<span class="kw">await</span><span class="question-mark">?
-        </span>.context(<span class="string">"deployViaAutobuild mutation did not return data"</span>)<span class="question-mark">?</span>;
+        .<span class="kw">await
+        </span>.map_err(DeployRemoteError::Api)<span class="question-mark">?
+        </span>.context(<span class="string">"deployViaAutobuild mutation did not return data"</span>)
+        .map_err(DeployRemoteError::Api)<span class="question-mark">?</span>;
 
     <span class="kw">if </span>!deploy_response.success {
-        <span class="macro">bail!</span>(<span class="string">"remote deployment request was rejected by the API"</span>);
+        <span class="kw">return </span><span class="prelude-val">Err</span>(DeployRemoteError::RequestRejected);
     }
 
     <span class="kw">let </span>build_id = deploy_response.build_id.<span class="number">0</span>;
@@ -640,12 +721,13 @@
 
     <span class="kw">let </span><span class="kw-2">mut </span>final_version: <span class="prelude-ty">Option</span>&lt;DeployAppVersion&gt; = <span class="prelude-val">None</span>;
     <span class="lifetime">'OUTER</span>: <span class="kw">loop </span>{
-        <span class="kw">let </span><span class="kw-2">mut </span>stream =
-            wasmer_backend_api::subscription::autobuild_deployment(client, <span class="kw-2">&amp;</span>build_id).<span class="kw">await</span><span class="question-mark">?</span>;
+        <span class="kw">let </span><span class="kw-2">mut </span>stream = wasmer_backend_api::subscription::autobuild_deployment(client, <span class="kw-2">&amp;</span>build_id)
+            .<span class="kw">await
+            </span>.map_err(DeployRemoteError::Api)<span class="question-mark">?</span>;
 
         <span class="kw">while let </span><span class="prelude-val">Some</span>(event) = stream.next().<span class="kw">await </span>{
             <span class="macro">tracing::debug!</span>(<span class="question-mark">?</span>event, <span class="string">"received autobuild event"</span>);
-            <span class="kw">let </span>event = event<span class="question-mark">?</span>;
+            <span class="kw">let </span>event = event.map_err(|err| DeployRemoteError::Other(err.into()))<span class="question-mark">?</span>;
             <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = event.data {
                 <span class="kw">if let </span><span class="prelude-val">Some</span>(log) = data.autobuild_deployment {
                     on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
@@ -655,14 +737,12 @@
                     <span class="kw">match </span>kind {
                         AutoBuildDeployAppLogKind::Failed =&gt; {
                             <span class="kw">let </span>msg = message.unwrap_or_else(|| <span class="string">"remote deployment failed"</span>.into());
-                            <span class="macro">bail!</span>(msg);
+                            <span class="kw">return </span><span class="prelude-val">Err</span>(DeployRemoteError::DeploymentFailed(msg));
                         }
                         AutoBuildDeployAppLogKind::Complete =&gt; {
-                            <span class="kw">let </span>version = log.app_version.ok_or_else(|| {
-                                <span class="macro">anyhow::anyhow!</span>(
-                                    <span class="string">"remote deployment completed but no app version was returned"
-                                </span>)
-                            })<span class="question-mark">?</span>;
+                            <span class="kw">let </span>version = log
+                                .app_version
+                                .ok_or(DeployRemoteError::MissingAppVersion)<span class="question-mark">?</span>;
 
                             final_version = <span class="prelude-val">Some</span>(version);
                             <span class="kw">break </span><span class="lifetime">'OUTER</span>;
@@ -679,9 +759,7 @@
         <span class="macro">tracing::warn!</span>(<span class="string">"autobuild event stream ended, reconnecting..."</span>);
     }
 
-    <span class="kw">let </span>version = final_version.ok_or_else(|| {
-        <span class="macro">anyhow::anyhow!</span>(<span class="string">"remote deployment stream ended without a completion event"</span>)
-    })<span class="question-mark">?</span>;
+    <span class="kw">let </span>version = final_version.ok_or(DeployRemoteError::MissingCompletionEvent)<span class="question-mark">?</span>;
 
     on_progress(DeployRemoteEvent::Finished);
 

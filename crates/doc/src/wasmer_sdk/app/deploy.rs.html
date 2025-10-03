@@ -177,8 +177,25 @@
 <a href="#176" id="176">176</a>
 <a href="#177" id="177">177</a>
 <a href="#178" id="178">178</a>
-<a href="#179" id="179">179</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
+<a href="#179" id="179">179</a>
+<a href="#180" id="180">180</a>
+<a href="#181" id="181">181</a>
+<a href="#182" id="182">182</a>
+<a href="#183" id="183">183</a>
+<a href="#184" id="184">184</a>
+<a href="#185" id="185">185</a>
+<a href="#186" id="186">186</a>
+<a href="#187" id="187">187</a>
+<a href="#188" id="188">188</a>
+<a href="#189" id="189">189</a>
+<a href="#190" id="190">190</a>
+<a href="#191" id="191">191</a>
+<a href="#192" id="192">192</a>
+<a href="#193" id="193">193</a>
+<a href="#194" id="194">194</a>
+<a href="#195" id="195">195</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::time::Duration;
 
+<span class="kw">use </span>anyhow::Context <span class="kw">as _</span>;
 <span class="kw">use </span>reqwest;
 <span class="kw">use </span>thiserror::Error;
 <span class="kw">use </span>wasmer_backend_api::{
@@ -187,7 +204,9 @@
 };
 <span class="kw">use </span>wasmer_config::{app::AppConfigV1, package::PackageSource};
 
-<span class="kw">use </span><span class="kw">crate</span>::package::{publish_package, PublishOptions, PublishProgress, PublishWait};
+<span class="kw">use </span><span class="kw">crate</span>::package::publish::{
+    publish_package_directory, PackagePublishError, PublishOptions, PublishProgress, PublishWait,
+};
 
 <span class="doccomment">/// When waiting for an app deployment.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -230,21 +249,26 @@
     }
 }
 
-<span class="attr">#[derive(Debug, Error)]
+<span class="doccomment">/// Error that can occur during app deployment.
+</span><span class="attr">#[derive(Debug, Error)]
+#[non_exhaustive]
 </span><span class="kw">pub enum </span>DeployError {
     <span class="attr">#[error(<span class="string">"missing owner in configuration or options"</span>)]
     </span>MissingOwner,
     <span class="attr">#[error(<span class="string">"missing app name in configuration"</span>)]
     </span>MissingName,
     <span class="attr">#[error(<span class="string">"package publish error: {0}"</span>)]
-    </span>Publish(<span class="attr">#[from] </span><span class="kw">crate</span>::package::PublishError),
+    </span>Publish(<span class="attr">#[from] </span>PackagePublishError),
     <span class="attr">#[error(<span class="string">"yaml error: {0}"</span>)]
     </span>Yaml(<span class="attr">#[from] </span>serde_yaml::Error),
     <span class="attr">#[error(<span class="string">"backend API error: {0}"</span>)]
     </span>Api(<span class="attr">#[from] </span>anyhow::Error),
+    <span class="attr">#[error(<span class="string">"app http probe failed: {message}"</span>)]
+    </span>AppHttpCheck { message: String },
 }
 
-<span class="kw">pub async fn </span>deploy_app&lt;F&gt;(
+<span class="doccomment">/// Deploy an app based on the provided app configuration and options.
+</span><span class="kw">pub async fn </span>deploy_app&lt;F&gt;(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     <span class="kw-2">mut </span>config: AppConfigV1,
     opts: DeployOptions,
@@ -271,7 +295,7 @@
                 wait: PublishWait::Container,
                 ..Default::default()
             };
-            <span class="kw">let </span>ident = publish_package(client, path.as_ref(), publish_opts, |e| {
+            <span class="kw">let </span>ident = publish_package_directory(client, path.as_ref(), publish_opts, |e| {
                 progress(DeployProgress::Publishing(e));
             })
             .<span class="kw">await</span><span class="question-mark">?</span>;
@@ -297,28 +321,29 @@
     .<span class="kw">await</span><span class="question-mark">?</span>;
 
     progress(DeployProgress::Waiting(opts.wait));
-    wait_app(client, <span class="kw-2">&amp;</span>version, opts.wait, opts.make_default)
-        .<span class="kw">await
-        </span>.map_err(DeployError::Api)
-}
+    wait_app(client, <span class="kw-2">&amp;</span>version, opts.wait, opts.make_default).<span class="kw">await
+</span>}
 
 <span class="kw">async fn </span>wait_app(
     client: <span class="kw-2">&amp;</span>WasmerClient,
     version: <span class="kw-2">&amp;</span>DeployAppVersion,
     wait: WaitMode,
     make_default: bool,
-) -&gt; <span class="prelude-ty">Result</span>&lt;(DeployApp, DeployAppVersion), anyhow::Error&gt; {
+) -&gt; <span class="prelude-ty">Result</span>&lt;(DeployApp, DeployAppVersion), DeployError&gt; {
+    <span class="kw">const </span>PROBE_TIMEOUT: Duration = Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>);
     <span class="kw">use </span>wasmer_config::app::HEADER_APP_VERSION_ID;
 
     <span class="kw">let </span>app_id = version
         .app
         .as_ref()
-        .ok_or_else(|| <span class="macro">anyhow::anyhow!</span>(<span class="string">"app field empty"</span>))<span class="question-mark">?
+        .ok_or_else(|| DeployError::Api(<span class="macro">anyhow::anyhow!</span>(<span class="string">"app field empty"</span>)))<span class="question-mark">?
         </span>.id
         .inner()
         .to_string();
 
-    <span class="kw">let </span>app = wasmer_backend_api::query::get_app_by_id(client, app_id.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
+    <span class="kw">let </span>app = wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
+        .<span class="kw">await
+        </span>.map_err(DeployError::Api)<span class="question-mark">?</span>;
 
     <span class="kw">match </span>wait {
         WaitMode::Deployed =&gt; {}
@@ -330,12 +355,19 @@
                 .timeout(Duration::from_secs(<span class="number">90</span>))
                 .redirect(reqwest::redirect::Policy::none())
                 .build()
-                .unwrap();
+                .context(<span class="string">"failed to build HTTP client"</span>)<span class="question-mark">?</span>;
             <span class="kw">let </span>start = tokio::time::Instant::now();
             <span class="kw">let </span><span class="kw-2">mut </span>sleep_ms = <span class="number">1_000u64</span>;
             <span class="kw">loop </span>{
                 <span class="kw">if </span>start.elapsed() &gt; Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>) {
-                    <span class="macro">anyhow::bail!</span>(<span class="string">"app not reachable after timeout"</span>);
+                    <span class="kw">return </span><span class="prelude-val">Err</span>(DeployError::AppHttpCheck {
+                        message: <span class="macro">format!</span>(
+                            <span class="string">"timed out waiting for app version '{}' to become reachable at '{}' (tried for {} seconds)"</span>,
+                            version.id.inner(),
+                            check_url,
+                            PROBE_TIMEOUT.as_secs(),
+                        ),
+                    });
                 }
                 <span class="kw">if let </span><span class="prelude-val">Ok</span>(res) = http.get(check_url).send().<span class="kw">await </span>{
                     <span class="kw">let </span>header = res
