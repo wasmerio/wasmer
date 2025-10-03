@@ -749,6 +749,37 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         params: I,
         params_type: J,
     ) -> Result<(), CompileError> {
+        self.emit_call_native_impl(cb, params, params_type, true)
+    }
+
+    /// Emits a Native ABI call sequence without passing vmctx as the first parameter.
+    ///
+    /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
+    /// this function.
+    fn emit_call_native_without_context<
+        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        J: Iterator<Item = WpType>,
+        F: FnOnce(&mut Self) -> Result<(), CompileError>,
+    >(
+        &mut self,
+        cb: F,
+        params: I,
+        params_type: J,
+    ) -> Result<(), CompileError> {
+        self.emit_call_native_impl(cb, params, params_type, false)
+    }
+
+    fn emit_call_native_impl<
+        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        J: Iterator<Item = WpType>,
+        F: FnOnce(&mut Self) -> Result<(), CompileError>,
+    >(
+        &mut self,
+        cb: F,
+        params: I,
+        params_type: J,
+        include_ctx_param: bool,
+    ) -> Result<(), CompileError> {
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
 
@@ -807,7 +838,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
             args.push(self.machine.get_param_location(
-                1 + i,
+                if include_ctx_param { 1 } else { 0 } + i,
                 params_size[i],
                 &mut stack_offset,
                 calling_convention,
@@ -889,13 +920,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Put vmctx as the first parameter.
-        self.machine.move_location(
-            Size::S64,
-            Location::GPR(self.machine.get_vmctx_reg()),
-            self.machine
-                .get_simple_param_location(0, calling_convention),
-        )?; // vmctx
+        if include_ctx_param {
+            // Put vmctx as the first parameter.
+            self.machine.move_location(
+                Size::S64,
+                Location::GPR(self.machine.get_vmctx_reg()),
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            )?; // vmctx
+        }
 
         if stack_padding > 0 {
             self.machine.adjust_stack(stack_padding as u32)?;
@@ -3894,8 +3927,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::Unreachable => {
-                self.machine
-                    .emit_illegal_op(TrapCode::UnreachableCodeReached)?;
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_raise_trap_index())
+                            as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                self.emit_call_native_without_context(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [trap_code]
+                    [Location::Imm32(TrapCode::UnreachableCodeReached as u32)]
+                        .iter()
+                        .cloned(),
+                    [WpType::I32].iter().cloned(),
+                )?;
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
