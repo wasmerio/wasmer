@@ -338,7 +338,14 @@
 <a href="#337" id="337">337</a>
 <a href="#338" id="338">338</a>
 <a href="#339" id="339">339</a>
-<a href="#340" id="340">340</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{env::current_dir, path::PathBuf};
+<a href="#340" id="340">340</a>
+<a href="#341" id="341">341</a>
+<a href="#342" id="342">342</a>
+<a href="#343" id="343">343</a>
+<a href="#344" id="344">344</a>
+<a href="#345" id="345">345</a>
+<a href="#346" id="346">346</a>
+<a href="#347" id="347">347</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{env::current_dir, path::PathBuf};
 
 <span class="kw">use </span>anyhow::{bail, Context};
 <span class="kw">use </span>dialoguer::console::{style, Emoji};
@@ -350,6 +357,14 @@
 <span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 
 <span class="doccomment">/// Download a package from the registry.
+///
+/// Examples:
+/// * `wasmer package download wasmer/hello`
+///   Download the `wasmer/hello` package, writing to `./hello@&lt;version&gt;.webc`.
+///
+/// * `wasmer package download --unpack wasmer/hello@0.1.0 -o hello.webc`
+///    Download the `wasmer/hello` package version `0.1.0`, writing to `./hello.webc`,
+///    and unpacking it to `./hello.webc.unpacked/`.
 </span><span class="attr">#[derive(clap::Parser, Debug)]
 </span><span class="kw">pub struct </span>PackageDownload {
     <span class="attr">#[clap(flatten)]
@@ -366,15 +381,14 @@
 
     <span class="doccomment">/// Run the download command without any output
     </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>quiet: bool,
+    </span>quiet: bool,
 
     <span class="doccomment">/// Unpack the downloaded package.
     ///
-    /// The output directory will be next to the downloaded file.
+    /// The unpacked directory will be next to the downloaded file, with a `.unpacked` suffix.
     ///
-    /// Note: unpacking can also be done manually with the `wasmer package unpack`
-    /// command.
-    </span><span class="attr">#[clap(long)]
+    /// Note: unpacking can also be done manually with the `wasmer package unpack` command.
+    </span><span class="attr">#[clap(short, long)]
     </span>unpack: bool,
 
     <span class="doccomment">/// The package to download.
