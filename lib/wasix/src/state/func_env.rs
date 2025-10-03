@@ -169,10 +169,13 @@ impl WasiFunctionEnv {
         stack_layout: Option<WasiMemoryLayout>,
         update_layout: bool,
     ) -> Result<(), ExportError> {
+        trace!("checking if wasix module");
         let is_wasix_module = crate::utils::is_wasix_module(instance.module());
+        trace!("is_wasix_module={}", is_wasix_module);
 
         let new_inner = handles;
 
+        trace!("cloning main modules");
         let main_module_handles = new_inner.main_module_instance_handles();
         let stack_pointer = main_module_handles.stack_pointer.clone();
         let data_end = main_module_handles.data_end.clone();

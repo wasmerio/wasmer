@@ -1,3 +1,5 @@
+use tracing::trace;
+
 use crate::{
     error::InstantiationError, exports::Exports, imports::Imports, macros::backend::gen_rt_ty,
     module::Module, store::AsStoreMut, Extern,
@@ -11,12 +13,32 @@ use crate::{
 /// interacting with WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
-#[derive(Clone, PartialEq, Eq)]
+#[derive(PartialEq, Eq)]
 pub struct Instance {
     pub(crate) _inner: BackendInstance,
     pub(crate) module: Module,
     /// The exports for an instance.
     pub exports: Exports,
+}
+
+impl Clone for Instance {
+    fn clone(&self) -> Self {
+        trace!("cloning BackendInstance");
+        let _inner = self._inner.clone();
+
+        trace!("cloning Module");
+        let module = self.module.clone();
+
+        trace!("cloning Exports");
+        let exports = self.exports.clone();
+
+        trace!("cloned Instance");
+        Self {
+            _inner,
+            module,
+            exports,
+        }
+    }
 }
 
 impl Instance {

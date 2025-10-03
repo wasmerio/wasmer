@@ -15,7 +15,7 @@ use crate::{
     syscalls::rewind_ext,
     RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
-use tracing::*;
+use tracing::{warn, *};
 use virtual_mio::InlineWaker;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
@@ -30,6 +30,7 @@ pub async fn spawn_exec(
     env: WasiEnv,
     runtime: &Arc<dyn Runtime + Send + Sync + 'static>,
 ) -> Result<TaskJoinHandle, SpawnError> {
+    trace!("spawnin_union_fs");
     spawn_union_fs(&env, &binary).await?;
 
     let cmd = package_command_by_name(&binary, name)?;
@@ -109,7 +110,7 @@ pub async fn spawn_union_fs(env: &WasiEnv, binary: &BinaryPackage) -> Result<(),
         .conditional_union(binary)
         .await
         .map_err(|err| {
-            tracing::warn!("failed to union file system - {err}");
+            warn!("failed to union file system - {err}");
             SpawnError::FileSystemError(crate::ExtendedFsError::with_msg(
                 err,
                 "could not union filesystems",
@@ -213,7 +214,7 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     let rewind_state = match unsafe { ctx.bootstrap(&mut store) } {
         Ok(r) => r,
         Err(err) => {
-            tracing::warn!("failed to bootstrap - {}", err);
+            warn!("failed to bootstrap - {}", err);
             thread.thread.set_status_finished(Err(err));
             ctx.data(&store)
                 .blocking_on_exit(Some(Errno::Noexec.into()));
@@ -290,6 +291,7 @@ fn call_module(
     // Invoke the start function
     let ret = {
         // Call the module
+        trace!("get_start");
         let Some(start) = get_start(&ctx, &store) else {
             debug!("wasi[{}]::exec-failed: missing _start function", pid);
             ctx.data(&store)
@@ -298,22 +300,29 @@ fn call_module(
             return;
         };
 
+        trace!("calling _start");
         let mut call_ret = start.call(&mut store, &[]);
+        trace!(?call_ret, "_start call complete");
 
         loop {
             // Technically, it's an error for a vfork to return from main, but anyway...
+            trace!("checking for vfork");
             match resume_vfork(&ctx, &mut store, &start, &call_ret) {
                 // A vfork was resumed, there may be another, so loop back
                 Ok(Some(ret)) => call_ret = ret,
 
                 // An error was encountered when restoring from the vfork, report it
                 Err(e) => {
+                    trace!("error when resuming vfork - {}", e);
                     call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
                     break;
                 }
 
                 // No vfork, keep the call_ret value
-                Ok(None) => break,
+                Ok(None) => {
+                    trace!("no vfork, finishing _start call");
+                    break;
+                }
             }
         }
 
@@ -326,6 +335,8 @@ fn call_module(
                     Err(WasiError::Exit(code).into())
                 }
                 Ok(WasiError::DeepSleep(deep)) => {
+                    trace!("wasi[{}]::going into deep sleep", pid);
+
                     // Create the callback that will be invoked when the thread respawns after a deep sleep
                     let rewind = deep.rewind;
                     let respawn = {
@@ -360,6 +371,7 @@ fn call_module(
                     Err(WasiError::DlSymbolResolutionFailed(symbol).into())
                 }
                 Err(err) => {
+                    warn!("wasi[{}]::exec-failed: {}", pid, err);
                     runtime.on_taint(TaintReason::RuntimeError(err.clone()));
                     Err(WasiRuntimeError::from(err))
                 }
@@ -369,12 +381,12 @@ fn call_module(
         }
     };
 
-    let code = if let Err(err) = &ret {
-        match err.as_exit_code() {
+    let code = if let Err(error) = &ret {
+        match error.as_exit_code() {
             Some(s) => s,
             None => {
-                error!("{err}");
-                eprintln!("{err}");
+                error!(?error, "instance call failed");
+                eprintln!("instance failed: {error}");
                 Errno::Noexec.into()
             }
         }

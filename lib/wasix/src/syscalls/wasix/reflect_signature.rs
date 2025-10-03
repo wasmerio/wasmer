@@ -50,6 +50,12 @@ pub fn reflect_signature<M: MemorySize>(
     result: WasmPtr<ReflectionResult, M>,
 ) -> Result<Errno, WasiError> {
     let (env, mut store) = ctx.data_and_store_mut();
+    trace!(
+        "Reflecting signature for function ID {} - arglen: {}, reslen: {}",
+        function_id,
+        argument_types_len,
+        result_types_len
+    );
 
     let function_lookup_result = env
         .inner()
@@ -59,9 +65,11 @@ pub fn reflect_signature<M: MemorySize>(
     let signature_info = result.deref(&memory);
 
     // Look up the function in the indirect function table
+    trace!("Looking up function in indirect function table");
     let function = match function_lookup_result {
         Ok(f) => f,
         Err(e) => {
+            trace!("Function lookup error: {}", e);
             let cacheable = match e {
                 FunctionLookupError::Empty(_) => {
                     if env.inner().is_closure(function_id) {
@@ -87,7 +95,13 @@ pub fn reflect_signature<M: MemorySize>(
     };
 
     let is_closure = env.inner().is_closure(function_id);
-    let cacheable = if is_closure { Bool::False } else { Bool::True };
+    trace!(
+        is_closure,
+        ?function,
+        "found function in indirect function table"
+    );
+    // let cacheable = if is_closure { Bool::False } else { Bool::True };
+    let cacheable = Bool::False;
 
     let function_type = function.ty(&store);
     let arguments = function_type.params();
@@ -116,9 +130,15 @@ pub fn reflect_signature<M: MemorySize>(
         return Ok(Errno::Overflow);
     }
 
+    trace!(len = function_type.params().len(), "serialize type params");
     let serialized_argument_types = wasi_try_ok!(serialize_types(function_type.params()));
+    trace!(
+        len = function_type.results().len(),
+        "serialize type results"
+    );
     let serialized_result_types = wasi_try_ok!(serialize_types(function_type.results()));
 
+    trace!("preparing slices");
     let mut argument_types_slice = wasi_try_mem_ok!(WasmSlice::<WasmValueType>::new(
         &memory,
         argument_types.offset().into(),
@@ -130,8 +150,11 @@ pub fn reflect_signature<M: MemorySize>(
         results.len() as u64
     ));
 
+    trace!("writing argtypes slice");
     wasi_try_mem_ok!(argument_types_slice.write_slice(&serialized_argument_types));
+    trace!("writing result types slice");
     wasi_try_mem_ok!(result_types_slice.write_slice(&serialized_result_types));
 
+    trace!("Successfully reflected function signature");
     Ok(Errno::Success)
 }
