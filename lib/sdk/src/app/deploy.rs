@@ -68,6 +68,8 @@ pub enum DeployError {
     Yaml(#[from] serde_yaml::Error),
     #[error("backend API error: {0}")]
     Api(#[from] anyhow::Error),
+    #[error("app http probe failed: {message}")]
+    AppHttpCheck { message: String },
 }
 
 /// Deploy an app based on the provided app configuration and options.
@@ -124,9 +126,7 @@ where
     .await?;
 
     progress(DeployProgress::Waiting(opts.wait));
-    wait_app(client, &version, opts.wait, opts.make_default)
-        .await
-        .map_err(DeployError::Api)
+    wait_app(client, &version, opts.wait, opts.make_default).await
 }
 
 async fn wait_app(
@@ -134,18 +134,21 @@ async fn wait_app(
     version: &DeployAppVersion,
     wait: WaitMode,
     make_default: bool,
-) -> Result<(DeployApp, DeployAppVersion), anyhow::Error> {
+) -> Result<(DeployApp, DeployAppVersion), DeployError> {
+    const PROBE_TIMEOUT: Duration = Duration::from_secs(60 * 5);
     use wasmer_config::app::HEADER_APP_VERSION_ID;
 
     let app_id = version
         .app
         .as_ref()
-        .ok_or_else(|| anyhow::anyhow!("app field empty"))?
+        .ok_or_else(|| DeployError::Api(anyhow::anyhow!("app field empty")))?
         .id
         .inner()
         .to_string();
 
-    let app = wasmer_backend_api::query::get_app_by_id(client, app_id.clone()).await?;
+    let app = wasmer_backend_api::query::get_app_by_id(client, app_id.clone())
+        .await
+        .map_err(DeployError::Api)?;
 
     match wait {
         WaitMode::Deployed => {}
@@ -162,7 +165,14 @@ async fn wait_app(
             let mut sleep_ms = 1_000u64;
             loop {
                 if start.elapsed() > Duration::from_secs(60 * 5) {
-                    anyhow::bail!("app not reachable after timeout");
+                    return Err(DeployError::AppHttpCheck {
+                        message: format!(
+                            "timed out waiting for app version '{}' to become reachable at '{}' (tried for {} seconds)",
+                            version.id.inner(),
+                            check_url,
+                            PROBE_TIMEOUT.as_secs(),
+                        ),
+                    });
                 }
                 if let Ok(res) = http.get(check_url).send().await {
                     let header = res
