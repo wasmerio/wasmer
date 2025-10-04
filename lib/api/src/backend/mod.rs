@@ -1,6 +1,15 @@
 //! This submodule has the concrete definitions for all the available implenters of the WebAssembly
 //! types needed to create a runtime.
 
+pub(crate) const STUB_ENABLED: bool = cfg!(all(
+    not(feature = "sys"),
+    not(feature = "wamr"),
+    not(feature = "wasmi"),
+    not(feature = "v8"),
+    not(feature = "js"),
+    not(feature = "jsc")
+));
+
 #[cfg(feature = "sys")]
 pub mod sys;
 
@@ -18,6 +27,9 @@ pub mod js;
 
 #[cfg(feature = "jsc")]
 pub mod jsc;
+
+#[cfg(stub_backend)]
+pub mod stub;
 
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
@@ -58,6 +70,10 @@ pub enum BackendKind {
     #[cfg(feature = "jsc")]
     /// The `jsc` runtime.
     Jsc,
+
+    #[cfg(stub_backend)]
+    /// The placeholder stub runtime.
+    Stub,
 }
 
 impl Default for BackendKind {
@@ -144,6 +160,11 @@ impl Default for BackendKind {
         #[cfg(feature = "jsc")]
         {
             return Self::Jsc;
+        }
+
+        #[cfg(stub_backend)]
+        {
+            return Self::Stub;
         }
 
         panic!("No runtime enabled!")

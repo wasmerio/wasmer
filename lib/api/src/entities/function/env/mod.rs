@@ -2,7 +2,7 @@ pub(crate) mod inner;
 pub(crate) use inner::*;
 
 use crate::{macros::backend::match_rt, AsStoreMut, AsStoreRef, StoreMut, StoreRef};
-use std::{any::Any, fmt::Debug, marker::PhantomData};
+use std::{any::Any, fmt::Debug};
 
 #[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.

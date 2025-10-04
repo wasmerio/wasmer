@@ -136,6 +136,8 @@ impl BackendFunction {
                     store, env, ty, func,
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create host functions"),
         }
     }
 
@@ -174,6 +176,8 @@ impl BackendFunction {
             crate::BackendStore::Jsc(_) => {
                 Self::Jsc(crate::backend::jsc::entities::function::Function::new_typed(store, func))
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create host functions"),
         }
     }
 
@@ -434,6 +438,8 @@ impl BackendFunction {
                     funcref.into_jsc(),
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot import functions"),
         }
     }
 
@@ -586,6 +592,8 @@ impl BackendFunction {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot import functions"),
         }
     }
 

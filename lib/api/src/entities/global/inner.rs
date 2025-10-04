@@ -89,6 +89,8 @@ impl BackendGlobal {
             crate::BackendStore::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::global::Global::from_value(store, val, mutability)?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create globals"),
         }
     }
 
@@ -207,6 +209,8 @@ impl BackendGlobal {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::global::Global::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot import globals"),
         }
     }
 

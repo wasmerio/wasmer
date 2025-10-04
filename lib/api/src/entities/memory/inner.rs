@@ -53,6 +53,8 @@ impl BackendMemory {
             crate::BackendStore::Jsc(s) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::memory::Memory::new(store, ty)?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create memories"),
         }
     }
 
@@ -102,6 +104,8 @@ impl BackendMemory {
                     memory.into_jsc(),
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot import existing memories"),
         }
     }
 
@@ -246,6 +250,10 @@ impl BackendMemory {
             Self::Jsc(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => Err(MemoryError::InvalidMemory {
+                reason: "stub backend cannot copy memories".to_string(),
+            }),
         }
     }
 
@@ -276,6 +284,8 @@ impl BackendMemory {
             crate::BackendStore::Jsc(s) => Self::Jsc(
                 crate::backend::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create memory from VM extern"),
         }
     }
 
@@ -308,6 +318,10 @@ impl BackendMemory {
             Self::Js(s) => s.try_clone(store).map(VMMemory::Js),
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.try_clone(store).map(VMMemory::Jsc),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => Err(MemoryError::InvalidMemory {
+                reason: "stub backend cannot clone memories".to_string(),
+            }),
         }
     }
 
@@ -351,6 +365,10 @@ impl BackendMemory {
             Self::Jsc(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => Err(MemoryError::InvalidMemory {
+                reason: "stub backend cannot share memories".to_string(),
+            }),
         }
     }
 

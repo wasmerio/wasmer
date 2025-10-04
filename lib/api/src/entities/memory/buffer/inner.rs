@@ -60,6 +60,8 @@ impl BackendMemoryBuffer<'_> {
 
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.len,
+            #[cfg(stub_backend)]
+            Self::Stub(_) => panic!("stub backend does not report memory buffer length"),
         }
     }
 
@@ -87,6 +89,8 @@ impl BackendMemoryBuffer<'_> {
             Self::Js(s) => panic!("js memory buffers do not support the `base` function!"),
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.base,
+            #[cfg(stub_backend)]
+            Self::Stub(_) => panic!("stub backend does not provide raw buffer access"),
         }
     }
 }

@@ -56,6 +56,8 @@ impl<'a> BackendMemoryView<'a> {
                     store,
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create memory views"),
         }
     }
 
@@ -146,6 +148,8 @@ impl<'a> BackendMemoryView<'a> {
             Self::Js(s) => MemoryBuffer(BackendMemoryBuffer::Js(s.buffer())),
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => MemoryBuffer(BackendMemoryBuffer::Jsc(s.buffer())),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => panic!("stub backend cannot produce memory buffers"),
         }
     }
 

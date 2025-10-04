@@ -97,6 +97,11 @@ impl BackendModule {
             crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::module::Module::from_binary(engine, binary)?,
             )),
+
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => Err(CompileError::UnsupportedTarget(
+                "The stub backend cannot compile modules".into(),
+            )),
         }
     }
 
@@ -153,6 +158,11 @@ impl BackendModule {
                     engine, binary,
                 )?,
             )),
+
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => Err(CompileError::UnsupportedTarget(
+                "The stub backend cannot compile modules".into(),
+            )),
         }
     }
 
@@ -189,6 +199,13 @@ impl BackendModule {
             #[cfg(feature = "jsc")]
             crate::BackendEngine::Jsc(_) => {
                 crate::backend::jsc::entities::module::Module::validate(engine, binary)?
+            }
+
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => {
+                return Err(CompileError::UnsupportedTarget(
+                    "The stub backend cannot validate modules".into(),
+                ))
             }
         }
         Ok(())

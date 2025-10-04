@@ -44,6 +44,8 @@ impl BackendException {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::exception::Exception::new(store, tag, payload),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create exceptions"),
         }
     }
 

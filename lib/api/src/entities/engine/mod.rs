@@ -115,6 +115,8 @@ impl Engine {
                 // Get JSC-specific features
                 crate::backend::jsc::engine::Engine::default_features()
             }
+            #[cfg(stub_backend)]
+            crate::BackendKind::Stub => Features::default(),
             // Default case
             _ => Features::default(),
         }
@@ -163,6 +165,8 @@ impl Engine {
                 // Get JSC-specific features
                 crate::backend::jsc::engine::Engine::supported_features()
             }
+            #[cfg(stub_backend)]
+            crate::BackendKind::Stub => Features::default(),
             // Default case
             _ => Features::default(),
         }

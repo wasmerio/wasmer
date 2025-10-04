@@ -90,6 +90,8 @@ impl Instance {
                 let (i, e) = crate::backend::jsc::instance::Instance::new(store, module, imports)?;
                 (crate::BackendInstance::Jsc(i), e)
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot instantiate modules"),
         };
 
         Ok(Self {
@@ -155,6 +157,8 @@ impl Instance {
                     crate::backend::jsc::instance::Instance::new_by_index(store, module, externs)?;
                 (crate::BackendInstance::Jsc(i), e)
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot instantiate modules"),
         };
 
         Ok(Self {

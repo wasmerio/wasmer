@@ -11,6 +11,7 @@ license.workspace = true
 repository.workspace = true
 rust-version.workspace = true
 version.workspace = true
+build = "build.rs"
 
 #####
 # This crate comes in 3 major flavors:
@@ -118,6 +119,7 @@ maintenance = { status = "actively-developed" }
 default = ["sys-default"]
 std = []
 core = ["hashbrown"]
+stub = []
 artifact-size = [
 	"dep:loupe",
 	"wasmer-vm/artifact-size",

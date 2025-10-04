@@ -412,17 +412,8 @@
 //! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
 //! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
-#[cfg(not(any(
-    feature = "sys",
-    feature = "js",
-    feature = "jsc",
-    feature = "wamr",
-    feature = "v8",
-    feature = "wasmi"
-)))]
-compile_error!(
-    "One of: `sys`, `js`, `jsc` `wamr`, `wasmi` or `v8` features must be enabled. Please, pick one."
-);
+#[cfg(stub_backend)]
+pub const USING_STUB_BACKEND: bool = true;
 
 mod utils;
 pub use utils::*;

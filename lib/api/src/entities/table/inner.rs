@@ -58,6 +58,8 @@ impl BackendTable {
             BackendStore::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::table::Table::new(store, ty, init)?,
             )),
+            #[cfg(stub_backend)]
+            BackendStore::Stub(_) => panic!("stub backend cannot create tables"),
         }
     }
 
@@ -191,6 +193,8 @@ impl BackendTable {
                 src_index,
                 len,
             ),
+            #[cfg(stub_backend)]
+            BackendStore::Stub(_) => panic!("stub backend cannot copy tables"),
         }
     }
 
@@ -221,6 +225,8 @@ impl BackendTable {
             BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::entities::table::Table::from_vm_extern(store, ext),
             ),
+            #[cfg(stub_backend)]
+            BackendStore::Stub(_) => panic!("stub backend cannot import tables"),
         }
     }
 

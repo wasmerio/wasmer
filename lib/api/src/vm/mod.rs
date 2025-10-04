@@ -24,6 +24,8 @@ macro_rules! define_vm_like {
             Js(crate::backend::js::vm::[<VM $name>]),
             #[cfg(feature = "jsc")]
             Jsc(crate::backend::jsc::vm::[<VM $name>]),
+            #[cfg(stub_backend)]
+            Stub(crate::backend::stub::vm::[<VM $name>]),
         }
 
         impl [<VM $name>] {
@@ -188,6 +190,33 @@ macro_rules! define_vm_like {
                     _ => panic!("Not a `jsc` value!")
                 }
             }
+
+            #[cfg(stub_backend)]
+            /// Consume `self` into a stub VM kind.
+            pub fn into_stub(self) -> crate::backend::stub::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Stub(s) => s,
+                    _ => panic!("Not a stub value!"),
+                }
+            }
+
+            #[cfg(stub_backend)]
+            /// Convert a reference to [`self`] into a reference to the stub VM kind.
+            pub fn as_stub(&self) -> &crate::backend::stub::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Stub(s) => s,
+                    _ => panic!("Not a stub value!"),
+                }
+            }
+
+            #[cfg(stub_backend)]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the stub VM kind.
+            pub fn as_stub_mut(&mut self) -> &mut crate::backend::stub::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Stub(s) => s,
+                    _ => panic!("Not a stub value!"),
+                }
+            }
         }
         }
     };
@@ -210,6 +239,8 @@ macro_rules! define_vm_like {
             Js(crate::backend::js::vm::[<VM $name>]),
             #[cfg(feature = "jsc")]
             Jsc(crate::backend::jsc::vm::[<VM $name>]),
+            #[cfg(stub_backend)]
+            Stub(crate::backend::stub::vm::[<VM $name>]),
         }
 
         #[cfg(feature = "sys")]
@@ -254,6 +285,13 @@ macro_rules! define_vm_like {
             }
         }
 
+        #[cfg(stub_backend)]
+        impl From<crate::backend::stub::vm::[<VM $name>]> for [<VM $name>] {
+            fn from(value: crate::backend::stub::vm::[<VM $name>]) -> Self {
+                [<VM $name>]::Stub(value)
+            }
+        }
+
         impl [<VM $name>] {
             #[cfg(feature = "sys")]
             /// Consume `self` into a `sys` VM kind.
@@ -414,6 +452,33 @@ macro_rules! define_vm_like {
                 match self {
                     [<VM $name>]::Jsc(s) => s,
                     _ => panic!("Not a `jsc` value!")
+                }
+            }
+
+            #[cfg(stub_backend)]
+            /// Consume `self` into a stub VM kind.
+            pub fn into_stub(self) -> crate::backend::stub::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Stub(s) => s,
+                    _ => panic!("Not a stub value!"),
+                }
+            }
+
+            #[cfg(stub_backend)]
+            /// Convert a reference to [`self`] into a reference to the stub VM kind.
+            pub fn as_stub(&self) -> &crate::backend::stub::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Stub(s) => s,
+                    _ => panic!("Not a stub value!"),
+                }
+            }
+
+            #[cfg(stub_backend)]
+            /// Convert a mutable reference to [`self`] into a mutable reference to the stub VM kind.
+            pub fn as_stub_mut(&mut self) -> &mut crate::backend::stub::vm::[<VM $name>] {
+                match self {
+                    [<VM $name>]::Stub(s) => s,
+                    _ => panic!("Not a stub value!"),
                 }
             }
         }

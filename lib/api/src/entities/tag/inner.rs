@@ -47,6 +47,8 @@ impl BackendTag {
             crate::BackendStore::Jsc(_) => {
                 Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params))
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot create tags"),
         }
     }
 
@@ -85,6 +87,8 @@ impl BackendTag {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic!("stub backend cannot import tags"),
         }
     }
 
