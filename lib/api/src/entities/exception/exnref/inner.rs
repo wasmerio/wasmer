@@ -39,7 +39,9 @@ impl BackendExceptionRef {
                 crate::backend::jsc::entities::exception::ExceptionRef::new(store, value),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot create exception refs"),
+            crate::BackendStore::Stub(_) => {
+                crate::backend::stub::panic_stub("stub backend cannot create exception refs")
+            }
         }
     }
 
@@ -68,6 +70,8 @@ impl BackendExceptionRef {
             Self::Js(r) => VMExceptionRef::Js(r.vm_exceptionref()),
             #[cfg(feature = "jsc")]
             Self::Jsc(r) => VMExceptionRef::Jsc(r.vm_exceptionref()),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => VMExceptionRef::Stub(crate::backend::stub::vm::VMExceptionRef::stub()),
         }
     }
 
@@ -120,7 +124,9 @@ impl BackendExceptionRef {
                 ),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot import exception refs"),
+            crate::BackendStore::Stub(_) => {
+                crate::backend::stub::panic_stub("stub backend cannot import exception refs")
+            }
         }
     }
 

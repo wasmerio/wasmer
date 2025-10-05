@@ -1,8 +1,12 @@
-use std::{path::Path};
+use std::path::Path;
 
 use bytes::Bytes;
-use wasmer_types::{CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator, SerializeError};
+use wasmer_types::{
+    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
+    SerializeError,
+};
 
+use crate::backend::stub::panic_stub;
 use crate::{AsEngineRef, BackendModule, IntoBytes};
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
@@ -23,10 +27,7 @@ impl Module {
         Err(Self::compile_error())
     }
 
-    pub(crate) fn validate(
-        _engine: &impl AsEngineRef,
-        _binary: &[u8],
-    ) -> Result<(), CompileError> {
+    pub(crate) fn validate(_engine: &impl AsEngineRef, _binary: &[u8]) -> Result<(), CompileError> {
         Err(Self::compile_error())
     }
 
@@ -65,30 +66,34 @@ impl Module {
     }
 
     pub(crate) fn set_name(&mut self, _name: &str) -> bool {
-        panic!("stub backend cannot name modules")
+        panic_stub("cannot name modules")
     }
 
     pub(crate) fn name(&self) -> Option<&str> {
-        panic!("stub backend does not expose module names")
+        panic_stub("does not expose module names")
     }
 
-    pub(crate) fn imports<'a>(&'a self) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
-        panic!("stub backend does not expose module imports")
+    pub(crate) fn imports<'a>(
+        &'a self,
+    ) -> ImportsIterator<Box<dyn Iterator<Item = ImportType> + 'a>> {
+        panic_stub("does not expose module imports")
     }
 
-    pub(crate) fn exports<'a>(&'a self) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + 'a>> {
-        panic!("stub backend does not expose module exports")
+    pub(crate) fn exports<'a>(
+        &'a self,
+    ) -> ExportsIterator<Box<dyn Iterator<Item = ExportType> + 'a>> {
+        panic_stub("does not expose module exports")
     }
 
     pub(crate) fn custom_sections<'a>(
         &'a self,
         _name: &'a str,
     ) -> Box<dyn Iterator<Item = Box<[u8]>> + 'a> {
-        panic!("stub backend does not expose module custom sections")
+        panic_stub("does not expose module custom sections")
     }
 
     pub(crate) fn info(&self) -> ! {
-        panic!("stub backend does not expose module info")
+        panic_stub("does not expose module info")
     }
 
     fn compile_error() -> CompileError {
@@ -99,12 +104,14 @@ impl Module {
 
     fn deserialize_error() -> DeserializeError {
         DeserializeError::Generic(
-            "No runtime backend is enabled; the stub backend cannot deserialize modules".to_string(),
+            "No runtime backend is enabled; the stub backend cannot deserialize modules"
+                .to_string(),
         )
     }
 }
 
 impl crate::Module {
+    /// Consume the module, asserting that it was produced by the stub backend.
     pub fn into_stub(self) -> crate::backend::stub::entities::module::Module {
         match self.0 {
             BackendModule::Stub(s) => s,
@@ -112,6 +119,7 @@ impl crate::Module {
         }
     }
 
+    /// Borrow the inner stub backend module, panicking if a real backend was used.
     pub fn as_stub(&self) -> &crate::backend::stub::entities::module::Module {
         match self.0 {
             BackendModule::Stub(ref s) => s,
@@ -119,6 +127,7 @@ impl crate::Module {
         }
     }
 
+    /// Mutably borrow the inner stub backend module, panicking if a real backend was used.
     pub fn as_stub_mut(&mut self) -> &mut crate::backend::stub::entities::module::Module {
         match self.0 {
             BackendModule::Stub(ref mut s) => s,

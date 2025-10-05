@@ -40,7 +40,13 @@ macro_rules! impl_host_function {
                         #[cfg(feature = "wasmi")]
                         crate::backend::BackendKind::Wasmi => crate::vm::VMFunctionCallback::Wasmi(crate::backend::wasmi::function::[<gen_fn_callback_ $c_struct_name:lower >](self)),
                         #[cfg(feature = "v8")]
-                        crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower >](self))
+                        crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(
+                            crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower >](self),
+                        ),
+                        #[cfg(stub_backend)]
+                        crate::backend::BackendKind::Stub => crate::vm::VMFunctionCallback::Stub(
+                            crate::backend::stub::vm::VMFunctionCallback::stub(),
+                        ),
                     }
                 }
             }
@@ -101,7 +107,13 @@ macro_rules! impl_host_function {
                         #[cfg(feature = "wasmi")]
                         crate::backend::BackendKind::Wasmi => crate::vm::VMFunctionCallback::Wasmi(crate::backend::wasmi::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self)),
                         #[cfg(feature = "v8")]
-                        crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self))
+                        crate::backend::BackendKind::V8 => crate::vm::VMFunctionCallback::V8(
+                            crate::backend::v8::function::[<gen_fn_callback_ $c_struct_name:lower _no_env>](self),
+                        ),
+                        #[cfg(stub_backend)]
+                        crate::backend::BackendKind::Stub => crate::vm::VMFunctionCallback::Stub(
+                            crate::backend::stub::vm::VMFunctionCallback::stub(),
+                        ),
                     }
                 }
             }

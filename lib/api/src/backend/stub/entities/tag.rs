@@ -1,34 +1,29 @@
-use crate::store::{AsStoreMut, AsStoreRef};
+use crate::backend::stub::panic_stub;
+use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::vm::VMExternTag;
 use wasmer_types::TagType;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Tag;
 
 impl Tag {
-    pub fn new<P: Into<Box<[crate::Type]>>>(
-        _store: &mut impl AsStoreMut,
-        _params: P,
-    ) -> Self {
-        panic!("stub backend cannot create tags")
+    pub fn new<P: Into<Box<[crate::Type]>>>(_store: &mut impl AsStoreMut, _params: P) -> Self {
+        panic_stub("cannot create tags")
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> TagType {
-        panic!("stub backend does not expose tag types")
+        panic_stub("does not expose tag types")
     }
 
-    pub fn from_vm_extern(
-        _store: &mut impl AsStoreMut,
-        _vm_extern: VMExternTag,
-    ) -> Self {
-        panic!("stub backend cannot import tags")
+    pub fn from_vm_extern(_store: &mut impl AsStoreMut, _vm_extern: VMExternTag) -> Self {
+        panic_stub("cannot import tags")
     }
 
     pub fn to_vm_extern(&self) -> VMExternTag {
-        panic!("stub backend cannot expose VM tags")
+        VMExternTag::Stub(crate::backend::stub::vm::VMExternTag::stub())
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        panic!("stub backend cannot verify tag origins")
+        panic_stub("cannot verify tag origins")
     }
 }

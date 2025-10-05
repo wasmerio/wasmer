@@ -1,17 +1,13 @@
 use crate::{
+    backend::stub::panic_stub,
+    entities::store::{AsStoreMut, AsStoreRef},
     exports::Exports,
-    store::{AsStoreMut, AsStoreRef},
-    Module,
-    Extern,
-    InstantiationError,
+    Extern, InstantiationError, Module,
 };
 
 /// Minimal instance representation used by the stub backend.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Instance {
-    pub(crate) module: Module,
-    pub(crate) exports: Exports,
-}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Instance;
 
 impl Instance {
     pub fn new(
@@ -19,7 +15,7 @@ impl Instance {
         _module: &Module,
         _imports: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
-        panic!("stub backend cannot instantiate modules")
+        panic_stub("cannot instantiate modules")
     }
 
     pub fn new_by_index(
@@ -27,26 +23,26 @@ impl Instance {
         _module: &Module,
         _externs: &[Extern],
     ) -> Result<(Self, Exports), InstantiationError> {
-        panic!("stub backend cannot instantiate modules")
+        panic_stub("cannot instantiate modules")
     }
 
     pub fn get_export(&self, _name: &str) -> Option<Extern> {
-        panic!("stub backend cannot access exports")
+        panic_stub("cannot access exports")
     }
 
     pub fn exports(&self) -> &Exports {
-        &self.exports
+        panic_stub("cannot access exports")
     }
 
     pub fn exports_mut(&mut self) -> &mut Exports {
-        &mut self.exports
+        panic_stub("cannot access exports")
     }
 
     pub fn module(&self) -> &Module {
-        &self.module
+        panic_stub("cannot access instance modules")
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        panic!("stub backend cannot verify instance origins")
+        panic_stub("cannot verify instance origins")
     }
 }

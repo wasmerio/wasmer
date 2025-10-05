@@ -21,4 +21,3 @@ fn main() {
         println!("cargo:rustc-cfg=stub_backend");
     }
 }
-

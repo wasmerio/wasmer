@@ -40,7 +40,9 @@ impl BackendExternRef {
                 crate::backend::jsc::entities::external::ExternRef::new(store, value),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot create extern refs"),
+            crate::BackendStore::Stub(_) => {
+                crate::backend::stub::panic_stub("stub backend cannot create extern refs")
+            }
         }
     }
 
@@ -71,6 +73,8 @@ impl BackendExternRef {
             Self::Js(r) => VMExternRef::Js(r.vm_externref()),
             #[cfg(feature = "jsc")]
             Self::Jsc(r) => VMExternRef::Jsc(r.vm_externref()),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => VMExternRef::Stub(crate::backend::stub::vm::VMExternRef::stub()),
         }
     }
 
@@ -124,7 +128,9 @@ impl BackendExternRef {
                 ),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot import extern refs"),
+            crate::BackendStore::Stub(_) => {
+                crate::backend::stub::panic_stub("stub backend cannot import extern refs")
+            }
         }
     }
 

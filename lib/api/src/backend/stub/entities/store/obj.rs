@@ -10,7 +10,9 @@ pub struct StoreObjects {
 
 impl Default for StoreObjects {
     fn default() -> Self {
-        Self { id: StoreId::default() }
+        Self {
+            id: StoreId::default(),
+        }
     }
 }
 

@@ -74,7 +74,10 @@ macro_rules! impl_native_traits {
                     BackendStore::Js(_) => self.call_js(store, $([<p_ $x>]),*),
                     #[cfg(feature = "jsc")]
                     BackendStore::Jsc(_) => self.call_jsc(store, $([<p_ $x>]),*),
-
+                    #[cfg(stub_backend)]
+                    BackendStore::Stub(_) => crate::backend::stub::panic_stub(
+                        "host function calls require a real backend",
+                    ),
                 }
             }
 
@@ -96,6 +99,10 @@ macro_rules! impl_native_traits {
                     BackendStore::Js(_) => self.call_raw_js(store, params_list),
                     #[cfg(feature = "jsc")]
                     BackendStore::Jsc(_) => self.call_raw_jsc(store, params_list),
+                    #[cfg(stub_backend)]
+                    BackendStore::Stub(_) => crate::backend::stub::panic_stub(
+                        "host function calls require a real backend",
+                    ),
                 }
             }
         }

@@ -1,5 +1,7 @@
 use wasmer_types::{RawValue, Type};
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     entities::{ExceptionRef, ExternRef, Function},
     vm::{VMExceptionRef, VMExternRef, VMFuncRef},
@@ -158,6 +160,10 @@ impl Value {
                         .map(VMFuncRef::Jsc)
                         .map(|f| Function::from_vm_funcref(store, f)),
                 ),
+                #[cfg(stub_backend)]
+                crate::BackendStore::Stub(_) => {
+                    panic_stub("funcref values require an enabled backend")
+                }
             },
             Type::ExternRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
@@ -197,6 +203,10 @@ impl Value {
                         .map(VMExternRef::Jsc)
                         .map(|f| ExternRef::from_vm_externref(store, f)),
                 ),
+                #[cfg(stub_backend)]
+                crate::BackendStore::Stub(_) => {
+                    panic_stub("externref values require an enabled backend")
+                }
             },
             Type::ExceptionRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
@@ -236,6 +246,10 @@ impl Value {
                         .map(VMExceptionRef::Jsc)
                         .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
                 ),
+                #[cfg(stub_backend)]
+                crate::BackendStore::Stub(_) => {
+                    panic_stub("exceptionref values require an enabled backend")
+                }
             },
         }
     }

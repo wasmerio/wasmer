@@ -167,7 +167,9 @@ macro_rules! match_rt {
             #[cfg(feature = "jsc")]
             Self::Jsc($var) => $stmt,
             #[cfg(stub_backend)]
-            Self::Stub(_) => panic!("stub backend does not provide runtime functionality"),
+            Self::Stub(_) => crate::backend::stub::panic_stub(
+                "runtime functionality requires an enabled backend",
+            ),
         }
     };
 
@@ -186,7 +188,9 @@ macro_rules! match_rt {
             #[cfg(feature = "jsc")]
             Self::Jsc($var) => $stmt,
             #[cfg(stub_backend)]
-            Self::Stub(_) => panic!("stub backend does not provide runtime functionality"),
+            Self::Stub(_) => crate::backend::stub::panic_stub(
+                "runtime functionality requires an enabled backend",
+            ),
         }
     };
 }

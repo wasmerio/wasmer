@@ -1,15 +1,6 @@
 //! This submodule has the concrete definitions for all the available implenters of the WebAssembly
 //! types needed to create a runtime.
 
-pub(crate) const STUB_ENABLED: bool = cfg!(all(
-    not(feature = "sys"),
-    not(feature = "wamr"),
-    not(feature = "wasmi"),
-    not(feature = "v8"),
-    not(feature = "js"),
-    not(feature = "jsc")
-));
-
 #[cfg(feature = "sys")]
 pub mod sys;
 

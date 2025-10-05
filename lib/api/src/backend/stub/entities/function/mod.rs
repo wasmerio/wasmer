@@ -1,3 +1,4 @@
+use crate::backend::stub::panic_stub;
 use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::vm::{VMExtern, VMFuncRef};
 use crate::{RuntimeError, Value};
@@ -7,10 +8,8 @@ pub mod env;
 pub use env::{FunctionEnv, FunctionEnvMut};
 
 /// Minimal function placeholder for the stub backend.
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
-pub struct Function {
-    ty: FunctionType,
-}
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct Function;
 
 impl Function {
     pub fn new_with_env<FT, F, T: Send + 'static>(
@@ -26,21 +25,16 @@ impl Function {
             + Send
             + Sync,
     {
-        Self { ty: ty.into() }
+        panic_stub("cannot create host functions with environments")
     }
 
-    pub fn new_typed<F, Args, Rets>(
-        _store: &mut impl AsStoreMut,
-        _func: F,
-    ) -> Self
+    pub fn new_typed<F, Args, Rets>(_store: &mut impl AsStoreMut, _func: F) -> Self
     where
         F: crate::HostFunction<(), Args, Rets, crate::WithoutEnv> + 'static + Send + Sync,
         Args: crate::WasmTypeList,
         Rets: crate::WasmTypeList,
     {
-        Self {
-            ty: FunctionType::new([], []),
-        }
+        panic_stub("cannot create typed host functions")
     }
 
     pub fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
@@ -53,13 +47,11 @@ impl Function {
         Args: crate::WasmTypeList,
         Rets: crate::WasmTypeList,
     {
-        Self {
-            ty: FunctionType::new([], []),
-        }
+        panic_stub("cannot create typed host functions with environments")
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> FunctionType {
-        self.ty.clone()
+        panic_stub("cannot inspect function types")
     }
 
     pub fn call(
@@ -68,7 +60,7 @@ impl Function {
         _params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         Err(RuntimeError::new(
-            "The stub backend cannot execute WebAssembly functions",
+            "stub backend cannot execute WebAssembly functions",
         ))
     }
 
@@ -78,29 +70,23 @@ impl Function {
         _params: Vec<wasmer_types::RawValue>,
     ) -> Result<Box<[Value]>, RuntimeError> {
         Err(RuntimeError::new(
-            "The stub backend cannot execute WebAssembly functions",
+            "stub backend cannot execute WebAssembly functions",
         ))
     }
 
     pub fn to_vm_extern(&self) -> VMExtern {
-        VMExtern::stub()
+        VMExtern::Stub(crate::backend::stub::vm::VMExtern::stub())
     }
 
     pub fn vm_funcref(&self, _store: &impl AsStoreRef) -> VMFuncRef {
-        VMFuncRef::stub()
+        VMFuncRef::Stub(crate::backend::stub::vm::VMFuncRef::stub())
     }
 
-    pub unsafe fn from_vm_funcref(
-        _store: &mut impl AsStoreMut,
-        _funcref: VMFuncRef,
-    ) -> Self {
-        Self::default()
+    pub unsafe fn from_vm_funcref(_store: &mut impl AsStoreMut, _funcref: VMFuncRef) -> Self {
+        panic_stub("cannot recover functions from VM funcref")
     }
 
-    pub unsafe fn from_vm_extern(
-        _store: &mut impl AsStoreMut,
-        _extern_: VMExtern,
-    ) -> Self {
-        Self::default()
+    pub unsafe fn from_vm_extern(_store: &mut impl AsStoreMut, _extern_: VMExtern) -> Self {
+        panic_stub("cannot recover functions from VM externs")
     }
 }

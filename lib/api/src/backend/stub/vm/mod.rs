@@ -1,4 +1,4 @@
-use crate::{AsStoreMut, Extern, RuntimeError, Value};
+use crate::{backend::stub::panic_stub, AsStoreMut, Extern, RuntimeError, Value};
 use wasmer_types::RawValue;
 
 macro_rules! stub_struct {
@@ -33,6 +33,20 @@ stub_struct!(VMMemory);
 stub_struct!(VMSharedMemory);
 stub_struct!(VMTable);
 
+impl VMFunctionEnvironment {
+    pub fn as_ref(&self) -> &(dyn std::any::Any + Send + 'static) {
+        panic_stub("cannot access function environment contents")
+    }
+
+    pub fn as_mut(&mut self) -> &mut (dyn std::any::Any + Send + 'static) {
+        panic_stub("cannot access function environment contents mutably")
+    }
+
+    pub fn contents(self) -> Box<(dyn std::any::Any + Send + 'static)> {
+        panic_stub("cannot extract function environment contents")
+    }
+}
+
 #[derive(Clone, Copy, Debug, Default, PartialEq, Eq, Hash)]
 pub struct VMFuncRef {
     raw: usize,
@@ -63,7 +77,9 @@ impl VMExternRef {
     }
 
     pub fn into_raw(self) -> RawValue {
-        RawValue { externref: self.raw }
+        RawValue {
+            externref: self.raw,
+        }
     }
 
     pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
@@ -82,7 +98,9 @@ impl VMExceptionRef {
     }
 
     pub fn into_raw(self) -> RawValue {
-        RawValue { externref: self.raw }
+        RawValue {
+            externref: self.raw,
+        }
     }
 
     pub unsafe fn from_raw(_raw: RawValue) -> Option<Self> {
@@ -92,7 +110,7 @@ impl VMExceptionRef {
 
 impl VMExtern {
     pub fn to_extern(self, _store: &mut impl AsStoreMut) -> Extern {
-        panic!("The stub backend cannot materialize VM externs")
+        panic_stub("cannot materialize VM externs")
     }
 }
 
@@ -108,7 +126,6 @@ impl VMExternFunction {
     }
 }
 
-
 #[derive(Clone, Copy, Debug, Default)]
 pub struct Trap;
 
@@ -118,7 +135,7 @@ impl Trap {
     }
 
     pub fn downcast<T: std::error::Error + 'static>(self) -> Result<T, Self> {
-        panic!("stub backend does not support trap downcasting")
+        panic_stub("does not support trap downcasting")
     }
 
     pub fn downcast_ref<T: std::error::Error + 'static>(&self) -> Option<&T> {

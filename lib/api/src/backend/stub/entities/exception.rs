@@ -1,30 +1,23 @@
+use crate::backend::stub::panic_stub;
 use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::vm::VMExceptionRef;
-use crate::{ExceptionHandle, RuntimeError, Value};
+use crate::Value;
 use wasmer_types::TagType;
 
 #[derive(Clone, Debug, Default, PartialEq, Eq)]
 pub struct Exception;
 
 impl Exception {
-    pub fn new(
-        _store: &mut impl AsStoreMut,
-        _tag: crate::Tag,
-        _payload: &[Value],
-    ) -> Self {
-        panic!("stub backend cannot create exceptions")
+    pub fn new(_store: &mut impl AsStoreMut, _tag: crate::Tag, _payload: &[Value]) -> Self {
+        panic_stub("cannot create exceptions")
     }
 
     pub fn ty(&self) -> TagType {
-        panic!("stub backend does not expose exception types")
+        panic_stub("does not expose exception types")
     }
 
     pub fn payload(&self) -> &[Value] {
-        panic!("stub backend does not expose exception payloads")
-    }
-
-    pub fn into_handle(self) -> ExceptionHandle {
-        panic!("stub backend cannot expose exception handles")
+        panic_stub("does not expose exception payloads")
     }
 }
 
@@ -36,28 +29,28 @@ impl ExceptionRef {
     where
         T: std::any::Any + Send + Sync + 'static + Sized,
     {
-        panic!("stub backend cannot create exception refs")
+        panic_stub("cannot create exception refs")
     }
 
     pub fn downcast<'a, T>(&self, _store: &'a impl AsStoreRef) -> Option<&'a T>
     where
         T: std::any::Any + Send + Sync + 'static + Sized,
     {
-        panic!("stub backend cannot downcast exception refs")
+        panic_stub("cannot downcast exception refs")
     }
 
     pub fn vm_exceptionref(&self) -> VMExceptionRef {
-        panic!("stub backend cannot expose VM exception refs")
+        panic_stub("cannot expose VM exception refs")
     }
 
     pub unsafe fn from_vm_exceptionref(
         _store: &mut impl AsStoreMut,
         _vm_exceptionref: VMExceptionRef,
     ) -> Self {
-        panic!("stub backend cannot import exception refs")
+        panic_stub("cannot import exception refs")
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        panic!("stub backend cannot verify exception ref origins")
+        panic_stub("cannot verify exception ref origins")
     }
 }

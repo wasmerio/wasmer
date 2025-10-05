@@ -412,9 +412,6 @@
 //! [`wamr`]: https://github.com/bytecodealliance/wasm-micro-runtime
 //! [`wasmi`]: https://github.com/wasmi-labs/wasmi
 
-#[cfg(stub_backend)]
-pub const USING_STUB_BACKEND: bool = true;
-
 mod utils;
 pub use utils::*;
 

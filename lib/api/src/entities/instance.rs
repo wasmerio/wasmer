@@ -1,3 +1,5 @@
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     error::InstantiationError, exports::Exports, imports::Imports, macros::backend::gen_rt_ty,
     module::Module, store::AsStoreMut, Extern,
@@ -91,7 +93,7 @@ impl Instance {
                 (crate::BackendInstance::Jsc(i), e)
             }
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot instantiate modules"),
+            crate::BackendStore::Stub(_) => panic_stub("instances require an enabled backend"),
         };
 
         Ok(Self {
@@ -158,7 +160,7 @@ impl Instance {
                 (crate::BackendInstance::Jsc(i), e)
             }
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot instantiate modules"),
+            crate::BackendStore::Stub(_) => panic_stub("instances require an enabled backend"),
         };
 
         Ok(Self {

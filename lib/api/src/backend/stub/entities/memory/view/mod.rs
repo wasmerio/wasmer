@@ -77,7 +77,11 @@ impl<'a> MemoryView<'a> {
         panic!("stub backend does not support memory access")
     }
 
-    pub fn copy_to_memory(&self, _amount: u64, _new_memory: &Self) -> Result<(), MemoryAccessError> {
+    pub fn copy_to_memory(
+        &self,
+        _amount: u64,
+        _new_memory: &Self,
+    ) -> Result<(), MemoryAccessError> {
         panic!("stub backend does not support memory access")
     }
 }

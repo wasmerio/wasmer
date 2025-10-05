@@ -1,5 +1,8 @@
 use std::{marker::PhantomData, mem::MaybeUninit};
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
+
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     MemoryAccessError,
@@ -61,7 +64,7 @@ impl BackendMemoryBuffer<'_> {
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.len,
             #[cfg(stub_backend)]
-            Self::Stub(_) => panic!("stub backend does not report memory buffer length"),
+            Self::Stub(_) => panic_stub("memory buffers require an enabled backend"),
         }
     }
 
@@ -90,7 +93,7 @@ impl BackendMemoryBuffer<'_> {
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.base,
             #[cfg(stub_backend)]
-            Self::Stub(_) => panic!("stub backend does not provide raw buffer access"),
+            Self::Stub(_) => panic_stub("memory buffers require an enabled backend"),
         }
     }
 }

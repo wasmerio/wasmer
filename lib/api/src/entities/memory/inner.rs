@@ -1,6 +1,8 @@
 use super::{shared::SharedMemory, view::*};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternMemory, VMMemory},
@@ -54,7 +56,7 @@ impl BackendMemory {
                 crate::backend::jsc::entities::memory::Memory::new(store, ty)?,
             )),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot create memories"),
+            crate::BackendStore::Stub(_) => panic_stub("memories require an enabled backend"),
         }
     }
 
@@ -105,7 +107,9 @@ impl BackendMemory {
                 ),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot import existing memories"),
+            crate::BackendStore::Stub(_) => {
+                panic_stub("memories cannot be imported without a backend")
+            }
         }
     }
 
@@ -285,7 +289,9 @@ impl BackendMemory {
                 crate::backend::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot create memory from VM extern"),
+            crate::BackendStore::Stub(_) => {
+                panic_stub("memories cannot be imported without a backend")
+            }
         }
     }
 

@@ -119,12 +119,15 @@ maintenance = { status = "actively-developed" }
 default = ["sys-default"]
 std = []
 core = ["hashbrown"]
-stub = []
+
 artifact-size = [
 	"dep:loupe",
 	"wasmer-vm/artifact-size",
 	"wasmer-compiler/artifact-size",
 ]
+
+# Stub backend that does nothing.
+stub = []
 
 # Features for `sys`.
 sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]

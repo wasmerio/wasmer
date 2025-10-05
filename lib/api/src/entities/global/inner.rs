@@ -1,3 +1,5 @@
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
@@ -90,7 +92,7 @@ impl BackendGlobal {
                 crate::backend::jsc::global::Global::from_value(store, val, mutability)?,
             )),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot create globals"),
+            crate::BackendStore::Stub(_) => panic_stub("globals require an enabled backend"),
         }
     }
 
@@ -210,7 +212,9 @@ impl BackendGlobal {
                 crate::backend::jsc::global::Global::from_vm_extern(store, vm_extern),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot import globals"),
+            crate::BackendStore::Stub(_) => {
+                panic_stub("globals cannot be imported without a backend")
+            }
         }
     }
 

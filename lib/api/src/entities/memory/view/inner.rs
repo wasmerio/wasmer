@@ -1,6 +1,8 @@
 use std::{mem::MaybeUninit, ops::Range};
 use wasmer_types::Pages;
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     buffer::{BackendMemoryBuffer, MemoryBuffer},
     macros::backend::{gen_rt_ty, match_rt},
@@ -57,7 +59,7 @@ impl<'a> BackendMemoryView<'a> {
                 ),
             ),
             #[cfg(stub_backend)]
-            crate::BackendStore::Stub(_) => panic!("stub backend cannot create memory views"),
+            crate::BackendStore::Stub(_) => panic_stub("memory views require an enabled backend"),
         }
     }
 
@@ -149,7 +151,7 @@ impl<'a> BackendMemoryView<'a> {
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => MemoryBuffer(BackendMemoryBuffer::Jsc(s.buffer())),
             #[cfg(stub_backend)]
-            Self::Stub(_) => panic!("stub backend cannot produce memory buffers"),
+            Self::Stub(_) => panic_stub("memory buffers require an enabled backend"),
         }
     }
 

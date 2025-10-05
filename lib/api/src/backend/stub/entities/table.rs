@@ -1,9 +1,10 @@
-use crate::store::{AsStoreMut, AsStoreRef};
+use crate::backend::stub::panic_stub;
+use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::vm::VMExternTable;
 use crate::{RuntimeError, Value};
 use wasmer_types::TableType;
 
-#[derive(Clone, Debug, Default, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 pub struct Table;
 
 impl Table {
@@ -16,11 +17,11 @@ impl Table {
     }
 
     pub fn ty(&self, _store: &impl AsStoreRef) -> TableType {
-        panic!("stub backend does not expose table types")
+        panic_stub("does not expose table types")
     }
 
     pub fn get(&self, _store: &mut impl AsStoreMut, _index: u32) -> Option<Value> {
-        panic!("stub backend cannot read tables")
+        panic_stub("cannot read tables")
     }
 
     pub fn set(
@@ -33,7 +34,7 @@ impl Table {
     }
 
     pub fn size(&self, _store: &impl AsStoreRef) -> u32 {
-        panic!("stub backend does not expose table size")
+        panic_stub("does not expose table size")
     }
 
     pub fn grow(
@@ -66,18 +67,15 @@ impl Table {
         Err(RuntimeError::new("stub backend cannot fill tables"))
     }
 
-    pub fn from_vm_extern(
-        _store: &mut impl AsStoreMut,
-        _ext: VMExternTable,
-    ) -> Self {
-        panic!("stub backend cannot import tables")
+    pub fn from_vm_extern(_store: &mut impl AsStoreMut, _ext: VMExternTable) -> Self {
+        panic_stub("cannot import tables")
     }
 
     pub fn to_vm_extern(&self) -> VMExternTable {
-        panic!("stub backend cannot expose VM tables")
+        VMExternTable::Stub(crate::backend::stub::vm::VMExternTable::stub())
     }
 
     pub fn is_from_store(&self, _store: &impl AsStoreRef) -> bool {
-        panic!("stub backend cannot verify table origins")
+        panic_stub("cannot verify table origins")
     }
 }

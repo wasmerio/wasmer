@@ -1,5 +1,7 @@
 use wasmer_types::TableType;
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
@@ -59,7 +61,7 @@ impl BackendTable {
                 crate::backend::jsc::entities::table::Table::new(store, ty, init)?,
             )),
             #[cfg(stub_backend)]
-            BackendStore::Stub(_) => panic!("stub backend cannot create tables"),
+            BackendStore::Stub(_) => panic_stub("tables require an enabled backend"),
         }
     }
 
@@ -194,7 +196,7 @@ impl BackendTable {
                 len,
             ),
             #[cfg(stub_backend)]
-            BackendStore::Stub(_) => panic!("stub backend cannot copy tables"),
+            BackendStore::Stub(_) => panic_stub("tables cannot be copied without a backend"),
         }
     }
 
@@ -226,7 +228,7 @@ impl BackendTable {
                 crate::backend::jsc::entities::table::Table::from_vm_extern(store, ext),
             ),
             #[cfg(stub_backend)]
-            BackendStore::Stub(_) => panic!("stub backend cannot import tables"),
+            BackendStore::Stub(_) => panic_stub("tables cannot be imported without a backend"),
         }
     }
 

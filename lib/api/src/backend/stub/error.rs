@@ -1,5 +1,6 @@
 use crate::AsStoreMut;
 
+#[allow(non_camel_case_types)]
 pub type wasm_trap_t = std::ffi::c_void;
 
 /// Minimal trap placeholder for the stub backend.
