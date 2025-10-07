@@ -1,14 +1,18 @@
 use super::{util::login_user, AsyncCliCommand};
 use crate::{
-    commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
+    commands::{
+        app::create::{minimal_app_config, write_app_config, CmdAppCreate},
+        package::publish::PackagePublish,
+        PublishWait,
+    },
     config::WasmerEnv,
     opts::ItemFormatOpts,
-    utils::load_package_manifest,
+    utils::{load_package_manifest, DEFAULT_PACKAGE_MANIFEST_FILE},
 };
 use anyhow::Context;
 use bytesize::ByteSize;
 use colored::Colorize;
-use dialoguer::Confirm;
+use dialoguer::{theme::ColorfulTheme, Confirm};
 use indexmap::IndexMap;
 use is_terminal::IsTerminal;
 use std::io::Write;
@@ -135,6 +139,9 @@ pub struct CmdAppDeploy {
     /// Whether or not to search (and use) a local manifest when creating an app to deploy.
     #[clap(long, conflicts_with = "template", conflicts_with = "package")]
     pub use_local_manifest: bool,
+
+    #[clap(skip)]
+    pub ensure_app_config: bool,
 }
 
 struct RemoteBuildInput {
@@ -154,7 +161,7 @@ impl CmdAppDeploy {
         let (manifest_path, manifest) = match load_package_manifest(&manifest_dir_path)? {
             Some(r) => r,
             None => anyhow::bail!(
-                "Could not read or find manifest in path '{}'!",
+                "Could not read or find wasmer.toml manifest in path '{}'!",
                 manifest_dir_path.display()
             ),
         };
@@ -563,6 +570,43 @@ impl AsyncCliCommand for CmdAppDeploy {
 
         let (app_config_path, base_dir_path) = self.resolve_app_paths()?;
 
+        if !app_config_path.is_file() && self.ensure_app_config {
+            let owner = if let Some(owner) = &self.owner {
+                owner.clone()
+            } else if self.non_interactive {
+                anyhow::bail!("No owner specified: use --owner <owner>");
+            } else {
+                let user =
+                    wasmer_backend_api::query::current_user_with_namespaces(&client, None).await?;
+                crate::utils::prompts::prompt_for_namespace(
+                    "Who should own this app?",
+                    None,
+                    Some(&user),
+                )?
+            };
+
+            let app_name = if let Some(name) = &self.app_name {
+                name.clone()
+            } else if self.non_interactive {
+                anyhow::bail!("No app name specified: use --name <app_name>");
+            } else {
+                let default_name = base_dir_path
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.to_owned());
+                crate::utils::prompts::prompt_new_app_name(
+                    "Enter the name of the app",
+                    default_name.as_deref(),
+                    &owner,
+                    Some(&client),
+                )
+                .await?
+            };
+
+            let app_config = minimal_app_config(&owner, &app_name);
+            write_app_config(&app_config, Some(base_dir_path.clone())).await?;
+        }
+
         if !app_config_path.is_file()
             || self.template.is_some()
             || self.package.is_some()
@@ -690,6 +734,43 @@ impl AsyncCliCommand for CmdAppDeploy {
         };
 
         let mut app_cfg_new = app_config.clone();
+
+        // If the directory has an app.yaml, but no wasmer.toml manifest,
+        // ask the user to deploy with a remote build instead.
+        if !self.build_remote {
+            let is_local_pkg = app_cfg_new.package.to_string() == ".";
+            let manifest_path = base_dir_path.join(DEFAULT_PACKAGE_MANIFEST_FILE);
+            let manifest_exists = manifest_path.is_file();
+
+            if is_local_pkg && !manifest_exists {
+                if self.non_interactive {
+                    anyhow::bail!(
+                        "The app.yaml references a local package, but no wasmer.toml manifest was found in {} - use --build-remote to deploy with a remote build.",
+                        base_dir_path.display()
+                    );
+                }
+
+                let theme = ColorfulTheme::default();
+                let should_use_remote = Confirm::with_theme(&theme)
+                    .with_prompt(format!(
+                        "No wasmer.toml manifest found in {}. Deploy with a remote build instead?",
+                        base_dir_path.display()
+                    ))
+                    .default(true)
+                    .interact()?;
+
+                if should_use_remote {
+                    self.handle_remote_build(&client).await?;
+                    return Ok(());
+                } else {
+                    anyhow::bail!(
+                        "The app.yaml references a local package, but no wasmer.toml manifest was found in {}",
+                        base_dir_path.display()
+                    );
+                }
+            }
+        }
+
         let opts = match &app_cfg_new.package {
             PackageSource::Path(ref path) => {
                 let path = PathBuf::from(path);
