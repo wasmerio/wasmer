@@ -774,7 +774,6 @@ the app:\n"
             let cmd_deploy = CmdAppDeploy {
                 quiet: false,
                 env: self.env.clone(),
-                no_ignore: false,
                 fmt: ItemFormatOpts {
                     format: self.fmt.format,
                 },

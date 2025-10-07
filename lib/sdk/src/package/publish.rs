@@ -14,7 +14,7 @@ use toml;
 
 use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, NamedPackageId, PackageHash, PackageIdent};
-use wasmer_package::package::Package;
+use wasmer_package::package::{Package, WalkBuilderFactory};
 
 /// Conditions that can be waited on after publishing a package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -91,6 +91,7 @@ pub struct PublishOptions {
     pub version: Option<Version>,
     pub timeout: Duration,
     pub wait: PublishWait,
+    pub walker_factory: WalkBuilderFactory,
 }
 
 impl Default for PublishOptions {
@@ -101,6 +102,7 @@ impl Default for PublishOptions {
             version: None,
             timeout: Duration::from_secs(60 * 5),
             wait: PublishWait::None,
+            walker_factory: wasmer_package::package::wasmer_ignore_walker(),
         }
     }
 }
@@ -155,7 +157,7 @@ where
             })?;
             let manifest: Manifest = toml::from_str(&manifest_str)?;
 
-            let package = Package::from_manifest(&manifest_path)?;
+            let package = Package::from_manifest_with_walker(&manifest_path, opts.walker_factory)?;
             let bytes = package.serialize()?;
             let hash_bytes: [u8; 32] = Sha256::digest(&bytes).into();
             let hash = PackageHash::from_sha256_bytes(hash_bytes);

@@ -73,7 +73,8 @@ members = [
 	"tests/lib/compiler-test-derive",
 	"tests/lib/wast",
 	"tests/wasi-wast",
-	"tests/wasmer-argus", "lib/sdk",
+	"tests/wasmer-argus",
+	"lib/sdk",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
@@ -95,7 +96,7 @@ wasmer-wasix = { path = "./lib/wasix" }
 wasmer-sdk = { path = "./lib/sdk" }
 
 # Wasmer-owned crates
-webc = "=9.0"
+webc = "=10.0.1"
 shared-buffer = "0.1.4"
 loupe = "0.2.0"
 

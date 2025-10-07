@@ -62,6 +62,7 @@ main-args = ["--root", "/public"]
         version: Some(Version::parse("0.0.1")?),
         timeout: Duration::from_secs(180),
         wait: PublishWait::None,
+        walker_factory: wasmer_package::package::wasmer_ignore_walker(),
     };
 
     // Execute the publish logic.

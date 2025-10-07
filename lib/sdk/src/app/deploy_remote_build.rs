@@ -26,8 +26,6 @@ pub use wasmer_backend_api::types::BuildConfig;
 pub struct DeployRemoteOpts {
     pub app: AppConfigV1,
     pub owner: Option<String>,
-    // Don't respect the default ignores.
-    pub no_ignore: bool,
 }
 
 /// Events emitted during the remote deployment process.
@@ -131,12 +129,9 @@ where
         path: base_dir.to_path_buf(),
     });
 
-    let zip_opts = ZipOptions {
-        standard_ignores: !opts.no_ignore,
-    };
     let archive = tokio::task::spawn_blocking({
         let base_dir = base_dir.to_path_buf();
-        move || create_zip_archive(&base_dir, zip_opts)
+        move || create_zip_archive(&base_dir)
     })
     .await
     .map_err(|e| DeployRemoteError::Other(e.into()))?
@@ -299,32 +294,26 @@ struct UploadArchive {
     file_count: usize,
 }
 
-struct ZipOptions {
-    standard_ignores: bool,
-}
-
-fn create_zip_archive(base_dir: &Path, opts: ZipOptions) -> Result<UploadArchive, anyhow::Error> {
+fn create_zip_archive(base_dir: &Path) -> Result<UploadArchive, anyhow::Error> {
     let mut file_count = 0usize;
     let mut writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
 
     let walker = {
         let mut b = ignore::WalkBuilder::new(base_dir);
-        b.follow_links(false)
-            .standard_filters(opts.standard_ignores)
-            .git_ignore(opts.standard_ignores)
-            .git_global(opts.standard_ignores)
-            .git_exclude(opts.standard_ignores)
-            .ignore(opts.standard_ignores)
-            .require_git(false);
+
+        b.standard_filters(true)
+            .ignore(true)
+            .git_ignore(true)
+            .git_exclude(true)
+            .git_global(true)
+            .require_git(true)
+            .parents(true)
+            .follow_links(false);
 
         // Ignore .shipit directories, since they are for local use only.
         let mut overrides = ignore::overrides::OverrideBuilder::new(".");
-        overrides.add("!.shipit").ok();
+        overrides.add("!.shipit").expect("valid override");
         b.overrides(overrides.build()?);
-
-        if opts.standard_ignores {
-            b.add_custom_ignore_filename(".wasmerignore");
-        }
 
         b.build()
     };
@@ -400,39 +389,16 @@ mod tests {
     #[test]
     fn create_zip_archive_respects_ignore_files() -> anyhow::Result<()> {
         let project = create_sample_project()?;
-        let archive = create_zip_archive(
-            project.path(),
-            ZipOptions {
-                standard_ignores: true,
-            },
-        )?;
+        let archive = create_zip_archive(project.path())?;
 
         let names = archive_file_names(&archive.bytes)?;
 
         assert!(names.contains("app.yaml"));
         assert!(names.contains("keep_dir/keep.txt"));
+        // .wasmerignore should *not* be taken into account for remote builds
+        assert!(names.contains("custom.txt"));
         assert!(!names.contains("ignored.txt"));
         assert!(!names.contains("ignored_dir/file.txt"));
-        assert!(!names.contains("custom.txt"));
-
-        Ok(())
-    }
-
-    #[test]
-    fn create_zip_archive_can_disable_standard_ignores() -> anyhow::Result<()> {
-        let project = create_sample_project()?;
-        let archive = create_zip_archive(
-            project.path(),
-            ZipOptions {
-                standard_ignores: false,
-            },
-        )?;
-
-        let names = archive_file_names(&archive.bytes)?;
-
-        assert!(names.contains("ignored.txt"));
-        assert!(names.contains("ignored_dir/file.txt"));
-        assert!(names.contains("custom.txt"));
 
         Ok(())
     }
@@ -457,6 +423,7 @@ mod tests {
     }
 
     fn populate_project(base: &Path) -> anyhow::Result<()> {
+        fs::create_dir_all(base.join(".git"))?;
         fs::write(base.join("app.yaml"), "name = \"demo\"\n")?;
         fs::write(base.join(".gitignore"), "ignored.txt\nignored_dir/\n")?;
         fs::write(base.join(".wasmerignore"), "custom.txt\n")?;
