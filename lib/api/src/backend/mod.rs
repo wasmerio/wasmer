@@ -19,6 +19,9 @@ pub mod js;
 #[cfg(feature = "jsc")]
 pub mod jsc;
 
+#[cfg(stub_backend)]
+pub mod stub;
+
 #[non_exhaustive]
 #[derive(Debug, Clone, Copy)]
 /// An enumeration over all the supported runtimes.
@@ -58,6 +61,10 @@ pub enum BackendKind {
     #[cfg(feature = "jsc")]
     /// The `jsc` runtime.
     Jsc,
+
+    #[cfg(stub_backend)]
+    /// The placeholder stub runtime.
+    Stub,
 }
 
 impl Default for BackendKind {
@@ -144,6 +151,11 @@ impl Default for BackendKind {
         #[cfg(feature = "jsc")]
         {
             return Self::Jsc;
+        }
+
+        #[cfg(stub_backend)]
+        {
+            return Self::Stub;
         }
 
         panic!("No runtime enabled!")

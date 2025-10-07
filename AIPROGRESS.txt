@@ -1,0 +1,29 @@
+Analysis Summary:
+- Implemented a full stub backend path so `lib/api` compiles when no real engines are enabled.
+- All macro-generated enums and helper matches now include a `Stub` arm that routes through explicit `panic_stub` guards.
+- Stub entity modules provide the signatures expected by `gen_rt_ty!`/`match_rt!`, returning placeholders that panic instead of performing runtime work.
+- `cargo check --no-default-features` for `lib/api` completes successfully, confirming the stub wiring is coherent.
+
+Implementation Plan:
+[x] 1. Add conditional configuration for the stub backend in `Cargo.toml` and centralize a `cfg` predicate representing “no real backend enabled”.
+[x] 2. Introduce a `backend::stub` module tree with minimal placeholder types/functions matching required interfaces (engine, store, module, memory, etc.), returning clear `unimplemented`/error fallbacks.
+[x] 3. Extend backend-related macros (`gen_rt_ty!`, `match_rt!`, VM helpers) and enums (`BackendKind`, `BackendEngine`, etc.) to include the stub variant guarded by the no-backend predicate.
+[x] 4. Replace the existing `compile_error!` guard with stub activation, ensure default backend selection uses stub when appropriate, and make API surface gracefully error when stub code paths execute.
+[x] 5. Run `cargo check --no-default-features` inside `lib/api`, fix residual compile issues, and update the progress file as steps complete.
+
+Current Progress Notes:
+- Stub backend modules now cover functions, globals, tables, tags, memories, instances, extern/exception refs, function envelopes, and VM shims; each method either returns a descriptive `Err` or panics via `panic_stub`.
+- Host-function dispatch, native typed function helpers, and value conversion logic gained `BackendKind::Stub`/`BackendStore::Stub` branches so macro expansions remain exhaustive.
+- `match_rt!` macro’s stub arm funnels through `panic_stub`, avoiding type inference problems for methods returning `impl Trait`.
+- Documentation linting satisfied for the new stub-only helpers; the crate builds warning-free even with `#![warn(missing_docs)]`.
+
+Remaining Tasks:
+- Optional: consider adding a user-facing notice in the README or docs about the stub backend and the new `USING_STUB_BACKEND` constant.
+- Optional: run a full workspace `cargo check --no-default-features` (beyond `lib/api`) to ensure downstream crates tolerate the stub backend, if desired.
+
+Progress Snapshot (current state):
+- Stub backend activates automatically when no other runtime features are chosen, letting dependents compile for purely compile-time use cases.
+- All `match` statements across entities handle the stub variant, preventing non-exhaustive-pattern errors under minimal feature sets.
+- VM helper enums expose stub-compatible methods, enabling typed function and value conversions to compile even though they panic when used at runtime.
+- `cargo check --no-default-features` output: success (0 errors).
+

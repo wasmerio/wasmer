@@ -28,6 +28,10 @@ pub enum BackendTrap {
     #[cfg(feature = "jsc")]
     /// The trap from the `jsc` runtime.
     Jsc(crate::backend::jsc::vm::Trap),
+
+    #[cfg(stub_backend)]
+    /// The trap from the `stub` runtime.
+    Stub(crate::backend::stub::vm::Trap),
 }
 
 impl BackendTrap {
@@ -60,6 +64,11 @@ impl BackendTrap {
         #[cfg(feature = "jsc")]
         {
             return crate::backend::jsc::vm::Trap::user(err).into();
+        }
+
+        #[cfg(stub_backend)]
+        {
+            return crate::backend::stub::vm::Trap::user(err).into();
         }
 
         panic!("No runtime enabled!")

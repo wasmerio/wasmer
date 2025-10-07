@@ -2,7 +2,7 @@ use crate::{
     macros::backend::match_rt, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut,
     StoreRef,
 };
-use std::{any::Any, marker::PhantomData};
+use std::any::Any;
 
 #[derive(Debug, derive_more::From)]
 /// An opaque reference to a function environment.
@@ -26,6 +26,9 @@ pub enum BackendFunctionEnv<T> {
     #[cfg(feature = "jsc")]
     /// The function environment for the `jsc` runtime.
     Jsc(crate::backend::jsc::function::env::FunctionEnv<T>),
+    #[cfg(stub_backend)]
+    /// The function environment for the stub runtime.
+    Stub(crate::backend::stub::entities::function::FunctionEnv<T>),
 }
 
 impl<T> Clone for BackendFunctionEnv<T> {
@@ -44,6 +47,8 @@ impl<T> Clone for BackendFunctionEnv<T> {
             Self::Js(s) => Self::Js(s.clone()),
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => Self::Jsc(s.clone()),
+            #[cfg(stub_backend)]
+            Self::Stub(s) => Self::Stub(s.clone()),
         }
     }
 }
@@ -81,6 +86,10 @@ impl<T> BackendFunctionEnv<T> {
             #[cfg(feature = "jsc")]
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::function::env::FunctionEnv::new(store, value),
+            ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => Self::Stub(
+                crate::backend::stub::entities::function::FunctionEnv::new(store, value),
             ),
         }
     }
@@ -145,6 +154,9 @@ pub enum BackendFunctionEnvMut<'a, T: 'a> {
     #[cfg(feature = "jsc")]
     /// The function environment for the `jsc` runtime.
     Jsc(crate::backend::jsc::function::env::FunctionEnvMut<'a, T>),
+    #[cfg(stub_backend)]
+    /// The function environment for the stub runtime.
+    Stub(crate::backend::stub::entities::function::FunctionEnvMut<'a, T>),
 }
 
 impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
@@ -177,6 +189,8 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
             Self::Js(ref f) => BackendFunctionEnv::Js(f.as_ref()).into(),
             #[cfg(feature = "jsc")]
             Self::Jsc(ref f) => BackendFunctionEnv::Jsc(f.as_ref()).into(),
+            #[cfg(stub_backend)]
+            Self::Stub(ref f) => BackendFunctionEnv::Stub(f.as_ref()).into(),
         }
     }
 
@@ -195,6 +209,8 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
             Self::Js(ref mut f) => BackendFunctionEnvMut::Js(f.as_mut()).into(),
             #[cfg(feature = "jsc")]
             Self::Jsc(ref mut f) => BackendFunctionEnvMut::Jsc(f.as_mut()).into(),
+            #[cfg(stub_backend)]
+            Self::Stub(ref mut f) => BackendFunctionEnvMut::Stub(f.as_mut()).into(),
         }
     }
 

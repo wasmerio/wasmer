@@ -1,3 +1,5 @@
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
@@ -44,6 +46,8 @@ impl BackendException {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::exception::Exception::new(store, tag, payload),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic_stub("exceptions require an enabled backend"),
         }
     }
 

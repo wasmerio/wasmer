@@ -189,6 +189,11 @@ impl Default for BackendEngine {
             return Self::Jsc(crate::backend::jsc::entities::engine::default_engine());
         }
 
+        #[cfg(stub_backend)]
+        {
+            return Self::Stub(crate::backend::stub::entities::engine::default_engine());
+        }
+
         panic!("No runtime enabled!")
     }
 }

@@ -1,6 +1,8 @@
 use super::{shared::SharedMemory, view::*};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternMemory, VMMemory},
@@ -53,6 +55,8 @@ impl BackendMemory {
             crate::BackendStore::Jsc(s) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::memory::Memory::new(store, ty)?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic_stub("memories require an enabled backend"),
         }
     }
 
@@ -102,6 +106,10 @@ impl BackendMemory {
                     memory.into_jsc(),
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => {
+                panic_stub("memories cannot be imported without a backend")
+            }
         }
     }
 
@@ -246,6 +254,10 @@ impl BackendMemory {
             Self::Jsc(s) => s
                 .try_copy(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => Err(MemoryError::InvalidMemory {
+                reason: "stub backend cannot copy memories".to_string(),
+            }),
         }
     }
 
@@ -276,6 +288,10 @@ impl BackendMemory {
             crate::BackendStore::Jsc(s) => Self::Jsc(
                 crate::backend::jsc::entities::memory::Memory::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => {
+                panic_stub("memories cannot be imported without a backend")
+            }
         }
     }
 
@@ -308,6 +324,10 @@ impl BackendMemory {
             Self::Js(s) => s.try_clone(store).map(VMMemory::Js),
             #[cfg(feature = "jsc")]
             Self::Jsc(s) => s.try_clone(store).map(VMMemory::Jsc),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => Err(MemoryError::InvalidMemory {
+                reason: "stub backend cannot clone memories".to_string(),
+            }),
         }
     }
 
@@ -351,6 +371,10 @@ impl BackendMemory {
             Self::Jsc(s) => s
                 .try_clone(store)
                 .map(|new_memory| Self::new_from_existing(new_store, VMMemory::Jsc(new_memory))),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => Err(MemoryError::InvalidMemory {
+                reason: "stub backend cannot share memories".to_string(),
+            }),
         }
     }
 

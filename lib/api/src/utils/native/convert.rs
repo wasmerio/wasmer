@@ -226,6 +226,9 @@ impl NativeWasmTypeInto for Option<ExternRef> {
                 crate::backend::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Jsc)
             }
+
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => None,
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
     }
@@ -267,6 +270,9 @@ impl NativeWasmTypeInto for Option<ExternRef> {
             crate::BackendStore::Jsc(_) => {
                 crate::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
             }
+
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => None,
         }
         .map(|e| ExternRef::from_vm_externref(store, e))
     }
@@ -320,6 +326,9 @@ impl NativeWasmTypeInto for Option<Function> {
                 crate::backend::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Jsc)
             }
+
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => None,
         }
         .map(|f| Function::from_vm_funcref(store, f))
     }
@@ -361,6 +370,8 @@ impl NativeWasmTypeInto for Option<Function> {
             crate::BackendStore::Jsc(_) => {
                 crate::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => None,
         }
         .map(|f| Function::from_vm_funcref(store, f))
     }

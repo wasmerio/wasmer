@@ -29,6 +29,10 @@ macro_rules! gen_rt_ty {
                 #[cfg(feature = "jsc")]
                 /// The implementation from the `jsc` backend.
                 Jsc(crate::backend::jsc::entities::[<$id:lower>]::$id),
+
+                #[cfg(stub_backend)]
+                /// The implementation from the `stub` backend.
+                Stub(crate::backend::stub::entities::[<$id:lower>]::$id),
             }
         }
     };
@@ -62,6 +66,10 @@ macro_rules! gen_rt_ty {
                 #[cfg(feature = "jsc")]
                 /// The implementation from the `jsc` backend.
                 Jsc(crate::backend::jsc::entities::[<$id:lower>]::$id$(<$lt>)?),
+
+                #[cfg(stub_backend)]
+                /// The implementation from the `stub` backend.
+                Stub(crate::backend::stub::entities::[<$id:lower>]::$id$(<$lt>)?),
             }
         }
     };
@@ -95,6 +103,10 @@ macro_rules! gen_rt_ty {
                 #[cfg(feature = "jsc")]
                 /// The implementation from the `jsc` backend.
                 Jsc(crate::backend::jsc::entities::$path::$id$(<$lt>)?),
+
+                #[cfg(stub_backend)]
+                /// The implementation from the `stub` backend.
+                Stub(crate::backend::stub::entities::$path::$id$(<$lt>)?),
             }
         }
     };
@@ -128,6 +140,10 @@ macro_rules! gen_rt_ty {
                 #[cfg(feature = "jsc")]
                 /// The implementation from the `jsc` backend.
                 Jsc(crate::backend::jsc::entities::$path::$id),
+
+                #[cfg(stub_backend)]
+                /// The implementation from the `stub` backend.
+                Stub(crate::backend::stub::entities::$path::$id),
             }
         }
     };
@@ -150,6 +166,10 @@ macro_rules! match_rt {
             Self::Js($var) => $stmt,
             #[cfg(feature = "jsc")]
             Self::Jsc($var) => $stmt,
+            #[cfg(stub_backend)]
+            Self::Stub(_) => crate::backend::stub::panic_stub(
+                "runtime functionality requires an enabled backend",
+            ),
         }
     };
 
@@ -167,6 +187,10 @@ macro_rules! match_rt {
             Self::Js($var) => $stmt,
             #[cfg(feature = "jsc")]
             Self::Jsc($var) => $stmt,
+            #[cfg(stub_backend)]
+            Self::Stub(_) => crate::backend::stub::panic_stub(
+                "runtime functionality requires an enabled backend",
+            ),
         }
     };
 }

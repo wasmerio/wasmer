@@ -62,6 +62,10 @@ impl Store {
             BackendEngine::Jsc(_) => {
                 BackendStore::Jsc(crate::backend::jsc::entities::store::Store::new(engine))
             }
+            #[cfg(stub_backend)]
+            BackendEngine::Stub(_) => {
+                BackendStore::Stub(crate::backend::stub::entities::store::Store::new(engine))
+            }
         };
 
         Self {

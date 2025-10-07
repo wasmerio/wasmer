@@ -12,6 +12,8 @@ use wasmer_types::{
     ModuleInfo, SerializeError,
 };
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     utils::IntoBytes,
@@ -97,6 +99,11 @@ impl BackendModule {
             crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::module::Module::from_binary(engine, binary)?,
             )),
+
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => Err(CompileError::UnsupportedTarget(
+                "The stub backend cannot compile modules".into(),
+            )),
         }
     }
 
@@ -153,6 +160,11 @@ impl BackendModule {
                     engine, binary,
                 )?,
             )),
+
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => Err(CompileError::UnsupportedTarget(
+                "The stub backend cannot compile modules".into(),
+            )),
         }
     }
 
@@ -189,6 +201,13 @@ impl BackendModule {
             #[cfg(feature = "jsc")]
             crate::BackendEngine::Jsc(_) => {
                 crate::backend::jsc::entities::module::Module::validate(engine, binary)?
+            }
+
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => {
+                return Err(CompileError::UnsupportedTarget(
+                    "The stub backend cannot validate modules".into(),
+                ))
             }
         }
         Ok(())
@@ -311,6 +330,10 @@ impl BackendModule {
                     engine, bytes,
                 )?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => {
+                panic_stub("modules cannot be deserialized without a backend")
+            }
         }
     }
 
@@ -370,6 +393,10 @@ impl BackendModule {
             crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::module::Module::deserialize(engine, bytes)?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => {
+                panic_stub("modules cannot be deserialized without a backend")
+            }
         }
     }
 
@@ -425,6 +452,10 @@ impl BackendModule {
             crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::module::Module::deserialize_from_file(engine, path)?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => {
+                panic_stub("modules cannot be deserialized without a backend")
+            }
         }
     }
 
@@ -490,6 +521,10 @@ impl BackendModule {
                     engine, path,
                 )?,
             )),
+            #[cfg(stub_backend)]
+            crate::BackendEngine::Stub(_) => {
+                panic_stub("modules cannot be deserialized without a backend")
+            }
         }
     }
 
@@ -615,6 +650,12 @@ impl BackendModule {
     /// is returned.
     #[inline]
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Box<[u8]>> + 'a {
+        #[cfg(stub_backend)]
+        if cfg!(stub_backend) {
+            return crate::backend::stub::panic_stub::<std::iter::Empty<Box<[u8]>>>(
+                "module custom sections are unavailable without a real backend",
+            );
+        }
         match_rt!(on self => s {
             s.custom_sections(name)
         })

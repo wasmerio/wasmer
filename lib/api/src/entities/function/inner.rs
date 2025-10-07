@@ -1,5 +1,7 @@
 use wasmer_types::{FunctionType, RawValue};
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
@@ -136,6 +138,8 @@ impl BackendFunction {
                     store, env, ty, func,
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic_stub("host functions require an enabled backend"),
         }
     }
 
@@ -174,6 +178,8 @@ impl BackendFunction {
             crate::BackendStore::Jsc(_) => {
                 Self::Jsc(crate::backend::jsc::entities::function::Function::new_typed(store, func))
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic_stub("host functions require an enabled backend"),
         }
     }
 
@@ -244,6 +250,10 @@ impl BackendFunction {
                     store, env, func,
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => {
+                crate::backend::stub::panic_stub("host functions require an enabled backend")
+            }
         }
     }
 
@@ -386,6 +396,8 @@ impl BackendFunction {
             Self::Js(f) => VMFuncRef::Js(f.vm_funcref(store)),
             #[cfg(feature = "jsc")]
             Self::Jsc(f) => VMFuncRef::Jsc(f.vm_funcref(store)),
+            #[cfg(stub_backend)]
+            Self::Stub(_) => panic_stub("funcref values require an enabled backend"),
         }
     }
 
@@ -434,6 +446,10 @@ impl BackendFunction {
                     funcref.into_jsc(),
                 ),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => {
+                panic_stub("functions cannot be imported without a backend")
+            }
         }
     }
 
@@ -586,6 +602,10 @@ impl BackendFunction {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::entities::function::Function::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => {
+                panic_stub("functions cannot be imported without a backend")
+            }
         }
     }
 

@@ -1,5 +1,7 @@
 use wasmer_types::{TagType, Type};
 
+#[cfg(stub_backend)]
+use crate::backend::stub::panic_stub;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
@@ -47,6 +49,8 @@ impl BackendTag {
             crate::BackendStore::Jsc(_) => {
                 Self::Jsc(crate::backend::jsc::tag::Tag::new(store, params))
             }
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic_stub("tags require an enabled backend"),
         }
     }
 
@@ -85,6 +89,8 @@ impl BackendTag {
             crate::BackendStore::Jsc(_) => Self::Jsc(
                 crate::backend::jsc::entities::tag::Tag::from_vm_extern(store, vm_extern),
             ),
+            #[cfg(stub_backend)]
+            crate::BackendStore::Stub(_) => panic_stub("tags cannot be imported without a backend"),
         }
     }
 
