@@ -1207,17 +1207,102 @@
 <a href="#1206" id="1206">1206</a>
 <a href="#1207" id="1207">1207</a>
 <a href="#1208" id="1208">1208</a>
-<a href="#1209" id="1209">1209</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
+<a href="#1209" id="1209">1209</a>
+<a href="#1210" id="1210">1210</a>
+<a href="#1211" id="1211">1211</a>
+<a href="#1212" id="1212">1212</a>
+<a href="#1213" id="1213">1213</a>
+<a href="#1214" id="1214">1214</a>
+<a href="#1215" id="1215">1215</a>
+<a href="#1216" id="1216">1216</a>
+<a href="#1217" id="1217">1217</a>
+<a href="#1218" id="1218">1218</a>
+<a href="#1219" id="1219">1219</a>
+<a href="#1220" id="1220">1220</a>
+<a href="#1221" id="1221">1221</a>
+<a href="#1222" id="1222">1222</a>
+<a href="#1223" id="1223">1223</a>
+<a href="#1224" id="1224">1224</a>
+<a href="#1225" id="1225">1225</a>
+<a href="#1226" id="1226">1226</a>
+<a href="#1227" id="1227">1227</a>
+<a href="#1228" id="1228">1228</a>
+<a href="#1229" id="1229">1229</a>
+<a href="#1230" id="1230">1230</a>
+<a href="#1231" id="1231">1231</a>
+<a href="#1232" id="1232">1232</a>
+<a href="#1233" id="1233">1233</a>
+<a href="#1234" id="1234">1234</a>
+<a href="#1235" id="1235">1235</a>
+<a href="#1236" id="1236">1236</a>
+<a href="#1237" id="1237">1237</a>
+<a href="#1238" id="1238">1238</a>
+<a href="#1239" id="1239">1239</a>
+<a href="#1240" id="1240">1240</a>
+<a href="#1241" id="1241">1241</a>
+<a href="#1242" id="1242">1242</a>
+<a href="#1243" id="1243">1243</a>
+<a href="#1244" id="1244">1244</a>
+<a href="#1245" id="1245">1245</a>
+<a href="#1246" id="1246">1246</a>
+<a href="#1247" id="1247">1247</a>
+<a href="#1248" id="1248">1248</a>
+<a href="#1249" id="1249">1249</a>
+<a href="#1250" id="1250">1250</a>
+<a href="#1251" id="1251">1251</a>
+<a href="#1252" id="1252">1252</a>
+<a href="#1253" id="1253">1253</a>
+<a href="#1254" id="1254">1254</a>
+<a href="#1255" id="1255">1255</a>
+<a href="#1256" id="1256">1256</a>
+<a href="#1257" id="1257">1257</a>
+<a href="#1258" id="1258">1258</a>
+<a href="#1259" id="1259">1259</a>
+<a href="#1260" id="1260">1260</a>
+<a href="#1261" id="1261">1261</a>
+<a href="#1262" id="1262">1262</a>
+<a href="#1263" id="1263">1263</a>
+<a href="#1264" id="1264">1264</a>
+<a href="#1265" id="1265">1265</a>
+<a href="#1266" id="1266">1266</a>
+<a href="#1267" id="1267">1267</a>
+<a href="#1268" id="1268">1268</a>
+<a href="#1269" id="1269">1269</a>
+<a href="#1270" id="1270">1270</a>
+<a href="#1271" id="1271">1271</a>
+<a href="#1272" id="1272">1272</a>
+<a href="#1273" id="1273">1273</a>
+<a href="#1274" id="1274">1274</a>
+<a href="#1275" id="1275">1275</a>
+<a href="#1276" id="1276">1276</a>
+<a href="#1277" id="1277">1277</a>
+<a href="#1278" id="1278">1278</a>
+<a href="#1279" id="1279">1279</a>
+<a href="#1280" id="1280">1280</a>
+<a href="#1281" id="1281">1281</a>
+<a href="#1282" id="1282">1282</a>
+<a href="#1283" id="1283">1283</a>
+<a href="#1284" id="1284">1284</a>
+<a href="#1285" id="1285">1285</a>
+<a href="#1286" id="1286">1286</a>
+<a href="#1287" id="1287">1287</a>
+<a href="#1288" id="1288">1288</a>
+<a href="#1289" id="1289">1289</a>
+<a href="#1290" id="1290">1290</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
-    commands::{app::create::CmdAppCreate, package::publish::PackagePublish, PublishWait},
+    commands::{
+        app::create::{minimal_app_config, write_app_config, CmdAppCreate},
+        package::publish::PackagePublish,
+        PublishWait,
+    },
     config::WasmerEnv,
     opts::ItemFormatOpts,
-    utils::load_package_manifest,
+    utils::{load_package_manifest, DEFAULT_PACKAGE_MANIFEST_FILE},
 };
 <span class="kw">use </span>anyhow::Context;
 <span class="kw">use </span>bytesize::ByteSize;
 <span class="kw">use </span>colored::Colorize;
-<span class="kw">use </span>dialoguer::Confirm;
+<span class="kw">use </span>dialoguer::{theme::ColorfulTheme, Confirm};
 <span class="kw">use </span>indexmap::IndexMap;
 <span class="kw">use </span>is_terminal::IsTerminal;
 <span class="kw">use </span>std::io::Write;
@@ -1344,6 +1429,9 @@
     <span class="doccomment">/// Whether or not to search (and use) a local manifest when creating an app to deploy.
     </span><span class="attr">#[clap(long, conflicts_with = <span class="string">"template"</span>, conflicts_with = <span class="string">"package"</span>)]
     </span><span class="kw">pub </span>use_local_manifest: bool,
+
+    <span class="attr">#[clap(skip)]
+    </span><span class="kw">pub </span>ensure_app_config: bool,
 }
 
 <span class="kw">struct </span>RemoteBuildInput {
@@ -1363,7 +1451,7 @@
         <span class="kw">let </span>(manifest_path, manifest) = <span class="kw">match </span>load_package_manifest(<span class="kw-2">&amp;</span>manifest_dir_path)<span class="question-mark">? </span>{
             <span class="prelude-val">Some</span>(r) =&gt; r,
             <span class="prelude-val">None </span>=&gt; <span class="macro">anyhow::bail!</span>(
-                <span class="string">"Could not read or find manifest in path '{}'!"</span>,
+                <span class="string">"Could not read or find wasmer.toml manifest in path '{}'!"</span>,
                 manifest_dir_path.display()
             ),
         };
@@ -1772,6 +1860,43 @@
 
         <span class="kw">let </span>(app_config_path, base_dir_path) = <span class="self">self</span>.resolve_app_paths()<span class="question-mark">?</span>;
 
+        <span class="kw">if </span>!app_config_path.is_file() &amp;&amp; <span class="self">self</span>.ensure_app_config {
+            <span class="kw">let </span>owner = <span class="kw">if let </span><span class="prelude-val">Some</span>(owner) = <span class="kw-2">&amp;</span><span class="self">self</span>.owner {
+                owner.clone()
+            } <span class="kw">else if </span><span class="self">self</span>.non_interactive {
+                <span class="macro">anyhow::bail!</span>(<span class="string">"No owner specified: use --owner &lt;owner&gt;"</span>);
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>user =
+                    wasmer_backend_api::query::current_user_with_namespaces(<span class="kw-2">&amp;</span>client, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+                <span class="kw">crate</span>::utils::prompts::prompt_for_namespace(
+                    <span class="string">"Who should own this app?"</span>,
+                    <span class="prelude-val">None</span>,
+                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>user),
+                )<span class="question-mark">?
+            </span>};
+
+            <span class="kw">let </span>app_name = <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_name {
+                name.clone()
+            } <span class="kw">else if </span><span class="self">self</span>.non_interactive {
+                <span class="macro">anyhow::bail!</span>(<span class="string">"No app name specified: use --name &lt;app_name&gt;"</span>);
+            } <span class="kw">else </span>{
+                <span class="kw">let </span>default_name = base_dir_path
+                    .file_name()
+                    .and_then(|f| f.to_str())
+                    .map(|s| s.to_owned());
+                <span class="kw">crate</span>::utils::prompts::prompt_new_app_name(
+                    <span class="string">"Enter the name of the app"</span>,
+                    default_name.as_deref(),
+                    <span class="kw-2">&amp;</span>owner,
+                    <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>client),
+                )
+                .<span class="kw">await</span><span class="question-mark">?
+            </span>};
+
+            <span class="kw">let </span>app_config = minimal_app_config(<span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name);
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(base_dir_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
+        }
+
         <span class="kw">if </span>!app_config_path.is_file()
             || <span class="self">self</span>.template.is_some()
             || <span class="self">self</span>.package.is_some()
@@ -1899,6 +2024,43 @@
         };
 
         <span class="kw">let </span><span class="kw-2">mut </span>app_cfg_new = app_config.clone();
+
+        <span class="comment">// If the directory has an app.yaml, but no wasmer.toml manifest,
+        // ask the user to deploy with a remote build instead.
+        </span><span class="kw">if </span>!<span class="self">self</span>.build_remote {
+            <span class="kw">let </span>is_local_pkg = app_cfg_new.package.to_string() == <span class="string">"."</span>;
+            <span class="kw">let </span>manifest_path = base_dir_path.join(DEFAULT_PACKAGE_MANIFEST_FILE);
+            <span class="kw">let </span>manifest_exists = manifest_path.is_file();
+
+            <span class="kw">if </span>is_local_pkg &amp;&amp; !manifest_exists {
+                <span class="kw">if </span><span class="self">self</span>.non_interactive {
+                    <span class="macro">anyhow::bail!</span>(
+                        <span class="string">"The app.yaml references a local package, but no wasmer.toml manifest was found in {} - use --build-remote to deploy with a remote build."</span>,
+                        base_dir_path.display()
+                    );
+                }
+
+                <span class="kw">let </span>theme = ColorfulTheme::default();
+                <span class="kw">let </span>should_use_remote = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                    .with_prompt(<span class="macro">format!</span>(
+                        <span class="string">"No wasmer.toml manifest found in {}. Deploy with a remote build instead?"</span>,
+                        base_dir_path.display()
+                    ))
+                    .default(<span class="bool-val">true</span>)
+                    .interact()<span class="question-mark">?</span>;
+
+                <span class="kw">if </span>should_use_remote {
+                    <span class="self">self</span>.handle_remote_build(<span class="kw-2">&amp;</span>client).<span class="kw">await</span><span class="question-mark">?</span>;
+                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                } <span class="kw">else </span>{
+                    <span class="macro">anyhow::bail!</span>(
+                        <span class="string">"The app.yaml references a local package, but no wasmer.toml manifest was found in {}"</span>,
+                        base_dir_path.display()
+                    );
+                }
+            }
+        }
+
         <span class="kw">let </span>opts = <span class="kw">match </span><span class="kw-2">&amp;</span>app_cfg_new.package {
             PackageSource::Path(<span class="kw-2">ref </span>path) =&gt; {
                 <span class="kw">let </span>path = PathBuf::from(path);

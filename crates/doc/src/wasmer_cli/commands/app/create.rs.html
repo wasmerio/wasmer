@@ -826,7 +826,81 @@
 <a href="#825" id="825">825</a>
 <a href="#826" id="826">826</a>
 <a href="#827" id="827">827</a>
-<a href="#828" id="828">828</a></pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
+<a href="#828" id="828">828</a>
+<a href="#829" id="829">829</a>
+<a href="#830" id="830">830</a>
+<a href="#831" id="831">831</a>
+<a href="#832" id="832">832</a>
+<a href="#833" id="833">833</a>
+<a href="#834" id="834">834</a>
+<a href="#835" id="835">835</a>
+<a href="#836" id="836">836</a>
+<a href="#837" id="837">837</a>
+<a href="#838" id="838">838</a>
+<a href="#839" id="839">839</a>
+<a href="#840" id="840">840</a>
+<a href="#841" id="841">841</a>
+<a href="#842" id="842">842</a>
+<a href="#843" id="843">843</a>
+<a href="#844" id="844">844</a>
+<a href="#845" id="845">845</a>
+<a href="#846" id="846">846</a>
+<a href="#847" id="847">847</a>
+<a href="#848" id="848">848</a>
+<a href="#849" id="849">849</a>
+<a href="#850" id="850">850</a>
+<a href="#851" id="851">851</a>
+<a href="#852" id="852">852</a>
+<a href="#853" id="853">853</a>
+<a href="#854" id="854">854</a>
+<a href="#855" id="855">855</a>
+<a href="#856" id="856">856</a>
+<a href="#857" id="857">857</a>
+<a href="#858" id="858">858</a>
+<a href="#859" id="859">859</a>
+<a href="#860" id="860">860</a>
+<a href="#861" id="861">861</a>
+<a href="#862" id="862">862</a>
+<a href="#863" id="863">863</a>
+<a href="#864" id="864">864</a>
+<a href="#865" id="865">865</a>
+<a href="#866" id="866">866</a>
+<a href="#867" id="867">867</a>
+<a href="#868" id="868">868</a>
+<a href="#869" id="869">869</a>
+<a href="#870" id="870">870</a>
+<a href="#871" id="871">871</a>
+<a href="#872" id="872">872</a>
+<a href="#873" id="873">873</a>
+<a href="#874" id="874">874</a>
+<a href="#875" id="875">875</a>
+<a href="#876" id="876">876</a>
+<a href="#877" id="877">877</a>
+<a href="#878" id="878">878</a>
+<a href="#879" id="879">879</a>
+<a href="#880" id="880">880</a>
+<a href="#881" id="881">881</a>
+<a href="#882" id="882">882</a>
+<a href="#883" id="883">883</a>
+<a href="#884" id="884">884</a>
+<a href="#885" id="885">885</a>
+<a href="#886" id="886">886</a>
+<a href="#887" id="887">887</a>
+<a href="#888" id="888">888</a>
+<a href="#889" id="889">889</a>
+<a href="#890" id="890">890</a>
+<a href="#891" id="891">891</a>
+<a href="#892" id="892">892</a>
+<a href="#893" id="893">893</a>
+<a href="#894" id="894">894</a>
+<a href="#895" id="895">895</a>
+<a href="#896" id="896">896</a>
+<a href="#897" id="897">897</a>
+<a href="#898" id="898">898</a>
+<a href="#899" id="899">899</a>
+<a href="#900" id="900">900</a>
+<a href="#901" id="901">901</a>
+<a href="#902" id="902">902</a></pre></div><pre class="rust"><code><span class="doccomment">//! Create a new Edge app.
 
 </span><span class="kw">use </span>std::{
     env,
@@ -856,7 +930,10 @@
     utils::{load_package_manifest, prompts::PackageCheckMode},
 };
 
-<span class="kw">async fn </span>write_app_config(app_config: <span class="kw-2">&amp;</span>AppConfigV1, dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;) -&gt; anyhow::Result&lt;()&gt; {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">async fn </span>write_app_config(
+    app_config: <span class="kw-2">&amp;</span>AppConfigV1,
+    dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+) -&gt; anyhow::Result&lt;()&gt; {
     <span class="kw">let </span>raw_app_config = app_config.clone().to_yaml()<span class="question-mark">?</span>;
 
     <span class="kw">let </span>app_dir = <span class="kw">match </span>dir {
@@ -875,6 +952,28 @@
                 app_config_path.display()
             )
         })
+}
+
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>minimal_app_config(owner: <span class="kw-2">&amp;</span>str, name: <span class="kw-2">&amp;</span>str) -&gt; AppConfigV1 {
+    AppConfigV1 {
+        name: <span class="prelude-val">Some</span>(String::from(name)),
+        owner: <span class="prelude-val">Some</span>(String::from(owner)),
+        package: PackageSource::Path(String::from(<span class="string">"."</span>)),
+        app_id: <span class="prelude-val">None</span>,
+        domains: <span class="prelude-val">None</span>,
+        env: IndexMap::new(),
+        cli_args: <span class="prelude-val">None</span>,
+        capabilities: <span class="prelude-val">None</span>,
+        scheduled_tasks: <span class="prelude-val">None</span>,
+        volumes: <span class="prelude-val">None</span>,
+        health_checks: <span class="prelude-val">None</span>,
+        debug: <span class="prelude-val">None</span>,
+        scaling: <span class="prelude-val">None</span>,
+        locality: <span class="prelude-val">None</span>,
+        redirect: <span class="prelude-val">None</span>,
+        extra: IndexMap::new(),
+        jobs: <span class="prelude-val">None</span>,
+    }
 }
 
 <span class="doccomment">/// Create a new Edge app.
@@ -1093,7 +1192,7 @@
         <span class="kw">if </span><span class="self">self</span>.use_local_manifest || ask_confirmation()<span class="question-mark">? </span>{
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, <span class="string">"."</span>);
             write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="self">self</span>.app_dir_path.clone()).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">None</span>).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">None</span>, <span class="bool-val">false</span>, <span class="bool-val">false</span>).<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         }
 
@@ -1115,7 +1214,8 @@
         <span class="kw">if let </span><span class="prelude-val">Some</span>(pkg) = <span class="kw-2">&amp;</span><span class="self">self</span>.package {
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, pkg);
             write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path), <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+                .<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         } <span class="kw">else if </span>!<span class="self">self</span>.non_interactive {
             <span class="kw">let </span>(package_id, <span class="kw">_</span>) = <span class="kw">crate</span>::utils::prompts::prompt_for_package(
@@ -1132,7 +1232,8 @@
 
             <span class="kw">let </span>app_config = <span class="self">self</span>.get_app_config(owner, app_name, <span class="kw-2">&amp;</span>package_id.to_string());
             write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
-            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path), <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+                .<span class="kw">await</span><span class="question-mark">?</span>;
             <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="bool-val">true</span>);
         } <span class="kw">else </span>{
             <span class="macro">eprintln!</span>(
@@ -1515,6 +1616,9 @@
             </span>AppConfigV1::parse_yaml(<span class="kw-2">&amp;</span>raw_app)<span class="question-mark">?</span>;
 
             tokio::fs::write(<span class="kw-2">&amp;</span>app_yaml_path, raw_app).<span class="kw">await</span><span class="question-mark">?</span>;
+        } <span class="kw">else </span>{
+            <span class="kw">let </span>app_config = minimal_app_config(owner, app_name);
+            write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(output_path.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
         }
 
         <span class="kw">let </span>build_md_path = output_path.join(<span class="string">"BUILD.md"</span>);
@@ -1540,7 +1644,8 @@ the app:\n"
                 <span class="macro">format!</span>(<span class="string">"{bin_name} deploy"</span>).bold()
             )
         } <span class="kw">else </span>{
-            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path)).<span class="kw">await</span><span class="question-mark">?</span>;
+            <span class="self">self</span>.try_deploy(owner, app_name, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>output_path), <span class="bool-val">false</span>, <span class="bool-val">false</span>)
+                .<span class="kw">await</span><span class="question-mark">?</span>;
         }
 
         <span class="prelude-val">Ok</span>(<span class="bool-val">true</span>)
@@ -1551,16 +1656,23 @@ the app:\n"
         owner: <span class="kw-2">&amp;</span>str,
         app_name: <span class="kw-2">&amp;</span>str,
         path: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Path&gt;,
+        build_remote: bool,
+        skip_prompt: bool,
     ) -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>interactive = !<span class="self">self</span>.non_interactive;
         <span class="kw">let </span>theme = dialoguer::theme::ColorfulTheme::default();
 
-        <span class="kw">if </span><span class="self">self</span>.deploy_app
-            || (interactive
-                &amp;&amp; Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
-                    .with_prompt(<span class="string">"Do you want to deploy the app now?"</span>)
-                    .interact()<span class="question-mark">?</span>)
-        {
+        <span class="kw">let </span><span class="kw-2">mut </span>should_deploy = <span class="self">self</span>.deploy_app;
+
+        <span class="kw">if </span>skip_prompt {
+            should_deploy = <span class="bool-val">true</span>;
+        } <span class="kw">else if </span>!should_deploy &amp;&amp; interactive {
+            should_deploy = Confirm::with_theme(<span class="kw-2">&amp;</span>theme)
+                .with_prompt(<span class="string">"Do you want to deploy the app now?"</span>)
+                .interact()<span class="question-mark">?</span>;
+        }
+
+        <span class="kw">if </span>should_deploy {
             <span class="kw">let </span>cmd_deploy = CmdAppDeploy {
                 quiet: <span class="bool-val">false</span>,
                 env: <span class="self">self</span>.env.clone(),
@@ -1570,7 +1682,7 @@ the app:\n"
                 },
                 no_validate: <span class="bool-val">false</span>,
                 non_interactive: <span class="self">self</span>.non_interactive,
-                publish_package: <span class="bool-val">true</span>,
+                publish_package: !build_remote,
                 dir: <span class="self">self</span>.app_dir_path.clone(),
                 path: path.map(|v| v.to_path_buf()),
                 no_wait: <span class="self">self</span>.no_wait,
@@ -1579,10 +1691,11 @@ the app:\n"
                 owner: <span class="prelude-val">Some</span>(String::from(owner)),
                 app_name: <span class="prelude-val">Some</span>(app_name.into()),
                 bump: <span class="bool-val">false</span>,
-                build_remote: <span class="bool-val">false</span>,
+                build_remote,
                 template: <span class="prelude-val">None</span>,
                 package: <span class="prelude-val">None</span>,
                 use_local_manifest: <span class="self">self</span>.use_local_manifest,
+                ensure_app_config: <span class="bool-val">true</span>,
             };
             cmd_deploy.run_async().<span class="kw">await</span><span class="question-mark">?</span>;
         }
@@ -1629,21 +1742,56 @@ the app:\n"
                         .<span class="kw">await</span><span class="question-mark">?</span>;
                 } <span class="kw">else </span>{
                     <span class="kw">let </span>theme = ColorfulTheme::default();
+                    <span class="kw">let </span>working_dir = <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.app_dir_path {
+                        dir.clone()
+                    } <span class="kw">else </span>{
+                        std::env::current_dir()<span class="question-mark">?
+                    </span>};
+
+                    <span class="kw">let </span>remote_option_available = working_dir.is_dir()
+                        &amp;&amp; std::fs::read_dir(<span class="kw-2">&amp;</span>working_dir)<span class="question-mark">?</span>.next().is_some()
+                        &amp;&amp; !working_dir.join(AppConfigV1::CANONICAL_FILE_NAME).exists()
+                        &amp;&amp; load_package_manifest(<span class="kw-2">&amp;</span>working_dir)<span class="question-mark">?</span>.is_none();
+
+                    <span class="kw">let </span><span class="kw-2">mut </span>items = Vec::new();
+                    <span class="kw">let </span><span class="kw-2">mut </span>remote_idx = <span class="prelude-val">None</span>;
+                    <span class="kw">if </span>remote_option_available {
+                        remote_idx = <span class="prelude-val">Some</span>(items.len());
+                        items.push(String::from(
+                            <span class="string">"Deploy the current directory with a remote build"</span>,
+                        ));
+                    }
+                    <span class="kw">let </span>template_idx = items.len();
+                    items.push(String::from(<span class="string">"Start with a template"</span>));
+                    <span class="kw">let </span>package_idx = items.len();
+                    items.push(String::from(<span class="string">"Choose an existing package"</span>));
+
                     <span class="kw">let </span>choice = Select::with_theme(<span class="kw-2">&amp;</span>theme)
                         .with_prompt(<span class="string">"What would you like to deploy?"</span>)
-                        .items(<span class="kw-2">&amp;</span>[<span class="string">"Start with a template"</span>, <span class="string">"Choose an existing package"</span>])
+                        .items(<span class="kw-2">&amp;</span>items)
                         .default(<span class="number">0</span>)
                         .interact()<span class="question-mark">?</span>;
-                    <span class="kw">match </span>choice {
-                        <span class="number">0 </span>=&gt; {
-                            <span class="self">self</span>.create_from_template(client.as_ref(), <span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name)
-                                .<span class="kw">await</span><span class="question-mark">?
-                        </span>}
-                        <span class="number">1 </span>=&gt; {
-                            <span class="self">self</span>.create_from_package(client.as_ref(), <span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name)
-                                .<span class="kw">await</span><span class="question-mark">?
-                        </span>}
-                        x =&gt; <span class="macro">panic!</span>(<span class="string">"unhandled selection {x}"</span>),
+
+                    <span class="kw">if </span>remote_idx.is_some() &amp;&amp; <span class="prelude-val">Some</span>(choice) == remote_idx {
+                        <span class="kw">let </span>app_config = minimal_app_config(owner.as_str(), app_name.as_str());
+                        write_app_config(<span class="kw-2">&amp;</span>app_config, <span class="prelude-val">Some</span>(working_dir.clone())).<span class="kw">await</span><span class="question-mark">?</span>;
+                        <span class="self">self</span>.try_deploy(
+                            owner.as_str(),
+                            app_name.as_str(),
+                            <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>working_dir),
+                            <span class="bool-val">true</span>,
+                            <span class="bool-val">true</span>,
+                        )
+                        .<span class="kw">await</span><span class="question-mark">?</span>;
+                        <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+                    } <span class="kw">else if </span>choice == template_idx {
+                        <span class="self">self</span>.create_from_template(client.as_ref(), <span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name)
+                            .<span class="kw">await</span><span class="question-mark">?
+                    </span>} <span class="kw">else if </span>choice == package_idx {
+                        <span class="self">self</span>.create_from_package(client.as_ref(), <span class="kw-2">&amp;</span>owner, <span class="kw-2">&amp;</span>app_name)
+                            .<span class="kw">await</span><span class="question-mark">?
+                    </span>} <span class="kw">else </span>{
+                        <span class="macro">panic!</span>(<span class="string">"unhandled selection {choice}"</span>);
                     };
                 }
             } <span class="kw">else </span>{
