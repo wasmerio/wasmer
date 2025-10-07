@@ -10,6 +10,17 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## 6.1.0 - 08/10/2025
 
+This release adds:
+
+* The dynamic linker which, paired with [wasixcc](https://github.com/wasix-org/wasixcc),
+  can load DL modules at runtime
+* New WASIX syscalls for reflection, dynamic function invocation and closure creation;
+  this makes WASIX compatible with libffi
+* Better support for the Exception Handling proposal in the LLVM backend
+* The `--build-remote` flag for `wasmer deploy`, which lets you build packages in the
+  cloud rather than locally
+* And many more stability fixes and improvements.
+
 ## Added
 
   - [#5763](https://github.com/wasmerio/wasmer/pull/5763) chore(lib/vm): update `corosensei` to `0.3.0` to support AddressSanitizer
@@ -37,19 +48,6 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
   - [#5756](https://github.com/wasmerio/wasmer/pull/5756) Fix stalling issue when using shared libraries
   - [#5745](https://github.com/wasmerio/wasmer/pull/5745) fix(wasix): Linker must re-use the same Engine
   - [#5752](https://github.com/wasmerio/wasmer/pull/5752) LLVM: Fix compilation breaking for modules with function names that have sp…
-
-
-
-
-## Added
-
-
-## Changed
-
-## Fixed
-
-
-
 
 ## 6.1.0-rc.5 - 16/09/2025
 This release includes better support for the Exception Handling proposal in LLVM,
