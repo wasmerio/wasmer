@@ -530,8 +530,45 @@
 <a href="#529" id="529">529</a>
 <a href="#530" id="530">530</a>
 <a href="#531" id="531">531</a>
-<a href="#532" id="532">532</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#532" id="532">532</a>
+<a href="#533" id="533">533</a>
+<a href="#534" id="534">534</a>
+<a href="#535" id="535">535</a>
+<a href="#536" id="536">536</a>
+<a href="#537" id="537">537</a>
+<a href="#538" id="538">538</a>
+<a href="#539" id="539">539</a>
+<a href="#540" id="540">540</a>
+<a href="#541" id="541">541</a>
+<a href="#542" id="542">542</a>
+<a href="#543" id="543">543</a>
+<a href="#544" id="544">544</a>
+<a href="#545" id="545">545</a>
+<a href="#546" id="546">546</a>
+<a href="#547" id="547">547</a>
+<a href="#548" id="548">548</a>
+<a href="#549" id="549">549</a>
+<a href="#550" id="550">550</a>
+<a href="#551" id="551">551</a>
+<a href="#552" id="552">552</a>
+<a href="#553" id="553">553</a>
+<a href="#554" id="554">554</a>
+<a href="#555" id="555">555</a>
+<a href="#556" id="556">556</a>
+<a href="#557" id="557">557</a>
+<a href="#558" id="558">558</a>
+<a href="#559" id="559">559</a>
+<a href="#560" id="560">560</a>
+<a href="#561" id="561">561</a>
+<a href="#562" id="562">562</a>
+<a href="#563" id="563">563</a>
+<a href="#564" id="564">564</a>
+<a href="#565" id="565">565</a>
+<a href="#566" id="566">566</a>
+<a href="#567" id="567">567</a>
+<a href="#568" id="568">568</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
     fs::File,
     io::Read,
     path::{Path, PathBuf},
@@ -549,7 +586,7 @@
     AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments,
 };
 
-<span class="kw">use </span><span class="kw">crate</span>::package::Strictness;
+<span class="kw">use </span><span class="kw">crate</span>::package::{Strictness, WalkBuilderFactory};
 
 <span class="kw">use </span><span class="kw">super</span>::WasmerPackageVolume;
 
@@ -558,7 +595,6 @@
 /// Note that it is the package resolver's role to interpret a package's
 /// [`crate::metadata::annotations::FileSystemMappings`]. A [`Volume`] contains
 /// directories as they were when the package was published.
-</span><span class="attr">#[derive(Debug, Clone, PartialEq)]
 </span><span class="kw">pub struct </span>FsVolume {
     <span class="doccomment">/// Name of the volume
     </span>name: String,
@@ -571,6 +607,20 @@
     </span>mapped_directories: BTreeSet&lt;PathBuf&gt;,
     <span class="doccomment">/// The base directory all [`PathSegments`] will be resolved relative to.
     </span>base_dir: PathBuf,
+    <span class="doccomment">/// The walker builder factory to use when reading directories.
+    </span>walker_factory: WalkBuilderFactory,
+}
+
+<span class="kw">impl </span>Debug <span class="kw">for </span>FsVolume {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"FsVolume"</span>)
+            .field(<span class="string">"name"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.name)
+            .field(<span class="string">"intermediate_directories"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.intermediate_directories)
+            .field(<span class="string">"metadata_files"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.metadata_files)
+            .field(<span class="string">"mapped_directories"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.mapped_directories)
+            .field(<span class="string">"base_dir"</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.base_dir)
+            .finish()
+    }
 }
 
 <span class="kw">impl </span>FsVolume {
@@ -608,12 +658,14 @@
             base_dir,
             files,
             BTreeSet::new(),
+            <span class="kw">crate</span>::package::include_everything_walker(),
         ))
     }
 
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new_assets(
         manifest: <span class="kw-2">&amp;</span>wasmer_config::package::Manifest,
         base_dir: <span class="kw-2">&amp;</span>Path,
+        walker_factory: <span class="kw">crate</span>::package::WalkBuilderFactory,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;BTreeMap&lt;String, <span class="self">Self</span>&gt;, Error&gt; {
         <span class="comment">// Create asset volumes
         </span><span class="kw">let </span>dirs: BTreeSet&lt;<span class="kw">_</span>&gt; = manifest
@@ -648,6 +700,7 @@
                     base_dir.to_path_buf(),
                     BTreeSet::new(),
                     dirs,
+                    walker_factory,
                 ),
             );
         }
@@ -660,6 +713,7 @@
         base_dir: PathBuf,
         whitelisted_files: BTreeSet&lt;PathBuf&gt;,
         whitelisted_directories: BTreeSet&lt;PathBuf&gt;,
+        walker_factory: <span class="kw">crate</span>::package::WalkBuilderFactory,
     ) -&gt; <span class="self">Self </span>{
         <span class="kw">let </span><span class="kw-2">mut </span>intermediate_directories: BTreeSet&lt;PathBuf&gt; = whitelisted_files
             .iter()
@@ -679,6 +733,7 @@
             metadata_files: whitelisted_files,
             mapped_directories: whitelisted_directories,
             base_dir,
+            walker_factory,
         }
     }
 
@@ -687,6 +742,7 @@
         base_dir: PathBuf,
         whitelisted_files: BTreeSet&lt;PathBuf&gt;,
         whitelisted_directories: BTreeSet&lt;PathBuf&gt;,
+        walker_factory: <span class="kw">crate</span>::package::WalkBuilderFactory,
     ) -&gt; <span class="self">Self </span>{
         FsVolume {
             name,
@@ -694,6 +750,7 @@
             metadata_files: whitelisted_files,
             mapped_directories: whitelisted_directories,
             base_dir,
+            walker_factory,
         }
     }
 
@@ -746,12 +803,9 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Vec&lt;(PathSegment, <span class="prelude-ty">Option</span>&lt;[u8; <span class="number">32</span>]&gt;, Metadata)&gt;&gt; {
         <span class="kw">let </span>resolved = <span class="self">self</span>.resolve(path)<span class="question-mark">?</span>;
 
-        <span class="kw">let </span>walker = ignore::WalkBuilder::new(<span class="kw-2">&amp;</span>resolved)
-            .require_git(<span class="bool-val">true</span>)
-            .add_custom_ignore_filename(<span class="string">".wasmerignore"</span>)
-            .follow_links(<span class="bool-val">false</span>)
-            .max_depth(<span class="prelude-val">Some</span>(<span class="number">1</span>))
-            .build();
+        <span class="kw">let </span><span class="kw-2">mut </span>walker_builder = <span class="self">self</span>.walker_factory.create_walk_builder(<span class="kw-2">&amp;</span>resolved);
+        walker_builder.max_depth(<span class="prelude-val">Some</span>(<span class="number">1</span>));
+        <span class="kw">let </span>walker = walker_builder.build();
 
         <span class="kw">let </span><span class="kw-2">mut </span>entries = Vec::new();
 
@@ -848,7 +902,7 @@
             <span class="prelude-val">Ok</span>(root)
         } <span class="kw">else </span>{
             <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = <span class="self">self</span>.mapped_directories.iter().cloned().collect();
-            directory_tree(paths, <span class="kw-2">&amp;</span><span class="self">self</span>.base_dir)
+            directory_tree(paths, <span class="kw-2">&amp;</span><span class="self">self</span>.base_dir, <span class="self">self</span>.walker_factory)
         }
     }
 }
@@ -891,6 +945,7 @@
 </span><span class="kw">fn </span>directory_tree(
     paths: <span class="kw">impl </span>IntoIterator&lt;Item = PathBuf&gt;,
     base_dir: <span class="kw-2">&amp;</span>Path,
+    walker_factory: <span class="kw">crate</span>::package::WalkBuilderFactory,
 ) -&gt; <span class="prelude-ty">Result</span>&lt;Directory&lt;<span class="lifetime">'static</span>&gt;, Error&gt; {
     <span class="kw">let </span>paths: Vec&lt;<span class="kw">_</span>&gt; = paths.into_iter().collect();
     <span class="kw">let </span><span class="kw-2">mut </span>root = Directory::default();
@@ -905,7 +960,11 @@
                 <span class="macro">println!</span>(<span class="string">"Warning: {path:?} already exists. Overriding the old entry"</span>);
             }
         } <span class="kw">else </span>{
-            <span class="kw">let </span>dir = webc::v3::write::Directory::from_path_with_ignore(<span class="kw-2">&amp;</span>path).map_err(|e| {
+            <span class="kw">let </span>dir = webc::v3::write::Directory::from_path_with_walker(
+                <span class="kw-2">&amp;</span>path,
+                walker_factory.create_walk_builder(<span class="kw-2">&amp;</span>path).build(),
+            )
+            .map_err(|e| {
                 Error::from(e).context(<span class="macro">format!</span>(
                     <span class="string">"Unable to add \"{}\" to the directory tree"</span>,
                     path.display()
@@ -1015,12 +1074,21 @@
 
         <span class="kw">let </span>manifest: Manifest = toml::from_str(wasmer_toml).unwrap();
 
-        <span class="kw">let </span>volume = FsVolume::new_assets(<span class="kw-2">&amp;</span>manifest, temp.path()).unwrap();
+        <span class="kw">let </span>volume = FsVolume::new_assets(
+            <span class="kw-2">&amp;</span>manifest,
+            temp.path(),
+            <span class="kw">crate</span>::package::wasmer_ignore_walker(),
+        )
+        .unwrap();
 
         <span class="kw">let </span>volume = <span class="kw-2">&amp;</span>volume[<span class="string">"/etc"</span>];
 
         <span class="kw">let </span>entries = volume.read_dir(<span class="kw-2">&amp;</span>PathSegments::ROOT).unwrap();
-        <span class="kw">let </span>expected = [PathSegment::parse(<span class="string">"share"</span>).unwrap()];
+        <span class="kw">let </span>expected = [
+            PathSegment::parse(<span class="string">".hidden"</span>).unwrap(),
+            PathSegment::parse(<span class="string">".wasmerignore"</span>).unwrap(),
+            PathSegment::parse(<span class="string">"share"</span>).unwrap(),
+        ];
 
         <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..expected.len() {
             <span class="macro">assert_eq!</span>(entries[i].<span class="number">0</span>, expected[i]);
@@ -1041,11 +1109,15 @@
         <span class="comment">// Create a directory that will be used as the base directory
         </span><span class="kw">let </span>base_dir = temp.path().to_path_buf();
 
-        <span class="comment">// Create a non-existent path that will cause `from_path_with_ignore` to fail
+        <span class="comment">// Create a non-existent path that will cause `from_path_with_walker` to fail
         </span><span class="kw">let </span>non_existent_path = base_dir.join(<span class="string">"non_existent_dir"</span>);
 
         <span class="comment">// Try to create a directory tree with a non-existent path
-        </span><span class="kw">let </span>result = directory_tree(std::iter::once(non_existent_path.clone()), <span class="kw-2">&amp;</span>base_dir);
+        </span><span class="kw">let </span>result = directory_tree(
+            std::iter::once(non_existent_path.clone()),
+            <span class="kw-2">&amp;</span>base_dir,
+            <span class="kw">crate</span>::package::wasmer_ignore_walker(),
+        );
 
         <span class="comment">// Verify that the error is propagated
         </span><span class="macro">assert!</span>(result.is_err());

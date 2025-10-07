@@ -1275,20 +1275,7 @@
 <a href="#1274" id="1274">1274</a>
 <a href="#1275" id="1275">1275</a>
 <a href="#1276" id="1276">1276</a>
-<a href="#1277" id="1277">1277</a>
-<a href="#1278" id="1278">1278</a>
-<a href="#1279" id="1279">1279</a>
-<a href="#1280" id="1280">1280</a>
-<a href="#1281" id="1281">1281</a>
-<a href="#1282" id="1282">1282</a>
-<a href="#1283" id="1283">1283</a>
-<a href="#1284" id="1284">1284</a>
-<a href="#1285" id="1285">1285</a>
-<a href="#1286" id="1286">1286</a>
-<a href="#1287" id="1287">1287</a>
-<a href="#1288" id="1288">1288</a>
-<a href="#1289" id="1289">1289</a>
-<a href="#1290" id="1290">1290</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
+<a href="#1277" id="1277">1277</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::{util::login_user, AsyncCliCommand};
 <span class="kw">use crate</span>::{
     commands::{
         app::create::{minimal_app_config, write_app_config, CmdAppCreate},
@@ -1365,13 +1352,6 @@
     <span class="doccomment">/// Do not persist the app ID under `app_id` field in app.yaml.
     </span><span class="attr">#[clap(long)]
     </span><span class="kw">pub </span>no_persist_id: bool,
-
-    <span class="doccomment">/// Do not respected `.gitignore` and `.wasmerignore` files when building a package.
-    ///
-    /// NOTE: FOR NOW this flag is only used when `--build-remote` is also specified.
-    </span><span class="comment">// TODO: implement no-ignore support for local builds too.
-    </span><span class="attr">#[clap(long)]
-    </span><span class="kw">pub </span>no_ignore: bool,
 
     <span class="doccomment">/// Specify the owner (user or namespace) of the app.
     ///
@@ -1605,7 +1585,6 @@
             DeployRemoteOpts {
                 app: app_config.clone(),
                 owner: <span class="prelude-val">Some</span>(owner.clone()),
-                no_ignore: <span class="self">self</span>.no_ignore,
             },
             <span class="kw-2">&amp;</span>base_dir_path,
             remote_progress_handler(<span class="self">self</span>.quiet),
@@ -1846,11 +1825,6 @@
 
         <span class="kw">if </span><span class="self">self</span>.build_remote &amp;&amp; <span class="self">self</span>.publish_package {
             <span class="macro">anyhow::bail!</span>(<span class="string">"--build-remote cannot be combined with --publish-package"</span>);
-        }
-
-        <span class="comment">// TODO: implement no-ignore support for local builds too.
-        </span><span class="kw">if </span><span class="self">self</span>.no_ignore &amp;&amp; !<span class="self">self</span>.build_remote {
-            <span class="macro">anyhow::bail!</span>(<span class="string">"--no-ignore is currently only supported with --build-remote"</span>);
         }
 
         <span class="kw">if </span><span class="self">self</span>.build_remote {

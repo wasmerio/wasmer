@@ -1961,7 +1961,115 @@
 <a href="#1960" id="1960">1960</a>
 <a href="#1961" id="1961">1961</a>
 <a href="#1962" id="1962">1962</a>
-<a href="#1963" id="1963">1963</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#1963" id="1963">1963</a>
+<a href="#1964" id="1964">1964</a>
+<a href="#1965" id="1965">1965</a>
+<a href="#1966" id="1966">1966</a>
+<a href="#1967" id="1967">1967</a>
+<a href="#1968" id="1968">1968</a>
+<a href="#1969" id="1969">1969</a>
+<a href="#1970" id="1970">1970</a>
+<a href="#1971" id="1971">1971</a>
+<a href="#1972" id="1972">1972</a>
+<a href="#1973" id="1973">1973</a>
+<a href="#1974" id="1974">1974</a>
+<a href="#1975" id="1975">1975</a>
+<a href="#1976" id="1976">1976</a>
+<a href="#1977" id="1977">1977</a>
+<a href="#1978" id="1978">1978</a>
+<a href="#1979" id="1979">1979</a>
+<a href="#1980" id="1980">1980</a>
+<a href="#1981" id="1981">1981</a>
+<a href="#1982" id="1982">1982</a>
+<a href="#1983" id="1983">1983</a>
+<a href="#1984" id="1984">1984</a>
+<a href="#1985" id="1985">1985</a>
+<a href="#1986" id="1986">1986</a>
+<a href="#1987" id="1987">1987</a>
+<a href="#1988" id="1988">1988</a>
+<a href="#1989" id="1989">1989</a>
+<a href="#1990" id="1990">1990</a>
+<a href="#1991" id="1991">1991</a>
+<a href="#1992" id="1992">1992</a>
+<a href="#1993" id="1993">1993</a>
+<a href="#1994" id="1994">1994</a>
+<a href="#1995" id="1995">1995</a>
+<a href="#1996" id="1996">1996</a>
+<a href="#1997" id="1997">1997</a>
+<a href="#1998" id="1998">1998</a>
+<a href="#1999" id="1999">1999</a>
+<a href="#2000" id="2000">2000</a>
+<a href="#2001" id="2001">2001</a>
+<a href="#2002" id="2002">2002</a>
+<a href="#2003" id="2003">2003</a>
+<a href="#2004" id="2004">2004</a>
+<a href="#2005" id="2005">2005</a>
+<a href="#2006" id="2006">2006</a>
+<a href="#2007" id="2007">2007</a>
+<a href="#2008" id="2008">2008</a>
+<a href="#2009" id="2009">2009</a>
+<a href="#2010" id="2010">2010</a>
+<a href="#2011" id="2011">2011</a>
+<a href="#2012" id="2012">2012</a>
+<a href="#2013" id="2013">2013</a>
+<a href="#2014" id="2014">2014</a>
+<a href="#2015" id="2015">2015</a>
+<a href="#2016" id="2016">2016</a>
+<a href="#2017" id="2017">2017</a>
+<a href="#2018" id="2018">2018</a>
+<a href="#2019" id="2019">2019</a>
+<a href="#2020" id="2020">2020</a>
+<a href="#2021" id="2021">2021</a>
+<a href="#2022" id="2022">2022</a>
+<a href="#2023" id="2023">2023</a>
+<a href="#2024" id="2024">2024</a>
+<a href="#2025" id="2025">2025</a>
+<a href="#2026" id="2026">2026</a>
+<a href="#2027" id="2027">2027</a>
+<a href="#2028" id="2028">2028</a>
+<a href="#2029" id="2029">2029</a>
+<a href="#2030" id="2030">2030</a>
+<a href="#2031" id="2031">2031</a>
+<a href="#2032" id="2032">2032</a>
+<a href="#2033" id="2033">2033</a>
+<a href="#2034" id="2034">2034</a>
+<a href="#2035" id="2035">2035</a>
+<a href="#2036" id="2036">2036</a>
+<a href="#2037" id="2037">2037</a>
+<a href="#2038" id="2038">2038</a>
+<a href="#2039" id="2039">2039</a>
+<a href="#2040" id="2040">2040</a>
+<a href="#2041" id="2041">2041</a>
+<a href="#2042" id="2042">2042</a>
+<a href="#2043" id="2043">2043</a>
+<a href="#2044" id="2044">2044</a>
+<a href="#2045" id="2045">2045</a>
+<a href="#2046" id="2046">2046</a>
+<a href="#2047" id="2047">2047</a>
+<a href="#2048" id="2048">2048</a>
+<a href="#2049" id="2049">2049</a>
+<a href="#2050" id="2050">2050</a>
+<a href="#2051" id="2051">2051</a>
+<a href="#2052" id="2052">2052</a>
+<a href="#2053" id="2053">2053</a>
+<a href="#2054" id="2054">2054</a>
+<a href="#2055" id="2055">2055</a>
+<a href="#2056" id="2056">2056</a>
+<a href="#2057" id="2057">2057</a>
+<a href="#2058" id="2058">2058</a>
+<a href="#2059" id="2059">2059</a>
+<a href="#2060" id="2060">2060</a>
+<a href="#2061" id="2061">2061</a>
+<a href="#2062" id="2062">2062</a>
+<a href="#2063" id="2063">2063</a>
+<a href="#2064" id="2064">2064</a>
+<a href="#2065" id="2065">2065</a>
+<a href="#2066" id="2066">2066</a>
+<a href="#2067" id="2067">2067</a>
+<a href="#2068" id="2068">2068</a>
+<a href="#2069" id="2069">2069</a>
+<a href="#2070" id="2070">2070</a>
+<a href="#2071" id="2071">2071</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
     fmt::Debug,
@@ -2092,6 +2200,74 @@
     </span>DetectError(<span class="attr">#[from] </span>DetectError),
 }
 
+<span class="comment">// Serious Java vibes from this one! Still better than repeating the
+// function type everywhere.
+// I'm opting not to use a trait object here to avoid generics and boxing.
+</span><span class="attr">#[derive(Clone, Copy)]
+</span><span class="kw">pub struct </span>WalkBuilderFactory {
+    <span class="kw">pub </span>walker_factory: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Path) -&gt; ignore::WalkBuilder,
+}
+
+<span class="kw">impl </span>Debug <span class="kw">for </span>WalkBuilderFactory {
+    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>std::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; std::fmt::Result {
+        f.debug_struct(<span class="string">"WalkBuilderFactory"</span>).finish()
+    }
+}
+
+<span class="kw">impl </span>WalkBuilderFactory {
+    <span class="kw">pub fn </span>new(walker_factory: <span class="kw">fn</span>(<span class="kw-2">&amp;</span>Path) -&gt; ignore::WalkBuilder) -&gt; <span class="self">Self </span>{
+        <span class="self">Self </span>{ walker_factory }
+    }
+
+    <span class="kw">pub fn </span>create_walk_builder(<span class="kw-2">&amp;</span><span class="self">self</span>, path: <span class="kw-2">&amp;</span>Path) -&gt; ignore::WalkBuilder {
+        (<span class="self">self</span>.walker_factory)(path)
+    }
+}
+
+<span class="kw">fn </span>is_wasmer_ignore_present(path: <span class="kw-2">&amp;</span>Path) -&gt; bool {
+    path.ancestors().any(|p| p.join(<span class="string">".wasmerignore"</span>).is_file())
+}
+
+<span class="doccomment">/// Create and configure a default ignore walker for building packages that:
+///   * If a `.wasmerignore` file is present, it will be used to ignore files.
+///   * Otherwise, only `.git` folders will be ignored.
+</span><span class="kw">pub fn </span>wasmer_ignore_walker() -&gt; WalkBuilderFactory {
+    <span class="kw">fn </span>walker_factory(root_dir: <span class="kw-2">&amp;</span>Path) -&gt; ignore::WalkBuilder {
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = ignore::WalkBuilder::new(root_dir);
+        <span class="comment">// We always add .wasmerignore because it could exist in a sub-directory.
+        </span>builder
+            .standard_filters(<span class="bool-val">false</span>)
+            .follow_links(<span class="bool-val">false</span>)
+            .parents(<span class="bool-val">true</span>)
+            .add_custom_ignore_filename(<span class="string">".wasmerignore"</span>);
+
+        <span class="comment">// However, if there is no .wasmerignore in the root directory,
+        // we want to at least ignore .git folders. This setup creates the
+        // very niche edge case of having .wasmerignore in a subdirectory
+        // causing .git folders to be ignored in other directories, but
+        // that seems acceptable given how rare that would be. The proper
+        // solution would be to do this logic per-directory, but that's
+        // not supported by `ignore`.
+        </span><span class="kw">if </span>!is_wasmer_ignore_present(root_dir) {
+            <span class="kw">let </span><span class="kw-2">mut </span>overrides = ignore::overrides::OverrideBuilder::new(root_dir);
+            overrides.add(<span class="string">"!.git"</span>).expect(<span class="string">"valid override"</span>);
+            builder.overrides(overrides.build().expect(<span class="string">"valid overrides"</span>));
+        }
+
+        builder
+    }
+    WalkBuilderFactory::new(walker_factory)
+}
+
+<span class="kw">pub fn </span>include_everything_walker() -&gt; WalkBuilderFactory {
+    <span class="kw">fn </span>walker_factory(root_dir: <span class="kw-2">&amp;</span>Path) -&gt; ignore::WalkBuilder {
+        <span class="kw">let </span><span class="kw-2">mut </span>builder = ignore::WalkBuilder::new(root_dir);
+        builder.standard_filters(<span class="bool-val">false</span>).follow_links(<span class="bool-val">false</span>);
+        builder
+    }
+    WalkBuilderFactory::new(walker_factory)
+}
+
 <span class="doccomment">/// A Wasmer package that will be lazily loaded from disk.
 </span><span class="attr">#[derive(Debug)]
 </span><span class="kw">pub struct </span>Package {
@@ -2113,8 +2289,26 @@
     /// This will unpack the tarball to a temporary directory on disk and use
     /// memory-mapped files in order to reduce RAM usage.
     </span><span class="kw">pub fn </span>from_tarball_file(path: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
-        Package::from_tarball_file_with_strictness(path.as_ref(), Strictness::default())
+        Package::from_tarball_file_with_walker(path.as_ref(), include_everything_walker())
     }
+
+    <span class="doccomment">/// Load a [`Package`] from a `*.tar.gz` file on disk.
+    ///
+    /// # Implementation Details
+    ///
+    /// This will unpack the tarball to a temporary directory on disk and use
+    /// memory-mapped files in order to reduce RAM usage.
+    </span><span class="kw">pub fn </span>from_tarball_file_with_walker(
+        path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+        walker_factory: WalkBuilderFactory,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
+        Package::from_tarball_file_with_strictness(
+            path.as_ref(),
+            Strictness::default(),
+            walker_factory,
+        )
+    }
+
     <span class="doccomment">/// Load a [`Package`] from a `*.tar.gz` file on disk.
     ///
     /// # Implementation Details
@@ -2124,6 +2318,7 @@
     </span><span class="kw">pub fn </span>from_tarball_file_with_strictness(
         path: <span class="kw">impl </span>AsRef&lt;Path&gt;,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
         <span class="kw">let </span>path = path.as_ref();
         <span class="kw">let </span>f = File::open(path).map_err(|error| WasmerPackageError::FileOpen {
@@ -2131,18 +2326,27 @@
             error,
         })<span class="question-mark">?</span>;
 
-        Package::from_tarball_with_strictness(BufReader::new(f), strictness)
+        Package::from_tarball_with_strictness(BufReader::new(f), strictness, walker_factory)
     }
 
     <span class="doccomment">/// Load a package from a `*.tar.gz` archive.
     </span><span class="kw">pub fn </span>from_tarball(tarball: <span class="kw">impl </span>BufRead) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
-        Package::from_tarball_with_strictness(tarball, Strictness::default())
+        Package::from_tarball_with_walker(tarball, include_everything_walker())
+    }
+
+    <span class="doccomment">/// Load a package from a `*.tar.gz` archive.
+    </span><span class="kw">pub fn </span>from_tarball_with_walker(
+        tarball: <span class="kw">impl </span>BufRead,
+        walker_factory: WalkBuilderFactory,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
+        Package::from_tarball_with_strictness(tarball, Strictness::default(), walker_factory)
     }
 
     <span class="doccomment">/// Load a package from a `*.tar.gz` archive.
     </span><span class="kw">pub fn </span>from_tarball_with_strictness(
         tarball: <span class="kw">impl </span>BufRead,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
         <span class="kw">let </span>tarball = GzDecoder::new(tarball);
         <span class="kw">let </span>temp = tempdir().map_err(WasmerPackageError::TempDir)<span class="question-mark">?</span>;
@@ -2151,18 +2355,27 @@
 
         <span class="kw">let </span>(_manifest_path, manifest) = read_manifest(temp.path())<span class="question-mark">?</span>;
 
-        Package::load(manifest, temp, strictness)
+        Package::load(manifest, temp, strictness, walker_factory)
     }
 
     <span class="doccomment">/// Load a package from a `wasmer.toml` manifest on disk.
     </span><span class="kw">pub fn </span>from_manifest(wasmer_toml: <span class="kw">impl </span>AsRef&lt;Path&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
-        Package::from_manifest_with_strictness(wasmer_toml, Strictness::default())
+        Package::from_manifest_with_walker(wasmer_toml, wasmer_ignore_walker())
+    }
+
+    <span class="doccomment">/// Load a package from a `wasmer.toml` manifest on disk.
+    </span><span class="kw">pub fn </span>from_manifest_with_walker(
+        wasmer_toml: <span class="kw">impl </span>AsRef&lt;Path&gt;,
+        walker_factory: WalkBuilderFactory,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
+        Package::from_manifest_with_strictness(wasmer_toml, Strictness::default(), walker_factory)
     }
 
     <span class="doccomment">/// Load a package from a `wasmer.toml` manifest on disk.
     </span><span class="kw">pub fn </span>from_manifest_with_strictness(
         wasmer_toml: <span class="kw">impl </span>AsRef&lt;Path&gt;,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
         <span class="kw">let </span>path = wasmer_toml.as_ref();
         <span class="kw">let </span>path = path
@@ -2194,7 +2407,7 @@
             }
         }
 
-        Package::load(wasmer_toml, base_dir, strictness)
+        Package::load(wasmer_toml, base_dir, strictness, walker_factory)
     }
 
     <span class="doccomment">/// (Re)loads a package from a manifest.json file which was created as the result of calling [`Container::unpack`](crate::Container::unpack)
@@ -2249,6 +2462,7 @@
                         base_dir.path().to_owned(),
                         BTreeSet::new(),
                         dirs,
+                        include_everything_walker(),
                     )),
                 );
             }
@@ -2288,6 +2502,7 @@
                 base_dir.path().join(FsVolume::METADATA).to_owned(),
                 files,
                 BTreeSet::new(),
+                include_everything_walker(),
             )),
         );
 
@@ -2357,6 +2572,7 @@
         wasmer_toml: WasmerManifest,
         base_dir: <span class="kw">impl </span>Into&lt;BaseDir&gt;,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, WasmerPackageError&gt; {
         <span class="kw">let </span>base_dir = base_dir.into();
 
@@ -2384,7 +2600,7 @@
         </span><span class="kw">let </span>metadata_volume = FsVolume::new_metadata(<span class="kw-2">&amp;</span>wasmer_toml, base_dir_path.clone())<span class="question-mark">?</span>;
         <span class="comment">// Create assets volume
         </span><span class="kw">let </span><span class="kw-2">mut </span>volumes: BTreeMap&lt;String, Arc&lt;<span class="kw">dyn </span>WasmerPackageVolume + Send + Sync + <span class="lifetime">'static</span>&gt;&gt; = {
-            <span class="kw">let </span>old = FsVolume::new_assets(<span class="kw-2">&amp;</span>wasmer_toml, <span class="kw-2">&amp;</span>base_dir_path)<span class="question-mark">?</span>;
+            <span class="kw">let </span>old = FsVolume::new_assets(<span class="kw-2">&amp;</span>wasmer_toml, <span class="kw-2">&amp;</span>base_dir_path, walker_factory)<span class="question-mark">?</span>;
             <span class="kw">let </span><span class="kw-2">mut </span>new = BTreeMap::new();
 
             <span class="kw">for </span>(k, v) <span class="kw">in </span>old.into_iter() {
@@ -2957,8 +3173,8 @@
             nested_dir_volume.read_file(<span class="string">"README.md"</span>).unwrap(),
             (<span class="string">b"please"</span>.as_slice().into(), <span class="prelude-val">Some</span>(readme_hash)),
         );
-        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">".wasmerignore"</span>).is_none());
-        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">".hidden"</span>).is_none());
+        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">".wasmerignore"</span>).is_some());
+        <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">".hidden"</span>).is_some());
         <span class="macro">assert!</span>(nested_dir_volume.read_file(<span class="string">"ignore_me"</span>).is_none());
         <span class="macro">assert_eq!</span>(
             nested_dir_volume

@@ -377,7 +377,9 @@
 <a href="#376" id="376">376</a>
 <a href="#377" id="377">377</a>
 <a href="#378" id="378">378</a>
-<a href="#379" id="379">379</a></pre></div><pre class="rust"><code><span class="doccomment">//! Provides package publishing functionality.
+<a href="#379" id="379">379</a>
+<a href="#380" id="380">380</a>
+<a href="#381" id="381">381</a></pre></div><pre class="rust"><code><span class="doccomment">//! Provides package publishing functionality.
 
 </span><span class="kw">use </span>std::{
     path::{Path, PathBuf},
@@ -393,7 +395,7 @@
 
 <span class="kw">use </span>wasmer_backend_api::WasmerClient;
 <span class="kw">use </span>wasmer_config::package::{Manifest, NamedPackageId, PackageHash, PackageIdent};
-<span class="kw">use </span>wasmer_package::package::Package;
+<span class="kw">use </span>wasmer_package::package::{Package, WalkBuilderFactory};
 
 <span class="doccomment">/// Conditions that can be waited on after publishing a package.
 </span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
@@ -470,6 +472,7 @@
     <span class="kw">pub </span>version: <span class="prelude-ty">Option</span>&lt;Version&gt;,
     <span class="kw">pub </span>timeout: Duration,
     <span class="kw">pub </span>wait: PublishWait,
+    <span class="kw">pub </span>walker_factory: WalkBuilderFactory,
 }
 
 <span class="kw">impl </span>Default <span class="kw">for </span>PublishOptions {
@@ -480,6 +483,7 @@
             version: <span class="prelude-val">None</span>,
             timeout: Duration::from_secs(<span class="number">60 </span>* <span class="number">5</span>),
             wait: PublishWait::None,
+            walker_factory: wasmer_package::package::wasmer_ignore_walker(),
         }
     }
 }
@@ -534,7 +538,7 @@
             })<span class="question-mark">?</span>;
             <span class="kw">let </span>manifest: Manifest = toml::from_str(<span class="kw-2">&amp;</span>manifest_str)<span class="question-mark">?</span>;
 
-            <span class="kw">let </span>package = Package::from_manifest(<span class="kw-2">&amp;</span>manifest_path)<span class="question-mark">?</span>;
+            <span class="kw">let </span>package = Package::from_manifest_with_walker(<span class="kw-2">&amp;</span>manifest_path, opts.walker_factory)<span class="question-mark">?</span>;
             <span class="kw">let </span>bytes = package.serialize()<span class="question-mark">?</span>;
             <span class="kw">let </span>hash_bytes: [u8; <span class="number">32</span>] = Sha256::digest(<span class="kw-2">&amp;</span>bytes).into();
             <span class="kw">let </span>hash = PackageHash::from_sha256_bytes(hash_bytes);

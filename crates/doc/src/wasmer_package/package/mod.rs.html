@@ -294,7 +294,10 @@
 <a href="#293" id="293">293</a>
 <a href="#294" id="294">294</a>
 <a href="#295" id="295">295</a>
-<a href="#296" id="296">296</a></pre></div><pre class="rust"><code><span class="doccomment">//! Load a Wasmer package from disk.
+<a href="#296" id="296">296</a>
+<a href="#297" id="297">297</a>
+<a href="#298" id="298">298</a>
+<a href="#299" id="299">299</a></pre></div><pre class="rust"><code><span class="doccomment">//! Load a Wasmer package from disk.
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>manifest;
 <span class="attr">#[allow(clippy::module_inception)]
 </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod </span>package;
@@ -303,7 +306,10 @@
 
 <span class="kw">pub use </span><span class="self">self</span>::{
     manifest::ManifestError,
-    package::{Package, WasmerPackageError},
+    package::{
+        include_everything_walker, wasmer_ignore_walker, Package, WalkBuilderFactory,
+        WasmerPackageError,
+    },
     strictness::Strictness,
     volume::{fs::<span class="kw-2">*</span>, in_memory::<span class="kw-2">*</span>, WasmerPackageVolume},
 };

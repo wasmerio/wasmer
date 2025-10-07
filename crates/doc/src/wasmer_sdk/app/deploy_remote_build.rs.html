@@ -437,40 +437,7 @@
 <a href="#436" id="436">436</a>
 <a href="#437" id="437">437</a>
 <a href="#438" id="438">438</a>
-<a href="#439" id="439">439</a>
-<a href="#440" id="440">440</a>
-<a href="#441" id="441">441</a>
-<a href="#442" id="442">442</a>
-<a href="#443" id="443">443</a>
-<a href="#444" id="444">444</a>
-<a href="#445" id="445">445</a>
-<a href="#446" id="446">446</a>
-<a href="#447" id="447">447</a>
-<a href="#448" id="448">448</a>
-<a href="#449" id="449">449</a>
-<a href="#450" id="450">450</a>
-<a href="#451" id="451">451</a>
-<a href="#452" id="452">452</a>
-<a href="#453" id="453">453</a>
-<a href="#454" id="454">454</a>
-<a href="#455" id="455">455</a>
-<a href="#456" id="456">456</a>
-<a href="#457" id="457">457</a>
-<a href="#458" id="458">458</a>
-<a href="#459" id="459">459</a>
-<a href="#460" id="460">460</a>
-<a href="#461" id="461">461</a>
-<a href="#462" id="462">462</a>
-<a href="#463" id="463">463</a>
-<a href="#464" id="464">464</a>
-<a href="#465" id="465">465</a>
-<a href="#466" id="466">466</a>
-<a href="#467" id="467">467</a>
-<a href="#468" id="468">468</a>
-<a href="#469" id="469">469</a>
-<a href="#470" id="470">470</a>
-<a href="#471" id="471">471</a>
-<a href="#472" id="472">472</a></pre></div><pre class="rust"><code><span class="doccomment">//! Functionality for deploying applications to Wasmer Edge through the
+<a href="#439" id="439">439</a></pre></div><pre class="rust"><code><span class="doccomment">//! Functionality for deploying applications to Wasmer Edge through the
 //! "autobuild zip upload" flow, which just uploads a zip directory and
 //! lets the Wasmer backend handle building and deploying it.
 
@@ -498,8 +465,6 @@
 </span><span class="kw">pub struct </span>DeployRemoteOpts {
     <span class="kw">pub </span>app: AppConfigV1,
     <span class="kw">pub </span>owner: <span class="prelude-ty">Option</span>&lt;String&gt;,
-    <span class="comment">// Don't respect the default ignores.
-    </span><span class="kw">pub </span>no_ignore: bool,
 }
 
 <span class="doccomment">/// Events emitted during the remote deployment process.
@@ -603,12 +568,9 @@
         path: base_dir.to_path_buf(),
     });
 
-    <span class="kw">let </span>zip_opts = ZipOptions {
-        standard_ignores: !opts.no_ignore,
-    };
     <span class="kw">let </span>archive = tokio::task::spawn_blocking({
         <span class="kw">let </span>base_dir = base_dir.to_path_buf();
-        <span class="kw">move </span>|| create_zip_archive(<span class="kw-2">&amp;</span>base_dir, zip_opts)
+        <span class="kw">move </span>|| create_zip_archive(<span class="kw-2">&amp;</span>base_dir)
     })
     .<span class="kw">await
     </span>.map_err(|e| DeployRemoteError::Other(e.into()))<span class="question-mark">?
@@ -771,32 +733,26 @@
     file_count: usize,
 }
 
-<span class="kw">struct </span>ZipOptions {
-    standard_ignores: bool,
-}
-
-<span class="kw">fn </span>create_zip_archive(base_dir: <span class="kw-2">&amp;</span>Path, opts: ZipOptions) -&gt; <span class="prelude-ty">Result</span>&lt;UploadArchive, anyhow::Error&gt; {
+<span class="kw">fn </span>create_zip_archive(base_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;UploadArchive, anyhow::Error&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>file_count = <span class="number">0usize</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>writer = zip::ZipWriter::new(std::io::Cursor::new(Vec::new()));
 
     <span class="kw">let </span>walker = {
         <span class="kw">let </span><span class="kw-2">mut </span>b = ignore::WalkBuilder::new(base_dir);
-        b.follow_links(<span class="bool-val">false</span>)
-            .standard_filters(opts.standard_ignores)
-            .git_ignore(opts.standard_ignores)
-            .git_global(opts.standard_ignores)
-            .git_exclude(opts.standard_ignores)
-            .ignore(opts.standard_ignores)
-            .require_git(<span class="bool-val">false</span>);
+
+        b.standard_filters(<span class="bool-val">true</span>)
+            .ignore(<span class="bool-val">true</span>)
+            .git_ignore(<span class="bool-val">true</span>)
+            .git_exclude(<span class="bool-val">true</span>)
+            .git_global(<span class="bool-val">true</span>)
+            .require_git(<span class="bool-val">true</span>)
+            .parents(<span class="bool-val">true</span>)
+            .follow_links(<span class="bool-val">false</span>);
 
         <span class="comment">// Ignore .shipit directories, since they are for local use only.
         </span><span class="kw">let </span><span class="kw-2">mut </span>overrides = ignore::overrides::OverrideBuilder::new(<span class="string">"."</span>);
-        overrides.add(<span class="string">"!.shipit"</span>).ok();
+        overrides.add(<span class="string">"!.shipit"</span>).expect(<span class="string">"valid override"</span>);
         b.overrides(overrides.build()<span class="question-mark">?</span>);
-
-        <span class="kw">if </span>opts.standard_ignores {
-            b.add_custom_ignore_filename(<span class="string">".wasmerignore"</span>);
-        }
 
         b.build()
     };
@@ -872,39 +828,16 @@
     <span class="attr">#[test]
     </span><span class="kw">fn </span>create_zip_archive_respects_ignore_files() -&gt; anyhow::Result&lt;()&gt; {
         <span class="kw">let </span>project = create_sample_project()<span class="question-mark">?</span>;
-        <span class="kw">let </span>archive = create_zip_archive(
-            project.path(),
-            ZipOptions {
-                standard_ignores: <span class="bool-val">true</span>,
-            },
-        )<span class="question-mark">?</span>;
+        <span class="kw">let </span>archive = create_zip_archive(project.path())<span class="question-mark">?</span>;
 
         <span class="kw">let </span>names = archive_file_names(<span class="kw-2">&amp;</span>archive.bytes)<span class="question-mark">?</span>;
 
         <span class="macro">assert!</span>(names.contains(<span class="string">"app.yaml"</span>));
         <span class="macro">assert!</span>(names.contains(<span class="string">"keep_dir/keep.txt"</span>));
+        <span class="comment">// .wasmerignore should *not* be taken into account for remote builds
+        </span><span class="macro">assert!</span>(names.contains(<span class="string">"custom.txt"</span>));
         <span class="macro">assert!</span>(!names.contains(<span class="string">"ignored.txt"</span>));
         <span class="macro">assert!</span>(!names.contains(<span class="string">"ignored_dir/file.txt"</span>));
-        <span class="macro">assert!</span>(!names.contains(<span class="string">"custom.txt"</span>));
-
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="attr">#[test]
-    </span><span class="kw">fn </span>create_zip_archive_can_disable_standard_ignores() -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">let </span>project = create_sample_project()<span class="question-mark">?</span>;
-        <span class="kw">let </span>archive = create_zip_archive(
-            project.path(),
-            ZipOptions {
-                standard_ignores: <span class="bool-val">false</span>,
-            },
-        )<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>names = archive_file_names(<span class="kw-2">&amp;</span>archive.bytes)<span class="question-mark">?</span>;
-
-        <span class="macro">assert!</span>(names.contains(<span class="string">"ignored.txt"</span>));
-        <span class="macro">assert!</span>(names.contains(<span class="string">"ignored_dir/file.txt"</span>));
-        <span class="macro">assert!</span>(names.contains(<span class="string">"custom.txt"</span>));
 
         <span class="prelude-val">Ok</span>(())
     }
@@ -929,6 +862,7 @@
     }
 
     <span class="kw">fn </span>populate_project(base: <span class="kw-2">&amp;</span>Path) -&gt; anyhow::Result&lt;()&gt; {
+        fs::create_dir_all(base.join(<span class="string">".git"</span>))<span class="question-mark">?</span>;
         fs::write(base.join(<span class="string">"app.yaml"</span>), <span class="string">"name = \"demo\"\n"</span>)<span class="question-mark">?</span>;
         fs::write(base.join(<span class="string">".gitignore"</span>), <span class="string">"ignored.txt\nignored_dir/\n"</span>)<span class="question-mark">?</span>;
         fs::write(base.join(<span class="string">".wasmerignore"</span>), <span class="string">"custom.txt\n"</span>)<span class="question-mark">?</span>;

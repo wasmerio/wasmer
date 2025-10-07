@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"constant":["IS_WASI"],"enum":["BaseDir","WasmerPackageError"],"fn":["read_manifest","tempdir","unpack_archive"],"struct":["Package"]};
+window.SIDEBAR_ITEMS = {"constant":["IS_WASI"],"enum":["BaseDir","WasmerPackageError"],"fn":["include_everything_walker","is_wasmer_ignore_present","read_manifest","tempdir","unpack_archive","wasmer_ignore_walker"],"struct":["Package","WalkBuilderFactory"]};
