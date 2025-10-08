@@ -698,6 +698,10 @@ pub unsafe extern "C-unwind" fn wasmer_vm_throw(vmctx: *mut VMContext, exnref: u
 
 /// Implementation for allocating an exception. Returns the exnref, i.e. a handle to the
 /// exception within the store.
+///
+/// # Safety
+///
+/// The vmctx pointer must be dereferenceable.
 #[no_mangle]
 pub unsafe extern "C-unwind" fn wasmer_vm_alloc_exception(vmctx: *mut VMContext, tag: u32) -> u32 {
     let instance = unsafe { (*vmctx).instance_mut() };
