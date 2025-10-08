@@ -8714,7 +8714,9 @@
 <a href="#8713" id="8713">8713</a>
 <a href="#8714" id="8714">8714</a>
 <a href="#8715" id="8715">8715</a>
-<a href="#8716" id="8716">8716</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href="#8716" id="8716">8716</a>
+<a href="#8717" id="8717">8717</a>
+<a href="#8718" id="8718">8718</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
 <span class="kw">use crate</span>::{
     codegen_error,
@@ -9398,7 +9400,7 @@
             },
         )<span class="question-mark">?</span>;
 
-        <span class="self">self</span>.jmp_on_different(retry)<span class="question-mark">?</span>;
+        <span class="self">self</span>.assembler.emit_jmp(Condition::NotEqual, retry)<span class="question-mark">?</span>;
 
         <span class="self">self</span>.assembler.emit_pop(Size::S64, Location::GPR(value))<span class="question-mark">?</span>;
         <span class="self">self</span>.release_gpr(compare);
@@ -11467,28 +11469,30 @@
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.assembler.emit_cmp(size, source, dest)
     }
-    <span class="comment">// (un)conditionnal jmp
-    // (un)conditionnal jmp
+
+    <span class="comment">// unconditionnal jmp
     </span><span class="kw">fn </span>jmp_unconditionnal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.assembler.emit_jmp(Condition::None, label)
     }
-    <span class="kw">fn </span>jmp_on_equal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_jmp(Condition::Equal, label)
-    }
-    <span class="kw">fn </span>jmp_on_different(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_jmp(Condition::NotEqual, label)
-    }
-    <span class="kw">fn </span>jmp_on_above(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_jmp(Condition::Above, label)
-    }
-    <span class="kw">fn </span>jmp_on_aboveequal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_jmp(Condition::AboveEqual, label)
-    }
-    <span class="kw">fn </span>jmp_on_belowequal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_jmp(Condition::BelowEqual, label)
-    }
-    <span class="kw">fn </span>jmp_on_overflow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_jmp(Condition::Carry, label)
+
+    <span class="kw">fn </span>jmp_on_condition(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+        dest: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+        label: Label,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="self">self</span>.assembler.emit_cmp(size, source, dest)<span class="question-mark">?</span>;
+        <span class="kw">let </span>cond = <span class="kw">match </span>cond {
+            UnsignedCondition::Equal =&gt; Condition::Equal,
+            UnsignedCondition::NotEqual =&gt; Condition::NotEqual,
+            UnsignedCondition::Above =&gt; Condition::Above,
+            UnsignedCondition::AboveEqual =&gt; Condition::AboveEqual,
+            UnsignedCondition::Below =&gt; Condition::Below,
+            UnsignedCondition::BelowEqual =&gt; Condition::BelowEqual,
+        };
+        <span class="self">self</span>.assembler.emit_jmp(cond, label)
     }
 
     <span class="comment">// jmp table

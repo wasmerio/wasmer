@@ -8902,7 +8902,9 @@
 <a href="#8901" id="8901">8901</a>
 <a href="#8902" id="8902">8902</a>
 <a href="#8903" id="8903">8903</a>
-<a href="#8904" id="8904">8904</a></pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+<a href="#8904" id="8904">8904</a>
+<a href="#8905" id="8905">8905</a>
+<a href="#8906" id="8906">8906</a></pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
 
@@ -11508,23 +11510,25 @@
     <span class="kw">fn </span>jmp_unconditionnal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.assembler.emit_b_label(label)
     }
-    <span class="kw">fn </span>jmp_on_equal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_bcond_label_far(Condition::Eq, label)
-    }
-    <span class="kw">fn </span>jmp_on_different(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_bcond_label_far(Condition::Ne, label)
-    }
-    <span class="kw">fn </span>jmp_on_above(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_bcond_label_far(Condition::Hi, label)
-    }
-    <span class="kw">fn </span>jmp_on_aboveequal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_bcond_label_far(Condition::Cs, label)
-    }
-    <span class="kw">fn </span>jmp_on_belowequal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_bcond_label_far(Condition::Ls, label)
-    }
-    <span class="kw">fn </span>jmp_on_overflow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-        <span class="self">self</span>.assembler.emit_bcond_label_far(Condition::Cs, label)
+
+    <span class="kw">fn </span>jmp_on_condition(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+        dest: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+        label: Label,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+        <span class="self">self</span>.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+        <span class="kw">let </span>cond = <span class="kw">match </span>cond {
+            UnsignedCondition::Equal =&gt; Condition::Eq,
+            UnsignedCondition::NotEqual =&gt; Condition::Ne,
+            UnsignedCondition::Above =&gt; Condition::Hi,
+            UnsignedCondition::AboveEqual =&gt; Condition::Cs,
+            UnsignedCondition::Below =&gt; Condition::Cc,
+            UnsignedCondition::BelowEqual =&gt; Condition::Ls,
+        };
+        <span class="self">self</span>.assembler.emit_bcond_label_far(cond, label)
     }
 
     <span class="comment">// jmp table

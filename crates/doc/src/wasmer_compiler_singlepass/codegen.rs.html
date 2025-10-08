@@ -6754,7 +6754,22 @@
 <a href="#6753" id="6753">6753</a>
 <a href="#6754" id="6754">6754</a>
 <a href="#6755" id="6755">6755</a>
-<a href="#6756" id="6756">6756</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href="#6756" id="6756">6756</a>
+<a href="#6757" id="6757">6757</a>
+<a href="#6758" id="6758">6758</a>
+<a href="#6759" id="6759">6759</a>
+<a href="#6760" id="6760">6760</a>
+<a href="#6761" id="6761">6761</a>
+<a href="#6762" id="6762">6762</a>
+<a href="#6763" id="6763">6763</a>
+<a href="#6764" id="6764">6764</a>
+<a href="#6765" id="6765">6765</a>
+<a href="#6766" id="6766">6766</a>
+<a href="#6767" id="6767">6767</a>
+<a href="#6768" id="6768">6768</a>
+<a href="#6769" id="6769">6769</a>
+<a href="#6770" id="6770">6770</a>
+<a href="#6771" id="6771">6771</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::dwarf::WriterRelocate;
 
 <span class="kw">use crate</span>::{
@@ -6763,7 +6778,7 @@
     common_decl::<span class="kw-2">*</span>,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE},
+    machine::{Label, Machine, MachineStackOffset, UnsignedCondition, NATIVE_PAGE_SIZE},
     unwind::UnwindFrame,
 };
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
@@ -9574,10 +9589,13 @@
                     )<span class="question-mark">?</span>;
                 }
 
-                <span class="self">self</span>.machine
-                    .location_cmp(Size::S32, func_index, Location::GPR(table_count))<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine
-                    .jmp_on_belowequal(<span class="self">self</span>.special_labels.table_access_oob)<span class="question-mark">?</span>;
+                <span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::BelowEqual,
+                    Size::S32,
+                    func_index,
+                    Location::GPR(table_count),
+                    <span class="self">self</span>.special_labels.table_access_oob,
+                )<span class="question-mark">?</span>;
                 <span class="self">self</span>.machine
                     .move_location(Size::S32, func_index, Location::GPR(table_count))<span class="question-mark">?</span>;
                 <span class="self">self</span>.machine.emit_imul_imm32(
@@ -9599,13 +9617,13 @@
                     Location::GPR(table_count),
                 )<span class="question-mark">?</span>;
                 <span class="comment">// Trap if the FuncRef is null
-                </span><span class="self">self</span>.machine.location_cmp(
+                </span><span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
                     Size::S64,
                     Location::Imm32(<span class="number">0</span>),
                     Location::GPR(table_count),
+                    <span class="self">self</span>.special_labels.indirect_call_null,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine
-                    .jmp_on_equal(<span class="self">self</span>.special_labels.indirect_call_null)<span class="question-mark">?</span>;
                 <span class="self">self</span>.machine.move_location(
                     Size::S64,
                     Location::Memory(
@@ -9616,17 +9634,16 @@
                 )<span class="question-mark">?</span>;
 
                 <span class="comment">// Trap if signature mismatches.
-                </span><span class="self">self</span>.machine.location_cmp(
+                </span><span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::NotEqual,
                     Size::S32,
                     Location::GPR(sigidx),
                     Location::Memory(
                         table_count,
                         (<span class="self">self</span>.vmoffsets.vmcaller_checked_anyfunc_type_index() <span class="kw">as </span>usize) <span class="kw">as </span>i32,
                     ),
+                    <span class="self">self</span>.special_labels.bad_signature,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine
-                    .jmp_on_different(<span class="self">self</span>.special_labels.bad_signature)<span class="question-mark">?</span>;
-
                 <span class="self">self</span>.machine.release_gpr(sigidx);
                 <span class="self">self</span>.machine.release_gpr(table_count);
                 <span class="self">self</span>.machine.release_gpr(table_base);
@@ -9737,9 +9754,13 @@
                     state_diff_id: <span class="self">self</span>.get_state_diff(),
                 };
                 <span class="self">self</span>.control_stack.push(frame);
-                <span class="self">self</span>.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(<span class="number">0</span>), cond)<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine.jmp_on_equal(label_else)<span class="question-mark">?</span>;
+                <span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
+                    Size::S32,
+                    Location::Imm32(<span class="number">0</span>),
+                    cond,
+                    label_else,
+                )<span class="question-mark">?</span>;
             }
             Operator::Else =&gt; {
                 <span class="kw">let </span>frame = <span class="self">self</span>.control_stack.last_mut().unwrap();
@@ -9807,9 +9828,13 @@
                 <span class="kw">let </span>end_label = <span class="self">self</span>.machine.get_label();
                 <span class="kw">let </span>zero_label = <span class="self">self</span>.machine.get_label();
 
-                <span class="self">self</span>.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(<span class="number">0</span>), cond)<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine.jmp_on_equal(zero_label)<span class="question-mark">?</span>;
+                <span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
+                    Size::S32,
+                    Location::Imm32(<span class="number">0</span>),
+                    cond,
+                    zero_label,
+                )<span class="question-mark">?</span>;
                 <span class="kw">match </span>cncl {
                     <span class="prelude-val">Some</span>((<span class="prelude-val">Some</span>(fp), <span class="kw">_</span>))
                         <span class="kw">if </span><span class="self">self</span>.machine.arch_supports_canonicalize_nan()
@@ -10807,9 +10832,13 @@
             Operator::BrIf { relative_depth } =&gt; {
                 <span class="kw">let </span>after = <span class="self">self</span>.machine.get_label();
                 <span class="kw">let </span>cond = <span class="self">self</span>.pop_value_released()<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(<span class="number">0</span>), cond)<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine.jmp_on_equal(after)<span class="question-mark">?</span>;
+                <span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
+                    Size::S32,
+                    Location::Imm32(<span class="number">0</span>),
+                    cond,
+                    after,
+                )<span class="question-mark">?</span>;
 
                 <span class="kw">let </span>frame =
                     <span class="kw-2">&amp;</span><span class="self">self</span>.control_stack[<span class="self">self</span>.control_stack.len() - <span class="number">1 </span>- (relative_depth <span class="kw">as </span>usize)];
@@ -10852,12 +10881,13 @@
                 <span class="kw">let </span>table_label = <span class="self">self</span>.machine.get_label();
                 <span class="kw">let </span><span class="kw-2">mut </span>table: Vec&lt;Label&gt; = <span class="macro">vec!</span>[];
                 <span class="kw">let </span>default_br = <span class="self">self</span>.machine.get_label();
-                <span class="self">self</span>.machine.emit_relaxed_cmp(
+                <span class="self">self</span>.machine.jmp_on_condition(
+                    UnsignedCondition::AboveEqual,
                     Size::S32,
                     Location::Imm32(targets.len() <span class="kw">as </span>u32),
                     cond,
+                    default_br,
                 )<span class="question-mark">?</span>;
-                <span class="self">self</span>.machine.jmp_on_aboveequal(default_br)<span class="question-mark">?</span>;
 
                 <span class="self">self</span>.machine.emit_jmp_to_jumptable(table_label, cond)<span class="question-mark">?</span>;
 

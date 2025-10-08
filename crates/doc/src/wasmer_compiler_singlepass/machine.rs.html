@@ -2510,7 +2510,9 @@
 <a href="#2509" id="2509">2509</a>
 <a href="#2510" id="2510">2510</a>
 <a href="#2511" id="2511">2511</a>
-<a href="#2512" id="2512">2512</a></pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
+<a href="#2512" id="2512">2512</a>
+<a href="#2513" id="2513">2513</a>
+<a href="#2514" id="2514">2514</a></pre></div><pre class="rust"><code><span class="kw">use crate</span>::{
     common_decl::<span class="kw-2">*</span>,
     location::{Location, Reg},
     machine_arm64::MachineARM64,
@@ -2569,6 +2571,16 @@
 </span><span class="kw">pub const </span>NATIVE_PAGE_SIZE: usize = <span class="number">4096</span>;
 
 <span class="kw">pub struct </span>MachineStackOffset(<span class="kw">pub </span>usize);
+
+<span class="attr">#[allow(dead_code)]
+</span><span class="kw">pub enum </span>UnsignedCondition {
+    Equal,
+    NotEqual,
+    Above,
+    AboveEqual,
+    Below,
+    BelowEqual,
+}
 
 <span class="attr">#[allow(unused)]
 </span><span class="kw">pub trait </span>Machine {
@@ -2894,24 +2906,16 @@
 
     <span class="doccomment">/// jmp without condidtion
     </span><span class="kw">fn </span>jmp_unconditionnal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// jmp on equal (src==dst)
-    /// like Equal set on x86_64
-    </span><span class="kw">fn </span>jmp_on_equal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// jmp on different (src!=dst)
-    /// like NotEqual set on x86_64
-    </span><span class="kw">fn </span>jmp_on_different(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// jmp on above (src&gt;dst)
-    /// like Above set on x86_64
-    </span><span class="kw">fn </span>jmp_on_above(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// jmp on above (src&gt;=dst)
-    /// like Above or Equal set on x86_64
-    </span><span class="kw">fn </span>jmp_on_aboveequal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// jmp on above (src&lt;=dst)
-    /// like Below or Equal set on x86_64
-    </span><span class="kw">fn </span>jmp_on_belowequal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
-    <span class="doccomment">/// jmp on overflow
-    /// like Carry set on x86_64
-    </span><span class="kw">fn </span>jmp_on_overflow(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
+
+    <span class="doccomment">/// jmp to label if the provided condition is true (when comparing source and dest)
+    </span><span class="kw">fn </span>jmp_on_condition(
+        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+        cond: UnsignedCondition,
+        size: Size,
+        source: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+        dest: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+        label: Label,
+    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 
     <span class="doccomment">/// jmp using a jump table at lable with cond as the indice
     </span><span class="kw">fn </span>emit_jmp_to_jumptable(
