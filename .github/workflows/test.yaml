@@ -58,6 +58,7 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
       - name: Install libtinfo
         shell: bash
         run: |
@@ -88,6 +89,7 @@ jobs:
           ENABLE_CRANELIFT: "1"
           ENABLE_LLVM: "1"
           ENABLE_SINGLEPASS: "1"
+      - run: make lint-js
       - name: Assert no files have changed
         run: |
           git status
