@@ -25,6 +25,7 @@ pub struct Mmap {
     ptr: usize,
     total_size: usize,
     accessible_size: usize,
+    #[cfg_attr(target_os = "windows", allow(dead_code))]
     sync_on_drop: bool,
 }
 

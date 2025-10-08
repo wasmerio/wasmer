@@ -728,17 +728,6 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_memory32_atomic_notify as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() as usize] =
             wasmer_vm_imported_memory32_atomic_notify as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() as usize] =
-            wasmer_vm_throw as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_rethrow_index().index() as usize] =
-            wasmer_vm_rethrow as usize;
-
-        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() as usize] =
-            wasmer_vm_alloc_exception as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_delete_exception_index().index() as usize] =
-            wasmer_vm_delete_exception as usize;
-        ptrs[VMBuiltinFunctionIndex::get_imported_read_exception_index().index() as usize] =
-            wasmer_vm_read_exception as usize;
 
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() as usize] =
             wasmer_vm_dbg_usize as usize;
