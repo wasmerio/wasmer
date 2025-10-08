@@ -8827,84 +8827,7 @@
 <a href="#8826" id="8826">8826</a>
 <a href="#8827" id="8827">8827</a>
 <a href="#8828" id="8828">8828</a>
-<a href="#8829" id="8829">8829</a>
-<a href="#8830" id="8830">8830</a>
-<a href="#8831" id="8831">8831</a>
-<a href="#8832" id="8832">8832</a>
-<a href="#8833" id="8833">8833</a>
-<a href="#8834" id="8834">8834</a>
-<a href="#8835" id="8835">8835</a>
-<a href="#8836" id="8836">8836</a>
-<a href="#8837" id="8837">8837</a>
-<a href="#8838" id="8838">8838</a>
-<a href="#8839" id="8839">8839</a>
-<a href="#8840" id="8840">8840</a>
-<a href="#8841" id="8841">8841</a>
-<a href="#8842" id="8842">8842</a>
-<a href="#8843" id="8843">8843</a>
-<a href="#8844" id="8844">8844</a>
-<a href="#8845" id="8845">8845</a>
-<a href="#8846" id="8846">8846</a>
-<a href="#8847" id="8847">8847</a>
-<a href="#8848" id="8848">8848</a>
-<a href="#8849" id="8849">8849</a>
-<a href="#8850" id="8850">8850</a>
-<a href="#8851" id="8851">8851</a>
-<a href="#8852" id="8852">8852</a>
-<a href="#8853" id="8853">8853</a>
-<a href="#8854" id="8854">8854</a>
-<a href="#8855" id="8855">8855</a>
-<a href="#8856" id="8856">8856</a>
-<a href="#8857" id="8857">8857</a>
-<a href="#8858" id="8858">8858</a>
-<a href="#8859" id="8859">8859</a>
-<a href="#8860" id="8860">8860</a>
-<a href="#8861" id="8861">8861</a>
-<a href="#8862" id="8862">8862</a>
-<a href="#8863" id="8863">8863</a>
-<a href="#8864" id="8864">8864</a>
-<a href="#8865" id="8865">8865</a>
-<a href="#8866" id="8866">8866</a>
-<a href="#8867" id="8867">8867</a>
-<a href="#8868" id="8868">8868</a>
-<a href="#8869" id="8869">8869</a>
-<a href="#8870" id="8870">8870</a>
-<a href="#8871" id="8871">8871</a>
-<a href="#8872" id="8872">8872</a>
-<a href="#8873" id="8873">8873</a>
-<a href="#8874" id="8874">8874</a>
-<a href="#8875" id="8875">8875</a>
-<a href="#8876" id="8876">8876</a>
-<a href="#8877" id="8877">8877</a>
-<a href="#8878" id="8878">8878</a>
-<a href="#8879" id="8879">8879</a>
-<a href="#8880" id="8880">8880</a>
-<a href="#8881" id="8881">8881</a>
-<a href="#8882" id="8882">8882</a>
-<a href="#8883" id="8883">8883</a>
-<a href="#8884" id="8884">8884</a>
-<a href="#8885" id="8885">8885</a>
-<a href="#8886" id="8886">8886</a>
-<a href="#8887" id="8887">8887</a>
-<a href="#8888" id="8888">8888</a>
-<a href="#8889" id="8889">8889</a>
-<a href="#8890" id="8890">8890</a>
-<a href="#8891" id="8891">8891</a>
-<a href="#8892" id="8892">8892</a>
-<a href="#8893" id="8893">8893</a>
-<a href="#8894" id="8894">8894</a>
-<a href="#8895" id="8895">8895</a>
-<a href="#8896" id="8896">8896</a>
-<a href="#8897" id="8897">8897</a>
-<a href="#8898" id="8898">8898</a>
-<a href="#8899" id="8899">8899</a>
-<a href="#8900" id="8900">8900</a>
-<a href="#8901" id="8901">8901</a>
-<a href="#8902" id="8902">8902</a>
-<a href="#8903" id="8903">8903</a>
-<a href="#8904" id="8904">8904</a>
-<a href="#8905" id="8905">8905</a>
-<a href="#8906" id="8906">8906</a></pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+<a href="#8829" id="8829">8829</a></pre></div><pre class="rust"><code><span class="kw">use </span>dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::{write::CallFrameInstruction, AArch64};
 
@@ -8929,88 +8852,11 @@
     emitter_arm64::<span class="kw-2">*</span>,
     location::{Location <span class="kw">as </span>AbstractLocation, Reg},
     machine::<span class="kw-2">*</span>,
-    unwind::{UnwindInstructions, UnwindOps},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
 <span class="kw">type </span>Assembler = VecAssembler&lt;Aarch64Relocation&gt;;
 <span class="kw">type </span>Location = AbstractLocation&lt;GPR, NEON&gt;;
-
-<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-</span><span class="kw">fn </span>dwarf_index(reg: u16) -&gt; gimli::Register {
-    <span class="kw">static </span>DWARF_GPR: [gimli::Register; <span class="number">32</span>] = [
-        AArch64::X0,
-        AArch64::X1,
-        AArch64::X2,
-        AArch64::X3,
-        AArch64::X4,
-        AArch64::X5,
-        AArch64::X6,
-        AArch64::X7,
-        AArch64::X8,
-        AArch64::X9,
-        AArch64::X10,
-        AArch64::X11,
-        AArch64::X12,
-        AArch64::X13,
-        AArch64::X14,
-        AArch64::X15,
-        AArch64::X16,
-        AArch64::X17,
-        AArch64::X18,
-        AArch64::X19,
-        AArch64::X20,
-        AArch64::X21,
-        AArch64::X22,
-        AArch64::X23,
-        AArch64::X24,
-        AArch64::X25,
-        AArch64::X26,
-        AArch64::X27,
-        AArch64::X28,
-        AArch64::X29,
-        AArch64::X30,
-        AArch64::SP,
-    ];
-    <span class="kw">static </span>DWARF_NEON: [gimli::Register; <span class="number">32</span>] = [
-        AArch64::V0,
-        AArch64::V1,
-        AArch64::V2,
-        AArch64::V3,
-        AArch64::V4,
-        AArch64::V5,
-        AArch64::V6,
-        AArch64::V7,
-        AArch64::V8,
-        AArch64::V9,
-        AArch64::V10,
-        AArch64::V11,
-        AArch64::V12,
-        AArch64::V13,
-        AArch64::V14,
-        AArch64::V15,
-        AArch64::V16,
-        AArch64::V17,
-        AArch64::V18,
-        AArch64::V19,
-        AArch64::V20,
-        AArch64::V21,
-        AArch64::V22,
-        AArch64::V23,
-        AArch64::V24,
-        AArch64::V25,
-        AArch64::V26,
-        AArch64::V27,
-        AArch64::V28,
-        AArch64::V29,
-        AArch64::V30,
-        AArch64::V31,
-    ];
-    <span class="kw">match </span>reg {
-        <span class="number">0</span>..=<span class="number">31 </span>=&gt; DWARF_GPR[reg <span class="kw">as </span>usize],
-        <span class="number">64</span>..=<span class="number">95 </span>=&gt; DWARF_NEON[reg <span class="kw">as </span>usize - <span class="number">64</span>],
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {reg}"</span>),
-    }
-}
 
 <span class="kw">pub struct </span>MachineARM64 {
     assembler: Assembler,
@@ -9025,7 +8871,7 @@
     <span class="doccomment">/// is last push on a 8byte multiple or 16bytes?
     </span>pushed: bool,
     <span class="doccomment">/// Vector of unwind operations with offset
-    </span>unwind_ops: Vec&lt;(usize, UnwindOps)&gt;,
+    </span>unwind_ops: Vec&lt;(usize, UnwindOps&lt;GPR, NEON&gt;)&gt;,
     <span class="doccomment">/// A boolean flag signaling if this machine supports NEON.
     </span>has_neon: bool,
 }
@@ -10316,7 +10162,7 @@
         <span class="self">self</span>.used_simd &amp;= !(<span class="number">1 </span>&lt;&lt; r.into_index());
         ret
     }
-    <span class="kw">fn </span>emit_unwind_op(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: UnwindOps) {
+    <span class="kw">fn </span>emit_unwind_op(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: UnwindOps&lt;GPR, NEON&gt;) {
         <span class="self">self</span>.unwind_ops.push((<span class="self">self</span>.get_offset().<span class="number">0</span>, op));
     }
     <span class="kw">fn </span>emit_illegal_op_internal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, trap: TrapCode) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
@@ -10708,11 +10554,11 @@
         }
         <span class="kw">match </span>location {
             Location::GPR(x) =&gt; <span class="self">self</span>.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::&lt;GPR, NEON&gt;::GPR(x),
                 bp_neg_offset: stack_offset,
             }),
             Location::SIMD(x) =&gt; <span class="self">self</span>.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::FPR(x),
                 bp_neg_offset: stack_offset,
             }),
             <span class="kw">_ </span>=&gt; (),
@@ -11231,14 +11077,14 @@
     <span class="kw">fn </span>emit_function_prolog(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.emit_double_push(Size::S64, Location::GPR(GPR::X29), Location::GPR(GPR::X30))<span class="question-mark">?</span>; <span class="comment">// save LR too
         </span><span class="self">self</span>.emit_unwind_op(UnwindOps::Push2Regs {
-            reg1: GPR::X29.to_dwarf(),
-            reg2: GPR::X30.to_dwarf(),
+            reg1: UnwindRegister::GPR(GPR::X29),
+            reg2: UnwindRegister::GPR(GPR::X30),
             up_to_sp: <span class="number">16</span>,
         });
         <span class="self">self</span>.emit_double_push(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X28))<span class="question-mark">?</span>;
         <span class="self">self</span>.emit_unwind_op(UnwindOps::Push2Regs {
-            reg1: GPR::X27.to_dwarf(),
-            reg2: GPR::X28.to_dwarf(),
+            reg1: UnwindRegister::GPR(GPR::X27),
+            reg2: UnwindRegister::GPR(GPR::X28),
             up_to_sp: <span class="number">32</span>,
         });
         <span class="comment">// cannot use mov, because XSP is XZR there. Need to use ADD with #0
@@ -17451,11 +17297,11 @@
                     ));
                     instructions.push((
                         instruction_offset,
-                        CallFrameInstruction::Offset(dwarf_index(reg2), -(up_to_sp <span class="kw">as </span>i32) + <span class="number">8</span>),
+                        CallFrameInstruction::Offset(reg2.dwarf_index(), -(up_to_sp <span class="kw">as </span>i32) + <span class="number">8</span>),
                     ));
                     instructions.push((
                         instruction_offset,
-                        CallFrameInstruction::Offset(dwarf_index(reg1), -(up_to_sp <span class="kw">as </span>i32)),
+                        CallFrameInstruction::Offset(reg1.dwarf_index(), -(up_to_sp <span class="kw">as </span>i32)),
                     ));
                 }
                 UnwindOps::DefineNewFrame =&gt; {
@@ -17466,7 +17312,7 @@
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } =&gt; instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
             }
         }

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ImmType"],"fn":["dwarf_index"],"struct":["MachineARM64"],"type":["Assembler","Location"]};
+window.SIDEBAR_ITEMS = {"enum":["ImmType"],"struct":["MachineARM64"],"type":["Assembler","Location"]};

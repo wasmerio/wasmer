@@ -125,7 +125,9 @@
     <span class="kw">fn </span>into_index(<span class="self">self</span>) -&gt; usize;
     <span class="kw">fn </span>from_index(i: usize) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, ()&gt;;
     <span class="kw">fn </span>iterator() -&gt; Iter&lt;<span class="lifetime">'static</span>, <span class="self">Self</span>&gt;;
-    <span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; u16;
+
+    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+    </span><span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; gimli::Register;
 }
 
 <span class="attr">#[allow(unused)]
@@ -151,8 +153,6 @@
 </span><span class="kw">pub trait </span>CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
     <span class="doccomment">/// Returns the index of the register.
     </span><span class="kw">fn </span>to_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; RegisterIndex;
-    <span class="doccomment">/// Converts a DWARF regnum to CombinedRegister.
-    </span><span class="kw">fn </span>_from_dwarf_regnum(x: u16) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="self">Self</span>&gt;;
     <span class="doccomment">/// Convert from a GPR register
     </span><span class="kw">fn </span>from_gpr(x: u16) -&gt; <span class="self">Self</span>;
     <span class="doccomment">/// Convert from an SIMD register

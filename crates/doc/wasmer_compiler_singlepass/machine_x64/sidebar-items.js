@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["dwarf_index"],"struct":["AssemblerX64","MachineX86_64"],"type":["Assembler","Location"]};
+window.SIDEBAR_ITEMS = {"struct":["AssemblerX64","MachineX86_64"],"type":["Assembler","Location"]};

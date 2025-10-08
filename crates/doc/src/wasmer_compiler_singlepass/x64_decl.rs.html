@@ -358,9 +358,7 @@
 <a href="#357" id="357">357</a>
 <a href="#358" id="358">358</a>
 <a href="#359" id="359">359</a>
-<a href="#360" id="360">360</a>
-<a href="#361" id="361">361</a>
-<a href="#362" id="362">362</a></pre></div><pre class="rust"><code><span class="doccomment">//! X64 structures.
+<a href="#360" id="360">360</a></pre></div><pre class="rust"><code><span class="doccomment">//! X64 structures.
 
 </span><span class="attr">#![allow(clippy::upper_case_acronyms)]
 </span><span class="kw">use </span><span class="kw">crate</span>::common_decl::{MachineState, MachineValue, RegisterIndex};
@@ -468,24 +466,27 @@
         ];
         GPRS.iter()
     }
-    <span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; u16 {
+    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+    </span><span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; gimli::Register {
+        <span class="kw">use </span>gimli::X86_64;
+
         <span class="kw">match </span><span class="self">self </span>{
-            GPR::RAX =&gt; <span class="number">0</span>,
-            GPR::RDX =&gt; <span class="number">1</span>,
-            GPR::RCX =&gt; <span class="number">2</span>,
-            GPR::RBX =&gt; <span class="number">3</span>,
-            GPR::RSI =&gt; <span class="number">4</span>,
-            GPR::RDI =&gt; <span class="number">5</span>,
-            GPR::RBP =&gt; <span class="number">6</span>,
-            GPR::RSP =&gt; <span class="number">7</span>,
-            GPR::R8 =&gt; <span class="number">8</span>,
-            GPR::R9 =&gt; <span class="number">9</span>,
-            GPR::R10 =&gt; <span class="number">10</span>,
-            GPR::R11 =&gt; <span class="number">11</span>,
-            GPR::R12 =&gt; <span class="number">12</span>,
-            GPR::R13 =&gt; <span class="number">13</span>,
-            GPR::R14 =&gt; <span class="number">14</span>,
-            GPR::R15 =&gt; <span class="number">15</span>,
+            GPR::RAX =&gt; X86_64::RAX,
+            GPR::RCX =&gt; X86_64::RCX,
+            GPR::RDX =&gt; X86_64::RDX,
+            GPR::RBX =&gt; X86_64::RBX,
+            GPR::RSP =&gt; X86_64::RSP,
+            GPR::RBP =&gt; X86_64::RBP,
+            GPR::RSI =&gt; X86_64::RSI,
+            GPR::RDI =&gt; X86_64::RDI,
+            GPR::R8 =&gt; X86_64::R8,
+            GPR::R9 =&gt; X86_64::R9,
+            GPR::R10 =&gt; X86_64::R10,
+            GPR::R11 =&gt; X86_64::R11,
+            GPR::R12 =&gt; X86_64::R12,
+            GPR::R13 =&gt; X86_64::R13,
+            GPR::R14 =&gt; X86_64::R14,
+            GPR::R15 =&gt; X86_64::R15,
         }
     }
 }
@@ -531,9 +532,29 @@
         ];
         XMMS.iter()
     }
-    <span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; u16 {
-        <span class="self">self</span>.into_index() <span class="kw">as </span>u16 + <span class="number">17
-    </span>}
+    <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+    </span><span class="kw">fn </span>to_dwarf(<span class="self">self</span>) -&gt; gimli::Register {
+        <span class="kw">use </span>gimli::X86_64;
+
+        <span class="kw">match </span><span class="self">self </span>{
+            XMM::XMM0 =&gt; X86_64::XMM0,
+            XMM::XMM1 =&gt; X86_64::XMM1,
+            XMM::XMM2 =&gt; X86_64::XMM2,
+            XMM::XMM3 =&gt; X86_64::XMM3,
+            XMM::XMM4 =&gt; X86_64::XMM4,
+            XMM::XMM5 =&gt; X86_64::XMM5,
+            XMM::XMM6 =&gt; X86_64::XMM6,
+            XMM::XMM7 =&gt; X86_64::XMM7,
+            XMM::XMM8 =&gt; X86_64::XMM8,
+            XMM::XMM9 =&gt; X86_64::XMM9,
+            XMM::XMM10 =&gt; X86_64::XMM10,
+            XMM::XMM11 =&gt; X86_64::XMM11,
+            XMM::XMM12 =&gt; X86_64::XMM12,
+            XMM::XMM13 =&gt; X86_64::XMM13,
+            XMM::XMM14 =&gt; X86_64::XMM14,
+            XMM::XMM15 =&gt; X86_64::XMM15,
+        }
+    }
 }
 
 <span class="doccomment">/// A machine register under the x86-64 architecture.
@@ -561,6 +582,7 @@
     </span><span class="kw">fn </span>from_simd(x: u16) -&gt; <span class="self">Self </span>{
         X64Register::XMM(XMM::from_index(x <span class="kw">as </span>usize).unwrap())
     }
+
     <span class="comment">/* x86_64-abi-0.99.pdf
      * Register Name                    | Number | Abbreviation
      * General Purpose Register RAX     | 0      | %rax
@@ -594,33 +616,7 @@
      * x87 Control Word                 | 65     | %fcw
      * x87 Status Word                  | 66     | %fsw
      */
-    </span><span class="doccomment">/// Converts a DWARF regnum to X64Register.
-    </span><span class="kw">fn </span>_from_dwarf_regnum(x: u16) -&gt; <span class="prelude-ty">Option</span>&lt;X64Register&gt; {
-        <span class="kw">static </span>DWARF_REGS: [GPR; <span class="number">16</span>] = [
-            GPR::RAX,
-            GPR::RDX,
-            GPR::RCX,
-            GPR::RBX,
-            GPR::RSI,
-            GPR::RDI,
-            GPR::RBP,
-            GPR::RSP,
-            GPR::R8,
-            GPR::R9,
-            GPR::R10,
-            GPR::R11,
-            GPR::R12,
-            GPR::R13,
-            GPR::R14,
-            GPR::R15,
-        ];
-        <span class="prelude-val">Some</span>(<span class="kw">match </span>x {
-            <span class="number">0</span>..=<span class="number">15 </span>=&gt; X64Register::GPR(DWARF_REGS[x <span class="kw">as </span>usize]),
-            <span class="number">17</span>..=<span class="number">24 </span>=&gt; X64Register::XMM(XMM::from_index(x <span class="kw">as </span>usize - <span class="number">17</span>).unwrap()),
-            <span class="kw">_ </span>=&gt; <span class="kw">return </span><span class="prelude-val">None</span>,
-        })
-    }
-}
+</span>}
 
 <span class="doccomment">/// An allocator that allocates registers for function arguments according to the System V ABI.
 </span><span class="attr">#[derive(Default)]

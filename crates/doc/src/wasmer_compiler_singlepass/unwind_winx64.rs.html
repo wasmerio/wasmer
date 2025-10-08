@@ -299,11 +299,13 @@
 <a href="#298" id="298">298</a>
 <a href="#299" id="299">299</a>
 <a href="#300" id="300">300</a>
-<a href="#301" id="301">301</a>
-<a href="#302" id="302">302</a>
-<a href="#303" id="303">303</a></pre></div><pre class="rust"><code><span class="doccomment">//! Windows x64 ABI unwind information.
+<a href="#301" id="301">301</a></pre></div><pre class="rust"><code><span class="doccomment">//! Windows x64 ABI unwind information.
 
-</span><span class="kw">use </span><span class="kw">crate</span>::unwind::UnwindOps;
+</span><span class="kw">use crate</span>::{
+    location::Reg,
+    unwind::{UnwindOps, UnwindRegister},
+    x64_decl::{GPR, XMM},
+};
 
 <span class="doccomment">/// Maximum (inclusive) size of a "small" stack allocation
 </span><span class="kw">const </span>SMALL_ALLOC_MAX_SIZE: u32 = <span class="number">128</span>;
@@ -543,7 +545,9 @@
 
 <span class="kw">const </span>UNWIND_RBP_REG: u8 = <span class="number">5</span>;
 
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_unwind_info_from_insts(insts: <span class="kw-2">&amp;</span>[(usize, UnwindOps)]) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInfo&gt; {
+<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>create_unwind_info_from_insts(
+    insts: <span class="kw-2">&amp;</span>[(usize, UnwindOps&lt;GPR, XMM&gt;)],
+) -&gt; <span class="prelude-ty">Option</span>&lt;UnwindInfo&gt; {
     <span class="kw">let </span><span class="kw-2">mut </span>unwind_codes = <span class="macro">vec!</span>[];
     <span class="kw">let </span><span class="kw-2">mut </span>frame_register_offset = <span class="number">0</span>;
     <span class="kw">let </span><span class="kw-2">mut </span>max_unwind_offset = <span class="number">0</span>;
@@ -561,26 +565,18 @@
                 unwind_codes.push(UnwindCode::SetFPReg { instruction_offset });
             }
             UnwindOps::SaveRegister { reg, bp_neg_offset } =&gt; <span class="kw">match </span>reg {
-                <span class="number">0</span>..=<span class="number">15 </span>=&gt; {
-                    <span class="comment">// GPR reg
-                    </span><span class="kw">static </span>FROM_DWARF: [u8; <span class="number">16</span>] =
-                        [<span class="number">0</span>, <span class="number">2</span>, <span class="number">1</span>, <span class="number">3</span>, <span class="number">6</span>, <span class="number">7</span>, <span class="number">5</span>, <span class="number">4</span>, <span class="number">8</span>, <span class="number">9</span>, <span class="number">10</span>, <span class="number">11</span>, <span class="number">12</span>, <span class="number">13</span>, <span class="number">14</span>, <span class="number">15</span>];
-                    unwind_codes.push(UnwindCode::SaveReg {
-                        instruction_offset,
-                        reg: FROM_DWARF[reg <span class="kw">as </span>usize],
-                        stack_offset: bp_neg_offset <span class="kw">as </span>u32,
-                    });
-                }
-                <span class="number">17</span>..=<span class="number">32 </span>=&gt; {
-                    unwind_codes.push(UnwindCode::SaveXmm {
-                        instruction_offset,
-                        reg: reg <span class="kw">as </span>u8 - <span class="number">17</span>,
-                        stack_offset: bp_neg_offset <span class="kw">as </span>u32,
-                    });
-                }
-                <span class="kw">_ </span>=&gt; {
-                    <span class="macro">unreachable!</span>(<span class="string">"unknown register index {}"</span>, reg);
-                }
+                UnwindRegister::GPR(reg) =&gt; unwind_codes.push(UnwindCode::SaveReg {
+                    instruction_offset,
+                    <span class="comment">// NOTE: We declare the register order in the same way as expected by the x64 exception handling ABI.
+                    </span>reg: reg.into_index() <span class="kw">as </span>u8,
+                    stack_offset: bp_neg_offset <span class="kw">as </span>u32,
+                }),
+                UnwindRegister::FPR(reg) =&gt; unwind_codes.push(UnwindCode::SaveXmm {
+                    instruction_offset,
+                    <span class="comment">// NOTE: We declare the register order in the same way as expected by the x64 exception handling ABI.
+                    </span>reg: reg.into_index() <span class="kw">as </span>u8,
+                    stack_offset: bp_neg_offset <span class="kw">as </span>u32,
+                }),
             },
             UnwindOps::Push2Regs { .. } =&gt; {
                 <span class="macro">unreachable!</span>(<span class="string">"no aarch64 on x64"</span>);

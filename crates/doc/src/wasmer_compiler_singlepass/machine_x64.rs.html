@@ -8671,52 +8671,7 @@
 <a href="#8670" id="8670">8670</a>
 <a href="#8671" id="8671">8671</a>
 <a href="#8672" id="8672">8672</a>
-<a href="#8673" id="8673">8673</a>
-<a href="#8674" id="8674">8674</a>
-<a href="#8675" id="8675">8675</a>
-<a href="#8676" id="8676">8676</a>
-<a href="#8677" id="8677">8677</a>
-<a href="#8678" id="8678">8678</a>
-<a href="#8679" id="8679">8679</a>
-<a href="#8680" id="8680">8680</a>
-<a href="#8681" id="8681">8681</a>
-<a href="#8682" id="8682">8682</a>
-<a href="#8683" id="8683">8683</a>
-<a href="#8684" id="8684">8684</a>
-<a href="#8685" id="8685">8685</a>
-<a href="#8686" id="8686">8686</a>
-<a href="#8687" id="8687">8687</a>
-<a href="#8688" id="8688">8688</a>
-<a href="#8689" id="8689">8689</a>
-<a href="#8690" id="8690">8690</a>
-<a href="#8691" id="8691">8691</a>
-<a href="#8692" id="8692">8692</a>
-<a href="#8693" id="8693">8693</a>
-<a href="#8694" id="8694">8694</a>
-<a href="#8695" id="8695">8695</a>
-<a href="#8696" id="8696">8696</a>
-<a href="#8697" id="8697">8697</a>
-<a href="#8698" id="8698">8698</a>
-<a href="#8699" id="8699">8699</a>
-<a href="#8700" id="8700">8700</a>
-<a href="#8701" id="8701">8701</a>
-<a href="#8702" id="8702">8702</a>
-<a href="#8703" id="8703">8703</a>
-<a href="#8704" id="8704">8704</a>
-<a href="#8705" id="8705">8705</a>
-<a href="#8706" id="8706">8706</a>
-<a href="#8707" id="8707">8707</a>
-<a href="#8708" id="8708">8708</a>
-<a href="#8709" id="8709">8709</a>
-<a href="#8710" id="8710">8710</a>
-<a href="#8711" id="8711">8711</a>
-<a href="#8712" id="8712">8712</a>
-<a href="#8713" id="8713">8713</a>
-<a href="#8714" id="8714">8714</a>
-<a href="#8715" id="8715">8715</a>
-<a href="#8716" id="8716">8716</a>
-<a href="#8717" id="8717">8717</a>
-<a href="#8718" id="8718">8718</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href="#8673" id="8673">8673</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span><span class="kw">crate</span>::unwind_winx64::create_unwind_info_from_insts;
 <span class="kw">use crate</span>::{
     codegen_error,
@@ -8724,7 +8679,7 @@
     emitter_x64::<span class="kw-2">*</span>,
     location::{Location <span class="kw">as </span>AbstractLocation, Reg},
     machine::<span class="kw-2">*</span>,
-    unwind::{UnwindInstructions, UnwindOps},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
     x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
 };
 <span class="kw">use </span>dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
@@ -8803,51 +8758,6 @@
 
 <span class="kw">type </span>Location = AbstractLocation&lt;GPR, XMM&gt;;
 
-<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
-</span><span class="kw">fn </span>dwarf_index(reg: u16) -&gt; gimli::Register {
-    <span class="kw">static </span>DWARF_GPR: [gimli::Register; <span class="number">16</span>] = [
-        X86_64::RAX,
-        X86_64::RDX,
-        X86_64::RCX,
-        X86_64::RBX,
-        X86_64::RSI,
-        X86_64::RDI,
-        X86_64::RBP,
-        X86_64::RSP,
-        X86_64::R8,
-        X86_64::R9,
-        X86_64::R10,
-        X86_64::R11,
-        X86_64::R12,
-        X86_64::R13,
-        X86_64::R14,
-        X86_64::R15,
-    ];
-    <span class="kw">static </span>DWARF_XMM: [gimli::Register; <span class="number">16</span>] = [
-        X86_64::XMM0,
-        X86_64::XMM1,
-        X86_64::XMM2,
-        X86_64::XMM3,
-        X86_64::XMM4,
-        X86_64::XMM5,
-        X86_64::XMM6,
-        X86_64::XMM7,
-        X86_64::XMM8,
-        X86_64::XMM9,
-        X86_64::XMM10,
-        X86_64::XMM11,
-        X86_64::XMM12,
-        X86_64::XMM13,
-        X86_64::XMM14,
-        X86_64::XMM15,
-    ];
-    <span class="kw">match </span>reg {
-        <span class="number">0</span>..=<span class="number">15 </span>=&gt; DWARF_GPR[reg <span class="kw">as </span>usize],
-        <span class="number">17</span>..=<span class="number">24 </span>=&gt; DWARF_XMM[reg <span class="kw">as </span>usize - <span class="number">17</span>],
-        <span class="kw">_ </span>=&gt; <span class="macro">panic!</span>(<span class="string">"Unknown register index {reg}"</span>),
-    }
-}
-
 <span class="kw">pub struct </span>MachineX86_64 {
     assembler: AssemblerX64,
     used_gprs: u32,
@@ -8860,7 +8770,7 @@
     <span class="doccomment">/// The source location for the current operator.
     </span>src_loc: u32,
     <span class="doccomment">/// Vector of unwind operations with offset
-    </span>unwind_ops: Vec&lt;(usize, UnwindOps)&gt;,
+    </span>unwind_ops: Vec&lt;(usize, UnwindOps&lt;GPR, XMM&gt;)&gt;,
 }
 
 <span class="kw">impl </span>MachineX86_64 {
@@ -10641,7 +10551,7 @@
         <span class="self">self</span>.used_simd &amp;= !(<span class="number">1 </span>&lt;&lt; r.into_index());
         ret
     }
-    <span class="kw">fn </span>emit_unwind_op(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: UnwindOps) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
+    <span class="kw">fn </span>emit_unwind_op(<span class="kw-2">&amp;mut </span><span class="self">self</span>, op: UnwindOps&lt;GPR, XMM&gt;) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="self">self</span>.unwind_ops.push((<span class="self">self</span>.get_offset().<span class="number">0</span>, op));
         <span class="prelude-val">Ok</span>(())
     }
@@ -10964,11 +10874,11 @@
         )<span class="question-mark">?</span>;
         <span class="kw">match </span>location {
             Location::GPR(x) =&gt; <span class="self">self</span>.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::GPR(x),
                 bp_neg_offset: stack_offset,
             }),
             Location::SIMD(x) =&gt; <span class="self">self</span>.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::FPR(x),
                 bp_neg_offset: stack_offset,
             }),
             <span class="kw">_ </span>=&gt; <span class="prelude-val">Ok</span>(()),
@@ -16984,7 +16894,7 @@
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } =&gt; instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
                 UnwindOps::Push2Regs { .. } =&gt; <span class="macro">unimplemented!</span>(),
             }

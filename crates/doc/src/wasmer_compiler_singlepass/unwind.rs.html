@@ -79,7 +79,35 @@
 <a href="#78" id="78">78</a>
 <a href="#79" id="79">79</a>
 <a href="#80" id="80">80</a>
-<a href="#81" id="81">81</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+<a href="#81" id="81">81</a>
+<a href="#82" id="82">82</a>
+<a href="#83" id="83">83</a>
+<a href="#84" id="84">84</a>
+<a href="#85" id="85">85</a>
+<a href="#86" id="86">86</a>
+<a href="#87" id="87">87</a>
+<a href="#88" id="88">88</a>
+<a href="#89" id="89">89</a>
+<a href="#90" id="90">90</a>
+<a href="#91" id="91">91</a>
+<a href="#92" id="92">92</a>
+<a href="#93" id="93">93</a>
+<a href="#94" id="94">94</a>
+<a href="#95" id="95">95</a>
+<a href="#96" id="96">96</a>
+<a href="#97" id="97">97</a>
+<a href="#98" id="98">98</a>
+<a href="#99" id="99">99</a>
+<a href="#100" id="100">100</a>
+<a href="#101" id="101">101</a>
+<a href="#102" id="102">102</a>
+<a href="#103" id="103">103</a>
+<a href="#104" id="104">104</a>
+<a href="#105" id="105">105</a>
+<a href="#106" id="106">106</a>
+<a href="#107" id="107">107</a>
+<a href="#108" id="108">108</a>
+<a href="#109" id="109">109</a></pre></div><pre class="rust"><code><span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::write::{Address, CallFrameInstruction, CommonInformationEntry, FrameDescriptionEntry};
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>gimli::{AArch64, Encoding, Format, X86_64};
@@ -87,12 +115,40 @@
 <span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
 </span><span class="kw">use </span>wasmer_types::target::Architecture;
 
+<span class="kw">use </span><span class="kw">crate</span>::location;
+
+<span class="attr">#[derive(Clone, Debug, Copy)]
+#[allow(clippy::upper_case_acronyms)]
+</span><span class="kw">pub enum </span>UnwindRegister&lt;R: location::Reg, S: location::Reg&gt; {
+    GPR(R),
+    FPR(S),
+}
+
+<span class="attr">#[cfg(feature = <span class="string">"unwind"</span>)]
+</span><span class="kw">impl</span>&lt;R: location::Reg, S: location::Reg&gt; UnwindRegister&lt;R, S&gt; {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>dwarf_index(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; gimli::Register {
+        <span class="kw">match </span><span class="self">self </span>{
+            <span class="self">Self</span>::GPR(reg) =&gt; reg.to_dwarf(),
+            <span class="self">Self</span>::FPR(reg) =&gt; reg.to_dwarf(),
+        }
+    }
+}
+
 <span class="attr">#[derive(Clone, Debug)]
-</span><span class="kw">pub enum </span>UnwindOps {
-    PushFP { up_to_sp: u32 },
-    Push2Regs { reg1: u16, reg2: u16, up_to_sp: u32 },
+</span><span class="kw">pub enum </span>UnwindOps&lt;R: location::Reg, S: location::Reg&gt; {
+    PushFP {
+        up_to_sp: u32,
+    },
+    Push2Regs {
+        reg1: UnwindRegister&lt;R, S&gt;,
+        reg2: UnwindRegister&lt;R, S&gt;,
+        up_to_sp: u32,
+    },
     DefineNewFrame,
-    SaveRegister { reg: u16, bp_neg_offset: i32 },
+    SaveRegister {
+        reg: UnwindRegister&lt;R, S&gt;,
+        bp_neg_offset: i32,
+    },
 }
 
 <span class="attr">#[cfg(not(feature = <span class="string">"unwind"</span>))]
