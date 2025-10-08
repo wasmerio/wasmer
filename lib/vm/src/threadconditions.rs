@@ -1,8 +1,8 @@
 use dashmap::DashMap;
 use fnv::FnvBuildHasher;
-use std::sync::atomic::AtomicBool;
 use std::sync::Arc;
-use std::thread::{current, park, park_timeout, Thread};
+use std::sync::atomic::AtomicBool;
+use std::thread::{Thread, current, park, park_timeout};
 use std::time::Duration;
 use thiserror::Error;
 

@@ -10,9 +10,9 @@
 //! ```
 use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
 use cranelift_codegen::{
+    Context,
     ir::{self, InstBuilder},
     isa::TargetIsa,
-    Context,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;

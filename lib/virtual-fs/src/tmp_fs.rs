@@ -8,8 +8,8 @@ use std::{
 };
 
 use crate::{
-    limiter::DynFsMemoryLimiter, mem_fs, BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir,
-    Result,
+    BoxFuture, FileSystem, Metadata, OpenOptions, ReadDir, Result, limiter::DynFsMemoryLimiter,
+    mem_fs,
 };
 
 #[derive(Debug, Default, Clone)]
@@ -93,7 +93,7 @@ impl FileSystem for TmpFileSystem {
         self.fs.remove_file(path)
     }
 
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         self.fs.new_open_options()
     }
 

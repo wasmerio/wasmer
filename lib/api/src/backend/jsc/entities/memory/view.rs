@@ -28,12 +28,12 @@ impl<'a> MemoryView<'a> {
         let context = engine.as_jsc().context();
 
         let buffer = memory
-            .get_property(&context, "buffer".to_string())
-            .to_object(&context)
+            .get_property(context, "buffer".to_string())
+            .to_object(context)
             .unwrap();
-        let typed_buffer = JSObject::create_typed_array_from_buffer(&context, buffer).unwrap();
+        let typed_buffer = JSObject::create_typed_array_from_buffer(context, buffer).unwrap();
 
-        let mut buffer_data = typed_buffer.get_typed_array_buffer(&context).unwrap();
+        let mut buffer_data = typed_buffer.get_typed_array_buffer(context).unwrap();
         // println!("BUFFER DATA {}", buffer_data.to_string(&context));
 
         // let definition = memory.handle.get(store.as_store_ref().objects()).vmmemory();
@@ -71,7 +71,7 @@ impl<'a> MemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        self.data_unchecked_mut()
+        unsafe { std::slice::from_raw_parts(self.buffer.base, self.buffer.len) }
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -86,7 +86,7 @@ impl<'a> MemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        std::slice::from_raw_parts_mut(self.buffer.base, self.buffer.len)
+        unsafe { std::slice::from_raw_parts_mut(self.buffer.base, self.buffer.len) }
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.

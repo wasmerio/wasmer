@@ -2,7 +2,7 @@
   description = "Wasmer Webassembly runtime";
 
   inputs = {
-    nixpkgs.url = "github:NixOS/nixpkgs/nixos-24.05";
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-25.05";
     flakeutils.url = "github:numtide/flake-utils";
   };
 
@@ -37,8 +37,13 @@
             # LLVM and related dependencies
             llvmPackages_18.libllvm
             llvmPackages_18.llvm
+            llvmPackages_18.llvm.dev
+            llvmPackages_18.libclang.dev
             libxml2
             libffi
+            cmake
+            ninja
+            webkitgtk_4_0
 
             # Rust tooling
 
@@ -67,12 +72,24 @@
             wasm-tools
           ];
 
-          env.LLVM_SYS_180_PREFIX = pkgs.llvmPackages_18.llvm.dev;
-
-          # shellHook = ''
-          #   LD_LIBRARY_PATH = "${ env.LD_LIBRARY_PATH = pkgs.lib.makeLibraryPath [ pkgs.stdenv.cc.cc pkgs.openssl.out ] }:$LD_LIBRARY_PATH"
-          # '';
-
+          shellHook = ''
+            export LLVM_SYS_180_PREFIX="${pkgs.llvmPackages_18.llvm.dev}"
+            export LIBCLANG_PATH="${pkgs.llvmPackages_18.libclang.lib}/lib"
+            export PKG_CONFIG_PATH="${pkgs.webkitgtk_4_0.dev}/lib/pkgconfig:$PKG_CONFIG_PATH"
+            export LIBRARY_PATH="${pkgs.llvmPackages_18.compiler-rt-libc}/lib/linux:$LIBRARY_PATH"
+            export LD_LIBRARY_PATH="${pkgs.llvmPackages_18.compiler-rt-libc}/lib/linux:$LD_LIBRARY_PATH"
+            export BINDGEN_EXTRA_CLANG_ARGS="$(
+                  < ${pkgs.llvmPackages_18.stdenv.cc}/nix-support/libc-crt1-cflags
+                ) $(
+                  < ${pkgs.llvmPackages_18.stdenv.cc}/nix-support/libc-cflags
+                ) $(
+                  < ${pkgs.llvmPackages_18.stdenv.cc}/nix-support/cc-cflags
+                ) $(
+                  < ${pkgs.llvmPackages_18.stdenv.cc}/nix-support/libcxx-cxxflags
+                ) \
+                -isystem ${pkgs.glibc.dev}/include \
+                -idirafter ${pkgs.llvmPackages_18.clang}/lib/clang/${pkgs.lib.getVersion pkgs.llvmPackages_18.clang}/include"
+            '';
         };
       }
     );

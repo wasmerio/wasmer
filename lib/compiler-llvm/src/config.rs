@@ -1,17 +1,17 @@
 use crate::compiler::LLVMCompiler;
+pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
     TargetTriple,
 };
-pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
 use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{
-    target::{Architecture, OperatingSystem, Target, Triple},
     Features, FunctionType, LocalFunctionIndex,
+    target::{Architecture, OperatingSystem, Target, Triple},
 };
 
 /// The InkWell ModuleInfo type

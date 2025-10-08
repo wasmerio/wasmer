@@ -1,15 +1,15 @@
 use crate::meta::{FrameSerializationFormat, ResponseType};
 use crate::rx_tx::{RemoteRx, RemoteTx, RemoteTxWakers};
-use crate::{
-    meta::{MessageRequest, MessageResponse, RequestType, SocketId},
-    VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
-};
 use crate::{IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket};
+use crate::{
+    VirtualNetworking, VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    meta::{MessageRequest, MessageResponse, RequestType, SocketId},
+};
 use futures_util::stream::FuturesOrdered;
 #[cfg(any(feature = "hyper", feature = "tokio-tungstenite"))]
 use futures_util::stream::{SplitSink, SplitStream};
-use futures_util::{future::BoxFuture, StreamExt};
 use futures_util::{Sink, Stream};
+use futures_util::{StreamExt, future::BoxFuture};
 use std::collections::HashSet;
 use std::mem::MaybeUninit;
 use std::net::IpAddr;
@@ -30,6 +30,7 @@ use tokio::{
     io::{AsyncRead, AsyncWrite},
     sync::mpsc,
 };
+use tokio_serde::SymmetricallyFramed;
 use tokio_serde::formats::SymmetricalBincode;
 #[cfg(feature = "cbor")]
 use tokio_serde::formats::SymmetricalCbor;
@@ -37,7 +38,6 @@ use tokio_serde::formats::SymmetricalCbor;
 use tokio_serde::formats::SymmetricalJson;
 #[cfg(feature = "messagepack")]
 use tokio_serde::formats::SymmetricalMessagePack;
-use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::{FramedRead, FramedWrite, LengthDelimitedCodec};
 use virtual_mio::InterestHandler;
 
@@ -369,10 +369,13 @@ impl Future for RemoteNetworkingServerDriver {
                     not_stalled_guard.take();
                 }
                 Poll::Pending if not_stalled_guard.is_none() => {
-                    if let Ok(guard) = self.common.stall_rx.clone().try_lock_owned() {
-                        not_stalled_guard.replace(guard);
-                    } else {
-                        return Poll::Pending;
+                    match self.common.stall_rx.clone().try_lock_owned() {
+                        Ok(guard) => {
+                            not_stalled_guard.replace(guard);
+                        }
+                        _ => {
+                            return Poll::Pending;
+                        }
                     }
                 }
                 Poll::Pending => {}
@@ -572,7 +575,7 @@ impl RemoteNetworkingServerDriver {
                             req_id,
                             res: ResponseType::Err(NetworkError::InvalidFd),
                         })
-                    })
+                    });
                 }
             };
             work(socket)
@@ -1546,7 +1549,7 @@ impl RemoteAdapterSocket {
                 // Processes all the background tasks until completion
                 let mut stream = ret;
                 loop {
-                    let (next, s) = stream.into_future().await;
+                    let (next, s) = StreamExt::into_future(stream).await;
                     if next.is_none() {
                         break;
                     }

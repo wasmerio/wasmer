@@ -2,11 +2,11 @@ use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     str::FromStr,
-    sync::{mpsc::Sender, Arc},
+    sync::{Arc, mpsc::Sender},
     time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use bytes::Bytes;
 use clap::Parser;
 use tokio::runtime::Handle;
@@ -19,12 +19,14 @@ use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
+    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiVersion,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
     journal::{CompactingLogFileJournal, DynJournal, DynReadableJournal},
-    os::{tty_sys::SysTty, TtyBridge},
+    os::{TtyBridge, tty_sys::SysTty},
     rewind_ext,
     runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runners::{MappedCommand, MappedDirectory},
@@ -35,14 +37,12 @@ use wasmer_wasix::{
             BackendSource, FileSystemSource, InMemorySource, MultiSource, Source, WebSource,
         },
         task_manager::{
-            tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
+            tokio::{RuntimeOrHandle, TokioTaskManager},
         },
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
-    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiVersion,
 };
 
 use crate::{
@@ -51,8 +51,8 @@ use crate::{
 };
 
 use super::{
-    capabilities::{self, PkgCapabilityCache},
     ExecutableTarget, PackageSource,
+    capabilities::{self, PkgCapabilityCache},
 };
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -314,7 +314,9 @@ impl Wasi {
             for dir in &self.pre_opened_directories {
                 let mapping = if dir == Path::new(".") {
                     if have_current_dir {
-                        bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
+                        bail!(
+                            "Cannot pre-open the current directory twice: --dir=. must only be specified once"
+                        );
                     }
                     have_current_dir = true;
 
@@ -370,7 +372,9 @@ impl Wasi {
 
                 let mapping = if guest == "." {
                     if have_current_dir {
-                        bail!("Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once");
+                        bail!(
+                            "Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
+                        );
                     }
                     have_current_dir = true;
 
@@ -489,7 +493,9 @@ impl Wasi {
         for dir in &self.pre_opened_directories {
             let mapping = if dir == Path::new(".") {
                 if have_current_dir {
-                    bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
+                    bail!(
+                        "Cannot pre-open the current directory twice: --dir=. must only be specified once"
+                    );
                 }
                 have_current_dir = true;
 
@@ -545,7 +551,9 @@ impl Wasi {
 
             let mapping = if guest == "." {
                 if have_current_dir {
-                    bail!("Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once");
+                    bail!(
+                        "Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
+                    );
                 }
                 have_current_dir = true;
 
@@ -617,7 +625,7 @@ impl Wasi {
         pkg_cache_path: &Path,
         rt_or_handle: I,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Runtime + Send + Sync>
+    ) -> Result<impl Runtime + Send + Sync + use<I>>
     where
         I: Into<RuntimeOrHandle>,
     {
@@ -726,7 +734,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl PackageLoader> {
+    ) -> Result<BuiltinPackageLoader> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
@@ -743,7 +751,7 @@ impl Wasi {
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Source + Send> {
+    ) -> Result<MultiSource> {
         let mut source = MultiSource::default();
 
         // Note: This should be first so our "preloaded" sources get a chance to

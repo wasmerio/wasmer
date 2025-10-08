@@ -7,15 +7,16 @@ use crate::{
     common_decl::*,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, MachineStackOffset, UnsignedCondition, NATIVE_PAGE_SIZE},
+    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE, UnsignedCondition},
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::{cmp, iter};
 
 use wasmer_compiler::{
+    FunctionBodyData,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -25,7 +26,6 @@ use wasmer_compiler::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
         ValType as WpType,
     },
-    FunctionBodyData,
 };
 
 #[cfg(feature = "unwind")]
@@ -33,10 +33,10 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap},
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
     VMBuiltinFunctionIndex, VMOffsets,
+    entity::{EntityRef, PrimaryMap},
 };
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
@@ -909,7 +909,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 _ => {
                     return Err(CompileError::Codegen(
                         "emit_call_native loc: unreachable code".to_owned(),
-                    ))
+                    ));
                 }
             }
         }
@@ -2974,7 +2974,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         _ => {
                             return Err(CompileError::Codegen(
                                 "If: multi-value returns not yet implemented".to_owned(),
-                            ))
+                            ));
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -3026,7 +3026,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     _ => {
                         return Err(CompileError::Codegen(
                             "Else: frame.if_else unreachable code".to_owned(),
-                        ))
+                        ));
                     }
                 }
             }
@@ -3105,7 +3105,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         _ => {
                             return Err(CompileError::Codegen(
                                 "Block: multi-value returns not yet implemented".to_owned(),
-                            ))
+                            ));
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -3131,7 +3131,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         _ => {
                             return Err(CompileError::Codegen(
                                 "Loop: multi-value returns not yet implemented".to_owned(),
-                            ))
+                            ));
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -6681,7 +6681,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let body_len = self.machine.assembler_get_offset().0;
 
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = None;
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut fde = None;
         #[cfg(feature = "unwind")]
         match self.calling_convention {

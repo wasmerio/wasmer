@@ -3,8 +3,8 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
 use wasmer_types::{
-    target::{Target, UserCompilerOptimizations},
     CompileError, DeserializeError, Features,
+    target::{Target, UserCompilerOptimizations},
 };
 
 #[cfg(feature = "sys")]
@@ -186,7 +186,7 @@ impl Engine {
         &self,
         bytes: impl IntoBytes,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        self.be.deserialize_unchecked(bytes)
+        unsafe { self.be.deserialize_unchecked(bytes) }
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -198,7 +198,7 @@ impl Engine {
     /// Currently, only the `sys` engines support it, and only when the target
     /// architecture is not `wasm32`.
     unsafe fn deserialize(&self, bytes: impl IntoBytes) -> Result<Arc<Artifact>, DeserializeError> {
-        self.be.deserialize(bytes)
+        unsafe { self.be.deserialize(bytes) }
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -218,7 +218,7 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        self.be.deserialize_from_file_unchecked(file_ref)
+        unsafe { self.be.deserialize_from_file_unchecked(file_ref) }
     }
 
     #[cfg(all(feature = "sys", not(target_arch = "wasm32")))]
@@ -235,7 +235,7 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        self.be.deserialize_from_file_unchecked(file_ref)
+        unsafe { self.be.deserialize_from_file_unchecked(file_ref) }
     }
 
     /// Add suggested optimizations to this engine.

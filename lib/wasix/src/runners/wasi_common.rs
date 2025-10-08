@@ -11,10 +11,10 @@ use virtual_fs::{FileSystem, FsError, OverlayFileSystem, RootFileSystemBuilder, 
 use webc::metadata::annotations::Wasi as WasiAnnotation;
 
 use crate::{
+    WasiEnvBuilder,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
-    WasiEnvBuilder,
 };
 
 pub const MAPPED_CURRENT_DIR_DEFAULT_PATH: &str = "/home";
@@ -364,7 +364,7 @@ impl<F: FileSystem> virtual_fs::FileSystem for RelativeOrAbsolutePathHack<F> {
         self.execute(path, |fs, p| fs.remove_file(p))
     }
 
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+    fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
         virtual_fs::OpenOptions::new(self)
     }
 
@@ -485,14 +485,16 @@ mod tests {
 
         assert!(fs.metadata("/home/file.txt".as_ref()).unwrap().is_file());
         assert!(fs.metadata("lib".as_ref()).unwrap().is_dir());
-        assert!(fs
-            .metadata("lib/python3.6/collections/__init__.py".as_ref())
-            .unwrap()
-            .is_file());
-        assert!(fs
-            .metadata("lib/python3.6/encodings/__init__.py".as_ref())
-            .unwrap()
-            .is_file());
+        assert!(
+            fs.metadata("lib/python3.6/collections/__init__.py".as_ref())
+                .unwrap()
+                .is_file()
+        );
+        assert!(
+            fs.metadata("lib/python3.6/encodings/__init__.py".as_ref())
+                .unwrap()
+                .is_file()
+        );
     }
 
     fn unix_timestamp_nanos(instant: SystemTime) -> Option<u64> {

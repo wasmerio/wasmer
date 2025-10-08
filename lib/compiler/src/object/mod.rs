@@ -22,6 +22,6 @@ mod module;
 
 pub use self::error::ObjectError;
 pub use self::module::{
-    emit_compilation, emit_data, emit_serialized, get_object_for_target, ObjectMetadataBuilder,
+    ObjectMetadataBuilder, emit_compilation, emit_data, emit_serialized, get_object_for_target,
 };
 pub use object::{self, write::Object};

@@ -1,8 +1,8 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::{
-    isa::{lookup, TargetIsa},
-    settings::{self, Configurable},
     CodegenResult,
+    isa::{TargetIsa, lookup},
+    settings::{self, Configurable},
 };
 use std::num::NonZero;
 use std::sync::Arc;

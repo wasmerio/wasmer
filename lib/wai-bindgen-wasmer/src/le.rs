@@ -10,7 +10,7 @@ use std::slice;
 /// not guaranteed to be either aligned or in the native endianness. This type
 /// wraps these types and provides explicit getters/setters to interact with the
 /// underlying value in a safe host-agnostic manner.
-#[repr(packed)]
+#[repr(C, packed)]
 pub struct Le<T>(T);
 
 impl<T> Le<T>

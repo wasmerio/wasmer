@@ -1,10 +1,10 @@
 //! Data types, functions and traits for `sys` runtime's `Table` implementation.
 use crate::{
+    BackendTable, ExternRef, Function, Value,
     backend::sys::entities::engine::NativeEngineExt,
     entities::store::{AsStoreMut, AsStoreRef},
     error::RuntimeError,
     vm::{VMExtern, VMExternTable},
-    BackendTable, ExternRef, Function, Value,
 };
 use wasmer_types::TableType;
 use wasmer_vm::{StoreHandle, TableElement, Trap, VMTable};
@@ -199,16 +199,16 @@ impl crate::Table {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::sys::table::Table`].
     pub fn as_sys(&self) -> &crate::backend::sys::table::Table {
-        match self.0 {
-            BackendTable::Sys(ref s) => s,
+        match &self.0 {
+            BackendTable::Sys(s) => s,
             _ => panic!("Not a `sys` table!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::sys::table::Table`].
     pub fn as_sys_mut(&mut self) -> &mut crate::backend::sys::table::Table {
-        match self.0 {
-            BackendTable::Sys(ref mut s) => s,
+        match &mut self.0 {
+            BackendTable::Sys(s) => s,
             _ => panic!("Not a `sys` table!"),
         }
     }
@@ -226,7 +226,7 @@ impl crate::BackendTable {
     /// Convert a reference to [`self`] into a reference [`crate::backend::sys::table::Table`].
     pub fn as_sys(&self) -> &crate::backend::sys::table::Table {
         match self {
-            Self::Sys(ref s) => s,
+            Self::Sys(s) => s,
             _ => panic!("Not a `sys` table!"),
         }
     }
@@ -234,7 +234,7 @@ impl crate::BackendTable {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::sys::table::Table`].
     pub fn as_sys_mut(&mut self) -> &mut crate::backend::sys::table::Table {
         match self {
-            Self::Sys(ref mut s) => s,
+            Self::Sys(s) => s,
             _ => panic!("Not a `sys` table!"),
         }
     }

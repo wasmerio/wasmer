@@ -54,7 +54,7 @@ pub(crate) fn path_remove_directory_internal(
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
         Kind::Dir {
-            entries: ref mut parent_entries,
+            entries: parent_entries,
             ..
         } => {
             let Some(child_inode) = parent_entries.get(&dir_name) else {

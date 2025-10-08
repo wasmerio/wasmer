@@ -181,8 +181,8 @@ impl MultiRegistry {
         let registry_formatted = format_graphql(registry);
         self.tokens
             .iter()
-            .filter(|login| login.registry == registry || login.registry == registry_formatted)
-            .last()
+            .rev()
+            .find(|login| login.registry == registry || login.registry == registry_formatted)
             .map(|login| login.token.clone())
     }
 

@@ -9,13 +9,13 @@
 //! ```
 // use std::panic::{catch_unwind, AssertUnwindSafe};
 use crate::{
+    AsStoreMut, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto, RuntimeError,
+    TypedFunction, Value, WasmTypeList,
     backend::jsc::{
         engine::IntoJSC,
         error::Trap,
-        utils::convert::{jsc_value_to_wasmer, AsJsc},
+        utils::convert::{AsJsc, jsc_value_to_wasmer},
     },
-    AsStoreMut, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto, RuntimeError,
-    TypedFunction, Value, WasmTypeList,
 };
 
 use rusty_jsc::JSValue;
@@ -49,7 +49,7 @@ macro_rules! impl_native_traits {
 
                 let global = context.get_global_object();
                 let store_ptr = store_mut.as_raw() as usize;
-                global.set_property(&context, "__store_ptr".to_string(), JSValue::number(&context, store_ptr as _)).unwrap();
+                global.set_property(context, "__store_ptr".to_string(), JSValue::number(context, store_ptr as _)).unwrap();
 
                 let results = {
                     let mut r;
@@ -60,7 +60,7 @@ macro_rules! impl_native_traits {
                         let context = store_mut.jsc().context();
                         r = self.func.as_jsc().handle.function
                             .call(
-                                &context,
+                                context,
                                 None,
                                 &params_list,
                             );
@@ -92,20 +92,20 @@ macro_rules! impl_native_traits {
                     0 => {},
                     1 => unsafe {
                         let ty = Rets::wasm_types()[0];
-                        let val = jsc_value_to_wasmer(&context, &ty, &results);
+                        let val = jsc_value_to_wasmer(context, &ty, &results);
                         *mut_rets = val.as_raw(&mut store);
                     }
                     _n => {
-                        if !results.is_array(&context) {
+                        if !results.is_array(context) {
                             panic!("Expected results to be an array.")
                         }
-                        let results = results.to_object(&context).unwrap();
+                        let results = results.to_object(context).unwrap();
                         for (i, ret_type) in Rets::wasm_types().iter().enumerate() {
                             let store_mut = store.as_store_mut();
                             let context = store_mut.jsc().context();
-                            let ret = results.get_property_at_index(&context, i as _).unwrap();
+                            let ret = results.get_property_at_index(context, i as _).unwrap();
                             unsafe {
-                                let val = jsc_value_to_wasmer(&context, &ret_type, &ret);
+                                let val = jsc_value_to_wasmer(context, &ret_type, &ret);
                                 let slot = mut_rets.add(i);
                                 *slot = val.as_raw(&mut store);
                             }
@@ -141,9 +141,15 @@ impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
+);
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18
 );

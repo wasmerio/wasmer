@@ -10,13 +10,13 @@ use std::{
 
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm, Select};
+use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use futures::stream::TryStreamExt;
 use indexmap::IndexMap;
 use is_terminal::IsTerminal;
 use wasmer_backend_api::{
-    types::{AppTemplate, TemplateLanguage},
     WasmerClient,
+    types::{AppTemplate, TemplateLanguage},
 };
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
@@ -234,7 +234,9 @@ impl CmdAppCreate {
             if self.non_interactive {
                 if !self.quiet {
                     eprintln!("The current directory is not empty.");
-                    eprintln!("Use the `--dir` flag to specify another directory, or remove files from the currently selected one.")
+                    eprintln!(
+                        "Use the `--dir` flag to specify another directory, or remove files from the currently selected one."
+                    )
                 }
                 anyhow::bail!("Stopping as the directory is not empty")
             } else {
@@ -271,7 +273,10 @@ impl CmdAppCreate {
         let (manifest_path, _) = if let Some(res) = load_package_manifest(&app_dir)? {
             res
         } else if self.use_local_manifest {
-            anyhow::bail!("The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.", app_dir.display())
+            anyhow::bail!(
+                "The --use_local_manifest flag was passed, but path {} does not contain a valid package manifest.",
+                app_dir.display()
+            )
         } else {
             return Ok(false);
         };
@@ -522,7 +527,7 @@ impl CmdAppCreate {
             {
                 url::Url::parse(&template.repo_url)?
             } else {
-                anyhow::bail!("Template '{}' not found in the registry", template)
+                anyhow::bail!("Template '{template}' not found in the registry")
             }
         } else {
             if self.non_interactive {

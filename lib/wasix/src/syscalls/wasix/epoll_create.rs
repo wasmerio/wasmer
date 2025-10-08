@@ -3,10 +3,10 @@ use wasmer_wasix_types::wasi::{SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
+    WasiInodes,
     fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
     state::PollEventSet,
     syscalls::*,
-    WasiInodes,
 };
 use std::sync::Mutex as StdMutex;
 use tokio::sync::Mutex as AsyncMutex;

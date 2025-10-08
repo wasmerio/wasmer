@@ -1,9 +1,9 @@
 use std::{
     error::Error,
-    ffi::{c_char, CStr},
+    ffi::{CStr, c_char},
 };
 
-use crate::{v8::bindings::*, AsStoreMut};
+use crate::{AsStoreMut, v8::bindings::*};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -53,19 +53,20 @@ impl Trap {
         }
     }
 
+    #[allow(clippy::unnecessary_mut_passed)]
     pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {
         match self.inner {
             InnerTrap::CApi(t) => t,
             InnerTrap::User(err) => {
                 let err_ptr = Box::leak(Box::new(err));
-                let mut data = std::mem::zeroed();
+                let mut data = unsafe { std::mem::zeroed() };
                 // let x = format!("")
                 let s1 = format!("🐛{err_ptr:p}");
                 let _s = s1.into_bytes().into_boxed_slice();
-                wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _);
+                unsafe { wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _) };
                 std::mem::forget(_s);
                 let store = store.as_store_mut();
-                wasm_trap_new(store.inner.store.as_v8().inner, &mut data)
+                unsafe { wasm_trap_new(store.inner.store.as_v8().inner, &mut data) }
             }
         }
     }
@@ -82,8 +83,8 @@ impl Trap {
 impl From<*mut wasm_trap_t> for Trap {
     fn from(value: *mut wasm_trap_t) -> Self {
         let message = unsafe {
-            let mut message = std::mem::zeroed();
-            wasm_trap_message(value, &mut message);
+            let mut message = unsafe { std::mem::zeroed() };
+            unsafe { wasm_trap_message(value, &mut message) };
 
             CStr::from_ptr(message.data as *const c_char)
                 .to_str()
@@ -94,10 +95,8 @@ impl From<*mut wasm_trap_t> for Trap {
             let ptr_str = message.replace("Exception: 🐛", "");
             let ptr: Box<dyn Error + Send + Sync + 'static> = unsafe {
                 let r = ptr_str.trim_start_matches("0x");
-                std::ptr::read(
-                    (usize::from_str_radix(&r, 16).unwrap()
-                        as *const Box<dyn Error + Send + Sync + 'static>),
-                )
+                std::ptr::read(usize::from_str_radix(r, 16).unwrap()
+                    as *const Box<dyn Error + Send + Sync + 'static>)
             };
 
             Self {
@@ -146,6 +145,6 @@ impl From<Trap> for crate::RuntimeError {
             return trap.downcast::<Self>().unwrap();
         }
 
-        crate::RuntimeError::new_from_source(crate::BackendTrap::V8(trap), vec![], None)
+        Self::new_from_source(crate::BackendTrap::V8(trap), vec![], None)
     }
 }

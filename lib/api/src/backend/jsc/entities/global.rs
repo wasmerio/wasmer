@@ -2,12 +2,12 @@ use rusty_jsc::{JSObject, JSValue};
 use wasmer_types::{GlobalType, Mutability, Type};
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
     jsc::{
-        utils::convert::{jsc_value_to_wasmer, AsJsc},
+        utils::convert::{AsJsc, jsc_value_to_wasmer},
         vm::VMGlobal,
     },
     vm::VMExtern,
-    AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
 };
 
 use super::store::StoreObject;
@@ -45,7 +45,7 @@ impl Global {
         let engine = store_mut.engine();
         let context = engine.as_jsc().context();
 
-        let mut descriptor = JSObject::new(&context);
+        let mut descriptor = JSObject::new(context);
         let type_str = match val.ty() {
             Type::I32 => "i32",
             Type::I64 => "i64",
@@ -59,22 +59,22 @@ impl Global {
         // This is the value type as string, even though is incorrectly called "value"
         // in the JS API.
         descriptor.set_property(
-            &context,
+            context,
             "value".to_string(),
-            JSValue::string(&context, type_str.to_string()),
+            JSValue::string(context, type_str.to_string()),
         );
         descriptor.set_property(
-            &context,
+            context,
             "mutable".to_string(),
-            JSValue::boolean(&context, mutability.is_mutable()),
+            JSValue::boolean(context, mutability.is_mutable()),
         );
 
         let value: JSValue = val.as_jsc_value(&store_mut);
         let js_global = engine
             .as_jsc()
             .wasm_global_type()
-            .construct(&context, &[descriptor.to_jsvalue(), value])
-            .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))?;
+            .construct(context, &[descriptor.to_jsvalue(), value])
+            .map_err(<JSValue as Into<RuntimeError>>::into)?;
         let vm_global = VMGlobal::new(js_global, global_ty);
         crate::backend::jsc::vm::VMGlobal::list_mut(store.objects_mut().as_jsc_mut())
             .push(vm_global.clone());
@@ -92,8 +92,8 @@ impl Global {
         let value = self
             .handle
             .global
-            .get_property(&context, "value".to_string());
-        jsc_value_to_wasmer(&context, &self.handle.ty.ty, &value)
+            .get_property(context, "value".to_string());
+        jsc_value_to_wasmer(context, &self.handle.ty.ty, &value)
     }
 
     pub fn set(&self, store: &mut impl AsStoreMut, val: Value) -> Result<(), RuntimeError> {
@@ -103,8 +103,8 @@ impl Global {
         let context = engine.as_jsc().context();
         self.handle
             .global
-            .set_property(&context, "value".to_string(), new_value)
-            .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))
+            .set_property(context, "value".to_string(), new_value)
+            .map_err(<JSValue as Into<RuntimeError>>::into)
     }
 
     pub(crate) fn from_vm_extern(

@@ -13,10 +13,10 @@ pub use env::*;
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    error::RuntimeError,
-    vm::{VMExtern, VMExternFunction, VMFuncRef},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction,
     Value, WasmTypeList,
+    error::RuntimeError,
+    vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
 /// A WebAssembly `function` instance.
@@ -265,7 +265,7 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        Self(BackendFunction::from_vm_funcref(store, funcref))
+        unsafe { Self(BackendFunction::from_vm_funcref(store, funcref)) }
     }
 
     /// Transform this WebAssembly function into a typed function.

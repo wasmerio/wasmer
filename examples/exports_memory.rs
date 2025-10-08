@@ -11,7 +11,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, WasmPtr};
+use wasmer::{Instance, Module, Store, TypedFunction, WasmPtr, imports, wat2wasm};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.

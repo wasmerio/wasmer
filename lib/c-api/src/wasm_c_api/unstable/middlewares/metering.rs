@@ -137,8 +137,8 @@ use super::wasmer_middleware_t;
 use std::sync::Arc;
 use wasmer_api::wasmparser::Operator;
 use wasmer_middlewares::{
-    metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
+    metering::{MeteringPoints, get_remaining_points, set_remaining_points},
 };
 
 /// Opaque type representing a metering middleware.
@@ -172,7 +172,7 @@ pub type wasmer_metering_cost_function_t =
 /// # Example
 ///
 /// See module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_metering_new(
     initial_limit: u64,
     cost_function: wasmer_metering_cost_function_t,
@@ -189,7 +189,7 @@ pub extern "C" fn wasmer_metering_new(
 /// # Example
 ///
 /// See module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t>>) {}
 
 /// Returns the remaining metering points. `u64::MAX` means
@@ -200,11 +200,12 @@ pub extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t
 /// # Example
 ///
 /// See module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
     instance: &mut wasm_instance_t,
 ) -> u64 {
-    match get_remaining_points(&mut instance.store.store_mut(), &instance.inner) {
+    let mut store_mut = unsafe { instance.store.store_mut() };
+    match get_remaining_points(&mut store_mut, &instance.inner) {
         MeteringPoints::Remaining(value) => value,
         MeteringPoints::Exhausted => u64::MAX,
     }
@@ -215,12 +216,13 @@ pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
 /// # Example
 ///
 /// See module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_metering_points_are_exhausted(
     instance: &mut wasm_instance_t,
 ) -> bool {
+    let mut store_mut = unsafe { instance.store.store_mut() };
     matches!(
-        get_remaining_points(&mut instance.store.store_mut(), &instance.inner),
+        get_remaining_points(&mut store_mut, &instance.inner),
         MeteringPoints::Exhausted,
     )
 }
@@ -297,24 +299,25 @@ pub unsafe extern "C" fn wasmer_metering_points_are_exhausted(
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_metering_set_remaining_points(
     instance: &mut wasm_instance_t,
     new_limit: u64,
 ) {
-    set_remaining_points(&mut instance.store.store_mut(), &instance.inner, new_limit);
+    let mut store_mut = unsafe { instance.store.store_mut() };
+    set_remaining_points(&mut store_mut, &instance.inner, new_limit);
 }
 
 /// Transforms a [`wasmer_metering_t`] into a generic
 /// [`wasmer_middleware_t`], to then be pushed in the configuration with
-/// [`wasm_config_push_middleware`][super::wasm_config_push_middleware].
+/// [`wasm_config_push_middleware`](crate::wasm_c_api::engine::wasm_config_push_middleware).
 ///
 /// This function takes ownership of `metering`.
 ///
 /// # Example
 ///
 /// See module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_metering_as_middleware(
     metering: Option<Box<wasmer_metering_t>>,
 ) -> Option<Box<wasmer_middleware_t>> {

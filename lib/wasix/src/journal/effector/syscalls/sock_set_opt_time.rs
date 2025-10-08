@@ -32,11 +32,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to set socket option (fd={}, opt={:?}, time={:?}) - {}",
-                    fd,
-                    ty,
-                    time,
-                    err
+                    "journal restore error: failed to set socket option (fd={fd}, opt={ty:?}, time={time:?}) - {err}"
                 )
             })?;
         Ok(())

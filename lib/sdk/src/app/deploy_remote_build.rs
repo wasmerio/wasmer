@@ -7,15 +7,15 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Context as _};
+use anyhow::{Context as _, bail};
 use futures_util::StreamExt;
 use reqwest::header::CONTENT_TYPE;
 use wasmer_backend_api::{
-    types::{AutoBuildDeployAppLogKind, AutobuildLog, DeployAppVersion, Id},
     WasmerClient,
+    types::{AutoBuildDeployAppLogKind, AutobuildLog, DeployAppVersion, Id},
 };
 use wasmer_config::app::AppConfigV1;
-use zip::{write::SimpleFileOptions, CompressionMethod};
+use zip::{CompressionMethod, write::SimpleFileOptions};
 
 use thiserror::Error;
 

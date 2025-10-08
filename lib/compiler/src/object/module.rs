@@ -9,17 +9,16 @@ use crate::{
     },
 };
 use object::{
-    elf, macho,
+    FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
+    SymbolScope, elf, macho,
     write::{
         Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolId,
         SymbolSection,
     },
-    FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
-    SymbolScope,
 };
+use wasmer_types::LocalFunctionIndex;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, BinaryFormat, Endianness, PointerWidth, Triple};
-use wasmer_types::LocalFunctionIndex;
 
 const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 
@@ -37,7 +36,7 @@ const DWARF_SECTION_NAME: &[u8] = b".eh_frame";
 /// # Ok(())
 /// # }
 /// ```
-pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
+pub fn get_object_for_target(triple: &Triple) -> Result<Object<'static>, ObjectError> {
     let obj_binary_format = match triple.binary_format {
         BinaryFormat::Elf => object::BinaryFormat::Elf,
         BinaryFormat::Macho => object::BinaryFormat::MachO,
@@ -441,7 +440,7 @@ pub fn emit_compilation(
                     return Err(ObjectError::UnsupportedArchitecture(format!(
                         "{} (relocation: {})",
                         triple.architecture, other
-                    )))
+                    )));
                 }
             };
 

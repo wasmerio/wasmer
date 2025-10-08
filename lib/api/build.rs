@@ -143,6 +143,11 @@ fn build_wamr() {
         ) -> Option<String> {
             if item_info.name.starts_with("wasm") {
                 let new_name = format!("wamr_{}", item_info.name);
+                // TODO: refactor to not use static mut
+                #[allow(
+                    static_mut_refs,
+                    reason = "existing behaviour that was disallowed by edition 2024"
+                )]
                 unsafe {
                     WAMR_RENAMED.push((item_info.name.to_string(), new_name.clone()));
                 }
@@ -166,8 +171,9 @@ fn build_wamr() {
         .generate()
         .expect("Unable to generate bindings");
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let bindings_path = out_path.join("wamr_bindings.rs");
     bindings
-        .write_to_file(out_path.join("wamr_bindings.rs"))
+        .write_to_file(&bindings_path)
         .expect("Couldn't write bindings");
 
     let objcopy_names = ["llvm-objcopy", "objcopy", "gobjcopy"];
@@ -190,6 +196,11 @@ fn build_wamr() {
     let objcopy = objcopy.unwrap();
 
     unsafe {
+        // TODO: refactor to not use static mut
+        #[allow(
+            static_mut_refs,
+            reason = "existing behaviour that was disallowed by edition 2024"
+        )]
         let syms: Vec<String> = WAMR_RENAMED
             .iter()
             .map(|(old, new)|
@@ -232,19 +243,31 @@ fn build_v8() {
     use std::{env, path::PathBuf};
 
     let url = match (
-            env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
-            env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
-            env::var("CARGO_CFG_TARGET_ENV").unwrap_or_default().as_str(),
-        ) {
-            ("macos", "aarch64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz",
-            ("macos", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-amd64.tar.xz",
-            ("linux", "x86_64", "gnu") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz",
-            ("linux", "x86_64", "musl") => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz",
-            ("android", "aarch64", _)  => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz",
-            // Not supported in 6.0.0-alpha1
-            //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
-            (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
-        };
+        env::var("CARGO_CFG_TARGET_OS").unwrap().as_str(),
+        env::var("CARGO_CFG_TARGET_ARCH").unwrap().as_str(),
+        env::var("CARGO_CFG_TARGET_ENV")
+            .unwrap_or_default()
+            .as_str(),
+    ) {
+        ("macos", "aarch64", _) => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-aarch64.tar.xz"
+        }
+        ("macos", "x86_64", _) => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-darwin-amd64.tar.xz"
+        }
+        ("linux", "x86_64", "gnu") => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-amd64.tar.xz"
+        }
+        ("linux", "x86_64", "musl") => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-linux-musl-amd64.tar.xz"
+        }
+        ("android", "aarch64", _) => {
+            "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.8/wee8-android-arm64.tar.xz"
+        }
+        // Not supported in 6.0.0-alpha1
+        //("windows", "x86_64", _) => "https://github.com/wasmerio/wee8-custom-builds/releases/download/11.7-custom1/wee8-windows-amd64.tar.xz",
+        (os, arch, _) => panic!("target os + arch combination not supported: {os}, {arch}"),
+    };
 
     let out_dir = env::var("OUT_DIR").unwrap();
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
@@ -294,6 +317,11 @@ fn build_v8() {
         ) -> Option<String> {
             if item_info.name.starts_with("wasm") {
                 let new_name = format!("wee8_{}", item_info.name);
+                // TODO: refactor to not use static mut
+                #[allow(
+                    static_mut_refs,
+                    reason = "existing behaviour that was disallowed by edition 2024"
+                )]
                 unsafe {
                     WEE8_RENAMED.push((item_info.name.to_string(), new_name.clone()));
                 }
@@ -347,6 +375,11 @@ fn build_v8() {
 
     let objcopy = objcopy.unwrap();
 
+    // TODO: refactor to not use static mut
+    #[allow(
+        static_mut_refs,
+        reason = "existing behaviour that was disallowed by edition 2024"
+    )]
     unsafe {
         let syms: Vec<String> = WEE8_RENAMED
             .iter()
@@ -361,10 +394,12 @@ fn build_v8() {
                 }
             })
             .collect();
-        let output = dbg!(std::process::Command::new(objcopy)
-            .args(syms)
-            .arg(out_path.join("obj").join("libwee8.a").display().to_string())
-            .arg(out_path.join("libwee8prefixed.a").display().to_string()))
+        let output = dbg!(
+            std::process::Command::new(objcopy)
+                .args(syms)
+                .arg(out_path.join("obj").join("libwee8.a").display().to_string())
+                .arg(out_path.join("libwee8prefixed.a").display().to_string())
+        )
         .output()
         .unwrap();
 
@@ -421,9 +456,32 @@ fn build_wasmi() {
         .generate()
         .expect("Unable to generate bindings for `wasmi`!");
     let out_path = PathBuf::from(env::var("OUT_DIR").unwrap());
+    let bindings_path = out_path.join("wasmi_bindings.rs");
     bindings
-        .write_to_file(out_path.join("wasmi_bindings.rs"))
+        .write_to_file(&bindings_path)
         .expect("Couldn't write bindings");
+
+    let original =
+        std::fs::read_to_string(&bindings_path).expect("Failed to read generated wasmi bindings");
+    let mut patched = String::with_capacity(original.len());
+    for line in original.lines() {
+        let trimmed = line.trim_start();
+        let indent_len = line.len() - trimmed.len();
+        let indent = &line[..indent_len];
+        if trimmed.starts_with("extern \"")
+            && trimmed.ends_with('{')
+            && !trimmed.starts_with("unsafe ")
+        {
+            patched.push_str(indent);
+            patched.push_str("unsafe ");
+            patched.push_str(trimmed);
+        } else {
+            patched.push_str(line);
+        }
+        patched.push('\n');
+    }
+    std::fs::write(&bindings_path, patched)
+        .expect("Failed to post-process wasmi bindings for Rust 2024");
 }
 #[allow(unused)]
 fn main() {

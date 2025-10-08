@@ -9,9 +9,9 @@ use rkyv::{
     api::high::HighSerializer,
     rancor::Strategy,
     ser::{
+        Serializer,
         allocator::{Arena, ArenaHandle},
         sharing::Share,
-        Serializer,
     },
 };
 use wasmer_wasix_types::wasi;

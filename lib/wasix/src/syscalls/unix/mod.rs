@@ -1,8 +1,8 @@
 use std::mem;
 
 use libc::{
-    clock_getres, clock_gettime, timespec, CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID,
-    CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
+    CLOCK_MONOTONIC, CLOCK_PROCESS_CPUTIME_ID, CLOCK_REALTIME, CLOCK_THREAD_CPUTIME_ID,
+    clock_getres, clock_gettime, timespec,
 };
 use wasmer::WasmRef;
 use wasmer_wasix_types::wasi::{Errno, Snapshot0Clockid, Timestamp};

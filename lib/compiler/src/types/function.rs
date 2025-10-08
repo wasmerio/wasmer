@@ -19,12 +19,12 @@ use super::{
     },
 };
 use rkyv::{
-    option::ArchivedOption, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, option::ArchivedOption,
 };
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::{
-    entity::PrimaryMap, FunctionIndex, LocalFunctionIndex, SignatureIndex, TrapInformation,
+    FunctionIndex, LocalFunctionIndex, SignatureIndex, TrapInformation, entity::PrimaryMap,
 };
 
 /// The frame info for a Compiled function.

@@ -2,13 +2,13 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
+    AsStoreMut, AsStoreRef,
     v8::{
         bindings::*,
         utils::convert::{IntoCApiType, IntoWasmerType},
         vm::VMTag,
     },
     vm::{VMExtern, VMExternTag},
-    AsStoreMut, AsStoreRef,
 };
 
 use super::check_isolate;

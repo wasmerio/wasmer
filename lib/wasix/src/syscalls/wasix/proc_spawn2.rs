@@ -3,9 +3,9 @@ use wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 
 use super::*;
 use crate::{
+    VIRTUAL_ROOT_FD, WasiFs,
     os::task::{OwnedTaskStatus, TaskStatus},
     syscalls::*,
-    WasiFs, VIRTUAL_ROOT_FD,
 };
 
 /// Replaces the current process with a new process

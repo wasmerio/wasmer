@@ -4,9 +4,9 @@ use virtual_fs::Pipe;
 use wasmer_wasix_types::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 
 use crate::{
+    WasiStateCreationError,
     runners::wcgi::{CreateEnvConfig, CreateEnvResult, RecycleEnvConfig},
     state::conv_env_vars,
-    WasiStateCreationError,
 };
 
 use super::*;

@@ -4,13 +4,13 @@ use super::*;
 #[cfg(feature = "journal")]
 use crate::journal::JournalEffector;
 use crate::{
+    WasiThreadHandle,
     os::task::thread::WasiMemoryLayout,
     runtime::{
-        task_manager::{TaskWasm, TaskWasmRunProperties},
         TaintReason,
+        task_manager::{TaskWasm, TaskWasmRunProperties},
     },
     syscalls::*,
-    WasiThreadHandle,
 };
 
 use wasmer::Memory;

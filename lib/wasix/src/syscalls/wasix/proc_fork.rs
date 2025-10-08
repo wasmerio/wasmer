@@ -1,10 +1,9 @@
 use super::*;
 use crate::{
-    capture_store_snapshot,
+    WasiThreadHandle, capture_store_snapshot,
     os::task::OwnedTaskStatus,
     runtime::task_manager::{TaskWasm, TaskWasmRunProperties},
     syscalls::*,
-    WasiThreadHandle,
 };
 use serde::{Deserialize, Serialize};
 use wasmer::Memory;
@@ -39,8 +38,7 @@ pub fn proc_fork<M: MemorySize>(
         } else {
             trace!(
                 "handle_rewind - i am parent (child={}, ret={})",
-                result.pid,
-                result.ret
+                result.pid, result.ret
             );
         }
         let memory = unsafe { ctx.data().memory_view(&ctx) };

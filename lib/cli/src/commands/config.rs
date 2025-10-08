@@ -1,6 +1,6 @@
 use crate::{
-    config::{UpdateRegistry, WasmerConfig, WasmerEnv},
     VERSION,
+    config::{UpdateRegistry, WasmerConfig, WasmerEnv},
 };
 use anyhow::{Context, Result};
 use clap::Parser;
@@ -277,8 +277,8 @@ impl GetOrSet {
                                 wasmer_backend_api::query::current_user(&client).await?
                             {
                                 println!(
-                                "Successfully logged into registry {current_registry:?} as user {u:?}"
-                            );
+                                    "Successfully logged into registry {current_registry:?} as user {u:?}"
+                                );
                             }
                         }
                     }

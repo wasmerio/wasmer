@@ -3,8 +3,8 @@ use std::{
     collections::HashMap,
     io,
     sync::{
-        atomic::{AtomicBool, AtomicUsize, Ordering},
         Arc, Mutex,
+        atomic::{AtomicBool, AtomicUsize, Ordering},
     },
 };
 

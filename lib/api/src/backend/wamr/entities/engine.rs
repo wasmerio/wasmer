@@ -1,10 +1,10 @@
 //! Data types, functions and traits for `wamr` runtime's `Engine` implementation.
 use crate::{
-    backend::wamr::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
     BackendEngine,
+    backend::wamr::bindings::{wasm_engine_delete, wasm_engine_new, wasm_engine_t},
 };
 use std::sync::Arc;
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 #[derive(Debug)]
 pub(crate) struct CApiEngine {
@@ -86,8 +86,8 @@ impl crate::Engine {
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wamr::engine::Engine`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::engine::Engine {
-        match self.be {
-            BackendEngine::Wamr(ref mut s) => s,
+        match &mut self.be {
+            BackendEngine::Wamr(s) => s,
             _ => panic!("Not a `wamr` engine!"),
         }
     }
@@ -100,9 +100,9 @@ impl crate::Engine {
 
 impl From<Engine> for crate::Engine {
     fn from(value: Engine) -> Self {
-        crate::Engine {
+        Self {
             be: BackendEngine::Wamr(value),
-            id: crate::Engine::atomic_next_engine_id(),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }

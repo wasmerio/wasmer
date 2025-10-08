@@ -21,8 +21,8 @@
 
 use std::sync::{Arc, Mutex};
 use wasmer::{
-    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store,
-    TypedFunction,
+    Function, FunctionEnv, FunctionEnvMut, Instance, Module, Store, TypedFunction, imports,
+    wat2wasm,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

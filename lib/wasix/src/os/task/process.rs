@@ -1,6 +1,6 @@
+use crate::{WasiEnv, WasiRuntimeError, journal::SnapshotTrigger};
 #[cfg(feature = "journal")]
-use crate::{journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind, WasiResult};
-use crate::{journal::SnapshotTrigger, WasiEnv, WasiRuntimeError};
+use crate::{WasiResult, journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind};
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "journal")]
 use std::collections::HashSet;
@@ -9,8 +9,8 @@ use std::{
     convert::TryInto,
     ops::Range,
     sync::{
-        atomic::{AtomicU32, Ordering},
         Arc, Condvar, Mutex, MutexGuard, RwLock, Weak,
+        atomic::{AtomicU32, Ordering},
     },
     task::Waker,
     time::Duration,
@@ -25,17 +25,17 @@ use wasmer_wasix_types::{
 };
 
 use crate::{
-    os::task::signal::WasiSignalInterval, syscalls::platform_clock_time_get, WasiThread,
-    WasiThreadHandle, WasiThreadId,
+    WasiThread, WasiThreadHandle, WasiThreadId, os::task::signal::WasiSignalInterval,
+    syscalls::platform_clock_time_get,
 };
 
 use super::{
+    TaskStatus,
     backoff::WasiProcessCpuBackoff,
     control_plane::{ControlPlaneError, WasiControlPlaneHandle},
     signal::{SignalDeliveryError, SignalHandlerAbi},
     task_join_handle::OwnedTaskStatus,
     thread::WasiMemoryLayout,
-    TaskStatus,
 };
 
 /// Represents the ID of a sub-process
@@ -229,7 +229,7 @@ impl WasiProcessInner {
         use wasmer::AsStoreMut;
         use wasmer_types::OnCalledAction;
 
-        use crate::{os::task::thread::RewindResultType, rewind_ext, WasiError};
+        use crate::{WasiError, os::task::thread::RewindResultType, rewind_ext};
         let guard = inner.0.lock().unwrap();
         if guard.checkpoint == WasiProcessCheckpoint::Execute {
             // No checkpoint so just carry on

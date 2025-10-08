@@ -71,11 +71,19 @@ impl Compile {
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {
-                    warning!("the output file has a wrong extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
+                    warning!(
+                        "the output file has a wrong extension. We recommend using `{}.{}` for the chosen target",
+                        &output_filename,
+                        &recommended_extension
+                    )
                 }
             }
             None => {
-                warning!("the output file has no extension. We recommend using `{}.{}` for the chosen target", &output_filename, &recommended_extension)
+                warning!(
+                    "the output file has no extension. We recommend using `{}.{}` for the chosen target",
+                    &output_filename,
+                    &recommended_extension
+                )
             }
         }
         let tunables = self.store.get_tunables_for_target(&target)?;

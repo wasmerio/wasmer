@@ -10,7 +10,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
+use wasmer::{Instance, Module, Store, Value, imports, wat2wasm};
 use wasmer_compiler_singlepass::Singlepass;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

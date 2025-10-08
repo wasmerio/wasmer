@@ -2,8 +2,8 @@ use std::{
     collections::HashMap,
     pin::Pin,
     sync::{
-        atomic::{AtomicU32, Ordering},
         Arc,
+        atomic::{AtomicU32, Ordering},
     },
     task::{Context, Poll, Waker},
     time::Duration,
@@ -12,7 +12,7 @@ use std::{
 use futures::{Future, FutureExt};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiProcess};
+use crate::{VirtualTaskManager, WasiProcess, syscalls::platform_clock_time_get};
 
 use super::process::LockableWasiProcessInner;
 

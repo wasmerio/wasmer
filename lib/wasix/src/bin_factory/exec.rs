@@ -1,19 +1,20 @@
+#![allow(clippy::result_large_err)]
 use std::sync::Arc;
 
 use crate::{
+    RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
-        thread::{RewindResultType, WasiThreadRunGuard},
         TaskJoinHandle,
+        thread::{RewindResultType, WasiThreadRunGuard},
     },
     runtime::{
+        TaintReason,
         module_cache::HashedModuleData,
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
-        TaintReason,
     },
     syscalls::rewind_ext,
-    RewindState, SpawnError, WasiError, WasiRuntimeError,
 };
 use tracing::*;
 use virtual_mio::InlineWaker;
@@ -164,7 +165,7 @@ unsafe fn run_recycle(
 ) {
     if let Some(callback) = callback {
         let env = ctx.data_mut(&mut store);
-        let memory = env.memory().clone();
+        let memory = unsafe { env.memory() }.clone();
 
         let props = TaskWasmRecycleProperties {
             env: env.clone(),

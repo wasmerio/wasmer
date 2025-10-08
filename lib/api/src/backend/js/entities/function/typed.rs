@@ -8,9 +8,9 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.typed().unwrap();
 //! ```
 use crate::{
-    js::utils::convert::{js_value_to_wasmer, AsJs},
     AsStoreMut, FromToNativeWasmType, NativeWasmType, NativeWasmTypeInto, RuntimeError,
     TypedFunction, Value, WasmTypeList,
+    js::utils::convert::{AsJs, js_value_to_wasmer},
 };
 use js_sys::Array;
 use std::iter::FromIterator;
@@ -38,14 +38,20 @@ macro_rules! impl_native_traits {
                     let mut r;
                     // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                     loop {
-                        r = self.func.as_js().handle.function.apply(
-                            &JsValue::UNDEFINED,
-                            unsafe {
-                                &Array::from_iter(params_list.clone()
-                                .into_iter()
-                                .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)))
-                                }
-                        );
+                        let args_array = unsafe {
+                            Array::from_iter(
+                                params_list
+                                    .clone()
+                                    .into_iter()
+                                    .map(|(b, a)| Value::from_raw(store, b, a).as_jsvalue(store)),
+                            )
+                        };
+                        r = self
+                            .func
+                            .as_js()
+                            .handle
+                            .function
+                            .apply(&JsValue::UNDEFINED, &args_array);
                         let store_mut = store.as_store_mut();
                         if let Some(callback) = store_mut.inner.on_called.take() {
                             match callback(store_mut) {
@@ -109,9 +115,15 @@ impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
 impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-impl_native_traits!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16
+);
+impl_native_traits!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17
+);
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18
 );

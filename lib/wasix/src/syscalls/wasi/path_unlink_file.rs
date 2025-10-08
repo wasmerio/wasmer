@@ -66,9 +66,7 @@ pub(crate) fn path_unlink_file_internal(
     let removed_inode = {
         let mut guard = parent_inode.write();
         match guard.deref_mut() {
-            Kind::Dir {
-                ref mut entries, ..
-            } => {
+            Kind::Dir { entries, .. } => {
                 let removed_inode = wasi_try_ok!(entries.remove(&childs_name).ok_or(Errno::Inval));
                 // TODO: make this a debug assert in the future
                 assert!(inode.ino() == removed_inode.ino());

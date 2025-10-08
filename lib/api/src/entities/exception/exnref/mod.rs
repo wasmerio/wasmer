@@ -1,8 +1,8 @@
 use std::any::Any;
 
+use crate::StoreRef;
 use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::vm::{VMExceptionRef, VMExternRef};
-use crate::StoreRef;
 
 pub(crate) mod inner;
 pub(crate) use inner::*;
@@ -38,10 +38,7 @@ impl ExceptionRef {
         store: &mut impl AsStoreMut,
         vm_externref: VMExceptionRef,
     ) -> Self {
-        Self(BackendExceptionRef::from_vm_exceptionref(
-            store,
-            vm_externref,
-        ))
+        Self(unsafe { BackendExceptionRef::from_vm_exceptionref(store, vm_externref) })
     }
 
     /// Checks whether this `ExceptionRef` can be used with the given context.

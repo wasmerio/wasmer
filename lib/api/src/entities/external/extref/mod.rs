@@ -1,8 +1,8 @@
 use std::any::Any;
 
+use crate::StoreRef;
 use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::vm::VMExternRef;
-use crate::StoreRef;
 
 pub(crate) mod inner;
 pub(crate) use inner::*;
@@ -38,7 +38,7 @@ impl ExternRef {
         store: &mut impl AsStoreMut,
         vm_externref: VMExternRef,
     ) -> Self {
-        Self(BackendExternRef::from_vm_externref(store, vm_externref))
+        Self(unsafe { BackendExternRef::from_vm_externref(store, vm_externref) })
     }
 
     /// Checks whether this `ExternRef` can be used with the given context.

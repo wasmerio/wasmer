@@ -2,10 +2,10 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
+    AsEngineRef, BackendModule, IntoBytes,
     backend::wasmi::bindings::{
         wasm_byte_vec_t, wasm_module_delete, wasm_module_new, wasm_module_t,
     },
-    AsEngineRef, BackendModule, IntoBytes,
 };
 
 use bytes::Bytes;
@@ -42,10 +42,10 @@ impl ModuleHandle {
         let store = std::sync::Mutex::new(store);
 
         if inner.is_null() {
-            return Err(CompileError::Validate(format!("module is null")));
+            return Err(CompileError::Validate("module is null".to_string()));
         }
 
-        Ok(ModuleHandle { inner, store })
+        Ok(Self { inner, store })
     }
 }
 impl Drop for ModuleHandle {
@@ -74,6 +74,7 @@ impl Module {
         unsafe { Self::from_binary_unchecked(_engine, binary) }
     }
 
+    #[allow(clippy::arc_with_non_send_sync)]
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
         binary: &[u8],
@@ -103,24 +104,23 @@ impl Module {
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        return self.raw_bytes.clone().ok_or(SerializeError::Generic(
+        self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
-        ));
+        ))
     }
 
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        return Self::from_binary(engine, &bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        Self::from_binary(engine, &bytes.into_bytes()).map_err(DeserializeError::Compiler)
     }
 
     pub unsafe fn deserialize_from_file_unchecked(
@@ -128,7 +128,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize_unchecked(engine, bytes)
+        unsafe { Self::deserialize_unchecked(engine, bytes) }
     }
 
     pub unsafe fn deserialize_from_file(
@@ -136,7 +136,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {
@@ -175,16 +175,16 @@ impl crate::Module {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::wasmi::module::Module`].
     pub fn as_wasmi(&self) -> &crate::backend::wasmi::module::Module {
-        match self.0 {
-            BackendModule::Wasmi(ref s) => s,
+        match &self.0 {
+            BackendModule::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wasmi::module::Module`].
     pub fn as_wasmi_mut(&mut self) -> &mut crate::backend::wasmi::module::Module {
-        match self.0 {
-            BackendModule::Wasmi(ref mut s) => s,
+        match &mut self.0 {
+            BackendModule::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` module!"),
         }
     }

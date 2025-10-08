@@ -5,8 +5,8 @@ use wasmer_types::{TagType, Type};
 use wasmer_vm::StoreHandle;
 
 use crate::{
-    sys::vm::{VMException, VMExceptionRef},
     AsStoreMut, AsStoreRef, Tag, Value,
+    sys::vm::{VMException, VMExceptionRef},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -68,7 +68,9 @@ impl ExceptionRef {
         vm_exceptionref: VMExceptionRef,
     ) -> Self {
         Self {
-            handle: StoreHandle::from_internal(store.objects_mut().id(), vm_exceptionref.0),
+            handle: unsafe {
+                StoreHandle::from_internal(store.objects_mut().id(), vm_exceptionref.0)
+            },
         }
     }
 

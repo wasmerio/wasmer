@@ -1,8 +1,8 @@
 use std::sync::Arc;
 use wasmer::sys::Features;
 use wasmer::{
-    sys::{CompilerConfig, ModuleMiddleware},
     Store,
+    sys::{CompilerConfig, ModuleMiddleware},
 };
 
 #[derive(Clone, Debug, PartialEq, Eq)]

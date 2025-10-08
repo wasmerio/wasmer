@@ -7,11 +7,11 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::*,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
-    x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM, new_machine_state},
 };
-use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
+use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, X86_64};
+use gimli::{X86_64, write::CallFrameInstruction};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::{
     types::{
@@ -23,9 +23,9 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 type Assembler = VecAssembler<X64Relocation>;
@@ -2388,7 +2388,9 @@ impl Machine for MachineX86_64 {
                     }
                 }
             },
-            _ => panic!(                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"            ),
+            _ => panic!(
+                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"
+            ),
         }?;
         if dst != dest {
             self.assembler.emit_mov(size_op, dst, dest)?;

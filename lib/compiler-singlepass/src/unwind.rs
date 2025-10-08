@@ -26,6 +26,7 @@ impl<R: location::Reg, S: location::Reg> UnwindRegister<R, S> {
 }
 
 #[derive(Clone, Debug)]
+#[cfg_attr(not(feature = "unwind"), allow(dead_code))]
 pub enum UnwindOps<R: location::Reg, S: location::Reg> {
     PushFP {
         up_to_sp: u32,

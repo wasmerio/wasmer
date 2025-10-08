@@ -32,7 +32,7 @@ static VERSION_PATCH: LazyLock<u8> = LazyLock::new(|| {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_version() -> *const c_char {
     VERSION.as_ptr() as *const _
 }
@@ -71,7 +71,7 @@ pub unsafe extern "C" fn wasmer_version() -> *const c_char {
 /// #     );
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_version_major() -> u8 {
     *VERSION_MAJOR
 }
@@ -79,7 +79,7 @@ pub unsafe extern "C" fn wasmer_version_major() -> u8 {
 /// Get the minor version of the Wasmer C API.
 ///
 /// See [`wasmer_version_major`] to learn more and get an example.  
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_version_minor() -> u8 {
     *VERSION_MINOR
 }
@@ -87,7 +87,7 @@ pub unsafe extern "C" fn wasmer_version_minor() -> u8 {
 /// Get the patch version of the Wasmer C API.
 ///
 /// See [`wasmer_version_major`] to learn more and get an example.  
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
     *VERSION_PATCH
 }
@@ -122,7 +122,7 @@ pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
 /// #    .stdout(env!("CARGO_PKG_VERSION_PRE"));
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_version_pre() -> *const c_char {
     VERSION_PRE.as_ptr() as *const _
 }

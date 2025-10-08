@@ -15,7 +15,7 @@ use wasmer_types::{
     ModuleInfo, SerializeError,
 };
 
-use crate::{macros::backend::match_rt, utils::IntoBytes, AsEngineRef};
+use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
 
 /// IO errors that can happen while compiling a [`Module`].
 #[derive(Error, Debug)]
@@ -142,7 +142,7 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        BackendModule::from_binary_unchecked(engine, binary).map(Self)
+        unsafe { BackendModule::from_binary_unchecked(engine, binary) }.map(Self)
     }
 
     /// Validates a new WebAssembly Module given the configuration
@@ -234,7 +234,7 @@ impl Module {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        BackendModule::deserialize_unchecked(engine, bytes).map(Self)
+        unsafe { BackendModule::deserialize_unchecked(engine, bytes) }.map(Self)
     }
 
     /// Deserializes a serialized Module binary into a `Module`.
@@ -266,7 +266,7 @@ impl Module {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        BackendModule::deserialize_unchecked(engine, bytes).map(Self)
+        unsafe { BackendModule::deserialize_unchecked(engine, bytes) }.map(Self)
     }
 
     /// Deserializes a serialized Module located in a `Path` into a `Module`.
@@ -290,7 +290,7 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        BackendModule::deserialize_from_file(engine, path).map(Self)
+        unsafe { BackendModule::deserialize_from_file(engine, path) }.map(Self)
     }
 
     /// Deserializes a serialized Module located in a `Path` into a `Module`.
@@ -316,7 +316,7 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        BackendModule::deserialize_from_file_unchecked(engine, path).map(Self)
+        unsafe { BackendModule::deserialize_from_file_unchecked(engine, path) }.map(Self)
     }
 
     /// Returns the name of the current module.

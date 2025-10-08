@@ -1,7 +1,7 @@
 use std::sync::Arc;
 
 use rusty_jsc::{JSContext, JSObject};
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 use crate::{AsEngineRef, AsStoreRef};
 
@@ -105,21 +105,21 @@ impl IntoJSC for crate::engine::EngineRef<'_> {
 impl IntoJSC for crate::store::StoreRef<'_> {
     #[inline]
     fn jsc(&self) -> &JSCEngine {
-        &self.engine().jsc()
+        self.engine().jsc()
     }
 }
 
 impl IntoJSC for crate::store::StoreMut<'_> {
     #[inline]
     fn jsc(&self) -> &JSCEngine {
-        &self.engine().jsc()
+        self.engine().jsc()
     }
 }
 
 impl IntoJSC for crate::Store {
     #[inline]
     fn jsc(&self) -> &JSCEngine {
-        &self.engine().jsc()
+        self.engine().jsc()
     }
 }
 
@@ -266,11 +266,11 @@ impl crate::Engine {
     }
 }
 
-impl Into<crate::Engine> for Engine {
-    fn into(self) -> crate::Engine {
-        crate::Engine {
-            be: crate::BackendEngine::Jsc(self),
-            id: crate::Engine::atomic_next_engine_id(),
+impl From<Engine> for crate::Engine {
+    fn from(engine: Engine) -> Self {
+        Self {
+            be: crate::BackendEngine::Jsc(engine),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }

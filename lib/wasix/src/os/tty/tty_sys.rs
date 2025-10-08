@@ -77,8 +77,8 @@ mod sys_terminal_size {
 mod sys {
     use {
         libc::{
-            c_int, tcsetattr, termios, ECHO, ECHOCTL, ECHOE, ECHOK, ECHONL, ICANON, ICRNL, IEXTEN,
-            IGNCR, ISIG, IXON, ONLCR, OPOST, TCSANOW,
+            ECHO, ECHOCTL, ECHOE, ECHOK, ECHONL, ICANON, ICRNL, IEXTEN, IGNCR, ISIG, IXON, ONLCR,
+            OPOST, TCSANOW, c_int, tcsetattr, termios,
         },
         std::mem,
         std::os::unix::io::AsRawFd,

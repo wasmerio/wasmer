@@ -72,11 +72,11 @@
 //!
 //! * **Pluggable compilers** — A compiler is used by the engine to
 //!   transform WebAssembly into executable code:
-//!   * [`wasmer-compiler-singlepass`] provides a fast compilation-time
+//!   * [`wasmer-compiler-singlepass`](https://docs.rs/wasmer-compiler-singlepass/) provides a fast compilation-time
 //!     but an unoptimized runtime speed,
-//!   * [`wasmer-compiler-cranelift`] provides the right balance between
+//!   * [`wasmer-compiler-cranelift`](https://docs.rs/wasmer-compiler-cranelift/) provides the right balance between
 //!     compilation-time and runtime performance, useful for development,
-//!   * [`wasmer-compiler-llvm`] provides a deeply optimized executable
+//!   * [`wasmer-compiler-llvm`](https://docs.rs/wasmer-compiler-llvm/) provides a deeply optimized executable
 //!     code with the fastest runtime speed, ideal for production.
 //!
 //! * **Interpreters** - Wasmer supports interpeters such as [`wamr`] and [`wasmi`].
@@ -302,15 +302,15 @@
 //! - `cranelift`
 #![cfg_attr(feature = "cranelift", doc = "(enabled),")]
 #![cfg_attr(not(feature = "cranelift"), doc = "(disabled),")]
-//!   enables Wasmer's [Cranelift compiler][wasmer-compiler-cranelift],
+//!   enables Wasmer's [`Cranelift` compiler](https://docs.rs/wasmer-compiler-cranelift),
 //! - `llvm`
 #![cfg_attr(feature = "llvm", doc = "(enabled),")]
 #![cfg_attr(not(feature = "llvm"), doc = "(disabled),")]
-//!   enables Wasmer's [LLVM compiler][wasmer-compiler-lvm],
+//!   enables Wasmer's [`LLVM` compiler](https://docs.rs/wasmer-compiler-llvm),
 //! - `singlepass`
 #![cfg_attr(feature = "singlepass", doc = "(enabled),")]
 #![cfg_attr(not(feature = "singlepass"), doc = "(disabled),")]
-//!   enables Wasmer's [Singlepass compiler][wasmer-compiler-singlepass],
+//!   enables Wasmer's [`Singlepass` compiler](https://docs.rs/wasmer-compiler-singlepass),
 //! - `wat`
 #![cfg_attr(feature = "wat", doc = "(enabled),")]
 #![cfg_attr(not(feature = "wat"), doc = "(disabled),")]
@@ -428,7 +428,7 @@ mod utils;
 pub use utils::*;
 
 mod entities;
-pub use entities::memory::{location::MemoryLocation, MemoryView};
+pub use entities::memory::{MemoryView, location::MemoryLocation};
 pub use entities::*;
 
 mod error;
@@ -439,11 +439,11 @@ pub use backend::*;
 mod vm;
 
 pub use wasmer_types::{
-    is_wasm, Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
+    Bytes, CompileError, DeserializeError, ExportIndex, ExportType, ExternType, FrameInfo,
     FunctionType, GlobalInit, GlobalType, ImportType, LocalFunctionIndex, MemoryError, MemoryStyle,
     MemoryType, Mutability, OnCalledAction, Pages, ParseCpuFeatureError, SerializeError,
-    TableStyle, TableType, TagKind, TagType, Type, ValueType, WasmError, WasmResult,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    TableStyle, TableType, TagKind, TagType, Type, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE, WasmError, WasmResult, is_wasm,
 };
 
 #[cfg(feature = "wasmparser")]

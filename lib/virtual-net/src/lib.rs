@@ -47,9 +47,9 @@ use tokio::io::AsyncWrite;
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
-pub use virtual_mio::{handler_into_waker, InterestHandler};
 #[cfg(feature = "host-net")]
 pub use virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
+pub use virtual_mio::{InterestHandler, handler_into_waker};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 

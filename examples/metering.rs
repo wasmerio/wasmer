@@ -18,14 +18,14 @@ use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::{
-    imports,
+    Instance, Module, Store, TypedFunction, imports,
     sys::{CompilerConfig, EngineBuilder},
-    wat2wasm, Instance, Module, Store, TypedFunction,
+    wat2wasm,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
-    metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
+    metering::{MeteringPoints, get_remaining_points, set_remaining_points},
 };
 
 fn main() -> anyhow::Result<()> {
@@ -136,10 +136,7 @@ fn main() -> anyhow::Result<()> {
     println!("Calling `add_one` function a third time...");
     match add_one.call(&mut store, 1) {
         Ok(result) => {
-            bail!(
-                "Expected failure while calling `add_one`, found: {}",
-                result
-            );
+            bail!("Expected failure while calling `add_one`, found: {result}");
         }
         Err(_) => {
             println!("Calling `add_one` failed.");

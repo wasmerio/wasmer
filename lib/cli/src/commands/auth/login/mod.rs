@@ -8,9 +8,9 @@ use crate::{
     commands::AsyncCliCommand,
     config::{UpdateRegistry, UserRegistry, WasmerConfig, WasmerEnv},
 };
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use std::{path::PathBuf, time::Duration};
-use wasmer_backend_api::{types::Nonce, WasmerClient};
+use wasmer_backend_api::{WasmerClient, types::Nonce};
 
 #[derive(Debug, Clone)]
 enum AuthorizationState {
@@ -256,7 +256,11 @@ impl AsyncCliCommand for Login {
                 match self.login_and_save(&env, token).await {
                     Ok(s) => {
                         print!("Done!");
-                        println!("\n{} Login for Wasmer user {:?} saved","✔".green().bold(), s)
+                        println!(
+                            "\n{} Login for Wasmer user {:?} saved",
+                            "✔".green().bold(),
+                            s
+                        )
                     }
                     Err(_) => print!(
                         "Warning: no user found on {:?} with the provided token.\nToken saved regardless.",

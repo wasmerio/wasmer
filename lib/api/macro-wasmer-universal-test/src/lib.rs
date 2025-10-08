@@ -1,7 +1,7 @@
 use proc_macro2::{Ident, Span, TokenStream};
 use syn::{
-    parse::{Parse, ParseStream},
     Attribute, Signature, Visibility,
+    parse::{Parse, ParseStream},
 };
 
 #[proc_macro_attribute]

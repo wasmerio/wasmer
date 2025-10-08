@@ -16,17 +16,17 @@ use wcgi_host::CgiDialect;
 use super::super::Body;
 
 use crate::{
+    Runtime, VirtualTaskManager, WasiEnvBuilder,
     bin_factory::run_exec,
     os::task::OwnedTaskStatus,
     runners::{
         body_from_data, body_from_stream,
         wcgi::{
-            callbacks::{CreateEnvConfig, RecycleEnvConfig},
             Callbacks,
+            callbacks::{CreateEnvConfig, RecycleEnvConfig},
         },
     },
     runtime::task_manager::{TaskWasm, TaskWasmRecycleProperties},
-    Runtime, VirtualTaskManager, WasiEnvBuilder,
 };
 use wasmer_types::ModuleHash;
 

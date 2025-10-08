@@ -1,7 +1,7 @@
 use virtual_fs::AsyncReadExt;
 
 use super::*;
-use crate::{net::socket::TimeType, syscalls::*, WasiInodes};
+use crate::{WasiInodes, net::socket::TimeType, syscalls::*};
 
 /// ### `sock_send_file()`
 /// Sends the entire contents of a file down a socket
@@ -165,7 +165,7 @@ pub(crate) fn sock_send_file_internal(
                                 env = ctx.data();
                                 data
                             }
-                            Kind::PipeRx { ref mut rx } => {
+                            Kind::PipeRx { rx } => {
                                 let data = wasi_try_ok_ok!(__asyncify(ctx, None, async move {
                                     // TODO: optimize with MaybeUninit
                                     let mut buf = vec![0u8; sub_count as usize];
@@ -178,7 +178,7 @@ pub(crate) fn sock_send_file_internal(
                                 env = ctx.data();
                                 data
                             }
-                            Kind::DuplexPipe { ref mut pipe } => {
+                            Kind::DuplexPipe { pipe } => {
                                 let data = wasi_try_ok_ok!(__asyncify(ctx, None, async move {
                                     // TODO: optimize with MaybeUninit
                                     let mut buf = vec![0u8; sub_count as usize];
@@ -205,11 +205,10 @@ pub(crate) fn sock_send_file_internal(
                                 let mut buf = vec![0u8; sub_count as usize];
 
                                 let mut buf_read = &buffer[offset..];
-                                let amt = wasi_try_ok_ok!(std::io::Read::read(
-                                    &mut buf_read,
-                                    &mut buf[..]
-                                )
-                                .map_err(map_io_err));
+                                let amt = wasi_try_ok_ok!(
+                                    std::io::Read::read(&mut buf_read, &mut buf[..])
+                                        .map_err(map_io_err)
+                                );
                                 buf.truncate(amt);
                                 buf
                             }

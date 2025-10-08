@@ -2,26 +2,26 @@ use std::{net::SocketAddr, sync::Arc};
 
 use super::super::Body;
 use anyhow::{Context, Error};
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 use http::{Request, Response};
 use tower::ServiceBuilder;
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
 use wcgi_host::CgiDialect;
 use webc::metadata::{
-    annotations::{Wasi, Wcgi},
     Command,
+    annotations::{Wasi, Wcgi},
 };
 
 use crate::{
+    Runtime, WasiEnvBuilder,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     runners::{
+        MappedDirectory,
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
-        MappedDirectory,
     },
     runtime::task_manager::VirtualTaskManagerExt,
-    Runtime, WasiEnvBuilder,
 };
 
 use super::Callbacks;
@@ -101,13 +101,13 @@ impl WcgiRunner {
     ) -> Result<(), Error>
     where
         S: tower::Service<
-            Request<hyper::body::Incoming>,
-            Response = http::Response<Body>,
-            Error = anyhow::Error,
-            Future = std::pin::Pin<
-                Box<dyn futures::Future<Output = Result<Response<Body>, Error>> + Send>,
+                Request<hyper::body::Incoming>,
+                Response = http::Response<Body>,
+                Error = anyhow::Error,
+                Future = std::pin::Pin<
+                    Box<dyn futures::Future<Output = Result<Response<Body>, Error>> + Send>,
+                >,
             >,
-        >,
         S: Clone + Send + Sync + 'static,
     {
         let service = ServiceBuilder::new()
@@ -312,7 +312,7 @@ impl Config {
 
     #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, on: crate::journal::SnapshotTrigger) -> bool {
-        self.wasi.snapshot_on.iter().any(|t| *t == on)
+        self.wasi.snapshot_on.contains(&on)
     }
 
     #[cfg(feature = "journal")]

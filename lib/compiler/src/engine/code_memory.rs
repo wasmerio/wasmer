@@ -4,12 +4,12 @@
 //! Memory management for executable code.
 use super::unwind::UnwindRegistry;
 use crate::{
+    GlobalFrameInfoRegistration,
     types::{
         function::FunctionBodyLike,
         section::CustomSectionLike,
         unwind::{CompiledFunctionUnwindInfoLike, CompiledFunctionUnwindInfoReference},
     },
-    GlobalFrameInfoRegistration,
 };
 use wasmer_vm::{Mmap, VMFunctionBody};
 

@@ -1,6 +1,6 @@
-use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, AArch64};
+use gimli::{AArch64, write::CallFrameInstruction};
 
 use wasmer_compiler::{
     types::{
@@ -12,12 +12,12 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 use crate::{
-    arm64_decl::{new_machine_state, GPR, NEON},
+    arm64_decl::{GPR, NEON, new_machine_state},
     codegen_error,
     common_decl::*,
     emitter_arm64::*,
@@ -1424,7 +1424,7 @@ impl Machine for MachineARM64 {
         for r in used_gprs.iter() {
             self.emit_push(Size::S64, Location::GPR(*r))?;
         }
-        Ok(((used_gprs.len() + 1) / 2) * 16)
+        Ok(used_gprs.len().div_ceil(2) * 16)
     }
     fn pop_used_gpr(&mut self, used_gprs: &[GPR]) -> Result<(), CompileError> {
         for r in used_gprs.iter().rev() {

@@ -3,17 +3,17 @@
 
 use crate::types::{module::CompileModuleInfo, symbols::SymbolRegistry};
 use crate::{
+    FunctionBodyData, ModuleTranslationState,
     lib::std::{boxed::Box, sync::Arc},
     translator::ModuleMiddleware,
     types::function::Compilation,
-    FunctionBodyData, ModuleTranslationState,
 };
 use enumset::EnumSet;
 use wasmer_types::{
+    Features, LocalFunctionIndex,
     entity::PrimaryMap,
     error::CompileError,
     target::{CpuFeature, Target, UserCompilerOptimizations},
-    Features, LocalFunctionIndex,
 };
 #[cfg(feature = "translator")]
 use wasmparser::{Validator, WasmFeatures};

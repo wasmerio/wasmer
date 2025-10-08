@@ -1,8 +1,8 @@
 use std::{marker::PhantomData, mem::MaybeUninit};
 
 use crate::{
-    macros::backend::{gen_rt_ty, match_rt},
     MemoryAccessError,
+    macros::backend::{gen_rt_ty, match_rt},
 };
 
 /// Underlying buffer for a memory.

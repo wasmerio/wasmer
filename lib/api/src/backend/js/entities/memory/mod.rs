@@ -11,9 +11,9 @@ use wasm_bindgen::JsCast;
 use wasmer_types::{MemoryError, MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendMemory,
     js::vm::memory::VMMemory,
     vm::{VMExtern, VMExternMemory},
-    AsStoreMut, AsStoreRef, BackendMemory,
 };
 
 #[derive(Debug, Clone, Eq)]

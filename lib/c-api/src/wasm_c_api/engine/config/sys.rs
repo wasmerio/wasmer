@@ -65,7 +65,7 @@ pub(crate) struct wasmer_sys_engine_config_t {
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_config_sys_canonicalize_nans(config: &mut wasm_config_t, enable: bool) {
     if let wasmer_backend_config_kind_t::Sys(ref mut c) = config.backend_config.inner {
         c.nan_canonicalization = enable;

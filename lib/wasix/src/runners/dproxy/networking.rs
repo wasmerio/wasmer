@@ -7,9 +7,9 @@ use std::{
 };
 
 use virtual_net::{
-    host::LocalNetworking, loopback::LoopbackNetworking, IpCidr, IpRoute, NetworkError,
-    StreamSecurity, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket, VirtualTcpListener,
-    VirtualTcpSocket, VirtualUdpSocket,
+    IpCidr, IpRoute, NetworkError, StreamSecurity, VirtualIcmpSocket, VirtualNetworking,
+    VirtualRawSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
+    host::LocalNetworking, loopback::LoopbackNetworking,
 };
 
 #[derive(Debug, Default)]

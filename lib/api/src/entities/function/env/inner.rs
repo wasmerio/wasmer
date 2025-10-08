@@ -1,6 +1,6 @@
 use crate::{
-    macros::backend::match_rt, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut,
-    StoreRef,
+    AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
+    macros::backend::match_rt,
 };
 use std::{any::Any, marker::PhantomData};
 
@@ -111,7 +111,7 @@ impl<T> BackendFunctionEnv<T> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<T>
+    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
     where
         T: Any + Send + 'static + Sized,
     {
@@ -166,17 +166,17 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
     pub fn as_ref(&self) -> FunctionEnv<T> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(ref f) => BackendFunctionEnv::Sys(f.as_ref()).into(),
+            Self::Sys(f) => BackendFunctionEnv::Sys(f.as_ref()).into(),
             #[cfg(feature = "wamr")]
-            Self::Wamr(ref f) => BackendFunctionEnv::Wamr(f.as_ref()).into(),
+            Self::Wamr(f) => BackendFunctionEnv::Wamr(f.as_ref()).into(),
             #[cfg(feature = "wasmi")]
-            Self::Wasmi(ref f) => BackendFunctionEnv::Wasmi(f.as_ref()).into(),
+            Self::Wasmi(f) => BackendFunctionEnv::Wasmi(f.as_ref()).into(),
             #[cfg(feature = "v8")]
-            Self::V8(ref f) => BackendFunctionEnv::V8(f.as_ref()).into(),
+            Self::V8(f) => BackendFunctionEnv::V8(f.as_ref()).into(),
             #[cfg(feature = "js")]
-            Self::Js(ref f) => BackendFunctionEnv::Js(f.as_ref()).into(),
+            Self::Js(f) => BackendFunctionEnv::Js(f.as_ref()).into(),
             #[cfg(feature = "jsc")]
-            Self::Jsc(ref f) => BackendFunctionEnv::Jsc(f.as_ref()).into(),
+            Self::Jsc(f) => BackendFunctionEnv::Jsc(f.as_ref()).into(),
         }
     }
 
@@ -184,22 +184,22 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
     pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(ref mut f) => BackendFunctionEnvMut::Sys(f.as_mut()).into(),
+            Self::Sys(f) => BackendFunctionEnvMut::Sys(f.as_mut()).into(),
             #[cfg(feature = "wamr")]
-            Self::Wamr(ref mut f) => BackendFunctionEnvMut::Wamr(f.as_mut()).into(),
+            Self::Wamr(f) => BackendFunctionEnvMut::Wamr(f.as_mut()).into(),
             #[cfg(feature = "wasmi")]
-            Self::Wasmi(ref mut f) => BackendFunctionEnvMut::Wasmi(f.as_mut()).into(),
+            Self::Wasmi(f) => BackendFunctionEnvMut::Wasmi(f.as_mut()).into(),
             #[cfg(feature = "v8")]
-            Self::V8(ref mut f) => BackendFunctionEnvMut::V8(f.as_mut()).into(),
+            Self::V8(f) => BackendFunctionEnvMut::V8(f.as_mut()).into(),
             #[cfg(feature = "js")]
-            Self::Js(ref mut f) => BackendFunctionEnvMut::Js(f.as_mut()).into(),
+            Self::Js(f) => BackendFunctionEnvMut::Js(f.as_mut()).into(),
             #[cfg(feature = "jsc")]
-            Self::Jsc(ref mut f) => BackendFunctionEnvMut::Jsc(f.as_mut()).into(),
+            Self::Jsc(f) => BackendFunctionEnvMut::Jsc(f.as_mut()).into(),
         }
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         match_rt!(on self => f {
             f.data_and_store_mut()
         })

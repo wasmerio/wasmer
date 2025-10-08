@@ -7,7 +7,7 @@ use std::fmt;
 #[derive(Debug)]
 enum InnerTrap {
     User(Box<dyn Error + Send + Sync>),
-    JSC(JSValue),
+    Jsc(JSValue),
 }
 
 /// A struct representing a Trap
@@ -57,18 +57,18 @@ impl Trap {
             InnerTrap::User(err) => {
                 let obj = JSObject::new(ctx);
                 let err_ptr = Box::leak(Box::new(err));
-                let wasmer_error_ptr = JSValue::number(&ctx, err_ptr as *mut _ as usize as _);
-                obj.set_property(&ctx, "wasmer_error_ptr".to_string(), wasmer_error_ptr)
+                let wasmer_error_ptr = JSValue::number(ctx, err_ptr as *mut _ as usize as _);
+                obj.set_property(ctx, "wasmer_error_ptr".to_string(), wasmer_error_ptr)
                     .unwrap();
                 obj.to_jsvalue()
             }
-            InnerTrap::JSC(value) => value,
+            InnerTrap::Jsc(value) => value,
         }
     }
 
     pub(crate) fn from_jsc_value(ctx: &JSContext, val: JSValue) -> Self {
         let obj_val = val.to_object(ctx).unwrap();
-        let wasmer_error_ptr = obj_val.get_property(&ctx, "wasmer_error_ptr".to_string());
+        let wasmer_error_ptr = obj_val.get_property(ctx, "wasmer_error_ptr".to_string());
         if wasmer_error_ptr.is_number(ctx) {
             let err_ptr = wasmer_error_ptr.to_number(ctx).unwrap() as usize
                 as *mut Box<dyn Error + Send + Sync>;
@@ -76,7 +76,7 @@ impl Trap {
             return Self::user(*err);
         }
         Self {
-            inner: InnerTrap::JSC(val),
+            inner: InnerTrap::Jsc(val),
         }
     }
 }
@@ -94,7 +94,7 @@ impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
             InnerTrap::User(e) => write!(f, "user: {}", e),
-            InnerTrap::JSC(value) => write!(f, "jsc: obscure"),
+            InnerTrap::Jsc(_value) => write!(f, "jsc: obscure"),
         }
     }
 }
@@ -102,7 +102,7 @@ impl fmt::Display for Trap {
 impl From<JSValue> for RuntimeError {
     fn from(original: JSValue) -> Self {
         let trap = Trap {
-            inner: InnerTrap::JSC(original),
+            inner: InnerTrap::Jsc(original),
         };
         trap.into()
         // unimplemented!("TODO: implement Trap::from(JSValue) for RuntimeError");
@@ -122,6 +122,6 @@ impl From<Trap> for RuntimeError {
             return trap.downcast::<Self>().unwrap();
         }
 
-        RuntimeError::new_from_source(crate::BackendTrap::Jsc(trap), vec![], None)
+        Self::new_from_source(crate::BackendTrap::Jsc(trap), vec![], None)
     }
 }

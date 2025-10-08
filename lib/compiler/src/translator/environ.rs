@@ -7,8 +7,8 @@ use crate::translate_module;
 use crate::wasmparser::{Operator, ValType};
 use std::convert::{TryFrom, TryInto};
 use std::ops::Range;
-use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionType;
+use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,

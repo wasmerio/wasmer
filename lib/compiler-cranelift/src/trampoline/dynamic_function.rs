@@ -5,9 +5,9 @@
 
 use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
 use cranelift_codegen::{
+    Context,
     ir::{self, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind, UserFuncName},
     isa::TargetIsa,
-    Context,
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::{cmp, mem};

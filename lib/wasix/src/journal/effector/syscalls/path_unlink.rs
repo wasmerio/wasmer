@@ -33,10 +33,7 @@ impl JournalEffector {
             let ret = crate::syscalls::path_unlink_file_internal(ctx, fd, path)?;
             if ret != Errno::Success {
                 bail!(
-                    "journal restore error: failed to remove file (fd={}, path={}) - {}",
-                    fd,
-                    path,
-                    ret
+                    "journal restore error: failed to remove file (fd={fd}, path={path}) - {ret}"
                 );
             }
         }

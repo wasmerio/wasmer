@@ -9,11 +9,10 @@ use crate::{
 use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{
-        self,
+        self, AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
         types::*,
-        AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
     },
     isa::TargetFrontendConfig,
 };
@@ -21,10 +20,10 @@ use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
     ModuleInfo, SignatureIndex, TableIndex, TableStyle, Type as WasmerType, VMBuiltinFunctionIndex,
     VMOffsets, WasmError, WasmResult,
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
@@ -1061,13 +1060,13 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 _ => {
                     return Err(WasmError::Unsupported(
                         "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                    ))
+                    ));
                 }
             },
             HeapType::Concrete(_) => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                ))
+                ));
             }
         })
     }

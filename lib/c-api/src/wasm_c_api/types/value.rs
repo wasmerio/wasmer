@@ -81,7 +81,7 @@ impl From<Type> for wasm_valtype_t {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valtype_t>> {
     let kind_enum = kind.try_into().ok()?;
     let valtype = wasm_valtype_t { valkind: kind_enum };
@@ -89,10 +89,10 @@ pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valt
     Some(Box::new(valtype))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_valtype_delete(_valtype: Option<Box<wasm_valtype_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_valtype_kind(valtype: Option<&wasm_valtype_t>) -> wasm_valkind_t {
     valtype
         .expect("`wasm_valtype_kind: argument is a null pointer")

@@ -4,20 +4,20 @@ pub(crate) mod env;
 pub(crate) mod typed;
 
 use crate::{
+    BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
+    StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
-    BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
-    StoreInner, Value, WithEnv, WithoutEnv,
 };
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
 use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, MaybeInstanceOwned,
-    StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFuncRef,
-    VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
+    MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
+    VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
+    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -385,12 +385,15 @@ impl Function {
     }
 
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        let signature = store
-            .as_store_ref()
-            .engine()
-            .as_sys()
-            .lookup_signature(funcref.0.as_ref().type_index)
-            .expect("Signature not found in store");
+        let signature = {
+            let anyfunc = unsafe { funcref.0.as_ref() };
+            store
+                .as_store_ref()
+                .engine()
+                .as_sys()
+                .lookup_signature(anyfunc.type_index)
+                .expect("Signature not found in store")
+        };
         let vm_function = VMFunction {
             anyfunc: MaybeInstanceOwned::Instance(funcref.0),
             signature,
@@ -451,8 +454,8 @@ where
         // See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(trap)) => raise_user_trap(trap),
-            Err(panic) => resume_panic(panic),
+            Ok(Err(trap)) => unsafe { raise_user_trap(trap) },
+            Err(panic) => unsafe { resume_panic(panic) },
         }
     }
 
@@ -471,8 +474,10 @@ where
     ) {
         // The VMFunctionCallback is null here: it is only filled in later
         // by the engine linker.
-        let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
-        Self::func_wrapper(dynamic_function, args);
+        unsafe {
+            let dynamic_function = &mut *(vmctx as *mut VMDynamicFunctionContext<Self>);
+            Self::func_wrapper(dynamic_function, args);
+        }
     }
 }
 
@@ -528,11 +533,13 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+                let mut store = unsafe { StoreMut::from_raw(env.raw_store as *mut _) };
                 let result = on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         $(
-                            let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
+                            let $x = unsafe {
+                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
+                            };
                         )*
                         (env.func)($($x),* ).into_result().map_err(Box::new)
                     }))
@@ -542,9 +549,17 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    Ok(Err(trap)) => raise_user_trap(trap),
-                    Err(panic) => resume_panic(panic) ,
+                    Ok(Ok(result)) => {
+                        unsafe {
+                            return result.into_c_struct(&mut store);
+                        }
+                    },
+                    Ok(Err(trap)) => unsafe {
+                        raise_user_trap(trap)
+                    },
+                    Err(panic) => unsafe {
+                        resume_panic(panic)
+                    },
                 }
             }
 
@@ -563,15 +578,17 @@ macro_rules! impl_host_function {
                 body: crate::backend::sys::vm::VMFunctionCallback,
                 args: *mut RawValue,
             ) {
-                let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
                 let mut _n = 0;
-                $(
-                    let $x = *args.add(_n).cast();
-                    _n += 1;
-                )*
 
-                let results = body(vmctx, $( $x ),*);
-                Rets::write_c_struct_to_ptr(results, args);
+                unsafe {
+                    let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+                    $(
+                        let $x = *args.add(_n).cast();
+                        _n += 1;
+                    )*
+                    let results = body(vmctx, $( $x ),*);
+                    Rets::write_c_struct_to_ptr(results, args);
+                }
             }
 
             call_trampoline::<$( $x, )* Rets> as _
@@ -593,13 +610,15 @@ macro_rules! impl_host_function {
                 Func: Fn(FunctionEnvMut<T>, $( $x , )*) -> RetsAsResult + 'static,
             {
 
-                let mut store = StoreMut::from_raw(env.raw_store as *mut _);
+                let mut store = unsafe { StoreMut::from_raw(env.raw_store as *mut _) };
                 let result = wasmer_vm::on_host_stack(|| {
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         $(
-                            let $x = FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x));
+                            let $x = unsafe {
+                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
+                            };
                         )*
-                        let store_mut = StoreMut::from_raw(env.raw_store as *mut _);
+                        let store_mut = unsafe { StoreMut::from_raw(env.raw_store as *mut _) };
                         let f_env = crate::backend::sys::function::env::FunctionEnvMut {
                             store_mut,
                             func_env: env.env.as_sys().clone(),
@@ -612,9 +631,20 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
-                    Ok(Err(trap)) => raise_user_trap(trap),
-                    Err(panic) => resume_panic(panic),
+                    Ok(Ok(result)) => {
+                        let cs = unsafe { result.into_c_struct(&mut store) };
+                        return cs
+                    },
+                    Ok(Err(trap)) => {
+                        unsafe {
+                            raise_user_trap(trap)
+                        }
+                    },
+                    Err(panic) => {
+                        unsafe {
+                            resume_panic(panic)
+                        }
+                    },
                 }
             }
             func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _
@@ -630,15 +660,18 @@ macro_rules! impl_host_function {
                   body: crate::backend::sys::vm::VMFunctionCallback,
                   args: *mut RawValue,
             ) {
-                let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
-                let mut _n = 0;
-                $(
-                let $x = *args.add(_n).cast();
-                _n += 1;
-                )*
+                unsafe {
+                    let body: unsafe extern "C" fn(vmctx: *mut crate::backend::sys::vm::VMContext, $( $x: <$x::Native as NativeWasmType>::Abi, )*) -> Rets::CStruct = std::mem::transmute(body);
+                    let mut _n = 0;
+                    $(
+                    let $x = *args.add(_n).cast();
+                    _n += 1;
+                    )*
 
-                let results = body(vmctx, $( $x ),*);
-                Rets::write_c_struct_to_ptr(results, args);
+                    let results = body(vmctx, $( $x ),*);
+
+                    Rets::write_c_struct_to_ptr(results, args);
+                }
             }
 
             call_trampoline::<$( $x, )* Rets> as _

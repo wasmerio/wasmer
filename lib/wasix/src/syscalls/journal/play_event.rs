@@ -11,13 +11,13 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
     ) -> Result<(), WasiRuntimeError> {
         match next {
             JournalEntry::InitModuleV1 { wasm_hash } => {
-                self.action_init_module(wasm_hash, differ_ethereal)?;
+                unsafe { self.action_init_module(wasm_hash, differ_ethereal) }?;
             }
             JournalEntry::ClearEtherealV1 => {
                 self.clear_ethereal(differ_ethereal);
             }
             JournalEntry::ProcessExitV1 { exit_code } => {
-                self.action_process_exit(exit_code, differ_ethereal)?;
+                unsafe { self.action_process_exit(exit_code, differ_ethereal) }?;
             }
             JournalEntry::FileDescriptorWriteV1 {
                 fd,
@@ -26,7 +26,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 is_64bit,
             } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_write(fd, offset, data, is_64bit)?;
+                    unsafe { self.action_fd_write(fd, offset, data, is_64bit) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, %offset, "Differ(ether) journal - FdWrite");
                     differ_ethereal.push(JournalEntry::FileDescriptorWriteV1 {
@@ -36,27 +36,29 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         is_64bit,
                     });
                 } else {
-                    self.action_fd_write(fd, offset, data, is_64bit)?;
+                    unsafe { self.action_fd_write(fd, offset, data, is_64bit) }?;
                 }
             }
             JournalEntry::FileDescriptorSeekV1 { fd, offset, whence } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_seek(fd, offset, whence)?;
+                    unsafe { self.action_fd_seek(fd, offset, whence) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, %offset, ?whence, "Differ(ether) journal - FdSeek");
                     differ_ethereal.push(JournalEntry::FileDescriptorSeekV1 { fd, offset, whence });
                 } else {
-                    self.action_fd_seek(fd, offset, whence)?;
+                    unsafe { self.action_fd_seek(fd, offset, whence) }?;
                 }
             }
             JournalEntry::UpdateMemoryRegionV1 {
                 region,
                 compressed_data,
             } => {
-                self.action_update_compressed_memory(region, compressed_data, differ_ethereal)?;
+                unsafe {
+                    self.action_update_compressed_memory(region, compressed_data, differ_ethereal)
+                }?;
             }
             JournalEntry::CloseThreadV1 { id, exit_code } => {
-                self.action_close_thread(id, exit_code, differ_ethereal)?;
+                unsafe { self.action_close_thread(id, exit_code, differ_ethereal) }?;
             }
             JournalEntry::SetThreadV1 {
                 id,
@@ -67,25 +69,27 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 start,
                 layout,
             } => {
-                self.action_set_thread(
-                    id,
-                    call_stack,
-                    memory_stack,
-                    store_data,
-                    is_64bit,
-                    start,
-                    layout,
-                    differ_ethereal,
-                )?;
+                unsafe {
+                    self.action_set_thread(
+                        id,
+                        call_stack,
+                        memory_stack,
+                        store_data,
+                        is_64bit,
+                        start,
+                        layout,
+                        differ_ethereal,
+                    )
+                }?;
             }
             JournalEntry::CloseFileDescriptorV1 { fd } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_close(fd)?;
+                    unsafe { self.action_fd_close(fd) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, "Differ(ether) journal - FdClose");
                     differ_ethereal.push(JournalEntry::CloseFileDescriptorV1 { fd });
                 } else {
-                    self.action_fd_close(fd)?;
+                    unsafe { self.action_fd_close(fd) }?;
                 }
             }
             JournalEntry::OpenFileDescriptorV1 {
@@ -99,17 +103,19 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 fs_flags,
             } => {
                 self.real_fd.insert(fd);
-                self.action_fd_open(
-                    fd,
-                    dirfd,
-                    dirflags,
-                    path,
-                    o_flags,
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    fs_flags,
-                    Fdflagsext::empty(),
-                )?;
+                unsafe {
+                    self.action_fd_open(
+                        fd,
+                        dirfd,
+                        dirflags,
+                        path,
+                        o_flags,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        Fdflagsext::empty(),
+                    )
+                }?;
             }
             JournalEntry::OpenFileDescriptorV2 {
                 fd,
@@ -123,17 +129,19 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 fd_flags,
             } => {
                 self.real_fd.insert(fd);
-                self.action_fd_open(
-                    fd,
-                    dirfd,
-                    dirflags,
-                    path,
-                    o_flags,
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    fs_flags,
-                    fd_flags,
-                )?;
+                unsafe {
+                    self.action_fd_open(
+                        fd,
+                        dirfd,
+                        dirflags,
+                        path,
+                        o_flags,
+                        fs_rights_base,
+                        fs_rights_inheriting,
+                        fs_flags,
+                        fd_flags,
+                    )
+                }?;
             }
             JournalEntry::RemoveDirectoryV1 { fd, path } => {
                 tracing::trace!("Replay journal - RemoveDirectory {}", path);
@@ -162,7 +170,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 .map_err(anyhow_err_to_runtime_err)?;
             }
             JournalEntry::SnapshotV1 { when, trigger } => {
-                self.action_snapshot(when, trigger, differ_ethereal)?;
+                unsafe { self.action_snapshot(when, trigger, differ_ethereal) }?;
             }
             JournalEntry::SetClockTimeV1 { clock_id, time } => {
                 tracing::trace!(?clock_id, %time, "Replay journal - ClockTimeSet");
@@ -171,12 +179,12 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
             }
             JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd } => {
                 if self.real_fd.remove(&old_fd) {
-                    self.action_fd_renumber(old_fd, new_fd)?;
+                    unsafe { self.action_fd_renumber(old_fd, new_fd) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%old_fd, %new_fd, "Differ(ether) journal - FdRenumber");
                     differ_ethereal.push(JournalEntry::RenumberFileDescriptorV1 { old_fd, new_fd });
                 } else {
-                    self.action_fd_renumber(old_fd, new_fd)?;
+                    unsafe { self.action_fd_renumber(old_fd, new_fd) }?;
                 }
             }
             JournalEntry::DuplicateFileDescriptorV1 {
@@ -184,7 +192,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 copied_fd,
             } => {
                 if self.real_fd.contains(&original_fd) {
-                    self.action_fd_dup(original_fd, copied_fd, false)?;
+                    unsafe { self.action_fd_dup(original_fd, copied_fd, false) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%original_fd, %copied_fd, "Differ(ether) journal - FdDuplicate");
                     differ_ethereal.push(JournalEntry::DuplicateFileDescriptorV1 {
@@ -192,7 +200,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         copied_fd,
                     });
                 } else {
-                    self.action_fd_dup(original_fd, copied_fd, false)?;
+                    unsafe { self.action_fd_dup(original_fd, copied_fd, false) }?;
                 }
             }
             JournalEntry::DuplicateFileDescriptorV2 {
@@ -201,7 +209,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 cloexec,
             } => {
                 if self.real_fd.contains(&original_fd) {
-                    self.action_fd_dup(original_fd, copied_fd, cloexec)?;
+                    unsafe { self.action_fd_dup(original_fd, copied_fd, cloexec) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%original_fd, %copied_fd, %cloexec, "Differ(ether) journal - FdDuplicate");
                     differ_ethereal.push(JournalEntry::DuplicateFileDescriptorV2 {
@@ -210,7 +218,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         cloexec,
                     });
                 } else {
-                    self.action_fd_dup(original_fd, copied_fd, cloexec)?;
+                    unsafe { self.action_fd_dup(original_fd, copied_fd, cloexec) }?;
                 }
             }
             JournalEntry::CreateDirectoryV1 { fd, path } => {
@@ -227,7 +235,9 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 fst_flags,
             } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_path_set_times(fd, flags, path, st_atim, st_mtim, fst_flags)?;
+                    unsafe {
+                        self.action_path_set_times(fd, flags, path, st_atim, st_mtim, fst_flags)
+                    }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, "Differ(ether) journal - PathSetTimes");
                     differ_ethereal.push(JournalEntry::PathSetTimesV1 {
@@ -239,7 +249,9 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         fst_flags,
                     });
                 } else {
-                    self.action_path_set_times(fd, flags, path, st_atim, st_mtim, fst_flags)?;
+                    unsafe {
+                        self.action_path_set_times(fd, flags, path, st_atim, st_mtim, fst_flags)
+                    }?;
                 }
             }
             JournalEntry::FileDescriptorSetTimesV1 {
@@ -249,9 +261,15 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 fst_flags,
             } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_set_times(fd, st_atim, st_mtim, fst_flags)?
+                    unsafe { self.action_fd_set_times(fd, st_atim, st_mtim, fst_flags) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
-                    tracing::trace!(%fd, %st_atim, %st_mtim, ?fst_flags, "Differ(ether) journal - FdSetTimes");
+                    tracing::trace!(
+                        %fd,
+                        %st_atim,
+                        %st_mtim,
+                        ?fst_flags,
+                        "Differ(ether) journal - FdSetTimes"
+                    );
                     differ_ethereal.push(JournalEntry::FileDescriptorSetTimesV1 {
                         fd,
                         st_atim,
@@ -259,37 +277,37 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         fst_flags,
                     });
                 } else {
-                    self.action_fd_set_times(fd, st_atim, st_mtim, fst_flags)?
+                    unsafe { self.action_fd_set_times(fd, st_atim, st_mtim, fst_flags) }?;
                 }
             }
             JournalEntry::FileDescriptorSetSizeV1 { fd, st_size } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_set_size(fd, st_size)?;
+                    unsafe { self.action_fd_set_size(fd, st_size) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, %st_size, "Differ(ether) journal - FdSetSize");
                     differ_ethereal.push(JournalEntry::FileDescriptorSetSizeV1 { fd, st_size });
                 } else {
-                    self.action_fd_set_size(fd, st_size)?;
+                    unsafe { self.action_fd_set_size(fd, st_size) }?;
                 }
             }
             JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_set_fdflags(fd, flags)?;
+                    unsafe { self.action_fd_set_fdflags(fd, flags) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, ?flags, "Differ(ether) journal - FdSetFdFlags");
                     differ_ethereal.push(JournalEntry::FileDescriptorSetFdFlagsV1 { fd, flags });
                 } else {
-                    self.action_fd_set_fdflags(fd, flags)?;
+                    unsafe { self.action_fd_set_fdflags(fd, flags) }?;
                 }
             }
             JournalEntry::FileDescriptorSetFlagsV1 { fd, flags } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_set_flags(fd, flags)?;
+                    unsafe { self.action_fd_set_flags(fd, flags) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, ?flags, "Differ(ether) journal - FdSetFlags");
                     differ_ethereal.push(JournalEntry::FileDescriptorSetFlagsV1 { fd, flags });
                 } else {
-                    self.action_fd_set_flags(fd, flags)?;
+                    unsafe { self.action_fd_set_flags(fd, flags) }?;
                 }
             }
             JournalEntry::FileDescriptorSetRightsV1 {
@@ -298,7 +316,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 fs_rights_inheriting,
             } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_set_rights(fd, fs_rights_base, fs_rights_inheriting)?;
+                    unsafe { self.action_fd_set_rights(fd, fs_rights_base, fs_rights_inheriting) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, "Differ(ether) journal - FdSetRights");
                     differ_ethereal.push(JournalEntry::FileDescriptorSetRightsV1 {
@@ -307,7 +325,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         fs_rights_inheriting,
                     });
                 } else {
-                    self.action_fd_set_rights(fd, fs_rights_base, fs_rights_inheriting)?;
+                    unsafe { self.action_fd_set_rights(fd, fs_rights_base, fs_rights_inheriting) }?;
                 }
             }
             JournalEntry::FileDescriptorAdviseV1 {
@@ -317,7 +335,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                 advice,
             } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_advise(fd, offset, len, advice)?;
+                    unsafe { self.action_fd_advise(fd, offset, len, advice) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, %offset, %len, ?advice, "Differ(ether) journal - FdAdvise");
                     differ_ethereal.push(JournalEntry::FileDescriptorAdviseV1 {
@@ -327,12 +345,12 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         advice,
                     });
                 } else {
-                    self.action_fd_advise(fd, offset, len, advice)?;
+                    unsafe { self.action_fd_advise(fd, offset, len, advice) }?;
                 }
             }
             JournalEntry::FileDescriptorAllocateV1 { fd, offset, len } => {
                 if self.real_fd.contains(&fd) {
-                    self.action_fd_allocate(fd, offset, len)?;
+                    unsafe { self.action_fd_allocate(fd, offset, len) }?;
                 } else if let Some(differ_ethereal) = differ_ethereal {
                     tracing::trace!(%fd, %offset, %len, "Differ(ether) journal - FdAllocate");
                     differ_ethereal.push(JournalEntry::FileDescriptorAllocateV1 {
@@ -341,7 +359,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                         len,
                     });
                 } else {
-                    self.action_fd_allocate(fd, offset, len)?;
+                    unsafe { self.action_fd_allocate(fd, offset, len) }?;
                 }
             }
             JournalEntry::CreateHardLinkV1 {
@@ -421,7 +439,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
                     tracing::trace!("Differ(ether) journal - TtySet");
                     differ_ethereal.push(JournalEntry::TtySetV1 { tty, line_feeds });
                 } else {
-                    self.action_tty_set(tty, line_feeds)?;
+                    unsafe { self.action_tty_set(tty, line_feeds) }?;
                 }
             }
             JournalEntry::PortAddAddrV1 { cidr } => {

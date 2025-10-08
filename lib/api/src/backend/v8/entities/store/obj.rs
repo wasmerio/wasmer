@@ -1,8 +1,8 @@
 use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 
 use crate::{
-    backend::v8::vm::{VMFunctionEnvironment, VMGlobal},
     AsStoreMut,
+    backend::v8::vm::{VMFunctionEnvironment, VMGlobal},
 };
 
 pub use wasmer_types::StoreId;
@@ -11,7 +11,7 @@ impl crate::StoreObjects {
     /// Consume [`self`] into [`crate::backend::v8::store::StoreObjects`].
     pub fn into_v8(self) -> crate::backend::v8::store::StoreObjects {
         match self {
-            crate::StoreObjects::V8(s) => s,
+            Self::V8(s) => s,
             _ => panic!("Not a `v8` store!"),
         }
     }
@@ -19,7 +19,7 @@ impl crate::StoreObjects {
     /// Convert a reference to [`self`] into a reference [`crate::backend::v8::store::StoreObjects`].
     pub fn as_v8(&self) -> &crate::backend::v8::store::StoreObjects {
         match self {
-            crate::StoreObjects::V8(s) => s,
+            Self::V8(s) => s,
             _ => panic!("Not a `v8` store!"),
         }
     }
@@ -27,7 +27,7 @@ impl crate::StoreObjects {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::v8::store::StoreObjects`].
     pub fn as_v8_mut(&mut self) -> &mut crate::backend::v8::store::StoreObjects {
         match self {
-            crate::StoreObjects::V8(s) => s,
+            Self::V8(s) => s,
             _ => panic!("Not a `v8` store!"),
         }
     }

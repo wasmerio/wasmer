@@ -142,7 +142,7 @@ int main() {
 #    .success();
 # }
 ```")]
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn $empty(out: &mut $name) {
             out.size = 0;
             out.data = std::ptr::null_mut();
@@ -175,7 +175,7 @@ int main() {
 #    .success();
 # }
 ```")]
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn $uninit(out: &mut $name, size: usize) {
             out.set_buffer(vec![Default::default(); size]);
         }
@@ -185,14 +185,14 @@ int main() {
 # Example
 
 See the [`", stringify!($name), "`] type to get an example.")]
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub unsafe extern "C" fn $new(out: &mut $name, size: usize, ptr: *const $elem_ty) {
-            let vec = (0..size).map(|i| ptr.add(i).read()).collect();
+            let vec = (0..size).map(|i| unsafe { ptr.add(i).read() }).collect();
             out.set_buffer(vec);
         }
 
         #[doc = concat!("Performs a deep copy of a vector of [`", $c_ty, "`].")]
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn $copy(out: &mut $name, src: &$name) {
             out.set_buffer(src.as_slice().to_vec());
         }
@@ -202,7 +202,7 @@ See the [`", stringify!($name), "`] type to get an example.")]
 # Example
 
 See the [`", stringify!($name), "`] type to get an example.")]
-        #[no_mangle]
+        #[unsafe(no_mangle)]
         pub extern "C" fn $delete(out: &mut $name) {
             out.take();
         }
@@ -264,7 +264,7 @@ macro_rules! wasm_impl_copy {
 
     ($name:ident, $prefix:ident) => {
         paste::paste! {
-            #[no_mangle]
+            #[unsafe(no_mangle)]
             pub extern "C" fn [<$prefix _ $name _copy>](src: Option<&[<$prefix _ $name _t>]>) -> Option<Box<[<$prefix _ $name _t>]>> {
                 Some(Box::new(src?.clone()))
             }
@@ -279,7 +279,7 @@ macro_rules! wasm_impl_delete {
 
     ($name:ident, $prefix:ident) => {
         paste::paste! {
-            #[no_mangle]
+            #[unsafe(no_mangle)]
             pub extern "C" fn [<$prefix _ $name _delete>](_: Option<Box<[<$prefix _ $name _t>]>>) {}
         }
     };

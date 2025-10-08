@@ -8,13 +8,13 @@ use wasmer_config::package::{
     PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
 };
 use wasmer_package::package::Package;
-use webc::compat::SharedBytes;
 use webc::Container;
+use webc::compat::SharedBytes;
 
 use crate::{
+    Runtime,
     runners::MappedDirectory,
     runtime::resolver::{PackageInfo, ResolveError},
-    Runtime,
 };
 use wasmer_types::ModuleHash;
 
@@ -253,8 +253,7 @@ impl BinaryPackage {
                 let mut commands: Vec<_> = self.commands.iter().map(|cmd| cmd.name()).collect();
                 commands.sort();
                 anyhow::bail!(
-                    "Unable to determine the package's entrypoint. Please choose one of {:?}",
-                    commands,
+                    "Unable to determine the package's entrypoint. Please choose one of {commands:?}"
                 );
             }
         }
@@ -269,8 +268,8 @@ mod tests {
     use wasmer_package::utils::from_disk;
 
     use crate::{
-        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
         PluggableRuntime,
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::VirtualTaskManager},
     };
 
     use super::*;

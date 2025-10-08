@@ -696,7 +696,7 @@ impl crate::FileSystem for FileSystem {
         Ok(())
     }
 
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
 
@@ -1156,14 +1156,14 @@ mod test_filesystem {
     use shared_buffer::OwnedBuffer;
     use tokio::io::AsyncReadExt;
 
-    use crate::{mem_fs::*, ops, DirEntry, FileSystem as FS, FileType, FsError};
+    use crate::{DirEntry, FileSystem as FS, FileType, FsError, mem_fs::*, ops};
 
     macro_rules! path {
-        ($path:expr) => {
+        ($path:expr_2021) => {
             std::path::Path::new($path)
         };
 
-        (buf $path:expr) => {
+        (buf $path:expr_2021) => {
             std::path::PathBuf::from($path)
         };
     }
