@@ -5,7 +5,7 @@ use crate::{
 use bytes::{Buf, Bytes};
 use futures::future::BoxFuture;
 #[cfg(feature = "enable-serde")]
-use serde::{de, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de};
 use std::convert::TryInto;
 use std::fs;
 use std::io::{self, Seek};
@@ -154,7 +154,7 @@ impl crate::FileSystem for FileSystem {
 
     fn rename<'a>(&'a self, from: &'a Path, to: &'a Path) -> BoxFuture<'a, Result<()>> {
         Box::pin(async move {
-            use filetime::{set_file_mtime, FileTime};
+            use filetime::{FileTime, set_file_mtime};
             let norm_from = normalize_path(from);
             let norm_to = normalize_path(to);
 
@@ -216,7 +216,7 @@ impl crate::FileSystem for FileSystem {
         fs::remove_file(path).map_err(Into::into)
     }
 
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
 
@@ -280,24 +280,15 @@ impl TryInto<Metadata> for std::fs::Metadata {
             },
             accessed: self
                 .accessed()
-                .and_then(|time| {
-                    time.duration_since(UNIX_EPOCH)
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                })
+                .and_then(|time| time.duration_since(UNIX_EPOCH).map_err(io::Error::other))
                 .map_or(0, |time| time.as_nanos() as u64),
             created: self
                 .created()
-                .and_then(|time| {
-                    time.duration_since(UNIX_EPOCH)
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                })
+                .and_then(|time| time.duration_since(UNIX_EPOCH).map_err(io::Error::other))
                 .map_or(0, |time| time.as_nanos() as u64),
             modified: self
                 .modified()
-                .and_then(|time| {
-                    time.duration_since(UNIX_EPOCH)
-                        .map_err(|e| io::Error::new(io::ErrorKind::Other, e))
-                })
+                .and_then(|time| time.duration_since(UNIX_EPOCH).map_err(io::Error::other))
                 .map_or(0, |time| time.as_nanos() as u64),
             len: self.len(),
         })
@@ -718,10 +709,7 @@ impl AsyncRead for Stdout {
         _cx: &mut Context<'_>,
         _buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stdout",
-        )))
+        Poll::Ready(Err(io::Error::other("can not read from stdout")))
     }
 }
 
@@ -765,14 +753,11 @@ impl AsyncWrite for Stdout {
 
 impl AsyncSeek for Stdout {
     fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not seek stdout"))
+        Err(io::Error::other("can not seek stdout"))
     }
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not seek stdout",
-        )))
+        Poll::Ready(Err(io::Error::other("can not seek stdout")))
     }
 }
 
@@ -804,10 +789,7 @@ impl AsyncRead for Stderr {
         _cx: &mut Context<'_>,
         _buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from stderr",
-        )))
+        Poll::Ready(Err(io::Error::other("can not read from stderr")))
     }
 }
 
@@ -851,14 +833,11 @@ impl AsyncWrite for Stderr {
 
 impl AsyncSeek for Stderr {
     fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not seek stderr"))
+        Err(io::Error::other("can not seek stderr"))
     }
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not seek stderr",
-        )))
+        Poll::Ready(Err(io::Error::other("can not seek stderr")))
     }
 }
 
@@ -958,24 +937,15 @@ impl AsyncWrite for Stdin {
         _cx: &mut Context<'_>,
         _buf: &[u8],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not wrote to stdin",
-        )))
+        Poll::Ready(Err(io::Error::other("can not wrote to stdin")))
     }
 
     fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not flush stdin",
-        )))
+        Poll::Ready(Err(io::Error::other("can not flush stdin")))
     }
 
     fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not wrote to stdin",
-        )))
+        Poll::Ready(Err(io::Error::other("can not wrote to stdin")))
     }
 
     fn poll_write_vectored(
@@ -983,23 +953,17 @@ impl AsyncWrite for Stdin {
         _cx: &mut Context<'_>,
         _bufs: &[io::IoSlice<'_>],
     ) -> Poll<io::Result<usize>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not wrote to stdin",
-        )))
+        Poll::Ready(Err(io::Error::other("can not wrote to stdin")))
     }
 }
 
 impl AsyncSeek for Stdin {
     fn start_seek(self: Pin<&mut Self>, _position: io::SeekFrom) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not seek stdin"))
+        Err(io::Error::other("can not seek stdin"))
     }
 
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not seek stdin",
-        )))
+        Poll::Ready(Err(io::Error::other("can not seek stdin")))
     }
 }
 

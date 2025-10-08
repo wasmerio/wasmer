@@ -1,7 +1,7 @@
 use std::{mem::MaybeUninit, ops::Range};
 use wasmer_types::Pages;
 
-use crate::{buffer::MemoryBuffer, AsStoreRef, Memory, MemoryAccessError};
+use crate::{AsStoreRef, Memory, MemoryAccessError, buffer::MemoryBuffer};
 
 pub(crate) mod inner;
 pub(crate) use inner::*;
@@ -43,7 +43,7 @@ impl<'a> MemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        self.0.data_unchecked()
+        unsafe { self.0.data_unchecked() }
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -58,7 +58,7 @@ impl<'a> MemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        self.0.data_unchecked_mut()
+        unsafe { self.0.data_unchecked_mut() }
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.

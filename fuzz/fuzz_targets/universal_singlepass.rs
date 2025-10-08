@@ -2,7 +2,7 @@
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, Instance, Module, Store};
+use wasmer::{Instance, Module, Store, imports};
 use wasmer_compiler_singlepass::Singlepass;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]

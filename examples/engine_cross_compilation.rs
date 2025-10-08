@@ -20,8 +20,9 @@
 
 use std::str::FromStr;
 use wasmer::{
+    Module, RuntimeError, Store,
     sys::{CpuFeature, EngineBuilder},
-    wat2wasm, Module, RuntimeError, Store,
+    wat2wasm,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_types::target::{Target, Triple};

@@ -4,9 +4,9 @@ use wasmer_types::Pages;
 
 use super::{Memory, MemoryBuffer};
 use crate::{
+    AsStoreRef, MemoryAccessError,
     backend::v8::bindings::{wasm_memory_data, wasm_memory_data_size, wasm_memory_size},
     v8::bindings::wasm_memory_t,
-    AsStoreRef, MemoryAccessError,
 };
 
 /// A WebAssembly `memory` view.
@@ -25,7 +25,7 @@ impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
         let c_memory: *mut wasm_memory_t = memory.handle;
 
-        let len = unsafe { wasm_memory_data_size(c_memory as _).try_into().unwrap() };
+        let len = unsafe { wasm_memory_data_size(c_memory as _) };
         let base: *mut u8 = unsafe { wasm_memory_data(c_memory as _) as _ };
         let size = unsafe { wasm_memory_size(c_memory as _) };
 
@@ -62,7 +62,7 @@ impl<'a> MemoryView<'a> {
     /// function that writes to the memory or by resizing the memory.
     #[doc(hidden)]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
-        self.data_unchecked_mut()
+        unsafe { self.data_unchecked_mut() }
     }
 
     /// Retrieve a mutable slice of the memory contents.
@@ -77,7 +77,7 @@ impl<'a> MemoryView<'a> {
     #[allow(clippy::mut_from_ref)]
     #[doc(hidden)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        std::slice::from_raw_parts_mut(self.buffer.base, self.buffer.len)
+        unsafe { std::slice::from_raw_parts_mut(self.buffer.base, self.buffer.len) }
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.

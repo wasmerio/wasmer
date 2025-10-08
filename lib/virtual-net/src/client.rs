@@ -4,10 +4,10 @@ use std::future::Future;
 use std::net::IpAddr;
 use std::net::SocketAddr;
 use std::pin::Pin;
-use std::sync::atomic::AtomicU64;
-use std::sync::atomic::Ordering;
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::sync::atomic::AtomicU64;
+use std::sync::atomic::Ordering;
 use std::task::Context;
 use std::task::Poll;
 use std::task::RawWaker;
@@ -17,11 +17,11 @@ use std::time::Duration;
 
 use bytes::Buf;
 use bytes::BytesMut;
-use futures_util::future::BoxFuture;
-use futures_util::stream::FuturesOrdered;
 use futures_util::Sink;
 use futures_util::Stream;
 use futures_util::StreamExt;
+use futures_util::future::BoxFuture;
+use futures_util::stream::FuturesOrdered;
 #[cfg(feature = "hyper")]
 use hyper_util::rt::tokio::TokioIo;
 use tokio::io::AsyncRead;
@@ -29,6 +29,7 @@ use tokio::io::AsyncWrite;
 use tokio::sync::mpsc;
 use tokio::sync::mpsc::error::TryRecvError;
 use tokio::sync::mpsc::error::TrySendError;
+use tokio_serde::SymmetricallyFramed;
 use tokio_serde::formats::SymmetricalBincode;
 #[cfg(feature = "cbor")]
 use tokio_serde::formats::SymmetricalCbor;
@@ -36,19 +37,12 @@ use tokio_serde::formats::SymmetricalCbor;
 use tokio_serde::formats::SymmetricalJson;
 #[cfg(feature = "messagepack")]
 use tokio_serde::formats::SymmetricalMessagePack;
-use tokio_serde::SymmetricallyFramed;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 use tokio_util::codec::LengthDelimitedCodec;
 use virtual_mio::InlineWaker;
 use virtual_mio::InterestType;
 
-use crate::meta;
-use crate::meta::FrameSerializationFormat;
-use crate::meta::RequestType;
-use crate::meta::ResponseType;
-use crate::meta::SocketId;
-use crate::meta::{MessageRequest, MessageResponse};
 use crate::IpCidr;
 use crate::IpRoute;
 use crate::NetworkError;
@@ -63,11 +57,17 @@ use crate::VirtualSocket;
 use crate::VirtualTcpListener;
 use crate::VirtualTcpSocket;
 use crate::VirtualUdpSocket;
+use crate::meta;
+use crate::meta::FrameSerializationFormat;
+use crate::meta::RequestType;
+use crate::meta::ResponseType;
+use crate::meta::SocketId;
+use crate::meta::{MessageRequest, MessageResponse};
 
+use crate::Result;
 use crate::rx_tx::RemoteRx;
 use crate::rx_tx::RemoteTx;
 use crate::rx_tx::RemoteTxWakers;
-use crate::Result;
 
 #[derive(Debug, Clone)]
 pub struct RemoteNetworkingClient {
@@ -314,10 +314,13 @@ impl Future for RemoteNetworkingClientDriver {
                     not_stalled_guard.take();
                 }
                 Poll::Pending if not_stalled_guard.is_none() => {
-                    if let Ok(guard) = self.common.stall.clone().try_lock_owned() {
-                        not_stalled_guard.replace(guard);
-                    } else {
-                        return Poll::Pending;
+                    match self.common.stall.clone().try_lock_owned() {
+                        Ok(guard) => {
+                            not_stalled_guard.replace(guard);
+                        }
+                        _ => {
+                            return Poll::Pending;
+                        }
                     }
                 }
                 Poll::Pending => {}

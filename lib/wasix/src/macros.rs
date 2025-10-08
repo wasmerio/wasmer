@@ -50,58 +50,40 @@ macro_rules! wasi_try_ok_ok {
 
 /// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.
 macro_rules! wasi_try_mem {
-    ($expr:expr) => {{
-        wasi_try!($expr.map_err($crate::mem_error_to_wasi))
-    }};
+    ($expr:expr) => {{ wasi_try!($expr.map_err($crate::mem_error_to_wasi)) }};
 }
 
 /// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.
 macro_rules! wasi_try_mem_ok {
-    ($expr:expr) => {{
-        wasi_try_ok!($expr.map_err($crate::mem_error_to_wasi))
-    }};
+    ($expr:expr) => {{ wasi_try_ok!($expr.map_err($crate::mem_error_to_wasi)) }};
 
-    ($expr:expr, $thread:expr) => {{
-        wasi_try_ok!($expr.map_err($crate::mem_error_to_wasi), $thread)
-    }};
+    ($expr:expr, $thread:expr) => {{ wasi_try_ok!($expr.map_err($crate::mem_error_to_wasi), $thread) }};
 }
 
 /// Like `wasi_try` but converts a `MemoryAccessError` to a `wasi::Errno`.
 macro_rules! wasi_try_mem_ok_ok {
-    ($expr:expr) => {{
-        wasi_try_ok_ok!($expr.map_err($crate::mem_error_to_wasi))
-    }};
+    ($expr:expr) => {{ wasi_try_ok_ok!($expr.map_err($crate::mem_error_to_wasi)) }};
 
-    ($expr:expr, $thread:expr) => {{
-        wasi_try_ok_ok!($expr.map_err($crate::mem_error_to_wasi), $thread)
-    }};
+    ($expr:expr, $thread:expr) => {{ wasi_try_ok_ok!($expr.map_err($crate::mem_error_to_wasi), $thread) }};
 }
 
 /// Reads a string from Wasm memory.
 macro_rules! get_input_str {
-    ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try_mem!($data.read_utf8_string($memory, $len))
-    }};
+    ($memory:expr, $data:expr, $len:expr) => {{ wasi_try_mem!($data.read_utf8_string($memory, $len)) }};
 }
 
 macro_rules! get_input_str_ok {
-    ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try_mem_ok!($data.read_utf8_string($memory, $len))
-    }};
+    ($memory:expr, $data:expr, $len:expr) => {{ wasi_try_mem_ok!($data.read_utf8_string($memory, $len)) }};
 }
 
 #[allow(unused_macros)]
 macro_rules! get_input_str_bus {
-    ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try_mem_bus!($data.read_utf8_string($memory, $len))
-    }};
+    ($memory:expr, $data:expr, $len:expr) => {{ wasi_try_mem_bus!($data.read_utf8_string($memory, $len)) }};
 }
 
 #[allow(unused_macros)]
 macro_rules! get_input_str_bus_ok {
-    ($memory:expr, $data:expr, $len:expr) => {{
-        wasi_try_mem_bus_ok!($data.read_utf8_string($memory, $len))
-    }};
+    ($memory:expr, $data:expr, $len:expr) => {{ wasi_try_mem_bus_ok!($data.read_utf8_string($memory, $len)) }};
 }
 
 macro_rules! wasi_dl_err {

@@ -19,7 +19,7 @@ impl wasm_table_t {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_new(
     _store: Option<&wasm_store_t>,
     _table_type: Option<&wasm_tabletype_t>,
@@ -28,21 +28,22 @@ pub unsafe extern "C" fn wasm_table_new(
     todo!("get val from init somehow");
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_copy(table: &wasm_table_t) -> Box<wasm_table_t> {
     // do shallow copy
     Box::new(table.clone())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_size(table: &wasm_table_t) -> usize {
-    table.extern_.table().size(&table.extern_.store.store()) as _
+    let store_ref = unsafe { table.extern_.store.store() };
+    table.extern_.table().size(&store_ref) as _
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_same(
     wasm_table1: &wasm_table_t,
     wasm_table2: &wasm_table_t,
@@ -50,7 +51,7 @@ pub unsafe extern "C" fn wasm_table_same(
     wasm_table1.extern_.table() == wasm_table2.extern_.table()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_table_grow(
     _table: &mut wasm_table_t,
     _delta: wasm_table_size_t,

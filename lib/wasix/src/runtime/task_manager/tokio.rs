@@ -1,13 +1,13 @@
 use std::sync::Mutex;
 use std::{num::NonZeroUsize, pin::Pin, sync::Arc, time::Duration};
 
-use futures::{future::BoxFuture, Future};
+use futures::{Future, future::BoxFuture};
 use tokio::runtime::{Handle, Runtime};
 use virtual_mio::InlineWaker;
 use wasmer::AsStoreMut;
 
 use crate::runtime::SpawnType;
-use crate::{os::task::thread::WasiThreadError, WasiFunctionEnv};
+use crate::{WasiFunctionEnv, os::task::thread::WasiThreadError};
 
 use super::{SpawnMemoryTypeOrStore, TaskWasm, TaskWasmRunProperties, VirtualTaskManager};
 

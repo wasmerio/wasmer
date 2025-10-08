@@ -12,4 +12,6 @@ pub use self::func_translator::FuncTranslator;
 pub use self::translation_utils::{
     irlibcall_to_libcall, irreloc_to_relocationkind, signature_to_cranelift_ir,
 };
-pub(crate) use self::unwind::{compiled_function_unwind_info, CraneliftUnwindInfo};
+#[cfg(feature = "unwind")]
+pub(crate) use self::unwind::CraneliftUnwindInfo;
+pub(crate) use self::unwind::compiled_function_unwind_info;

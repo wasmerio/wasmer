@@ -1,13 +1,13 @@
 use crate::abi::Abi;
 use crate::error::{err, err_nt};
-use crate::translator::intrinsics::{type_to_llvm, Intrinsics};
+use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
 use inkwell::{
+    AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
     types::{AnyType, BasicMetadataTypeEnum, BasicType, FunctionType, StructType},
     values::{BasicValue, BasicValueEnum, CallSiteValue, FunctionValue, IntValue, PointerValue},
-    AddressSpace,
 };
 use wasmer_types::CompileError;
 use wasmer_types::{FunctionType as FuncSig, Type};
@@ -600,9 +600,11 @@ impl Abi for Aarch64SystemV {
             let high = err!(builder.build_int_z_extend(high, intrinsics.i64_ty, ""));
             let high =
                 err!(builder.build_left_shift(high, intrinsics.i64_ty.const_int(32, false), ""));
-            err_nt!(builder
-                .build_or(low, high, "")
-                .map(|v| v.as_basic_value_enum()))
+            err_nt!(
+                builder
+                    .build_or(low, high, "")
+                    .map(|v| v.as_basic_value_enum())
+            )
         };
 
         let to_i64 = |v: BasicValueEnum<'ctx>| -> Result<BasicValueEnum<'_>, CompileError> {

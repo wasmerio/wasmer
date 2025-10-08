@@ -9,12 +9,12 @@ use std::{
     io::Write,
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
-    sync::{atomic::AtomicBool, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicBool},
 };
 
 use futures::future::Either;
 use linked_hash_set::LinkedHashSet;
-use tokio::sync::{mpsc, RwLock};
+use tokio::sync::{RwLock, mpsc};
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 use virtual_fs::{
@@ -28,12 +28,12 @@ use wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
 
 use super::{cconst::ConsoleConst, common::*, task::TaskJoinHandle};
 use crate::{
-    bin_factory::{spawn_exec, BinFactory, BinaryPackage},
+    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
+    bin_factory::{BinFactory, BinaryPackage, spawn_exec},
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runners::wasi::{PackageOrHash, RuntimeOrEngine},
     runtime::task_manager::InlineWaker,
-    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
 };
 
 #[derive(Debug)]
@@ -311,8 +311,8 @@ mod tests {
     use std::{io::Read, sync::Arc};
 
     use crate::{
-        runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
         PluggableRuntime,
+        runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
     };
 
     /// Test that [`Console`] correctly runs a command with arguments and

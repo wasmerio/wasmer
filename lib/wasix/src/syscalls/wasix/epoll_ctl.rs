@@ -12,13 +12,13 @@ use futures::Future;
 
 use super::*;
 use crate::{
+    WasiInodes,
     fs::{
         EpollFd, EpollInterest, EpollJoinGuard, InodeValFilePollGuard, InodeValFilePollGuardJoin,
         InodeValFilePollGuardMode, POLL_GUARD_MAX_RET,
     },
     state::PollEventSet,
     syscalls::*,
-    WasiInodes,
 };
 
 /// ### `epoll_ctl()`

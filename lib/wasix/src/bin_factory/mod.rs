@@ -1,3 +1,4 @@
+#![allow(clippy::result_large_err)]
 use std::{
     collections::HashMap,
     future::Future,
@@ -24,9 +25,9 @@ pub use self::{
     },
 };
 use crate::{
+    Runtime, SpawnError, WasiEnv,
     os::{command::Commands, task::TaskJoinHandle},
     runtime::module_cache::HashedModuleData,
-    Runtime, SpawnError, WasiEnv,
 };
 
 #[derive(Debug, Clone)]
@@ -59,7 +60,7 @@ impl BinFactory {
         &self,
         name: &str,
         fs: Option<&dyn FileSystem>,
-    ) -> Option<BinaryPackage> {
+    ) -> Option<Arc<BinaryPackage>> {
         self.get_executable(name, fs)
             .await
             .and_then(|executable| match executable {
@@ -90,12 +91,12 @@ impl BinFactory {
                     spawn_exec_wasm(data, name.as_str(), env, &self.runtime).await
                 }
                 Executable::BinaryPackage(pkg) => {
-                    // Get the command that is going to be executed
-                    let cmd = package_command_by_name(&pkg, name.as_str())?;
+                    {
+                        let cmd = package_command_by_name(&pkg, name.as_str())?;
+                        env.prepare_spawn(cmd);
+                    }
 
-                    env.prepare_spawn(cmd);
-
-                    spawn_exec(pkg, name.as_str(), env, &self.runtime).await
+                    spawn_exec(pkg.as_ref().clone(), name.as_str(), env, &self.runtime).await
                 }
             }
         })
@@ -132,9 +133,7 @@ impl BinFactory {
         {
             let cache = self.local.read().unwrap();
             if let Some(data) = cache.get(&name) {
-                return data
-                    .as_ref()
-                    .map(|package| Executable::BinaryPackage(BinaryPackage::clone(package)));
+                data.clone().map(Executable::BinaryPackage);
             }
         }
 
@@ -142,9 +141,7 @@ impl BinFactory {
 
         // Check the cache again to avoid a race condition where the cache was populated inbetween the fast path and here
         if let Some(data) = cache.get(&name) {
-            return data
-                .as_ref()
-                .map(|package| Executable::BinaryPackage(BinaryPackage::clone(package)));
+            return data.clone().map(Executable::BinaryPackage);
         }
 
         // Check the filesystem for the file
@@ -153,7 +150,7 @@ impl BinFactory {
                 match load_executable_from_filesystem(fs, name.as_ref(), self.runtime()).await {
                     Ok(executable) => {
                         if let Executable::BinaryPackage(pkg) = &executable {
-                            cache.insert(name, Some(Arc::new(pkg.clone())));
+                            cache.insert(name, Some(pkg.clone()));
                         }
 
                         return Some(executable);
@@ -177,7 +174,7 @@ impl BinFactory {
 
 pub enum Executable {
     Wasm(OwnedBuffer),
-    BinaryPackage(BinaryPackage),
+    BinaryPackage(Arc<BinaryPackage>),
 }
 
 async fn load_executable_from_filesystem(
@@ -201,7 +198,7 @@ async fn load_executable_from_filesystem(
                     .await
                     .context("Unable to load the package")?;
 
-                return Ok(Executable::BinaryPackage(pkg));
+                return Ok(Executable::BinaryPackage(Arc::new(pkg)));
             }
         }
 
@@ -217,7 +214,7 @@ async fn load_executable_from_filesystem(
                 .await
                 .context("Unable to load the package")?;
 
-            Ok(Executable::BinaryPackage(pkg))
+            Ok(Executable::BinaryPackage(Arc::new(pkg)))
         } else {
             Ok(Executable::Wasm(OwnedBuffer::from_bytes(bytes)))
         }

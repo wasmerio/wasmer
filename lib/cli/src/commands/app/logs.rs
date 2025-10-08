@@ -4,7 +4,7 @@ use crate::utils::timestamp::parse_timestamp_or_relative_time_negative_offset;
 use colored::Colorize;
 use comfy_table::{Cell, Table};
 use futures::StreamExt;
-use time::{format_description::well_known::Rfc3339, OffsetDateTime};
+use time::{OffsetDateTime, format_description::well_known::Rfc3339};
 use wasmer_backend_api::types::{Log, LogStream};
 
 use crate::{config::WasmerEnv, opts::ListFormatOpts, utils::render::CliRender};

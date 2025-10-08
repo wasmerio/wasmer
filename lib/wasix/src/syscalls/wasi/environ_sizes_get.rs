@@ -25,13 +25,15 @@ pub fn environ_sizes_get<M: MemorySize>(
     let environ_count = environ_count.deref(&memory);
     let environ_buf_size = environ_buf_size.deref(&memory);
 
-    let env_var_count: M::Offset = wasi_try_ok!(state
-        .envs
-        .lock()
-        .unwrap()
-        .len()
-        .try_into()
-        .map_err(|_| Errno::Overflow));
+    let env_var_count: M::Offset = wasi_try_ok!(
+        state
+            .envs
+            .lock()
+            .unwrap()
+            .len()
+            .try_into()
+            .map_err(|_| Errno::Overflow)
+    );
     let env_buf_size: usize = state.envs.lock().unwrap().iter().map(|v| v.len() + 1).sum();
     let env_buf_size: M::Offset =
         wasi_try_ok!(env_buf_size.try_into().map_err(|_| Errno::Overflow));

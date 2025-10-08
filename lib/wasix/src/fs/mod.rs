@@ -17,8 +17,8 @@ use std::{
     path::{Component, Path, PathBuf},
     pin::Pin,
     sync::{
-        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
         Arc, Mutex, RwLock, Weak,
+        atomic::{AtomicBool, AtomicI32, AtomicU64, Ordering},
     },
     task::{Context, Poll},
 };
@@ -28,12 +28,12 @@ use crate::{
     net::socket::InodeSocketKind,
     state::{Stderr, Stdin, Stdout},
 };
-use futures::{future::BoxFuture, Future, TryStreamExt};
+use futures::{Future, TryStreamExt, future::BoxFuture};
 #[cfg(feature = "enable-serde")]
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use virtual_fs::{copy_reference, FileSystem, FsError, OpenOptions, VirtualFile};
+use virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile, copy_reference};
 use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
@@ -46,11 +46,11 @@ use wasmer_wasix_types::{
 pub use self::fd::{EpollFd, EpollInterest, EpollJoinGuard, Fd, FdInner, InodeVal, Kind};
 pub(crate) use self::inode_guard::{
     InodeValFilePollGuard, InodeValFilePollGuardJoin, InodeValFilePollGuardMode,
-    InodeValFileReadGuard, InodeValFileWriteGuard, WasiStateFileGuard, POLL_GUARD_MAX_RET,
+    InodeValFileReadGuard, InodeValFileWriteGuard, POLL_GUARD_MAX_RET, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
 use crate::syscalls::map_io_err;
-use crate::{bin_factory::BinaryPackage, state::PreopenedDir, ALL_RIGHTS};
+use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 
 /// the fd value of the virtual root
 ///
@@ -441,7 +441,7 @@ impl FileSystem for WasiFsRoot {
             WasiFsRoot::Backing(fs) => fs.remove_file(path),
         }
     }
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         match self {
             WasiFsRoot::Sandbox(fs) => fs.new_open_options(),
             WasiFsRoot::Backing(fs) => fs.new_open_options(),
@@ -749,7 +749,7 @@ impl WasiFs {
             let segment_name = c.as_os_str().to_string_lossy().to_string();
             let guard = cur_inode.read();
             match guard.deref() {
-                Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
+                Kind::Dir { entries, .. } | Kind::Root { entries } => {
                     if let Some(_entry) = entries.get(&segment_name) {
                         // TODO: this should be fixed
                         return Err(FsError::AlreadyExists);
@@ -773,10 +773,7 @@ impl WasiFs {
                     {
                         let mut guard = cur_inode.write();
                         match guard.deref_mut() {
-                            Kind::Dir {
-                                ref mut entries, ..
-                            }
-                            | Kind::Root { ref mut entries } => {
+                            Kind::Dir { entries, .. } | Kind::Root { entries } => {
                                 entries.insert(segment_name, inode.clone());
                             }
                             _ => unreachable!("Dir or Root became not Dir or Root"),
@@ -823,7 +820,7 @@ impl WasiFs {
 
         let guard = base_inode.read();
         match guard.deref() {
-            Kind::Dir { ref entries, .. } | Kind::Root { ref entries } => {
+            Kind::Dir { entries, .. } | Kind::Root { entries } => {
                 if let Some(_entry) = entries.get(&name) {
                     // TODO: eventually change the logic here to allow overwrites
                     return Err(FsError::AlreadyExists);
@@ -843,10 +840,7 @@ impl WasiFs {
                 {
                     let mut guard = base_inode.write();
                     match guard.deref_mut() {
-                        Kind::Dir {
-                            ref mut entries, ..
-                        }
-                        | Kind::Root { ref mut entries } => {
+                        Kind::Dir { entries, .. } | Kind::Root { entries } => {
                             entries.insert(name, inode.clone());
                         }
                         _ => unreachable!("Dir or Root became not Dir or Root"),
@@ -867,10 +861,11 @@ impl WasiFs {
 
                 {
                     let mut guard = inode.kind.write().unwrap();
-                    if let Kind::File { ref mut fd, .. } = *guard {
-                        *fd = Some(real_fd);
-                    } else {
-                        unreachable!("We just created a Kind::File");
+                    match guard.deref_mut() {
+                        Kind::File { fd, .. } => {
+                            *fd = Some(real_fd);
+                        }
+                        _ => unreachable!("We just created a Kind::File"),
                     }
                 }
 
@@ -908,7 +903,7 @@ impl WasiFs {
                     // happy path
                     let guard = base_inode.read();
                     match guard.deref() {
-                        Kind::File { ref handle, .. } => {
+                        Kind::File { handle, .. } => {
                             if let Some(handle) = handle {
                                 let mut handle = handle.write().unwrap();
                                 std::mem::swap(handle.deref_mut(), &mut file);
@@ -921,7 +916,7 @@ impl WasiFs {
                 // slow path
                 let mut guard = base_inode.write();
                 match guard.deref_mut() {
-                    Kind::File { ref mut handle, .. } => {
+                    Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
                             let mut handle = handle.write().unwrap();
                             std::mem::swap(handle.deref_mut(), &mut file);
@@ -1043,9 +1038,9 @@ impl WasiFs {
                 match guard.deref_mut() {
                     Kind::Buffer { .. } => unimplemented!("state::get_inode_at_path for buffers"),
                     Kind::Dir {
-                        ref mut entries,
-                        ref path,
-                        ref parent,
+                        entries,
+                        path,
+                        parent,
                         ..
                     } => {
                         match component.as_os_str().to_string_lossy().borrow() {
@@ -1133,7 +1128,9 @@ impl WasiFs {
                                         // a `SocketDgram`?
                                         Filetype::SocketStream
                                     } else {
-                                        unimplemented!("state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket");
+                                        unimplemented!(
+                                            "state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket"
+                                        );
                                     };
 
                                     let kind = Kind::File {
@@ -1159,10 +1156,7 @@ impl WasiFs {
                                     );
 
                                     let mut guard = cur_inode.write();
-                                    if let Kind::Dir {
-                                        ref mut entries, ..
-                                    } = guard.deref_mut()
-                                    {
+                                    if let Kind::Dir { entries, .. } = guard.deref_mut() {
                                         entries.insert(
                                             component.as_os_str().to_string_lossy().to_string(),
                                             new_inode.clone(),
@@ -1176,7 +1170,9 @@ impl WasiFs {
                                     return Ok(new_inode);
                                 }
                                 #[cfg(not(unix))]
-                                unimplemented!("state::get_inode_at_path unknown file type: not file, directory, or symlink");
+                                unimplemented!(
+                                    "state::get_inode_at_path unknown file type: not file, directory, or symlink"
+                                );
                             };
                             drop(guard);
 
@@ -1188,10 +1184,7 @@ impl WasiFs {
                             )?;
                             if should_insert {
                                 let mut guard = processing_cur_inode.write();
-                                if let Kind::Dir {
-                                    ref mut entries, ..
-                                } = guard.deref_mut()
-                                {
+                                if let Kind::Dir { entries, .. } = guard.deref_mut() {
                                     entries.insert(
                                         component.as_os_str().to_string_lossy().to_string(),
                                         new_inode.clone(),
@@ -1476,7 +1469,7 @@ impl WasiFs {
                     fs_flags: Fdflags::empty(),
                     fs_rights_base: STDIN_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
-                })
+                });
             }
             __WASI_STDOUT_FILENO => {
                 return Ok(Fdstat {
@@ -1484,7 +1477,7 @@ impl WasiFs {
                     fs_flags: Fdflags::APPEND,
                     fs_rights_base: STDOUT_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
-                })
+                });
             }
             __WASI_STDERR_FILENO => {
                 return Ok(Fdstat {
@@ -1492,7 +1485,7 @@ impl WasiFs {
                     fs_flags: Fdflags::APPEND,
                     fs_rights_base: STDERR_DEFAULT_RIGHTS,
                     fs_rights_inheriting: Rights::empty(),
-                })
+                });
             }
             VIRTUAL_ROOT_FD => {
                 return Ok(Fdstat {
@@ -2138,9 +2131,10 @@ impl WasiFs {
                 let base_po_inode = &guard.get(*base_po_dir).unwrap().inode;
                 let guard = base_po_inode.read();
                 match guard.deref() {
-                    Kind::Root { .. } => {
-                        self.root_fs.symlink_metadata(path_to_symlink).map_err(fs_error_into_wasi_err)?
-                    }
+                    Kind::Root { .. } => self
+                        .root_fs
+                        .symlink_metadata(path_to_symlink)
+                        .map_err(fs_error_into_wasi_err)?,
                     Kind::Dir { path, .. } => {
                         let mut real_path = path.clone();
                         // PHASE 1: ignore all possible symlinks in `relative_path`
@@ -2150,10 +2144,14 @@ impl WasiFs {
                         // TODO: adjust size of symlink, too
                         //      for all paths adjusted think about this
                         real_path.push(path_to_symlink);
-                        self.root_fs.symlink_metadata(&real_path).map_err(fs_error_into_wasi_err)?
+                        self.root_fs
+                            .symlink_metadata(&real_path)
+                            .map_err(fs_error_into_wasi_err)?
                     }
                     // if this triggers, there's a bug in the symlink code
-                    _ => unreachable!("Symlink pointing to something that's not a directory as its base preopened directory"),
+                    _ => unreachable!(
+                        "Symlink pointing to something that's not a directory as its base preopened directory"
+                    ),
                 }
             }
             _ => return Err(Errno::Io),
@@ -2230,7 +2228,9 @@ pub struct FallbackFileSystem;
 
 impl FallbackFileSystem {
     fn fail() -> ! {
-        panic!("No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`");
+        panic!(
+            "No filesystem set for wasmer-wasi, please enable either the `host-fs` or `mem-fs` feature or set your custom filesystem with `WasiEnvBuilder::set_fs`"
+        );
     }
 }
 
@@ -2259,7 +2259,7 @@ impl FileSystem for FallbackFileSystem {
     fn remove_file(&self, _path: &Path) -> Result<(), FsError> {
         Self::fail();
     }
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+    fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
         Self::fail();
     }
     fn mount(

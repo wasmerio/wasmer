@@ -4,11 +4,12 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
+use crate::LLVM;
 use crate::abi::Abi;
 use crate::error::err;
-use crate::LLVM;
 use inkwell::values::BasicMetadataValueEnum;
 use inkwell::{
+    AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
@@ -22,9 +23,8 @@ use inkwell::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionValue, IntValue,
         PointerValue, VectorValue,
     },
-    AddressSpace,
 };
-use std::collections::{hash_map::Entry, HashMap};
+use std::collections::{HashMap, hash_map::Entry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex,

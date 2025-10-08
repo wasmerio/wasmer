@@ -142,9 +142,8 @@ use crate::lib::std::string::String;
 /// The WebAssembly.CompileError object indicates an error during
 /// WebAssembly decoding or validation.
 ///
-/// This is based on the [Wasm Compile Error][compile-error] API.
-///
-/// [compiler-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/CompileError
+/// This mirrors the WebAssembly `CompileError` API described at
+/// <https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/CompileError>.
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum CompileError {
@@ -256,7 +255,7 @@ impl From<MiddlewareError> for WasmError {
 }
 
 /// The error that can happen while parsing a `str`
-/// to retrieve a [`CpuFeature`](crate::CpuFeature).
+/// to retrieve a [`CpuFeature`](crate::target::CpuFeature).
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum ParseCpuFeatureError {

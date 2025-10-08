@@ -296,7 +296,7 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Translate a `table.size` WebAssembly instruction.
     fn translate_table_size(&mut self, pos: FuncCursor, index: TableIndex)
-        -> WasmResult<ir::Value>;
+    -> WasmResult<ir::Value>;
 
     /// Translate a `table.grow` WebAssembly instruction.
     fn translate_table_grow(

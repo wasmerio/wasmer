@@ -3,10 +3,10 @@ use wasmer_wasix_types::wasi::{Subclockflags, SubscriptionClock, Userdata};
 
 use super::*;
 use crate::{
+    WasiInodes,
     fs::{InodeValFilePollGuard, InodeValFilePollGuardJoin},
     state::PollEventSet,
     syscalls::*,
-    WasiInodes,
 };
 
 /// An event that occurred.
@@ -47,15 +47,15 @@ impl EventResult {
 ///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
-///     The events to subscribe to
+///   The events to subscribe to
 /// - `__wasi_event_t *out`
-///     The events that have occured
+///   The events that have occured
 /// - `u32 nsubscriptions`
-///     The number of subscriptions and the number of events
+///   The number of subscriptions and the number of events
 ///
 /// Output:
 /// - `u32 nevents`
-///     The number of events seen
+///   The number of events seen
 #[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -203,15 +203,15 @@ pub(crate) fn poll_fd_guard(
 ///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
-///     The events to subscribe to
+///   The events to subscribe to
 /// - `__wasi_event_t *out`
-///     The events that have occured
+///   The events that have occured
 /// - `u32 nsubscriptions`
-///     The number of subscriptions and the number of events
+///   The number of subscriptions and the number of events
 ///
 /// Output:
 /// - `u32 nevents`
-///     The number of events seen
+///   The number of events seen
 pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     mut subs: Vec<(Option<WasiFd>, PollEventSet, Subscription)>,

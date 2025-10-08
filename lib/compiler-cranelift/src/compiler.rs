@@ -3,21 +3,23 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 
+#[cfg(feature = "unwind")]
+use crate::translator::CraneliftUnwindInfo;
 use crate::{
     address_map::get_function_address_map,
     config::Cranelift,
-    func_environ::{get_function_name, FuncEnvironment},
+    func_environ::{FuncEnvironment, get_function_name},
     trampoline::{
-        make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+        FunctionBuilderContext, make_trampoline_dynamic_function, make_trampoline_function_call,
     },
     translator::{
-        compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
-        signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
+        FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
+        irreloc_to_relocationkind, signature_to_cranelift_ir,
     },
 };
 use cranelift_codegen::{
-    ir::{self, ExternalName, UserFuncName},
     Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
+    ir::{self, ExternalName, UserFuncName},
 };
 
 #[cfg(feature = "unwind")]
@@ -27,21 +29,25 @@ use gimli::write::{Address, EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 
+#[cfg(feature = "unwind")]
+use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
 use wasmer_compiler::{
+    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{
             Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
         },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
-        section::SectionIndex,
-        unwind::CompiledFunctionUnwindInfo,
     },
-    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
 };
-use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::target::{CallingConvention, Target};
+#[cfg(feature = "unwind")]
+use wasmer_types::entity::EntityRef;
+use wasmer_types::entity::PrimaryMap;
+#[cfg(feature = "unwind")]
+use wasmer_types::target::CallingConvention;
+use wasmer_types::target::Target;
 use wasmer_types::{
     CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
     TrapInformation,
@@ -112,11 +118,13 @@ impl CraneliftCompiler {
             }
         };
 
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections = PrimaryMap::new();
 
         #[cfg(not(feature = "rayon"))]
         let mut func_translator = FuncTranslator::new();
         #[cfg(not(feature = "rayon"))]
+        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -229,6 +237,7 @@ impl CraneliftCompiler {
             .into_iter()
             .unzip();
         #[cfg(feature = "rayon")]
+        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -342,6 +351,7 @@ impl CraneliftCompiler {
             .into_iter()
             .unzip();
 
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = UnwindInfo::default();
 
         #[cfg(feature = "unwind")]

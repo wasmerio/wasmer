@@ -1,21 +1,21 @@
 use super::{Instance, VMInstance};
-use crate::vmcontext::VMTableDefinition;
 use crate::VMMemoryDefinition;
+use crate::vmcontext::VMTableDefinition;
 use std::alloc::{self, Layout};
 use std::convert::TryFrom;
 use std::mem;
 use std::ptr::{self, NonNull};
-use wasmer_types::entity::EntityRef;
 use wasmer_types::VMOffsets;
+use wasmer_types::entity::EntityRef;
 use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 
 /// This is an intermediate type that manages the raw allocation and
-/// metadata when creating an [`Instance`].
+/// metadata when creating a [`VMInstance`].
 ///
 /// This type will free the allocated memory if it's dropped before
 /// being used.
 ///
-/// It is important to remind that [`Instance`] is dynamically-sized
+/// It is important to remind that [`VMInstance`] is dynamically-sized
 /// based on `VMOffsets`: The `Instance.vmctx` field represents a
 /// dynamically-sized array that extends beyond the nominal end of the
 /// type. So in order to create an instance of it, we must:
@@ -23,12 +23,12 @@ use wasmer_types::{LocalMemoryIndex, LocalTableIndex, ModuleInfo};
 /// 1. Define the correct layout for `Instance` (size and alignment),
 /// 2. Allocate it properly.
 ///
-/// The [`InstanceAllocator::instance_layout`] computes the correct
-/// layout to represent the wanted [`Instance`].
+/// The `InstanceAllocator::instance_layout` helper computes the correct
+/// layout to represent the wanted [`VMInstance`].
 ///
 /// Then we use this layout to allocate an empty `Instance` properly.
 pub struct InstanceAllocator {
-    /// The buffer that will contain the [`Instance`] and dynamic fields.
+    /// The buffer that will contain the [`VMInstance`] and dynamic fields.
     instance_ptr: NonNull<Instance>,
 
     /// The layout of the `instance_ptr` buffer.
@@ -104,7 +104,7 @@ impl InstanceAllocator {
         (allocator, memories, tables)
     }
 
-    /// Calculate the appropriate layout for the [`Instance`].
+    /// Calculate the appropriate layout for the internal `Instance` structure.
     fn instance_layout(offsets: &VMOffsets) -> Layout {
         let vmctx_size = usize::try_from(offsets.size_of_vmctx())
             .expect("Failed to convert the size of `vmctx` to a `usize`");
@@ -131,26 +131,28 @@ impl InstanceAllocator {
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
     unsafe fn memory_definition_locations(&self) -> Vec<NonNull<VMMemoryDefinition>> {
-        let num_memories = self.offsets.num_local_memories();
-        let num_memories = usize::try_from(num_memories).unwrap();
-        let mut out = Vec::with_capacity(num_memories);
+        unsafe {
+            let num_memories = self.offsets.num_local_memories();
+            let num_memories = usize::try_from(num_memories).unwrap();
+            let mut out = Vec::with_capacity(num_memories);
 
-        // We need to do some pointer arithmetic now. The unit is `u8`.
-        let ptr = self.instance_ptr.cast::<u8>().as_ptr();
-        let base_ptr = ptr.add(mem::size_of::<Instance>());
+            // We need to do some pointer arithmetic now. The unit is `u8`.
+            let ptr = self.instance_ptr.cast::<u8>().as_ptr();
+            let base_ptr = ptr.add(mem::size_of::<Instance>());
 
-        for i in 0..num_memories {
-            let mem_offset = self
-                .offsets
-                .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
-            let mem_offset = usize::try_from(mem_offset).unwrap();
+            for i in 0..num_memories {
+                let mem_offset = self
+                    .offsets
+                    .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+                let mem_offset = usize::try_from(mem_offset).unwrap();
 
-            let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
+                let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
 
-            out.push(new_ptr.cast());
+                out.push(new_ptr.cast());
+            }
+
+            out
         }
-
-        out
     }
 
     /// Get the locations of where the [`VMTableDefinition`]s should be stored.
@@ -165,28 +167,30 @@ impl InstanceAllocator {
     ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
     unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
-        let num_tables = self.offsets.num_local_tables();
-        let num_tables = usize::try_from(num_tables).unwrap();
-        let mut out = Vec::with_capacity(num_tables);
+        unsafe {
+            let num_tables = self.offsets.num_local_tables();
+            let num_tables = usize::try_from(num_tables).unwrap();
+            let mut out = Vec::with_capacity(num_tables);
 
-        // We need to do some pointer arithmetic now. The unit is `u8`.
-        let ptr = self.instance_ptr.cast::<u8>().as_ptr();
-        let base_ptr = ptr.add(std::mem::size_of::<Instance>());
+            // We need to do some pointer arithmetic now. The unit is `u8`.
+            let ptr = self.instance_ptr.cast::<u8>().as_ptr();
+            let base_ptr = ptr.add(std::mem::size_of::<Instance>());
 
-        for i in 0..num_tables {
-            let table_offset = self
-                .offsets
-                .vmctx_vmtable_definition(LocalTableIndex::new(i));
-            let table_offset = usize::try_from(table_offset).unwrap();
+            for i in 0..num_tables {
+                let table_offset = self
+                    .offsets
+                    .vmctx_vmtable_definition(LocalTableIndex::new(i));
+                let table_offset = usize::try_from(table_offset).unwrap();
 
-            let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
+                let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
 
-            out.push(new_ptr.cast());
+                out.push(new_ptr.cast());
+            }
+            out
         }
-        out
     }
 
-    /// Finish preparing by writing the [`Instance`] into memory, and
+    /// Finish preparing by writing the internal `Instance` into memory, and
     /// consume this `InstanceAllocator`.
     pub(crate) fn into_vminstance(mut self, instance: Instance) -> VMInstance {
         // Prevent the old state's drop logic from being called as we

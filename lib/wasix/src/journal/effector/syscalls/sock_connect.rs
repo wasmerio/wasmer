@@ -85,8 +85,7 @@ impl JournalEffector {
             )
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to create remote connected socket - {}",
-                    err
+                    "journal restore error: failed to create remote connected socket - {err}"
                 )
             })?;
 

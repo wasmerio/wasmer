@@ -2,8 +2,8 @@
 // addresses of a WebAssembly module into the native code.
 
 use cranelift_codegen::ir;
-use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
+use wasmer_types::entity::PrimaryMap;
 
 /// Value ranges for functions.
 pub type ValueLabelsRanges = PrimaryMap<LocalFunctionIndex, cranelift_codegen::ValueLabelsRanges>;

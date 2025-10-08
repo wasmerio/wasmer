@@ -6,7 +6,7 @@ use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::collections::BTreeMap;
 use std::slice::Iter;
-use wasmer_types::{target::CallingConvention, CompileError, Type};
+use wasmer_types::{CompileError, Type, target::CallingConvention};
 
 /// General-purpose registers.
 #[repr(u8)]
@@ -299,7 +299,7 @@ impl ArgumentRegisterAllocator {
                     _ => {
                         return Err(CompileError::Codegen(format!(
                             "No register available for {calling_convention:?} and type {ty}"
-                        )))
+                        )));
                     }
                 }
             }
@@ -338,7 +338,7 @@ impl ArgumentRegisterAllocator {
                     _ => {
                         return Err(CompileError::Codegen(format!(
                             "No register available for {calling_convention:?} and type {ty}"
-                        )))
+                        )));
                     }
                 }
             }

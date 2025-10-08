@@ -189,16 +189,22 @@ mod tests {
     use tempfile::TempDir;
 
     use crate::runtime::resolver::{
-        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
         Dependency, WebcHash,
+        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
     };
 
     use super::*;
 
     const PYTHON: &[u8] = include_bytes!("../../../../c-api/examples/assets/python-0.1.0.wasmer");
-    const COREUTILS_16: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc");
-    const COREUTILS_11: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc");
-    const BASH: &[u8] = include_bytes!("../../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc");
+    const COREUTILS_16: &[u8] = include_bytes!(
+        "../../../../../tests/integration/cli/tests/webc/coreutils-1.0.16-e27dbb4f-2ef2-4b44-b46a-ddd86497c6d7.webc"
+    );
+    const COREUTILS_11: &[u8] = include_bytes!(
+        "../../../../../tests/integration/cli/tests/webc/coreutils-1.0.11-9d7746ca-694f-11ed-b932-dead3543c068.webc"
+    );
+    const BASH: &[u8] = include_bytes!(
+        "../../../../../tests/integration/cli/tests/webc/bash-1.0.16-f097441a-a80b-4e0d-87d7-684918ef4bb6.webc"
+    );
 
     #[test]
     fn load_a_directory_tree() {

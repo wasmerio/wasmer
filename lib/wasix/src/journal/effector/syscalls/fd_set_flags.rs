@@ -16,10 +16,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         crate::syscalls::fd_fdstat_set_flags_internal(ctx, fd, flags).map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to set file flags (fd={}, flags={:?}) - {}",
-                fd,
-                flags,
-                err
+                "journal restore error: failed to set file flags (fd={fd}, flags={flags:?}) - {err}"
             )
         })?;
         Ok(())

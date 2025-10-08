@@ -1,8 +1,8 @@
 use std::{fmt, marker::PhantomData, num::NonZeroUsize};
 
 use crate::{
-    backend::wasmi::vm::{VMFunctionEnvironment, VMGlobal},
     AsStoreMut,
+    backend::wasmi::vm::{VMFunctionEnvironment, VMGlobal},
 };
 
 pub use wasmer_types::StoreId;
@@ -11,7 +11,7 @@ impl crate::StoreObjects {
     /// Consume [`self`] into [`crate::backend::wasmi::store::StoreObjects`].
     pub fn into_wasmi(self) -> crate::backend::wasmi::store::StoreObjects {
         match self {
-            crate::StoreObjects::Wasmi(s) => s,
+            Self::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` store!"),
         }
     }
@@ -19,7 +19,7 @@ impl crate::StoreObjects {
     /// Convert a reference to [`self`] into a reference [`crate::backend::wasmi::store::StoreObjects`].
     pub fn as_wasmi(&self) -> &crate::backend::wasmi::store::StoreObjects {
         match self {
-            crate::StoreObjects::Wasmi(s) => s,
+            Self::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` store!"),
         }
     }
@@ -27,7 +27,7 @@ impl crate::StoreObjects {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wasmi::store::StoreObjects`].
     pub fn as_wasmi_mut(&mut self) -> &mut crate::backend::wasmi::store::StoreObjects {
         match self {
-            crate::StoreObjects::Wasmi(s) => s,
+            Self::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` store!"),
         }
     }

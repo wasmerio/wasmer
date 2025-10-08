@@ -23,6 +23,7 @@ use wasmer_wasix_types::wasi::ExitCode;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, DynReadableJournal};
 use crate::{
+    SpawnError, WasiTtyState,
     bin_factory::BinaryPackageCommand,
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
@@ -31,7 +32,6 @@ use crate::{
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{BackendSource, MultiSource, Source},
     },
-    SpawnError, WasiTtyState,
 };
 
 #[derive(Clone)]
@@ -133,7 +133,7 @@ where
                         module_hash: *data.hash(),
                         error,
                     })
-                })
+                });
             }
         };
 

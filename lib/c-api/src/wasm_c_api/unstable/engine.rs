@@ -44,7 +44,7 @@ use super::{
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_config_set_features(
     config: &mut wasm_config_t,
     features: Box<wasmer_features_t>,
@@ -54,14 +54,14 @@ pub extern "C" fn wasm_config_set_features(
 
 /// Check whether there is no compiler available in this compiled
 /// library.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_is_headless() -> bool {
     !cfg!(feature = "compiler")
 }
 
 /// Check whether the given backend is available, i.e. part of this
 /// compiled library.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_is_backend_available(backend: wasmer_backend_t) -> bool {
     match backend {
         wasmer_backend_t::LLVM => cfg!(feature = "llvm"),
@@ -85,10 +85,12 @@ mod tests {
 
     #[test]
     fn test_wasmer_is_headless() {
-        set_var(
-            "COMPILER",
-            if cfg!(feature = "compiler") { "0" } else { "1" },
-        );
+        unsafe {
+            set_var(
+                "COMPILER",
+                if cfg!(feature = "compiler") { "0" } else { "1" },
+            );
+        }
 
         (assert_c! {
             #include "tests/wasmer.h"
@@ -102,28 +104,32 @@ mod tests {
         })
         .success();
 
-        remove_var("COMPILER");
+        unsafe {
+            remove_var("COMPILER");
+        }
     }
 
     #[test]
     fn test_wasmer_is_backend_available() {
-        set_var(
-            "CRANELIFT",
-            if cfg!(feature = "cranelift") {
-                "1"
-            } else {
-                "0"
-            },
-        );
-        set_var("LLVM", if cfg!(feature = "llvm") { "1" } else { "0" });
-        set_var(
-            "SINGLEPASS",
-            if cfg!(feature = "singlepass") {
-                "1"
-            } else {
-                "0"
-            },
-        );
+        unsafe {
+            set_var(
+                "CRANELIFT",
+                if cfg!(feature = "cranelift") {
+                    "1"
+                } else {
+                    "0"
+                },
+            );
+            set_var("LLVM", if cfg!(feature = "llvm") { "1" } else { "0" });
+            set_var(
+                "SINGLEPASS",
+                if cfg!(feature = "singlepass") {
+                    "1"
+                } else {
+                    "0"
+                },
+            );
+        }
 
         (assert_c! {
             #include "tests/wasmer.h"
@@ -139,8 +145,10 @@ mod tests {
         })
         .success();
 
-        remove_var("CRANELIFT");
-        remove_var("LLVM");
-        remove_var("SINGLEPASS");
+        unsafe {
+            remove_var("CRANELIFT");
+            remove_var("LLVM");
+            remove_var("SINGLEPASS");
+        }
     }
 }

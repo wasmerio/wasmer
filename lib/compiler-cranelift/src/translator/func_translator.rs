@@ -16,8 +16,8 @@ use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
+use wasmer_compiler::{FunctionBinaryReader, ModuleTranslationState, wptype_to_type};
 use wasmer_compiler::{wasm_unsupported, wasmparser};
-use wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
 use wasmer_types::{LocalFunctionIndex, WasmResult};
 
 /// WebAssembly to Cranelift IR function translator.

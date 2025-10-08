@@ -17,8 +17,8 @@ use super::state::ModuleTranslationState;
 use crate::wasm_unsupported;
 use std::boxed::Box;
 use std::vec::Vec;
-use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::entity::EntityRef;
+use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
     MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, TagIndex, Type, V128,
@@ -483,7 +483,7 @@ pub fn parse_data_section<'data>(
                         return Err(wasm_unsupported!(
                             "unsupported init expr in data section: {:?}",
                             s
-                        ))
+                        ));
                     }
                 };
                 environ.declare_data_initialization(

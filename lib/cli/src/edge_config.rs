@@ -4,7 +4,7 @@ use std::{
     time::Duration,
 };
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use serde::{Deserialize, Serialize};
 use time::OffsetDateTime;
 
@@ -35,10 +35,7 @@ impl EdgeConfig {
             .context("invalid client config: no 'version' key found")?;
 
         if version != Self::VERSION as i64 {
-            bail!(
-                "Invalid client config: unknown config version '{}'",
-                version
-            );
+            bail!("Invalid client config: unknown config version '{version}'");
         }
 
         let config = toml::from_str(data_str)?;

@@ -17,8 +17,8 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{Architecture, CallingConvention, Target},
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
+    target::{Architecture, CallingConvention, Target},
 };
 pub type Label = DynamicLabel;
 pub type Offset = AssemblyOffset;

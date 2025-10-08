@@ -5,7 +5,7 @@
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 use std::collections::HashMap;
 use windows_sys::Win32::System::Diagnostics::Debug::{
-    RtlAddFunctionTable, RtlDeleteFunctionTable, IMAGE_RUNTIME_FUNCTION_ENTRY,
+    IMAGE_RUNTIME_FUNCTION_ENTRY, RtlAddFunctionTable, RtlDeleteFunctionTable,
 };
 
 /// Represents a registry of function unwind information for Windows x64 ABI.
@@ -49,7 +49,7 @@ impl UnwindRegistry {
         // The unwind information should be immediately following the function
         // with padding for 4 byte alignment
         entry.Anonymous.UnwindInfoAddress = (entry.EndAddress + 3) & !3;
-        let entries = self.functions.entry(base_address).or_insert_with(Vec::new);
+        let entries = self.functions.entry(base_address).or_default();
 
         entries.push(entry);
 

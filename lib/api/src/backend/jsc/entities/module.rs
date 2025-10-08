@@ -9,9 +9,9 @@ use wasmer_types::{
 };
 
 use crate::{
-    jsc::{utils::convert::AsJsc, vm::VMInstance},
     AsEngineRef, AsStoreMut, AsStoreRef, BackendModule, Imports, InstantiationError, IntoBytes,
     RuntimeError,
+    jsc::{utils::convert::AsJsc, vm::VMInstance},
 };
 
 use super::engine::IntoJSC;
@@ -51,14 +51,14 @@ impl Module {
         let engine = engine.as_engine_ref();
         let jsc = engine.jsc();
         let context = jsc.context();
-        let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
+        let bytes = JSObject::create_typed_array_with_bytes(context, &mut binary).unwrap();
         let module_type = jsc.wasm_module_type();
         let global_wasm = jsc.global_wasm();
         let module = module_type
-            .construct(&context, &[bytes.to_jsvalue()])
-            .map_err(|e| CompileError::Validate(format!("{}", e.to_string(&context).unwrap())))?;
+            .construct(context, &[bytes.to_jsvalue()])
+            .map_err(|e| CompileError::Validate(format!("{}", e.to_string(context).unwrap())))?;
 
-        Ok(Self::from_js_module(module, binary))
+        Ok(unsafe { Self::from_js_module(module, binary) })
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation from a javascript module
@@ -84,22 +84,24 @@ impl Module {
         let jsc = engine.jsc();
         let context = jsc.context();
         let mut binary = binary.to_vec();
-        let bytes = JSObject::create_typed_array_with_bytes(&context, &mut binary).unwrap();
+        let bytes = JSObject::create_typed_array_with_bytes(context, &mut binary).unwrap();
 
         let global_wasm = jsc.global_wasm();
         let validate_type = jsc.wasm_validate_type();
 
-        match validate_type.call(&context, Some(&global_wasm), &[bytes.to_jsvalue()]) {
+        match validate_type.call(context, Some(global_wasm), &[bytes.to_jsvalue()]) {
             Ok(val) => {
-                if val.to_bool(&context) {
+                if val.to_bool(context) {
                     Ok(())
                 } else {
-                    Err(CompileError::Validate(format!("Not a valid wasm binary")))
+                    Err(CompileError::Validate(
+                        "Not a valid wasm binary".to_string(),
+                    ))
                 }
             }
             Err(e) => Err(CompileError::Validate(format!(
                 "Error while validating: {}",
-                e.to_string(&context).unwrap()
+                e.to_string(context).unwrap()
             ))),
         }
     }
@@ -114,38 +116,47 @@ impl Module {
             .into_iter()
             .any(|(_, import)| !import.is_from_store(store))
         {
-            return Err(RuntimeError::user(Box::new(
-                InstantiationError::DifferentStores,
-            )));
+            #[cfg(feature = "std")]
+            {
+                return Err(RuntimeError::user(Box::new(
+                    InstantiationError::DifferentStores,
+                )));
+            }
+            #[cfg(not(feature = "std"))]
+            {
+                return Err(RuntimeError::new(
+                    "cannot mix imports from different stores",
+                ));
+            }
         }
 
         let store = store.as_store_mut();
         let context = store.jsc().context();
 
-        let mut imports_object = JSObject::new(&context);
+        let mut imports_object = JSObject::new(context);
         for import_type in self.imports() {
             let resolved_import = imports.get_export(import_type.module(), import_type.name());
             if let Some(import) = resolved_import {
-                let val = imports_object.get_property(&context, import_type.module().to_string());
-                if !val.is_undefined(&context) {
+                let val = imports_object.get_property(context, import_type.module().to_string());
+                if !val.is_undefined(context) {
                     // If the namespace is already set
-                    let mut obj_val = val.to_object(&context).unwrap();
+                    let mut obj_val = val.to_object(context).unwrap();
                     obj_val.set_property(
-                        &context,
+                        context,
                         import_type.name().to_string(),
                         import.as_jsc_value(&store.as_store_ref()),
                     );
                 } else {
                     // If the namespace doesn't exist
-                    let mut import_namespace = JSObject::new(&context);
+                    let mut import_namespace = JSObject::new(context);
                     import_namespace.set_property(
-                        &context,
+                        context,
                         import_type.name().to_string(),
                         import.as_jsc_value(&store.as_store_ref()),
                     );
                     imports_object
                         .set_property(
-                            &context,
+                            context,
                             import_type.module().to_string(),
                             import_namespace.to_jsvalue(),
                         )
@@ -163,11 +174,12 @@ impl Module {
         }
 
         let instance_type = store.jsc().wasm_instance_type();
-        let instance = instance_type.construct(
-            &context,
-            &[self.module.to_jsvalue(), imports_object.to_jsvalue()],
-        );
-        Ok(instance.map_err(|e: JSValue| -> RuntimeError { e.into() })?)
+        instance_type
+            .construct(
+                context,
+                &[self.module.to_jsvalue(), imports_object.to_jsvalue()],
+            )
+            .map_err(|e: JSValue| -> RuntimeError { e.into() })
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -175,24 +187,23 @@ impl Module {
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        return self.raw_bytes.clone().ok_or(SerializeError::Generic(
+        self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
-        ));
+        ))
     }
 
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        return Self::from_binary(engine, &bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        Self::from_binary(engine, &bytes.into_bytes()).map_err(DeserializeError::Compiler)
     }
 
     pub unsafe fn deserialize_from_file_unchecked(
@@ -200,7 +211,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize_unchecked(engine, bytes)
+        unsafe { Self::deserialize_unchecked(engine, bytes) }
     }
 
     pub unsafe fn deserialize_from_file(
@@ -208,7 +219,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {

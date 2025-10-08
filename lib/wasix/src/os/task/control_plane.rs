@@ -1,8 +1,8 @@
 use std::{
     collections::HashMap,
     sync::{
-        atomic::{AtomicUsize, Ordering},
         Arc, RwLock,
+        atomic::{AtomicUsize, Ordering},
     },
     time::Duration,
 };

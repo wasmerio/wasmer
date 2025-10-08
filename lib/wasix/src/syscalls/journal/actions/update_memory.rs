@@ -24,8 +24,10 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
             });
         } else {
             tracing::trace!("Replay journal - UpdateMemory");
-            JournalEffector::apply_compressed_memory(&mut self.ctx, region, &compressed_data)
-                .map_err(anyhow_err_to_runtime_err)?;
+            unsafe {
+                JournalEffector::apply_compressed_memory(&mut self.ctx, region, &compressed_data)
+            }
+            .map_err(anyhow_err_to_runtime_err)?;
         }
         Ok(())
     }

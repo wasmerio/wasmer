@@ -1,11 +1,11 @@
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
+    HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternFunction, VMFuncRef},
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
-    HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
 /// A WebAssembly `function` instance.
@@ -393,47 +393,47 @@ impl BackendFunction {
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(s) => Self::Sys(
+            crate::BackendStore::Sys(s) => Self::Sys(unsafe {
                 crate::backend::sys::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_sys(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(s) => Self::Wamr(
+            crate::BackendStore::Wamr(s) => Self::Wamr(unsafe {
                 crate::backend::wamr::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_wamr(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(s) => Self::Wasmi(
+            crate::BackendStore::Wasmi(s) => Self::Wasmi(unsafe {
                 crate::backend::wasmi::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_wasmi(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(s) => Self::V8(
+            crate::BackendStore::V8(s) => Self::V8(unsafe {
                 crate::backend::v8::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_v8(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(s) => Self::Js(
+            crate::BackendStore::Js(s) => Self::Js(unsafe {
                 crate::backend::js::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_js(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(s) => Self::Jsc(
+            crate::BackendStore::Jsc(s) => Self::Jsc(unsafe {
                 crate::backend::jsc::entities::function::Function::from_vm_funcref(
                     store,
                     funcref.into_jsc(),
-                ),
-            ),
+                )
+            }),
         }
     }
 

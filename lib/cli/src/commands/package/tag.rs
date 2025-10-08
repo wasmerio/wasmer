@@ -1,13 +1,13 @@
 use crate::{
     commands::{
-        package::common::{macros::*, wait::wait_package, *},
         AsyncCliCommand,
+        package::common::{macros::*, wait::wait_package, *},
     },
     config::WasmerEnv,
 };
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use is_terminal::IsTerminal;
 use std::{
     path::{Path, PathBuf},
@@ -268,7 +268,9 @@ impl PackageTag {
             None => {
                 spinner_err!(pb, "The package is not in the registry!");
                 if !self.quiet {
-                    eprintln!("\n\nThe package with the required hash does not exist in the selected registry.");
+                    eprintln!(
+                        "\n\nThe package with the required hash does not exist in the selected registry."
+                    );
                     let bin_name = bin_name!();
                     let cli = std::env::args()
                         .filter(|s| !s.starts_with('-'))
@@ -466,7 +468,10 @@ impl PackageTag {
                     let mut new_version = registry_version.clone();
                     new_version.patch += 1;
                     if must_bump {
-                        eprintln!("{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.", "Warn".bold().yellow());
+                        eprintln!(
+                            "{}: Registry already has version {user_version} of {full_pkg_name}, but with different contents.",
+                            "Warn".bold().yellow()
+                        );
                         eprintln!(
                             "{}: Not bumping the version will make this action fail.",
                             "Warn".bold().yellow()

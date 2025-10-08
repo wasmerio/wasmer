@@ -1,7 +1,7 @@
 use std::error::Error;
 
 use js_sys::Reflect;
-use wasm_bindgen::{prelude::*, JsValue};
+use wasm_bindgen::{JsValue, prelude::*};
 
 use crate::RuntimeError;
 

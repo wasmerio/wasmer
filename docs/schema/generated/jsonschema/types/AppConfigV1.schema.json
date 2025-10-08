@@ -1,7 +1,7 @@
 {
   "$schema": "https://json-schema.org/draft/2019-09/schema",
   "title": "AppConfigV1",
-  "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend, Edge itself does not use this format, and uses [`super::AppVersionV1Spec`] instead.",
+  "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend; Edge itself does not use this format and relies on the internal `AppVersionV1Spec` representation instead.",
   "type": "object",
   "required": [
     "package"
@@ -183,7 +183,7 @@
       }
     },
     "AppConfigCapabilityMapV1": {
-      "description": "Restricted version of [`super::CapabilityMapV1`], with only a select subset of settings.",
+      "description": "Restricted version of the internal `CapabilityMapV1`, with only a select subset of settings.",
       "type": "object",
       "properties": {
         "instaboot": {
@@ -233,7 +233,7 @@
       "additionalProperties": true
     },
     "AppConfigCapabilityMemoryV1": {
-      "description": "Memory capability settings.\n\nNOTE: this is kept separate from the [`super::CapabilityMemoryV1`] struct to have separation between the high-level app.yaml and the more internal App entity.",
+      "description": "Memory capability settings.\n\nNOTE: this is kept separate from the internal `CapabilityMemoryV1` struct to keep the high-level app.yaml distinct from the internal App entity.",
       "type": "object",
       "properties": {
         "limit": {
@@ -623,7 +623,7 @@
       "description": "How will an instance be bootstrapped?",
       "oneOf": [
         {
-          "description": "Start the instance without any snapshot triggers. Once the requests are done, use [`snapshot_and_stop`](wasmer_wasix::WasiProcess::snapshot_and_stop) to capture a snapshot and shut the instance down.",
+          "description": "Start the instance without any snapshot triggers. Once the requests are done, use `wasmer_wasix::WasiProcess::snapshot_and_stop` to capture a snapshot and shut the instance down.",
           "type": "string",
           "enum": [
             "bootstrap"

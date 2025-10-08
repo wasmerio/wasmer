@@ -2,9 +2,9 @@
 use std::sync::Arc;
 
 use crate::{
+    AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError, Module,
     backend::wasmi::bindings::*, entities::external::VMExternToExtern, vm::VMExtern,
-    wasmi::error::Trap, AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError,
-    Module,
+    wasmi::error::Trap,
 };
 
 #[derive(PartialEq, Eq)]
@@ -14,6 +14,7 @@ unsafe impl Send for InstanceHandle {}
 unsafe impl Sync for InstanceHandle {}
 
 impl InstanceHandle {
+    #[allow(clippy::result_large_err, clippy::unnecessary_mut_passed)]
     fn new(
         store: *mut wasm_store_t,
         module: *mut wasm_module_t,
@@ -48,7 +49,7 @@ impl InstanceHandle {
             return Err(InstantiationError::Start(trap.into()));
         }
 
-        Ok(InstanceHandle(instance))
+        Ok(Self(instance))
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
@@ -77,7 +78,7 @@ impl InstanceHandle {
 
         let c_api_exports: Exports = c_api_exports
             .into_iter()
-            .zip(c_api_externs.into_iter())
+            .zip(c_api_externs)
             .map(|(export, ext)| unsafe {
                 let name = wasm_exporttype_name(export);
                 let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
@@ -110,6 +111,7 @@ pub struct Instance {
 }
 
 impl Instance {
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -124,9 +126,10 @@ impl Instance {
             })
             .collect::<Vec<_>>();
 
-        return Self::new_by_index(store, module, &externs);
+        Self::new_by_index(store, module, &externs)
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,

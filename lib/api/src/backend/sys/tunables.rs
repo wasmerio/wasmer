@@ -6,9 +6,9 @@ pub use wasmer_compiler::BaseTunables;
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::TableType;
     #[allow(unused)]
     use crate::sys::NativeEngineExt;
-    use crate::TableType;
     use std::cell::UnsafeCell;
     use std::ptr::NonNull;
     use wasmer_compiler::Tunables;
@@ -198,9 +198,9 @@ mod tests {
             let memory = VMTinyMemory::new().unwrap();
             // now, it's important to update vm_definition_location with the memory information!
             let mut ptr = vm_definition_location;
-            let md = ptr.as_mut();
+            let md = unsafe { ptr.as_mut() };
             let unsafecell = memory.memory_definition.as_ref().unwrap();
-            let def = unsafecell.get().as_ref().unwrap();
+            let def = unsafe { unsafecell.get().as_ref().unwrap() };
             md.base = def.base;
             md.current_length = def.current_length;
             Ok(memory.into())
@@ -221,7 +221,7 @@ mod tests {
             style: &TableStyle,
             vm_definition_location: NonNull<VMTableDefinition>,
         ) -> Result<VMTable, String> {
-            VMTable::from_definition(ty, style, vm_definition_location)
+            unsafe { VMTable::from_definition(ty, style, vm_definition_location) }
         }
 
         // Will use a minimum stack size of 8kb, not the 1Mb default
@@ -258,7 +258,7 @@ mod tests {
     fn check_custom_tunables() -> Result<(), Box<dyn std::error::Error>> {
         #[cfg(feature = "wat")]
         use crate::wat2wasm;
-        use crate::{imports, Engine, Instance, Memory, Module, Store};
+        use crate::{Engine, Instance, Memory, Module, Store, imports};
 
         let wasm_bytes = wat2wasm(
             br#"(module
@@ -315,7 +315,7 @@ mod tests {
     ))]
     #[allow(clippy::print_stdout)]
     fn check_small_stack() -> Result<(), Box<dyn std::error::Error>> {
-        use crate::{imports, wat2wasm, Engine, Instance, Module, Store};
+        use crate::{Engine, Instance, Module, Store, imports, wat2wasm};
         use wasmer_compiler_singlepass::Singlepass;
         // This test needs Singlepass compiler
         // because Cranelift will optimize the webassembly file

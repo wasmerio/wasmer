@@ -1,3 +1,5 @@
+#![allow(clippy::result_large_err)]
+
 use tracing::{field, instrument, trace_span};
 use wasmer::{AsStoreMut, AsStoreRef, FunctionEnvMut, Memory, WasmPtr};
 use wasmer_wasix_types::wasi::{
@@ -7,12 +9,11 @@ use wasmer_wasix_types::wasi::{
 };
 
 use crate::{
-    mem_error_to_wasi,
+    Memory32, MemorySize, WasiEnv, WasiError, mem_error_to_wasi,
     os::task::thread::WasiThread,
     state::{PollEventBuilder, PollEventSet},
     syscalls::types,
     syscalls::{self, handle_rewind},
-    Memory32, MemorySize, WasiEnv, WasiError,
 };
 
 /// Wrapper around `syscalls::fd_filestat_get` for old Snapshot0
@@ -22,11 +23,7 @@ pub fn fd_filestat_get(
     fd: Fd,
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-    let result = syscalls::fd_filestat_get_old::<Memory32>(ctx.as_mut(), fd, buf);
-
-    result
+    syscalls::fd_filestat_get_old::<Memory32>(ctx.as_mut(), fd, buf)
 }
 
 /// Wrapper around `syscalls::path_filestat_get` for old Snapshot0
@@ -39,13 +36,7 @@ pub fn path_filestat_get(
     path_len: u32,
     buf: WasmPtr<Snapshot0Filestat, Memory32>,
 ) -> Errno {
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-
-    let result =
-        syscalls::path_filestat_get_old::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, buf);
-
-    result
+    syscalls::path_filestat_get_old::<Memory32>(ctx.as_mut(), fd, flags, path, path_len, buf)
 }
 
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
@@ -81,6 +72,7 @@ pub fn poll_oneoff<M: MemorySize>(
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
+
     let mut subscriptions = Vec::new();
     let in_origs = wasi_try_mem_ok!(in_.slice(&memory, nsubscriptions));
     let in_origs = wasi_try_mem_ok!(in_origs.read_to_vec());

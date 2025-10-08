@@ -4,7 +4,7 @@ use std::{path::Path, sync::Arc};
 
 use shared_buffer::OwnedBuffer;
 pub use wasmer_compiler::{Artifact, BaseTunables, Engine, EngineBuilder, Tunables};
-use wasmer_types::{target::Target, DeserializeError, Features, HashAlgorithm};
+use wasmer_types::{DeserializeError, Features, HashAlgorithm, target::Target};
 
 use crate::{BackendEngine, BackendModule};
 
@@ -153,11 +153,9 @@ impl NativeEngineExt for crate::engine::Engine {
         file_ref: &Path,
     ) -> Result<crate::Module, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
-        let artifact = Arc::new(Artifact::deserialize_unchecked(
-            self.as_sys(),
-            OwnedBuffer::from_file(&file)
-                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
-        )?);
+        let buffer = OwnedBuffer::from_file(&file)
+            .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?;
+        let artifact = unsafe { Arc::new(Artifact::deserialize_unchecked(self.as_sys(), buffer)?) };
         Ok(crate::Module(BackendModule::Sys(
             super::module::Module::from_artifact(artifact),
         )))
@@ -168,11 +166,9 @@ impl NativeEngineExt for crate::engine::Engine {
         file_ref: &Path,
     ) -> Result<crate::Module, DeserializeError> {
         let file = std::fs::File::open(file_ref)?;
-        let artifact = Arc::new(Artifact::deserialize(
-            self.as_sys(),
-            OwnedBuffer::from_file(&file)
-                .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?,
-        )?);
+        let buffer = OwnedBuffer::from_file(&file)
+            .map_err(|e| DeserializeError::Generic(format!("{e:?}")))?;
+        let artifact = unsafe { Arc::new(Artifact::deserialize(self.as_sys(), buffer)?) };
         Ok(crate::Module(BackendModule::Sys(
             super::module::Module::from_artifact(artifact),
         )))

@@ -21,7 +21,7 @@
 //! - the `get_global` and `set_global` instructions depend on how the globals are implemented;
 //! - `memory.size` and `memory.grow` are runtime functions;
 //! - `call_indirect` has to translate the function index into the address of where this
-//!    is;
+//!   is;
 //!
 //! That is why `translate_function_body` takes an object having the `WasmRuntime` trait as
 //! argument.
@@ -79,7 +79,7 @@ mod bounds_checks;
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::{hash_map, HashMap};
+use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
@@ -94,7 +94,7 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{MemArg, Operator};
-use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
+use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
     FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
 };
@@ -106,7 +106,7 @@ use wasmer_types::{
 /// when we can statically determine that a Wasm access will unconditionally
 /// trap.
 macro_rules! unwrap_or_return_unreachable_state {
-    ($state:ident, $value:expr) => {
+    ($state:ident, $value:expr_2021) => {
         match $value {
             Reachability::Reachable(x) => x,
             Reachability::Unreachable => {
@@ -2243,13 +2243,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::GlobalAtomicRmwXor { .. }
         | Operator::GlobalAtomicRmwXchg { .. }
         | Operator::GlobalAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Global atomics not supported yet!"))
+            return Err(wasm_unsupported!("Global atomics not supported yet!"));
         }
         Operator::TableAtomicGet { .. }
         | Operator::TableAtomicSet { .. }
         | Operator::TableAtomicRmwXchg { .. }
         | Operator::TableAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+            return Err(wasm_unsupported!("Table atomics not supported yet!"));
         }
         Operator::StructAtomicGet { .. }
         | Operator::StructAtomicGetS { .. }
@@ -2262,7 +2262,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::StructAtomicRmwXor { .. }
         | Operator::StructAtomicRmwXchg { .. }
         | Operator::StructAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+            return Err(wasm_unsupported!("Table atomics not supported yet!"));
         }
         Operator::ArrayAtomicGet { .. }
         | Operator::ArrayAtomicGetS { .. }
@@ -2275,7 +2275,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::ArrayAtomicRmwXor { .. }
         | Operator::ArrayAtomicRmwXchg { .. }
         | Operator::ArrayAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Array atomics not supported yet!"))
+            return Err(wasm_unsupported!("Array atomics not supported yet!"));
         }
         Operator::ContNew { .. } => todo!(),
         Operator::ContBind { .. } => todo!(),
@@ -2795,7 +2795,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_rmw: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2844,7 +2844,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_cas: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2893,7 +2893,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_load: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2935,7 +2935,7 @@ fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_store: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let d_ty_ok = matches!(data_ty, I32 | I64);

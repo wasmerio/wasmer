@@ -45,7 +45,7 @@ pub struct wasmer_funcenv_t {
     inner: FunctionCEnv,
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_funcenv_new(
     store: Option<&mut wasm_store_t>,
     mut data: *mut c_void,
@@ -54,10 +54,11 @@ pub unsafe extern "C" fn wasmer_funcenv_new(
     if data.is_null() {
         data = &NULL_ENV_PLACEHOLDER as *const u32 as *mut u32 as *mut c_void;
     }
-    let inner = FunctionCEnv::new(std::ptr::NonNull::new_unchecked(data));
-    let _ = FunctionEnv::new(&mut store.inner.store_mut(), inner);
+    let inner = FunctionCEnv::new(unsafe { std::ptr::NonNull::new_unchecked(data) });
+    let mut store_mut = unsafe { store.inner.store_mut() };
+    let _ = FunctionEnv::new(&mut store_mut, inner);
     Some(Box::new(wasmer_funcenv_t { inner }))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_funcenv_delete(_funcenv: Option<Box<wasmer_funcenv_t>>) {}

@@ -1,33 +1,34 @@
 //! Universal compilation.
 
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+use std::sync::{Arc, Mutex};
+
 use crate::engine::builder::EngineBuilder;
+#[cfg(feature = "compiler")]
+use crate::{Compiler, CompilerConfig};
+
+#[cfg(feature = "compiler")]
+use wasmer_types::Features;
+use wasmer_types::{CompileError, HashAlgorithm, target::Target};
+
+#[cfg(not(target_arch = "wasm32"))]
+use shared_buffer::OwnedBuffer;
+#[cfg(not(target_arch = "wasm32"))]
+use std::{io::Write, path::Path};
+#[cfg(not(target_arch = "wasm32"))]
+use wasmer_types::{
+    DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    entity::PrimaryMap,
+};
+
 #[cfg(not(target_arch = "wasm32"))]
 use crate::{
+    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
     types::{
         function::FunctionBodyLike,
         section::{CustomSectionLike, CustomSectionProtection, SectionIndex},
     },
-    Artifact, BaseTunables, CodeMemory, FunctionExtent, GlobalFrameInfoRegistration, Tunables,
 };
-#[cfg(feature = "compiler")]
-use crate::{Compiler, CompilerConfig};
-
-#[cfg(not(target_arch = "wasm32"))]
-use shared_buffer::OwnedBuffer;
-
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-use std::sync::{Arc, Mutex};
-#[cfg(not(target_arch = "wasm32"))]
-use std::{io::Write, path::Path};
-
-#[cfg(feature = "compiler")]
-use wasmer_types::Features;
-#[cfg(not(target_arch = "wasm32"))]
-use wasmer_types::{
-    entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
-    ModuleInfo, SignatureIndex,
-};
-use wasmer_types::{target::Target, CompileError, HashAlgorithm};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -210,7 +211,7 @@ impl Engine {
 
     #[cfg(not(target_arch = "wasm32"))]
     /// Deserializes a WebAssembly module which was previously serialized with
-    /// [`Module::serialize`].
+    /// [`wasmer::Module::serialize`].
     ///
     /// # Safety
     ///
@@ -219,11 +220,11 @@ impl Engine {
         &self,
         bytes: OwnedBuffer,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?))
+        unsafe { Ok(Arc::new(Artifact::deserialize_unchecked(self, bytes)?)) }
     }
 
     /// Deserializes a WebAssembly module which was previously serialized with
-    /// [`Module::serialize`].
+    /// [`wasmer::Module::serialize`].
     ///
     /// # Safety
     ///
@@ -233,7 +234,7 @@ impl Engine {
         &self,
         bytes: OwnedBuffer,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        Ok(Arc::new(Artifact::deserialize(self, bytes)?))
+        unsafe { Ok(Arc::new(Artifact::deserialize(self, bytes)?)) }
     }
 
     /// Deserializes a WebAssembly module from a path.
@@ -245,10 +246,13 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        self.deserialize(
-            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        )
+        unsafe {
+            let file = std::fs::File::open(file_ref)?;
+            self.deserialize(
+                OwnedBuffer::from_file(&file)
+                    .map_err(|e| DeserializeError::Generic(e.to_string()))?,
+            )
+        }
     }
 
     /// Deserialize from a file path.
@@ -261,10 +265,13 @@ impl Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<Artifact>, DeserializeError> {
-        let file = std::fs::File::open(file_ref)?;
-        self.deserialize_unchecked(
-            OwnedBuffer::from_file(&file).map_err(|e| DeserializeError::Generic(e.to_string()))?,
-        )
+        unsafe {
+            let file = std::fs::File::open(file_ref)?;
+            self.deserialize_unchecked(
+                OwnedBuffer::from_file(&file)
+                    .map_err(|e| DeserializeError::Generic(e.to_string()))?,
+            )
+        }
     }
 
     /// A unique identifier for this object.

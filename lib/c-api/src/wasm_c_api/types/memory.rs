@@ -1,4 +1,4 @@
-use super::{wasm_externtype_t, WasmExternType};
+use super::{WasmExternType, wasm_externtype_t};
 use wasmer_api::{ExternType, MemoryType, Pages};
 
 #[derive(Debug, Clone)]
@@ -50,7 +50,7 @@ impl wasm_memorytype_t {
 
 wasm_declare_boxed_vec!(memorytype);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
     let max_pages = if limits.max == LIMITS_MAX_SENTINEL {
@@ -64,7 +64,7 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
     )))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memorytype_delete(_memory_type: Option<Box<wasm_memorytype_t>>) {}
 
 #[allow(non_camel_case_types)]
@@ -77,7 +77,7 @@ pub struct wasm_limits_t {
 
 const LIMITS_MAX_SENTINEL: u32 = u32::MAX;
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_memorytype_limits(memory_type: &wasm_memorytype_t) -> &wasm_limits_t {
     &memory_type.inner().limits
 }

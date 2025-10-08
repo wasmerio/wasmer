@@ -3,13 +3,13 @@ use wasmer_compiler_cranelift::Cranelift;
 
 // This is to be able to set the tunables
 use wasmer::{
-    imports,
+    Engine, Instance, Memory, MemoryError, MemoryStyle, MemoryType, Module, Pages, Store,
+    TableStyle, TableType, imports,
     sys::{
-        vm::{VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition},
         BaseTunables, NativeEngineExt, Target, Tunables,
+        vm::{VMMemory, VMMemoryDefinition, VMTable, VMTableDefinition},
     },
-    wat2wasm, Engine, Instance, Memory, MemoryError, MemoryStyle, MemoryType, Module, Pages, Store,
-    TableStyle, TableType,
+    wat2wasm,
 };
 
 /// A custom tunables that allows you to set a memory limit.
@@ -105,8 +105,10 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
     ) -> Result<VMMemory, MemoryError> {
         let adjusted = self.adjust_memory(ty);
         self.validate_memory(&adjusted)?;
-        self.base
-            .create_vm_memory(&adjusted, style, vm_definition_location)
+        unsafe {
+            self.base
+                .create_vm_memory(&adjusted, style, vm_definition_location)
+        }
     }
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
@@ -125,7 +127,7 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         style: &TableStyle,
         vm_definition_location: NonNull<VMTableDefinition>,
     ) -> Result<VMTable, String> {
-        self.base.create_vm_table(ty, style, vm_definition_location)
+        unsafe { self.base.create_vm_table(ty, style, vm_definition_location) }
     }
 }
 

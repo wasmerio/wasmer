@@ -5,10 +5,10 @@ use wasmer_wasix_types::wasi::{
 
 use super::*;
 use crate::{
+    WasiInodes,
     fs::{EpollFd, InodeValFilePollGuard, InodeValFilePollGuardJoin, POLL_GUARD_MAX_RET},
     state::PollEventSet,
     syscalls::*,
-    WasiInodes,
 };
 
 const TIMEOUT_FOREVER: u64 = u64::MAX;

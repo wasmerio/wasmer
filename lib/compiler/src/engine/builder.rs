@@ -1,7 +1,7 @@
 use super::Engine;
 #[cfg(feature = "compiler")]
 use crate::CompilerConfig;
-use wasmer_types::{target::Target, Features, HashAlgorithm};
+use wasmer_types::{Features, HashAlgorithm, target::Target};
 
 /// The Builder contents of `Engine`
 pub struct EngineBuilder {

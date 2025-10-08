@@ -1,5 +1,5 @@
 use crate::store::StoreOptions;
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use clap::Parser;
 use std::path::PathBuf;
 use std::str::FromStr;

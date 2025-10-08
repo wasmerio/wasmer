@@ -6,9 +6,9 @@ use std::{
     path::{Path, PathBuf},
     str::FromStr,
 };
-use wasmer_backend_api::{types::Secret as BackendSecret, WasmerClient};
+use wasmer_backend_api::{WasmerClient, types::Secret as BackendSecret};
 
-use crate::commands::app::util::{get_app_config_from_dir, prompt_app_ident, AppIdent};
+use crate::commands::app::util::{AppIdent, get_app_config_from_dir, prompt_app_ident};
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub(super) struct Secret {
@@ -130,10 +130,12 @@ pub(super) async fn get_app_id(
                 Some(app.id.into_inner())
             } else {
                 if !quiet {
-                    eprintln!("{}: the app found in {} does not exist.\n{}: maybe it was not deployed yet?", 
-                            "Warning".bold().yellow(), 
-                            format!("'{}'", path.display()).dimmed(), 
-                            "Hint".bold());
+                    eprintln!(
+                        "{}: the app found in {} does not exist.\n{}: maybe it was not deployed yet?",
+                        "Warning".bold().yellow(),
+                        format!("'{}'", path.display()).dimmed(),
+                        "Hint".bold()
+                    );
                 }
                 None
             }

@@ -4,22 +4,22 @@
 #[cfg(feature = "compiler")]
 use super::trampoline::{libcall_trampoline_len, make_libcall_trampolines};
 
-#[cfg(feature = "compiler")]
 use crate::{
-    serialize::SerializableCompilation, EngineInner, ModuleEnvironment, ModuleMiddlewareChain,
-};
-use crate::{
+    ArtifactCreate, Features,
     serialize::{
         ArchivedSerializableCompilation, ArchivedSerializableModule, MetadataHeader,
         SerializableModule,
     },
     types::{
-        function::{CompiledFunctionFrameInfo, FunctionBody, UnwindInfo, GOT},
+        function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
         module::CompileModuleInfo,
         relocation::Relocation,
         section::{CustomSection, SectionIndex},
     },
-    ArtifactCreate, Features,
+};
+#[cfg(feature = "compiler")]
+use crate::{
+    EngineInner, ModuleEnvironment, ModuleMiddlewareChain, serialize::SerializableCompilation,
 };
 #[cfg(feature = "compiler")]
 use wasmer_types::target::Target;
@@ -31,9 +31,9 @@ use self_cell::self_cell;
 use shared_buffer::OwnedBuffer;
 use std::sync::Arc;
 use wasmer_types::{
+    DeserializeError,
     entity::{ArchivedPrimaryMap, PrimaryMap},
     target::CpuFeature,
-    DeserializeError,
 };
 
 // Not every compiler backend uses these.

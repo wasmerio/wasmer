@@ -15,7 +15,7 @@ pub struct UnwindRegistry {
     compact_unwind_mgr: compact_unwind::CompactUnwindManager,
 }
 
-extern "C" {
+unsafe extern "C" {
     // libunwind import
     fn __register_frame(fde: *const u8);
     fn __deregister_frame(fde: *const u8);
@@ -41,6 +41,7 @@ mod compact_unwind;
 /// I'll note that there's also a different libunwind project at
 /// https://www.nongnu.org/libunwind/ but that doesn't appear to have
 /// `__register_frame` so I don't think that interacts with this.
+#[allow(dead_code)]
 fn using_libunwind() -> bool {
     static USING_LIBUNWIND: AtomicUsize = AtomicUsize::new(LIBUNWIND_UNKNOWN);
 
@@ -143,65 +144,71 @@ impl UnwindRegistry {
             // Special call for macOS on aarch64 to register the `.eh_frame` section.
             // TODO: I am not 100% sure if it's correct to never deregister the `.eh_frame` section. It was this way before
             // I started working on this, so I kept it that way.
-            compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
-            return;
+            unsafe {
+                compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
+            }
         }
 
-        // Validate that the `.eh_frame` is well-formed before registering it.
-        // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
-        // We put the frame records into a vector before registering them, because
-        // calling `__register_frame` with invalid data can cause segfaults.
+        #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+        {
+            // Validate that the `.eh_frame` is well-formed before registering it.
+            // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
+            // We put the frame records into a vector before registering them, because
+            // calling `__register_frame` with invalid data can cause segfaults.
 
-        // Pointers to the registrations that will be registered with `__register_frame`.
-        // For libgcc based systems, these are CIEs.
-        // For libunwind based systems, these are FDEs.
-        let mut records_to_register = Vec::new();
+            // Pointers to the registrations that will be registered with `__register_frame`.
+            // For libgcc based systems, these are CIEs.
+            // For libunwind based systems, these are FDEs.
+            let mut records_to_register = Vec::new();
 
-        let mut current = 0;
-        let mut last_len = 0;
-        while current <= (eh_frame.len() - size_of::<u32>()) {
-            // If a CFI or a FDE starts with 0u32 it is a terminator.
-            let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
-            if len == 0 {
-                current += size_of::<u32>();
-                last_len = 0;
-                continue;
-            }
-            // The first record after a terminator is always a CIE.
-            let is_cie = last_len == 0;
-            last_len = len;
-            let record = eh_frame.as_ptr() as usize + current;
-            current = current + len as usize + 4;
+            let mut current = 0;
+            let mut last_len = 0;
+            while current <= (eh_frame.len() - size_of::<u32>()) {
+                // If a CFI or a FDE starts with 0u32 it is a terminator.
+                let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
+                if len == 0 {
+                    current += size_of::<u32>();
+                    last_len = 0;
+                    continue;
+                }
+                // The first record after a terminator is always a CIE.
+                let is_cie = last_len == 0;
+                last_len = len;
+                let record = eh_frame.as_ptr() as usize + current;
+                current = current + len as usize + 4;
 
-            if using_libunwind() {
-                // For libunwind based systems, `__register_frame` takes a pointer to an FDE.
-                if !is_cie {
-                    // Every record that's not a CIE is an FDE.
+                if using_libunwind() {
+                    // For libunwind based systems, `__register_frame` takes a pointer to an FDE.
+                    if !is_cie {
+                        // Every record that's not a CIE is an FDE.
+                        records_to_register.push(record);
+                    }
+                    continue;
+                }
+
+                // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
+                if is_cie {
                     records_to_register.push(record);
                 }
-                continue;
             }
 
-            // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
-            if is_cie {
-                records_to_register.push(record);
+            assert_eq!(
+                last_len, 0,
+                "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+            );
+            assert_eq!(
+                current,
+                eh_frame.len(),
+                "The `.eh_frame` must be finished after the last record",
+            );
+
+            for record in records_to_register {
+                // Register the CFI with libgcc
+                unsafe {
+                    __register_frame(record as *const u8);
+                }
+                self.registrations.push(record);
             }
-        }
-
-        assert_eq!(
-            last_len, 0,
-            "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-        );
-        assert_eq!(
-            current,
-            eh_frame.len(),
-            "The `.eh_frame` must be finished after the last record",
-        );
-
-        for record in records_to_register {
-            // Register the CFI with libgcc
-            __register_frame(record as *const u8);
-            self.registrations.push(record);
         }
     }
 

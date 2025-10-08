@@ -16,7 +16,7 @@
 
 use anyhow::bail;
 use std::fmt;
-use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
+use wasmer::{Function, Instance, Module, Store, TypedFunction, imports, wat2wasm};
 
 // First we need to create an error type that we'll use to signal the end of execution.
 #[derive(Debug, Clone, Copy)]
@@ -83,10 +83,7 @@ fn main() -> anyhow::Result<()> {
     // When we call a function it can either succeed or fail. We expect it to fail.
     match run_func.call(&mut store, 1, 7) {
         Ok(result) => {
-            bail!(
-                "Expected early termination with `ExitCode`, found: {}",
-                result
-            );
+            bail!("Expected early termination with `ExitCode`, found: {result}");
         }
         // In case of a failure, which we expect, we attempt to downcast the error into the error
         // type that we were expecting.
@@ -98,7 +95,7 @@ fn main() -> anyhow::Result<()> {
                 Ok(())
             }
             Err(e) => {
-                bail!("Unknown error `{}` found. expected `ExitCode`", e);
+                bail!("Unknown error `{e}` found. expected `ExitCode`");
             }
         },
     }

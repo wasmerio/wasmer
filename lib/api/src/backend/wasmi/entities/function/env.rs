@@ -1,9 +1,9 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
+    StoreMut,
     store::{AsStoreMut, AsStoreRef, StoreRef},
     wasmi::{store::StoreHandle, vm::VMFunctionEnvironment},
-    StoreMut,
 };
 
 #[derive(Debug)]
@@ -185,16 +185,16 @@ impl<T> crate::FunctionEnv<T> {
 
     /// Convert a reference to [`self`] into a reference to [`crate::backend::wasmi::function::env::FunctionEnv`].
     pub fn as_wasmi(&self) -> &FunctionEnv<T> {
-        match self.0 {
-            crate::BackendFunctionEnv::Wasmi(ref s) => s,
+        match &self.0 {
+            crate::BackendFunctionEnv::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` function env!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wasmi::function::env::FunctionEnv`].
     pub fn as_wasmi_mut(&mut self) -> &mut FunctionEnv<T> {
-        match self.0 {
-            crate::BackendFunctionEnv::Wasmi(ref mut s) => s,
+        match &mut self.0 {
+            crate::BackendFunctionEnv::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` function env!"),
         }
     }
@@ -202,12 +202,12 @@ impl<T> crate::FunctionEnv<T> {
 
 impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
     fn from(value: FunctionEnvMut<'a, T>) -> Self {
-        crate::FunctionEnvMut(crate::BackendFunctionEnvMut::Wasmi(value))
+        Self(crate::BackendFunctionEnvMut::Wasmi(value))
     }
 }
 
 impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
     fn from(value: FunctionEnv<T>) -> Self {
-        crate::FunctionEnv(crate::BackendFunctionEnv::Wasmi(value))
+        Self(crate::BackendFunctionEnv::Wasmi(value))
     }
 }

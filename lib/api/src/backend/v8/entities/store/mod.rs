@@ -2,9 +2,9 @@
 use std::thread::ThreadId;
 
 use crate::{
+    AsStoreRef, BackendStore, StoreRef,
     backend::v8::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
     engine::{AsEngineRef, Engine, EngineRef},
-    AsStoreRef, BackendStore, StoreRef,
 };
 
 mod obj;
@@ -29,7 +29,7 @@ impl Store {
     pub(crate) fn new(engine: crate::engine::Engine) -> Self {
         let inner: *mut wasm_store_t = unsafe { wasm_store_new(engine.as_v8().inner.engine) };
         let thread_id = std::thread::current().id();
-        Store {
+        Self {
             inner,
             engine,
             thread_id,

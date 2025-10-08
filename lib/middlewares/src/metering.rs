@@ -13,9 +13,9 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{BlockType as WpTypeOrFuncType, Operator};
 use wasmer::{
-    sys::{FunctionMiddleware, MiddlewareError, MiddlewareReaderState, ModuleMiddleware},
     AsStoreMut, ExportIndex, GlobalInit, GlobalType, Instance, LocalFunctionIndex, Mutability,
     Type,
+    sys::{FunctionMiddleware, MiddlewareError, MiddlewareReaderState, ModuleMiddleware},
 };
 use wasmer_types::{GlobalIndex, ModuleInfo};
 
@@ -163,7 +163,9 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
         let mut global_indexes = self.global_indexes.lock().unwrap();
 
         if global_indexes.is_some() {
-            panic!("Metering::transform_module_info: Attempting to use a `Metering` middleware from multiple modules.");
+            panic!(
+                "Metering::transform_module_info: Attempting to use a `Metering` middleware from multiple modules."
+            );
         }
 
         // Append a global for remaining points and initialize it.
@@ -300,14 +302,14 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMeter
     }
 }
 
-/// Get the remaining points in an [`Instance`][wasmer::Instance].
+/// Get the remaining points in an [`Instance`].
 ///
 /// Note: This can be used in a headless engine after an ahead-of-time
 /// compilation as all required state lives in the instance.
 ///
 /// # Panic
 ///
-/// The [`Instance`][wasmer::Instance) must have been processed with
+/// The [`Instance`] must have been processed with
 /// the [`Metering`] middleware at compile time, otherwise this will
 /// panic.
 ///
@@ -348,15 +350,14 @@ pub fn get_remaining_points(ctx: &mut impl AsStoreMut, instance: &Instance) -> M
     MeteringPoints::Remaining(points)
 }
 
-/// Set the new provided remaining points in an
-/// [`Instance`][wasmer::Instance].
+/// Set the new provided remaining points in an [`Instance`].
 ///
 /// Note: This can be used in a headless engine after an ahead-of-time
 /// compilation as all required state lives in the instance.
 ///
 /// # Panic
 ///
-/// The given [`Instance`][wasmer::Instance] must have been processed
+/// The given [`Instance`] must have been processed
 /// with the [`Metering`] middleware at compile time, otherwise this
 /// will panic.
 ///
@@ -397,9 +398,9 @@ mod tests {
     use std::sync::Arc;
     use wasmer::sys::EngineBuilder;
     use wasmer::{
-        imports,
+        Module, Store, TypedFunction, imports,
         sys::{CompilerConfig, Cranelift},
-        wat2wasm, Module, Store, TypedFunction,
+        wat2wasm,
     };
 
     fn cost_function(operator: &Operator) -> u64 {

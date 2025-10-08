@@ -259,7 +259,7 @@ where
             name.as_deref(),
             &ns,
             &session_url,
-            Some(manifest.package.as_ref().map_or(true, |p| p.private)),
+            Some(manifest.package.as_ref().is_none_or(|p| p.private)),
         )
         .await
         .map_err(PackagePublishError::Api)?
@@ -323,7 +323,7 @@ where
         &id.full_name,
         Some(&ns),
         &package_release.id,
-        Some(manifest.package.as_ref().map_or(true, |p| p.private)),
+        Some(manifest.package.as_ref().is_none_or(|p| p.private)),
         readme_contents.as_deref(),
         manifest
             .package

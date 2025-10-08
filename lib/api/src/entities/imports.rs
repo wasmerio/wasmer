@@ -1,7 +1,7 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
-use crate::{error::LinkError, Exports, Extern, Module};
+use crate::{Exports, Extern, Module, error::LinkError};
 use std::collections::HashMap;
 use std::fmt;
 use wasmer_types::ImportError;
@@ -130,11 +130,7 @@ impl Imports {
             .filter(|((ns, _), _)| ns == name)
             .map(|((_, name), e)| (name.clone(), e.clone()))
             .collect();
-        if ret.is_empty() {
-            None
-        } else {
-            Some(ret)
-        }
+        if ret.is_empty() { None } else { Some(ret) }
     }
 
     /// Resolve and return a vector of imports in the order they are defined in the `module`'s source code.
@@ -306,10 +302,10 @@ macro_rules! import_namespace {
 
 #[cfg(test)]
 mod test {
-    use crate::store::Store;
-    use crate::value::Value;
     use crate::Extern;
     use crate::Global;
+    use crate::store::Store;
+    use crate::value::Value;
     use wasmer_types::Type;
 
     #[test]

@@ -3,10 +3,10 @@ use rkyv::{
     api::high::HighSerializer,
     rancor::Strategy,
     ser::{
+        Positional, Serializer, Writer,
         allocator::{Arena, ArenaHandle},
         sharing::Share,
         writer::IoWriter,
-        Positional, Serializer, Writer,
     },
 };
 use shared_buffer::OwnedBuffer;
@@ -120,9 +120,7 @@ impl LogFileJournalTx {
             let magic = u64::from_be_bytes(buffer_ptr[0..8].try_into().unwrap());
             if magic != JOURNAL_MAGIC_NUMBER {
                 return Err(anyhow::format_err!(
-                    "invalid magic number of journal ({} vs {})",
-                    magic,
-                    JOURNAL_MAGIC_NUMBER
+                    "invalid magic number of journal ({magic} vs {JOURNAL_MAGIC_NUMBER})"
                 ));
             }
             buffer_ptr.advance(8);

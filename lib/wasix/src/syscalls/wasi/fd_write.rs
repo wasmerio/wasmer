@@ -284,15 +284,17 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
                             let mut raise_sigpipe = false;
-                            let iovs_arr = wasi_try_ok_ok!(iovs
-                                .slice(&memory, *iovs_len)
-                                .map_err(mem_error_to_wasi));
+                            let iovs_arr = wasi_try_ok_ok!(
+                                iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)
+                            );
                             let iovs_arr =
                                 wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
                             for iovs in iovs_arr.iter() {
-                                let buf = wasi_try_ok_ok!(WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi));
+                                let buf = wasi_try_ok_ok!(
+                                    WasmPtr::<u8, M>::new(iovs.buf)
+                                        .slice(&memory, iovs.buf_len)
+                                        .map_err(mem_error_to_wasi)
+                                );
                                 let buf = wasi_try_ok_ok!(buf.access().map_err(mem_error_to_wasi));
                                 let write_result = std::io::Write::write(tx, buf.as_ref());
                                 let local_written = match write_result {
@@ -341,15 +343,17 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
                             let mut raise_sigpipe = false;
-                            let iovs_arr = wasi_try_ok_ok!(iovs
-                                .slice(&memory, *iovs_len)
-                                .map_err(mem_error_to_wasi));
+                            let iovs_arr = wasi_try_ok_ok!(
+                                iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)
+                            );
                             let iovs_arr =
                                 wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
                             for iovs in iovs_arr.iter() {
-                                let buf = wasi_try_ok_ok!(WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi));
+                                let buf = wasi_try_ok_ok!(
+                                    WasmPtr::<u8, M>::new(iovs.buf)
+                                        .slice(&memory, iovs.buf_len)
+                                        .map_err(mem_error_to_wasi)
+                                );
                                 let buf = wasi_try_ok_ok!(buf.access().map_err(mem_error_to_wasi));
                                 let write_result = std::io::Write::write(pipe, buf.as_ref());
                                 let local_written = match write_result {
@@ -401,25 +405,26 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
-                            let iovs_arr = wasi_try_ok_ok!(iovs
-                                .slice(&memory, *iovs_len)
-                                .map_err(mem_error_to_wasi));
+                            let iovs_arr = wasi_try_ok_ok!(
+                                iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)
+                            );
                             let iovs_arr =
                                 wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
                             for iovs in iovs_arr.iter() {
-                                let buf_len: usize = wasi_try_ok_ok!(iovs
-                                    .buf_len
-                                    .try_into()
-                                    .map_err(|_| Errno::Inval));
+                                let buf_len: usize = wasi_try_ok_ok!(
+                                    iovs.buf_len.try_into().map_err(|_| Errno::Inval)
+                                );
                                 let will_be_written = buf_len;
 
                                 let val_cnt = buf_len / std::mem::size_of::<u64>();
                                 let val_cnt: M::Offset =
                                     wasi_try_ok_ok!(val_cnt.try_into().map_err(|_| Errno::Inval));
 
-                                let vals = wasi_try_ok_ok!(WasmPtr::<u64, M>::new(iovs.buf)
-                                    .slice(&memory, val_cnt as M::Offset)
-                                    .map_err(mem_error_to_wasi));
+                                let vals = wasi_try_ok_ok!(
+                                    WasmPtr::<u64, M>::new(iovs.buf)
+                                        .slice(&memory, val_cnt as M::Offset)
+                                        .map_err(mem_error_to_wasi)
+                                );
                                 let vals =
                                     wasi_try_ok_ok!(vals.access().map_err(mem_error_to_wasi));
                                 for val in vals.iter() {
@@ -456,19 +461,21 @@ pub(crate) fn fd_write_internal<M: MemorySize>(
 
                     match &data {
                         FdWriteSource::Iovs { iovs, iovs_len } => {
-                            let iovs_arr = wasi_try_ok_ok!(iovs
-                                .slice(&memory, *iovs_len)
-                                .map_err(mem_error_to_wasi));
+                            let iovs_arr = wasi_try_ok_ok!(
+                                iovs.slice(&memory, *iovs_len).map_err(mem_error_to_wasi)
+                            );
                             let iovs_arr =
                                 wasi_try_ok_ok!(iovs_arr.access().map_err(mem_error_to_wasi));
                             for iovs in iovs_arr.iter() {
-                                let buf = wasi_try_ok_ok!(WasmPtr::<u8, M>::new(iovs.buf)
-                                    .slice(&memory, iovs.buf_len)
-                                    .map_err(mem_error_to_wasi));
+                                let buf = wasi_try_ok_ok!(
+                                    WasmPtr::<u8, M>::new(iovs.buf)
+                                        .slice(&memory, iovs.buf_len)
+                                        .map_err(mem_error_to_wasi)
+                                );
                                 let buf = wasi_try_ok_ok!(buf.access().map_err(mem_error_to_wasi));
-                                let local_written =
-                                    wasi_try_ok_ok!(std::io::Write::write(buffer, buf.as_ref())
-                                        .map_err(map_io_err));
+                                let local_written = wasi_try_ok_ok!(
+                                    std::io::Write::write(buffer, buf.as_ref()).map_err(map_io_err)
+                                );
                                 written += local_written;
                                 if local_written != buf.len() {
                                     break;

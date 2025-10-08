@@ -1,6 +1,6 @@
 use crate::{
-    net_error_into_io_err, InterestHandler, NetworkError, SocketStatus, VirtualConnectedSocket,
-    VirtualIoSource, VirtualSocket, VirtualTcpSocket,
+    InterestHandler, NetworkError, SocketStatus, VirtualConnectedSocket, VirtualIoSource,
+    VirtualSocket, VirtualTcpSocket, net_error_into_io_err,
 };
 use bytes::{Buf, Bytes};
 use futures_util::Future;

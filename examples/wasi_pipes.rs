@@ -15,8 +15,8 @@ use std::io::{Read, Write};
 
 use wasmer::Module;
 use wasmer_wasix::{
-    runners::wasi::{RuntimeOrEngine, WasiRunner},
     Pipe,
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

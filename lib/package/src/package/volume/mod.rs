@@ -5,7 +5,7 @@ use std::{fmt::Debug, sync::Arc};
 
 use anyhow::Error;
 
-use webc::{v3::write::Directory, AbstractVolume};
+use webc::{AbstractVolume, v3::write::Directory};
 
 use super::Strictness;
 

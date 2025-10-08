@@ -1,12 +1,12 @@
 use std::{path::Path, str::FromStr};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use wasmer_backend_api::{
+    WasmerClient,
     global_id::{GlobalId, NodeKind},
     types::DeployApp,
-    WasmerClient,
 };
 use wasmer_config::app::AppConfigV1;
 
@@ -340,7 +340,9 @@ pub(super) async fn login_user(
                 Some(n) => n,
                 None => String::from("wasmer"),
             };
-            eprintln!("You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}.");
+            eprintln!(
+                "You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}."
+            );
 
             anyhow::bail!("Stopping execution as the user is not logged in.")
         }
@@ -368,8 +370,8 @@ pub fn get_app_config_from_dir_opt(
     Ok(Some((config, app_config_path)))
 }
 
-pub fn get_app_config_from_current_dir_opt(
-) -> Result<Option<(AppConfigV1, std::path::PathBuf)>, anyhow::Error> {
+pub fn get_app_config_from_current_dir_opt()
+-> Result<Option<(AppConfigV1, std::path::PathBuf)>, anyhow::Error> {
     let current_dir = std::env::current_dir()?;
     get_app_config_from_dir_opt(&current_dir)
 }

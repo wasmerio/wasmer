@@ -27,11 +27,11 @@ fn artifact_serialization_roundtrip() {
 fn artifact_serialization_build() {
     use std::str::FromStr;
     use wasmer::{
-        sys::{
-            engine::{get_default_compiler_config, NativeEngineExt},
-            CpuFeature, Target, Triple,
-        },
         Engine, Module,
+        sys::{
+            CpuFeature, Target, Triple,
+            engine::{NativeEngineExt, get_default_compiler_config},
+        },
     };
 
     let file_names = ["bash.wasm", "cowsay.wasm", "python-3.11.3.wasm"];

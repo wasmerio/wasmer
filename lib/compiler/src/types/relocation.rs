@@ -20,7 +20,7 @@ use crate::{Addend, CodeOffset};
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_types::{entity::PrimaryMap, lib::std::fmt, LibCall, LocalFunctionIndex};
+use wasmer_types::{LibCall, LocalFunctionIndex, entity::PrimaryMap, lib::std::fmt};
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]

@@ -1,11 +1,11 @@
 use js_sys::WebAssembly;
 
 use crate::{
+    AsStoreMut, BackendInstance, Exports, Extern, Imports, InstantiationError, Module,
     js::{
         utils::{convert::AsJs, js_handle::JsHandle},
         vm::VMInstance,
     },
-    AsStoreMut, BackendInstance, Exports, Extern, Imports, InstantiationError, Module,
 };
 
 #[derive(Clone, PartialEq, Eq)]

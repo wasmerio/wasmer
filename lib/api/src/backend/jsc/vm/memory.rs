@@ -34,12 +34,12 @@ impl VMMemory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub(crate) fn try_clone(&self) -> Result<VMMemory, MemoryError> {
+    pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
         Ok(self.clone())
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&self, store: &impl AsStoreRef) -> Result<VMMemory, wasmer_types::MemoryError> {
+    pub fn copy(&self, store: &impl AsStoreRef) -> Result<Self, wasmer_types::MemoryError> {
         let new_memory = crate::jsc::memory::Memory::js_memory_from_type(&store, &self.ty)?;
 
         trace!("memory copy started");
@@ -57,7 +57,7 @@ impl VMMemory {
 
         Ok(Self {
             memory: new_memory,
-            ty: self.ty.clone(),
+            ty: self.ty,
         })
     }
 }

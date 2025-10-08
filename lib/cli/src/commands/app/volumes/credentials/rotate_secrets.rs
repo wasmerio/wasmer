@@ -1,8 +1,8 @@
 use super::ItemFormatOpts;
 use crate::{
     commands::{
-        app::util::{AppIdent, AppIdentOpts},
         AsyncCliCommand,
+        app::util::{AppIdent, AppIdentOpts},
     },
     config::WasmerEnv,
 };

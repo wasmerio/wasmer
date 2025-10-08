@@ -6,7 +6,7 @@
 //! cargo run --example hello-world --release --features "cranelift"
 //! ```
 
-use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction};
+use wasmer::{Function, Instance, Module, Store, TypedFunction, imports, wat2wasm};
 
 fn main() -> anyhow::Result<()> {
     // First we create a simple Wasm program to use with Wasmer.

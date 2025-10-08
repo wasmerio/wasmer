@@ -2,8 +2,8 @@ use std::marker::PhantomData;
 use wasmer_types::{Memory32, Memory64, MemorySize, ValueType};
 
 use crate::{
-    access::WasmRefAccess, view::MemoryView, AsStoreRef, FromToNativeWasmType, MemoryAccessError,
-    NativeWasmTypeInto, WasmRef, WasmSlice,
+    AsStoreRef, FromToNativeWasmType, MemoryAccessError, NativeWasmTypeInto, WasmRef, WasmSlice,
+    access::WasmRefAccess, view::MemoryView,
 };
 
 /// Alias for `WasmPtr<T, Memory64>.

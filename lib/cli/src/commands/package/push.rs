@@ -153,7 +153,9 @@ impl PackagePush {
                 if r.success {
                     r.package_webc.unwrap().id
                 } else {
-                    anyhow::bail!("An unidentified error occurred while publishing the package. (response had success: false)")
+                    anyhow::bail!(
+                        "An unidentified error occurred while publishing the package. (response had success: false)"
+                    )
                 }
             }
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
@@ -184,7 +186,9 @@ impl PackagePush {
         let name = self.get_name(manifest).await?;
 
         let private = self.get_privacy(manifest);
-        tracing::info!("If published, package privacy is {private}, namespace is {namespace} and name is {name:?}");
+        tracing::info!(
+            "If published, package privacy is {private}, namespace is {namespace} and name is {name:?}"
+        );
 
         let pb = make_spinner!(
             self.quiet,

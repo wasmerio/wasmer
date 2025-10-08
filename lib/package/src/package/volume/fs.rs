@@ -10,12 +10,11 @@ use anyhow::{Context, Error};
 use shared_buffer::OwnedBuffer;
 
 use webc::{
-    sanitize_path,
+    AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments, sanitize_path,
     v3::{
         self,
         write::{DirEntry, Directory, FileEntry},
     },
-    AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments,
 };
 
 use crate::package::{Strictness, WalkBuilderFactory};
@@ -25,8 +24,8 @@ use super::WasmerPackageVolume;
 /// A lazily loaded volume in a Wasmer package.
 ///
 /// Note that it is the package resolver's role to interpret a package's
-/// [`crate::metadata::annotations::FileSystemMappings`]. A [`Volume`] contains
-/// directories as they were when the package was published.
+/// filesystem mappings. A volume contains directories as they were when the
+/// package was published.
 pub struct FsVolume {
     /// Name of the volume
     name: String,

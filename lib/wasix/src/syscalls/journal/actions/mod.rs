@@ -20,12 +20,12 @@ mod snapshot;
 mod tty_set;
 mod update_memory;
 
-use crate::journal::JournalEffector;
-use crate::syscalls::anyhow_err_to_runtime_err;
-use crate::syscalls::{JournalStdIoWrite, JournalSyscallPlayer};
 use crate::RewindState;
 use crate::WasiRuntimeError;
 use crate::WasiThreadId;
+use crate::journal::JournalEffector;
+use crate::syscalls::anyhow_err_to_runtime_err;
+use crate::syscalls::{JournalStdIoWrite, JournalSyscallPlayer};
 use std::borrow::Cow;
 use std::ops::Range;
 use std::time::SystemTime;

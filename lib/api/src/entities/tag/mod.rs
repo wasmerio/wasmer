@@ -3,8 +3,8 @@ pub(crate) use inner::*;
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    vm::{VMExtern, VMExternTag},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern,
+    vm::{VMExtern, VMExternTag},
 };
 
 /// A WebAssembly `tag` instance.

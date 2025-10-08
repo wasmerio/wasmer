@@ -191,14 +191,14 @@ xz = { version = "0.1.0", optional = true }
 zip = { version = "2.2.0", optional = true }
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
-bindgen = { version = "0.70.1", default-features = false, features = [
+bindgen = { version = "0.72.1", default-features = false, features = [
 	"static",
 	"logging",
 	"prettyplease",
 ] }
 
 [target.'cfg(not(target_env = "musl"))'.build-dependencies]
-bindgen = { version = "0.70.1" }
+bindgen = { version = "0.72.1" }
 
 [package.metadata.docs.rs]
 features = [

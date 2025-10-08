@@ -1,7 +1,7 @@
 use std::{net::SocketAddr, sync::Arc, time::Duration};
 
 use anyhow::{Context, Error};
-use futures::{stream::FuturesUnordered, StreamExt};
+use futures::{StreamExt, stream::FuturesUnordered};
 use http::Request;
 use tower::ServiceBuilder;
 use tower_http::{catch_panic::CatchPanicLayer, cors::CorsLayer, trace::TraceLayer};
@@ -10,7 +10,7 @@ use webc::metadata::Command;
 use crate::{
     bin_factory::BinaryPackage,
     runners::wasi::WasiRunner,
-    runtime::{task_manager::VirtualTaskManagerExt, DynRuntime},
+    runtime::{DynRuntime, task_manager::VirtualTaskManagerExt},
 };
 
 use super::factory::DProxyInstanceFactory;

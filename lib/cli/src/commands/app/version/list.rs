@@ -1,7 +1,7 @@
 use wasmer_backend_api::types::{DeployAppVersionsSortBy, GetDeployAppVersionsVars};
 
 use crate::{
-    commands::{app::util::AppIdentOpts, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentOpts},
     config::WasmerEnv,
     opts::ListFormatOpts,
 };

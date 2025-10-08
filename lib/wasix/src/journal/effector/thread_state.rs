@@ -3,9 +3,9 @@ use std::sync::Arc;
 use wasmer_wasix_types::wasix::ThreadStartType;
 
 use crate::{
+    RewindState,
     os::task::thread::{RewindResultType, WasiMemoryLayout},
     syscalls::thread_spawn_internal_using_layout,
-    RewindState,
 };
 
 use super::*;
@@ -83,7 +83,7 @@ impl JournalEffector {
                 RewindResultType::RewindRestart,
             )),
         )
-        .map_err(|err| anyhow::format_err!("failed to spawn thread - {}", err))?;
+        .map_err(|err| anyhow::format_err!("failed to spawn thread - {err}"))?;
 
         Ok(())
     }

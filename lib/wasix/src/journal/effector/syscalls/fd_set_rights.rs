@@ -26,12 +26,7 @@ impl JournalEffector {
         crate::syscalls::fd_fdstat_set_rights_internal(ctx, fd, fs_rights_base, fs_rights_inheriting)
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to set file rights (fd={}, fs_rights_base={:?}, fs_rights_inheriting={:?}) - {}",
-                    fd,
-                    fs_rights_base,
-                    fs_rights_inheriting,
-                    err
-                )
+                    "journal restore error: failed to set file rights (fd={fd}, fs_rights_base={fs_rights_base:?}, fs_rights_inheriting={fs_rights_inheriting:?}) - {err}")
             })?;
         Ok(())
     }

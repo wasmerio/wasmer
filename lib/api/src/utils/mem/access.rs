@@ -2,8 +2,8 @@ use std::mem::{self, MaybeUninit};
 use std::slice;
 
 use crate::{
-    utils::mem::{WasmRef, WasmSlice},
     MemoryAccessError,
+    utils::mem::{WasmRef, WasmSlice},
 };
 
 pub(crate) enum SliceCow<'a, T> {

@@ -1,20 +1,19 @@
 //! Linking for Universal-compiled code.
 
 use crate::{
-    get_libcall_trampoline,
+    FunctionExtent, get_libcall_trampoline,
     types::{
         relocation::{RelocationKind, RelocationLike, RelocationTarget},
         section::SectionIndex,
     },
-    FunctionExtent,
 };
 use std::{
     collections::{HashMap, HashSet},
     ptr::{read_unaligned, write_unaligned},
 };
 
-use wasmer_types::{entity::PrimaryMap, LocalFunctionIndex, ModuleInfo};
-use wasmer_vm::{libcalls::function_pointer, SectionBodyPtr};
+use wasmer_types::{LocalFunctionIndex, ModuleInfo, entity::PrimaryMap};
+use wasmer_vm::{SectionBodyPtr, libcalls::function_pointer};
 
 #[allow(clippy::too_many_arguments)]
 fn apply_relocation(
@@ -342,7 +341,8 @@ fn apply_relocation(
                 let raw_instr = read_unaligned(fixup_ptr as *mut u32);
 
                 assert_eq!(
-                    raw_instr & 0xfffffc00, 0xf9400000,
+                    raw_instr & 0xfffffc00,
+                    0xf9400000,
                     "raw_instr isn't a 64-bit LDR immediate (bits: {raw_instr:032b}, hex: {raw_instr:x})"
                 );
 

@@ -1,32 +1,32 @@
-use super::{util::login_user, AsyncCliCommand};
+use super::{AsyncCliCommand, util::login_user};
 use crate::{
     commands::{
-        app::create::{minimal_app_config, write_app_config, CmdAppCreate},
-        package::publish::PackagePublish,
         PublishWait,
+        app::create::{CmdAppCreate, minimal_app_config, write_app_config},
+        package::publish::PackagePublish,
     },
     config::WasmerEnv,
     opts::ItemFormatOpts,
-    utils::{load_package_manifest, DEFAULT_PACKAGE_MANIFEST_FILE},
+    utils::{DEFAULT_PACKAGE_MANIFEST_FILE, load_package_manifest},
 };
 use anyhow::Context;
 use bytesize::ByteSize;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Confirm};
+use dialoguer::{Confirm, theme::ColorfulTheme};
 use indexmap::IndexMap;
 use is_terminal::IsTerminal;
 use std::io::Write;
 use std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
 use wasmer_backend_api::{
-    types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
     WasmerClient,
+    types::{AutoBuildDeployAppLogKind, DeployApp, DeployAppVersion},
 };
 use wasmer_config::{
     app::AppConfigV1,
     package::{PackageIdent, PackageSource},
 };
 use wasmer_sdk::app::deploy_remote_build::{
-    deploy_app_remote, DeployRemoteEvent, DeployRemoteOpts,
+    DeployRemoteEvent, DeployRemoteOpts, deploy_app_remote,
 };
 
 static EDGE_HEADER_APP_VERSION_ID: http::HeaderName =
@@ -603,7 +603,10 @@ impl AsyncCliCommand for CmdAppDeploy {
                 // Create already points back to deploy.
                 return self.create().await;
             } else {
-                anyhow::bail!("No app configuration was found in {}. Create an app before deploying or re-run in interactive mode!", app_config_path.display());
+                anyhow::bail!(
+                    "No app configuration was found in {}. Create an app before deploying or re-run in interactive mode!",
+                    app_config_path.display()
+                );
             }
         }
 
@@ -629,7 +632,10 @@ impl AsyncCliCommand for CmdAppDeploy {
         if !wasmer_backend_api::query::viewer_can_deploy_to_namespace(&client, &owner).await? {
             eprintln!("It seems you don't have access to {}", owner.bold());
             if self.non_interactive {
-                anyhow::bail!("Please, change the owner before deploying or check your current user with `{} whoami`.", std::env::args().next().unwrap_or("wasmer".into()));
+                anyhow::bail!(
+                    "Please, change the owner before deploying or check your current user with `{} whoami`.",
+                    std::env::args().next().unwrap_or("wasmer".into())
+                );
             } else {
                 let user =
                     wasmer_backend_api::query::current_user_with_namespaces(&client, None).await?;
@@ -759,7 +765,7 @@ impl AsyncCliCommand for CmdAppDeploy {
         }
 
         let opts = match &app_cfg_new.package {
-            PackageSource::Path(ref path) => {
+            PackageSource::Path(path) => {
                 let path = PathBuf::from(path);
 
                 let path = if path.is_absolute() {
@@ -903,7 +909,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                         }
                     }
                 } else {
-                    log::info!("Using package {}", app_config.package.to_string());
+                    log::info!("Using package {}", app_config.package);
                     DeployAppOpts {
                         app: &app_config,
                         original_config: Some(app_config.clone().to_yaml_value().unwrap()),
@@ -915,7 +921,7 @@ impl AsyncCliCommand for CmdAppDeploy {
                 }
             }
             _ => {
-                log::info!("Using package {}", app_config.package.to_string());
+                log::info!("Using package {}", app_config.package);
                 DeployAppOpts {
                     app: &app_config,
                     original_config: Some(app_config.clone().to_yaml_value().unwrap()),

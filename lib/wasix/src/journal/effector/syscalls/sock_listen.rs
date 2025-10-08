@@ -25,11 +25,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to listen on socket (fd={}, backlog={}) - {}",
-                    fd,
-                    backlog,
-                    err
-                )
+                    "journal restore error: failed to listen on socket (fd={fd}, backlog={backlog}) - {err}")
             })?;
         Ok(())
     }

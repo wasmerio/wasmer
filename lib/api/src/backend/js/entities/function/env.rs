@@ -1,9 +1,9 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
+    StoreMut,
     js::{store::StoreHandle, vm::VMFunctionEnvironment},
     store::{AsStoreMut, AsStoreRef, StoreRef},
-    StoreMut,
 };
 
 #[derive(Debug)]

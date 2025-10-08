@@ -7,15 +7,15 @@ use crate::{codegen_error, common_decl::Size, location::Location as AbstractLoca
 use dynasm::dynasm;
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
-    aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
-    VecAssembler,
+    AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
+    aarch64::Aarch64Relocation,
 };
 use wasmer_compiler::types::{
     function::FunctionBody,
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
-    target::CallingConvention, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+    CompileError, FunctionIndex, FunctionType, Type, VMOffsets, target::CallingConvention,
 };
 
 type Assembler = VecAssembler<Aarch64Relocation>;
@@ -25,7 +25,7 @@ type Assembler = VecAssembler<Aarch64Relocation>;
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
 macro_rules! dynasm {
-    ($a:expr ; $($tt:tt)*) => {
+    ($a:expr_2021 ; $($tt:tt)*) => {
         dynasm::dynasm!(
             $a
             ; .arch aarch64
@@ -351,7 +351,7 @@ pub trait EmitterARM64 {
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError>;
     fn emit_b_label(&mut self, label: Label) -> Result<(), CompileError>;
     fn emit_cbz_label(&mut self, sz: Size, reg: Location, label: Label)
-        -> Result<(), CompileError>;
+    -> Result<(), CompileError>;
     fn emit_cbnz_label(
         &mut self,
         sz: Size,

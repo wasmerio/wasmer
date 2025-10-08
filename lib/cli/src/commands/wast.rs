@@ -4,8 +4,8 @@ use std::path::PathBuf;
 use anyhow::{Context, Result};
 use clap::Parser;
 use wasmer::{
-    sys::{engine::NativeEngineExt, Target},
     Store,
+    sys::{Target, engine::NativeEngineExt},
 };
 use wasmer_wast::Wast as WastSpectest;
 

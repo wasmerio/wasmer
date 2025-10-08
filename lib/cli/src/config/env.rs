@@ -150,8 +150,7 @@ impl WasmerEnv {
             Ok(Self::APP_DOMAIN_DEV.to_string())
         } else {
             anyhow::bail!(
-                "could not determine app domain for backend url '{}': unknown backend",
-                domain
+                "could not determine app domain for backend url '{domain}': unknown backend"
             );
         }
     }
@@ -179,7 +178,9 @@ impl WasmerEnv {
     pub fn client(&self) -> Result<WasmerClient, anyhow::Error> {
         let client = self.client_unauthennticated()?;
         if client.auth_token().is_none() {
-            anyhow::bail!("no token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var");
+            anyhow::bail!(
+                "no token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var"
+            );
         }
 
         Ok(client)

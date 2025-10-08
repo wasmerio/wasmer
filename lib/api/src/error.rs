@@ -20,7 +20,7 @@ pub enum LinkError {
 
     /// A trap ocurred during linking.
     #[cfg_attr(feature = "std", error("RuntimeError occurred during linking: {0}"))]
-    Trap(#[source] RuntimeError),
+    Trap(#[cfg_attr(feature = "std", source)] RuntimeError),
     /// Insufficient resources available for linking.
     #[cfg_attr(feature = "std", error("Insufficient resources: {0}"))]
     Resource(String),

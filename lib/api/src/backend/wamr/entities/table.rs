@@ -2,13 +2,13 @@
 use wasmer_types::TableType;
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendKind, BackendTable, RuntimeError, Value,
     vm::{VMExtern, VMExternTable},
     wamr::{
         bindings::{self, *},
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::VMTable,
     },
-    AsStoreMut, AsStoreRef, BackendKind, BackendTable, RuntimeError, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -26,10 +26,7 @@ impl Table {
 
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum,
-            max: match ty.maximum {
-                Some(v) => v,
-                None => 0,
-            },
+            max: ty.maximum.unwrap_or_default(),
         }));
 
         unsafe { wasm_tabletype_new(valtype, limits) }
@@ -116,7 +113,7 @@ impl Table {
                 _ => {
                     return Err(RuntimeError::new(format!(
                         "Could not grow table due to unsupported init value type: {val:?} "
-                    )))
+                    )));
                 }
             };
 
@@ -148,7 +145,7 @@ impl Table {
                 _ => {
                     return Err(RuntimeError::new(format!(
                         "Could not grow table due to unsupported init value type: {init:?} "
-                    )))
+                    )));
                 }
             };
             if !wasm_table_grow(self.handle, delta, init) {
@@ -192,16 +189,16 @@ impl crate::Table {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::wamr::table::Table`].
     pub fn as_wamr(&self) -> &crate::backend::wamr::table::Table {
-        match self.0 {
-            BackendTable::Wamr(ref s) => s,
+        match &self.0 {
+            BackendTable::Wamr(s) => s,
             _ => panic!("Not a `wamr` table!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wamr::table::Table`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::table::Table {
-        match self.0 {
-            BackendTable::Wamr(ref mut s) => s,
+        match &mut self.0 {
+            BackendTable::Wamr(s) => s,
             _ => panic!("Not a `wamr` table!"),
         }
     }
@@ -219,7 +216,7 @@ impl crate::BackendTable {
     /// Convert a reference to [`self`] into a reference [`crate::backend::wamr::table::Table`].
     pub fn as_wamr(&self) -> &crate::backend::wamr::table::Table {
         match self {
-            Self::Wamr(ref s) => s,
+            Self::Wamr(s) => s,
             _ => panic!("Not a `wamr` table!"),
         }
     }
@@ -227,7 +224,7 @@ impl crate::BackendTable {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wamr::table::Table`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::table::Table {
         match self {
-            Self::Wamr(ref mut s) => s,
+            Self::Wamr(s) => s,
             _ => panic!("Not a `wamr` table!"),
         }
     }

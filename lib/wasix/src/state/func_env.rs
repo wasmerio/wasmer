@@ -10,11 +10,11 @@ use crate::os::task::thread::RewindResultType;
 #[cfg(feature = "journal")]
 use crate::syscalls::restore_snapshot;
 use crate::{
+    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiModuleInstanceHandles,
+    WasiRuntimeError, WasiThreadError,
     runtime::task_manager::SpawnMemoryTypeOrStore,
     state::WasiModuleTreeHandles,
     utils::{get_wasi_version, get_wasi_versions, store::restore_store_snapshot},
-    RewindStateOption, StoreSnapshot, WasiEnv, WasiError, WasiModuleInstanceHandles,
-    WasiRuntimeError, WasiThreadError,
 };
 
 use super::Linker;
@@ -228,17 +228,15 @@ impl WasiFunctionEnv {
                         };
                         // It's possible for the data section to be above the stack, we check for that here and
                         // if it is, we'll assume the stack starts at address 0
-                        if data_end >= stack_upper {
-                            0
-                        } else {
-                            data_end
-                        }
+                        if data_end >= stack_upper { 0 } else { data_end }
                     } else {
                         // clang-16 and higher generate the `__stack_low` global, and it can be exported with
                         // `-Wl,--export=__stack_low`. clang-15 generates `__data_end`, which should be identical
                         // and can be exported if `__stack_low` is not available.
                         if self.data(store).will_use_asyncify() {
-                            tracing::warn!("Missing both __stack_low and __data_end exports, unwinding may cause memory corruption");
+                            tracing::warn!(
+                                "Missing both __stack_low and __data_end exports, unwinding may cause memory corruption"
+                            );
                         }
                         0
                     };
@@ -389,7 +387,7 @@ impl WasiFunctionEnv {
 
                 for journal in restore_ro_journals {
                     let ctx = self.env.clone().into_mut(&mut store);
-                    let rewind = match restore_snapshot(ctx, journal.as_ref(), true) {
+                    let rewind = match unsafe { restore_snapshot(ctx, journal.as_ref(), true) } {
                         Ok(r) => r,
                         Err(err) => {
                             tracing::trace!("replaying journal=false (err={:?})", err);
@@ -402,11 +400,9 @@ impl WasiFunctionEnv {
 
                 for journal in restore_w_journals {
                     let ctx = self.env.clone().into_mut(&mut store);
-                    let rewind = match restore_snapshot(
-                        ctx,
-                        journal.as_ref().as_dyn_readable_journal(),
-                        true,
-                    ) {
+                    let rewind = match unsafe {
+                        restore_snapshot(ctx, journal.as_ref().as_dyn_readable_journal(), true)
+                    } {
                         Ok(r) => r,
                         Err(err) => {
                             tracing::trace!("replaying journal=false (err={:?})", err);

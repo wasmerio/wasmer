@@ -1,6 +1,6 @@
 use anyhow::Context;
 use colored::Colorize;
-use dialoguer::{theme::ColorfulTheme, Select};
+use dialoguer::{Select, theme::ColorfulTheme};
 use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::NamedPackageIdent;
 

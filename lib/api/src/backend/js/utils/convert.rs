@@ -8,6 +8,7 @@ use wasm_bindgen::{JsCast, JsError, JsValue};
 use wasmer_types::ExternType;
 
 use crate::{
+    Extern, Function, Global, Memory, Table, Tag, Type,
     imports::Imports,
     instance::Instance,
     js::{
@@ -16,7 +17,6 @@ use crate::{
     },
     store::{AsStoreMut, AsStoreRef},
     value::Value,
-    Extern, Function, Global, Memory, Table, Tag, Type,
 };
 
 /// Convert the given type to a [`JsValue`].
