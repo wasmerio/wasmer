@@ -73,8 +73,11 @@ impl Module {
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).map_err(|e| {
-            CompileError::Validate(e.as_string()
-                    .unwrap_or("Unknown validation error".to_string()).to_string())
+            CompileError::Validate(
+                e.as_string()
+                    .unwrap_or("Unknown validation error".to_string())
+                    .to_string(),
+            )
         })?;
         Ok(Self::from_js_module(module, binary))
     }
