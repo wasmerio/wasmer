@@ -122,6 +122,8 @@ impl RootFileSystemBuilder {
                 PathBuf::from("/dev/tty"),
                 self.tty.unwrap_or_else(|| Box::<NullFile>::default()),
             );
+
+            let _ = tmp.create_dir(Path::new("/dev/shm"));
         }
         tmp
     }
@@ -130,6 +132,7 @@ impl RootFileSystemBuilder {
 #[cfg(test)]
 mod test_builder {
     use crate::{FileSystem, RootFileSystemBuilder};
+    use std::path::Path;
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     #[tokio::test]
@@ -198,5 +201,8 @@ mod test_builder {
             .open("/dev/stderr")
             .unwrap();
         assert_eq!(dev_stderr.get_special_fd().unwrap(), 2);
+
+        let dev_shm_metadata = root_fs.metadata(Path::new("/dev/shm")).unwrap();
+        assert!(dev_shm_metadata.is_dir());
     }
 }

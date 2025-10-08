@@ -421,6 +421,7 @@ impl WasiEnv {
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
+        let engine = self.runtime().engine();
         let mut func_env = WasiFunctionEnv::new(&mut store, self);
 
         let is_dl = super::linker::is_dynamically_linked(&module);
@@ -451,6 +452,7 @@ impl WasiEnv {
 
                     // TODO: make stack size configurable
                     Linker::new(
+                        engine,
                         &module,
                         &mut store,
                         memory,
@@ -1287,12 +1289,11 @@ impl WasiEnv {
                     .extend_from_slice(env_vars.as_slice());
             }
 
-            if let Some(args) = main_args {
-                self.state
-                    .args
-                    .lock()
-                    .unwrap()
-                    .extend_from_slice(args.as_slice());
+            if let Some(main_args) = main_args {
+                let mut args: std::sync::MutexGuard<'_, Vec<String>> =
+                    self.state.args.lock().unwrap();
+                // Insert main-args before user args
+                args.splice(1..1, main_args);
             }
 
             if let Some(exec_name) = exec_name {

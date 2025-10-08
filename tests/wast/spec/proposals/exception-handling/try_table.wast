@@ -256,19 +256,36 @@
     (i32.const 0) (try_table (param i32) (drop))
   )
 
- (func (export "multiple-catch-targeting-same-block") (result i32)
-   (block $outer
-       (block $catch
-         try_table (catch $e1 $catch) (catch $e2 $catch) (catch $e2 $outer)
-             throw $e2
-         end
-         unreachable
-       )
-       i32.const 42
-       return
-   )
-   unreachable
- )
+  (func (export "multiple-catch-targeting-same-block") (result i32)
+    (block $outer
+        (block $catch
+          try_table (catch $e1 $catch) (catch $e2 $catch) (catch $e2 $outer)
+              throw $e2
+          end
+          unreachable
+        )
+        i32.const 42
+        return
+    )
+    unreachable
+  )
+
+  (func (export "nested-catch-ref") (result i32)
+    (block $outer (result exnref)
+      (try_table (catch_all_ref $outer)
+        (block $inner
+          (try_table (catch $e1 $inner)
+            (throw $e0)
+          )
+          unreachable
+        )
+        unreachable
+      )
+      unreachable
+    )
+    drop
+    i32.const 42
+  )
 )
 
 (assert_return (invoke "simple-throw-catch" (i32.const 0)) (i32.const 23))
@@ -329,6 +346,7 @@
 (assert_return (invoke "try-with-param"))
 
 (assert_return (invoke "multiple-catch-targeting-same-block") (i32.const 42))
+(assert_return (invoke "nested-catch-ref") (i32.const 42))
 
  (module
    (func $imported-throw (import "test" "throw"))

@@ -12704,17 +12704,22 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                     .append_basic_block(self.function, "catch_all_ref_clause");
                                 self.builder.position_at_end(b);
 
+                                let exnref_phi = err!(self
+                                    .builder
+                                    .build_phi(self.intrinsics.i32_ty, "exnref_phi"));
+                                exnref_phi.add_incoming(&[(&exnref, catch_end_block)]);
+
                                 let frame = self.state.frame_at_depth(*label)?;
 
                                 let phis = frame.phis();
 
                                 assert_eq!(phis.len(), 1);
-                                phis[0].add_incoming(&[(&exnref, b)]);
+                                phis[0].add_incoming(&[(&exnref_phi.as_basic_value(), b)]);
 
                                 err!(self.builder.build_unconditional_branch(*frame.br_dest()));
 
                                 self.builder.position_at_end(catch_end_block);
-                                catch_blocks.push((b, None));
+                                catch_blocks.push((b, Some(exnref_phi)));
                             }
                         }
                     }

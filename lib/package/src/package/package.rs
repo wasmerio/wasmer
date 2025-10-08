@@ -129,6 +129,74 @@ pub enum WasmerPackageError {
     DetectError(#[from] DetectError),
 }
 
+// Serious Java vibes from this one! Still better than repeating the
+// function type everywhere.
+// I'm opting not to use a trait object here to avoid generics and boxing.
+#[derive(Clone, Copy)]
+pub struct WalkBuilderFactory {
+    pub walker_factory: fn(&Path) -> ignore::WalkBuilder,
+}
+
+impl Debug for WalkBuilderFactory {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("WalkBuilderFactory").finish()
+    }
+}
+
+impl WalkBuilderFactory {
+    pub fn new(walker_factory: fn(&Path) -> ignore::WalkBuilder) -> Self {
+        Self { walker_factory }
+    }
+
+    pub fn create_walk_builder(&self, path: &Path) -> ignore::WalkBuilder {
+        (self.walker_factory)(path)
+    }
+}
+
+fn is_wasmer_ignore_present(path: &Path) -> bool {
+    path.ancestors().any(|p| p.join(".wasmerignore").is_file())
+}
+
+/// Create and configure a default ignore walker for building packages that:
+///   * If a `.wasmerignore` file is present, it will be used to ignore files.
+///   * Otherwise, only `.git` folders will be ignored.
+pub fn wasmer_ignore_walker() -> WalkBuilderFactory {
+    fn walker_factory(root_dir: &Path) -> ignore::WalkBuilder {
+        let mut builder = ignore::WalkBuilder::new(root_dir);
+        // We always add .wasmerignore because it could exist in a sub-directory.
+        builder
+            .standard_filters(false)
+            .follow_links(false)
+            .parents(true)
+            .add_custom_ignore_filename(".wasmerignore");
+
+        // However, if there is no .wasmerignore in the root directory,
+        // we want to at least ignore .git folders. This setup creates the
+        // very niche edge case of having .wasmerignore in a subdirectory
+        // causing .git folders to be ignored in other directories, but
+        // that seems acceptable given how rare that would be. The proper
+        // solution would be to do this logic per-directory, but that's
+        // not supported by `ignore`.
+        if !is_wasmer_ignore_present(root_dir) {
+            let mut overrides = ignore::overrides::OverrideBuilder::new(root_dir);
+            overrides.add("!.git").expect("valid override");
+            builder.overrides(overrides.build().expect("valid overrides"));
+        }
+
+        builder
+    }
+    WalkBuilderFactory::new(walker_factory)
+}
+
+pub fn include_everything_walker() -> WalkBuilderFactory {
+    fn walker_factory(root_dir: &Path) -> ignore::WalkBuilder {
+        let mut builder = ignore::WalkBuilder::new(root_dir);
+        builder.standard_filters(false).follow_links(false);
+        builder
+    }
+    WalkBuilderFactory::new(walker_factory)
+}
+
 /// A Wasmer package that will be lazily loaded from disk.
 #[derive(Debug)]
 pub struct Package {
@@ -150,8 +218,26 @@ impl Package {
     /// This will unpack the tarball to a temporary directory on disk and use
     /// memory-mapped files in order to reduce RAM usage.
     pub fn from_tarball_file(path: impl AsRef<Path>) -> Result<Self, WasmerPackageError> {
-        Package::from_tarball_file_with_strictness(path.as_ref(), Strictness::default())
+        Package::from_tarball_file_with_walker(path.as_ref(), include_everything_walker())
     }
+
+    /// Load a [`Package`] from a `*.tar.gz` file on disk.
+    ///
+    /// # Implementation Details
+    ///
+    /// This will unpack the tarball to a temporary directory on disk and use
+    /// memory-mapped files in order to reduce RAM usage.
+    pub fn from_tarball_file_with_walker(
+        path: impl AsRef<Path>,
+        walker_factory: WalkBuilderFactory,
+    ) -> Result<Self, WasmerPackageError> {
+        Package::from_tarball_file_with_strictness(
+            path.as_ref(),
+            Strictness::default(),
+            walker_factory,
+        )
+    }
+
     /// Load a [`Package`] from a `*.tar.gz` file on disk.
     ///
     /// # Implementation Details
@@ -161,6 +247,7 @@ impl Package {
     pub fn from_tarball_file_with_strictness(
         path: impl AsRef<Path>,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -> Result<Self, WasmerPackageError> {
         let path = path.as_ref();
         let f = File::open(path).map_err(|error| WasmerPackageError::FileOpen {
@@ -168,18 +255,27 @@ impl Package {
             error,
         })?;
 
-        Package::from_tarball_with_strictness(BufReader::new(f), strictness)
+        Package::from_tarball_with_strictness(BufReader::new(f), strictness, walker_factory)
     }
 
     /// Load a package from a `*.tar.gz` archive.
     pub fn from_tarball(tarball: impl BufRead) -> Result<Self, WasmerPackageError> {
-        Package::from_tarball_with_strictness(tarball, Strictness::default())
+        Package::from_tarball_with_walker(tarball, include_everything_walker())
+    }
+
+    /// Load a package from a `*.tar.gz` archive.
+    pub fn from_tarball_with_walker(
+        tarball: impl BufRead,
+        walker_factory: WalkBuilderFactory,
+    ) -> Result<Self, WasmerPackageError> {
+        Package::from_tarball_with_strictness(tarball, Strictness::default(), walker_factory)
     }
 
     /// Load a package from a `*.tar.gz` archive.
     pub fn from_tarball_with_strictness(
         tarball: impl BufRead,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -> Result<Self, WasmerPackageError> {
         let tarball = GzDecoder::new(tarball);
         let temp = tempdir().map_err(WasmerPackageError::TempDir)?;
@@ -188,18 +284,27 @@ impl Package {
 
         let (_manifest_path, manifest) = read_manifest(temp.path())?;
 
-        Package::load(manifest, temp, strictness)
+        Package::load(manifest, temp, strictness, walker_factory)
     }
 
     /// Load a package from a `wasmer.toml` manifest on disk.
     pub fn from_manifest(wasmer_toml: impl AsRef<Path>) -> Result<Self, WasmerPackageError> {
-        Package::from_manifest_with_strictness(wasmer_toml, Strictness::default())
+        Package::from_manifest_with_walker(wasmer_toml, wasmer_ignore_walker())
+    }
+
+    /// Load a package from a `wasmer.toml` manifest on disk.
+    pub fn from_manifest_with_walker(
+        wasmer_toml: impl AsRef<Path>,
+        walker_factory: WalkBuilderFactory,
+    ) -> Result<Self, WasmerPackageError> {
+        Package::from_manifest_with_strictness(wasmer_toml, Strictness::default(), walker_factory)
     }
 
     /// Load a package from a `wasmer.toml` manifest on disk.
     pub fn from_manifest_with_strictness(
         wasmer_toml: impl AsRef<Path>,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -> Result<Self, WasmerPackageError> {
         let path = wasmer_toml.as_ref();
         let path = path
@@ -231,7 +336,7 @@ impl Package {
             }
         }
 
-        Package::load(wasmer_toml, base_dir, strictness)
+        Package::load(wasmer_toml, base_dir, strictness, walker_factory)
     }
 
     /// (Re)loads a package from a manifest.json file which was created as the result of calling [`Container::unpack`](crate::Container::unpack)
@@ -286,6 +391,7 @@ impl Package {
                         base_dir.path().to_owned(),
                         BTreeSet::new(),
                         dirs,
+                        include_everything_walker(),
                     )),
                 );
             }
@@ -325,6 +431,7 @@ impl Package {
                 base_dir.path().join(FsVolume::METADATA).to_owned(),
                 files,
                 BTreeSet::new(),
+                include_everything_walker(),
             )),
         );
 
@@ -394,6 +501,7 @@ impl Package {
         wasmer_toml: WasmerManifest,
         base_dir: impl Into<BaseDir>,
         strictness: Strictness,
+        walker_factory: WalkBuilderFactory,
     ) -> Result<Self, WasmerPackageError> {
         let base_dir = base_dir.into();
 
@@ -421,7 +529,7 @@ impl Package {
         let metadata_volume = FsVolume::new_metadata(&wasmer_toml, base_dir_path.clone())?;
         // Create assets volume
         let mut volumes: BTreeMap<String, Arc<dyn WasmerPackageVolume + Send + Sync + 'static>> = {
-            let old = FsVolume::new_assets(&wasmer_toml, &base_dir_path)?;
+            let old = FsVolume::new_assets(&wasmer_toml, &base_dir_path, walker_factory)?;
             let mut new = BTreeMap::new();
 
             for (k, v) in old.into_iter() {
@@ -994,8 +1102,8 @@ mod tests {
             nested_dir_volume.read_file("README.md").unwrap(),
             (b"please".as_slice().into(), Some(readme_hash)),
         );
-        assert!(nested_dir_volume.read_file(".wasmerignore").is_none());
-        assert!(nested_dir_volume.read_file(".hidden").is_none());
+        assert!(nested_dir_volume.read_file(".wasmerignore").is_some());
+        assert!(nested_dir_volume.read_file(".hidden").is_some());
         assert!(nested_dir_volume.read_file("ignore_me").is_none());
         assert_eq!(
             nested_dir_volume
