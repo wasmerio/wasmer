@@ -1106,8 +1106,11 @@ impl WasiEnv {
 
                 let mut package = pkg.clone();
                 package.entrypoint_cmd = Some(command.name().to_string());
+                let package_arc = Arc::new(package);
                 self.bin_factory
-                    .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+                    .set_binary(path.to_string_lossy().as_ref(), &package_arc);
+                self.bin_factory
+                    .set_binary(path2.to_string_lossy().as_ref(), &package_arc);
 
                 tracing::debug!(
                     package=%pkg.id,

@@ -33,7 +33,7 @@ use crate::{
 pub struct BinFactory {
     pub(crate) commands: Commands,
     runtime: Arc<dyn Runtime + Send + Sync + 'static>,
-    pub(crate) local: Arc<RwLock<HashMap<String, Option<BinaryPackage>>>>,
+    pub(crate) local: Arc<RwLock<HashMap<String, Option<Arc<BinaryPackage>>>>>,
 }
 
 impl BinFactory {
@@ -49,9 +49,9 @@ impl BinFactory {
         self.runtime.deref()
     }
 
-    pub fn set_binary(&self, name: &str, binary: BinaryPackage) {
+    pub fn set_binary(&self, name: &str, binary: &Arc<BinaryPackage>) {
         let mut cache = self.local.write().unwrap();
-        cache.insert(name.to_string(), Some(binary));
+        cache.insert(name.to_string(), Some(binary.clone()));
     }
 
     #[allow(clippy::await_holding_lock)]
@@ -128,20 +128,23 @@ impl BinFactory {
     ) -> Option<Executable> {
         let name = name.to_string();
 
-        // Fast path
+        // Return early if the path is already cached
         {
             let cache = self.local.read().unwrap();
             if let Some(data) = cache.get(&name) {
-                data.clone().map(Executable::BinaryPackage);
+                return data
+                    .as_ref()
+                    .map(|package| Executable::BinaryPackage(BinaryPackage::clone(package)));
             }
         }
 
-        // Slow path
         let mut cache = self.local.write().unwrap();
 
-        // Check the cache
+        // Check the cache again to avoid a race condition where the cache was populated inbetween the fast path and here
         if let Some(data) = cache.get(&name) {
-            return data.clone().map(Executable::BinaryPackage);
+            return data
+                .as_ref()
+                .map(|package| Executable::BinaryPackage(BinaryPackage::clone(package)));
         }
 
         // Check the filesystem for the file
@@ -150,7 +153,7 @@ impl BinFactory {
                 match load_executable_from_filesystem(fs, name.as_ref(), self.runtime()).await {
                     Ok(executable) => {
                         if let Executable::BinaryPackage(pkg) = &executable {
-                            cache.insert(name, Some(pkg.clone()));
+                            cache.insert(name, Some(Arc::new(pkg.clone())));
                         }
 
                         return Some(executable);
