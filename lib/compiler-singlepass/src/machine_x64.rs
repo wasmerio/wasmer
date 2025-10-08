@@ -6,7 +6,7 @@ use crate::{
     emitter_x64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    unwind::{UnwindInstructions, UnwindOps},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
     x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
 };
 use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
@@ -85,51 +85,6 @@ impl DerefMut for AssemblerX64 {
 
 type Location = AbstractLocation<GPR, XMM>;
 
-#[cfg(feature = "unwind")]
-fn dwarf_index(reg: u16) -> gimli::Register {
-    static DWARF_GPR: [gimli::Register; 16] = [
-        X86_64::RAX,
-        X86_64::RDX,
-        X86_64::RCX,
-        X86_64::RBX,
-        X86_64::RSI,
-        X86_64::RDI,
-        X86_64::RBP,
-        X86_64::RSP,
-        X86_64::R8,
-        X86_64::R9,
-        X86_64::R10,
-        X86_64::R11,
-        X86_64::R12,
-        X86_64::R13,
-        X86_64::R14,
-        X86_64::R15,
-    ];
-    static DWARF_XMM: [gimli::Register; 16] = [
-        X86_64::XMM0,
-        X86_64::XMM1,
-        X86_64::XMM2,
-        X86_64::XMM3,
-        X86_64::XMM4,
-        X86_64::XMM5,
-        X86_64::XMM6,
-        X86_64::XMM7,
-        X86_64::XMM8,
-        X86_64::XMM9,
-        X86_64::XMM10,
-        X86_64::XMM11,
-        X86_64::XMM12,
-        X86_64::XMM13,
-        X86_64::XMM14,
-        X86_64::XMM15,
-    ];
-    match reg {
-        0..=15 => DWARF_GPR[reg as usize],
-        17..=24 => DWARF_XMM[reg as usize - 17],
-        _ => panic!("Unknown register index {reg}"),
-    }
-}
-
 pub struct MachineX86_64 {
     assembler: AssemblerX64,
     used_gprs: u32,
@@ -142,7 +97,7 @@ pub struct MachineX86_64 {
     /// The source location for the current operator.
     src_loc: u32,
     /// Vector of unwind operations with offset
-    unwind_ops: Vec<(usize, UnwindOps)>,
+    unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
 }
 
 impl MachineX86_64 {
@@ -1923,7 +1878,7 @@ impl MachineX86_64 {
         self.used_simd &= !(1 << r.into_index());
         ret
     }
-    fn emit_unwind_op(&mut self, op: UnwindOps) -> Result<(), CompileError> {
+    fn emit_unwind_op(&mut self, op: UnwindOps<GPR, XMM>) -> Result<(), CompileError> {
         self.unwind_ops.push((self.get_offset().0, op));
         Ok(())
     }
@@ -2246,11 +2201,11 @@ impl Machine for MachineX86_64 {
         )?;
         match location {
             Location::GPR(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::GPR(x),
                 bp_neg_offset: stack_offset,
             }),
             Location::SIMD(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::FPR(x),
                 bp_neg_offset: stack_offset,
             }),
             _ => Ok(()),
@@ -8266,7 +8221,7 @@ impl Machine for MachineX86_64 {
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
                 UnwindOps::Push2Regs { .. } => unimplemented!(),
             }
