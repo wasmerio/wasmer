@@ -3,8 +3,7 @@ use std::sync::{
     Arc,
 };
 use wasmer::{
-    imports, Instance, Memory, MemoryAccessError, MemoryLocation, MemoryType, Module, Store,
-    WasmSlice,
+    imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store,
 };
 
 #[test]

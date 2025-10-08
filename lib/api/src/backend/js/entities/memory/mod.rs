@@ -186,7 +186,7 @@ impl std::cmp::PartialEq for Memory {
 
 impl From<Memory> for crate::Memory {
     fn from(value: Memory) -> Self {
-        crate::Memory(crate::BackendMemory::Js(value))
+        Self(crate::BackendMemory::Js(value))
     }
 }
 
