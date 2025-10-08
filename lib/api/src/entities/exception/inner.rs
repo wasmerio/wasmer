@@ -1,4 +1,3 @@
-#[cfg(feature = "sys")]
 use crate::vm::VMExceptionRef;
 use crate::{
     macros::backend::{gen_rt_ty, match_rt},
@@ -82,6 +81,3 @@ impl BackendException {
         }
     }
 }
-
-#[cfg(not(feature = "sys"))]
-struct VMExceptionRef();
