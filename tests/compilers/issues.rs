@@ -433,6 +433,8 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
           i64.add
           local.get 16
           i64.add
+          local.get 512
+          i64.add
         )
       )
     "#;

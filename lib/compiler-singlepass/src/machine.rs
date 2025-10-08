@@ -2,6 +2,7 @@ use crate::{
     common_decl::*,
     location::{Location, Reg},
     machine_arm64::MachineARM64,
+    machine_riscv::MachineRiscv,
     machine_x64::MachineX86_64,
     unwind::UnwindInstructions,
 };
@@ -44,6 +45,7 @@ pub trait MaybeImmediate {
     fn is_imm(&self) -> bool {
         self.imm_value().is_some()
     }
+    fn imm_value_scalar(&self) -> Option<i64>;
 }
 
 /// A trap table for a `RunnableModuleInfo`.
@@ -400,6 +402,13 @@ pub trait Machine {
     /// jmp on overflow
     /// like Carry set on x86_64
     fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError>;
+
+    /// Jump to label if the condition is false.
+    fn jmp_on_false(
+        &mut self,
+        cond: Location<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError>;
 
     /// jmp using a jump table at lable with cond as the indice
     fn emit_jmp_to_jumptable(
@@ -2422,6 +2431,10 @@ pub fn gen_std_trampoline(
             let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_std_trampoline(sig, calling_convention)
         }
+        Architecture::Riscv64(_) => {
+            let machine = MachineRiscv::new(Some(target.clone()))?;
+            machine.gen_std_trampoline(sig, calling_convention)
+        }
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_std_trampoline".to_owned(),
         )),
@@ -2444,6 +2457,10 @@ pub fn gen_std_dynamic_import_trampoline(
             let machine = MachineARM64::new(Some(target.clone()));
             machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
         }
+        Architecture::Riscv64(_) => {
+            let machine = MachineRiscv::new(Some(target.clone()))?;
+            machine.gen_std_dynamic_import_trampoline(vmoffsets, sig, calling_convention)
+        }
         _ => Err(CompileError::UnsupportedTarget(
             "singlepass unimplemented arch for gen_std_dynamic_import_trampoline".to_owned(),
         )),
@@ -2464,6 +2481,10 @@ pub fn gen_import_call_trampoline(
         }
         Architecture::Aarch64(_) => {
             let machine = MachineARM64::new(Some(target.clone()));
+            machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
+        }
+        Architecture::Riscv64(_) => {
+            let machine = MachineRiscv::new(Some(target.clone()))?;
             machine.gen_import_call_trampoline(vmoffsets, index, sig, calling_convention)
         }
         _ => Err(CompileError::UnsupportedTarget(
