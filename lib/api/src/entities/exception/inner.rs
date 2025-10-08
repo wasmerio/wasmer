@@ -23,7 +23,7 @@ impl BackendException {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::exception::Exception::new(store, &tag, payload),
+                crate::backend::sys::exception::Exception::new(store, tag, payload),
             ),
             _ => unimplemented!("new is only implemented for the sys backend"),
         }

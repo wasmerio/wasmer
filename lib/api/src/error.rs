@@ -308,9 +308,9 @@ impl std::fmt::Display for RuntimeErrorDisplay<'_> {
             RuntimeErrorDisplay::Exception(payload, trace) => {
                 write!(f, "Uncaught exception")?;
                 if !payload.is_empty() {
-                    write!(f, " with payload: {:?}", payload)?;
+                    write!(f, " with payload: {payload:?}")?;
                 }
-                return RuntimeError::write_trace(trace, f);
+                RuntimeError::write_trace(trace, f)
             }
             RuntimeErrorDisplay::Other(err) => write!(f, "{err}"),
         }

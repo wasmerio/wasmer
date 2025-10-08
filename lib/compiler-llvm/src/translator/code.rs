@@ -12685,7 +12685,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                     })
                                     .collect::<Result<Vec<_>, CompileError>>()?;
 
-                                values.push(exnref_phi.as_basic_value().into());
+                                values.push(exnref_phi.as_basic_value());
 
                                 let frame = self.state.frame_at_depth(*label)?;
 
@@ -12859,7 +12859,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                     err!(self.builder.build_invoke(
                         self.intrinsics.throw,
-                        &[self.ctx.basic().into(), exnref],
+                        &[self.ctx.basic(), exnref],
                         unreachable_block,
                         pad,
                         "throw",
@@ -12897,7 +12897,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
 
                     err!(self.builder.build_invoke(
                         self.intrinsics.throw,
-                        &[self.ctx.basic().into(), exnref.into()],
+                        &[self.ctx.basic(), exnref],
                         unreachable_block,
                         pad,
                         "throw",

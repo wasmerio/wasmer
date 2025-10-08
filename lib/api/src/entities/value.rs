@@ -206,38 +206,38 @@ impl Value {
                         raw,
                     )
                     .map(VMExceptionRef::Sys)
-                    .map(|f| Exception::from_vm_exceptionref(f)),
+                    .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "wamr")]
                 crate::BackendStore::Wamr(_) => Self::ExceptionRef(
                     crate::backend::wamr::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Wamr)
-                        .map(|f| Exception::from_vm_exceptionref(f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "wasmi")]
                 crate::BackendStore::Wasmi(_) => Self::ExceptionRef(
                     crate::backend::wasmi::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Wasmi)
-                        .map(|f| Exception::from_vm_exceptionref(f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
 
                 #[cfg(feature = "v8")]
                 crate::BackendStore::V8(_) => Self::ExceptionRef(
                     crate::backend::v8::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::V8)
-                        .map(|f| Exception::from_vm_exceptionref(f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "js")]
                 crate::BackendStore::Js(_) => Self::ExceptionRef(
                     crate::backend::js::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Js)
-                        .map(|f| Exception::from_vm_exceptionref(f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "jsc")]
                 crate::BackendStore::Jsc(_) => Self::ExceptionRef(
                     crate::backend::jsc::vm::VMExceptionRef::from_raw(raw)
                         .map(VMExceptionRef::Jsc)
-                        .map(|f| Exception::from_vm_exceptionref(f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
             },
         }
