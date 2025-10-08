@@ -42,6 +42,13 @@ impl VMExceptionObj {
         }
     }
 
+    #[cfg_attr(
+        not(any(
+            all(target_family = "windows", target_env = "gnu"),
+            target_family = "unix",
+        )),
+        allow(unused)
+    )]
     pub(crate) fn tag_index(&self) -> u32 {
         self.tag
     }
