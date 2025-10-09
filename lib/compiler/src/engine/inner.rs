@@ -536,7 +536,7 @@ impl EngineInner {
             .register_frame_info(frame_info);
     }
 
-    #[cfg(not(target_arch = "wasm32"))]
+    #[cfg(all(feature = "compiler", not(target_arch = "wasm32")))]
     pub(crate) fn register_perfmap(
         &self,
         finished_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
