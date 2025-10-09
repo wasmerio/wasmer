@@ -1799,7 +1799,7 @@ pub(super) mod utils {
             }
         }
 
-        if let OperatingSystem::Darwin = target.operating_system {
+        if let OperatingSystem::Darwin(_) = target.operating_system {
             if !(filename.contains("apple") || filename.contains("darwin")) {
                 return None;
             }
@@ -1891,7 +1891,7 @@ pub(super) mod utils {
         };
         let os = match target_triple.operating_system {
             OperatingSystem::Linux => "linux".into(),
-            OperatingSystem::Darwin => "macos".into(),
+            OperatingSystem::Darwin(_) => "macos".into(),
             OperatingSystem::Windows => "windows".into(),
             v => v.to_string(),
         };

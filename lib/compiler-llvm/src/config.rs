@@ -129,21 +129,22 @@ impl LLVM {
     }
 
     pub(crate) fn target_operating_system(&self, target: &Target) -> OperatingSystem {
-        if target.triple().operating_system == OperatingSystem::Darwin && !self.is_pic {
-            // LLVM detects static relocation + darwin + 64-bit and
-            // force-enables PIC because MachO doesn't support that
-            // combination. They don't check whether they're targeting
-            // MachO, they check whether the OS is set to Darwin.
-            //
-            // Since both linux and darwin use SysV ABI, this should work.
-            //  but not in the case of Aarch64, there the ABI is slightly different
-            #[allow(clippy::match_single_binding)]
-            match target.triple().architecture {
-                Architecture::Aarch64(_) => OperatingSystem::Darwin,
-                _ => OperatingSystem::Linux,
+        match target.triple().operating_system {
+            OperatingSystem::Darwin(deployment) if !self.is_pic => {
+                // LLVM detects static relocation + darwin + 64-bit and
+                // force-enables PIC because MachO doesn't support that
+                // combination. They don't check whether they're targeting
+                // MachO, they check whether the OS is set to Darwin.
+                //
+                // Since both linux and darwin use SysV ABI, this should work.
+                //  but not in the case of Aarch64, there the ABI is slightly different
+                #[allow(clippy::match_single_binding)]
+                match target.triple().architecture {
+                    Architecture::Aarch64(_) => OperatingSystem::Darwin(deployment),
+                    _ => OperatingSystem::Linux,
+                }
             }
-        } else {
-            target.triple().operating_system
+            other => other,
         }
     }
 
@@ -152,7 +153,7 @@ impl LLVM {
             target.triple().binary_format
         } else {
             match self.target_operating_system(target) {
-                OperatingSystem::Darwin => target_lexicon::BinaryFormat::Macho,
+                OperatingSystem::Darwin(_) => target_lexicon::BinaryFormat::Macho,
                 _ => target_lexicon::BinaryFormat::Elf,
             }
         }

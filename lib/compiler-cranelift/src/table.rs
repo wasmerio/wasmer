@@ -62,7 +62,7 @@ impl TableData {
             .icmp(IntCC::UnsignedGreaterThanOrEqual, index, bound);
 
         if !enable_table_access_spectre_mitigation {
-            pos.ins().trapnz(oob, ir::TrapCode::TableOutOfBounds);
+            pos.ins().trapnz(oob, crate::TRAP_TABLE_OUT_OF_BOUNDS);
         }
 
         // Convert `index` to `addr_ty`.
@@ -95,7 +95,7 @@ impl TableData {
             let zero = pos.ins().iconst(addr_ty, 0);
             (
                 pos.ins().select_spectre_guard(oob, zero, element_addr),
-                base_flags.with_trap_code(Some(ir::TrapCode::TableOutOfBounds)),
+                base_flags.with_trap_code(Some(crate::TRAP_TABLE_OUT_OF_BOUNDS)),
             )
         } else {
             (element_addr, base_flags.with_trap_code(None))

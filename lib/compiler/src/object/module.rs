@@ -161,7 +161,7 @@ pub fn emit_compilation(
         target_lexicon::Architecture::Aarch64(_) => {
             if matches!(
                 triple.operating_system,
-                target_lexicon::OperatingSystem::Darwin
+                target_lexicon::OperatingSystem::Darwin(_)
             ) {
                 8
             } else {

@@ -1109,7 +1109,7 @@ impl Artifact {
             target_lexicon::Architecture::Aarch64(_) => {
                 if matches!(
                     target_triple.operating_system,
-                    target_lexicon::OperatingSystem::Darwin
+                    target_lexicon::OperatingSystem::Darwin(_)
                 ) {
                     8
                 } else {
