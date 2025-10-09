@@ -1,3 +1,8 @@
+#![allow(
+    clippy::result_large_err,
+    reason = "WasmerPackageError is large, but not often used"
+)]
+
 use bytes::{Buf, Bytes};
 use std::{
     fs::File,
