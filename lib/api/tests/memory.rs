@@ -3,6 +3,8 @@ use std::sync::{
     Arc,
 };
 use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
+#[cfg(feature = "sys")]
+use wasmer::{MemoryAccessError, WasmSlice};
 
 #[test]
 #[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
