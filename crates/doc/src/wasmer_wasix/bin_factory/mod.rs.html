@@ -220,7 +220,10 @@
 <a href="#219" id="219">219</a>
 <a href="#220" id="220">220</a>
 <a href="#221" id="221">221</a>
-<a href="#222" id="222">222</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
+<a href="#222" id="222">222</a>
+<a href="#223" id="223">223</a>
+<a href="#224" id="224">224</a>
+<a href="#225" id="225">225</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{
     collections::HashMap,
     future::Future,
     ops::Deref,
@@ -255,7 +258,7 @@
 </span><span class="kw">pub struct </span>BinFactory {
     <span class="kw">pub</span>(<span class="kw">crate</span>) commands: Commands,
     runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
-    <span class="kw">pub</span>(<span class="kw">crate</span>) local: Arc&lt;RwLock&lt;HashMap&lt;String, <span class="prelude-ty">Option</span>&lt;BinaryPackage&gt;&gt;&gt;&gt;,
+    <span class="kw">pub</span>(<span class="kw">crate</span>) local: Arc&lt;RwLock&lt;HashMap&lt;String, <span class="prelude-ty">Option</span>&lt;Arc&lt;BinaryPackage&gt;&gt;&gt;&gt;&gt;,
 }
 
 <span class="kw">impl </span>BinFactory {
@@ -271,9 +274,9 @@
         <span class="self">self</span>.runtime.deref()
     }
 
-    <span class="kw">pub fn </span>set_binary(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, binary: BinaryPackage) {
+    <span class="kw">pub fn </span>set_binary(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str, binary: <span class="kw-2">&amp;</span>Arc&lt;BinaryPackage&gt;) {
         <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
-        cache.insert(name.to_string(), <span class="prelude-val">Some</span>(binary));
+        cache.insert(name.to_string(), <span class="prelude-val">Some</span>(binary.clone()));
     }
 
     <span class="attr">#[allow(clippy::await_holding_lock)]
@@ -350,20 +353,23 @@
     ) -&gt; <span class="prelude-ty">Option</span>&lt;Executable&gt; {
         <span class="kw">let </span>name = name.to_string();
 
-        <span class="comment">// Fast path
+        <span class="comment">// Return early if the path is already cached
         </span>{
             <span class="kw">let </span>cache = <span class="self">self</span>.local.read().unwrap();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-                data.clone().map(Executable::BinaryPackage);
+                <span class="kw">return </span>data
+                    .as_ref()
+                    .map(|package| Executable::BinaryPackage(BinaryPackage::clone(package)));
             }
         }
 
-        <span class="comment">// Slow path
-        </span><span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
+        <span class="kw">let </span><span class="kw-2">mut </span>cache = <span class="self">self</span>.local.write().unwrap();
 
-        <span class="comment">// Check the cache
+        <span class="comment">// Check the cache again to avoid a race condition where the cache was populated inbetween the fast path and here
         </span><span class="kw">if let </span><span class="prelude-val">Some</span>(data) = cache.get(<span class="kw-2">&amp;</span>name) {
-            <span class="kw">return </span>data.clone().map(Executable::BinaryPackage);
+            <span class="kw">return </span>data
+                .as_ref()
+                .map(|package| Executable::BinaryPackage(BinaryPackage::clone(package)));
         }
 
         <span class="comment">// Check the filesystem for the file
@@ -372,7 +378,7 @@
                 <span class="kw">match </span>load_executable_from_filesystem(fs, name.as_ref(), <span class="self">self</span>.runtime()).<span class="kw">await </span>{
                     <span class="prelude-val">Ok</span>(executable) =&gt; {
                         <span class="kw">if let </span>Executable::BinaryPackage(pkg) = <span class="kw-2">&amp;</span>executable {
-                            cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
+                            cache.insert(name, <span class="prelude-val">Some</span>(Arc::new(pkg.clone())));
                         }
 
                         <span class="kw">return </span><span class="prelude-val">Some</span>(executable);
