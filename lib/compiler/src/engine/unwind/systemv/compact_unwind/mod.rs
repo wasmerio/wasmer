@@ -118,6 +118,8 @@ struct UnwindInfoEntry {
     section_len: usize,
 }
 
+// TODO: Revisit the static mutable state in `UNWIND_INFO` and remove this allow.
+#[allow(static_mut_refs)]
 unsafe extern "C" fn find_dynamic_unwind_sections(
     addr: usize,
     info: *mut UnwDynamicUnwindSections,
@@ -201,6 +203,8 @@ impl CompactUnwindManager {
     }
 
     /// Create the `__unwind_info` section from a list of `__compact_unwind` entries.
+    // TODO: Revisit the static mutable state in `UNWIND_INFO` and remove this allow.
+    #[allow(static_mut_refs)]
     pub fn finalize(&mut self) -> CUResult<()> {
         // At this point, users will have registered the relocated `__compact_unwind` entries. We
         // can re-analyse the entries applying the modifications we need to operate, now that we

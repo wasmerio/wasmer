@@ -41,6 +41,7 @@ mod compact_unwind;
 /// I'll note that there's also a different libunwind project at
 /// https://www.nongnu.org/libunwind/ but that doesn't appear to have
 /// `__register_frame` so I don't think that interacts with this.
+#[allow(dead_code)]
 fn using_libunwind() -> bool {
     static USING_LIBUNWIND: AtomicUsize = AtomicUsize::new(LIBUNWIND_UNKNOWN);
 
