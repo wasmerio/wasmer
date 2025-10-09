@@ -103,10 +103,11 @@ pub fn make_trampoline_function_call(
     }
 
     let mut code_buf = Vec::new();
-
-    context
-        .compile_and_emit(isa, &mut code_buf, &mut Default::default())
+    let mut ctrl_plane = Default::default();
+    let compiled = context
+        .compile(isa, &mut ctrl_plane)
         .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
+    code_buf.extend_from_slice(compiled.code_buffer());
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 

@@ -149,7 +149,7 @@ serde_yaml = { version = "0.9.34" }
 serde_json = { version = "1" }
 bytecheck = { version = "0.6.8" }
 libc = { version = "^0.2", default-features = false }
-gimli = { version = "0.28.1" }
+gimli = { version = "0.32.3" }
 futures-util = { version = "0.3.31" }
 mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
@@ -164,7 +164,7 @@ base64 = "0.22.0"
 time = "0.3.36"
 url = "2.5"
 thiserror = "1"
-target-lexicon = { version = "0.12.2", default-features = false }
+target-lexicon = { version = "0.13.3", default-features = false }
 object = { version = "0.32.0", default-features = true }
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
 wasm-encoder = { version = "0.235.0", default-features = false, features = [

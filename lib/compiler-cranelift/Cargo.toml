@@ -21,13 +21,15 @@ wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = [
 wasmer-types = { path = "../types", version = "=6.1.0", default-features = false, features = [
 	"std",
 ] }
-cranelift-entity = { version = "=0.110.2", default-features = false }
-cranelift-codegen = { version = "=0.110.2", default-features = false, features = [
+
+cranelift-entity = { version = "=0.124.2", default-features = false }
+cranelift-codegen = { version = "=0.124.2", default-features = false, features = [
 	"x86",
 	"arm64",
 	"riscv64",
 ] }
-cranelift-frontend = { version = "=0.110.2", default-features = false }
+cranelift-frontend = { version = "=0.124.2", default-features = false }
+
 itertools.workspace = true
 tracing.workspace = true
 hashbrown = { workspace = true, optional = true }
@@ -38,7 +40,7 @@ smallvec.workspace = true
 target-lexicon = { workspace = true, default-features = false }
 
 [dev-dependencies]
-cranelift-codegen = { version = "=0.110.2", features = ["all-arch"] }
+cranelift-codegen = { version = "=0.124.2", features = ["all-arch"] }
 
 [badges]
 maintenance = { status = "actively-developed" }

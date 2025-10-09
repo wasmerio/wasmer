@@ -172,11 +172,12 @@ impl CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                context
-                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
+                let mut ctrl_plane = Default::default();
+                let result = context
+                    .compile(&*isa, &mut ctrl_plane)
                     .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
+                code_buf.extend_from_slice(result.code_buffer());
 
-                let result = context.compiled_code().unwrap();
                 let func_relocs = result
                     .buffer
                     .relocs()
@@ -286,11 +287,12 @@ impl CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                context
-                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
+                let mut ctrl_plane = Default::default();
+                let result = context
+                    .compile(&*isa, &mut ctrl_plane)
                     .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
+                code_buf.extend_from_slice(result.code_buffer());
 
-                let result = context.compiled_code().unwrap();
                 let func_relocs = result
                     .buffer
                     .relocs()
@@ -533,23 +535,31 @@ fn mach_trap_to_trap(trap: &MachTrap) -> TrapInformation {
 
 /// Translates the Cranelift IR TrapCode into generic Trap Code
 fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
-    match trap {
-        ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
-        ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
-        ir::TrapCode::HeapMisaligned => TrapCode::UnalignedAtomic,
-        ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
-        ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
-        ir::TrapCode::BadSignature => TrapCode::BadSignature,
-        ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,
-        ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
-        ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
-        ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
-        ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
-        ir::TrapCode::NullReference | ir::TrapCode::NullI31Ref => {
-            unimplemented!("Null reference not supported")
-        }
-        ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
-        // ir::TrapCode::Interrupt => TrapCode::Interrupt,
-        // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
+    if trap == ir::TrapCode::STACK_OVERFLOW {
+        TrapCode::StackOverflow
+    } else if trap == ir::TrapCode::HEAP_OUT_OF_BOUNDS {
+        TrapCode::HeapAccessOutOfBounds
+    } else if trap == crate::TRAP_HEAP_MISALIGNED {
+        TrapCode::UnalignedAtomic
+    } else if trap == crate::TRAP_TABLE_OUT_OF_BOUNDS {
+        TrapCode::TableAccessOutOfBounds
+    } else if trap == crate::TRAP_INDIRECT_CALL_TO_NULL {
+        TrapCode::IndirectCallToNull
+    } else if trap == crate::TRAP_BAD_SIGNATURE {
+        TrapCode::BadSignature
+    } else if trap == ir::TrapCode::INTEGER_OVERFLOW {
+        TrapCode::IntegerOverflow
+    } else if trap == ir::TrapCode::INTEGER_DIVISION_BY_ZERO {
+        TrapCode::IntegerDivisionByZero
+    } else if trap == ir::TrapCode::BAD_CONVERSION_TO_INTEGER {
+        TrapCode::BadConversionToInteger
+    } else if trap == crate::TRAP_UNREACHABLE {
+        TrapCode::UnreachableCodeReached
+    } else if trap == crate::TRAP_INTERRUPT {
+        unimplemented!("Interrupts not supported")
+    } else if trap == crate::TRAP_NULL_REFERENCE || trap == crate::TRAP_NULL_I31_REF {
+        unimplemented!("Null reference not supported")
+    } else {
+        unimplemented!("Trap code {trap:?} not supported")
     }
 }
