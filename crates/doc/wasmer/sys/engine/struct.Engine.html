@@ -72,7 +72,7 @@ of trait representation.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.tunables" class="method"><h4 class="code-header">pub fn <a href="#method.tunables" class="fn">tunables</a>(&amp;self) -&gt; &amp;dyn <a class="trait" href="../trait.Tunables.html" title="trait wasmer::sys::Tunables">Tunables</a></h4></section></summary><div class="docblock"><p>Get a reference to attached Tunable of this engine</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="method.with_opts" class="method"><h4 class="code-header">pub fn <a href="#method.with_opts" class="fn">with_opts</a>(
     &amp;mut self,
-    suggested_opts: &amp;UserCompilerOptimizations,
+    _suggested_opts: &amp;UserCompilerOptimizations,
 ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.84.1/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.84.1/std/primitive.unit.html">()</a>, <a class="enum" href="../../enum.CompileError.html" title="enum wasmer::CompileError">CompileError</a>&gt;</h4></section></summary><div class="docblock"><p>Add suggested optimizations to this engine.</p>
 <h5 id="note"><a class="doc-anchor" href="#note">§</a>Note</h5>
 <p>Not every backend supports every optimization. This function may fail (i.e. not set the

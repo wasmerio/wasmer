@@ -617,10 +617,7 @@
 <a href="#616" id="616">616</a>
 <a href="#617" id="617">617</a>
 <a href="#618" id="618">618</a>
-<a href="#619" id="619">619</a>
-<a href="#620" id="620">620</a>
-<a href="#621" id="621">621</a>
-<a href="#622" id="622">622</a></pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
+<a href="#619" id="619">619</a></pre></div><pre class="rust"><code><span class="doccomment">//! Universal compilation.
 
 </span><span class="kw">use </span><span class="kw">crate</span>::engine::builder::EngineBuilder;
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
@@ -637,22 +634,19 @@
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>shared_buffer::OwnedBuffer;
 
-<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-</span><span class="kw">use </span>std::path::Path;
+<span class="kw">use </span>std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 <span class="kw">use </span>std::sync::{Arc, Mutex};
-<span class="kw">use </span>std::{
-    io::Write,
-    sync::atomic::{AtomicUsize, Ordering::SeqCst},
-};
+<span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+</span><span class="kw">use </span>std::{io::Write, path::Path};
 
 <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
 </span><span class="kw">use </span>wasmer_types::Features;
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
-    SignatureIndex,
+    ModuleInfo, SignatureIndex,
 };
-<span class="kw">use </span>wasmer_types::{target::Target, CompileError, HashAlgorithm, ModuleInfo};
+<span class="kw">use </span>wasmer_types::{target::Target, CompileError, HashAlgorithm};
 
 <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
 </span><span class="kw">use </span>wasmer_vm::{
@@ -720,9 +714,9 @@
 
     <span class="doccomment">/// Returns the deterministic id of this engine
     </span><span class="kw">pub fn </span>deterministic_id(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; String {
-        <span class="kw">let </span>i = <span class="self">self</span>.inner();
         <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
         </span>{
+            <span class="kw">let </span>i = <span class="self">self</span>.inner();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref </span>c) = i.compiler {
                 <span class="kw">return </span>c.deterministic_id();
             } <span class="kw">else </span>{
@@ -927,13 +921,13 @@
     /// more optimizations.
     </span><span class="kw">pub fn </span>with_opts(
         <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-        suggested_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
+        _suggested_opts: <span class="kw-2">&amp;</span>wasmer_types::target::UserCompilerOptimizations,
     ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
         <span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
         </span>{
             <span class="kw">let </span><span class="kw-2">mut </span>i = <span class="self">self</span>.inner_mut();
             <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">ref mut </span>c) = i.compiler {
-                c.with_opts(suggested_opts)<span class="question-mark">?</span>;
+                c.with_opts(_suggested_opts)<span class="question-mark">?</span>;
             }
         }
 
