@@ -1076,13 +1076,16 @@ lint-v8:
 lint-jsc:
 	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="jsc-default,wat" --locked -- -D clippy::all
 
+lint-package-crate:
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/package/Cargo.toml --locked -- -D clippy::all
+
 lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
 lint: lint-formatting lint-packages
 
-lint-all: lint-formatting lint-packages lint-wasmi lint-wamr lint-v8 lint-jsc lint-capi-ci
+lint-all: lint-formatting lint-packages lint-wasmi lint-wamr lint-v8 lint-jsc lint-capi-ci lint-package-crate
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
