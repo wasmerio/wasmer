@@ -73,11 +73,11 @@ impl Module {
     ) -> Result<Self, CompileError> {
         let js_bytes = Uint8Array::view(binary);
         let module = WebAssembly::Module::new(&js_bytes.into()).map_err(|e| {
-            CompileError::Validate(format!(
-                "{}",
+            CompileError::Validate(
                 e.as_string()
                     .unwrap_or("Unknown validation error".to_string())
-            ))
+                    .to_string(),
+            )
         })?;
         Ok(Self::from_js_module(module, binary))
     }
@@ -205,8 +205,8 @@ impl Module {
             // in case the import is not found, the JS Wasm VM will handle
             // the error for us, so we don't need to handle it
         }
-        Ok(WebAssembly::Instance::new(&self.module, &imports_object)
-            .map_err(|e: JsValue| -> RuntimeError { e.into() })?)
+        WebAssembly::Instance::new(&self.module, &imports_object)
+            .map_err(|e: JsValue| -> RuntimeError { e.into() })
     }
 
     pub fn name(&self) -> Option<&str> {
@@ -459,8 +459,8 @@ impl Module {
 
 impl From<WebAssembly::Module> for Module {
     #[track_caller]
-    fn from(module: WebAssembly::Module) -> Module {
-        Module {
+    fn from(module: WebAssembly::Module) -> Self {
+        Self {
             module: JsHandle::new(module),
             name: None,
             type_hints: None,
@@ -471,9 +471,9 @@ impl From<WebAssembly::Module> for Module {
 }
 
 impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
-    fn from((module, binary): (WebAssembly::Module, T)) -> crate::module::Module {
+    fn from((module, binary): (WebAssembly::Module, T)) -> Self {
         unsafe {
-            crate::module::Module(BackendModule::Js(Module::from_js_module(
+            Self(BackendModule::Js(Module::from_js_module(
                 module,
                 binary.into_bytes(),
             )))
@@ -482,8 +482,8 @@ impl<T: IntoBytes> From<(WebAssembly::Module, T)> for crate::module::Module {
 }
 
 impl From<WebAssembly::Module> for crate::module::Module {
-    fn from(module: WebAssembly::Module) -> crate::module::Module {
-        crate::module::Module(BackendModule::Js(module.into()))
+    fn from(module: WebAssembly::Module) -> Self {
+        Self(BackendModule::Js(module.into()))
     }
 }
 impl From<crate::module::Module> for WebAssembly::Module {

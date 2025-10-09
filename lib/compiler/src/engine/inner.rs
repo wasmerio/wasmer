@@ -15,22 +15,19 @@ use crate::{Compiler, CompilerConfig};
 #[cfg(not(target_arch = "wasm32"))]
 use shared_buffer::OwnedBuffer;
 
-#[cfg(not(target_arch = "wasm32"))]
-use std::path::Path;
+use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::{Arc, Mutex};
-use std::{
-    io::Write,
-    sync::atomic::{AtomicUsize, Ordering::SeqCst},
-};
+#[cfg(not(target_arch = "wasm32"))]
+use std::{io::Write, path::Path};
 
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_types::{
     entity::PrimaryMap, DeserializeError, FunctionIndex, FunctionType, LocalFunctionIndex,
-    SignatureIndex,
+    ModuleInfo, SignatureIndex,
 };
-use wasmer_types::{target::Target, CompileError, HashAlgorithm, ModuleInfo};
+use wasmer_types::{target::Target, CompileError, HashAlgorithm};
 
 #[cfg(not(target_arch = "wasm32"))]
 use wasmer_vm::{
@@ -98,9 +95,9 @@ impl Engine {
 
     /// Returns the deterministic id of this engine
     pub fn deterministic_id(&self) -> String {
-        let i = self.inner();
         #[cfg(feature = "compiler")]
         {
+            let i = self.inner();
             if let Some(ref c) = i.compiler {
                 return c.deterministic_id();
             } else {
@@ -305,13 +302,13 @@ impl Engine {
     /// more optimizations.
     pub fn with_opts(
         &mut self,
-        suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
+        _suggested_opts: &wasmer_types::target::UserCompilerOptimizations,
     ) -> Result<(), CompileError> {
         #[cfg(feature = "compiler")]
         {
             let mut i = self.inner_mut();
             if let Some(ref mut c) = i.compiler {
-                c.with_opts(suggested_opts)?;
+                c.with_opts(_suggested_opts)?;
             }
         }
 

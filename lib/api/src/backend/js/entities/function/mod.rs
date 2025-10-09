@@ -94,7 +94,7 @@ impl Function {
                     .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
                 let results = func(env, &wasm_arguments)?;
-                return Ok(wasmer_value_to_js(&results[0]));
+                Ok(wasmer_value_to_js(&results[0]))
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
@@ -108,7 +108,7 @@ impl Function {
                     .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
                 let results = func(env, &wasm_arguments)?;
-                return Ok(wasmer_array_to_js_array(&results));
+                Ok(wasmer_array_to_js_array(&results))
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),

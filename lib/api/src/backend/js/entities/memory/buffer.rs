@@ -10,7 +10,7 @@ pub(crate) struct MemoryBuffer<'a> {
     pub(crate) marker: PhantomData<(&'a Memory, &'a StoreObjects)>,
 }
 
-impl<'a> MemoryBuffer<'a> {
+impl MemoryBuffer<'_> {
     pub(crate) fn read(&self, offset: u64, buf: &mut [u8]) -> Result<(), MemoryAccessError> {
         let end = offset
             .checked_add(buf.len() as u64)
@@ -26,7 +26,7 @@ impl<'a> MemoryBuffer<'a> {
             return Err(MemoryAccessError::HeapOutOfBounds);
         }
         view.subarray(offset as _, end as _)
-            .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) });
+            .copy_to(unsafe { slice::from_raw_parts_mut(buf.as_mut_ptr(), buf.len()) });
         Ok(())
     }
 
@@ -56,7 +56,7 @@ impl<'a> MemoryBuffer<'a> {
         }
         let buf_ptr = buf.as_mut_ptr() as *mut u8;
         view.subarray(offset as _, end as _)
-            .copy_to(unsafe { &mut slice::from_raw_parts_mut(buf_ptr, buf.len()) });
+            .copy_to(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) });
 
         Ok(unsafe { slice::from_raw_parts_mut(buf_ptr, buf.len()) })
     }

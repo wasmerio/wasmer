@@ -24,7 +24,7 @@ impl Tag {
         let descriptor = js_sys::Object::new();
         let params: Box<[Type]> = params.into();
         let parameters: Vec<String> = params
-            .into_iter()
+            .iter()
             .map(|param| match param {
                 Type::I32 => "i32".to_string(),
                 Type::I64 => "i64".to_string(),
@@ -62,7 +62,7 @@ impl Tag {
 
 impl crate::Tag {
     /// Consume [`self`] into [`crate::backend::js::tag::Tag`].
-    pub fn into_js(self) -> crate::backend::js::tag::Tag {
+    pub(crate) fn into_js(self) -> crate::backend::js::tag::Tag {
         match self.0 {
             BackendTag::Js(s) => s,
             _ => panic!("Not a `js` tag!"),
@@ -70,7 +70,7 @@ impl crate::Tag {
     }
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::js::tag::Tag`].
-    pub fn as_js(&self) -> &crate::backend::js::tag::Tag {
+    pub(crate) fn as_js(&self) -> &crate::backend::js::tag::Tag {
         match self.0 {
             BackendTag::Js(ref s) => s,
             _ => panic!("Not a `js` tag!"),
@@ -78,7 +78,7 @@ impl crate::Tag {
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::js::tag::Tag`].
-    pub fn as_js_mut(&mut self) -> &mut crate::backend::js::tag::Tag {
+    pub(crate) fn as_js_mut(&mut self) -> &mut crate::backend::js::tag::Tag {
         match self.0 {
             BackendTag::Js(ref mut s) => s,
             _ => panic!("Not a `js` tag!"),

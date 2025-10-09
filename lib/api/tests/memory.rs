@@ -2,10 +2,9 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
     Arc,
 };
-use wasmer::{
-    imports, Instance, Memory, MemoryAccessError, MemoryLocation, MemoryType, Module, Store,
-    WasmSlice,
-};
+use wasmer::{imports, Instance, Memory, MemoryLocation, MemoryType, Module, Store};
+#[cfg(feature = "sys")]
+use wasmer::{MemoryAccessError, WasmSlice};
 
 #[test]
 #[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
