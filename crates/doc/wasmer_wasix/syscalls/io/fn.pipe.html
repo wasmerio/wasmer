@@ -1,0 +1,49 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Create an anonymous pipe."><title>pipe in wasmer_wasix::syscalls::io - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../static.files/storage-82c7156e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc fn"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button><a class="logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt=""></a></nav><nav class="sidebar"><div class="sidebar-crate"><a class="logo-container" href="../../../wasmer_wasix/index.html"><img src="https://github.com/wasmerio.png?size=200" alt="logo"></a><h2><a href="../../../wasmer_wasix/index.html">wasmer_<wbr>wasix</a><span class="version">0.601.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">pipe</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#behavior" title="Behavior">Behavior</a></li><li><a href="#platform-specific-behavior" title="Platform-specific behavior">Platform-specific behavior</a></li><li><a href="#capacity" title="Capacity">Capacity</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>wasix::<wbr>syscalls::<wbr>io</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../index.html">wasmer_wasix</a>::<wbr><a href="../index.html">syscalls</a>::<wbr><a href="index.html">io</a></div><h1>Function <span class="fn">pipe</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.87.0">1.87.0</span> · <a class="src" href="https://doc.rust-lang.org/1.87.0/src/std/io/pipe.rs.html#72">Source</a> </span></div><pre class="rust item-decl"><code>pub fn pipe() -&gt; <a class="enum" href="https://doc.rust-lang.org/1.87.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;(<a class="struct" href="struct.PipeReader.html" title="struct wasmer_wasix::syscalls::io::PipeReader">PipeReader</a>, <a class="struct" href="struct.PipeWriter.html" title="struct wasmer_wasix::syscalls::io::PipeWriter">PipeWriter</a>), <a class="struct" href="struct.Error.html" title="struct wasmer_wasix::syscalls::io::Error">Error</a>&gt;</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Create an anonymous pipe.</p>
+<h2 id="behavior"><a class="doc-anchor" href="#behavior">§</a>Behavior</h2>
+<p>A pipe is a one-way data channel provided by the OS, which works across processes. A pipe is
+typically used to communicate between two or more separate processes, as there are better,
+faster ways to communicate within a single process.</p>
+<p>In particular:</p>
+<ul>
+<li>A read on a <a href="struct.PipeReader.html" title="struct wasmer_wasix::syscalls::io::PipeReader"><code>PipeReader</code></a> blocks until the pipe is non-empty.</li>
+<li>A write on a <a href="struct.PipeWriter.html" title="struct wasmer_wasix::syscalls::io::PipeWriter"><code>PipeWriter</code></a> blocks when the pipe is full.</li>
+<li>When all copies of a <a href="struct.PipeWriter.html" title="struct wasmer_wasix::syscalls::io::PipeWriter"><code>PipeWriter</code></a> are closed, a read on the corresponding <a href="struct.PipeReader.html" title="struct wasmer_wasix::syscalls::io::PipeReader"><code>PipeReader</code></a>
+returns EOF.</li>
+<li><a href="struct.PipeWriter.html" title="struct wasmer_wasix::syscalls::io::PipeWriter"><code>PipeWriter</code></a> can be shared, and multiple processes or threads can write to it at once, but
+writes (above a target-specific threshold) may have their data interleaved.</li>
+<li><a href="struct.PipeReader.html" title="struct wasmer_wasix::syscalls::io::PipeReader"><code>PipeReader</code></a> can be shared, and multiple processes or threads can read it at once. Any
+given byte will only get consumed by one reader. There are no guarantees about data
+interleaving.</li>
+<li>Portable applications cannot assume any atomicity of messages larger than a single byte.</li>
+</ul>
+<h2 id="platform-specific-behavior"><a class="doc-anchor" href="#platform-specific-behavior">§</a>Platform-specific behavior</h2>
+<p>This function currently corresponds to the <code>pipe</code> function on Unix and the
+<code>CreatePipe</code> function on Windows.</p>
+<p>Note that this <a href="index.html#platform-specific-behavior" title="mod wasmer_wasix::syscalls::io">may change in the future</a>.</p>
+<h2 id="capacity"><a class="doc-anchor" href="#capacity">§</a>Capacity</h2>
+<p>Pipe capacity is platform dependent. To quote the Linux <a href="https://man7.org/linux/man-pages/man7/pipe.7.html">man page</a>:</p>
+<blockquote>
+<p>Different implementations have different limits for the pipe capacity. Applications should
+not rely on a particular capacity: an application should be designed so that a reading process
+consumes data as soon as it is available, so that a writing process does not remain blocked.</p>
+</blockquote>
+<h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::process::Command;
+<span class="kw">use </span>std::io::{pipe, Read, Write};
+<span class="kw">let </span>(ping_rx, <span class="kw-2">mut </span>ping_tx) = pipe()<span class="question-mark">?</span>;
+<span class="kw">let </span>(<span class="kw-2">mut </span>pong_rx, pong_tx) = pipe()<span class="question-mark">?</span>;
+
+<span class="comment">// Spawn a process that echoes its input.
+</span><span class="kw">let </span><span class="kw-2">mut </span>echo_server = Command::new(<span class="string">"cat"</span>).stdin(ping_rx).stdout(pong_tx).spawn()<span class="question-mark">?</span>;
+
+ping_tx.write_all(<span class="string">b"hello"</span>)<span class="question-mark">?</span>;
+<span class="comment">// Close to unblock echo_server's reader.
+</span>drop(ping_tx);
+
+<span class="kw">let </span><span class="kw-2">mut </span>buf = String::new();
+<span class="comment">// Block until echo_server's writer is closed.
+</span>pong_rx.read_to_string(<span class="kw-2">&amp;mut </span>buf)<span class="question-mark">?</span>;
+<span class="macro">assert_eq!</span>(<span class="kw-2">&amp;</span>buf, <span class="string">"hello"</span>);
+
+echo_server.wait()<span class="question-mark">?</span>;</code></pre></div>
+</div></details></section></div></main></body></html>

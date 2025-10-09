@@ -1,33 +1,45 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Expands to the offset in bytes of a field from the beginning of the given type."><title>offset_of in wasmer_types::lib::std::mem - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../../../static.files/storage-59e33391.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../wasmer_types/index.html">wasmer_<wbr>types</a><span class="version">6.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">offset_<wbr>of</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>types::<wbr>lib::<wbr>std::<wbr>mem</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><span class="rustdoc-breadcrumbs"><a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a href="index.html">mem</a></span><h1>Macro <span class="macro">offset_of</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.77.0">1.77.0</span> · <a class="src" href="https://doc.rust-lang.org/1.84.1/src/core/mem/mod.rs.html#1364">Source</a> </span></div><pre class="rust item-decl"><code>pub macro offset_of($Container:ty, $($fields:expr)+ $(,)?) {
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Expands to the offset in bytes of a field from the beginning of the given type."><title>offset_of in wasmer_types::lib::std::mem - Rust</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_types" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="sidebar-items.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../../static.files/favicon-044be391.svg"></head><body class="rustdoc macro"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="mobile-topbar"><button class="sidebar-menu-toggle" title="show sidebar"></button></nav><nav class="sidebar"><div class="sidebar-crate"><h2><a href="../../../../wasmer_types/index.html">wasmer_<wbr>types</a><span class="version">6.1.0</span></h2></div><div class="sidebar-elems"><section id="rustdoc-toc"><h2 class="location"><a href="#">offset_<wbr>of</a></h2><h3><a href="#">Sections</a></h3><ul class="block top-toc"><li><a href="#offsets-of-and-in-dynamically-sized-types" title="Offsets of, and in, dynamically sized types">Offsets of, and in, dynamically sized types</a></li><li><a href="#layout-is-subject-to-change" title="Layout is subject to change">Layout is subject to change</a></li><li><a href="#unstable-features" title="Unstable features">Unstable features</a></li><li><a href="#examples" title="Examples">Examples</a></li></ul></section><div id="rustdoc-modnav"><h2><a href="index.html">In wasmer_<wbr>types::<wbr>lib::<wbr>std::<wbr>mem</a></h2></div></div></nav><div class="sidebar-resizer"></div><main><div class="width-limiter"><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><div class="rustdoc-breadcrumbs"><a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a href="index.html">mem</a></div><h1>Macro <span class="macro">offset_of</span><button id="copy-path" title="Copy item path to clipboard">Copy item path</button></h1><rustdoc-toolbar></rustdoc-toolbar><span class="sub-heading"><span class="since" title="Stable since Rust version 1.77.0">1.77.0</span> · <a class="src" href="https://doc.rust-lang.org/1.87.0/src/core/mem/mod.rs.html#1380">Source</a> </span></div><pre class="rust item-decl"><code>pub macro offset_of($Container:ty, $($fields:expr)+ $(,)?) {
     ...
 }</code></pre><details class="toggle top-doc" open><summary class="hideme"><span>Expand description</span></summary><div class="docblock"><p>Expands to the offset in bytes of a field from the beginning of the given type.</p>
-<p>Structs, enums, unions and tuples are supported.</p>
-<p>Nested field accesses may be used, but not array indexes.</p>
-<p>If the nightly-only feature <code>offset_of_enum</code> is enabled,
-variants may be traversed as if they were fields.
-Variants themselves do not have an offset.</p>
-<p>Visibility is respected - all types and fields must be visible to the call site:</p>
-
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">mod </span>nested {
-    <span class="attr">#[repr(C)]
-    </span><span class="kw">pub struct </span>Struct {
-        private: u8,
-    }
-}
-
-<span class="comment">// assert_eq!(mem::offset_of!(nested::Struct, private), 0);
-// ^^^ error[E0616]: field `private` of struct `Struct` is private</span></code></pre></div>
-<p>Only <a href="../marker/trait.Sized.html" title="trait wasmer_types::lib::std::marker::Sized"><code>Sized</code></a> fields are supported, but the container may be unsized:</p>
+<p>The type may be a <code>struct</code>, <code>enum</code>, <code>union</code>, or tuple.</p>
+<p>The field may be a nested field (<code>field1.field2</code>), but not an array index.
+The field must be visible to the call site.</p>
+<p>The offset is returned as a <a href="https://doc.rust-lang.org/1.87.0/std/primitive.usize.html" title="primitive usize"><code>usize</code></a>.</p>
+<h2 id="offsets-of-and-in-dynamically-sized-types"><a class="doc-anchor" href="#offsets-of-and-in-dynamically-sized-types">§</a>Offsets of, and in, dynamically sized types</h2>
+<p>The field’s type must be <a href="../marker/trait.Sized.html" title="trait wasmer_types::lib::std::marker::Sized"><code>Sized</code></a>, but it may be located in a <a href="https://doc.rust-lang.org/reference/dynamically-sized-types.html">dynamically sized</a> container.
+If the field type is dynamically sized, then you cannot use <code>offset_of!</code> (since the field’s
+alignment, and therefore its offset, may also be dynamic) and must take the offset from an
+actual pointer to the container instead.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#[repr(C)]
-</span><span class="kw">pub struct </span>Struct {
+</span><span class="kw">pub struct </span>Struct&lt;T: <span class="question-mark">?</span>Sized&gt; {
     a: u8,
-    b: [u8],
+    b: T,
 }
 
-<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(Struct, a), <span class="number">0</span>); <span class="comment">// OK
-// assert_eq!(mem::offset_of!(Struct, b), 1);
-// ^^^ error[E0277]: doesn't have a size known at compile-time</span></code></pre></div>
+<span class="attr">#[derive(Debug)]
+#[repr(C, align(<span class="number">4</span>))]
+</span><span class="kw">struct </span>Align4(u32);
+
+<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(Struct&lt;<span class="kw">dyn </span>Debug&gt;, a), <span class="number">0</span>); <span class="comment">// OK — Sized field
+</span><span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(Struct&lt;Align4&gt;, b), <span class="number">4</span>); <span class="comment">// OK — not DST
+
+// assert_eq!(mem::offset_of!(Struct&lt;dyn Debug&gt;, b), 1);
+// ^^^ error[E0277]: ... cannot be known at compilation time
+
+// To obtain the offset of a !Sized field, examine a concrete value
+// instead of using offset_of!.
+</span><span class="kw">let </span>value: Struct&lt;Align4&gt; = Struct { a: <span class="number">1</span>, b: Align4(<span class="number">2</span>) };
+<span class="kw">let </span>ref_unsized: <span class="kw-2">&amp;</span>Struct&lt;<span class="kw">dyn </span>Debug&gt; = <span class="kw-2">&amp;</span>value;
+<span class="kw">let </span>offset_of_b = <span class="kw">unsafe </span>{
+    (<span class="kw-2">&amp;</span>raw <span class="kw">const </span>ref_unsized.b).byte_offset_from_unsigned(ref_unsized)
+};
+<span class="macro">assert_eq!</span>(offset_of_b, <span class="number">4</span>);</code></pre></div>
+<p>If you need to obtain the offset of a field of a <code>!Sized</code> type, then, since the offset may
+depend on the particular value being stored (in particular, <code>dyn Trait</code> values have a
+dynamically-determined alignment), you must retrieve the offset from a specific reference
+or pointer, and so you cannot use <code>offset_of!</code> to work without one.</p>
+<h2 id="layout-is-subject-to-change"><a class="doc-anchor" href="#layout-is-subject-to-change">§</a>Layout is subject to change</h2>
 <p>Note that type layout is, in general, <a href="https://doc.rust-lang.org/reference/type-layout.html">subject to change and
 platform-specific</a>. If
 layout stability is required, consider using an <a href="https://doc.rust-lang.org/reference/type-layout.html#representations">explicit <code>repr</code> attribute</a>.</p>
@@ -57,10 +69,14 @@ not <em>identical</em>, e.g.:</p>
 
 <span class="comment">// Not necessarily identical even though `PhantomData` always has the same layout!
 // assert_eq!(mem::offset_of!(Empty&lt;u8&gt;, 0), mem::offset_of!(Empty&lt;i8&gt;, 0));</span></code></pre></div>
+<h2 id="unstable-features"><a class="doc-anchor" href="#unstable-features">§</a>Unstable features</h2>
+<p>The following unstable features expand the functionality of <code>offset_of!</code>:</p>
+<ul>
+<li><a href="https://doc.rust-lang.org/nightly/unstable-book/language-features/offset-of-enum.html"><code>offset_of_enum</code></a> — allows <code>enum</code> variants to be traversed as if they were fields.</li>
+<li><a href="https://doc.rust-lang.org/nightly/unstable-book/language-features/offset-of-slice.html"><code>offset_of_slice</code></a> — allows getting the offset of a field of type <code>[T]</code>.</li>
+</ul>
 <h2 id="examples"><a class="doc-anchor" href="#examples">§</a>Examples</h2>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="attr">#![feature(offset_of_enum)]
-
-</span><span class="kw">use </span>std::mem;
+<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>std::mem;
 <span class="attr">#[repr(C)]
 </span><span class="kw">struct </span>FieldStruct {
     first: u8,
@@ -80,16 +96,5 @@ not <em>identical</em>, e.g.:</p>
 <span class="attr">#[repr(C)]
 </span><span class="kw">struct </span>NestedB(u8);
 
-<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(NestedA, b.<span class="number">0</span>), <span class="number">0</span>);
-
-<span class="attr">#[repr(u8)]
-</span><span class="kw">enum </span>Enum {
-    A(u8, u16),
-    B { one: u8, two: u16 },
-}
-
-<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(Enum, A.<span class="number">0</span>), <span class="number">1</span>);
-<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(Enum, B.two), <span class="number">2</span>);
-
-<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(<span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>u8&gt;, <span class="prelude-val">Some</span>.<span class="number">0</span>), <span class="number">0</span>);</code></pre></div>
+<span class="macro">assert_eq!</span>(<span class="macro">mem::offset_of!</span>(NestedA, b.<span class="number">0</span>), <span class="number">0</span>);</code></pre></div>
 </div></details></section></div></main></body></html>

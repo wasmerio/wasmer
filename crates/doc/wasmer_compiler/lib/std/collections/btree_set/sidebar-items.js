@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["BTreeSet","Cursor","CursorMut","CursorMutKey","Difference","ExtractIf","Intersection","IntoIter","Iter","Range","SymmetricDifference","Union","UnorderedKeyError"]};
+window.SIDEBAR_ITEMS = {"enum":["Entry"],"struct":["BTreeSet","Cursor","CursorMut","CursorMutKey","Difference","ExtractIf","Intersection","IntoIter","Iter","OccupiedEntry","Range","SymmetricDifference","Union","UnorderedKeyError","VacantEntry"]};

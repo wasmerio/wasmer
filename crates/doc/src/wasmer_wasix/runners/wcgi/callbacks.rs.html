@@ -1,127 +1,63 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/wcgi/callbacks.rs`."><title>callbacks.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../../../static.files/storage-59e33391.js"></script><script defer src="../../../../static.files/src-script-56102188.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/runners/wcgi/</div>callbacks.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
-<a href="#1" id="1">1</a>
-<a href="#2" id="2">2</a>
-<a href="#3" id="3">3</a>
-<a href="#4" id="4">4</a>
-<a href="#5" id="5">5</a>
-<a href="#6" id="6">6</a>
-<a href="#7" id="7">7</a>
-<a href="#8" id="8">8</a>
-<a href="#9" id="9">9</a>
-<a href="#10" id="10">10</a>
-<a href="#11" id="11">11</a>
-<a href="#12" id="12">12</a>
-<a href="#13" id="13">13</a>
-<a href="#14" id="14">14</a>
-<a href="#15" id="15">15</a>
-<a href="#16" id="16">16</a>
-<a href="#17" id="17">17</a>
-<a href="#18" id="18">18</a>
-<a href="#19" id="19">19</a>
-<a href="#20" id="20">20</a>
-<a href="#21" id="21">21</a>
-<a href="#22" id="22">22</a>
-<a href="#23" id="23">23</a>
-<a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
-<a href="#34" id="34">34</a>
-<a href="#35" id="35">35</a>
-<a href="#36" id="36">36</a>
-<a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
-<a href="#40" id="40">40</a>
-<a href="#41" id="41">41</a>
-<a href="#42" id="42">42</a>
-<a href="#43" id="43">43</a>
-<a href="#44" id="44">44</a>
-<a href="#45" id="45">45</a>
-<a href="#46" id="46">46</a>
-<a href="#47" id="47">47</a>
-<a href="#48" id="48">48</a>
-<a href="#49" id="49">49</a>
-<a href="#50" id="50">50</a>
-<a href="#51" id="51">51</a>
-<a href="#52" id="52">52</a>
-<a href="#53" id="53">53</a>
-<a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a></pre></div><pre class="rust"><code><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
-
-<span class="kw">use </span>virtual_fs::Pipe;
-<span class="kw">use </span>wasmer::{Memory, Module, Store};
-
-<span class="kw">use super</span>::{create_env::default_recycle_env, handler::SetupBuilder, <span class="kw-2">*</span>};
-<span class="kw">use </span><span class="kw">crate</span>::WasiEnv;
-<span class="kw">use </span>wasmer_types::ModuleHash;
-
-<span class="doccomment">/// Configuration used for creating a new environment
-</span><span class="kw">pub struct </span>CreateEnvConfig {
-    <span class="kw">pub </span>env: HashMap&lt;String, String&gt;,
-    <span class="kw">pub </span>program_name: String,
-    <span class="kw">pub </span>module: Module,
-    <span class="kw">pub </span>module_hash: ModuleHash,
-    <span class="kw">pub </span>runtime: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::runtime::Runtime + Send + Sync&gt;,
-    <span class="kw">pub </span>setup_builder: SetupBuilder,
-}
-
-<span class="doccomment">/// Result of a create operation on a new environment
-</span><span class="kw">pub struct </span>CreateEnvResult {
-    <span class="kw">pub </span>env: WasiEnv,
-    <span class="kw">pub </span>memory: <span class="prelude-ty">Option</span>&lt;(Memory, Store)&gt;,
-    <span class="kw">pub </span>body_sender: Pipe,
-    <span class="kw">pub </span>body_receiver: Pipe,
-    <span class="kw">pub </span>stderr_receiver: Pipe,
-}
-
-<span class="doccomment">/// Configuration used for reusing an new environment
-</span><span class="kw">pub struct </span>RecycleEnvConfig {
-    <span class="kw">pub </span>env: WasiEnv,
-    <span class="kw">pub </span>memory: Memory,
-    <span class="kw">pub </span>store: Store,
-}
-
-<span class="doccomment">/// Callbacks that are triggered at various points in the lifecycle of a runner
-/// and any WebAssembly instances it may start.
-</span><span class="attr">#[async_trait::async_trait]
-</span><span class="kw">pub trait </span>Callbacks: std::fmt::Debug + Send + Sync + <span class="lifetime">'static </span>{
-    <span class="doccomment">/// A callback that is called whenever the server starts.
-    </span><span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {}
-
-    <span class="doccomment">/// Data was written to stderr by an instance.
-    </span><span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, _stderr: <span class="kw-2">&amp;</span>[u8]) {}
-
-    <span class="doccomment">/// Reading from stderr failed.
-    </span><span class="kw">fn </span>on_stderr_error(<span class="kw-2">&amp;</span><span class="self">self</span>, _error: std::io::Error) {}
-
-    <span class="doccomment">/// Recycle the WASI environment
-    </span><span class="kw">async fn </span>recycle_env(<span class="kw-2">&amp;</span><span class="self">self</span>, conf: RecycleEnvConfig) {
-        default_recycle_env(conf).<span class="kw">await
-    </span>}
-
-    <span class="doccomment">/// Create the WASI environment
-    </span><span class="kw">async fn </span>create_env(<span class="kw-2">&amp;</span><span class="self">self</span>, conf: CreateEnvConfig) -&gt; anyhow::Result&lt;CreateEnvResult&gt; {
-        default_create_env(conf).<span class="kw">await
-    </span>}
-}
-
-<span class="attr">#[derive(Debug)]
-</span><span class="kw">pub struct </span>NoOpWcgiCallbacks;
-
-<span class="kw">impl </span>Callbacks <span class="kw">for </span>NoOpWcgiCallbacks {}
-</code></pre></div></section></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runners/wcgi/callbacks.rs`."><title>callbacks.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/runners/wcgi/</div>callbacks.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{collections::HashMap, sync::Arc};
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span>virtual_fs::Pipe;
+<a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>wasmer::{Memory, Module, Store};
+<a href=#5 id=5 data-nosnippet>5</a>
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use super</span>::{create_env::default_recycle_env, handler::SetupBuilder, <span class="kw-2">*</span>};
+<a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">crate</span>::WasiEnv;
+<a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>wasmer_types::ModuleHash;
+<a href=#9 id=9 data-nosnippet>9</a>
+<a href=#10 id=10 data-nosnippet>10</a><span class="doccomment">/// Configuration used for creating a new environment
+<a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">pub struct </span>CreateEnvConfig {
+<a href=#12 id=12 data-nosnippet>12</a>    <span class="kw">pub </span>env: HashMap&lt;String, String&gt;,
+<a href=#13 id=13 data-nosnippet>13</a>    <span class="kw">pub </span>program_name: String,
+<a href=#14 id=14 data-nosnippet>14</a>    <span class="kw">pub </span>module: Module,
+<a href=#15 id=15 data-nosnippet>15</a>    <span class="kw">pub </span>module_hash: ModuleHash,
+<a href=#16 id=16 data-nosnippet>16</a>    <span class="kw">pub </span>runtime: Arc&lt;<span class="kw">dyn </span><span class="kw">crate</span>::runtime::Runtime + Send + Sync&gt;,
+<a href=#17 id=17 data-nosnippet>17</a>    <span class="kw">pub </span>setup_builder: SetupBuilder,
+<a href=#18 id=18 data-nosnippet>18</a>}
+<a href=#19 id=19 data-nosnippet>19</a>
+<a href=#20 id=20 data-nosnippet>20</a><span class="doccomment">/// Result of a create operation on a new environment
+<a href=#21 id=21 data-nosnippet>21</a></span><span class="kw">pub struct </span>CreateEnvResult {
+<a href=#22 id=22 data-nosnippet>22</a>    <span class="kw">pub </span>env: WasiEnv,
+<a href=#23 id=23 data-nosnippet>23</a>    <span class="kw">pub </span>memory: <span class="prelude-ty">Option</span>&lt;(Memory, Store)&gt;,
+<a href=#24 id=24 data-nosnippet>24</a>    <span class="kw">pub </span>body_sender: Pipe,
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">pub </span>body_receiver: Pipe,
+<a href=#26 id=26 data-nosnippet>26</a>    <span class="kw">pub </span>stderr_receiver: Pipe,
+<a href=#27 id=27 data-nosnippet>27</a>}
+<a href=#28 id=28 data-nosnippet>28</a>
+<a href=#29 id=29 data-nosnippet>29</a><span class="doccomment">/// Configuration used for reusing an new environment
+<a href=#30 id=30 data-nosnippet>30</a></span><span class="kw">pub struct </span>RecycleEnvConfig {
+<a href=#31 id=31 data-nosnippet>31</a>    <span class="kw">pub </span>env: WasiEnv,
+<a href=#32 id=32 data-nosnippet>32</a>    <span class="kw">pub </span>memory: Memory,
+<a href=#33 id=33 data-nosnippet>33</a>    <span class="kw">pub </span>store: Store,
+<a href=#34 id=34 data-nosnippet>34</a>}
+<a href=#35 id=35 data-nosnippet>35</a>
+<a href=#36 id=36 data-nosnippet>36</a><span class="doccomment">/// Callbacks that are triggered at various points in the lifecycle of a runner
+<a href=#37 id=37 data-nosnippet>37</a>/// and any WebAssembly instances it may start.
+<a href=#38 id=38 data-nosnippet>38</a></span><span class="attr">#[async_trait::async_trait]
+<a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub trait </span>Callbacks: std::fmt::Debug + Send + Sync + <span class="lifetime">'static </span>{
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// A callback that is called whenever the server starts.
+<a href=#41 id=41 data-nosnippet>41</a>    </span><span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {}
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a>    <span class="doccomment">/// Data was written to stderr by an instance.
+<a href=#44 id=44 data-nosnippet>44</a>    </span><span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, _stderr: <span class="kw-2">&amp;</span>[u8]) {}
+<a href=#45 id=45 data-nosnippet>45</a>
+<a href=#46 id=46 data-nosnippet>46</a>    <span class="doccomment">/// Reading from stderr failed.
+<a href=#47 id=47 data-nosnippet>47</a>    </span><span class="kw">fn </span>on_stderr_error(<span class="kw-2">&amp;</span><span class="self">self</span>, _error: std::io::Error) {}
+<a href=#48 id=48 data-nosnippet>48</a>
+<a href=#49 id=49 data-nosnippet>49</a>    <span class="doccomment">/// Recycle the WASI environment
+<a href=#50 id=50 data-nosnippet>50</a>    </span><span class="kw">async fn </span>recycle_env(<span class="kw-2">&amp;</span><span class="self">self</span>, conf: RecycleEnvConfig) {
+<a href=#51 id=51 data-nosnippet>51</a>        default_recycle_env(conf).<span class="kw">await
+<a href=#52 id=52 data-nosnippet>52</a>    </span>}
+<a href=#53 id=53 data-nosnippet>53</a>
+<a href=#54 id=54 data-nosnippet>54</a>    <span class="doccomment">/// Create the WASI environment
+<a href=#55 id=55 data-nosnippet>55</a>    </span><span class="kw">async fn </span>create_env(<span class="kw-2">&amp;</span><span class="self">self</span>, conf: CreateEnvConfig) -&gt; anyhow::Result&lt;CreateEnvResult&gt; {
+<a href=#56 id=56 data-nosnippet>56</a>        default_create_env(conf).<span class="kw">await
+<a href=#57 id=57 data-nosnippet>57</a>    </span>}
+<a href=#58 id=58 data-nosnippet>58</a>}
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a><span class="attr">#[derive(Debug)]
+<a href=#61 id=61 data-nosnippet>61</a></span><span class="kw">pub struct </span>NoOpWcgiCallbacks;
+<a href=#62 id=62 data-nosnippet>62</a>
+<a href=#63 id=63 data-nosnippet>63</a><span class="kw">impl </span>Callbacks <span class="kw">for </span>NoOpWcgiCallbacks {}</code></pre></div></section></main></body></html>

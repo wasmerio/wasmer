@@ -1,145 +1,68 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/journal/effector/syscalls/fd_write.rs`."><title>fd_write.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-42caa33d.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.84.1 (e71f9a9a9 2025-01-27)" data-channel="1.84.1" data-search-js="search-92e6798f.js" data-settings-js="settings-0f613d39.js" ><script src="../../../../../static.files/storage-59e33391.js"></script><script defer src="../../../../../static.files/src-script-56102188.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-5f194d8c.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/journal/effector/syscalls/</div>fd_write.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap"><div data-nosnippet><pre class="src-line-numbers">
-<a href="#1" id="1">1</a>
-<a href="#2" id="2">2</a>
-<a href="#3" id="3">3</a>
-<a href="#4" id="4">4</a>
-<a href="#5" id="5">5</a>
-<a href="#6" id="6">6</a>
-<a href="#7" id="7">7</a>
-<a href="#8" id="8">8</a>
-<a href="#9" id="9">9</a>
-<a href="#10" id="10">10</a>
-<a href="#11" id="11">11</a>
-<a href="#12" id="12">12</a>
-<a href="#13" id="13">13</a>
-<a href="#14" id="14">14</a>
-<a href="#15" id="15">15</a>
-<a href="#16" id="16">16</a>
-<a href="#17" id="17">17</a>
-<a href="#18" id="18">18</a>
-<a href="#19" id="19">19</a>
-<a href="#20" id="20">20</a>
-<a href="#21" id="21">21</a>
-<a href="#22" id="22">22</a>
-<a href="#23" id="23">23</a>
-<a href="#24" id="24">24</a>
-<a href="#25" id="25">25</a>
-<a href="#26" id="26">26</a>
-<a href="#27" id="27">27</a>
-<a href="#28" id="28">28</a>
-<a href="#29" id="29">29</a>
-<a href="#30" id="30">30</a>
-<a href="#31" id="31">31</a>
-<a href="#32" id="32">32</a>
-<a href="#33" id="33">33</a>
-<a href="#34" id="34">34</a>
-<a href="#35" id="35">35</a>
-<a href="#36" id="36">36</a>
-<a href="#37" id="37">37</a>
-<a href="#38" id="38">38</a>
-<a href="#39" id="39">39</a>
-<a href="#40" id="40">40</a>
-<a href="#41" id="41">41</a>
-<a href="#42" id="42">42</a>
-<a href="#43" id="43">43</a>
-<a href="#44" id="44">44</a>
-<a href="#45" id="45">45</a>
-<a href="#46" id="46">46</a>
-<a href="#47" id="47">47</a>
-<a href="#48" id="48">48</a>
-<a href="#49" id="49">49</a>
-<a href="#50" id="50">50</a>
-<a href="#51" id="51">51</a>
-<a href="#52" id="52">52</a>
-<a href="#53" id="53">53</a>
-<a href="#54" id="54">54</a>
-<a href="#55" id="55">55</a>
-<a href="#56" id="56">56</a>
-<a href="#57" id="57">57</a>
-<a href="#58" id="58">58</a>
-<a href="#59" id="59">59</a>
-<a href="#60" id="60">60</a>
-<a href="#61" id="61">61</a>
-<a href="#62" id="62">62</a>
-<a href="#63" id="63">63</a>
-<a href="#64" id="64">64</a>
-<a href="#65" id="65">65</a>
-<a href="#66" id="66">66</a>
-<a href="#67" id="67">67</a>
-<a href="#68" id="68">68</a>
-<a href="#69" id="69">69</a>
-<a href="#70" id="70">70</a>
-<a href="#71" id="71">71</a>
-<a href="#72" id="72">72</a></pre></div><pre class="rust"><code><span class="kw">use super</span>::<span class="kw-2">*</span>;
-
-<span class="kw">impl </span>JournalEffector {
-    <span class="kw">pub fn </span>save_fd_write&lt;M: MemorySize&gt;(
-        ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-        fd: Fd,
-        <span class="kw-2">mut </span>offset: u64,
-        written: usize,
-        iovs: WasmPtr&lt;__wasi_ciovec_t&lt;M&gt;, M&gt;,
-        iovs_len: M::Offset,
-    ) -&gt; anyhow::Result&lt;()&gt; {
-        <span class="kw">let </span>env = ctx.data();
-        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-        <span class="kw">let </span>iovs_arr = iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len)<span class="question-mark">?</span>;
-
-        <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-        <span class="kw">let </span><span class="kw-2">mut </span>remaining: M::Offset = TryFrom::&lt;usize&gt;::try_from(written).unwrap_or_default();
-        <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
-            <span class="kw">let </span>sub = iovs.buf_len.min(remaining);
-            <span class="kw">if </span>sub == M::ZERO {
-                <span class="kw">continue</span>;
-            }
-            remaining -= sub;
-
-            <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
-                .slice(<span class="kw-2">&amp;</span>memory, sub)
-                .map_err(mem_error_to_wasi)<span class="question-mark">?
-                </span>.access()
-                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
-            <span class="kw">let </span>data = Cow::Borrowed(buf.as_ref());
-            <span class="kw">let </span>data_len = data.len();
-
-            ctx.data()
-                .active_journal()<span class="question-mark">?
-                </span>.write(JournalEntry::FileDescriptorWriteV1 {
-                    fd,
-                    offset,
-                    data,
-                    is_64bit: M::is_64bit(),
-                })
-                .map_err(map_snapshot_err)<span class="question-mark">?</span>;
-
-            offset += data_len <span class="kw">as </span>u64;
-        }
-        <span class="prelude-val">Ok</span>(())
-    }
-
-    <span class="kw">pub fn </span>apply_fd_write&lt;M: MemorySize&gt;(
-        ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-        fd: Fd,
-        offset: u64,
-        data: Cow&lt;<span class="lifetime">'_</span>, [u8]&gt;,
-    ) -&gt; anyhow::Result&lt;()&gt; {
-        fd_write_internal(
-            ctx,
-            fd,
-            FdWriteSource::&lt;<span class="lifetime">'_</span>, M&gt;::Buffer(data),
-            offset,
-            <span class="bool-val">true</span>,
-            <span class="bool-val">false</span>,
-        )<span class="question-mark">?
-        </span>.map_err(|err| {
-            <span class="macro">anyhow::format_err!</span>(
-                <span class="string">"journal restore error: failed to write to descriptor (fd={}, offset={}) - {}"</span>,
-                fd,
-                offset,
-                err
-            )
-        })<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
-}
-</code></pre></div></section></main></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/journal/effector/syscalls/fd_write.rs`."><title>fd_write.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/journal/effector/syscalls/</div>fd_write.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-2"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#2 id=2 data-nosnippet>2</a>
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">impl </span>JournalEffector {
+<a href=#4 id=4 data-nosnippet>4</a>    <span class="kw">pub fn </span>save_fd_write&lt;M: MemorySize&gt;(
+<a href=#5 id=5 data-nosnippet>5</a>        ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#6 id=6 data-nosnippet>6</a>        fd: Fd,
+<a href=#7 id=7 data-nosnippet>7</a>        <span class="kw-2">mut </span>offset: u64,
+<a href=#8 id=8 data-nosnippet>8</a>        written: usize,
+<a href=#9 id=9 data-nosnippet>9</a>        iovs: WasmPtr&lt;__wasi_ciovec_t&lt;M&gt;, M&gt;,
+<a href=#10 id=10 data-nosnippet>10</a>        iovs_len: M::Offset,
+<a href=#11 id=11 data-nosnippet>11</a>    ) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#12 id=12 data-nosnippet>12</a>        <span class="kw">let </span>env = ctx.data();
+<a href=#13 id=13 data-nosnippet>13</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+<a href=#14 id=14 data-nosnippet>14</a>        <span class="kw">let </span>iovs_arr = iovs.slice(<span class="kw-2">&amp;</span>memory, iovs_len)<span class="question-mark">?</span>;
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a>        <span class="kw">let </span>iovs_arr = iovs_arr.access().map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#17 id=17 data-nosnippet>17</a>        <span class="kw">let </span><span class="kw-2">mut </span>remaining: M::Offset = TryFrom::&lt;usize&gt;::try_from(written).unwrap_or_default();
+<a href=#18 id=18 data-nosnippet>18</a>        <span class="kw">for </span>iovs <span class="kw">in </span>iovs_arr.iter() {
+<a href=#19 id=19 data-nosnippet>19</a>            <span class="kw">let </span>sub = iovs.buf_len.min(remaining);
+<a href=#20 id=20 data-nosnippet>20</a>            <span class="kw">if </span>sub == M::ZERO {
+<a href=#21 id=21 data-nosnippet>21</a>                <span class="kw">continue</span>;
+<a href=#22 id=22 data-nosnippet>22</a>            }
+<a href=#23 id=23 data-nosnippet>23</a>            remaining -= sub;
+<a href=#24 id=24 data-nosnippet>24</a>
+<a href=#25 id=25 data-nosnippet>25</a>            <span class="kw">let </span>buf = WasmPtr::&lt;u8, M&gt;::new(iovs.buf)
+<a href=#26 id=26 data-nosnippet>26</a>                .slice(<span class="kw-2">&amp;</span>memory, sub)
+<a href=#27 id=27 data-nosnippet>27</a>                .map_err(mem_error_to_wasi)<span class="question-mark">?
+<a href=#28 id=28 data-nosnippet>28</a>                </span>.access()
+<a href=#29 id=29 data-nosnippet>29</a>                .map_err(mem_error_to_wasi)<span class="question-mark">?</span>;
+<a href=#30 id=30 data-nosnippet>30</a>            <span class="kw">let </span>data = Cow::Borrowed(buf.as_ref());
+<a href=#31 id=31 data-nosnippet>31</a>            <span class="kw">let </span>data_len = data.len();
+<a href=#32 id=32 data-nosnippet>32</a>
+<a href=#33 id=33 data-nosnippet>33</a>            ctx.data()
+<a href=#34 id=34 data-nosnippet>34</a>                .active_journal()<span class="question-mark">?
+<a href=#35 id=35 data-nosnippet>35</a>                </span>.write(JournalEntry::FileDescriptorWriteV1 {
+<a href=#36 id=36 data-nosnippet>36</a>                    fd,
+<a href=#37 id=37 data-nosnippet>37</a>                    offset,
+<a href=#38 id=38 data-nosnippet>38</a>                    data,
+<a href=#39 id=39 data-nosnippet>39</a>                    is_64bit: M::is_64bit(),
+<a href=#40 id=40 data-nosnippet>40</a>                })
+<a href=#41 id=41 data-nosnippet>41</a>                .map_err(map_snapshot_err)<span class="question-mark">?</span>;
+<a href=#42 id=42 data-nosnippet>42</a>
+<a href=#43 id=43 data-nosnippet>43</a>            offset += data_len <span class="kw">as </span>u64;
+<a href=#44 id=44 data-nosnippet>44</a>        }
+<a href=#45 id=45 data-nosnippet>45</a>        <span class="prelude-val">Ok</span>(())
+<a href=#46 id=46 data-nosnippet>46</a>    }
+<a href=#47 id=47 data-nosnippet>47</a>
+<a href=#48 id=48 data-nosnippet>48</a>    <span class="kw">pub fn </span>apply_fd_write&lt;M: MemorySize&gt;(
+<a href=#49 id=49 data-nosnippet>49</a>        ctx: <span class="kw-2">&amp;mut </span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#50 id=50 data-nosnippet>50</a>        fd: Fd,
+<a href=#51 id=51 data-nosnippet>51</a>        offset: u64,
+<a href=#52 id=52 data-nosnippet>52</a>        data: Cow&lt;<span class="lifetime">'_</span>, [u8]&gt;,
+<a href=#53 id=53 data-nosnippet>53</a>    ) -&gt; anyhow::Result&lt;()&gt; {
+<a href=#54 id=54 data-nosnippet>54</a>        fd_write_internal(
+<a href=#55 id=55 data-nosnippet>55</a>            ctx,
+<a href=#56 id=56 data-nosnippet>56</a>            fd,
+<a href=#57 id=57 data-nosnippet>57</a>            FdWriteSource::&lt;<span class="lifetime">'_</span>, M&gt;::Buffer(data),
+<a href=#58 id=58 data-nosnippet>58</a>            offset,
+<a href=#59 id=59 data-nosnippet>59</a>            <span class="bool-val">true</span>,
+<a href=#60 id=60 data-nosnippet>60</a>            <span class="bool-val">false</span>,
+<a href=#61 id=61 data-nosnippet>61</a>        )<span class="question-mark">?
+<a href=#62 id=62 data-nosnippet>62</a>        </span>.map_err(|err| {
+<a href=#63 id=63 data-nosnippet>63</a>            <span class="macro">anyhow::format_err!</span>(
+<a href=#64 id=64 data-nosnippet>64</a>                <span class="string">"journal restore error: failed to write to descriptor (fd={fd}, offset={offset}) - {err}"</span>)
+<a href=#65 id=65 data-nosnippet>65</a>        })<span class="question-mark">?</span>;
+<a href=#66 id=66 data-nosnippet>66</a>        <span class="prelude-val">Ok</span>(())
+<a href=#67 id=67 data-nosnippet>67</a>    }
+<a href=#68 id=68 data-nosnippet>68</a>}</code></pre></div></section></main></body></html>

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["RemoteRx","RemoteTx"],"struct":["FailOnWrite","RemoteTxWakers"],"type":["StreamSink"]};
+window.SIDEBAR_ITEMS = {"enum":["RemoteRx","RemoteTx"],"struct":["RemoteTxWakers"],"type":["StreamSink"]};
