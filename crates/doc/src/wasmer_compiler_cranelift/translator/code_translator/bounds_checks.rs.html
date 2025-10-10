@@ -281,7 +281,7 @@
 <a href=#281 id=281 data-nosnippet>281</a>            <span class="kw">let </span>adjusted_index = builder.ins().uadd_overflow_trap(
 <a href=#282 id=282 data-nosnippet>282</a>                index,
 <a href=#283 id=283 data-nosnippet>283</a>                access_size_val,
-<a href=#284 id=284 data-nosnippet>284</a>                ir::TrapCode::HeapOutOfBounds,
+<a href=#284 id=284 data-nosnippet>284</a>                ir::TrapCode::HEAP_OUT_OF_BOUNDS,
 <a href=#285 id=285 data-nosnippet>285</a>            );
 <a href=#286 id=286 data-nosnippet>286</a>            <span class="kw">if </span>pcc {
 <a href=#287 id=287 data-nosnippet>287</a>                builder.func.dfg.facts[adjusted_index] = <span class="prelude-val">Some</span>(Fact::value_offset(
@@ -326,7 +326,7 @@
 <a href=#326 id=326 data-nosnippet>326</a>                <span class="string">"static memories require the ability to use virtual memory"
 <a href=#327 id=327 data-nosnippet>327</a>            </span>);
 <a href=#328 id=328 data-nosnippet>328</a>            env.before_unconditionally_trapping_memory_access(builder)<span class="question-mark">?</span>;
-<a href=#329 id=329 data-nosnippet>329</a>            builder.ins().trap(ir::TrapCode::HeapOutOfBounds);
+<a href=#329 id=329 data-nosnippet>329</a>            builder.ins().trap(ir::TrapCode::HEAP_OUT_OF_BOUNDS);
 <a href=#330 id=330 data-nosnippet>330</a>            Unreachable
 <a href=#331 id=331 data-nosnippet>331</a>        }
 <a href=#332 id=332 data-nosnippet>332</a>
@@ -568,7 +568,7 @@
 <a href=#568 id=568 data-nosnippet>568</a>) -&gt; ir::Value {
 <a href=#569 id=569 data-nosnippet>569</a>    <span class="kw">if </span>!spectre_mitigations_enabled {
 <a href=#570 id=570 data-nosnippet>570</a>        pos.ins()
-<a href=#571 id=571 data-nosnippet>571</a>            .trapnz(oob_condition, ir::TrapCode::HeapOutOfBounds);
+<a href=#571 id=571 data-nosnippet>571</a>            .trapnz(oob_condition, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
 <a href=#572 id=572 data-nosnippet>572</a>    }
 <a href=#573 id=573 data-nosnippet>573</a>
 <a href=#574 id=574 data-nosnippet>574</a>    <span class="kw">let </span><span class="kw-2">mut </span>addr = compute_addr(pos, heap, addr_ty, index, offset, pcc);

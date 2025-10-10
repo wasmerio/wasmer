@@ -1799,7 +1799,7 @@
 <a href=#1799 id=1799 data-nosnippet>1799</a>            }
 <a href=#1800 id=1800 data-nosnippet>1800</a>        }
 <a href=#1801 id=1801 data-nosnippet>1801</a>
-<a href=#1802 id=1802 data-nosnippet>1802</a>        <span class="kw">if let </span>OperatingSystem::Darwin = target.operating_system {
+<a href=#1802 id=1802 data-nosnippet>1802</a>        <span class="kw">if let </span>OperatingSystem::Darwin(<span class="kw">_</span>) = target.operating_system {
 <a href=#1803 id=1803 data-nosnippet>1803</a>            <span class="kw">if </span>!(filename.contains(<span class="string">"apple"</span>) || filename.contains(<span class="string">"darwin"</span>)) {
 <a href=#1804 id=1804 data-nosnippet>1804</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1805 id=1805 data-nosnippet>1805</a>            }
@@ -1891,7 +1891,7 @@
 <a href=#1891 id=1891 data-nosnippet>1891</a>        };
 <a href=#1892 id=1892 data-nosnippet>1892</a>        <span class="kw">let </span>os = <span class="kw">match </span>target_triple.operating_system {
 <a href=#1893 id=1893 data-nosnippet>1893</a>            OperatingSystem::Linux =&gt; <span class="string">"linux"</span>.into(),
-<a href=#1894 id=1894 data-nosnippet>1894</a>            OperatingSystem::Darwin =&gt; <span class="string">"macos"</span>.into(),
+<a href=#1894 id=1894 data-nosnippet>1894</a>            OperatingSystem::Darwin(<span class="kw">_</span>) =&gt; <span class="string">"macos"</span>.into(),
 <a href=#1895 id=1895 data-nosnippet>1895</a>            OperatingSystem::Windows =&gt; <span class="string">"windows"</span>.into(),
 <a href=#1896 id=1896 data-nosnippet>1896</a>            v =&gt; v.to_string(),
 <a href=#1897 id=1897 data-nosnippet>1897</a>        };
