@@ -136,6 +136,7 @@ pub unsafe extern "C" fn wasmer_eh_personality(
     context: *mut uw::_Unwind_Context,
 ) -> uw::_Unwind_Reason_Code {
     unsafe {
+        let debug_eh = true; // TEMP DEBUG
         if version != 1 {
             return uw::_Unwind_Reason_Code__URC_FATAL_PHASE1_ERROR;
         }
@@ -163,6 +164,11 @@ pub unsafe extern "C" fn wasmer_eh_personality(
             }
         };
 
+        let is_catch_specific_or_all = matches!(&eh_action, EHAction::CatchSpecificOrAll { .. });
+        if debug_eh {
+            eprintln!("[wasmer][eh] stage1 action: {:?}", eh_action);
+        }
+
         if actions as i32 & uw::_Unwind_Action__UA_SEARCH_PHASE as i32 != 0 {
             match eh_action {
                 EHAction::None => uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
@@ -174,8 +180,6 @@ pub unsafe extern "C" fn wasmer_eh_personality(
         } else {
             // For the catch-specific vs catch-specific-or-all case below, checked before
             // we move eh_action out in the match
-            let has_catch_all = matches!(eh_action, EHAction::CatchSpecificOrAll { .. });
-
             match eh_action {
                 EHAction::None => uw::_Unwind_Reason_Code__URC_CONTINUE_UNWIND,
                 EHAction::CatchAll { lpad } => {
@@ -187,10 +191,16 @@ pub unsafe extern "C" fn wasmer_eh_personality(
                 }
                 EHAction::CatchSpecific { lpad, tags }
                 | EHAction::CatchSpecificOrAll { lpad, tags } => {
+                    if debug_eh {
+                        eprintln!(
+                            "[wasmer][eh] stage1 catch tags={:?} catch_all={}",
+                            tags, is_catch_specific_or_all
+                        );
+                    }
                     (*uw_exc).current_frame_info = Some(Box::new(CurrentFrameInfo {
                         exception_tag: wasmer_exc.tag,
                         catch_tags: tags,
-                        has_catch_all,
+                        has_catch_all: is_catch_specific_or_all,
                     }));
                     uw::_Unwind_SetGR(context, UNWIND_DATA_REG.0, uw_exc as _);
                     // One means enter phase 2
@@ -216,22 +226,44 @@ pub unsafe extern "C" fn wasmer_eh_personality2(
     exception_object: *mut UwExceptionWrapper,
 ) -> i32 {
     unsafe {
+        let debug_eh = true; // TEMP DEBUG
         let Some(current_frame_info) = (*exception_object).current_frame_info.take() else {
             // This should never happen
             unreachable!("wasmer_eh_personality2 called without current_frame_info");
         };
 
+        if debug_eh {
+            eprintln!(
+                "[wasmer][eh] stage2 exception_tag={} catch_tags={:?} has_catch_all={}",
+                current_frame_info.exception_tag,
+                current_frame_info.catch_tags,
+                current_frame_info.has_catch_all
+            );
+        }
+
         let instance = (*vmctx).instance();
         for tag in current_frame_info.catch_tags {
+            if debug_eh {
+                eprintln!("[wasmer][eh] stage2 checking tag {}", tag);
+            }
             let unique_tag = instance.shared_tag_ptr(TagIndex::from_u32(tag)).index();
             if unique_tag == current_frame_info.exception_tag {
+                if debug_eh {
+                    eprintln!("[wasmer][eh] stage2 matched tag {}", tag);
+                }
                 return tag as i32;
             }
         }
 
         if current_frame_info.has_catch_all {
+            if debug_eh {
+                eprintln!("[wasmer][eh] stage2 falling back to catch-all");
+            }
             CATCH_ALL_TAG_VALUE
         } else {
+            if debug_eh {
+                eprintln!("[wasmer][eh] stage2 found no match");
+            }
             NO_MATCH_FOUND_TAG_VALUE
         }
     }
@@ -262,20 +294,38 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context) -> Result<EHAction, 
 
 pub unsafe fn throw(tag: u32, vmctx: *mut VMContext, data_ptr: usize, data_size: u64) -> ! {
     unsafe {
+        let debug_eh = true; // TEMP DEBUG
+        if debug_eh {
+            eprintln!(
+                "[wasmer][eh] throw(tag={tag}, data_ptr={data_ptr:#x}, data_size={data_size})"
+            );
+        }
         // Look up the unique tag from the VMContext.
         let unique_tag = (*vmctx)
             .instance()
             .shared_tag_ptr(TagIndex::from_u32(tag))
             .index();
+        if debug_eh {
+            eprintln!("[wasmer][eh] throw resolved unique_tag={unique_tag}");
+        }
 
         let exception = Box::new(UwExceptionWrapper::new(unique_tag, data_ptr, data_size));
         let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;
 
         match uw::_Unwind_RaiseException(exception_param) {
             libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
+                if debug_eh {
+                    eprintln!(
+                        "[wasmer][eh] throw -> URC_END_OF_STACK (personality={:p})",
+                        wasmer_eh_personality as *const ()
+                    );
+                }
                 crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
             }
-            _ => {
+            other => {
+                if debug_eh {
+                    eprintln!("[wasmer][eh] throw -> unexpected code {:?}", other);
+                }
                 unreachable!()
             }
         }

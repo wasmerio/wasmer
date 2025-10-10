@@ -76,6 +76,8 @@
 
 mod bounds_checks;
 
+const CATCH_ALL_TAG_VALUE: i32 = i32::MAX;
+
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
@@ -85,8 +87,8 @@ use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AtomicRmwOp, BlockArg, ConstantData, InstBuilder, JumpTableData, MemFlags, Value,
-    ValueLabel,
+    self, AtomicRmwOp, BlockArg, ConstantData, ExceptionTag, InstBuilder, JumpTableData, MemFlags,
+    Value, ValueLabel,
 };
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
@@ -94,10 +96,10 @@ use itertools::Itertools;
 use smallvec::SmallVec;
 use std::vec::Vec;
 
-use wasmer_compiler::wasmparser::{MemArg, Operator};
+use wasmer_compiler::wasmparser::{self, MemArg, Operator};
 use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
+    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, TagIndex, WasmResult,
 };
 
 /// Given a `Reachability<T>`, unwrap the inner `T` or, when unreachable, set
@@ -432,6 +434,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::End => {
             let frame = state.control_stack.pop().unwrap();
+            frame.restore_catch_handlers(&mut state.handlers, builder);
             let next_block = frame.following_code();
             let return_count = frame.num_return_values();
             let return_args = state.peekn_mut(return_count);
@@ -601,7 +604,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         /********************************** Exception handing **********************************/
         Operator::Try { .. }
         | Operator::Catch { .. }
-        | Operator::Throw { .. }
         | Operator::Rethrow { .. }
         | Operator::Delegate { .. }
         | Operator::CatchAll => {
@@ -609,6 +611,52 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 "proposed exception handling operator {:?}",
                 op
             ));
+        }
+        Operator::TryTable { try_table } => {
+            let body = builder.create_block();
+            let (params, results) =
+                module_translation_state.blocktype_params_results(&try_table.ty)?;
+            let next = block_with_params(builder, results.iter(), environ)?;
+            builder.ins().jump(body, &[]);
+            builder.seal_block(body);
+
+            let checkpoint = state.handlers.take_checkpoint();
+            let mut clauses = Vec::with_capacity(try_table.catches.len());
+            let mut catch_blocks = Vec::with_capacity(try_table.catches.len() + 1);
+            for catch in try_table.catches.iter().rev() {
+                let clause = create_catch_block(builder, state, catch, environ)?;
+                catch_blocks.push(clause.block);
+                clauses.push(clause);
+            }
+
+            let dispatch_block = create_dispatch_block(builder, environ, clauses.as_slice())?;
+            catch_blocks.push(dispatch_block);
+
+            for clause in clauses.iter() {
+                let handler_tag = clause.wasm_tag.map(ExceptionTag::from_u32);
+                state.handlers.add_handler(handler_tag, dispatch_block);
+            }
+
+            state.push_try_table_block(next, catch_blocks, params.len(), results.len(), checkpoint);
+
+            builder.switch_to_block(body);
+        }
+        Operator::Throw { tag_index } => {
+            let tag_index = TagIndex::from_u32(*tag_index);
+            let arity = environ.tag_param_arity(tag_index);
+            let args = state.peekn(arity);
+            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
+                state.handlers.handlers().collect();
+            environ.translate_exn_throw(builder, tag_index, args, handler_list.as_slice())?;
+            state.popn(arity);
+            state.reachable = false;
+        }
+        Operator::ThrowRef => {
+            let exnref = state.pop1();
+            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
+                state.handlers.handlers().collect();
+            environ.translate_exn_throw_ref(builder, exnref, handler_list.as_slice())?;
+            state.reachable = false;
         }
         /************************************ Calls ****************************************
          * The call instructions pop off their arguments from the stack and append their
@@ -619,30 +667,33 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (fref, num_args) = state.get_direct_func(builder.func, *function_index, environ)?;
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
-            let args = state.peekn_mut(num_args);
-            bitcast_wasm_params(
-                environ,
-                builder.func.dfg.ext_funcs[fref].signature,
-                args,
-                builder,
-            );
-
-            let call = environ.translate_call(
+            {
+                let args_mut = state.peekn_mut(num_args);
+                bitcast_wasm_params(
+                    environ,
+                    builder.func.dfg.ext_funcs[fref].signature,
+                    args_mut,
+                    builder,
+                );
+            }
+            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
+                state.handlers.handlers().collect();
+            let args = state.peekn(num_args);
+            let results = environ.translate_call(
                 builder,
                 FunctionIndex::from_u32(*function_index),
                 fref,
                 args,
+                handler_list.as_slice(),
             )?;
-            let inst_results = builder.inst_results(call);
+            let sig_ref = builder.func.dfg.ext_funcs[fref].signature;
             debug_assert_eq!(
-                inst_results.len(),
-                builder.func.dfg.signatures[builder.func.dfg.ext_funcs[fref].signature]
-                    .returns
-                    .len(),
+                results.len(),
+                builder.func.dfg.signatures[sig_ref].returns.len(),
                 "translate_call results should match the call signature"
             );
             state.popn(num_args);
-            state.pushn(inst_results);
+            state.pushn(results.as_slice());
         }
         Operator::CallIndirect {
             type_index,
@@ -656,25 +707,29 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let callee = state.pop1();
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
-            let args = state.peekn_mut(num_args);
-            bitcast_wasm_params(environ, sigref, args, builder);
-
-            let call = environ.translate_call_indirect(
+            {
+                let args_mut = state.peekn_mut(num_args);
+                bitcast_wasm_params(environ, sigref, args_mut, builder);
+            }
+            let handler_list: SmallVec<[(Option<ExceptionTag>, ir::Block); 4]> =
+                state.handlers.handlers().collect();
+            let args = state.peekn(num_args);
+            let results = environ.translate_call_indirect(
                 builder,
                 TableIndex::from_u32(*table_index),
                 SignatureIndex::from_u32(*type_index),
                 sigref,
                 callee,
-                state.peekn(num_args),
+                args,
+                handler_list.as_slice(),
             )?;
-            let inst_results = builder.inst_results(call);
             debug_assert_eq!(
-                inst_results.len(),
+                results.len(),
                 builder.func.dfg.signatures[sigref].returns.len(),
                 "translate_call_indirect results should match the call signature"
             );
             state.popn(num_args);
-            state.pushn(inst_results);
+            state.pushn(results.as_slice());
         }
         /******************************* Memory management ***********************************
          * Memory management is handled by environment. It is usually translated into calls to
@@ -2189,11 +2244,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I16x8RelaxedQ15mulrS => {
             return Err(wasm_unsupported!("proposed relaxed-simd operator {:?}", op));
         }
-        Operator::TryTable { .. } | Operator::ThrowRef => {
-            return Err(wasm_unsupported!(
-                "exceptions are not supported (operator: {op:?})"
-            ));
-        }
         Operator::RefEq
         | Operator::StructNew { .. }
         | Operator::StructNewDefault { .. }
@@ -2321,7 +2371,9 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
                 blockty,
             );
         }
-        Operator::Loop { blockty: _ } | Operator::Block { blockty: _ } => {
+        Operator::Loop { blockty: _ }
+        | Operator::Block { blockty: _ }
+        | Operator::TryTable { try_table: _ } => {
             state.push_block(ir::Block::reserved_value(), 0, 0);
         }
         Operator::Else => {
@@ -2384,6 +2436,7 @@ fn translate_unreachable_operator<FE: FuncEnvironment + ?Sized>(
             let stack = &mut state.stack;
             let control_stack = &mut state.control_stack;
             let frame = control_stack.pop().unwrap();
+            frame.restore_catch_handlers(&mut state.handlers, builder);
 
             // Pop unused parameters from stack.
             frame.truncate_value_stack_to_original_size(stack);
@@ -3417,4 +3470,118 @@ pub fn bitcast_wasm_params<FE: FuncEnvironment + ?Sized>(
         flags.set_endianness(ir::Endianness::Little);
         *arg = builder.ins().bitcast(t, flags, *arg);
     }
+}
+
+struct CatchClause {
+    wasm_tag: Option<u32>,
+    tag_value: i32,
+    block: ir::Block,
+}
+
+fn create_catch_block<FE: FuncEnvironment + ?Sized>(
+    builder: &mut FunctionBuilder,
+    state: &mut FuncTranslationState,
+    catch: &wasmparser::Catch,
+    environ: &mut FE,
+) -> WasmResult<CatchClause> {
+    let (is_ref, wasm_tag, label) = match catch {
+        wasmparser::Catch::One { tag, label } => (false, Some(*tag), *label),
+        wasmparser::Catch::OneRef { tag, label } => (true, Some(*tag), *label),
+        wasmparser::Catch::All { label } => (false, None, *label),
+        wasmparser::Catch::AllRef { label } => (true, None, *label),
+    };
+
+    let tag_value = wasm_tag.map(|t| t as i32).unwrap_or(CATCH_ALL_TAG_VALUE);
+
+    let block = builder.create_block();
+    let exnref = builder.append_block_param(block, environ.reference_type());
+
+    builder.switch_to_block(block);
+
+    let mut params = SmallVec::<[Value; 4]>::new();
+    if let Some(tag) = wasm_tag {
+        let tag_index = TagIndex::from_u32(tag);
+        params.extend(environ.translate_exn_unbox(builder, tag_index, exnref)?);
+    }
+    if is_ref {
+        params.push(exnref);
+    }
+
+    let depth = label as usize;
+    let idx = state.control_stack.len() - 1 - depth;
+    let frame = &mut state.control_stack[idx];
+    frame.set_branched_to_exit();
+    canonicalise_then_jump(builder, frame.br_destination(), params.as_slice());
+
+    Ok(CatchClause {
+        wasm_tag,
+        tag_value,
+        block,
+    })
+}
+
+fn create_dispatch_block<FE: FuncEnvironment + ?Sized>(
+    builder: &mut FunctionBuilder,
+    environ: &mut FE,
+    clauses: &[CatchClause],
+) -> WasmResult<ir::Block> {
+    let dispatch_block = builder.create_block();
+    let exnref = builder.append_block_param(dispatch_block, environ.reference_type());
+
+    builder.switch_to_block(dispatch_block);
+
+    let selector = environ.translate_exn_personality_selector(builder, exnref)?;
+    let selector_ty = builder.func.dfg.value_type(selector);
+
+    let rethrow_block = builder.create_block();
+    builder.append_block_param(rethrow_block, environ.reference_type());
+
+    let mut current_selector = selector;
+    let mut current_exn = exnref;
+
+    for (idx, clause) in clauses.iter().enumerate() {
+        let tag_value = builder
+            .ins()
+            .iconst(selector_ty, i64::from(clause.tag_value));
+        let matches = builder
+            .ins()
+            .icmp(IntCC::Equal, current_selector, tag_value);
+
+        if idx + 1 == clauses.len() {
+            canonicalise_brif(
+                builder,
+                matches,
+                clause.block,
+                &[current_exn],
+                rethrow_block,
+                &[current_exn],
+            );
+        } else {
+            let continue_block = builder.create_block();
+            builder.append_block_param(continue_block, selector_ty);
+            builder.append_block_param(continue_block, environ.reference_type());
+
+            canonicalise_brif(
+                builder,
+                matches,
+                clause.block,
+                &[current_exn],
+                continue_block,
+                &[current_selector, current_exn],
+            );
+
+            builder.seal_block(continue_block);
+            builder.switch_to_block(continue_block);
+            let params = builder.func.dfg.block_params(continue_block);
+            current_selector = params[0];
+            current_exn = params[1];
+        }
+    }
+
+    builder.switch_to_block(rethrow_block);
+    let rethrow_exn = builder.func.dfg.block_params(rethrow_block)[0];
+    environ.translate_exn_reraise_unmatched(builder, rethrow_exn)?;
+    builder.seal_block(rethrow_block);
+
+    Ok(dispatch_block)
 }

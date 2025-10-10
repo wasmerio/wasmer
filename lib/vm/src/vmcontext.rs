@@ -768,6 +768,8 @@ impl VMBuiltinFunctionsArray {
             wasmer_vm_delete_exception as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_read_exception_index().index() as usize] =
             wasmer_vm_read_exception as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_personality2_index().index() as usize] =
+            wasmer_eh_personality2 as usize;
 
         ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() as usize] =
             wasmer_vm_dbg_usize as usize;

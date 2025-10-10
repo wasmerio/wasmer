@@ -4,6 +4,9 @@
 use crate::dwarf::WriterRelocate;
 
 #[cfg(feature = "unwind")]
+use crate::eh::{build_function_lsda, build_lsda_section, build_tag_section};
+
+#[cfg(feature = "unwind")]
 use crate::translator::CraneliftUnwindInfo;
 use crate::{
     address_map::get_function_address_map,
@@ -23,10 +26,15 @@ use cranelift_codegen::{
 };
 
 #[cfg(feature = "unwind")]
-use gimli::write::{Address, EhFrame, FrameTable, Writer};
+use gimli::{
+    constants::DW_EH_PE_absptr,
+    write::{Address, EhFrame, FrameTable, Writer},
+};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+#[cfg(feature = "unwind")]
+use std::collections::HashMap;
 use std::sync::Arc;
 
 #[cfg(feature = "unwind")]
@@ -84,7 +92,12 @@ impl CraneliftCompiler {
             .config()
             .isa(target)
             .map_err(|error| CompileError::Codegen(error.to_string()))?;
+        if std::env::var_os("WASMER_DEBUG_EH").is_some() {
+            eprintln!("[wasmer][eh] isa unwind_info={}", isa.flags().unwind_info());
+        }
         let frontend_config = isa.frontend_config();
+        #[cfg(feature = "unwind")]
+        let pointer_bytes = frontend_config.pointer_bytes();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
@@ -103,17 +116,23 @@ impl CraneliftCompiler {
             None
         } else {
             match target.triple().default_calling_convention() {
-                Ok(CallingConvention::SystemV) => {
-                    match isa.create_systemv_cie() {
-                        Some(cie) => {
-                            let mut dwarf_frametable = FrameTable::default();
-                            let cie_id = dwarf_frametable.add_cie(cie);
-                            Some((dwarf_frametable, cie_id))
-                        }
-                        // Even though we are in a SystemV system, Cranelift doesn't support it
-                        None => None,
+                Ok(CallingConvention::SystemV) => match isa.create_systemv_cie() {
+                    Some(mut cie) => {
+                        cie.personality = Some((
+                            DW_EH_PE_absptr,
+                            Address::Symbol {
+                                symbol: WriterRelocate::PERSONALITY_SYMBOL,
+                                addend: 0,
+                            },
+                        ));
+                        cie.lsda_encoding = Some(DW_EH_PE_absptr);
+                        let mut dwarf_frametable = FrameTable::default();
+                        let cie_id = dwarf_frametable.add_cie(cie);
+                        Some((dwarf_frametable, cie_id))
                     }
-                }
+                    // Even though we are in a SystemV system, Cranelift doesn't support it
+                    None => None,
+                },
                 _ => None,
             }
         };
@@ -124,8 +143,7 @@ impl CraneliftCompiler {
         #[cfg(not(feature = "rayon"))]
         let mut func_translator = FuncTranslator::new();
         #[cfg(not(feature = "rayon"))]
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+        let results: Vec<_> = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .into_iter()
@@ -192,6 +210,30 @@ impl CraneliftCompiler {
                     .map(mach_trap_to_trap)
                     .collect::<Vec<_>>();
 
+                #[cfg(feature = "unwind")]
+                let function_lsda = if dwarf_frametable.is_some() {
+                    build_function_lsda(result.buffer.call_sites(), pointer_bytes)
+                } else {
+                    None
+                };
+                #[cfg(feature = "unwind")]
+                if std::env::var_os("WASMER_DEBUG_EH").is_some() {
+                    let name = get_function_name(func_index);
+                    match &function_lsda {
+                        Some(lsda) => eprintln!(
+                            "[wasmer][eh] lsda present for {name:?} (local func #{}) size={}",
+                            i.index(),
+                            lsda.bytes.len()
+                        ),
+                        None => eprintln!(
+                            "[wasmer][eh] no lsda for {name:?} (local func #{})",
+                            i.index()
+                        ),
+                    }
+                }
+                #[cfg(not(feature = "unwind"))]
+                let function_lsda = ();
+
                 let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
                     #[cfg(feature = "unwind")]
                     CraneliftUnwindInfo::Fde(fde) => {
@@ -232,14 +274,13 @@ impl CraneliftCompiler {
                         frame_info: CompiledFunctionFrameInfo { address_map, traps },
                     },
                     fde,
+                    function_lsda,
                 ))
             })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .unzip();
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
         #[cfg(feature = "rayon")]
-        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+        let results: Vec<_> = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
@@ -307,6 +348,30 @@ impl CraneliftCompiler {
                     .map(mach_trap_to_trap)
                     .collect::<Vec<_>>();
 
+                #[cfg(feature = "unwind")]
+                let function_lsda = if dwarf_frametable.is_some() {
+                    build_function_lsda(result.buffer.call_sites(), pointer_bytes)
+                } else {
+                    None
+                };
+                #[cfg(feature = "unwind")]
+                if std::env::var_os("WASMER_DEBUG_EH").is_some() {
+                    let name = get_function_name(func_index);
+                    match &function_lsda {
+                        Some(lsda) => eprintln!(
+                            "[wasmer][eh] lsda present for {name:?} (local func #{}) size={}",
+                            i.index(),
+                            lsda.bytes.len()
+                        ),
+                        None => eprintln!(
+                            "[wasmer][eh] no lsda for {name:?} (local func #{})",
+                            i.index()
+                        ),
+                    }
+                }
+                #[cfg(not(feature = "unwind"))]
+                let function_lsda = ();
+
                 let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
                     #[cfg(feature = "unwind")]
                     CraneliftUnwindInfo::Fde(fde) => {
@@ -347,21 +412,95 @@ impl CraneliftCompiler {
                         frame_info: CompiledFunctionFrameInfo { address_map, traps },
                     },
                     fde,
+                    function_lsda,
                 ))
             })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .unzip();
+            .collect::<Result<Vec<_>, CompileError>>()?;
+
+        let mut functions = Vec::with_capacity(results.len());
+        let mut fdes = Vec::with_capacity(results.len());
+        #[cfg(feature = "unwind")]
+        let mut lsda_data = Vec::with_capacity(results.len());
+        for (func, fde, lsda) in results {
+            functions.push(func);
+            fdes.push(fde);
+            #[cfg(feature = "unwind")]
+            lsda_data.push(lsda);
+            #[cfg(not(feature = "unwind"))]
+            {
+                let _ = lsda;
+            }
+        }
+
+        #[cfg(feature = "unwind")]
+        let (_tag_section_index, lsda_section_index, function_lsda_offsets) =
+            if dwarf_frametable.is_some() {
+                let mut tag_section_index = None;
+                let mut tag_offsets = HashMap::new();
+                if let Some((tag_section, offsets)) = build_tag_section(&lsda_data) {
+                    custom_sections.push(tag_section);
+                    tag_section_index = Some(SectionIndex::new(custom_sections.len() - 1));
+                    tag_offsets = offsets;
+                }
+                let lsda_vec = lsda_data;
+                let (lsda_section, offsets_per_function) =
+                    build_lsda_section(lsda_vec, pointer_bytes, &tag_offsets, tag_section_index);
+                let mut lsda_section_index = None;
+                if let Some(section) = lsda_section {
+                    custom_sections.push(section);
+                    lsda_section_index = Some(SectionIndex::new(custom_sections.len() - 1));
+                }
+                (tag_section_index, lsda_section_index, offsets_per_function)
+            } else {
+                drop(lsda_data);
+                (None, None, vec![None; functions.len()])
+            };
 
         #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = UnwindInfo::default();
 
         #[cfg(feature = "unwind")]
         if let Some((mut dwarf_frametable, cie_id)) = dwarf_frametable {
-            for fde in fdes.into_iter().flatten() {
-                dwarf_frametable.add_fde(cie_id, fde);
+            for (func_idx, fde_opt) in fdes.into_iter().enumerate() {
+                if let Some(mut fde) = fde_opt {
+                    let has_lsda = function_lsda_offsets
+                        .get(func_idx)
+                        .and_then(|v| *v)
+                        .is_some();
+                    let lsda_address = if has_lsda {
+                        debug_assert!(
+                            lsda_section_index.is_some(),
+                            "LSDA offsets require an LSDA section"
+                        );
+                        if lsda_section_index.is_some() {
+                            let symbol =
+                                WriterRelocate::lsda_symbol(LocalFunctionIndex::new(func_idx));
+                            Address::Symbol { symbol, addend: 0 }
+                        } else {
+                            Address::Constant(0)
+                        }
+                    } else {
+                        Address::Constant(0)
+                    };
+                    fde.lsda = Some(lsda_address);
+                    dwarf_frametable.add_fde(cie_id, fde);
+                }
             }
-            let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
+
+            let mut writer = WriterRelocate::new(target.triple().endianness().ok());
+            if let Some(lsda_section_index) = lsda_section_index {
+                for (func_idx, offset) in function_lsda_offsets.iter().enumerate() {
+                    if let Some(offset) = offset {
+                        writer.register_lsda_symbol(
+                            WriterRelocate::lsda_symbol(LocalFunctionIndex::new(func_idx)),
+                            RelocationTarget::CustomSection(lsda_section_index),
+                            *offset,
+                        );
+                    }
+                }
+            }
+
+            let mut eh_frame = EhFrame(writer);
             dwarf_frametable.write_eh_frame(&mut eh_frame).unwrap();
             eh_frame.write(&[0, 0, 0, 0]).unwrap(); // Write a 0 length at the end of the table.
 
@@ -369,6 +508,9 @@ impl CraneliftCompiler {
             custom_sections.push(eh_frame_section);
             unwind_info.eh_frame = Some(SectionIndex::new(custom_sections.len() - 1));
         };
+
+        #[cfg(not(feature = "unwind"))]
+        let _ = fdes;
 
         // function call trampolines (only for local functions, by signature)
         #[cfg(not(feature = "rayon"))]

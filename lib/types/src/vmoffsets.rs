@@ -167,19 +167,24 @@ impl VMBuiltinFunctionIndex {
         Self(34)
     }
 
+    /// Returns an index for wasm's imported `wasmer_eh_personality2` builtin function.
+    pub const fn get_imported_personality2_index() -> Self {
+        Self(35)
+    }
+
     /// Returns an index for wasm's imported `debug_usize` builtin function.
     pub const fn get_imported_debug_usize_index() -> Self {
-        Self(35)
+        Self(36)
     }
 
     /// Returns an index for wasm's imported `debug_str` builtin function.
     pub const fn get_imported_debug_str_index() -> Self {
-        Self(36)
+        Self(37)
     }
 
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        37
+        38
     }
 
     /// Return the index as an u32 number.

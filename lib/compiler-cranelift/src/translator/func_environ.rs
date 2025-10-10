@@ -10,14 +10,15 @@ use crate::heap::{Heap, HeapData};
 use core::convert::From;
 use cranelift_codegen::cursor::FuncCursor;
 use cranelift_codegen::ir::immediates::Offset32;
-use cranelift_codegen::ir::{self, InstBuilder};
+use cranelift_codegen::ir::{self, ExceptionTag, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
+use smallvec::SmallVec;
 use wasmer_compiler::wasmparser::{HeapType, Operator};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex, Type as WasmerType, WasmResult,
+    TableIndex, TagIndex, Type as WasmerType, WasmResult,
 };
 
 /// The value of a WebAssembly global variable.
@@ -189,9 +190,8 @@ pub trait FuncEnvironment: TargetEnvironment {
         _callee_index: FunctionIndex,
         callee: ir::FuncRef,
         call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst> {
-        Ok(builder.ins().call(callee, call_args))
-    }
+        handlers: &[(Option<ExceptionTag>, ir::Block)],
+    ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
 
     /// Translate a `call_indirect` WebAssembly instruction at `pos`.
     ///
@@ -212,7 +212,50 @@ pub trait FuncEnvironment: TargetEnvironment {
         sig_ref: ir::SigRef,
         callee: ir::Value,
         call_args: &[ir::Value],
-    ) -> WasmResult<ir::Inst>;
+        handlers: &[(Option<ExceptionTag>, ir::Block)],
+    ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
+
+    /// Return the number of WebAssembly values contained in the payload for the given exception tag.
+    fn tag_param_arity(&self, tag_index: TagIndex) -> usize;
+
+    /// Extract the payload values from an exception reference produced by the given tag.
+    fn translate_exn_unbox(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        tag_index: TagIndex,
+        exn_ref: ir::Value,
+    ) -> WasmResult<SmallVec<[ir::Value; 4]>>;
+
+    /// Emit IR to allocate and throw a new exception with the specified tag.
+    fn translate_exn_throw(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        tag_index: TagIndex,
+        args: &[ir::Value],
+        handlers: &[(Option<ExceptionTag>, ir::Block)],
+    ) -> WasmResult<()>;
+
+    /// Emit IR to rethrow an existing exception reference.
+    fn translate_exn_throw_ref(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exnref: ir::Value,
+        handlers: &[(Option<ExceptionTag>, ir::Block)],
+    ) -> WasmResult<()>;
+
+    /// Invoke the runtime personality helper to choose the matching catch tag for an exception.
+    fn translate_exn_personality_selector(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exnref: ir::Value,
+    ) -> WasmResult<ir::Value>;
+
+    /// Reraise an exception when no catch clause within the current handler matches.
+    fn translate_exn_reraise_unmatched(
+        &mut self,
+        builder: &mut FunctionBuilder,
+        exnref: ir::Value,
+    ) -> WasmResult<()>;
 
     /// Translate a `memory.grow` WebAssembly instruction.
     ///
