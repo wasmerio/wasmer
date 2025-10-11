@@ -257,7 +257,7 @@ impl Source for BackendSource {
             _ => {
                 return Err(QueryError::Unsupported {
                     query: package.clone(),
-                })
+                });
             }
         };
 
@@ -562,14 +562,6 @@ impl FileSystemCache {
 struct CacheEntry {
     unix_timestamp: u64,
     package_name: String,
-    response: WebQuery,
-}
-
-/// Cache entry for a webc lookup by hash.
-#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
-struct HashCacheEntry {
-    unix_timestamp: u64,
-    hash: String,
     response: WebQuery,
 }
 

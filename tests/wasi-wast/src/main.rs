@@ -8,9 +8,9 @@ mod wasitests;
 
 pub use crate::set_up_toolchain::install_toolchains;
 pub use crate::wasi_version::{
-    WasiVersion, ALL_WASI_VERSIONS, LATEST_WASI_VERSION, NIGHTLY_VERSION,
+    ALL_WASI_VERSIONS, LATEST_WASI_VERSION, NIGHTLY_VERSION, WasiVersion,
 };
-pub use crate::wasitests::{build, WasiOptions, WasiTest};
+pub use crate::wasitests::{WasiOptions, WasiTest, build};
 
 use gumdrop::Options;
 

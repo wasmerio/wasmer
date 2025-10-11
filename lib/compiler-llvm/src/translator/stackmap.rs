@@ -404,7 +404,7 @@ impl StackMap {
 
         let version = reader.read_u8()?;
         if version != 3 {
-            return Err(io::Error::new(io::ErrorKind::Other, "version is not 3"));
+            return Err(io::Error::other("version is not 3"));
         }
         map.version = version;
         if reader.read_u8()? != 0 {

@@ -11,7 +11,7 @@ use std::{
     str::FromStr,
 };
 
-use anyhow::{bail, Context as _, Result};
+use anyhow::{Context as _, Result, bail};
 use once_cell::sync::Lazy;
 use regex::Regex;
 use wasmer_wasix::runners::MappedDirectory;
@@ -95,7 +95,7 @@ pub fn load_package_manifest(
                     "Could not read package manifest at '{}'",
                     file_path.display()
                 )
-            })
+            });
         }
     };
 

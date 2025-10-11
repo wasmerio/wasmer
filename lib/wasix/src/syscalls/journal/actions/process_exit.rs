@@ -13,7 +13,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
             self.differ_memory.clear();
             self.rewind = None;
         } else {
-            JournalEffector::apply_process_exit(&mut self.ctx, exit_code)
+            unsafe { JournalEffector::apply_process_exit(&mut self.ctx, exit_code) }
                 .map_err(anyhow_err_to_runtime_err)?;
         }
         Ok(())

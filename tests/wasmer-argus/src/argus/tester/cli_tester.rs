@@ -4,7 +4,7 @@ use std::{fs::File, io::BufReader, path::Path, process::Command, sync::Arc};
 use tokio::time::{self, Instant};
 use tracing::*;
 use wasmer_backend_api::types::PackageVersionWithPackage;
-use webc::{v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3, Container, Version};
+use webc::{Container, Version, v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3};
 
 use super::{TestReport, Tester};
 
@@ -117,7 +117,7 @@ impl<'a> CLIRunner<'a> {
 
     async fn get_version(&self) -> anyhow::Result<String> {
         let cli_path = match &self.config.cli_path {
-            Some(ref p) => p.clone(),
+            Some(p) => p.clone(),
             None => String::from("wasmer"),
         };
 
@@ -148,7 +148,7 @@ impl Tester for CLIRunner<'_> {
         let start_time = time::Instant::now();
         let version = self.get_version().await?;
         let cli_path = match &self.config.cli_path {
-            Some(ref p) => p.clone(),
+            Some(p) => p.clone(),
             None => String::from("wasmer"),
         };
 
@@ -164,7 +164,7 @@ impl Tester for CLIRunner<'_> {
         let webc_v2 = match webc::detect(v2_bytes.as_slice()) {
             Ok(Version::V2) => Container::from(OwnedReader::parse(v2_bytes)?),
             Ok(other) => {
-                return self.err(version, start_time, format!("Unsupported version, {other}"))
+                return self.err(version, start_time, format!("Unsupported version, {other}"));
             }
             Err(e) => return self.err(version, start_time, format!("An error occurred: {e}")),
         };
@@ -189,7 +189,7 @@ impl Tester for CLIRunner<'_> {
         let webc_v3 = match webc::detect(v3_bytes.as_slice()) {
             Ok(Version::V3) => Container::from(OwnedReaderV3::parse(v3_bytes)?),
             Ok(other) => {
-                return self.err(version, start_time, format!("Unsupported version, {other}"))
+                return self.err(version, start_time, format!("Unsupported version, {other}"));
             }
             Err(e) => return self.err(version, start_time, format!("An error occurred: {e}")),
         };

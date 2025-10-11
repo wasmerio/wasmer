@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
 
-use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
+use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
 use wasmer_compiler::types::{
     address_map::{FunctionAddressMap, InstructionAddressMap},
@@ -166,7 +166,7 @@ where
         _ => {
             return Err(CompileError::UnsupportedTarget(format!(
                 "Unsupported binary format {binary_fmt:?}"
-            )))
+            )));
         }
     };
 
@@ -526,7 +526,7 @@ where
                         _ => {
                             return Err(CompileError::Codegen(format!(
                                 "unknown relocation {reloc:?}",
-                            )))
+                            )));
                         }
                     }
                 }
@@ -561,7 +561,7 @@ where
                         _ => {
                             return Err(CompileError::Codegen(format!(
                                 "unknown relocation {reloc:?}"
-                            )))
+                            )));
                         }
                     }
                 }

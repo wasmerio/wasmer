@@ -1,4 +1,4 @@
-use criterion::{criterion_group, criterion_main, Criterion};
+use criterion::{Criterion, criterion_group, criterion_main};
 use wasmer::{sys::*, *};
 
 static BENCHMARKS_ARTIFACTS_BASE_URL: &str = "https://pub-083d1a0568d446d1aa5b2e07bd16983b.r2.dev";

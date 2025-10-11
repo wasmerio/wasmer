@@ -3,7 +3,7 @@ use std::{fmt::Debug, path::Path};
 use super::ManifestError;
 
 /// The strictness to use when working with a
-/// [`crate::wasmer_package::Package`].
+/// `Package` values from this crate.
 ///
 /// This can be useful when loading a package that may be edited interactively
 /// or if you just want to use a package and don't care if the manifest is

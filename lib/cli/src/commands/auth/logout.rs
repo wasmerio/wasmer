@@ -1,6 +1,6 @@
 use crate::{
     commands::AsyncCliCommand,
-    config::{WasmerConfig, WasmerEnv, DEFAULT_PROD_REGISTRY},
+    config::{DEFAULT_PROD_REGISTRY, WasmerConfig, WasmerEnv},
 };
 use colored::Colorize;
 use is_terminal::IsTerminal;

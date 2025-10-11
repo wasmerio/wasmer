@@ -5,9 +5,9 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use anyhow::{bail, Context, Result};
-use clap::Parser;
 use Action::*;
+use anyhow::{Context, Result, bail};
+use clap::Parser;
 
 #[derive(Debug, Parser, Clone, Copy)]
 enum Action {
@@ -131,7 +131,9 @@ impl Binfmt {
         if let Some(specs) = specs {
             if cfg!(target_env = "gnu") {
                 // Approximate. ELF parsing for a proper check feels like overkill here.
-                eprintln!("Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work.");
+                eprintln!(
+                    "Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work."
+                );
             }
             specs
                 .iter()

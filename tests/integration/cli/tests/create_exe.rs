@@ -7,7 +7,7 @@ use std::{
     process::Command,
 };
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use assert_cmd::prelude::OutputAssertExt;
 use tempfile::TempDir;
 use wasmer_integration_tests_cli::*;
@@ -170,11 +170,19 @@ fn test_create_exe_with_pirita_works_1() {
 
     let stderr = String::from_utf8_lossy(&cmd.stderr);
 
-    assert_eq!(stderr.lines().map(|s| s.trim().to_string()).collect::<Vec<_>>(), vec![
-        format!("error: cannot compile more than one atom at a time"),
-        format!("│   1: note: use --atom <ATOM> to specify which atom to compile"),
-        format!("╰─▶ 2: where <ATOM> is one of: wabt, wasm-interp, wasm-strip, wasm-validate, wasm2wat, wast2json, wat2wasm"),
-    ]);
+    assert_eq!(
+        stderr
+            .lines()
+            .map(|s| s.trim().to_string())
+            .collect::<Vec<_>>(),
+        vec![
+            format!("error: cannot compile more than one atom at a time"),
+            format!("│   1: note: use --atom <ATOM> to specify which atom to compile"),
+            format!(
+                "╰─▶ 2: where <ATOM> is one of: wabt, wasm-interp, wasm-strip, wasm-validate, wasm2wat, wast2json, wat2wasm"
+            ),
+        ]
+    );
 
     assert!(!cmd.status.success());
 

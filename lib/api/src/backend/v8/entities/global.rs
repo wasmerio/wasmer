@@ -2,6 +2,7 @@
 use wasmer_types::{GlobalType, Mutability};
 
 use crate::{
+    AsStoreMut, AsStoreRef, RuntimeError, Value,
     v8::{
         bindings::{
             self, wasm_global_as_extern, wasm_global_get, wasm_global_new, wasm_global_set,
@@ -12,7 +13,6 @@ use crate::{
         vm::VMGlobal,
     },
     vm::{VMExtern, VMExternGlobal},
-    AsStoreMut, AsStoreRef, RuntimeError, Value,
 };
 
 use super::check_isolate;

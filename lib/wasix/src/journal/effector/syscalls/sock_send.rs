@@ -54,11 +54,7 @@ impl JournalEffector {
         sock_send_internal(ctx, sock, FdWriteSource::<'_, M>::Buffer(si_data), si_flags)?.map_err(
             |err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to send on socket (fd={}, data.len={}) - {}",
-                    sock,
-                    data_len,
-                    err
-                )
+                    "journal restore error: failed to send on socket (fd={sock}, data.len={data_len}) - {err}")
             },
         )?;
         Ok(())

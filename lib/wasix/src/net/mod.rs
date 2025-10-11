@@ -9,9 +9,9 @@ use wasmer::{MemoryView, WasmPtr};
 use wasmer_types::MemorySize;
 use wasmer_wasix_types::{
     types::{
-        OptionTag, OptionTimestamp, Route, __wasi_addr_ip4_t, __wasi_addr_ip6_t,
-        __wasi_addr_port_t, __wasi_addr_port_u, __wasi_addr_t, __wasi_addr_u, __wasi_cidr_t,
-        __wasi_cidr_u,
+        __wasi_addr_ip4_t, __wasi_addr_ip6_t, __wasi_addr_port_t, __wasi_addr_port_u,
+        __wasi_addr_t, __wasi_addr_u, __wasi_cidr_t, __wasi_cidr_u, OptionTag, OptionTimestamp,
+        Route,
     },
     wasi::{Addressfamily, Errno},
 };

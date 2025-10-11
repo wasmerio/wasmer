@@ -1,7 +1,7 @@
 use std::{env::current_dir, path::PathBuf};
 
-use anyhow::{bail, Context};
-use dialoguer::console::{style, Emoji};
+use anyhow::{Context, bail};
+use dialoguer::console::{Emoji, style};
 use indicatif::{ProgressBar, ProgressStyle};
 use tempfile::NamedTempFile;
 use wasmer_config::package::{PackageIdent, PackageSource};
@@ -10,6 +10,14 @@ use wasmer_package::utils::from_disk;
 use crate::config::WasmerEnv;
 
 /// Download a package from the registry.
+///
+/// Examples:
+/// * `wasmer package download wasmer/hello`
+///   Download the `wasmer/hello` package, writing to `./hello@<version>.webc`.
+///
+/// * `wasmer package download --unpack wasmer/hello@0.1.0 -o hello.webc`
+///   Download the `wasmer/hello` package version `0.1.0`, writing to `./hello.webc`,
+///   and unpacking it to `./hello.webc.unpacked/`.
 #[derive(clap::Parser, Debug)]
 pub struct PackageDownload {
     #[clap(flatten)]
@@ -26,15 +34,14 @@ pub struct PackageDownload {
 
     /// Run the download command without any output
     #[clap(long)]
-    pub quiet: bool,
+    quiet: bool,
 
     /// Unpack the downloaded package.
     ///
-    /// The output directory will be next to the downloaded file.
+    /// The unpacked directory will be next to the downloaded file, with a `.unpacked` suffix.
     ///
-    /// Note: unpacking can also be done manually with the `wasmer package unpack`
-    /// command.
-    #[clap(long)]
+    /// Note: unpacking can also be done manually with the `wasmer package unpack` command.
+    #[clap(short, long)]
     unpack: bool,
 
     /// The package to download.
@@ -183,7 +190,7 @@ impl PackageDownload {
                 (pkg.webc_url, ident, filename)
             }
             PackageSource::Path(p) => bail!("cannot download a package from a local path: '{p}'"),
-            PackageSource::Url(url) => bail!("cannot download a package from a URL: '{}'", url),
+            PackageSource::Url(url) => bail!("cannot download a package from a URL: '{url}'"),
         };
 
         let builder = {

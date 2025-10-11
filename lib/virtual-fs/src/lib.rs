@@ -98,10 +98,10 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
     fn remove_file(&self, path: &Path) -> Result<()>;
 
-    fn new_open_options(&self) -> OpenOptions;
+    fn new_open_options(&self) -> OpenOptions<'_>;
 
     fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
-        -> Result<()>;
+    -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -153,7 +153,7 @@ where
         (**self).remove_file(path)
     }
 
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         (**self).new_open_options()
     }
 
@@ -410,6 +410,16 @@ pub trait VirtualFile:
             tracing::trace!(bytes_written, "Copying file into host filesystem");
             Ok(())
         })
+    }
+
+    /// Get the full contents of this file as an [`OwnedBuffer`].
+    ///
+    /// **NOTE**: Only implement this if the file is already available in-memory
+    /// and can be cloned cheaply!
+    ///
+    /// Allows consumers to do zero-copy cloning of the underlying data.
+    fn as_owned_buffer(&self) -> Option<OwnedBuffer> {
+        None
     }
 
     /// Polls the file for when there is data to be read

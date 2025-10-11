@@ -1,13 +1,13 @@
 use std::{borrow::Cow, fmt::Display, str::FromStr};
 
 use anyhow::anyhow;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 use indexmap::IndexMap;
 
 use crate::package::PackageSource;
 
-use super::{pretty_duration::PrettyDuration, AppConfigCapabilityMemoryV1, AppVolume, HttpRequest};
+use super::{AppConfigCapabilityMemoryV1, AppVolume, HttpRequest, pretty_duration::PrettyDuration};
 
 /// Job configuration.
 #[derive(
@@ -182,15 +182,20 @@ impl FromStr for JobTrigger {
             Ok(Self::PreDeployment)
         } else if s == "post-deployment" {
             Ok(Self::PostDeployment)
-        } else if let Ok(expr) = s.parse::<CronExpression>() {
-            Ok(Self::Cron(expr))
-        } else if let Ok(duration) = s.parse::<PrettyDuration>() {
-            Ok(Self::Duration(duration))
         } else {
-            Err(anyhow!(
-                "Invalid job trigger '{s}'. Must be 'pre-deployment', 'post-deployment', \
+            match s.parse::<CronExpression>() {
+                Ok(expr) => Ok(Self::Cron(expr)),
+                _ => {
+                    if let Ok(duration) = s.parse::<PrettyDuration>() {
+                        Ok(Self::Duration(duration))
+                    } else {
+                        Err(anyhow!(
+                            "Invalid job trigger '{s}'. Must be 'pre-deployment', 'post-deployment', \
                 a valid cron expression such as '0 */5 * * *' or a duration such as '15m'.",
-            ))
+                        ))
+                    }
+                }
+            }
         }
     }
 }
@@ -241,8 +246,8 @@ impl schemars::JsonSchema for JobTrigger {
         "JobTrigger".to_owned()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
     }
 }
 

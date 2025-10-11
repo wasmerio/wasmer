@@ -249,9 +249,9 @@ impl WasiModuleTreeHandles {
     /// through the `Linker` to retrieve the one they need.
     pub(crate) fn main_module_instance_handles(&self) -> &WasiModuleInstanceHandles {
         match self {
-            WasiModuleTreeHandles::Static(ref handles) => handles,
+            WasiModuleTreeHandles::Static(handles) => handles,
             WasiModuleTreeHandles::Dynamic {
-                ref main_module_instance_handles,
+                main_module_instance_handles,
                 ..
             } => main_module_instance_handles,
         }
@@ -260,9 +260,9 @@ impl WasiModuleTreeHandles {
     /// See comments on `main_module_instance_handles`.
     pub(crate) fn main_module_instance_handles_mut(&mut self) -> &mut WasiModuleInstanceHandles {
         match self {
-            WasiModuleTreeHandles::Static(ref mut handles) => handles,
+            WasiModuleTreeHandles::Static(handles) => handles,
             WasiModuleTreeHandles::Dynamic {
-                ref mut main_module_instance_handles,
+                main_module_instance_handles,
                 ..
             } => main_module_instance_handles,
         }
@@ -272,7 +272,7 @@ impl WasiModuleTreeHandles {
     /// See comments on ensure_static_module for more details.
     pub(crate) fn static_module_instance_handles(&self) -> Option<&WasiModuleInstanceHandles> {
         match self {
-            WasiModuleTreeHandles::Static(ref handles) => Some(handles),
+            WasiModuleTreeHandles::Static(handles) => Some(handles),
             WasiModuleTreeHandles::Dynamic { .. } => None,
         }
     }
@@ -283,7 +283,7 @@ impl WasiModuleTreeHandles {
         &mut self,
     ) -> Option<&mut WasiModuleInstanceHandles> {
         match self {
-            WasiModuleTreeHandles::Static(ref mut handles) => Some(handles),
+            WasiModuleTreeHandles::Static(handles) => Some(handles),
             WasiModuleTreeHandles::Dynamic { .. } => None,
         }
     }

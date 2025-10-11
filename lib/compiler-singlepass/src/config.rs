@@ -4,9 +4,10 @@
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use wasmer_types::target::Architecture;
 use wasmer_types::{
-    target::{Architecture, CpuFeature, Target},
     Features,
+    target::{CpuFeature, Target},
 };
 
 #[derive(Debug, Clone)]

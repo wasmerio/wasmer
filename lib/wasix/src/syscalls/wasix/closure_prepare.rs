@@ -14,7 +14,7 @@ use wasm_encoder::{
     CodeSection, CustomSection, ExportKind, ExportSection, FunctionSection, GlobalType,
     ImportSection, InstructionSink, MemArg, MemoryType, RefType, TableType, TypeSection, ValType,
 };
-use wasmer::{imports, FunctionType, Table, Type};
+use wasmer::{FunctionType, Table, Type, imports};
 
 use wasmer_wasix_types::wasi::WasmValueType;
 
@@ -334,28 +334,30 @@ pub fn closure_prepare<M: MemorySize>(
 
     let argument_types = {
         let arg_offset = argument_types_ptr.offset().into();
-        let arguments_slice =
-            wasi_try_mem_ok!(
-                WasmSlice::new(&memory, arg_offset, argument_types_length as u64)
-                    .and_then(WasmSlice::access)
-            );
-        wasi_try_ok!(arguments_slice
-            .iter()
-            .map(|t: &u8| ValType::from_u8(*t))
-            .collect::<Result<Vec<_>, Errno>>())
+        let arguments_slice = wasi_try_mem_ok!(
+            WasmSlice::new(&memory, arg_offset, argument_types_length as u64)
+                .and_then(WasmSlice::access)
+        );
+        wasi_try_ok!(
+            arguments_slice
+                .iter()
+                .map(|t: &u8| ValType::from_u8(*t))
+                .collect::<Result<Vec<_>, Errno>>()
+        )
     };
 
     let result_types = {
         let res_offset = result_types_ptr.offset().into();
-        let result_slice =
-            wasi_try_mem_ok!(
-                WasmSlice::new(&memory, res_offset, result_types_length as u64)
-                    .and_then(WasmSlice::access)
-            );
-        wasi_try_ok!(result_slice
-            .iter()
-            .map(|t: &u8| ValType::from_u8(*t))
-            .collect::<Result<Vec<_>, Errno>>())
+        let result_slice = wasi_try_mem_ok!(
+            WasmSlice::new(&memory, res_offset, result_types_length as u64)
+                .and_then(WasmSlice::access)
+        );
+        wasi_try_ok!(
+            result_slice
+                .iter()
+                .map(|t: &u8| ValType::from_u8(*t))
+                .collect::<Result<Vec<_>, Errno>>()
+        )
     };
 
     let module_name = format!(

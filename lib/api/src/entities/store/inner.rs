@@ -1,10 +1,10 @@
 use crate::{
+    AsStoreMut,
     entities::{
         engine::{AsEngineRef, Engine},
         store::{StoreMut, StoreObjects},
     },
     macros::backend::{gen_rt_ty, match_rt},
-    AsStoreMut,
 };
 
 #[cfg(feature = "sys")]

@@ -9,7 +9,7 @@ pub(crate) mod web;
 pub use self::{dummy_waker::WasiDummyWaker, thread_parker::WasiParkingLot};
 
 pub(crate) use owned_mutex_guard::{
-    read_owned, write_owned, OwnedRwLockReadGuard, OwnedRwLockWriteGuard,
+    OwnedRwLockReadGuard, OwnedRwLockWriteGuard, read_owned, write_owned,
 };
 
 use std::collections::BTreeSet;

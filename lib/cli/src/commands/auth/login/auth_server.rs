@@ -1,6 +1,6 @@
 use super::AuthorizationState;
 use http_body_util::BodyExt;
-use hyper::{body::Incoming, Request, Response, StatusCode};
+use hyper::{Request, Response, StatusCode, body::Incoming};
 use reqwest::{Body, Method};
 use tokio::net::TcpListener;
 

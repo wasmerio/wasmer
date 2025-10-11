@@ -2,13 +2,13 @@
 use wasmer_types::TableType;
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
     v8::{
         bindings::{self, *},
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::VMTable,
     },
     vm::{VMExtern, VMExternTable},
-    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
 };
 
 use super::check_isolate;
@@ -28,10 +28,7 @@ impl Table {
 
         let limits = Box::into_raw(Box::new(wasm_limits_t {
             min: ty.minimum,
-            max: match ty.maximum {
-                Some(v) => v,
-                None => 0,
-            },
+            max: ty.maximum.unwrap_or_default(),
             shared: false,
         }));
 
@@ -125,7 +122,7 @@ impl Table {
                 _ => {
                     return Err(RuntimeError::new(format!(
                         "Could not grow table due to unsupported init value type: {val:?} "
-                    )))
+                    )));
                 }
             };
 
@@ -162,7 +159,7 @@ impl Table {
                 _ => {
                     return Err(RuntimeError::new(format!(
                         "Could not grow table due to unsupported init value type: {init:?} "
-                    )))
+                    )));
                 }
             };
             if !wasm_table_grow(self.handle, delta, init) {
@@ -210,16 +207,16 @@ impl crate::Table {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::v8::table::Table`].
     pub fn as_v8(&self) -> &crate::backend::v8::table::Table {
-        match self.0 {
-            BackendTable::V8(ref s) => s,
+        match &self.0 {
+            BackendTable::V8(s) => s,
             _ => panic!("Not a `v8` table!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::v8::table::Table`].
     pub fn as_v8_mut(&mut self) -> &mut crate::backend::v8::table::Table {
-        match self.0 {
-            BackendTable::V8(ref mut s) => s,
+        match &mut self.0 {
+            BackendTable::V8(s) => s,
             _ => panic!("Not a `v8` table!"),
         }
     }
@@ -237,7 +234,7 @@ impl crate::BackendTable {
     /// Convert a reference to [`self`] into a reference [`crate::backend::v8::table::Table`].
     pub fn as_v8(&self) -> &crate::backend::v8::table::Table {
         match self {
-            Self::V8(ref s) => s,
+            Self::V8(s) => s,
             _ => panic!("Not a `v8` table!"),
         }
     }
@@ -245,7 +242,7 @@ impl crate::BackendTable {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::v8::table::Table`].
     pub fn as_v8_mut(&mut self) -> &mut crate::backend::v8::table::Table {
         match self {
-            Self::V8(ref mut s) => s,
+            Self::V8(s) => s,
             _ => panic!("Not a `v8` table!"),
         }
     }

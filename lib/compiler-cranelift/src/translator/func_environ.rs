@@ -70,7 +70,7 @@ pub trait TargetEnvironment {
 
     /// Get the Cranelift reference type to use for native references.
     ///
-    /// This returns `R64` for 64-bit architectures and `R32` for 32-bit architectures.
+    /// This returns the target pointer type for both `funcref` and `externref`.
     fn reference_type(&self) -> ir::Type {
         reference_type(self.target_config()).expect("expected reference type")
     }
@@ -296,7 +296,7 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Translate a `table.size` WebAssembly instruction.
     fn translate_table_size(&mut self, pos: FuncCursor, index: TableIndex)
-        -> WasmResult<ir::Value>;
+    -> WasmResult<ir::Value>;
 
     /// Translate a `table.grow` WebAssembly instruction.
     fn translate_table_grow(
@@ -370,11 +370,10 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// null sentinel is not a null reference type pointer for your type. If you
     /// override this method, then you should also override
     /// `translate_ref_is_null` as well.
-    fn translate_ref_null(&mut self, pos: FuncCursor, ty: HeapType) -> WasmResult<ir::Value>;
-    // {
-    //     let _ = ty;
-    //     Ok(pos.ins().null(self.reference_type(ty)))
-    // }
+    fn translate_ref_null(&mut self, mut pos: FuncCursor, ty: HeapType) -> WasmResult<ir::Value> {
+        let _ = ty;
+        Ok(pos.ins().iconst(self.reference_type(), 0))
+    }
 
     /// Translate a `ref.is_null` WebAssembly instruction.
     ///
@@ -389,8 +388,10 @@ pub trait FuncEnvironment: TargetEnvironment {
         mut pos: FuncCursor,
         value: ir::Value,
     ) -> WasmResult<ir::Value> {
-        let is_null = pos.ins().is_null(value);
-        Ok(pos.ins().uextend(ir::types::I64, is_null))
+        let is_null = pos
+            .ins()
+            .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0);
+        Ok(pos.ins().uextend(ir::types::I32, is_null))
     }
 
     /// Translate a `ref.func` WebAssembly instruction.

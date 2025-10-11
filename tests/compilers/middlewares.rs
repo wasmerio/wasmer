@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 use std::sync::Arc;
-use wasmer::wasmparser::Operator;
 use wasmer::FunctionEnv;
+use wasmer::wasmparser::Operator;
 use wasmer::{sys::*, *};
 
 #[derive(Debug)]

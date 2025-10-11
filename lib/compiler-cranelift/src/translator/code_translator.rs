@@ -21,7 +21,7 @@
 //! - the `get_global` and `set_global` instructions depend on how the globals are implemented;
 //! - `memory.size` and `memory.grow` are runtime functions;
 //! - `call_indirect` has to translate the function index into the address of where this
-//!    is;
+//!   is;
 //!
 //! That is why `translate_function_body` takes an object having the `WasmRuntime` trait as
 //! argument.
@@ -79,13 +79,14 @@ mod bounds_checks;
 use super::func_environ::{FuncEnvironment, GlobalVariable};
 use super::func_state::{ControlStackFrame, ElseData, FuncTranslationState};
 use super::translation_utils::{block_with_params, f32_translation, f64_translation};
-use crate::{hash_map, HashMap};
+use crate::{HashMap, hash_map};
 use core::convert::TryFrom;
 use cranelift_codegen::ir::condcodes::{FloatCC, IntCC};
 use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{
-    self, AtomicRmwOp, ConstantData, InstBuilder, JumpTableData, MemFlags, Value, ValueLabel,
+    self, AtomicRmwOp, BlockArg, ConstantData, InstBuilder, JumpTableData, MemFlags, Value,
+    ValueLabel,
 };
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
@@ -94,7 +95,7 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{MemArg, Operator};
-use wasmer_compiler::{from_binaryreadererror_wasmerror, wasm_unsupported, ModuleTranslationState};
+use wasmer_compiler::{ModuleTranslationState, from_binaryreadererror_wasmerror, wasm_unsupported};
 use wasmer_types::{
     FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, WasmResult,
 };
@@ -106,7 +107,7 @@ use wasmer_types::{
 /// when we can statically determine that a Wasm access will unconditionally
 /// trap.
 macro_rules! unwrap_or_return_unreachable_state {
-    ($state:ident, $value:expr) => {
+    ($state:ident, $value:expr_2021) => {
         match $value {
             Reachability::Reachable(x) => x,
             Reachability::Unreachable => {
@@ -252,7 +253,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // We do nothing
         }
         Operator::Unreachable => {
-            builder.ins().trap(ir::TrapCode::UnreachableCodeReached);
+            builder.ins().trap(crate::TRAP_UNREACHABLE);
             state.reachable = false;
         }
         /***************************** Control flow blocks **********************************
@@ -1196,7 +1197,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 }
                 Err(wasmer_types::WasmError::Unsupported(_err)) => {
                     // If multiple threads hit a mutex then the function will fail
-                    builder.ins().trap(ir::TrapCode::UnreachableCodeReached);
+                    builder.ins().trap(crate::TRAP_UNREACHABLE);
                     state.reachable = false;
                 }
                 Err(err) => {
@@ -2243,13 +2244,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::GlobalAtomicRmwXor { .. }
         | Operator::GlobalAtomicRmwXchg { .. }
         | Operator::GlobalAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Global atomics not supported yet!"))
+            return Err(wasm_unsupported!("Global atomics not supported yet!"));
         }
         Operator::TableAtomicGet { .. }
         | Operator::TableAtomicSet { .. }
         | Operator::TableAtomicRmwXchg { .. }
         | Operator::TableAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+            return Err(wasm_unsupported!("Table atomics not supported yet!"));
         }
         Operator::StructAtomicGet { .. }
         | Operator::StructAtomicGetS { .. }
@@ -2262,7 +2263,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::StructAtomicRmwXor { .. }
         | Operator::StructAtomicRmwXchg { .. }
         | Operator::StructAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Table atomics not supported yet!"))
+            return Err(wasm_unsupported!("Table atomics not supported yet!"));
         }
         Operator::ArrayAtomicGet { .. }
         | Operator::ArrayAtomicGetS { .. }
@@ -2275,7 +2276,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::ArrayAtomicRmwXor { .. }
         | Operator::ArrayAtomicRmwXchg { .. }
         | Operator::ArrayAtomicRmwCmpxchg { .. } => {
-            return Err(wasm_unsupported!("Array atomics not supported yet!"))
+            return Err(wasm_unsupported!("Array atomics not supported yet!"));
         }
         Operator::ContNew { .. } => todo!(),
         Operator::ContBind { .. } => todo!(),
@@ -2573,7 +2574,7 @@ where
             let adjusted_index =
                 builder
                     .ins()
-                    .uadd_overflow_trap(index, offset, ir::TrapCode::HeapOutOfBounds);
+                    .uadd_overflow_trap(index, offset, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
             bounds_checks::bounds_check_and_compute_addr(
                 builder,
                 environ,
@@ -2641,7 +2642,7 @@ fn align_atomic_addr(
             .ins()
             .band_imm(effective_addr, i64::from(loaded_bytes - 1));
         let f = builder.ins().icmp_imm(IntCC::NotEqual, misalignment, 0);
-        builder.ins().trapnz(f, ir::TrapCode::HeapMisaligned);
+        builder.ins().trapnz(f, crate::TRAP_HEAP_MISALIGNED);
     }
 }
 
@@ -2759,7 +2760,7 @@ fn fold_atomic_mem_addr(
         let r = builder
             .ins()
             .icmp_imm(IntCC::UnsignedGreaterThanOrEqual, a, 0x1_0000_0000i64);
-        builder.ins().trapnz(r, ir::TrapCode::HeapOutOfBounds);
+        builder.ins().trapnz(r, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
         builder.ins().ireduce(I32, a)
     } else {
         linear_mem_addr
@@ -2771,7 +2772,7 @@ fn fold_atomic_mem_addr(
     let f = builder
         .ins()
         .icmp_imm(IntCC::Equal, final_lma_misalignment, i64::from(0));
-    builder.ins().trapz(f, ir::TrapCode::HeapMisaligned);
+    builder.ins().trapz(f, crate::TRAP_HEAP_MISALIGNED);
     final_lma
 }
 
@@ -2795,7 +2796,7 @@ fn translate_atomic_rmw<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_rmw: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2844,7 +2845,7 @@ fn translate_atomic_cas<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_cas: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2893,7 +2894,7 @@ fn translate_atomic_load<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_load: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let w_ty_ok = matches!(widened_ty, I32 | I64);
@@ -2935,7 +2936,7 @@ fn translate_atomic_store<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!(
                 "atomic_store: unsupported access type {:?}",
                 access_ty
-            ))
+            ));
         }
     };
     let d_ty_ok = matches!(data_ty, I32 | I64);
@@ -3259,22 +3260,13 @@ fn is_non_canonical_v128(ty: ir::Type) -> bool {
 /// actually necessary, and if not, the original slice is returned.  Otherwise the cast values
 /// are returned in a slice that belongs to the caller-supplied `SmallVec`.
 fn canonicalise_v128_values<'a>(
-    tmp_canonicalised: &'a mut SmallVec<[ir::Value; 16]>,
+    tmp_canonicalised: &'a mut SmallVec<[ir::BlockArg; 16]>,
     builder: &mut FunctionBuilder,
     values: &'a [ir::Value],
-) -> &'a [ir::Value] {
+) -> &'a [ir::BlockArg] {
     debug_assert!(tmp_canonicalised.is_empty());
-    // First figure out if any of the parameters need to be cast.  Mostly they don't need to be.
-    let any_non_canonical = values
-        .iter()
-        .any(|v| is_non_canonical_v128(builder.func.dfg.value_type(*v)));
-    // Hopefully we take this exit most of the time, hence doing no heap allocation.
-    if !any_non_canonical {
-        return values;
-    }
-    // Otherwise we'll have to cast, and push the resulting `Value`s into `canonicalised`.
     for v in values {
-        tmp_canonicalised.push(if is_non_canonical_v128(builder.func.dfg.value_type(*v)) {
+        let value = if is_non_canonical_v128(builder.func.dfg.value_type(*v)) {
             builder.ins().bitcast(
                 I8X16,
                 MemFlags::new().with_endianness(ir::Endianness::Little),
@@ -3282,7 +3274,8 @@ fn canonicalise_v128_values<'a>(
             )
         } else {
             *v
-        });
+        };
+        tmp_canonicalised.push(BlockArg::from(value));
     }
     tmp_canonicalised.as_slice()
 }
@@ -3295,7 +3288,7 @@ fn canonicalise_then_jump(
     destination: ir::Block,
     params: &[ir::Value],
 ) -> ir::Inst {
-    let mut tmp_canonicalised = SmallVec::<[ir::Value; 16]>::new();
+    let mut tmp_canonicalised = SmallVec::<[_; 16]>::new();
     let canonicalised = canonicalise_v128_values(&mut tmp_canonicalised, builder, params);
     builder.ins().jump(destination, canonicalised)
 }
@@ -3309,10 +3302,10 @@ fn canonicalise_brif(
     block_else: ir::Block,
     params_else: &[ir::Value],
 ) -> ir::Inst {
-    let mut tmp_canonicalised_then = SmallVec::<[ir::Value; 16]>::new();
+    let mut tmp_canonicalised_then = SmallVec::<[_; 16]>::new();
     let canonicalised_then =
         canonicalise_v128_values(&mut tmp_canonicalised_then, builder, params_then);
-    let mut tmp_canonicalised_else = SmallVec::<[ir::Value; 16]>::new();
+    let mut tmp_canonicalised_else = SmallVec::<[_; 16]>::new();
     let canonicalised_else =
         canonicalise_v128_values(&mut tmp_canonicalised_else, builder, params_else);
     builder.ins().brif(

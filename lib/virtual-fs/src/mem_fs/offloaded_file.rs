@@ -71,8 +71,7 @@ impl OffloadBackingStoreState {
                     return Err(io::ErrorKind::UnexpectedEof.into());
                 }
             };
-            self.mmap_offload = OwnedBuffer::from_file(mmap_file)
-                .map_err(|err| io::Error::new(io::ErrorKind::Other, err))?;
+            self.mmap_offload = OwnedBuffer::from_file(mmap_file).map_err(io::Error::other)?;
             if end > self.mmap_offload.len() as u64 {
                 tracing::trace!(
                     "mmap buffer out of bounds {} vs {} for {:?}",

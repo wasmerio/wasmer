@@ -18,8 +18,8 @@
 //! Ready?
 
 use wasmer::{
-    imports, wat2wasm, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
-    Store, Type, TypedFunction, Value,
+    Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, Store, Type,
+    TypedFunction, Value, imports, wat2wasm,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

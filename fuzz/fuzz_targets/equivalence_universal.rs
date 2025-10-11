@@ -4,7 +4,7 @@
 use anyhow::Result;
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, CompilerConfig, EngineBuilder, Instance, Module, Store, Val};
+use wasmer::{CompilerConfig, EngineBuilder, Instance, Module, Store, Val, imports};
 #[cfg(feature = "cranelift")]
 use wasmer_compiler_cranelift::Cranelift;
 #[cfg(feature = "llvm")]

@@ -40,13 +40,7 @@ impl JournalEffector {
         .unwrap_or_else(|err| Err(err.to_string()))
         .map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to add route (cidr={:?}, via_router={}, preferred_until={:?}, expires_at={:?}) - {}",
-                cidr,
-                via_router,
-                preferred_until,
-                expires_at,
-                err
-            )
+                "journal restore error: failed to add route (cidr={cidr:?}, via_router={via_router}, preferred_until={preferred_until:?}, expires_at={expires_at:?}) - {err}")
         })?;
         Ok(())
     }

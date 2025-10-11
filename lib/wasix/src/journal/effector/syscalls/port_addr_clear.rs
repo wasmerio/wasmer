@@ -10,10 +10,7 @@ impl JournalEffector {
             .map(|r| r.map_err(|err| err.to_string()))
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
-                anyhow::format_err!(
-                    "journal restore error: failed to clear port addresses - {}",
-                    err
-                )
+                anyhow::format_err!("journal restore error: failed to clear port addresses - {err}")
             })?;
         Ok(())
     }

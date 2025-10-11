@@ -1,7 +1,7 @@
 use anyhow::Result;
 use wasmer::{
-    imports, wat2wasm, AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Memory,
-    MemoryView, Module, Store, WasmPtr,
+    AsStoreRef, Function, FunctionEnv, FunctionEnvMut, Instance, Memory, MemoryView, Module, Store,
+    WasmPtr, imports, wat2wasm,
 };
 
 // Utils

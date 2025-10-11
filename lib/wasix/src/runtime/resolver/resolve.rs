@@ -11,9 +11,9 @@ use semver::Version;
 use wasmer_config::package::{PackageId, PackageSource};
 
 use crate::runtime::resolver::{
-    outputs::{Edge, Node},
     DependencyGraph, ItemLocation, PackageInfo, PackageSummary, QueryError, Resolution,
     ResolvedPackage, Source,
+    outputs::{Edge, Node},
 };
 
 use super::ResolvedFileSystemMapping;
@@ -385,8 +385,8 @@ mod tests {
     use wasmer_config::package::NamedPackageIdent;
 
     use crate::runtime::resolver::{
-        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
         Dependency, InMemorySource, MultiSource,
+        inputs::{DistributionInfo, FileSystemMapping, PackageInfo},
     };
 
     use super::*;

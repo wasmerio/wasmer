@@ -17,13 +17,15 @@ pub fn proc_signals_sizes_get<M: MemorySize>(
 
     let signal_count = signal_count.deref(&memory);
 
-    let count_val: M::Offset = wasi_try_ok!(state
-        .signals
-        .lock()
-        .unwrap()
-        .len()
-        .try_into()
-        .map_err(|_| Errno::Overflow));
+    let count_val: M::Offset = wasi_try_ok!(
+        state
+            .signals
+            .lock()
+            .unwrap()
+            .len()
+            .try_into()
+            .map_err(|_| Errno::Overflow)
+    );
     wasi_try_mem_ok!(signal_count.write(count_val));
 
     Span::current().record("signal_count", u64::try_from(count_val).unwrap());

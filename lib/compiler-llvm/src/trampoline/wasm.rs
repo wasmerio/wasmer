@@ -1,11 +1,12 @@
 use crate::{
-    abi::{get_abi, Abi, G0M0FunctionKind},
+    abi::{Abi, G0M0FunctionKind, get_abi},
     config::{CompiledKind, LLVM},
     error::{err, err_nt},
-    object_file::{load_object_file, CompiledFunction},
-    translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics},
+    object_file::{CompiledFunction, load_object_file},
+    translator::intrinsics::{Intrinsics, type_to_llvm, type_to_llvm_ptr},
 };
 use inkwell::{
+    AddressSpace, DLLStorageClass,
     attributes::{Attribute, AttributeLoc},
     context::Context,
     module::{Linkage, Module},
@@ -13,7 +14,6 @@ use inkwell::{
     targets::{FileType, TargetMachine},
     types::FunctionType,
     values::{BasicMetadataValueEnum, FunctionValue},
-    AddressSpace, DLLStorageClass,
 };
 use std::{cmp, convert::TryInto};
 use target_lexicon::BinaryFormat;
@@ -50,7 +50,7 @@ impl FuncTrampoline {
                 _ => {
                     return Err(CompileError::UnsupportedTarget(format!(
                         "Unsupported binary format: {binary_fmt:?}",
-                    )))
+                    )));
                 }
             },
             binary_fmt,
@@ -380,7 +380,7 @@ impl FuncTrampoline {
                 _ => {
                     return Err(CompileError::Codegen(
                         "trampoline function unimplemented".to_string(),
-                    ))
+                    ));
                 }
             };
 
@@ -431,10 +431,8 @@ impl FuncTrampoline {
                 let global_ptr_ptr =
                     err!(builder.build_bit_cast(global_ptr_ptr, intrinsics.ptr_ty, ""))
                         .into_pointer_value();
-                let global_ptr = err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, ""))
-                    .into_pointer_value();
 
-                global_ptr
+                err!(builder.build_load(intrinsics.ptr_ty, global_ptr_ptr, "")).into_pointer_value()
             };
 
             let global_ptr = err!(builder.build_bit_cast(
@@ -483,11 +481,9 @@ impl FuncTrampoline {
                 let memory_definition_ptr_ptr =
                     err!(builder.build_bit_cast(memory_definition_ptr_ptr, intrinsics.ptr_ty, "",))
                         .into_pointer_value();
-                let memory_definition_ptr =
-                    err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
-                        .into_pointer_value();
 
-                memory_definition_ptr
+                err!(builder.build_load(intrinsics.ptr_ty, memory_definition_ptr_ptr, ""))
+                    .into_pointer_value()
             };
             let memory_definition_ptr =
                 err!(builder.build_bit_cast(memory_definition_ptr, intrinsics.ptr_ty, "",))
@@ -503,10 +499,7 @@ impl FuncTrampoline {
             let base_ptr = if let MemoryStyle::Dynamic { .. } = memory_style {
                 base_ptr
             } else {
-                let base_ptr =
-                    err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value();
-
-                base_ptr
+                err!(builder.build_load(intrinsics.ptr_ty, base_ptr, "")).into_pointer_value()
             };
 
             base_ptr.set_name("trmpl_m0_base_ptr");
@@ -609,12 +602,14 @@ impl FuncTrampoline {
                 ""
             ))
             .into_pointer_value();
-            err!(builder.build_store(
-                ptr,
-                trampoline_func
-                    .get_nth_param(i as u32 + first_user_param)
-                    .unwrap(),
-            ));
+            err!(
+                builder.build_store(
+                    ptr,
+                    trampoline_func
+                        .get_nth_param(i as u32 + first_user_param)
+                        .unwrap(),
+                )
+            );
         }
 
         let callee_ptr_ty = intrinsics.void_ty.fn_type(

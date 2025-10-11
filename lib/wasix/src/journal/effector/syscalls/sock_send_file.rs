@@ -30,13 +30,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         sock_send_file_internal(ctx, socket_fd, file_fd, offset, count)?.map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to send_file on socket (sock={}, in_fd={}, offset={}, count={}) - {}",
-                socket_fd,
-                file_fd,
-                offset,
-                count,
-                err
-            )
+                "journal restore error: failed to send_file on socket (sock={socket_fd}, in_fd={file_fd}, offset={offset}, count={count}) - {err}")
         })?;
         Ok(())
     }

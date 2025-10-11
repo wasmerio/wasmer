@@ -3,8 +3,8 @@ use wasmer_types::{RawValue, Type};
 
 use crate::store::AsStoreRef;
 use crate::{
-    vm::{VMExternRef, VMFuncRef},
     ExternRef, Function, TypedFunction,
+    vm::{VMExternRef, VMFuncRef},
 };
 
 use std::error::Error;
@@ -52,7 +52,7 @@ impl NativeWasmTypeInto for i32 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.i32
+        unsafe { raw.i32 }
     }
 }
 
@@ -74,7 +74,7 @@ impl NativeWasmTypeInto for u32 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.i32 as _
+        unsafe { raw.i32 as _ }
     }
 }
 
@@ -96,7 +96,7 @@ impl NativeWasmTypeInto for i64 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.i64
+        unsafe { raw.i64 }
     }
 }
 
@@ -118,7 +118,7 @@ impl NativeWasmTypeInto for u64 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.i64 as _
+        unsafe { raw.i64 as _ }
     }
 }
 
@@ -140,7 +140,7 @@ impl NativeWasmTypeInto for f32 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.f32
+        unsafe { raw.f32 }
     }
 }
 
@@ -162,7 +162,7 @@ impl NativeWasmTypeInto for f64 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.f64
+        unsafe { raw.f64 }
     }
 }
 
@@ -184,7 +184,7 @@ impl NativeWasmTypeInto for u128 {
 
     #[inline]
     unsafe fn from_raw(_store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        raw.u128
+        unsafe { raw.u128 }
     }
 }
 
@@ -198,36 +198,36 @@ impl NativeWasmTypeInto for Option<ExternRef> {
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
-            }
+            },
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
+            crate::BackendStore::Wamr(_) => unsafe {
                 crate::backend::wamr::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Wamr)
-            }
+            },
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
+            crate::BackendStore::Wasmi(_) => unsafe {
                 crate::backend::wasmi::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Wasmi)
-            }
+            },
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => {
+            crate::BackendStore::V8(_) => unsafe {
                 crate::backend::v8::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::V8)
-            }
+            },
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => {
+            crate::BackendStore::Js(_) => unsafe {
                 crate::backend::js::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Js)
-            }
+            },
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
+            crate::BackendStore::Jsc(_) => unsafe {
                 crate::backend::jsc::vm::VMExternRef::from_raw(RawValue { externref: abi })
                     .map(VMExternRef::Jsc)
-            }
+            },
         }
-        .map(|e| ExternRef::from_vm_externref(store, e))
+        .map(|e| unsafe { ExternRef::from_vm_externref(store, e) })
     }
 
     #[inline]
@@ -244,31 +244,31 @@ impl NativeWasmTypeInto for Option<ExternRef> {
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
-            }
+            },
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
+            crate::BackendStore::Wamr(_) => unsafe {
                 crate::backend::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
-            }
+            },
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
+            crate::BackendStore::Wasmi(_) => unsafe {
                 crate::backend::wasmi::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wasmi)
-            }
+            },
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => {
+            crate::BackendStore::V8(_) => unsafe {
                 crate::backend::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
-            }
+            },
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => {
+            crate::BackendStore::Js(_) => unsafe {
                 crate::backend::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
-            }
+            },
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
+            crate::BackendStore::Jsc(_) => unsafe {
                 crate::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
-            }
+            },
         }
-        .map(|e| ExternRef::from_vm_externref(store, e))
+        .map(|e| unsafe { ExternRef::from_vm_externref(store, e) })
     }
 }
 
@@ -292,36 +292,36 @@ impl NativeWasmTypeInto for Option<Function> {
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => {
+            crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
-            }
+            },
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
+            crate::BackendStore::Wamr(_) => unsafe {
                 crate::backend::wamr::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Wamr)
-            }
+            },
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
+            crate::BackendStore::Wasmi(_) => unsafe {
                 crate::backend::wasmi::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Wasmi)
-            }
+            },
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => {
+            crate::BackendStore::V8(_) => unsafe {
                 crate::backend::v8::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::V8)
-            }
+            },
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => {
+            crate::BackendStore::Js(_) => unsafe {
                 crate::backend::js::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Js)
-            }
+            },
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
+            crate::BackendStore::Jsc(_) => unsafe {
                 crate::backend::jsc::vm::VMFuncRef::from_raw(RawValue { funcref: abi })
                     .map(VMFuncRef::Jsc)
-            }
+            },
         }
-        .map(|f| Function::from_vm_funcref(store, f))
+        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
     }
 
     #[inline]
@@ -340,29 +340,31 @@ impl NativeWasmTypeInto for Option<Function> {
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
         match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys),
+            crate::BackendStore::Sys(_) => unsafe {
+                wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys)
+            },
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => {
+            crate::BackendStore::Wamr(_) => unsafe {
                 crate::backend::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
-            }
+            },
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => {
+            crate::BackendStore::Wasmi(_) => unsafe {
                 crate::backend::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
-            }
+            },
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => {
+            crate::BackendStore::V8(_) => unsafe {
                 crate::backend::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8)
-            }
+            },
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => {
+            crate::BackendStore::Js(_) => unsafe {
                 crate::backend::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js)
-            }
+            },
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => {
+            crate::BackendStore::Jsc(_) => unsafe {
                 crate::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc)
-            }
+            },
         }
-        .map(|f| Function::from_vm_funcref(store, f))
+        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
     }
 }
 
@@ -477,7 +479,7 @@ unsafe impl FromToNativeWasmType for Option<ExternRef> {
         n
     }
     fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.as_ref().map_or(true, |e| e.is_from_store(store))
+        self.as_ref().is_none_or(|e| e.is_from_store(store))
     }
 }
 
@@ -491,7 +493,7 @@ unsafe impl FromToNativeWasmType for Option<Function> {
         n
     }
     fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.as_ref().map_or(true, |f| f.is_from_store(store))
+        self.as_ref().is_none_or(|f| f.is_from_store(store))
     }
 }
 
@@ -760,14 +762,18 @@ macro_rules! impl_wasmtypelist {
                 // Build the tuple.
                 (
                     $(
-                        FromToNativeWasmType::from_native(NativeWasmTypeInto::from_raw(_store, $x))
+                        {
+                            let native = unsafe { NativeWasmTypeInto::from_raw(_store, $x) };
+                            FromToNativeWasmType::from_native(native)
+                        }
                     ),*
                 )
             }
 
             #[allow(clippy::missing_safety_doc)]
             unsafe fn from_slice(store: &mut impl AsStoreMut, slice: &[RawValue]) -> Result<Self, TryFromSliceError> {
-                Ok(Self::from_array(store, slice.try_into()?))
+                let array = slice.try_into()?;
+                Ok(unsafe { Self::from_array(store, array) })
             }
 
             #[allow(unused_mut)]
@@ -800,7 +806,10 @@ macro_rules! impl_wasmtypelist {
 
                 (
                     $(
-                        FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(_store, $x))
+                        {
+                            let native = unsafe { NativeWasmTypeInto::from_abi(_store, $x) };
+                            FromToNativeWasmType::from_native(native)
+                        }
                     ),*
                 )
             }
@@ -826,7 +835,9 @@ macro_rules! impl_wasmtypelist {
 
                 let mut _n = 0;
                 $(
-                    *_ptr.add(_n).cast() = $x;
+                    unsafe {
+                        *_ptr.add(_n).cast() = $x;
+                    }
                     _n += 1;
                 )*
             }

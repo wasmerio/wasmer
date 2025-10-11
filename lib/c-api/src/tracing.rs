@@ -31,11 +31,11 @@
 use std::ffi::c_int;
 
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 const WHITELISTED_LOG_TARGETS: &[&str] = &["wasmer", "wasmer_wasix", "virtual_fs"];
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_setup_tracing(verbosity_level: c_int, use_color: c_int) {
     let fmt_layer = fmt::layer()
         .with_target(true)

@@ -7,18 +7,18 @@ use tracing::Instrument;
 use virtual_fs::{ArcBoxFile, FileSystem, TmpFileSystem, VirtualFile};
 use wasmer::{Engine, Module};
 use wasmer_types::ModuleHash;
-use webc::metadata::{annotations::Wasi, Command};
+use webc::metadata::{Command, annotations::Wasi};
 
 use crate::{
+    Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
-    runners::{wasi_common::CommonWasiOptions, MappedDirectory, MountedDirectory},
+    runners::{MappedDirectory, MountedDirectory, wasi_common::CommonWasiOptions},
     runtime::task_manager::VirtualTaskManagerExt,
-    Runtime, WasiEnvBuilder, WasiError, WasiRuntimeError,
 };
 
-use super::wasi_common::{MappedCommand, MAPPED_CURRENT_DIR_DEFAULT_PATH};
+use super::wasi_common::{MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand};
 
 #[derive(Debug, Default, Clone)]
 pub struct WasiRunner {
@@ -197,7 +197,7 @@ impl WasiRunner {
 
     #[cfg(feature = "journal")]
     pub fn has_snapshot_trigger(&self, on: SnapshotTrigger) -> bool {
-        self.wasi.snapshot_on.iter().any(|t| *t == on)
+        self.wasi.snapshot_on.contains(&on)
     }
 
     #[cfg(feature = "journal")]
@@ -380,8 +380,8 @@ impl WasiRunner {
             if let Some(period) = self.wasi.snapshot_interval {
                 if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                            "If you specify a snapshot interval then you must also specify a writable journal file"
-                        ));
+                        "If you specify a snapshot interval then you must also specify a writable journal file"
+                    ));
                 }
                 builder.with_snapshot_interval(period);
             }
@@ -411,7 +411,7 @@ impl WasiRunner {
                     weak.upgrade()
                         .map(|err| wasi_runtime_error_to_owned(&err))
                         .unwrap_or_else(|| {
-                            WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("{}", msg)))
+                            WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("{msg}")))
                         })
                 })
             })
@@ -481,8 +481,8 @@ impl WasiRunner {
             if let Some(period) = self.wasi.snapshot_interval {
                 if self.wasi.writable_journals.is_empty() {
                     return Err(anyhow::format_err!(
-                            "If you specify a snapshot interval then you must also specify a journal file"
-                        ));
+                        "If you specify a snapshot interval then you must also specify a journal file"
+                    ));
                 }
                 builder.with_snapshot_interval(period);
             }
@@ -521,9 +521,7 @@ impl WasiRunner {
                             weak.upgrade()
                                 .map(|err| wasi_runtime_error_to_owned(&err))
                                 .unwrap_or_else(|| {
-                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!(
-                                        "{}", msg
-                                    )))
+                                    WasiRuntimeError::Anyhow(Arc::new(anyhow::format_err!("{msg}")))
                                 })
                         })
                     })

@@ -7,7 +7,7 @@ use std::{
     hash::{Hash, Hasher},
     io,
     path::{Path, PathBuf},
-    sync::{atomic::AtomicU32, Arc, Mutex},
+    sync::{Arc, Mutex, atomic::AtomicU32},
     time::Duration,
 };
 
@@ -19,19 +19,19 @@ use indicatif::{ProgressBar, ProgressStyle};
 use shared_buffer::OwnedBuffer;
 use tokio::runtime::Handle;
 use virtual_fs::{
-    mem_fs::{self, OffloadBackingStore},
     AsyncReadExt, AsyncSeekExt, AsyncWriteExt, FileOpener, FileSystem, FsError,
+    mem_fs::{self, OffloadBackingStore},
 };
 use wasmer_wasix::{
+    VIRTUAL_ROOT_FD,
     fs::WasiFdSeed,
     journal::{
-        copy_journal, ArchivedJournalEntry, ArchivedJournalEntryFileDescriptorWriteV1, Journal,
-        JournalEntry, JournalEntryFileDescriptorWriteV1, LogFileJournal, LogWriteResult,
-        ReadableJournal, WritableJournal,
+        ArchivedJournalEntry, ArchivedJournalEntryFileDescriptorWriteV1, Journal, JournalEntry,
+        JournalEntryFileDescriptorWriteV1, LogFileJournal, LogWriteResult, ReadableJournal,
+        WritableJournal, copy_journal,
     },
     types::Oflags,
     wasmer_wasix_types::wasi,
-    VIRTUAL_ROOT_FD,
 };
 
 #[derive(Debug)]

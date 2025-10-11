@@ -4,7 +4,7 @@ use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use std::sync::Arc;
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::wasmparser::Operator;
-use wasmer::{imports, CompilerConfig, Instance, Module, Store};
+use wasmer::{CompilerConfig, Instance, Module, Store, imports};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::Metering;
 

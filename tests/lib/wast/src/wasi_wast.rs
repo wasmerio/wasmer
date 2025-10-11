@@ -1,25 +1,25 @@
 use std::{
-    fs::{read_dir, File, OpenOptions, ReadDir},
+    fs::{File, OpenOptions, ReadDir, read_dir},
     future::Future,
     io::{self, Read, SeekFrom},
     path::{Path, PathBuf},
     pin::Pin,
-    sync::{mpsc, Arc, Mutex},
+    sync::{Arc, Mutex, mpsc},
     task::{Context, Poll},
 };
 
 use tokio::runtime::Handle;
 use virtual_fs::{
-    host_fs, mem_fs, passthru_fs, tmp_fs, union_fs, AsyncRead, AsyncSeek, AsyncWrite,
-    AsyncWriteExt, FileSystem, Pipe, ReadBuf, RootFileSystemBuilder,
+    AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, FileSystem, Pipe, ReadBuf,
+    RootFileSystemBuilder, host_fs, mem_fs, passthru_fs, tmp_fs, union_fs,
 };
 use wasmer::{FunctionEnv, Imports, Module, Store};
 use wasmer_types::ModuleHash;
-use wasmer_wasix::runtime::task_manager::{tokio::TokioTaskManager, InlineWaker};
+use wasmer_wasix::runtime::task_manager::{InlineWaker, tokio::TokioTaskManager};
 use wasmer_wasix::types::wasi::{Filesize, Timestamp};
 use wasmer_wasix::{
-    generate_import_object_from_env, get_wasi_version, FsError, PluggableRuntime, VirtualFile,
-    WasiEnv, WasiEnvBuilder, WasiVersion,
+    FsError, PluggableRuntime, VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
+    generate_import_object_from_env, get_wasi_version,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -280,7 +280,7 @@ impl<'a> WasiTest<'a> {
                         Box::new(union)
                     }
                     _ => {
-                        panic!("unexpected filesystem type {:?}", other);
+                        panic!("unexpected filesystem type {other:?}");
                     }
                 };
 
@@ -686,16 +686,10 @@ impl VirtualFile for OutputCapturerer {
 
 impl AsyncSeek for OutputCapturerer {
     fn start_seek(self: Pin<&mut Self>, _position: SeekFrom) -> io::Result<()> {
-        Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not seek logging wrapper",
-        ))
+        Err(io::Error::other("can not seek logging wrapper"))
     }
     fn poll_complete(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<u64>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not seek logging wrapper",
-        )))
+        Poll::Ready(Err(io::Error::other("can not seek logging wrapper")))
     }
 }
 
@@ -726,10 +720,7 @@ impl AsyncRead for OutputCapturerer {
         _cx: &mut Context<'_>,
         _buf: &mut ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::Error::new(
-            io::ErrorKind::Other,
-            "can not read from logging wrapper",
-        )))
+        Poll::Ready(Err(io::Error::other("can not read from logging wrapper")))
     }
 }
 

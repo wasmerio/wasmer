@@ -30,7 +30,7 @@ impl<'a> JournalSyscallPlayer<'a, '_> {
         if let Some(ethereal_events) = differ_ethereal {
             for next in ethereal_events.drain(..) {
                 tracing::trace!("Replay(ether) snapshot event - {next:?}");
-                if let Err(err) = self.play_event(next, None) {
+                if let Err(err) = unsafe { self.play_event(next, None) } {
                     tracing::warn!("failed to replay event - {}", err);
                     return Err(err);
                 }

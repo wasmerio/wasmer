@@ -1,7 +1,7 @@
 [package]
 name = "wai-bindgen-wasmer"
 description = "Generate WAI glue for a Rust Wasmer host"
-version = "0.601.0-rc.5"
+version = "0.601.0"
 categories = ["wasm", "os"]
 keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
 readme = "README.md"
@@ -14,13 +14,13 @@ rust-version.workspace = true
 
 [dependencies]
 anyhow.workspace = true
-async-trait = { version = "0.1.50", optional = true }
+async-trait = { workspace = true, optional = true }
 bitflags = "1.2"
 once_cell.workspace = true
 thiserror.workspace = true
 tracing-lib = { version = "0.1.26", optional = true, package = "tracing" }
 wai-bindgen-wasmer-impl = { version = "0.2.2" }
-wasmer = { version = "=6.1.0-rc.5", path = "../api", default-features = false }
+wasmer = { version = "=6.1.0", path = "../api", default-features = false }
 
 [features]
 # Enables generated code to emit events via the `tracing` crate whenever wasm is

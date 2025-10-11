@@ -1,3 +1,8 @@
+#![allow(
+    clippy::result_large_err,
+    reason = "WasmerPackageError is large, but not often used"
+)]
+
 use bytes::{Buf, Bytes};
 use std::{
     fs::File,
@@ -60,6 +65,11 @@ pub fn from_disk(path: impl AsRef<Path>) -> Result<Container, WasmerPackageError
         }
         Err(e) => Err(ContainerError::Detect(e).into()),
     }
+}
+
+/// Check if the data looks like a webc.
+pub fn is_container(bytes: &[u8]) -> bool {
+    is_tarball(std::io::Cursor::new(bytes)) || webc::detect(bytes).is_ok()
 }
 
 pub fn from_bytes(bytes: impl Into<Bytes>) -> Result<Container, WasmerPackageError> {

@@ -1,7 +1,7 @@
 #![cfg_attr(not(feature = "filesystem"), allow(unused))]
 use crate::cache::Cache;
 use crate::hash::Hash;
-use std::fs::{create_dir_all, File};
+use std::fs::{File, create_dir_all};
 use std::io::{self, Write};
 use std::path::PathBuf;
 use wasmer::{AsEngineRef, DeserializeError, Module, SerializeError};
@@ -68,10 +68,10 @@ impl FileSystemCache {
             // Create the directory and any parent directories if they don't yet exist.
             let res = create_dir_all(&path);
             if res.is_err() {
-                Err(io::Error::new(
-                    io::ErrorKind::Other,
-                    format!("failed to create cache directory: {}", path.display()),
-                ))
+                Err(io::Error::other(format!(
+                    "failed to create cache directory: {}",
+                    path.display()
+                )))
             } else {
                 Ok(Self { path, ext: None })
             }
@@ -103,7 +103,7 @@ impl Cache for FileSystemCache {
             key.to_string()
         };
         let path = self.path.join(filename);
-        let ret = Module::deserialize_from_file(engine, path.clone());
+        let ret = unsafe { Module::deserialize_from_file(engine, path.clone()) };
         if ret.is_err() {
             // If an error occurs while deserializing then we can not trust it anymore
             // so delete the cache file

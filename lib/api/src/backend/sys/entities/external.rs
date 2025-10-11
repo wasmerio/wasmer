@@ -48,7 +48,7 @@ impl ExternRef {
         vm_externref: VMExternRef,
     ) -> Self {
         Self {
-            handle: StoreHandle::from_internal(store.objects_mut().id(), vm_externref.0),
+            handle: unsafe { StoreHandle::from_internal(store.objects_mut().id(), vm_externref.0) },
         }
     }
 

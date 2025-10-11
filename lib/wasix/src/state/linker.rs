@@ -265,27 +265,29 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Barrier, Mutex, MutexGuard, RwLock, RwLockWriteGuard, TryLockError,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
 use bus::Bus;
 use derive_more::Debug;
+use shared_buffer::OwnedBuffer;
 use tracing::trace;
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
 use virtual_mio::InlineWaker;
 use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, ExternType, Function, FunctionEnv,
-    FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
+    AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
+    FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
     InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
-    Value, WasmTypeList, WASM_PAGE_SIZE,
+    Value, WASM_PAGE_SIZE, WasmTypeList,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, Runtime, SpawnError, WasiEnv, WasiError,
-    WasiFs, WasiFunctionEnv, WasiModuleTreeHandles, WasiProcess, WasiThreadId,
+    Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles,
+    WasiProcess, WasiThreadId, fs::WasiFsRoot, import_object_for_all_wasi_versions,
+    runtime::module_cache::HashedModuleData,
 };
 
 use super::{WasiModuleInstanceHandles, WasiState};
@@ -443,9 +445,7 @@ impl MemoryAllocator {
 
         trace!(
             page_count = to_grow,
-            size,
-            base_ptr,
-            "Allocated new memory page(s) to accommodate requested memory"
+            size, base_ptr, "Allocated new memory page(s) to accommodate requested memory"
         );
 
         Ok(base_ptr)
@@ -815,6 +815,8 @@ struct InstanceGroupState {
 
 // There is only one LinkerState for all instance groups
 struct LinkerState {
+    engine: Engine,
+
     main_module: Module,
     main_module_dylink_info: DylinkInfo,
 
@@ -945,6 +947,7 @@ impl Linker {
     /// running, and a Linker instance is returned which can then be used for the
     /// loading/linking of further side modules.
     pub fn new(
+        engine: Engine,
         main_module: &Module,
         store: &mut StoreMut<'_>,
         memory: Option<Memory>,
@@ -1080,6 +1083,7 @@ impl Linker {
         };
 
         let mut linker_state = LinkerState {
+            engine,
             main_module: main_module.clone(),
             main_module_dylink_info: dylink_section,
             side_modules: BTreeMap::new(),
@@ -1729,10 +1733,10 @@ impl Linker {
                     } => {
                         return Ok(ResolvedExport::Function {
                             func_ptr: *addr as u64,
-                        })
+                        });
                     }
                     SymbolResolutionResult::Memory(addr) => {
-                        return Ok(ResolvedExport::Global { data_ptr: *addr })
+                        return Ok(ResolvedExport::Global { data_ptr: *addr });
                     }
                     SymbolResolutionResult::Tls {
                         resolved_from,
@@ -2284,7 +2288,7 @@ impl LinkerState {
         }
 
         // Locate and load the module bytes
-        let (module_bytes, paths) = match module_spec {
+        let (module_data, paths) = match module_spec {
             DlModuleSpec::FileSystem {
                 module_spec,
                 ld_library_path,
@@ -2307,12 +2311,15 @@ impl LinkerState {
                     return Ok(INVALID_MODULE_HANDLE);
                 }
 
-                (Cow::Owned(bytes), Some((full_path, ld_library_path)))
+                (
+                    HashedModuleData::new(bytes),
+                    Some((full_path, ld_library_path)),
+                )
             }
-            DlModuleSpec::Memory { bytes, .. } => (Cow::Borrowed(bytes), None),
+            DlModuleSpec::Memory { bytes, .. } => (HashedModuleData::new(bytes), None),
         };
 
-        let module = runtime.load_module_sync(module_bytes.as_ref())?;
+        let module = runtime.load_hashed_module_sync(module_data, Some(&self.engine))?;
 
         let dylink_info = parse_dylink0_section(&module)?;
 
@@ -2543,8 +2550,7 @@ impl InstanceGroupState {
 
         trace!(
             memory_base,
-            table_base,
-            "Allocated memory and table for module"
+            table_base, "Allocated memory and table for module"
         );
 
         let mut imports = import_object_for_all_wasi_versions(&pending_module.module, store, env);
@@ -2778,13 +2784,9 @@ impl InstanceGroupState {
             "Applying resolved function"
         );
 
-        let instance = &self
-            .side_instances
-            .get(&resolved_from)
-            .unwrap_or_else(|| {
-                panic!("Internal error: module {resolved_from:?} not loaded by this group")
-            })
-            .instance;
+        let instance = &self.try_instance(resolved_from).unwrap_or_else(|| {
+            panic!("Internal error: module {resolved_from:?} not loaded by this group")
+        });
 
         let func = instance.exports.get_function(name).unwrap_or_else(|e| {
             panic!("Internal error: failed to resolve exported function {name}: {e:?}")
@@ -2807,7 +2809,9 @@ impl InstanceGroupState {
             .allocate_function_table(store, size, 0)
             .map_err(LinkError::TableAllocationError)? as u32;
         if allocated_index != index {
-            panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
+            panic!(
+                "Internal error: allocated index {allocated_index} does not match expected index {index}"
+            );
         }
         Ok(())
     }
@@ -3664,8 +3668,7 @@ impl InstanceGroupState {
                             Ok(guard) => {
                                 trace!(
                                     ?requesting_module,
-                                    name,
-                                    "Locked linker state successfully"
+                                    name, "Locked linker state successfully"
                                 );
                                 Some(guard)
                             }
@@ -3703,8 +3706,7 @@ impl InstanceGroupState {
                             }) => {
                                 trace!(
                                     ?requesting_module,
-                                    name,
-                                    "Function was already resolved in the linker"
+                                    name, "Function was already resolved in the linker"
                                 );
 
                                 if ty != *resolved_ty {
@@ -3889,7 +3891,7 @@ impl InstanceGroupState {
                         unresolved.import_module().to_string(),
                         key.import_name.clone(),
                         Box::new(ResolveError::MissingExport),
-                    ))
+                    ));
                 }
 
                 // Missing weak symbols get resolved to a null address
@@ -3907,7 +3909,7 @@ impl InstanceGroupState {
                         "GOT.mem".to_string(),
                         key.import_name.clone(),
                         Box::new(e),
-                    ))
+                    ));
                 }
             }
         }
@@ -3922,11 +3924,11 @@ async fn locate_module(
     runtime_path: &[impl AsRef<str>],
     calling_module_path: Option<impl AsRef<Path>>,
     fs: &WasiFs,
-) -> Result<(PathBuf, Vec<u8>), LinkError> {
+) -> Result<(PathBuf, OwnedBuffer), LinkError> {
     async fn try_load(
         fs: &WasiFsRoot,
         path: impl AsRef<Path>,
-    ) -> Result<(PathBuf, Vec<u8>), FsError> {
+    ) -> Result<(PathBuf, OwnedBuffer), FsError> {
         let mut file = match fs.new_open_options().read(true).open(path.as_ref()) {
             Ok(f) => f,
             // Fallback for cases where the module thinks it's running on unix,
@@ -3938,8 +3940,14 @@ async fn locate_module(
             Err(e) => return Err(e),
         };
 
-        let mut buf = Vec::new();
-        file.read_to_end(&mut buf).await?;
+        let buf = if let Some(buf) = file.as_owned_buffer() {
+            buf
+        } else {
+            let mut buf = Vec::new();
+            file.read_to_end(&mut buf).await?;
+            OwnedBuffer::from(buf)
+        };
+
         Ok((path.as_ref().to_owned(), buf))
     }
 

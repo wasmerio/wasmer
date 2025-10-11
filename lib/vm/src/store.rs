@@ -115,7 +115,7 @@ impl StoreObjects {
     }
 
     /// Return an immutable iterator over all globals
-    pub fn iter_globals(&self) -> Iter<VMGlobal> {
+    pub fn iter_globals(&self) -> Iter<'_, VMGlobal> {
         self.globals.iter()
     }
 

@@ -3,9 +3,9 @@ use wasmer_types::{FunctionType, TagType, Type};
 use wasmer_vm::StoreHandle;
 
 use crate::{
+    AsStoreMut, AsStoreRef,
     sys::vm::VMTag,
     vm::{VMExtern, VMExternTag},
-    AsStoreMut, AsStoreRef,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

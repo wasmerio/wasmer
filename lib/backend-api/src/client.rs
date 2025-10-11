@@ -2,8 +2,8 @@
 use std::time::Duration;
 
 use crate::GraphQLApiFailure;
-use anyhow::{bail, Context as _};
-use cynic::{http::CynicReqwestError, GraphQlResponse, Operation};
+use anyhow::{Context as _, bail};
+use cynic::{GraphQlResponse, Operation, http::CynicReqwestError};
 #[cfg(not(all(target_arch = "wasm32", target_os = "unknown")))]
 use reqwest::Proxy;
 use url::Url;
@@ -13,7 +13,7 @@ pub struct Proxy;
 
 /// API client for the Wasmer API.
 ///
-/// Use the queries in [`crate::queries`] to interact with the API.
+/// Use the queries in [`crate::query`] to interact with the API.
 #[derive(Clone, Debug)]
 pub struct WasmerClient {
     auth_token: Option<String>,
@@ -63,9 +63,8 @@ impl WasmerClient {
                 "" => false,
                 other => {
                     bail!(
-                        "invalid value for {} - expected 0/false|1/true: '{}'",
-                        Self::ENV_VAR_LOG_VARIABLES,
-                        other
+                        "invalid value for {} - expected 0/false|1/true: '{other}'",
+                        Self::ENV_VAR_LOG_VARIABLES
                     );
                 }
             }

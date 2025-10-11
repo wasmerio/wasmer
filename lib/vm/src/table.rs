@@ -5,11 +5,11 @@
 //!
 //! `Table` is to WebAssembly tables what `Memory` is to WebAssembly linear memories.
 
-use crate::store::MaybeInstanceOwned;
-use crate::vmcontext::VMTableDefinition;
 use crate::Trap;
 use crate::VMExternRef;
 use crate::VMFuncRef;
+use crate::store::MaybeInstanceOwned;
+use crate::vmcontext::VMTableDefinition;
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;
 use std::fmt;
@@ -106,7 +106,7 @@ impl VMTable {
         style: &TableStyle,
         vm_table_location: NonNull<VMTableDefinition>,
     ) -> Result<Self, String> {
-        Self::new_inner(table, style, Some(vm_table_location))
+        unsafe { Self::new_inner(table, style, Some(vm_table_location)) }
     }
 
     /// Create a new `Table` with either self-owned or VM owned metadata.
@@ -115,47 +115,49 @@ impl VMTable {
         style: &TableStyle,
         vm_table_location: Option<NonNull<VMTableDefinition>>,
     ) -> Result<Self, String> {
-        match table.ty {
-            ValType::FuncRef | ValType::ExternRef => (),
-            ty => {
-                return Err(format!(
-                    "tables of types other than funcref or externref ({ty})",
-                ))
+        unsafe {
+            match table.ty {
+                ValType::FuncRef | ValType::ExternRef => (),
+                ty => {
+                    return Err(format!(
+                        "tables of types other than funcref or externref ({ty})",
+                    ));
+                }
+            };
+            if let Some(max) = table.maximum {
+                if max < table.minimum {
+                    return Err(format!(
+                        "Table minimum ({}) is larger than maximum ({})!",
+                        table.minimum, max
+                    ));
+                }
             }
-        };
-        if let Some(max) = table.maximum {
-            if max < table.minimum {
-                return Err(format!(
-                    "Table minimum ({}) is larger than maximum ({})!",
-                    table.minimum, max
-                ));
+            let table_minimum = usize::try_from(table.minimum)
+                .map_err(|_| "Table minimum is bigger than usize".to_string())?;
+            let mut vec = vec![RawTableElement::default(); table_minimum];
+            let base = vec.as_mut_ptr();
+            match style {
+                TableStyle::CallerChecksSignature => Ok(Self {
+                    vec,
+                    maximum: table.maximum,
+                    table: *table,
+                    style: style.clone(),
+                    vm_table_definition: if let Some(table_loc) = vm_table_location {
+                        {
+                            let mut ptr = table_loc;
+                            let td = ptr.as_mut();
+                            td.base = base as _;
+                            td.current_elements = table_minimum as _;
+                        }
+                        MaybeInstanceOwned::Instance(table_loc)
+                    } else {
+                        MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMTableDefinition {
+                            base: base as _,
+                            current_elements: table_minimum as _,
+                        })))
+                    },
+                }),
             }
-        }
-        let table_minimum = usize::try_from(table.minimum)
-            .map_err(|_| "Table minimum is bigger than usize".to_string())?;
-        let mut vec = vec![RawTableElement::default(); table_minimum];
-        let base = vec.as_mut_ptr();
-        match style {
-            TableStyle::CallerChecksSignature => Ok(Self {
-                vec,
-                maximum: table.maximum,
-                table: *table,
-                style: style.clone(),
-                vm_table_definition: if let Some(table_loc) = vm_table_location {
-                    {
-                        let mut ptr = table_loc;
-                        let td = ptr.as_mut();
-                        td.base = base as _;
-                        td.current_elements = table_minimum as _;
-                    }
-                    MaybeInstanceOwned::Instance(table_loc)
-                } else {
-                    MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMTableDefinition {
-                        base: base as _,
-                        current_elements: table_minimum as _,
-                    })))
-                },
-            }),
         }
     }
 
@@ -274,12 +276,12 @@ impl VMTable {
 
         if src_index
             .checked_add(len)
-            .map_or(true, |n| n > src_table.size())
+            .is_none_or(|n| n > src_table.size())
         {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
-        if dst_index.checked_add(len).map_or(true, |m| m > self.size()) {
+        if dst_index.checked_add(len).is_none_or(|m| m > self.size()) {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
@@ -320,11 +322,11 @@ impl VMTable {
     pub fn copy_within(&mut self, dst_index: u32, src_index: u32, len: u32) -> Result<(), Trap> {
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-copy
 
-        if src_index.checked_add(len).map_or(true, |n| n > self.size()) {
+        if src_index.checked_add(len).is_none_or(|n| n > self.size()) {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
-        if dst_index.checked_add(len).map_or(true, |m| m > self.size()) {
+        if dst_index.checked_add(len).is_none_or(|m| m > self.size()) {
             return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 

@@ -127,10 +127,7 @@ pub fn path_symlink_internal(
 
     {
         let mut guard = target_parent_inode.write();
-        if let Kind::Dir {
-            ref mut entries, ..
-        } = guard.deref_mut()
-        {
+        if let Kind::Dir { entries, .. } = guard.deref_mut() {
             entries.insert(entry_name, new_inode);
         }
     }

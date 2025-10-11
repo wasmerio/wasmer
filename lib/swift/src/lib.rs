@@ -3,13 +3,13 @@ use tokio::runtime::Runtime;
 use virtual_fs::{AsyncReadExt, AsyncSeekExt};
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix::{
+    PluggableRuntime,
     bin_factory::BinaryPackage,
     runners::{
-        wasi::{RuntimeOrEngine, WasiRunner},
         Runner,
+        wasi::{RuntimeOrEngine, WasiRunner},
     },
     runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
-    PluggableRuntime,
 };
 
 uniffi::setup_scaffolding!();

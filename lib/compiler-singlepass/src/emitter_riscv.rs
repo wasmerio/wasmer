@@ -7,7 +7,7 @@ use std::{ops::Add, path::Path};
 
 use crate::{
     codegen_error,
-    common_decl::{save_assembly_to_file, Size},
+    common_decl::{Size, save_assembly_to_file},
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
     machine_riscv::{AssemblerRiscv, ImmType},
@@ -20,15 +20,15 @@ pub use crate::{
 };
 use dynasm::dynasm;
 use dynasmrt::{
-    riscv::RiscvRelocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
+    AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler, riscv::RiscvRelocation,
 };
 use wasmer_compiler::types::{
     function::FunctionBody,
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature},
     CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+    target::{CallingConvention, CpuFeature},
 };
 
 type Assembler = VecAssembler<RiscvRelocation>;
@@ -106,6 +106,13 @@ const SCRATCH_REG: GPR = GPR::X28;
 /// Emitter trait for RISC-V.
 #[allow(unused)]
 pub trait EmitterRiscv {
+    fn emit_jmp_on_condition(
+        &mut self,
+        cond: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        label: Label,
+    ) -> Result<(), CompileError>;
     fn emit_reserved_sd(
         &mut self,
         size: Size,
@@ -313,7 +320,7 @@ pub trait EmitterRiscv {
 
     fn emit_on_false_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
     fn emit_on_false_label_far(&mut self, cond: Location, label: Label)
-        -> Result<(), CompileError>;
+    -> Result<(), CompileError>;
     fn emit_on_true_label_far(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
     fn emit_on_true_label(&mut self, cond: Location, label: Label) -> Result<(), CompileError>;
 
@@ -1465,6 +1472,54 @@ impl EmitterRiscv for Assembler {
                 ret
             ),
         }
+
+        Ok(())
+    }
+
+    fn emit_jmp_on_condition(
+        &mut self,
+        cond: Condition,
+        loc_a: Location,
+        loc_b: Location,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        let (Location::GPR(loc_a), Location::GPR(loc_b)) = (loc_a, loc_b) else {
+            codegen_error!("singlepass can't emit JMP_ON_COND {:?} {:?} ", loc_a, loc_b,);
+        };
+
+        let jump: Label = self.get_label();
+        let cont: Label = self.get_label();
+
+        match cond {
+            Condition::Eq => {
+                dynasm!(self; beq X(loc_a), X(loc_b), => jump);
+            }
+            Condition::Ne => {
+                dynasm!(self; bne X(loc_a), X(loc_b), => jump);
+            }
+            Condition::Ltu => {
+                dynasm!(self; bltu X(loc_a), X(loc_b), => jump);
+            }
+            Condition::Leu => {
+                dynasm!(self; bleu X(loc_a), X(loc_b), => jump);
+            }
+            Condition::Gtu => {
+                dynasm!(self; bgtu X(loc_a), X(loc_b), => jump);
+            }
+            Condition::Geu => {
+                dynasm!(self; bgeu X(loc_a), X(loc_b), => jump);
+            }
+            _ => codegen_error!(
+                "singlepass can't emit jump on conditional branch {:?}",
+                cond
+            ),
+        }
+
+        self.emit_j_label(cont)?;
+        self.emit_label(jump)?;
+        self.emit_j_label(label)?;
+
+        self.emit_label(cont)?;
 
         Ok(())
     }

@@ -4,10 +4,10 @@ use self::utils::normalize_atom_name;
 use super::CliCommand;
 use crate::{
     backend::RuntimeOptions,
-    common::{normalize_path, HashAlgorithm},
+    common::{HashAlgorithm, normalize_path},
     config::WasmerEnv,
 };
-use anyhow::{anyhow, bail, Context, Result};
+use anyhow::{Context, Result, anyhow, bail};
 use clap::Parser;
 use object::ObjectSection;
 use serde::{Deserialize, Serialize};
@@ -635,7 +635,8 @@ impl PrefixMapCompilation {
         if prefixes.len() != atoms.len() {
             println!(
                 "WARNING: invalid mapping of prefix and atoms: expected prefixes for {} atoms, got {} prefixes",
-                atoms.len(), prefixes.len()
+                atoms.len(),
+                prefixes.len()
             );
         }
 
@@ -692,7 +693,9 @@ impl PrefixMapCompilation {
                     manual_prefixes.insert(normalize_atom_name(&atoms[0].0), prefix.to_string());
                 }
                 _ => {
-                    return Err(anyhow::anyhow!("invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH"));
+                    return Err(anyhow::anyhow!(
+                        "invalid --precompiled-atom {p:?} - correct format is ATOM:PREFIX:PATH or ATOM:PATH"
+                    ));
                 }
             }
         }
@@ -1304,7 +1307,11 @@ fn link_exe_from_dir(
     include_path.push("include");
     if !include_path.exists() {
         // Can happen when we got the wrong library_path
-        return Err(anyhow::anyhow!("Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?", include_path.display(), library_path.display()));
+        return Err(anyhow::anyhow!(
+            "Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?",
+            include_path.display(),
+            library_path.display()
+        ));
     }
     cmd.arg("-I");
     cmd.arg(normalize_path(&format!("{}", include_path.display())));
@@ -1388,10 +1395,9 @@ fn link_exe_from_dir(
         .context(anyhow!("Could not execute `zig`: {cmd:?}"))?;
 
     if !compilation.status.success() {
-        return Err(anyhow::anyhow!(String::from_utf8_lossy(
-            &compilation.stderr
-        )
-        .to_string()));
+        return Err(anyhow::anyhow!(
+            String::from_utf8_lossy(&compilation.stderr).to_string()
+        ));
     }
 
     // remove file if it exists - if not done, can lead to errors on copy
@@ -1450,7 +1456,11 @@ fn link_objects_system_linker(
     include_path.push("include");
     if !include_path.exists() {
         // Can happen when we got the wrong library_path
-        return Err(anyhow::anyhow!("Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?", include_path.display(), libwasmer_path.display()));
+        return Err(anyhow::anyhow!(
+            "Wasmer include path {} does not exist, maybe library path {} is wrong (expected /lib/libwasmer.a)?",
+            include_path.display(),
+            libwasmer_path.display()
+        ));
     }
     command = command.arg("-I");
     command = command.arg(normalize_path(&format!("{}", include_path.display())));
@@ -1508,9 +1518,9 @@ fn generate_wasmer_main_c(
         let prefix = prefixes
             .get_prefix_for_atom(&utils::normalize_atom_name(a))
             .ok_or_else(|| {
+                let formatted_prefixes = format!("{prefixes:#?}");
                 anyhow::anyhow!(
-                    "cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})",
-                    prefixes
+                    "cannot find prefix for atom {a} when generating wasmer_main.c ({formatted_prefixes})"
                 )
             })?;
         let atom_name = prefix.clone();
@@ -1564,10 +1574,10 @@ fn generate_wasmer_main_c(
         let prefix = prefixes
             .get_prefix_for_atom(&utils::normalize_atom_name(atom_names[0]))
             .ok_or_else(|| {
+                let formatted_prefixes = format!("{prefixes:#?}");
                 anyhow::anyhow!(
-                    "cannot find prefix for atom {} when generating wasmer_main.c ({:#?})",
-                    &atom_names[0],
-                    prefixes
+                    "cannot find prefix for atom {} when generating wasmer_main.c ({formatted_prefixes})",
+                    &atom_names[0]
                 )
             })?;
         write!(c_code_to_instantiate, "module = atom_{prefix};")?;
@@ -1576,9 +1586,9 @@ fn generate_wasmer_main_c(
             let prefix = prefixes
                 .get_prefix_for_atom(&utils::normalize_atom_name(a))
                 .ok_or_else(|| {
+                    let formatted_prefixes = format!("{prefixes:#?}");
                     anyhow::anyhow!(
-                        "cannot find prefix for atom {a} when generating wasmer_main.c ({:#?})",
-                        prefixes
+                        "cannot find prefix for atom {a} when generating wasmer_main.c ({formatted_prefixes})"
                     )
                 })?;
             writeln!(
@@ -1617,7 +1627,7 @@ pub(super) mod utils {
         path::{Path, PathBuf},
     };
 
-    use anyhow::{anyhow, Context};
+    use anyhow::{Context, anyhow};
     use target_lexicon::{Architecture, Environment, OperatingSystem, Triple};
     use wasmer_types::target::{CpuFeature, Target};
 
@@ -1789,7 +1799,7 @@ pub(super) mod utils {
             }
         }
 
-        if let OperatingSystem::Darwin = target.operating_system {
+        if let OperatingSystem::Darwin(_) = target.operating_system {
             if !(filename.contains("apple") || filename.contains("darwin")) {
                 return None;
             }
@@ -1851,7 +1861,9 @@ pub(super) mod utils {
         })
         .cloned()
         .ok_or_else(|| {
-            anyhow!("Could not find libwasmer.a for {} target in the provided tarball path (files = {files:#?})", target)
+            anyhow!(
+                "Could not find libwasmer.a for {target} target in the provided tarball path (files = {files:#?})"
+            )
         })
     }
 
@@ -1879,7 +1891,7 @@ pub(super) mod utils {
         };
         let os = match target_triple.operating_system {
             OperatingSystem::Linux => "linux".into(),
-            OperatingSystem::Darwin => "macos".into(),
+            OperatingSystem::Darwin(_) => "macos".into(),
             OperatingSystem::Windows => "windows".into(),
             v => v.to_string(),
         };
@@ -1948,14 +1960,18 @@ pub(super) mod utils {
 
     pub(super) fn find_zig_binary(path: Option<PathBuf>) -> Result<PathBuf, anyhow::Error> {
         use std::env::split_paths;
+        #[cfg(not(unix))]
+        use std::ffi::OsStr;
         #[cfg(unix)]
-        use std::os::unix::ffi::OsStrExt;
+        use std::ffi::OsString;
+        #[cfg(unix)]
+        use std::os::unix::ffi::OsStringExt;
         let path_var = std::env::var("PATH").unwrap_or_default();
         #[cfg(unix)]
         let system_path_var = std::process::Command::new("getconf")
             .args(["PATH"])
             .output()
-            .map(|output| output.stdout)
+            .map(|output| OsString::from_vec(output.stdout))
             .unwrap_or_default();
         let retval = if let Some(p) = path {
             if p.exists() {
@@ -1965,16 +1981,12 @@ pub(super) mod utils {
             }
         } else {
             let mut retval = None;
-            for mut p in split_paths(&path_var).chain(split_paths(
-                #[cfg(unix)]
-                {
-                    &OsStr::from_bytes(&system_path_var[..])
-                },
-                #[cfg(not(unix))]
-                {
-                    OsStr::new("")
-                },
-            )) {
+            #[cfg(unix)]
+            let combined_paths =
+                split_paths(&path_var).chain(split_paths(system_path_var.as_os_str()));
+            #[cfg(not(unix))]
+            let combined_paths = split_paths(&path_var).chain(split_paths(OsStr::new("")));
+            for mut p in combined_paths {
                 p.push(get_zig_exe_str());
                 if p.exists() {
                     retval = Some(p);
@@ -2008,7 +2020,10 @@ pub(super) mod utils {
             .map_err(|e| anyhow!("could not parse zig version: {version_slice}: {e}"))?;
 
         if version_semver < semver::Version::parse("0.10.0").unwrap() {
-            Err(anyhow!("`zig` binary in PATH (`{}`) is not a new enough version (`{version_slice}`): please use version `0.10.0` or newer.", retval.display()))
+            Err(anyhow!(
+                "`zig` binary in PATH (`{}`) is not a new enough version (`{version_slice}`): please use version `0.10.0` or newer.",
+                retval.display()
+            ))
         } else {
             Ok(retval)
         }
@@ -2143,7 +2158,7 @@ pub(super) mod utils {
 mod http_fetch {
     use std::path::Path;
 
-    use anyhow::{anyhow, Context, Result};
+    use anyhow::{Context, Result, anyhow};
 
     pub(super) fn get_release(
         release_version: Option<semver::Version>,
@@ -2290,7 +2305,7 @@ mod http_fetch {
     ) -> Result<std::path::PathBuf, anyhow::Error> {
         let filename = browser_download_url
             .split('/')
-            .last()
+            .next_back()
             .unwrap_or("output")
             .to_string();
 

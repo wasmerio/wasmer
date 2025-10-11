@@ -1,7 +1,7 @@
 use crate::{
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, Tag, Value,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, Tag, Value,
 };
 
 /// A WebAssembly `global` instance.

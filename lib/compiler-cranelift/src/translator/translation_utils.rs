@@ -1,7 +1,6 @@
 //! Helper functions and structures for the translation.
 
 use super::func_environ::TargetEnvironment;
-use crate::std::string::ToString;
 use cranelift_codegen::{
     binemit::Reloc,
     ir::{self, AbiParam},
@@ -37,13 +36,7 @@ pub fn signature_to_cranelift_ir(
 
 /// Helper function translating wasmparser types to Cranelift types when possible.
 pub fn reference_type(target_config: TargetFrontendConfig) -> WasmResult<ir::Type> {
-    match target_config.pointer_type() {
-        ir::types::I32 => Ok(ir::types::R32),
-        ir::types::I64 => Ok(ir::types::R64),
-        _ => Err(WasmError::Unsupported(
-            "unsupported pointer type".to_string(),
-        )),
-    }
+    Ok(target_config.pointer_type())
 }
 
 /// Helper function translating wasmparser types to Cranelift types when possible.

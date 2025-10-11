@@ -8,9 +8,9 @@ use crate::{
     commands::AsyncCliCommand,
     config::{UpdateRegistry, UserRegistry, WasmerConfig, WasmerEnv},
 };
-use futures_util::{stream::FuturesUnordered, StreamExt};
+use futures_util::{StreamExt, stream::FuturesUnordered};
 use std::{path::PathBuf, time::Duration};
-use wasmer_backend_api::{types::Nonce, WasmerClient};
+use wasmer_backend_api::{WasmerClient, types::Nonce};
 
 #[derive(Debug, Clone)]
 enum AuthorizationState {
@@ -101,6 +101,10 @@ impl Login {
 
         // if failed to open the browser, then don't error out just print the auth_url with a message
         println!("Opening auth link in your default browser: {}", &auth_url);
+        println!(
+            "{}: If browser driven login does not work, manually create a token at https://wasmer.io/settings/access-tokens and log in with `wasmer login <TOKEN>`",
+            "NOTE".yellow().bold()
+        );
         opener::open_browser(&auth_url).unwrap_or_else(|_| {
             println!(
                 "⚠️ Failed to open the browser.\n
@@ -252,7 +256,11 @@ impl AsyncCliCommand for Login {
                 match self.login_and_save(&env, token).await {
                     Ok(s) => {
                         print!("Done!");
-                        println!("\n{} Login for Wasmer user {:?} saved","✔".green().bold(), s)
+                        println!(
+                            "\n{} Login for Wasmer user {:?} saved",
+                            "✔".green().bold(),
+                            s
+                        )
                     }
                     Err(_) => print!(
                         "Warning: no user found on {:?} with the provided token.\nToken saved regardless.",

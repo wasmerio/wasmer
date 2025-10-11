@@ -1,6 +1,6 @@
 use super::utils;
 use crate::{
-    commands::{app::util::AppIdentFlag, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentFlag},
     config::WasmerEnv,
     opts::ListFormatOpts,
     utils::render::{ItemFormat, ListFormat},

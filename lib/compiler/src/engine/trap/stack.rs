@@ -1,4 +1,4 @@
-use super::frame_info::{GlobalFrameInfo, FRAME_INFO};
+use super::frame_info::{FRAME_INFO, GlobalFrameInfo};
 use backtrace::Backtrace;
 use wasmer_types::{FrameInfo, TrapCode};
 use wasmer_vm::Trap;

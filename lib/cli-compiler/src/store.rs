@@ -6,13 +6,12 @@ use anyhow::Result;
 use clap::Parser;
 #[cfg(doc)]
 use std::path::PathBuf;
-use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
 use wasmer_compiler::{CompilerConfig, EngineBuilder, Features};
-use wasmer_types::target::{PointerWidth, Target};
 #[cfg(doc)]
 use wasmer_types::Type;
+use wasmer_types::target::{PointerWidth, Target};
 use wasmer_types::{MemoryStyle, MemoryType, Pages, TableStyle, TableType};
 
 /// Minimul Subset of Tunable parameters for WebAssembly compilation.
@@ -328,10 +327,7 @@ impl CompilerOptions {
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
-                bail!(
-                    "The `{}` compiler is not included in this binary.",
-                    compiler.to_string()
-                )
+                bail!("The `{compiler}` compiler is not included in this binary.")
             }
         };
 

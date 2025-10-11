@@ -10,8 +10,9 @@ use wasmer_types::{
 };
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendModule, IntoBytes,
     backend::sys::entities::engine::NativeEngineExt, engine::AsEngineRef,
-    error::InstantiationError, vm::VMInstance, AsStoreMut, AsStoreRef, BackendModule, IntoBytes,
+    error::InstantiationError, vm::VMInstance,
 };
 
 #[derive(Clone, PartialEq, Eq)]
@@ -88,11 +89,14 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .as_sys()
-            .deserialize_unchecked(bytes.into())?;
+
+        let artifact = unsafe {
+            engine
+                .as_engine_ref()
+                .engine()
+                .as_sys()
+                .deserialize_unchecked(bytes.into())?
+        };
         Ok(Self::from_artifact(artifact))
     }
 
@@ -102,11 +106,13 @@ impl Module {
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
         let bytes = bytes.into_bytes();
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .as_sys()
-            .deserialize(bytes.into())?;
+        let artifact = unsafe {
+            engine
+                .as_engine_ref()
+                .engine()
+                .as_sys()
+                .deserialize(bytes.into())?
+        };
         Ok(Self::from_artifact(artifact))
     }
 
@@ -114,11 +120,13 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .as_sys()
-            .deserialize_from_file_unchecked(path.as_ref())?;
+        let artifact = unsafe {
+            engine
+                .as_engine_ref()
+                .engine()
+                .as_sys()
+                .deserialize_from_file_unchecked(path.as_ref())?
+        };
         Ok(Self::from_artifact(artifact))
     }
 
@@ -126,11 +134,13 @@ impl Module {
         engine: &impl AsEngineRef,
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
-        let artifact = engine
-            .as_engine_ref()
-            .engine()
-            .as_sys()
-            .deserialize_from_file(path.as_ref())?;
+        let artifact = unsafe {
+            engine
+                .as_engine_ref()
+                .engine()
+                .as_sys()
+                .deserialize_from_file(path.as_ref())?
+        };
         Ok(Self::from_artifact(artifact))
     }
 

@@ -6,7 +6,7 @@
 //! cargo run --example memory-grow --release --features "cranelift"
 //! ```
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store};
+use wasmer::{Instance, Module, Store, imports, wat2wasm};
 
 fn main() -> anyhow::Result<()> {
     let wasm_bytes = wat2wasm(

@@ -2,7 +2,7 @@
 
 use is_terminal::IsTerminal;
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{fmt, layer::SubscriberExt, util::SubscriberInitExt, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 const WHITELISTED_LOG_TARGETS: &[&str] = &["wasmer", "wasmer_wasix", "virtual_fs"];
 

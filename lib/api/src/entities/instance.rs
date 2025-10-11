@@ -1,6 +1,6 @@
 use crate::{
-    error::InstantiationError, exports::Exports, imports::Imports, macros::backend::gen_rt_ty,
-    module::Module, store::AsStoreMut, Extern,
+    Extern, error::InstantiationError, exports::Exports, imports::Imports,
+    macros::backend::gen_rt_ty, module::Module, store::AsStoreMut,
 };
 
 /// A WebAssembly Instance is a stateful, executable

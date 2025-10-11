@@ -15,7 +15,7 @@ impl JournalEffector {
         write_fd: Fd,
     ) -> anyhow::Result<()> {
         crate::syscalls::fd_pipe_internal(ctx, Some(read_fd), Some(write_fd)).map_err(|err| {
-            anyhow::format_err!("journal restore error: failed to create pipe - {}", err)
+            anyhow::format_err!("journal restore error: failed to create pipe - {err}")
         })?;
 
         Ok(())

@@ -17,9 +17,9 @@
 use std::{io::Read, sync::Arc};
 
 use wasmer_wasix::{
-    runners::wasi::{RuntimeOrEngine, WasiRunner},
-    runtime::task_manager::tokio::TokioTaskManager,
     Pipe, PluggableRuntime, Runtime,
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
+    runtime::{module_cache::HashedModuleData, task_manager::tokio::TokioTaskManager},
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -43,7 +43,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
-    let module = runtime.load_module_sync(&wasm_bytes[..])?;
+    let data = HashedModuleData::new(wasm_bytes.clone());
+    let module = runtime.load_hashed_module_sync(data, None)?;
 
     // Create a pipe for the module's stdout.
     let (stdout_tx, mut stdout_rx) = Pipe::channel();

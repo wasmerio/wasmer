@@ -14,7 +14,7 @@
 #![allow(unused)]
 use std::path::Path;
 use std::str::FromStr;
-use wasmer::{sys::CpuFeature, wat2wasm, Module, RuntimeError, Store};
+use wasmer::{Module, RuntimeError, Store, sys::CpuFeature, wat2wasm};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_types::target::{Target, Triple};
 /*

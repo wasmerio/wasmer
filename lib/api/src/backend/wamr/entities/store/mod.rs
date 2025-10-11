@@ -1,8 +1,8 @@
 //! Data types, functions and traits for `wamr`'s `Store` implementation.
 use crate::{
+    AsStoreRef, BackendStore, StoreRef,
     backend::wamr::bindings::{wasm_store_delete, wasm_store_new, wasm_store_t},
     engine::{AsEngineRef, Engine, EngineRef},
-    AsStoreRef, BackendStore, StoreRef,
 };
 
 mod obj;
@@ -25,7 +25,7 @@ impl std::fmt::Debug for Store {
 impl Store {
     pub(crate) fn new(engine: crate::engine::Engine) -> Self {
         let inner: *mut wasm_store_t = unsafe { wasm_store_new(engine.as_wamr().inner.engine) };
-        Store { inner, engine }
+        Self { inner, engine }
     }
 
     pub(crate) fn engine(&self) -> &Engine {

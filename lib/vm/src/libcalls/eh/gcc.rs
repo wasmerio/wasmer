@@ -122,7 +122,7 @@ const UNWIND_DATA_REG: (i32, i32) = (10, 11); // x10, x11
 #[cfg(target_arch = "loongarch64")]
 const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 /// The implementation of Wasmer's personality function.
 ///
 /// # Safety
@@ -204,7 +204,7 @@ pub unsafe extern "C" fn wasmer_eh_personality(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 /// The second stage of the  personality function. See module level documentation
 /// for an explanation of the exact procedure used during unwinding.
 ///
@@ -261,38 +261,42 @@ unsafe fn find_eh_action(context: *mut uw::_Unwind_Context) -> Result<EHAction, 
 }
 
 pub unsafe fn throw(tag: u32, vmctx: *mut VMContext, data_ptr: usize, data_size: u64) -> ! {
-    // Look up the unique tag from the VMContext.
-    let unique_tag = (*vmctx)
-        .instance()
-        .shared_tag_ptr(TagIndex::from_u32(tag))
-        .index();
+    unsafe {
+        // Look up the unique tag from the VMContext.
+        let unique_tag = (*vmctx)
+            .instance()
+            .shared_tag_ptr(TagIndex::from_u32(tag))
+            .index();
 
-    let exception = Box::new(UwExceptionWrapper::new(unique_tag, data_ptr, data_size));
-    let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;
+        let exception = Box::new(UwExceptionWrapper::new(unique_tag, data_ptr, data_size));
+        let exception_param = Box::into_raw(exception) as *mut libunwind::_Unwind_Exception;
 
-    match uw::_Unwind_RaiseException(exception_param) {
-        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
-        }
-        _ => {
-            unreachable!()
+        match uw::_Unwind_RaiseException(exception_param) {
+            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
+                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+            }
+            _ => {
+                unreachable!()
+            }
         }
     }
 }
 
 pub unsafe fn rethrow(exc: *mut UwExceptionWrapper) -> ! {
-    if exc.is_null() {
-        panic!();
-    }
-
-    match uw::_Unwind_Resume_or_Rethrow(std::mem::transmute::<
-        *mut UwExceptionWrapper,
-        *mut libunwind::_Unwind_Exception,
-    >(exc))
-    {
-        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+    unsafe {
+        if exc.is_null() {
+            panic!();
         }
-        _ => unreachable!(),
+
+        match uw::_Unwind_Resume_or_Rethrow(std::mem::transmute::<
+            *mut UwExceptionWrapper,
+            *mut libunwind::_Unwind_Exception,
+        >(exc))
+        {
+            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
+                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+            }
+            _ => unreachable!(),
+        }
     }
 }

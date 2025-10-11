@@ -1,6 +1,6 @@
 use time::{
-    format_description::well_known::{Rfc2822, Rfc3339},
     Date, OffsetDateTime, PrimitiveDateTime, Time,
+    format_description::well_known::{Rfc2822, Rfc3339},
 };
 
 /// Try to parse the string as a timestamp in a number of well-known formats.

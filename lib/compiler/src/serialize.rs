@@ -5,7 +5,7 @@
 #![allow(missing_docs)]
 
 use crate::types::{
-    function::{CompiledFunctionFrameInfo, FunctionBody, UnwindInfo, GOT},
+    function::{CompiledFunctionFrameInfo, FunctionBody, GOT, UnwindInfo},
     module::CompileModuleInfo,
     relocation::Relocation,
     section::{CustomSection, SectionIndex},
@@ -13,9 +13,9 @@ use crate::types::{
 use enumset::EnumSet;
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use wasmer_types::{
-    entity::PrimaryMap, target::CpuFeature, DeserializeError, Features, FunctionIndex,
-    LocalFunctionIndex, MemoryIndex, MemoryStyle, ModuleInfo, OwnedDataInitializer, SerializeError,
-    SignatureIndex, TableIndex, TableStyle,
+    DeserializeError, Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
+    ModuleInfo, OwnedDataInitializer, SerializeError, SignatureIndex, TableIndex, TableStyle,
+    entity::PrimaryMap, target::CpuFeature,
 };
 
 pub use wasmer_types::MetadataHeader;
@@ -91,8 +91,10 @@ impl SerializableModule {
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
     pub unsafe fn deserialize_unchecked(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
-        let archived = Self::archive_from_slice(metadata_slice)?;
-        Self::deserialize_from_archive(archived)
+        unsafe {
+            let archived = Self::archive_from_slice(metadata_slice)?;
+            Self::deserialize_from_archive(archived)
+        }
     }
 
     /// Deserialize a Module from a slice.
@@ -116,7 +118,7 @@ impl SerializableModule {
     pub unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedSerializableModule, DeserializeError> {
-        Ok(rkyv::access_unchecked(metadata_slice))
+        unsafe { Ok(rkyv::access_unchecked(metadata_slice)) }
     }
 
     /// Deserialize an archived module.

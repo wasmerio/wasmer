@@ -10,19 +10,29 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
+use wasmer::{Instance, Module, Store, Value, imports, wat2wasm};
 use wasmer_compiler_singlepass::Singlepass;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm_bytes = wat2wasm(
         r#"
-(module
-  (memory 1 1 shared)
+(module    
+ (func (export "nested-br_table-value-index") (param i32) (result i32)
+    (i32.add
+      (i32.const 1)
+      (block (result i32)
+        (drop (i32.const 2))
+        (br_table 0
+          (i32.const 4)
+          (block (result i32)
+            (drop (br_if 1 (i32.const 8) (local.get 0))) (i32.const 1)
+          )
+        )
+        (i32.const 16)
+      )
+    )
+  )
 
-  (func (export "init") (param $value i64) (i64.store (i32.const 0) (local.get $value)))
-  (func (export "i64.load") (result i64) (i64.load (i32.const 0)))
-
-  (func (export "i32.atomic.rmw8.cmpxchg_u") (param $expected i32)  (param $value i32) (result i32) (i32.atomic.rmw8.cmpxchg_u (i32.const 7) (local.get $expected) (local.get $value)))
 )
     "#
         .as_bytes(),
@@ -39,27 +49,15 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("Instantiating module...");
     let instance = Instance::new(&mut store, &module, &import_object)?;
-    let func = instance.exports.get_function("init")?;
-    let func2 = instance.exports.get_function("i32.atomic.rmw8.cmpxchg_u")?;
-    let func3 = instance.exports.get_function("i64.load")?;
+    let func = instance
+        .exports
+        .get_function("nested-br_table-value-index")?;
 
     println!("Calling `fn` function...");
     //let result = sample.call(&mut store, &[Value::I32(123456)])?;
     //let result = sample.call(&mut store, &[])?;
 
-    func.call(&mut store, &[Value::I64(0x1702030405060708)])?;
-
-    let result = func3.call(&mut store, &[])?;
-    let ret = result[0].unwrap_i64();
-    println!("Result 0x{:x}", ret);
-
-    let result = func2.call(&mut store, &[Value::I32(0x17), Value::I32(0xcc)])?;
-    let ret = result[0].unwrap_i32();
-    println!("Result 0x{:x}", ret);
-
-    let result = func3.call(&mut store, &[])?;
-    let ret = result[0].unwrap_i64();
-    println!("Result 0x{:x}", ret);
+    dbg!(func.call(&mut store, &[Value::I32(0)]));
 
     // for i in 0..16 {
     //     let result = sample2.call(&mut store, &[Value::I32(i)])?; //, &[Value::I32(1), Value::I32(123)])?;

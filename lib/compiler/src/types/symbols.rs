@@ -9,9 +9,9 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap},
     DeserializeError, FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SerializeError,
     SignatureIndex,
+    entity::{EntityRef, PrimaryMap},
 };
 
 use super::{module::CompileModuleInfo, section::SectionIndex};
@@ -64,7 +64,7 @@ pub struct ModuleMetadata {
     pub data_initializers: Box<[OwnedDataInitializer]>,
     /// The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
-    /// CPU features used (See [`CpuFeature`](crate::CpuFeature))
+    /// CPU features used (see [`wasmer_types::CpuFeature`])
     pub cpu_features: u64,
 }
 
@@ -111,8 +111,10 @@ impl ModuleMetadata {
     /// `rkyv` has an option to do bytecheck on the serialized data before
     /// serializing (via `rkyv::check_archived_value`).
     pub unsafe fn deserialize_unchecked(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
-        let archived = Self::archive_from_slice(metadata_slice)?;
-        Self::deserialize_from_archive(archived)
+        unsafe {
+            let archived = Self::archive_from_slice(metadata_slice)?;
+            Self::deserialize_from_archive(archived)
+        }
     }
 
     /// Deserialize a Module from a slice.
@@ -130,7 +132,7 @@ impl ModuleMetadata {
     unsafe fn archive_from_slice(
         metadata_slice: &[u8],
     ) -> Result<&ArchivedModuleMetadata, DeserializeError> {
-        Ok(rkyv::access_unchecked(metadata_slice))
+        unsafe { Ok(rkyv::access_unchecked(metadata_slice)) }
     }
 
     /// # Safety

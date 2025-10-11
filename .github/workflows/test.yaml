@@ -24,7 +24,7 @@ env:
   # Rust, but it's not stable on 1.69 yet. By explicitly setting the protocol we
   # can override that behaviour
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.84"
+  MSRV: "1.87"
   NEXTEST_PROFILE: "ci"
   RUSTUP_WINDOWS_PATH_ADD_BIN: 1
   WASI_SDK_VERSION: "22"
@@ -58,6 +58,7 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           components: rustfmt, clippy
+          targets: wasm32-unknown-unknown
       - name: Install libtinfo
         shell: bash
         run: |
@@ -88,6 +89,7 @@ jobs:
           ENABLE_CRANELIFT: "1"
           ENABLE_LLVM: "1"
           ENABLE_SINGLEPASS: "1"
+      - run: make lint-js
       - name: Assert no files have changed
         run: |
           git status
@@ -241,12 +243,17 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: x86_64-unknown-linux-gnu
+          components: clippy
       - name: Install NodeJS
         uses: actions/setup-node@v4
         with:
           node-version: 16
       - name: Install libjavascriptcoregtk-4.0-dev
         run: sudo apt update && sudo apt install -y libjavascriptcoregtk-4.0-dev
+
+      - name: lint jsc
+        run: make lint-jsc
+
       - name: make build-wasmer-jsc
         run: make build-wasmer-jsc
 
@@ -260,16 +267,19 @@ jobs:
           [
             {
               key: wamr,
+              lint-cmd: "make lint-wamr",
               build-cmd: "make test-wamr-api",
               name: "Test API for wamr feature",
             },
             {
               key: wasmi,
+              lint-cmd: "make lint-wasmi",
               build-cmd: "make test-wasmi-api",
               name: "Test API for wasmi feature",
             },
             {
               key: v8,
+              lint-cmd: "make lint-v8",
               build-cmd: "make test-v8-api",
               name: "Test API for v8 feature",
             },
@@ -293,6 +303,7 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
+          components: clippy
 
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
@@ -322,6 +333,9 @@ jobs:
         run: rm /usr/bin/link.exe
         if: startsWith(matrix.metadata.build, 'windows-')
 
+      - name: Lint ${{ matrix.build-what.key }}
+        run: ${{ matrix.build-what.lint-cmd }}
+
       - name: Test WAMR API
         if: ${{ matrix.build-what.key == 'wamr' }}
         run: echo $GITHUB_PATH && ${{ matrix.build-what.build-cmd }}
@@ -345,7 +359,7 @@ jobs:
       - uses: actions/checkout@v5
       - uses: dtolnay/rust-toolchain@master
         with:
-          toolchain: "nightly-2025-02-09"
+          toolchain: "nightly-2025-09-27"
           target: x86_64-unknown-linux-gnu
       - run: cargo install toml-cli --locked # toml-cli is required to run `make test-build-docs-rs`
 
@@ -602,6 +616,7 @@ jobs:
         with:
           toolchain: ${{ env.MSRV }}
           target: ${{ matrix.metadata.target }}
+          components: rustfmt,clippy
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Install MSVC dev-cmd (Windows)
@@ -725,6 +740,16 @@ jobs:
         shell: bash
         if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' }}
         run: ${{ matrix.build-what.build-cmd }}
+
+      - name: Lint C-API
+        shell: bash
+        if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
+        run: make lint-capi-ci
+        env:
+          TARGET: ${{ matrix.metadata.target }}
+          TARGET_DIR: target/${{ matrix.metadata.target }}/release
+          CARGO_TARGET: ${{ matrix.metadata.target }}
+
       - name: Test C-API
         shell: bash
         if: ${{ matrix.build-what.key == 'capi' && !(matrix.metadata.build == 'linux-musl'  || matrix.metadata.build == 'windows-gnu') }}
@@ -733,6 +758,7 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
+
       # C-API tests were disabled for linux-musl and macos-arm (we can't run them)
       - name: Test C-API integration
         shell: bash

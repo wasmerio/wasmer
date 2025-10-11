@@ -1,6 +1,6 @@
-use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler};
+use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, AArch64};
+use gimli::{AArch64, write::CallFrameInstruction};
 
 use wasmer_compiler::{
     types::{
@@ -12,12 +12,12 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 use crate::{
-    arm64_decl::{new_machine_state, GPR, NEON},
+    arm64_decl::{GPR, NEON, new_machine_state},
     codegen_error,
     common_decl::*,
     emitter_arm64::*,
@@ -1424,7 +1424,7 @@ impl Machine for MachineARM64 {
         for r in used_gprs.iter() {
             self.emit_push(Size::S64, Location::GPR(*r))?;
         }
-        Ok(((used_gprs.len() + 1) / 2) * 16)
+        Ok(used_gprs.len().div_ceil(2) * 16)
     }
     fn pop_used_gpr(&mut self, used_gprs: &[GPR]) -> Result<(), CompileError> {
         for r in used_gprs.iter().rev() {
@@ -2527,31 +2527,25 @@ impl Machine for MachineARM64 {
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_b_label(label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Eq, label)
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Ne, label)
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Hi, label)
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Cs, label)
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Ls, label)
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_bcond_label_far(Condition::Cs, label)
-    }
-    fn jmp_on_false(
+
+    fn jmp_on_condition(
         &mut self,
-        cond: AbstractLocation<Self::GPR, Self::SIMD>,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation<Self::GPR, Self::SIMD>,
+        dest: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-        self.jmp_on_equal(label)
+        self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)?;
+        let cond = match cond {
+            UnsignedCondition::Equal => Condition::Eq,
+            UnsignedCondition::NotEqual => Condition::Ne,
+            UnsignedCondition::Above => Condition::Hi,
+            UnsignedCondition::AboveEqual => Condition::Cs,
+            UnsignedCondition::Below => Condition::Cc,
+            UnsignedCondition::BelowEqual => Condition::Ls,
+        };
+        self.assembler.emit_bcond_label_far(cond, label)
     }
 
     // jmp table

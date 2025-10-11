@@ -1,10 +1,10 @@
-use wasm_bindgen::{prelude::*, JsValue};
+use wasm_bindgen::{JsValue, prelude::*};
 use wasmer_types::{GlobalType, Mutability, RawValue, Type};
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
     js::vm::VMGlobal,
     vm::{VMExtern, VMExternGlobal},
-    AsStoreMut, AsStoreRef, BackendGlobal, RuntimeError, Value,
 };
 use js_sys::WebAssembly;
 
@@ -127,7 +127,7 @@ impl Global {
             _ => {
                 return Err(RuntimeError::new(
                     "The type is not yet supported in the JS Global API".to_owned(),
-                ))
+                ));
             }
         };
         self.handle.global.set_value(&new_value);

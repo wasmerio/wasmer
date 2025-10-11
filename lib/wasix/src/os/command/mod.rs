@@ -6,7 +6,7 @@ use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
-    runtime::task_manager::InlineWaker, syscalls::stderr_write, Runtime, SpawnError, WasiEnv,
+    Runtime, SpawnError, WasiEnv, runtime::task_manager::InlineWaker, syscalls::stderr_write,
 };
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};

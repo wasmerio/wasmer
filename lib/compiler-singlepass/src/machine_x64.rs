@@ -7,11 +7,11 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::*,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
-    x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM, new_machine_state},
 };
-use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
+use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, X86_64};
+use gimli::{X86_64, write::CallFrameInstruction};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::{
     types::{
@@ -23,9 +23,9 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 type Assembler = VecAssembler<X64Relocation>;
@@ -637,7 +637,7 @@ impl MachineX86_64 {
             },
         )?;
 
-        self.jmp_on_different(retry)?;
+        self.assembler.emit_jmp(Condition::NotEqual, retry)?;
 
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
         self.release_gpr(compare);
@@ -2388,7 +2388,9 @@ impl Machine for MachineX86_64 {
                     }
                 }
             },
-            _ => panic!(                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"            ),
+            _ => panic!(
+                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"
+            ),
         }?;
         if dst != dest {
             self.assembler.emit_mov(size_op, dst, dest)?;
@@ -2706,36 +2708,30 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.assembler.emit_cmp(size, source, dest)
     }
-    // (un)conditionnal jmp
-    // (un)conditionnal jmp
+
+    // unconditionnal jmp
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::None, label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Equal, label)
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::NotEqual, label)
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Above, label)
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::AboveEqual, label)
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::BelowEqual, label)
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Carry, label)
-    }
-    fn jmp_on_false(
+
+    fn jmp_on_condition(
         &mut self,
-        cond: AbstractLocation<Self::GPR, Self::SIMD>,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation<Self::GPR, Self::SIMD>,
+        dest: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-        self.jmp_on_equal(label)
+        self.assembler.emit_cmp(size, source, dest)?;
+        let cond = match cond {
+            UnsignedCondition::Equal => Condition::Equal,
+            UnsignedCondition::NotEqual => Condition::NotEqual,
+            UnsignedCondition::Above => Condition::Above,
+            UnsignedCondition::AboveEqual => Condition::AboveEqual,
+            UnsignedCondition::Below => Condition::Below,
+            UnsignedCondition::BelowEqual => Condition::BelowEqual,
+        };
+        self.assembler.emit_jmp(cond, label)
     }
 
     // jmp table

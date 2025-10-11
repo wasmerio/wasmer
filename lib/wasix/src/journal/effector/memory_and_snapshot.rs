@@ -1,4 +1,4 @@
-use std::collections::{hash_map, BTreeMap};
+use std::collections::{BTreeMap, hash_map};
 
 #[allow(unused)]
 use lz4_flex::{
@@ -207,7 +207,7 @@ impl JournalEffector {
         let (env, mut store) = ctx.data_and_store_mut();
 
         let (uncompressed_size, compressed_data) = block::uncompressed_size(compressed_data)
-            .map_err(|err| anyhow::anyhow!("failed to decompress - {}", err))?;
+            .map_err(|err| anyhow::anyhow!("failed to decompress - {err}"))?;
 
         let memory = unsafe { env.memory() };
         memory.grow_at_least(&mut store, region.end + uncompressed_size as u64)?;

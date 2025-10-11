@@ -2,9 +2,9 @@ use super::{shared::SharedMemory, view::*};
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternMemory, VMMemory},
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
 };
 
 gen_rt_ty!(Memory

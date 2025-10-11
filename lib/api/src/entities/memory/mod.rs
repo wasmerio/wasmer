@@ -2,8 +2,8 @@ pub use shared::SharedMemory;
 use wasmer_types::{MemoryError, MemoryType, Pages};
 
 use crate::{
-    vm::{VMExtern, VMExternMemory, VMMemory},
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
+    vm::{VMExtern, VMExternMemory, VMMemory},
 };
 
 pub(crate) mod buffer;

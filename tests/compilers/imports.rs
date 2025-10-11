@@ -5,8 +5,8 @@
 use anyhow::Result;
 use std::convert::Infallible;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering::SeqCst},
     Arc,
+    atomic::{AtomicUsize, Ordering::SeqCst},
 };
 use wasmer::FunctionEnv;
 use wasmer::Type as ValueType;

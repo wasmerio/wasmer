@@ -547,10 +547,10 @@ test-build-docs-rs-ci:
 		fi; \
 		printf "*** Building doc for package with manifest $$manifest_path and features $$features ***\n\n"; \
 		if [ -z "$$features" ]; then \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2025-02-09 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2025-09-27 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
 		else \
 			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2025-02-09 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2025-09-27 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 
@@ -687,6 +687,9 @@ test-js: test-js-api test-js-wasi
 test-js-api:
 	cd lib/api && wasm-pack test --node -- --no-default-features --features js-default,wat
 
+lint-js:
+	cargo clippy --target wasm32-unknown-unknown --manifest-path lib/api/Cargo.toml --no-default-features --features "js-default" --locked -- -D clippy::all
+
 test-js-wasi:
 	cd lib/wasix && wasm-pack test --node -- --no-default-features --features test-js,wasmer/js,wasmer/std
 
@@ -716,6 +719,9 @@ test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(ll
 # same as test-capi, but without the build-capi step first
 test-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),test-capi-crate-$(compiler_engine) test-capi-integration-$(compiler_engine))
 
+# Run clippy for the C API crate across the CI matrix.
+lint-capi-ci: $(foreach compiler_engine,$(capi_compilers_engines),lint-capi-crate-$(compiler_engine))
+
 # This test requires building the capi with all the available
 # compilers first
 test-capi: build-capi package-capi test-capi-ci
@@ -729,6 +735,10 @@ test-capi-jsc: build-capi-jsc package-capi test-capi-integration-jsc
 test-capi-crate-%:
 	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/test-capi-crate-//) $(CARGO_BINARY) test $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- --nocapture
+
+lint-capi-crate-%:
+	WASMER_CAPI_CONFIG=$(shell echo $@ | sed -e s/lint-capi-crate-//) RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,compiler,wasi,middlewares,webc_runner $(capi_compiler_features) --locked -- -D clippy::all
 
 test-capi-integration-%:
 	# note: you need to do make build-capi and make package-capi first!
@@ -1054,11 +1064,28 @@ lint-packages:
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml --locked $(compiler_features) -- -D clippy::all
 
+lint-wasmi:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wasmi-default" --locked -- -D clippy::all
+
+lint-wamr:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="wamr-default" --locked -- -D clippy::all
+
+lint-v8:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="v8-default" --locked -- -D clippy::all
+
+lint-jsc:
+	RUSTFLAGS="${RUSTFLAGS}" $(CARGO_BINARY) clippy $(CARGO_TARGET_FLAG) --package=wasmer --no-default-features --features="jsc-default,wat" --locked -- -D clippy::all
+
+lint-package-crate:
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/package/Cargo.toml --locked -- -D clippy::all
+
 lint-formatting:
 	cargo fmt --all -- --check
 	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
 lint: lint-formatting lint-packages
+
+lint-all: lint-formatting lint-packages lint-wasmi lint-wamr lint-v8 lint-jsc lint-capi-ci lint-package-crate
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz

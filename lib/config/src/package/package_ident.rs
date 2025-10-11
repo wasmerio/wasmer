@@ -55,13 +55,14 @@ impl std::str::FromStr for PackageIdent {
     fn from_str(s: &str) -> Result<Self, Self::Err> {
         if let Ok(hash) = PackageHash::from_str(s) {
             Ok(Self::Hash(hash))
-        } else if let Ok(named) = NamedPackageIdent::from_str(s) {
-            Ok(Self::Named(named))
         } else {
-            Err(PackageParseError::new(
-                s,
-                "invalid package ident: expected a hash or a valid named package identifier",
-            ))
+            match NamedPackageIdent::from_str(s) {
+                Ok(named) => Ok(Self::Named(named)),
+                _ => Err(PackageParseError::new(
+                    s,
+                    "invalid package ident: expected a hash or a valid named package identifier",
+                )),
+            }
         }
     }
 }
@@ -99,8 +100,8 @@ impl schemars::JsonSchema for PackageIdent {
         "PackageIdent".to_string()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
     }
 }
 
@@ -110,16 +111,22 @@ mod tests {
 
     #[test]
     fn test_package_ident_matches_id() {
-        assert!(PackageIdent::from_str("ns/pkg")
-            .unwrap()
-            .matches_id(&PackageId::new_named("ns/pkg", "1.0.0".parse().unwrap())));
+        assert!(
+            PackageIdent::from_str("ns/pkg")
+                .unwrap()
+                .matches_id(&PackageId::new_named("ns/pkg", "1.0.0".parse().unwrap()))
+        );
 
-        assert!(PackageIdent::from_str("ns/pkg@2")
-            .unwrap()
-            .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap())));
+        assert!(
+            PackageIdent::from_str("ns/pkg@2")
+                .unwrap()
+                .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap()))
+        );
 
-        assert!(!PackageIdent::from_str("ns/pkg@3")
-            .unwrap()
-            .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap())));
+        assert!(
+            !PackageIdent::from_str("ns/pkg@3")
+                .unwrap()
+                .matches_id(&PackageId::new_named("ns/pkg", "2.3.7".parse().unwrap()))
+        );
     }
 }

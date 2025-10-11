@@ -22,7 +22,7 @@ pub unsafe fn restore_snapshot(
     let mut ethereal_events = Vec::new();
     while let Some(next) = journal.read().map_err(anyhow_err_to_runtime_err)? {
         tracing::trace!(event=?next, "restoring event");
-        runner.play_event(next.into_inner(), Some(&mut ethereal_events))?;
+        unsafe { runner.play_event(next.into_inner(), Some(&mut ethereal_events)) }?;
     }
 
     // Check for events that are orphaned
@@ -75,7 +75,7 @@ pub unsafe fn restore_snapshot(
             region,
             data.len()
         );
-        JournalEffector::apply_compressed_memory(&mut runner.ctx, region, &data)
+        unsafe { JournalEffector::apply_compressed_memory(&mut runner.ctx, region, &data) }
             .map_err(anyhow_err_to_runtime_err)?;
     }
 

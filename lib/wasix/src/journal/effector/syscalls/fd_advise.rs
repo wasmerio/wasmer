@@ -28,13 +28,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         crate::syscalls::fd_advise_internal(ctx, fd, offset, len, advice).map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to advise file descriptor (fd={}, offset={}, len={}, advice={:?}) - {}",
-                fd,
-                offset,
-                len,
-                advice,
-                err
-            )
+                "journal restore error: failed to advise file descriptor (fd={fd}, offset={offset}, len={len}, advice={advice:?}) - {err}")
         })?;
         Ok(())
     }

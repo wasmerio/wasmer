@@ -11,11 +11,11 @@ use std::string::ToString;
 use std::sync::Arc;
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{bail, Result};
+use anyhow::{Result, bail};
 #[cfg(feature = "sys")]
 use wasmer::sys::*;
 use wasmer::*;
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
@@ -338,7 +338,9 @@ impl RuntimeOptions {
                     extra_text
                 );
             } else {
-                bail!("No backends support the required features for the Wasm module. Feel free to open an issue at https://github.com/wasmerio/wasmer/issues");
+                bail!(
+                    "No backends support the required features for the Wasm module. Feel free to open an issue at https://github.com/wasmerio/wasmer/issues"
+                );
             }
         }
         filtered_backends
@@ -477,7 +479,7 @@ impl RuntimeOptions {
                 use std::{fmt, fs::File, io::Write};
 
                 use wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
+                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
                 };
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
@@ -715,7 +717,7 @@ impl BackendType {
                 use std::{fmt, fs::File, io::Write};
 
                 use wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
+                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
                 };
                 use wasmer_types::entity::EntityRef;
 

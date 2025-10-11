@@ -24,7 +24,7 @@ impl From<RuntimeError> for wasm_trap_t {
 /// # Example
 ///
 /// See the module's documentation for a complete example.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_trap_new(
     _store: &mut wasm_store_t,
     message: &wasm_message_t,
@@ -63,7 +63,7 @@ pub unsafe extern "C" fn wasm_trap_new(
 /// # Example
 ///
 /// See the module's documentation for a complete example.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 
 /// Gets the message attached to the trap.
@@ -108,7 +108,7 @@ pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_trap_message(
     trap: &wasm_trap_t,
     // own
@@ -122,13 +122,13 @@ pub unsafe extern "C" fn wasm_trap_message(
 }
 
 /// Gets the origin frame attached to the trap.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_trap_origin(trap: &wasm_trap_t) -> Option<Box<wasm_frame_t>> {
     trap.inner.trace().first().map(Into::into).map(Box::new)
 }
 
 /// Gets the trace (as a list of frames) attached to the trap.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_trap_trace(
     trap: &wasm_trap_t,
     // own
@@ -150,6 +150,10 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_trap_message_null_terminated() {
@@ -183,6 +187,10 @@ mod tests {
         .success();
     }
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_trap_message_not_null_terminated() {

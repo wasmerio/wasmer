@@ -4,10 +4,10 @@ pub(crate) mod inner;
 pub(crate) use inner::*;
 
 use crate::{
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, Value,
     error::RuntimeError,
     store::BackendStore,
     vm::{VMExtern, VMExternTable},
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, Value,
 };
 
 /// A WebAssembly `table` instance.
@@ -135,7 +135,7 @@ mod test {
         ignore = "growing tables in v8 is not currently supported"
     )]
     fn table_grow_issue_3197() {
-        use crate::{imports, Instance, Module, Store, Table, TableType, Type, Value};
+        use crate::{Instance, Module, Store, Table, TableType, Type, Value, imports};
 
         const WAT: &str = r#"(module (table (import "env" "table") 100 funcref))"#;
 

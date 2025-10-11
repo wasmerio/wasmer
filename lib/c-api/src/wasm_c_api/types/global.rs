@@ -1,6 +1,6 @@
 use super::{
-    wasm_externtype_t, wasm_mutability_enum, wasm_mutability_t, wasm_valtype_delete,
-    wasm_valtype_t, WasmExternType,
+    WasmExternType, wasm_externtype_t, wasm_mutability_enum, wasm_mutability_t,
+    wasm_valtype_delete, wasm_valtype_t,
 };
 use std::convert::TryInto;
 use wasmer_api::{ExternType, GlobalType};
@@ -48,7 +48,7 @@ impl wasm_globaltype_t {
 
 wasm_declare_boxed_vec!(globaltype);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_globaltype_new(
     valtype: Option<Box<wasm_valtype_t>>,
     mutability: wasm_mutability_t,
@@ -60,22 +60,24 @@ pub unsafe extern "C" fn wasm_globaltype_new(
         mutability.into(),
     )));
 
-    wasm_valtype_delete(Some(valtype));
+    unsafe {
+        wasm_valtype_delete(Some(valtype));
+    }
 
     Some(global_type)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_globaltype_delete(_global_type: Option<Box<wasm_globaltype_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_globaltype_mutability(
     global_type: &wasm_globaltype_t,
 ) -> wasm_mutability_t {
     wasm_mutability_enum::from(global_type.inner().global_type.mutability).into()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_globaltype_content(
     global_type: &wasm_globaltype_t,
 ) -> &wasm_valtype_t {

@@ -1,4 +1,4 @@
-use super::{wasm_externtype_t, wasm_valtype_vec_t, WasmExternType};
+use super::{WasmExternType, wasm_externtype_t, wasm_valtype_vec_t};
 use std::fmt;
 use wasmer_api::{ExternType, FunctionType};
 use wasmer_types::Type;
@@ -69,7 +69,7 @@ impl wasm_functype_t {
 wasm_declare_boxed_vec!(functype);
 wasm_impl_copy_delete!(functype);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_functype_new(
     params: Option<&mut wasm_valtype_vec_t>,
     results: Option<&mut wasm_valtype_vec_t>,
@@ -94,7 +94,7 @@ pub unsafe extern "C" fn wasm_functype_new(
     ))))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_functype_params(
     function_type: Option<&wasm_functype_t>,
 ) -> Option<&wasm_valtype_vec_t> {
@@ -103,7 +103,7 @@ pub unsafe extern "C" fn wasm_functype_params(
     Some(&function_type.inner().params)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_functype_results(
     function_type: Option<&wasm_functype_t>,
 ) -> Option<&wasm_valtype_vec_t> {

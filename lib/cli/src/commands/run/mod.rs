@@ -4,7 +4,7 @@ mod capabilities;
 mod wasi;
 
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap},
+    collections::{BTreeMap, hash_map::DefaultHasher},
     fmt::{Binary, Display},
     fs::File,
     hash::{BuildHasherDefault, Hash, Hasher},
@@ -16,9 +16,11 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, bail, Context, Error};
+use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
+use futures::future::BoxFuture;
 use indicatif::{MultiProgress, ProgressBar};
+use is_terminal::IsTerminal as _;
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
@@ -29,7 +31,7 @@ use wasmer::{
     TypedFunction, Value,
 };
 
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
@@ -40,23 +42,25 @@ use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
-    bin_factory::BinaryPackage,
+    Runtime, SpawnError, WasiError,
+    bin_factory::{BinaryPackage, BinaryPackageCommand},
     journal::CompactingLogFileJournal,
     runners::{
+        MappedCommand, MappedDirectory, Runner,
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
         wasi::{RuntimeOrEngine, WasiRunner},
         wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
-        MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
-        module_cache::CacheError, package_loader::PackageLoader, resolver::QueryError,
+        module_cache::{CacheError, HashedModuleData},
+        package_loader::PackageLoader,
+        resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
-    Runtime, WasiError,
 };
-use webc::metadata::Manifest;
 use webc::Container;
+use webc::metadata::Manifest;
 
 use crate::{
     backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
@@ -154,7 +158,9 @@ impl Run {
                             );
                             wasm_bytes = Some(bytes);
                         } else {
-                            tracing::info!("File does not have valid WebAssembly magic number, will try to run it anyway");
+                            tracing::info!(
+                                "File does not have valid WebAssembly magic number, will try to run it anyway"
+                            );
                             // Still provide the bytes so the engine can attempt to run it
                             wasm_bytes = Some(bytes);
                         }
@@ -180,7 +186,7 @@ impl Run {
             }
             None => {
                 // No WebAssembly file available for analysis, check if we have a webc package
-                if let PackageSource::Package(ref pkg_source) = &self.input {
+                if let PackageSource::Package(pkg_source) = &self.input {
                     tracing::info!("Checking package for WebAssembly features: {}", pkg_source);
                     self.rt.get_engine(&Target::default())?
                 } else {
@@ -273,13 +279,15 @@ impl Run {
                                         engine_id
                                     );
                                     // Create a new runtime with the updated engine
+                                    let capability_cache_path =
+                                        capabilities::get_capability_cache_path(
+                                            &self.env,
+                                            &self.input,
+                                        )?;
                                     let new_runtime = self.wasi.prepare_runtime(
                                         new_engine,
                                         &self.env,
-                                        &capabilities::get_capability_cache_path(
-                                            &self.env,
-                                            &self.input,
-                                        )?,
+                                        &capability_cache_path,
                                         tokio::runtime::Builder::new_multi_thread()
                                             .enable_all()
                                             .build()?,
@@ -625,7 +633,9 @@ impl Run {
         let (_interpreter, executable, original_executable, args) = match &argv[..] {
             [a, b, c, rest @ ..] => (a, b, c, rest),
             _ => {
-                bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
+                bail!(
+                    "Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {argv:?})"
+                );
             }
         };
         let rt = RuntimeOptions::default();
@@ -657,9 +667,7 @@ fn invoke_function(
 
     anyhow::ensure!(
         required_arguments == provided_arguments,
-        "Function expected {} arguments, but received {}",
-        required_arguments,
-        provided_arguments,
+        "Function expected {required_arguments} arguments, but received {provided_arguments}"
     );
 
     let invoke_args = args
@@ -737,7 +745,7 @@ impl PackageSource {
                 let pkg = rt.task_manager().spawn_and_block_on(async move {
                     BinaryPackage::from_registry(&inner_pck, inner_rt.as_ref()).await
                 })??;
-                Ok(ExecutableTarget::Package(pkg))
+                Ok(ExecutableTarget::Package(Box::new(pkg)))
             }
         }
     }
@@ -807,7 +815,7 @@ enum ExecutableTarget {
         module_hash: ModuleHash,
         path: PathBuf,
     },
-    Package(BinaryPackage),
+    Package(Box<BinaryPackage>),
 }
 
 impl ExecutableTarget {
@@ -828,7 +836,7 @@ impl ExecutableTarget {
             async move { BinaryPackage::from_dir(&path, inner_runtime.as_ref()).await }
         })??;
 
-        Ok(ExecutableTarget::Package(pkg))
+        Ok(ExecutableTarget::Package(Box::new(pkg)))
     }
 
     /// Try to load a file into something that can be used to run it.
@@ -843,15 +851,17 @@ impl ExecutableTarget {
         match TargetOnDisk::from_file(path)? {
             TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
                 let wasm = std::fs::read(path)?;
+                let module_data = HashedModuleData::new(wasm);
+                let module_hash = *module_data.hash();
 
                 pb.set_message("Compiling to WebAssembly");
                 let module = runtime
-                    .load_module_sync(&wasm)
+                    .load_hashed_module_sync(module_data, None)
                     .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
 
                 Ok(ExecutableTarget::WebAssembly {
                     module,
-                    module_hash: ModuleHash::xxhash(&wasm),
+                    module_hash,
                     path: path.to_path_buf(),
                 })
             }
@@ -878,7 +888,7 @@ impl ExecutableTarget {
                 let pkg = runtime.task_manager().spawn_and_block_on(async move {
                     BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
                 })??;
-                Ok(ExecutableTarget::Package(pkg))
+                Ok(ExecutableTarget::Package(Box::new(pkg)))
             }
         }
     }
@@ -1087,6 +1097,90 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
     #[cfg(feature = "journal")]
     fn active_journal(&self) -> Option<&'_ wasmer_wasix::journal::DynJournal> {
         self.runtime.active_journal()
+    }
+
+    fn load_hashed_module(
+        &self,
+        module: HashedModuleData,
+        engine: Option<&Engine>,
+    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
+        let hash = *module.hash();
+        let fut = self.runtime.load_hashed_module(module, engine);
+        Box::pin(compile_with_progress(fut, hash, None))
+    }
+
+    fn load_hashed_module_sync(
+        &self,
+        wasm: HashedModuleData,
+        engine: Option<&Engine>,
+    ) -> Result<Module, wasmer_wasix::SpawnError> {
+        let hash = *wasm.hash();
+        compile_with_progress_sync(
+            || self.runtime.load_hashed_module_sync(wasm, engine),
+            &hash,
+            None,
+        )
+    }
+
+    fn load_command_module(
+        &self,
+        cmd: &BinaryPackageCommand,
+    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
+        let fut = self.runtime.load_command_module(cmd);
+
+        Box::pin(compile_with_progress(
+            fut,
+            *cmd.hash(),
+            Some(cmd.name().to_owned()),
+        ))
+    }
+
+    fn load_command_module_sync(
+        &self,
+        cmd: &wasmer_wasix::bin_factory::BinaryPackageCommand,
+    ) -> Result<Module, wasmer_wasix::SpawnError> {
+        compile_with_progress_sync(
+            || self.runtime.load_command_module_sync(cmd),
+            cmd.hash(),
+            Some(cmd.name()),
+        )
+    }
+}
+
+async fn compile_with_progress<'a, F, T>(fut: F, hash: ModuleHash, name: Option<String>) -> T
+where
+    F: std::future::Future<Output = T> + Send + 'a,
+    T: Send + 'static,
+{
+    let mut pb = new_progressbar_compile(&hash, name.as_deref());
+    let res = fut.await;
+    pb.finish_and_clear();
+    res
+}
+
+fn compile_with_progress_sync<F, T>(f: F, hash: &ModuleHash, name: Option<&str>) -> T
+where
+    F: FnOnce() -> T,
+{
+    let mut pb = new_progressbar_compile(hash, name);
+    let res = f();
+    pb.finish_and_clear();
+    res
+}
+
+fn new_progressbar_compile(hash: &ModuleHash, name: Option<&str>) -> ProgressBar {
+    // Only show a spinner if we're running in a TTY
+    if std::io::stderr().is_terminal() {
+        let msg = if let Some(name) = name {
+            format!("Compiling WebAssembly module for command '{name}' ({hash})...")
+        } else {
+            format!("Compiling WebAssembly module {hash}...")
+        };
+        let pb = ProgressBar::new_spinner().with_message(msg);
+        pb.enable_steady_tick(Duration::from_millis(100));
+        pb
+    } else {
+        ProgressBar::hidden()
     }
 }
 

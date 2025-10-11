@@ -64,11 +64,7 @@ impl JournalEffector {
         )?
         .map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to send_to on socket (fd={}, data.len={}) - {}",
-                sock,
-                data_len,
-                err
-            )
+                "journal restore error: failed to send_to on socket (fd={sock}, data.len={data_len}) - {err}")
         })?;
         Ok(())
     }

@@ -4,8 +4,8 @@ use std::any::Any;
 use wasmer_types::{TagType, Type};
 
 use crate::{
-    v8::vm::{VMException, VMExceptionRef},
     AsStoreMut, AsStoreRef, Tag, Value,
+    v8::vm::{VMException, VMExceptionRef},
 };
 
 use super::store::StoreHandle;

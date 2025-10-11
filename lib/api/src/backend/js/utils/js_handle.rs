@@ -19,7 +19,7 @@ pub(crate) struct JsHandle<T> {
 impl<T> JsHandle<T> {
     #[track_caller]
     pub fn new(value: T) -> Self {
-        JsHandle {
+        Self {
             value,
             integrity: IntegrityCheck::new(std::any::type_name::<T>()),
         }
@@ -34,7 +34,7 @@ impl<T> JsHandle<T> {
 
 impl<T: PartialEq> PartialEq for JsHandle<T> {
     fn eq(&self, other: &Self) -> bool {
-        let JsHandle {
+        let Self {
             value,
             integrity: _,
         } = self;
@@ -48,11 +48,11 @@ impl<T: Eq> Eq for JsHandle<T> {}
 impl<T> From<T> for JsHandle<T> {
     #[track_caller]
     fn from(value: T) -> Self {
-        JsHandle::new(value)
+        Self::new(value)
     }
 }
 
-impl<T: Into<JsValue>> From<JsHandle<T>> for JsValue {
+impl<T: Into<Self>> From<JsHandle<T>> for JsValue {
     fn from(value: JsHandle<T>) -> Self {
         value.into_inner().into()
     }
@@ -120,7 +120,7 @@ mod integrity_check {
     impl IntegrityCheck {
         #[track_caller]
         pub(crate) fn new(type_name: &'static str) -> Self {
-            IntegrityCheck {
+            Self {
                 original_thread: super::current_thread_id(),
                 created: Location::caller(),
                 type_name,
@@ -133,7 +133,7 @@ mod integrity_check {
             let current_thread = super::current_thread_id();
 
             if current_thread != self.original_thread {
-                let IntegrityCheck {
+                let Self {
                     original_thread,
                     created,
                     type_name,

@@ -26,6 +26,8 @@ use webc::metadata::annotations::Wasi;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
+    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
     bin_factory::{BinFactory, BinaryPackage, BinaryPackageCommand},
     capabilities::Capabilities,
     fs::{WasiFsRoot, WasiInodes},
@@ -37,13 +39,11 @@ use crate::{
     },
     runtime::task_manager::InlineWaker,
     syscalls::platform_clock_time_get,
-    Runtime, VirtualTaskManager, WasiControlPlane, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiResult, WasiRuntimeError, WasiStateCreationError, WasiThreadError, WasiVFork,
 };
 use wasmer_types::ModuleHash;
 
 pub use super::handles::*;
-use super::{conv_env_vars, Linker, WasiState};
+use super::{Linker, WasiState, conv_env_vars};
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -93,7 +93,7 @@ impl WasiEnvInit {
 
         Self {
             state: WasiState {
-                secret: rand::thread_rng().gen::<[u8; 32]>(),
+                secret: rand::thread_rng().r#gen::<[u8; 32]>(),
                 inodes,
                 fs,
                 futexs: Default::default(),
@@ -421,6 +421,7 @@ impl WasiEnv {
         let pid = self.process.pid();
 
         let mut store = store.as_store_mut();
+        let engine = self.runtime().engine();
         let mut func_env = WasiFunctionEnv::new(&mut store, self);
 
         let is_dl = super::linker::is_dynamically_linked(&module);
@@ -451,6 +452,7 @@ impl WasiEnv {
 
                     // TODO: make stack size configurable
                     Linker::new(
+                        engine,
                         &module,
                         &mut store,
                         memory,
@@ -984,7 +986,7 @@ impl WasiEnv {
         store: &'a impl AsStoreRef,
         _mem_index: u32,
     ) -> (MemoryView<'a>, &'a WasiState) {
-        let memory = self.memory_view(store);
+        let memory = unsafe { self.memory_view(store) };
         let state = self.state.deref();
         (memory, state)
     }
@@ -999,7 +1001,7 @@ impl WasiEnv {
         store: &'a impl AsStoreRef,
         _mem_index: u32,
     ) -> (MemoryView<'a>, &'a WasiState, &'a WasiInodes) {
-        let memory = self.memory_view(store);
+        let memory = unsafe { self.memory_view(store) };
         let state = self.state.deref();
         let inodes = &state.inodes;
         (memory, state, inodes)
@@ -1104,8 +1106,11 @@ impl WasiEnv {
 
                 let mut package = pkg.clone();
                 package.entrypoint_cmd = Some(command.name().to_string());
+                let package_arc = Arc::new(package);
                 self.bin_factory
-                    .set_binary(path.as_os_str().to_string_lossy().as_ref(), package);
+                    .set_binary(path.to_string_lossy().as_ref(), &package_arc);
+                self.bin_factory
+                    .set_binary(path2.to_string_lossy().as_ref(), &package_arc);
 
                 tracing::debug!(
                     package=%pkg.id,
@@ -1192,7 +1197,10 @@ impl WasiEnv {
                     continue;
                 }
             } else {
-                tracing::debug!("failed to add atom command [{}] to the root file system as it is not sandboxed", command);
+                tracing::debug!(
+                    "failed to add atom command [{}] to the root file system as it is not sandboxed",
+                    command
+                );
                 continue;
             }
         }
@@ -1287,12 +1295,11 @@ impl WasiEnv {
                     .extend_from_slice(env_vars.as_slice());
             }
 
-            if let Some(args) = main_args {
-                self.state
-                    .args
-                    .lock()
-                    .unwrap()
-                    .extend_from_slice(args.as_slice());
+            if let Some(main_args) = main_args {
+                let mut args: std::sync::MutexGuard<'_, Vec<String>> =
+                    self.state.args.lock().unwrap();
+                // Insert main-args before user args
+                args.splice(1..1, main_args);
             }
 
             if let Some(exec_name) = exec_name {

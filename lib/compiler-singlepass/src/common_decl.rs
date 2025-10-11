@@ -263,7 +263,7 @@ impl MachineStateDiff {
                 state.register_values[index.0] = v.clone();
             }
             for (index, ref v) in &x.prev_frame_diff {
-                if let Some(ref x) = v {
+                if let Some(x) = v {
                     state.prev_frame.insert(*index, x.clone());
                 } else {
                     state.prev_frame.remove(index).unwrap();

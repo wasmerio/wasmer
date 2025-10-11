@@ -34,12 +34,6 @@ impl InlineWaker {
         unsafe { Waker::from_raw(raw_waker) }
     }
 
-    #[cfg(not(feature = "js"))]
-    pub fn block_on<'a, A>(task: impl Future<Output = A> + 'a) -> A {
-        futures::executor::block_on(task)
-    }
-
-    #[cfg(feature = "js")]
     pub fn block_on<'a, A>(task: impl Future<Output = A> + 'a) -> A {
         // Create the waker
         let inline_waker = Self::new();

@@ -374,14 +374,14 @@ impl ArgumentRegisterAllocator {
                     _ => {
                         return Err(CompileError::Codegen(format!(
                             "No register available for {calling_convention:?} and type {ty}"
-                        )))
+                        )));
                     }
                 }
             }
             _ => {
                 return Err(CompileError::Codegen(format!(
                     "No register available for {calling_convention:?} and type {ty}"
-                )))
+                )));
             }
         };
 

@@ -5,7 +5,7 @@ use crate::{FsError, Result, VirtualFile};
 use std::io::{self, Write};
 
 macro_rules! impl_virtualfile_on_std_streams {
-    ($name:ident { readable: $readable:expr, writable: $writable:expr $(,)* }) => {
+    ($name:ident { readable: $readable:expr_2021, writable: $writable:expr_2021 $(,)* }) => {
         /// A wrapper type around the standard I/O stream of the same
         /// name that implements `VirtualFile`.
         #[derive(Debug, Default)]

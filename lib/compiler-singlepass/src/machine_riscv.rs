@@ -3,9 +3,9 @@
 // TODO: handle warnings
 #![allow(unused_variables, unused_imports, dead_code)]
 
-use dynasmrt::{riscv::RiscvRelocation, DynasmError, VecAssembler};
+use dynasmrt::{DynasmError, VecAssembler, riscv::RiscvRelocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, RiscV};
+use gimli::{RiscV, write::CallFrameInstruction};
 
 use wasmer_compiler::{
     types::{
@@ -17,8 +17,8 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 use crate::{
@@ -27,7 +27,7 @@ use crate::{
     emitter_riscv::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    riscv_decl::{new_machine_state, FPR, GPR},
+    riscv_decl::{FPR, GPR, new_machine_state},
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
@@ -2703,36 +2703,62 @@ impl Machine for MachineRiscv {
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_j_label(label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
-    }
-    fn jmp_on_false(
+
+    fn jmp_on_condition(
         &mut self,
-        cond: AbstractLocation<Self::GPR, Self::SIMD>,
+        cond: UnsignedCondition,
+        size: Size,
+        source: AbstractLocation<Self::GPR, Self::SIMD>,
+        dst: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
+        let c = match cond {
+            UnsignedCondition::Equal => Condition::Eq,
+            UnsignedCondition::NotEqual => Condition::Ne,
+            UnsignedCondition::Above => Condition::Gtu,
+            UnsignedCondition::AboveEqual => Condition::Geu,
+            UnsignedCondition::Below => Condition::Ltu,
+            UnsignedCondition::BelowEqual => Condition::Leu,
+        };
+
         let mut temps = vec![];
-        let cond = self.location_to_reg(Size::S64, cond, &mut temps, ImmType::None, true, None)?;
-        self.assembler.emit_on_false_label_far(cond, label)?;
+        let loc_a = self.location_to_reg(size, source, &mut temps, ImmType::None, true, None)?;
+        let loc_b = self.location_to_reg(size, dst, &mut temps, ImmType::None, true, None)?;
+        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
+            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+        })?;
+        temps.push(tmp);
+        self.assembler
+            .emit_cmp(c, loc_a, loc_b, Location::GPR(tmp))?;
+        self.assembler
+            .emit_on_true_label_far(Location::GPR(tmp), label)?;
+
         for r in temps {
             self.release_gpr(r);
         }
         Ok(())
+
+        // TODO: use it
+        // let mut temps = vec![];
+        // let loc_a = self.location_to_reg(size, source, &mut temps, ImmType::None, true, None)?;
+        // let loc_b = self.location_to_reg(size, dst, &mut temps, ImmType::None, true, None)?;
+
+        // let c = match cond {
+        //     UnsignedCondition::Equal => Condition::Eq,
+        //     UnsignedCondition::NotEqual => Condition::Ne,
+        //     UnsignedCondition::Above => Condition::Gtu,
+        //     UnsignedCondition::AboveEqual => Condition::Geu,
+        //     UnsignedCondition::Below => Condition::Ltu,
+        //     UnsignedCondition::BelowEqual => Condition::Leu,
+        // };
+
+        // self.assembler
+        //     .emit_jmp_on_condition(c, loc_a, loc_b, label)?;
+
+        // for r in temps {
+        //     self.release_gpr(r);
+        // }
+        // Ok(())
     }
 
     // jmp table

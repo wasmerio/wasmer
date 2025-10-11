@@ -50,11 +50,11 @@ impl CompactUnwindEntry {
 
     pub unsafe fn from_ptr_and_len(ptr: *const u8, len: usize) -> Self {
         let mut reader = CompactUnwindEntryReader::new(ptr, len);
-        let function_addr = reader.read::<usize>();
-        let length = reader.read::<u32>();
-        let compact_encoding = reader.read::<u32>();
-        let personality_addr = reader.read::<usize>();
-        let lsda_addr = reader.read::<usize>();
+        let function_addr = unsafe { reader.read::<usize>() };
+        let length = unsafe { reader.read::<u32>() };
+        let compact_encoding = unsafe { reader.read::<u32>() };
+        let personality_addr = unsafe { reader.read::<usize>() };
+        let lsda_addr = unsafe { reader.read::<usize>() };
         Self {
             function_addr,
             length,
