@@ -844,6 +844,7 @@ impl MachineRiscv {
         let loc_b = self.location_to_reg(sz, loc_b, &mut temps, ImmType::None, true, None)?;
 
         // We must sign-extend the 32-bit integeres for signed comparison operations
+        // TODO: assert on other sizes + just for signed only?
         if sz == Size::S32 && signed {
             self.assembler.emit_extend(sz, signed, loc_a, loc_a)?;
             self.assembler.emit_extend(sz, signed, loc_b, loc_b)?;
@@ -2708,8 +2709,8 @@ impl Machine for MachineRiscv {
         &mut self,
         cond: UnsignedCondition,
         size: Size,
-        source: AbstractLocation<Self::GPR, Self::SIMD>,
-        dst: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
         let c = match cond {
@@ -2722,43 +2723,21 @@ impl Machine for MachineRiscv {
         };
 
         let mut temps = vec![];
-        let loc_a = self.location_to_reg(size, source, &mut temps, ImmType::None, true, None)?;
-        let loc_b = self.location_to_reg(size, dst, &mut temps, ImmType::None, true, None)?;
-        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-        })?;
-        temps.push(tmp);
+        let loc_a = self.location_to_reg(size, loc_a, &mut temps, ImmType::None, true, None)?;
+        let loc_b = self.location_to_reg(size, loc_b, &mut temps, ImmType::None, true, None)?;
+
+        if size != Size::S64 {
+            self.assembler.emit_extend(size, false, loc_a, loc_a)?;
+            self.assembler.emit_extend(size, false, loc_b, loc_b)?;
+        }
+
         self.assembler
-            .emit_cmp(c, loc_a, loc_b, Location::GPR(tmp))?;
-        self.assembler
-            .emit_on_true_label_far(Location::GPR(tmp), label)?;
+            .emit_jmp_on_condition(c, loc_a, loc_b, label)?;
 
         for r in temps {
             self.release_gpr(r);
         }
         Ok(())
-
-        // TODO: use it
-        // let mut temps = vec![];
-        // let loc_a = self.location_to_reg(size, source, &mut temps, ImmType::None, true, None)?;
-        // let loc_b = self.location_to_reg(size, dst, &mut temps, ImmType::None, true, None)?;
-
-        // let c = match cond {
-        //     UnsignedCondition::Equal => Condition::Eq,
-        //     UnsignedCondition::NotEqual => Condition::Ne,
-        //     UnsignedCondition::Above => Condition::Gtu,
-        //     UnsignedCondition::AboveEqual => Condition::Geu,
-        //     UnsignedCondition::Below => Condition::Ltu,
-        //     UnsignedCondition::BelowEqual => Condition::Leu,
-        // };
-
-        // self.assembler
-        //     .emit_jmp_on_condition(c, loc_a, loc_b, label)?;
-
-        // for r in temps {
-        //     self.release_gpr(r);
-        // }
-        // Ok(())
     }
 
     // jmp table

@@ -2532,11 +2532,11 @@ impl Machine for MachineARM64 {
         &mut self,
         cond: UnsignedCondition,
         size: Size,
-        source: AbstractLocation<Self::GPR, Self::SIMD>,
-        dest: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)?;
+        self.emit_relaxed_binop(Assembler::emit_cmp, size, loc_b, loc_a, false)?;
         let cond = match cond {
             UnsignedCondition::Equal => Condition::Eq,
             UnsignedCondition::NotEqual => Condition::Ne,

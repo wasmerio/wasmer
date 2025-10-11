@@ -2854,8 +2854,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::BelowEqual,
                     Size::S32,
-                    func_index,
                     Location::GPR(table_count),
+                    func_index,
                     self.special_labels.table_access_oob,
                 )?;
                 self.machine
@@ -2882,8 +2882,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S64,
-                    Location::Imm32(0),
                     Location::GPR(table_count),
+                    Location::Imm32(0),
                     self.special_labels.indirect_call_null,
                 )?;
                 self.machine.move_location(
@@ -3019,8 +3019,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     label_else,
                 )?;
             }
@@ -3093,8 +3093,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     zero_label,
                 )?;
                 match cncl {
@@ -4116,8 +4116,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     after,
                 )?;
 
@@ -4165,8 +4165,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::AboveEqual,
                     Size::S32,
-                    Location::Imm32(targets.len() as u32),
                     cond,
+                    Location::Imm32(targets.len() as u32),
                     default_br,
                 )?;
 

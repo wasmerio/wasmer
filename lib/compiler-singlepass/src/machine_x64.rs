@@ -2718,11 +2718,11 @@ impl Machine for MachineX86_64 {
         &mut self,
         cond: UnsignedCondition,
         size: Size,
-        source: AbstractLocation<Self::GPR, Self::SIMD>,
-        dest: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.assembler.emit_cmp(size, source, dest)?;
+        self.assembler.emit_cmp(size, loc_b, loc_a)?;
         let cond = match cond {
             UnsignedCondition::Equal => Condition::Equal,
             UnsignedCondition::NotEqual => Condition::NotEqual,
