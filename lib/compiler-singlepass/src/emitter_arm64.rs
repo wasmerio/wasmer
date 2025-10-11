@@ -235,7 +235,7 @@ pub trait EmitterARM64 {
         dst: Location,
     ) -> Result<(), CompileError>;
 
-    fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CompileError>;
     fn emit_tst(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
     fn emit_lsl(
@@ -1414,8 +1414,13 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
-    fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
-        match (sz, src, dst) {
+    /// Emit a CMP instruction that compares `left` against `right`.
+    ///
+    /// Note: callers sometimes pass operands in the opposite order compared
+    /// to other binary operators. This function performs the comparison as
+    /// provided (i.e. it emits `cmp left, right` semantics).
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CompileError> {
+        match (sz, left, right) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
                 dynasm!(self ; cmp X(dst), X(src));
             }
@@ -1446,7 +1451,7 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; cmp WSP(dst), imm as u32);
             }
-            _ => codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, src, dst),
+            _ => codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right),
         }
         Ok(())
     }

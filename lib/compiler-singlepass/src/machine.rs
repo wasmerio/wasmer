@@ -393,13 +393,13 @@ pub trait Machine {
     /// jmp without condidtion
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError>;
 
-    /// jmp to label if the provided condition is true (when comparing source and dest)
+    /// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
     fn jmp_on_condition(
         &mut self,
         cond: UnsignedCondition,
         size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
+        loc_a: Location<Self::GPR, Self::SIMD>,
+        loc_b: Location<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError>;
 
