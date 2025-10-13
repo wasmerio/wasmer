@@ -91,15 +91,22 @@ impl Binfmt {
                         b":PFC",
                     ]
                     .concat(),
+                    [
+                        b":wasm32-webc:M::\\x00webc::".as_ref(),
+                        bin_path.as_os_str().as_bytes(),
+                        b":PFC",
+                    ]
+                    .concat(),
                 ])
             }
             _ => None,
         };
         let wasm_registration = self.binfmt_misc.join("wasm32");
         let wat_registration = self.binfmt_misc.join("wasm32-wat");
+        let webc_registration = self.binfmt_misc.join("wasm32-webc");
         match self.action {
             Reregister | Unregister => {
-                let unregister = [wasm_registration, wat_registration]
+                let unregister = [wasm_registration, wat_registration, webc_registration]
                     .iter()
                     .map(|registration| {
                         if registration.exists() {
