@@ -72,6 +72,11 @@ pub struct Wasi {
     )]
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
 
+    /// Set the module's initial CWD to this path; does not work with
+    /// WASI preview 1 modules.
+    #[clap(long)]
+    pub(crate) cwd: Option<PathBuf>,
+
     /// Pass custom environment variables
     #[clap(
         long = "env",
@@ -294,7 +299,7 @@ impl Wasi {
             uses.push(pkg);
         }
 
-        let builder = WasiEnv::builder(program_name)
+        let mut builder = WasiEnv::builder(program_name)
             .runtime(Arc::clone(&rt))
             .args(args)
             .envs(self.env_vars.clone())
@@ -405,16 +410,23 @@ impl Wasi {
                 }
             }
 
+            if let Some(cwd) = self.cwd.as_ref() {
+                if !cwd.starts_with("/") {
+                    bail!("The argument to --cwd must be an absolute path");
+                }
+                builder = builder.current_dir(cwd.clone());
+            }
+
             // Open the root of the new filesystem
-            let b = builder
+            builder = builder
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 
             if have_current_dir {
-                b.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
             } else {
-                b.map_dir(".", "/")?
+                builder.map_dir(".", "/")?
             }
         };
 

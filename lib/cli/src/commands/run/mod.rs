@@ -545,6 +545,13 @@ impl Run {
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 
+        if let Some(cwd) = self.wasi.cwd.as_ref() {
+            if !cwd.starts_with("/") {
+                bail!("The argument to --cwd must be an absolute path");
+            }
+            runner.with_current_dir(cwd.clone());
+        }
+
         if let Some(ref entry_function) = self.invoke {
             runner.with_entry_function(entry_function);
         }
