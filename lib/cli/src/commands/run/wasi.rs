@@ -60,7 +60,7 @@ const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
-    /// WASI pre-opened directory
+    /// WASI pre-opened directories
     #[clap(long = "dir", name = "DIR", group = "wasi")]
     pub(crate) pre_opened_directories: Vec<PathBuf>,
 
@@ -74,7 +74,7 @@ pub struct Wasi {
 
     /// Set the module's initial CWD to this path; does not work with
     /// WASI preview 1 modules.
-    #[clap(long)]
+    #[clap(long = "cwd")]
     pub(crate) cwd: Option<PathBuf>,
 
     /// Pass custom environment variables
@@ -495,9 +495,7 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(
-        &self,
-    ) -> Result<(bool, bool, Vec<MappedDirectory>), anyhow::Error> {
+    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -582,9 +580,7 @@ impl Wasi {
             mapped_dirs.push(mapping);
         }
 
-        let is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == "/tmp");
-
-        Ok((have_current_dir, is_tmp_mapped, mapped_dirs))
+        Ok((have_current_dir, mapped_dirs))
     }
 
     pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {

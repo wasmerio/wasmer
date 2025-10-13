@@ -531,8 +531,7 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, is_tmp_mapped, mapped_diretories) =
-            self.wasi.build_mapped_directories()?;
+        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories()?;
 
         runner
             .with_args(&self.args)
@@ -541,7 +540,6 @@ impl Run {
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_diretories)
             .with_home_mapped(is_home_mapped)
-            .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
 
