@@ -244,11 +244,39 @@ impl WasmerCmd {
 
             // For now we are only using the real path and ignoring the original executable name.
             // Ideally we would use the real path to load the file and the original name to pass it as argv[0] to the wasm module.
+
+            let current_dir = std::env::current_dir()
+                .unwrap()
+                .into_os_string()
+                .into_string()
+                .unwrap();
+            let mut mount_paths = vec!["/home", "/etc", "/tmp", "/var", "/nix", "/opt", "/root"]
+                .into_iter()
+                .filter(|path| {
+                    let path = std::path::Path::new(path);
+                    if !path.is_dir() {
+                        // Not a directory
+                        return false;
+                    }
+                    if std::fs::read_dir(path).is_err() {
+                        // No permissions
+                        return false;
+                    }
+                    return true;
+                })
+                .collect::<Vec<_>>();
+            if !current_dir.starts_with("/home") {
+                mount_paths.push(current_dir.as_str());
+            }
+
             binfmt_args.push("run".into());
             binfmt_args.push("--net".into());
             // TODO: This does not seem to work, needs further investigation.
             binfmt_args.push("--forward-host-env".into());
-            binfmt_args.push("--dir=.".into());
+            for mount_path in mount_paths {
+                binfmt_args.push(format!("--mapdir={0}:{0}", mount_path).into());
+            }
+            binfmt_args.push(format!("--cwd={0}", current_dir).into());
             binfmt_args.push("--".into());
             binfmt_args.push(args_os.next().unwrap());
             args_os.next().unwrap();
