@@ -105,7 +105,7 @@ impl Binfmt {
         let wat_registration = self.binfmt_misc.join("wasm32-wat");
         let webc_registration = self.binfmt_misc.join("wasm32-webc");
         match self.action {
-            Reregister | Unregister => {
+            Register | Reregister | Unregister => {
                 let unregister = [wasm_registration, wat_registration, webc_registration]
                     .iter()
                     .map(|registration| {
@@ -119,10 +119,6 @@ impl Binfmt {
                                 .context("Couldn't write binfmt unregister request")?;
                             Ok(true)
                         } else {
-                            eprintln!(
-                                "Warning: {} does not exist, not unregistered.",
-                                registration.to_string_lossy()
-                            );
                             Ok(false)
                         }
                     })
@@ -133,15 +129,8 @@ impl Binfmt {
                     bail!("Nothing unregistered");
                 }
             }
-            _ => (),
         };
         if let Some(specs) = specs {
-            if cfg!(target_env = "gnu") {
-                // Approximate. ELF parsing for a proper check feels like overkill here.
-                eprintln!(
-                    "Warning: wasmer has been compiled for glibc, and is thus likely dynamically linked. Invoking wasm binaries in chroots or mount namespaces (lxc, docker, ...) may not work."
-                );
-            }
             specs
                 .iter()
                 .map(|spec| {
