@@ -1,11 +1,12 @@
 use super::*;
 use crate::syscalls::*;
 
-/// ### `stackswitching_delete()`
+/// ### `coroutine_new()`
 #[instrument(level = "trace", skip_all, ret)]
-pub fn stackswitching_delete<M: MemorySize>(
+pub fn coroutine_new<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    stack: u32,
+    new_stack: WasmPtr<u32, M>,
+    entrypoint: u32,
 ) -> Result<(), WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 

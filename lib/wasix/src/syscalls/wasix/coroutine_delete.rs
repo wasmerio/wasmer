@@ -1,9 +1,9 @@
 use super::*;
 use crate::syscalls::*;
 
-/// ### `stackswitching_switch()`
+/// ### `coroutine_delete()`
 #[instrument(level = "trace", skip_all, ret)]
-pub fn stackswitching_switch<M: MemorySize>(
+pub fn coroutine_delete<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     stack: u32,
 ) -> Result<(), WasiError> {
