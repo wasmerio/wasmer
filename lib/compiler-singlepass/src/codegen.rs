@@ -739,7 +739,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(I2O1 { loc_a, loc_b, ret })
     }
 
-    fn mark_trappable(&mut self) {
+    fn _mark_trappable(&mut self) {
         let state_diff_id = self.get_state_diff();
         let offset = self.machine.assembler_get_offset().0;
         self.fsm.trappable_offsets.insert(
@@ -784,6 +784,37 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         cb: F,
         params: I,
         params_type: J,
+    ) -> Result<(), CompileError> {
+        self.emit_call_native_impl(cb, params, params_type, true)
+    }
+
+    /// Emits a Native ABI call sequence without passing vmctx as the first parameter.
+    ///
+    /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
+    /// this function.
+    fn emit_call_native_without_context<
+        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        J: Iterator<Item = WpType>,
+        F: FnOnce(&mut Self) -> Result<(), CompileError>,
+    >(
+        &mut self,
+        cb: F,
+        params: I,
+        params_type: J,
+    ) -> Result<(), CompileError> {
+        self.emit_call_native_impl(cb, params, params_type, false)
+    }
+
+    fn emit_call_native_impl<
+        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
+        J: Iterator<Item = WpType>,
+        F: FnOnce(&mut Self) -> Result<(), CompileError>,
+    >(
+        &mut self,
+        cb: F,
+        params: I,
+        params_type: J,
+        include_ctx_param: bool,
     ) -> Result<(), CompileError> {
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
@@ -843,7 +874,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
             args.push(self.machine.get_param_location(
-                1 + i,
+                if include_ctx_param { 1 } else { 0 } + i,
                 params_size[i],
                 &mut stack_offset,
                 calling_convention,
@@ -925,13 +956,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Put vmctx as the first parameter.
-        self.machine.move_location(
-            Size::S64,
-            Location::GPR(self.machine.get_vmctx_reg()),
-            self.machine
-                .get_simple_param_location(0, calling_convention),
-        )?; // vmctx
+        if include_ctx_param {
+            // Put vmctx as the first parameter.
+            self.machine.move_location(
+                Size::S64,
+                Location::GPR(self.machine.get_vmctx_reg()),
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            )?; // vmctx
+        }
 
         if stack_padding > 0 {
             self.machine.adjust_stack(stack_padding as u32)?;
@@ -2821,8 +2854,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::BelowEqual,
                     Size::S32,
-                    func_index,
                     Location::GPR(table_count),
+                    func_index,
                     self.special_labels.table_access_oob,
                 )?;
                 self.machine
@@ -2849,8 +2882,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S64,
-                    Location::Imm32(0),
                     Location::GPR(table_count),
+                    Location::Imm32(0),
                     self.special_labels.indirect_call_null,
                 )?;
                 self.machine.move_location(
@@ -2986,8 +3019,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     label_else,
                 )?;
             }
@@ -3060,8 +3093,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     zero_label,
                 )?;
                 match cncl {
@@ -3994,9 +4027,28 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::Unreachable => {
-                self.mark_trappable();
-                self.machine
-                    .emit_illegal_op(TrapCode::UnreachableCodeReached)?;
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_raise_trap_index())
+                            as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                self.emit_call_native_without_context(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [trap_code]
+                    [Location::Imm32(TrapCode::UnreachableCodeReached as u32)]
+                        .iter()
+                        .cloned(),
+                    [WpType::I32].iter().cloned(),
+                )?;
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
@@ -4064,8 +4116,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::Equal,
                     Size::S32,
-                    Location::Imm32(0),
                     cond,
+                    Location::Imm32(0),
                     after,
                 )?;
 
@@ -4113,8 +4165,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.jmp_on_condition(
                     UnsignedCondition::AboveEqual,
                     Size::S32,
-                    Location::Imm32(targets.len() as u32),
                     cond,
+                    Location::Imm32(targets.len() as u32),
                     default_br,
                 )?;
 
@@ -6711,6 +6763,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let traps = self.machine.collect_trap_information();
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
+
+        save_assembly_to_file("-module-dump.o", &body);
 
         Ok((
             CompiledFunction {

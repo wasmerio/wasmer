@@ -11,6 +11,8 @@ use crate::machine::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
 };
 use crate::machine_arm64::MachineARM64;
+#[cfg(feature = "riscv")]
+use crate::machine_riscv::MachineRiscv;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
 use crate::unwind::{UnwindFrame, create_systemv_cie};
@@ -81,22 +83,23 @@ impl Compiler for SinglepassCompiler {
         match target.triple().architecture {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
-            _ => {
-                return Err(CompileError::UnsupportedTarget(
-                    target.triple().architecture.to_string(),
-                ));
-            }
+            #[cfg(feature = "riscv")]
+            Architecture::Riscv32(_) | Architecture::Riscv64(_) => {}
+            _ => {}
         }
 
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
-            _ => {
-                return Err(CompileError::UnsupportedTarget(
-                    "Unsupported Calling convention for Singlepass compiler".to_string(),
-                ));
-            }
+            _ => match target.triple().architecture {
+                Architecture::Riscv32(_) | Architecture::Riscv64(_) => CallingConvention::SystemV,
+                _ => {
+                    return Err(CompileError::UnsupportedTarget(
+                        "Unsupported Calling convention for Singlepass compiler".to_string(),
+                    ))
+                }
+            },
         };
 
         // Generate the frametable
@@ -191,6 +194,28 @@ impl Compiler for SinglepassCompiler {
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
+                        let mut generator = FuncGen::new(
+                            module,
+                            &self.config,
+                            &vmoffsets,
+                            memory_styles,
+                            table_styles,
+                            i,
+                            &locals,
+                            machine,
+                            calling_convention,
+                        )?;
+                        while generator.has_control_frames() {
+                            generator.set_srcloc(reader.original_position() as u32);
+                            let op = reader.read_operator()?;
+                            generator.feed_operator(op)?;
+                        }
+
+                        generator.finalize(input)
+                    }
+                    #[cfg(feature = "riscv")]
+                    Architecture::Riscv32(_) | Architecture::Riscv64(_) => {
+                        let machine = MachineRiscv::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
                             module,
                             &self.config,

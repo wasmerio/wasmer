@@ -496,7 +496,7 @@ impl MachineARM64 {
                     temps.push(tmp);
                 }
             }
-            _ => codegen_error!("singplass emit_relaxed_ldr64 unreachable"),
+            _ => codegen_error!("singlepass emit_relaxed_ldr64 unreachable"),
         }
         if dst != dest {
             self.move_location(sz, dest, dst)?;
@@ -2532,11 +2532,11 @@ impl Machine for MachineARM64 {
         &mut self,
         cond: UnsignedCondition,
         size: Size,
-        source: AbstractLocation<Self::GPR, Self::SIMD>,
-        dest: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
         label: Label,
     ) -> Result<(), CompileError> {
-        self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)?;
+        self.emit_relaxed_binop(Assembler::emit_cmp, size, loc_b, loc_a, false)?;
         let cond = match cond {
             UnsignedCondition::Equal => Condition::Eq,
             UnsignedCondition::NotEqual => Condition::Ne,
@@ -8485,6 +8485,7 @@ impl Machine for MachineARM64 {
                     instruction_offset,
                     CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
+                UnwindOps::SubtractFP { .. } => unimplemented!(),
             }
         }
         Some(UnwindInstructions {
