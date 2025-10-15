@@ -262,7 +262,7 @@ impl WasmerCmd {
                         // No permissions
                         return false;
                     }
-                    return true;
+                    true
                 })
                 .collect::<Vec<_>>();
             if !current_dir.starts_with("/home") {
@@ -274,17 +274,14 @@ impl WasmerCmd {
             // TODO: This does not seem to work, needs further investigation.
             binfmt_args.push("--forward-host-env".into());
             for mount_path in mount_paths {
-                binfmt_args.push(format!("--mapdir={0}:{0}", mount_path).into());
+                binfmt_args.push(format!("--mapdir={mount_path}:{mount_path}").into());
             }
-            binfmt_args.push(format!("--cwd={0}", current_dir).into());
+            binfmt_args.push(format!("--cwd={current_dir}").into());
             binfmt_args.push("--".into());
             binfmt_args.push(args_os.next().unwrap());
             args_os.next().unwrap();
         };
-        let args_vec = args
-            .chain(binfmt_args.into_iter())
-            .chain(args_os)
-            .collect::<Vec<_>>();
+        let args_vec = args.chain(binfmt_args).chain(args_os).collect::<Vec<_>>();
 
         match WasmerCmd::try_parse_from(args_vec.iter()) {
             Ok(args) => args.execute(),
