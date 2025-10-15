@@ -531,8 +531,7 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, is_tmp_mapped, mapped_diretories) =
-            self.wasi.build_mapped_directories()?;
+        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories()?;
 
         runner
             .with_args(&self.args)
@@ -541,9 +540,15 @@ impl Run {
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_diretories)
             .with_home_mapped(is_home_mapped)
-            .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
+
+        if let Some(cwd) = self.wasi.cwd.as_ref() {
+            if !cwd.starts_with("/") {
+                bail!("The argument to --cwd must be an absolute path");
+            }
+            runner.with_current_dir(cwd.clone());
+        }
 
         if let Some(ref entry_function) = self.invoke {
             runner.with_entry_function(entry_function);
@@ -612,46 +617,6 @@ impl Run {
                 );
             }
         }
-    }
-
-    /// Create Run instance for arguments/env, assuming we're being run from a
-    /// CFP binfmt interpreter.
-    pub fn from_binfmt_args() -> Self {
-        Run::from_binfmt_args_fallible().unwrap_or_else(|e| {
-            crate::error::PrettyError::report::<()>(
-                Err(e).context("Failed to set up wasmer binfmt invocation"),
-            )
-        })
-    }
-
-    fn from_binfmt_args_fallible() -> Result<Self, Error> {
-        if cfg!(not(target_os = "linux")) {
-            bail!("binfmt_misc is only available on linux.");
-        }
-
-        let argv = std::env::args().collect::<Vec<_>>();
-        let (_interpreter, executable, original_executable, args) = match &argv[..] {
-            [a, b, c, rest @ ..] => (a, b, c, rest),
-            _ => {
-                bail!(
-                    "Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {argv:?})"
-                );
-            }
-        };
-        let rt = RuntimeOptions::default();
-        Ok(Run {
-            env: WasmerEnv::default(),
-            rt,
-            wasi: Wasi::for_binfmt_interpreter()?,
-            wcgi: WcgiOptions::default(),
-            stack_size: None,
-            entrypoint: Some(original_executable.to_string()),
-            invoke: None,
-            coredump_on_trap: None,
-            input: PackageSource::infer(executable)?,
-            args: args.to_vec(),
-            hash_algorithm: None,
-        })
     }
 }
 

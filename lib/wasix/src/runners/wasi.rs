@@ -109,11 +109,6 @@ impl WasiRunner {
         self
     }
 
-    pub fn with_tmp_mapped(&mut self, is_tmp_mapped: bool) -> &mut Self {
-        self.wasi.is_tmp_mapped = is_tmp_mapped;
-        self
-    }
-
     pub fn with_mounted_directories<I, D>(&mut self, dirs: I) -> &mut Self
     where
         I: IntoIterator<Item = D>,
