@@ -60,7 +60,7 @@
 <a href=#60 id=60 data-nosnippet>60</a><span class="attr">#[derive(Debug, Parser, Clone, Default)]
 <a href=#61 id=61 data-nosnippet>61</a></span><span class="doccomment">/// WASI Options
 <a href=#62 id=62 data-nosnippet>62</a></span><span class="kw">pub struct </span>Wasi {
-<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// WASI pre-opened directory
+<a href=#63 id=63 data-nosnippet>63</a>    <span class="doccomment">/// WASI pre-opened directories
 <a href=#64 id=64 data-nosnippet>64</a>    </span><span class="attr">#[clap(long = <span class="string">"dir"</span>, name = <span class="string">"DIR"</span>, group = <span class="string">"wasi"</span>)]
 <a href=#65 id=65 data-nosnippet>65</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) pre_opened_directories: Vec&lt;PathBuf&gt;,
 <a href=#66 id=66 data-nosnippet>66</a>
@@ -72,778 +72,786 @@
 <a href=#72 id=72 data-nosnippet>72</a>    )]
 <a href=#73 id=73 data-nosnippet>73</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) mapped_dirs: Vec&lt;MappedDirectory&gt;,
 <a href=#74 id=74 data-nosnippet>74</a>
-<a href=#75 id=75 data-nosnippet>75</a>    <span class="doccomment">/// Pass custom environment variables
-<a href=#76 id=76 data-nosnippet>76</a>    </span><span class="attr">#[clap(
-<a href=#77 id=77 data-nosnippet>77</a>        long = <span class="string">"env"</span>,
-<a href=#78 id=78 data-nosnippet>78</a>        name = <span class="string">"KEY=VALUE"</span>,
-<a href=#79 id=79 data-nosnippet>79</a>        value_parser=parse_envvar,
-<a href=#80 id=80 data-nosnippet>80</a>    )]
-<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) env_vars: Vec&lt;(String, String)&gt;,
-<a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>    <span class="doccomment">/// Forward all host env variables to guest
-<a href=#84 id=84 data-nosnippet>84</a>    </span><span class="attr">#[clap(long, env)]
-<a href=#85 id=85 data-nosnippet>85</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
-<a href=#86 id=86 data-nosnippet>86</a>
-<a href=#87 id=87 data-nosnippet>87</a>    <span class="doccomment">/// List of other containers this module depends on
-<a href=#88 id=88 data-nosnippet>88</a>    </span><span class="attr">#[clap(long = <span class="string">"use"</span>, name = <span class="string">"USE"</span>)]
-<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) uses: Vec&lt;String&gt;,
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a>    <span class="doccomment">/// List of webc packages that are explicitly included for execution
-<a href=#92 id=92 data-nosnippet>92</a>    /// Note: these packages will be used instead of those in the registry
-<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="attr">#[clap(long = <span class="string">"include-webc"</span>, name = <span class="string">"WEBC"</span>)]
-<a href=#94 id=94 data-nosnippet>94</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) include_webcs: Vec&lt;PathBuf&gt;,
+<a href=#75 id=75 data-nosnippet>75</a>    <span class="doccomment">/// Set the module's initial CWD to this path; does not work with
+<a href=#76 id=76 data-nosnippet>76</a>    /// WASI preview 1 modules.
+<a href=#77 id=77 data-nosnippet>77</a>    </span><span class="attr">#[clap(long = <span class="string">"cwd"</span>)]
+<a href=#78 id=78 data-nosnippet>78</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) cwd: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a>    <span class="doccomment">/// Pass custom environment variables
+<a href=#81 id=81 data-nosnippet>81</a>    </span><span class="attr">#[clap(
+<a href=#82 id=82 data-nosnippet>82</a>        long = <span class="string">"env"</span>,
+<a href=#83 id=83 data-nosnippet>83</a>        name = <span class="string">"KEY=VALUE"</span>,
+<a href=#84 id=84 data-nosnippet>84</a>        value_parser=parse_envvar,
+<a href=#85 id=85 data-nosnippet>85</a>    )]
+<a href=#86 id=86 data-nosnippet>86</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) env_vars: Vec&lt;(String, String)&gt;,
+<a href=#87 id=87 data-nosnippet>87</a>
+<a href=#88 id=88 data-nosnippet>88</a>    <span class="doccomment">/// Forward all host env variables to guest
+<a href=#89 id=89 data-nosnippet>89</a>    </span><span class="attr">#[clap(long, env)]
+<a href=#90 id=90 data-nosnippet>90</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) forward_host_env: bool,
+<a href=#91 id=91 data-nosnippet>91</a>
+<a href=#92 id=92 data-nosnippet>92</a>    <span class="doccomment">/// List of other containers this module depends on
+<a href=#93 id=93 data-nosnippet>93</a>    </span><span class="attr">#[clap(long = <span class="string">"use"</span>, name = <span class="string">"USE"</span>)]
+<a href=#94 id=94 data-nosnippet>94</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) uses: Vec&lt;String&gt;,
 <a href=#95 id=95 data-nosnippet>95</a>
-<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// List of injected atoms
-<a href=#97 id=97 data-nosnippet>97</a>    </span><span class="attr">#[clap(long = <span class="string">"map-command"</span>, name = <span class="string">"MAPCMD"</span>)]
-<a href=#98 id=98 data-nosnippet>98</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: Vec&lt;String&gt;,
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a>    <span class="doccomment">/// Enable networking with the host network.
-<a href=#101 id=101 data-nosnippet>101</a>    ///
-<a href=#102 id=102 data-nosnippet>102</a>    /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
-<a href=#103 id=103 data-nosnippet>103</a>    ///
-<a href=#104 id=104 data-nosnippet>104</a>    /// Optionally, a set of network filters could be defined which allows fine-grained
-<a href=#105 id=105 data-nosnippet>105</a>    /// control over the network sandbox.
+<a href=#96 id=96 data-nosnippet>96</a>    <span class="doccomment">/// List of webc packages that are explicitly included for execution
+<a href=#97 id=97 data-nosnippet>97</a>    /// Note: these packages will be used instead of those in the registry
+<a href=#98 id=98 data-nosnippet>98</a>    </span><span class="attr">#[clap(long = <span class="string">"include-webc"</span>, name = <span class="string">"WEBC"</span>)]
+<a href=#99 id=99 data-nosnippet>99</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) include_webcs: Vec&lt;PathBuf&gt;,
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>    <span class="doccomment">/// List of injected atoms
+<a href=#102 id=102 data-nosnippet>102</a>    </span><span class="attr">#[clap(long = <span class="string">"map-command"</span>, name = <span class="string">"MAPCMD"</span>)]
+<a href=#103 id=103 data-nosnippet>103</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) map_commands: Vec&lt;String&gt;,
+<a href=#104 id=104 data-nosnippet>104</a>
+<a href=#105 id=105 data-nosnippet>105</a>    <span class="doccomment">/// Enable networking with the host network.
 <a href=#106 id=106 data-nosnippet>106</a>    ///
-<a href=#107 id=107 data-nosnippet>107</a>    /// Rule Syntax:
+<a href=#107 id=107 data-nosnippet>107</a>    /// Allows WASI modules to open TCP and UDP connections, create sockets, ...
 <a href=#108 id=108 data-nosnippet>108</a>    ///
-<a href=#109 id=109 data-nosnippet>109</a>    /// &lt;rule-type&gt;:&lt;allow|deny&gt;=&lt;rule-expression&gt;
-<a href=#110 id=110 data-nosnippet>110</a>    ///
-<a href=#111 id=111 data-nosnippet>111</a>    /// Examples:
-<a href=#112 id=112 data-nosnippet>112</a>    ///
-<a href=#113 id=113 data-nosnippet>113</a>    ///  - Allow a specific domain and port: dns:allow=example.com:80
-<a href=#114 id=114 data-nosnippet>114</a>    ///
-<a href=#115 id=115 data-nosnippet>115</a>    ///  - Deny a domain and all its subdomains on all ports: dns:deny=*danger.xyz:*
-<a href=#116 id=116 data-nosnippet>116</a>    ///
-<a href=#117 id=117 data-nosnippet>117</a>    ///  - Allow opening ipv4 sockets only on a specific IP and port: ipv4:allow=127.0.0.1:80/in.
-<a href=#118 id=118 data-nosnippet>118</a>    </span><span class="attr">#[clap(long = <span class="string">"net"</span>, require_equals = <span class="bool-val">true</span>)]
-<a href=#119 id=119 data-nosnippet>119</a>    </span><span class="comment">// Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
-<a href=#120 id=120 data-nosnippet>120</a>    // and when --net=&lt;ruleset&gt; is specified, the inner Option will be initialized: Some(Some(ruleset))
-<a href=#121 id=121 data-nosnippet>121</a>    </span><span class="kw">pub </span>networking: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;,
-<a href=#122 id=122 data-nosnippet>122</a>
-<a href=#123 id=123 data-nosnippet>123</a>    <span class="doccomment">/// Disables the TTY bridge
-<a href=#124 id=124 data-nosnippet>124</a>    </span><span class="attr">#[clap(long = <span class="string">"no-tty"</span>)]
-<a href=#125 id=125 data-nosnippet>125</a>    </span><span class="kw">pub </span>no_tty: bool,
-<a href=#126 id=126 data-nosnippet>126</a>
-<a href=#127 id=127 data-nosnippet>127</a>    <span class="doccomment">/// Enables asynchronous threading
-<a href=#128 id=128 data-nosnippet>128</a>    </span><span class="attr">#[clap(long = <span class="string">"enable-async-threads"</span>)]
-<a href=#129 id=129 data-nosnippet>129</a>    </span><span class="kw">pub </span>enable_async_threads: bool,
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a>    <span class="doccomment">/// Enables an exponential backoff (measured in milli-seconds) of
-<a href=#132 id=132 data-nosnippet>132</a>    /// the process CPU usage when there are no active run tokens (when set
-<a href=#133 id=133 data-nosnippet>133</a>    /// holds the maximum amount of time that it will pause the CPU)
-<a href=#134 id=134 data-nosnippet>134</a>    /// (default = off)
-<a href=#135 id=135 data-nosnippet>135</a>    </span><span class="attr">#[clap(long = <span class="string">"enable-cpu-backoff"</span>)]
-<a href=#136 id=136 data-nosnippet>136</a>    </span><span class="kw">pub </span>enable_cpu_backoff: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#137 id=137 data-nosnippet>137</a>
-<a href=#138 id=138 data-nosnippet>138</a>    <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
-<a href=#139 id=139 data-nosnippet>139</a>    /// the state of the WASM process as it executes.
-<a href=#140 id=140 data-nosnippet>140</a>    ///
-<a href=#141 id=141 data-nosnippet>141</a>    /// The state of the WASM process and its sandbox will be reapplied using
-<a href=#142 id=142 data-nosnippet>142</a>    /// the journals in the order that you specify here.
-<a href=#143 id=143 data-nosnippet>143</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#144 id=144 data-nosnippet>144</a>    #[clap(long = <span class="string">"journal"</span>)]
-<a href=#145 id=145 data-nosnippet>145</a>    </span><span class="kw">pub </span>read_only_journals: Vec&lt;PathBuf&gt;,
-<a href=#146 id=146 data-nosnippet>146</a>
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
-<a href=#148 id=148 data-nosnippet>148</a>    /// and save the state of the WASM process as it executes.
-<a href=#149 id=149 data-nosnippet>149</a>    ///
-<a href=#150 id=150 data-nosnippet>150</a>    /// The state of the WASM process and its sandbox will be reapplied using
-<a href=#151 id=151 data-nosnippet>151</a>    /// the journals in the order that you specify here.
-<a href=#152 id=152 data-nosnippet>152</a>    ///
-<a href=#153 id=153 data-nosnippet>153</a>    /// The last journal file specified will be created if it does not exist
-<a href=#154 id=154 data-nosnippet>154</a>    /// and opened for read and write. New journal events will be written to this
-<a href=#155 id=155 data-nosnippet>155</a>    /// file
-<a href=#156 id=156 data-nosnippet>156</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#157 id=157 data-nosnippet>157</a>    #[clap(long = <span class="string">"journal-writable"</span>)]
-<a href=#158 id=158 data-nosnippet>158</a>    </span><span class="kw">pub </span>writable_journals: Vec&lt;PathBuf&gt;,
-<a href=#159 id=159 data-nosnippet>159</a>
-<a href=#160 id=160 data-nosnippet>160</a>    <span class="doccomment">/// Flag that indicates if the journal will be automatically compacted
-<a href=#161 id=161 data-nosnippet>161</a>    /// as it fills up and when the process exits
-<a href=#162 id=162 data-nosnippet>162</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#163 id=163 data-nosnippet>163</a>    #[clap(long = <span class="string">"enable-compaction"</span>)]
-<a href=#164 id=164 data-nosnippet>164</a>    </span><span class="kw">pub </span>enable_compaction: bool,
-<a href=#165 id=165 data-nosnippet>165</a>
-<a href=#166 id=166 data-nosnippet>166</a>    <span class="doccomment">/// Tells the compactor not to compact when the journal log file is closed
+<a href=#109 id=109 data-nosnippet>109</a>    /// Optionally, a set of network filters could be defined which allows fine-grained
+<a href=#110 id=110 data-nosnippet>110</a>    /// control over the network sandbox.
+<a href=#111 id=111 data-nosnippet>111</a>    ///
+<a href=#112 id=112 data-nosnippet>112</a>    /// Rule Syntax:
+<a href=#113 id=113 data-nosnippet>113</a>    ///
+<a href=#114 id=114 data-nosnippet>114</a>    /// &lt;rule-type&gt;:&lt;allow|deny&gt;=&lt;rule-expression&gt;
+<a href=#115 id=115 data-nosnippet>115</a>    ///
+<a href=#116 id=116 data-nosnippet>116</a>    /// Examples:
+<a href=#117 id=117 data-nosnippet>117</a>    ///
+<a href=#118 id=118 data-nosnippet>118</a>    ///  - Allow a specific domain and port: dns:allow=example.com:80
+<a href=#119 id=119 data-nosnippet>119</a>    ///
+<a href=#120 id=120 data-nosnippet>120</a>    ///  - Deny a domain and all its subdomains on all ports: dns:deny=*danger.xyz:*
+<a href=#121 id=121 data-nosnippet>121</a>    ///
+<a href=#122 id=122 data-nosnippet>122</a>    ///  - Allow opening ipv4 sockets only on a specific IP and port: ipv4:allow=127.0.0.1:80/in.
+<a href=#123 id=123 data-nosnippet>123</a>    </span><span class="attr">#[clap(long = <span class="string">"net"</span>, require_equals = <span class="bool-val">true</span>)]
+<a href=#124 id=124 data-nosnippet>124</a>    </span><span class="comment">// Note that when --net is passed to the cli, the first Option will be initialized: Some(None)
+<a href=#125 id=125 data-nosnippet>125</a>    // and when --net=&lt;ruleset&gt; is specified, the inner Option will be initialized: Some(Some(ruleset))
+<a href=#126 id=126 data-nosnippet>126</a>    </span><span class="kw">pub </span>networking: <span class="prelude-ty">Option</span>&lt;<span class="prelude-ty">Option</span>&lt;String&gt;&gt;,
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="doccomment">/// Disables the TTY bridge
+<a href=#129 id=129 data-nosnippet>129</a>    </span><span class="attr">#[clap(long = <span class="string">"no-tty"</span>)]
+<a href=#130 id=130 data-nosnippet>130</a>    </span><span class="kw">pub </span>no_tty: bool,
+<a href=#131 id=131 data-nosnippet>131</a>
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="doccomment">/// Enables asynchronous threading
+<a href=#133 id=133 data-nosnippet>133</a>    </span><span class="attr">#[clap(long = <span class="string">"enable-async-threads"</span>)]
+<a href=#134 id=134 data-nosnippet>134</a>    </span><span class="kw">pub </span>enable_async_threads: bool,
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// Enables an exponential backoff (measured in milli-seconds) of
+<a href=#137 id=137 data-nosnippet>137</a>    /// the process CPU usage when there are no active run tokens (when set
+<a href=#138 id=138 data-nosnippet>138</a>    /// holds the maximum amount of time that it will pause the CPU)
+<a href=#139 id=139 data-nosnippet>139</a>    /// (default = off)
+<a href=#140 id=140 data-nosnippet>140</a>    </span><span class="attr">#[clap(long = <span class="string">"enable-cpu-backoff"</span>)]
+<a href=#141 id=141 data-nosnippet>141</a>    </span><span class="kw">pub </span>enable_cpu_backoff: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#142 id=142 data-nosnippet>142</a>
+<a href=#143 id=143 data-nosnippet>143</a>    <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
+<a href=#144 id=144 data-nosnippet>144</a>    /// the state of the WASM process as it executes.
+<a href=#145 id=145 data-nosnippet>145</a>    ///
+<a href=#146 id=146 data-nosnippet>146</a>    /// The state of the WASM process and its sandbox will be reapplied using
+<a href=#147 id=147 data-nosnippet>147</a>    /// the journals in the order that you specify here.
+<a href=#148 id=148 data-nosnippet>148</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#149 id=149 data-nosnippet>149</a>    #[clap(long = <span class="string">"journal"</span>)]
+<a href=#150 id=150 data-nosnippet>150</a>    </span><span class="kw">pub </span>read_only_journals: Vec&lt;PathBuf&gt;,
+<a href=#151 id=151 data-nosnippet>151</a>
+<a href=#152 id=152 data-nosnippet>152</a>    <span class="doccomment">/// Specifies one or more journal files that Wasmer will use to restore
+<a href=#153 id=153 data-nosnippet>153</a>    /// and save the state of the WASM process as it executes.
+<a href=#154 id=154 data-nosnippet>154</a>    ///
+<a href=#155 id=155 data-nosnippet>155</a>    /// The state of the WASM process and its sandbox will be reapplied using
+<a href=#156 id=156 data-nosnippet>156</a>    /// the journals in the order that you specify here.
+<a href=#157 id=157 data-nosnippet>157</a>    ///
+<a href=#158 id=158 data-nosnippet>158</a>    /// The last journal file specified will be created if it does not exist
+<a href=#159 id=159 data-nosnippet>159</a>    /// and opened for read and write. New journal events will be written to this
+<a href=#160 id=160 data-nosnippet>160</a>    /// file
+<a href=#161 id=161 data-nosnippet>161</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#162 id=162 data-nosnippet>162</a>    #[clap(long = <span class="string">"journal-writable"</span>)]
+<a href=#163 id=163 data-nosnippet>163</a>    </span><span class="kw">pub </span>writable_journals: Vec&lt;PathBuf&gt;,
+<a href=#164 id=164 data-nosnippet>164</a>
+<a href=#165 id=165 data-nosnippet>165</a>    <span class="doccomment">/// Flag that indicates if the journal will be automatically compacted
+<a href=#166 id=166 data-nosnippet>166</a>    /// as it fills up and when the process exits
 <a href=#167 id=167 data-nosnippet>167</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#168 id=168 data-nosnippet>168</a>    #[clap(long = <span class="string">"without-compact-on-drop"</span>)]
-<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub </span>without_compact_on_drop: bool,
+<a href=#168 id=168 data-nosnippet>168</a>    #[clap(long = <span class="string">"enable-compaction"</span>)]
+<a href=#169 id=169 data-nosnippet>169</a>    </span><span class="kw">pub </span>enable_compaction: bool,
 <a href=#170 id=170 data-nosnippet>170</a>
-<a href=#171 id=171 data-nosnippet>171</a>    <span class="doccomment">/// Tells the compactor to compact when it grows by a certain factor of
-<a href=#172 id=172 data-nosnippet>172</a>    /// its original size. (i.e. '0.2' would be it compacts after the journal
-<a href=#173 id=173 data-nosnippet>173</a>    /// has grown by 20 percent)
-<a href=#174 id=174 data-nosnippet>174</a>    ///
-<a href=#175 id=175 data-nosnippet>175</a>    /// Default is to compact on growth that exceeds 15%
-<a href=#176 id=176 data-nosnippet>176</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#177 id=177 data-nosnippet>177</a>    #[clap(long = <span class="string">"with-compact-on-growth"</span>, default_value = <span class="string">"0.15"</span>)]
-<a href=#178 id=178 data-nosnippet>178</a>    </span><span class="kw">pub </span>with_compact_on_growth: f32,
-<a href=#179 id=179 data-nosnippet>179</a>
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="doccomment">/// Indicates what events will cause a snapshot to be taken
-<a href=#181 id=181 data-nosnippet>181</a>    /// and written to the journal file.
-<a href=#182 id=182 data-nosnippet>182</a>    ///
-<a href=#183 id=183 data-nosnippet>183</a>    /// If not specified, the default is to snapshot when the process idles, when
-<a href=#184 id=184 data-nosnippet>184</a>    /// the process exits or periodically if an interval argument is also supplied,
-<a href=#185 id=185 data-nosnippet>185</a>    /// as well as when the process requests a snapshot explicitly.
-<a href=#186 id=186 data-nosnippet>186</a>    ///
-<a href=#187 id=187 data-nosnippet>187</a>    /// Additionally if the snapshot-on is not specified it will also take a snapshot
-<a href=#188 id=188 data-nosnippet>188</a>    /// on the first stdin, environ or socket listen - this can be used to accelerate
-<a href=#189 id=189 data-nosnippet>189</a>    /// the boot up time of WASM processes.
-<a href=#190 id=190 data-nosnippet>190</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#191 id=191 data-nosnippet>191</a>    #[clap(long = <span class="string">"snapshot-on"</span>)]
-<a href=#192 id=192 data-nosnippet>192</a>    </span><span class="kw">pub </span>snapshot_on: Vec&lt;SnapshotTrigger&gt;,
-<a href=#193 id=193 data-nosnippet>193</a>
-<a href=#194 id=194 data-nosnippet>194</a>    <span class="doccomment">/// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
-<a href=#195 id=195 data-nosnippet>195</a>    /// take snapshots of the running process and write them to the journal. When specifying
-<a href=#196 id=196 data-nosnippet>196</a>    /// this parameter it implies that `--snapshot-on interval` has also been specified.
-<a href=#197 id=197 data-nosnippet>197</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#198 id=198 data-nosnippet>198</a>    #[clap(long = <span class="string">"snapshot-period"</span>)]
-<a href=#199 id=199 data-nosnippet>199</a>    </span><span class="kw">pub </span>snapshot_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
-<a href=#200 id=200 data-nosnippet>200</a>
-<a href=#201 id=201 data-nosnippet>201</a>    <span class="doccomment">/// If specified, the runtime will stop executing the WASM module after the first snapshot
-<a href=#202 id=202 data-nosnippet>202</a>    /// is taken.
-<a href=#203 id=203 data-nosnippet>203</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#204 id=204 data-nosnippet>204</a>    #[clap(long = <span class="string">"stop-after-snapshot"</span>)]
-<a href=#205 id=205 data-nosnippet>205</a>    </span><span class="kw">pub </span>stop_after_snapshot: bool,
-<a href=#206 id=206 data-nosnippet>206</a>
-<a href=#207 id=207 data-nosnippet>207</a>    <span class="doccomment">/// Skip writes to stdout and stderr when replying journal events to bootstrap a module.
+<a href=#171 id=171 data-nosnippet>171</a>    <span class="doccomment">/// Tells the compactor not to compact when the journal log file is closed
+<a href=#172 id=172 data-nosnippet>172</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#173 id=173 data-nosnippet>173</a>    #[clap(long = <span class="string">"without-compact-on-drop"</span>)]
+<a href=#174 id=174 data-nosnippet>174</a>    </span><span class="kw">pub </span>without_compact_on_drop: bool,
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a>    <span class="doccomment">/// Tells the compactor to compact when it grows by a certain factor of
+<a href=#177 id=177 data-nosnippet>177</a>    /// its original size. (i.e. '0.2' would be it compacts after the journal
+<a href=#178 id=178 data-nosnippet>178</a>    /// has grown by 20 percent)
+<a href=#179 id=179 data-nosnippet>179</a>    ///
+<a href=#180 id=180 data-nosnippet>180</a>    /// Default is to compact on growth that exceeds 15%
+<a href=#181 id=181 data-nosnippet>181</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#182 id=182 data-nosnippet>182</a>    #[clap(long = <span class="string">"with-compact-on-growth"</span>, default_value = <span class="string">"0.15"</span>)]
+<a href=#183 id=183 data-nosnippet>183</a>    </span><span class="kw">pub </span>with_compact_on_growth: f32,
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="doccomment">/// Indicates what events will cause a snapshot to be taken
+<a href=#186 id=186 data-nosnippet>186</a>    /// and written to the journal file.
+<a href=#187 id=187 data-nosnippet>187</a>    ///
+<a href=#188 id=188 data-nosnippet>188</a>    /// If not specified, the default is to snapshot when the process idles, when
+<a href=#189 id=189 data-nosnippet>189</a>    /// the process exits or periodically if an interval argument is also supplied,
+<a href=#190 id=190 data-nosnippet>190</a>    /// as well as when the process requests a snapshot explicitly.
+<a href=#191 id=191 data-nosnippet>191</a>    ///
+<a href=#192 id=192 data-nosnippet>192</a>    /// Additionally if the snapshot-on is not specified it will also take a snapshot
+<a href=#193 id=193 data-nosnippet>193</a>    /// on the first stdin, environ or socket listen - this can be used to accelerate
+<a href=#194 id=194 data-nosnippet>194</a>    /// the boot up time of WASM processes.
+<a href=#195 id=195 data-nosnippet>195</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#196 id=196 data-nosnippet>196</a>    #[clap(long = <span class="string">"snapshot-on"</span>)]
+<a href=#197 id=197 data-nosnippet>197</a>    </span><span class="kw">pub </span>snapshot_on: Vec&lt;SnapshotTrigger&gt;,
+<a href=#198 id=198 data-nosnippet>198</a>
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="doccomment">/// Adds a periodic interval (measured in milli-seconds) that the runtime will automatically
+<a href=#200 id=200 data-nosnippet>200</a>    /// take snapshots of the running process and write them to the journal. When specifying
+<a href=#201 id=201 data-nosnippet>201</a>    /// this parameter it implies that `--snapshot-on interval` has also been specified.
+<a href=#202 id=202 data-nosnippet>202</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#203 id=203 data-nosnippet>203</a>    #[clap(long = <span class="string">"snapshot-period"</span>)]
+<a href=#204 id=204 data-nosnippet>204</a>    </span><span class="kw">pub </span>snapshot_interval: <span class="prelude-ty">Option</span>&lt;u64&gt;,
+<a href=#205 id=205 data-nosnippet>205</a>
+<a href=#206 id=206 data-nosnippet>206</a>    <span class="doccomment">/// If specified, the runtime will stop executing the WASM module after the first snapshot
+<a href=#207 id=207 data-nosnippet>207</a>    /// is taken.
 <a href=#208 id=208 data-nosnippet>208</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#209 id=209 data-nosnippet>209</a>    #[clap(long = <span class="string">"skip-journal-stdio"</span>)]
-<a href=#210 id=210 data-nosnippet>210</a>    </span><span class="kw">pub </span>skip_stdio_during_bootstrap: bool,
+<a href=#209 id=209 data-nosnippet>209</a>    #[clap(long = <span class="string">"stop-after-snapshot"</span>)]
+<a href=#210 id=210 data-nosnippet>210</a>    </span><span class="kw">pub </span>stop_after_snapshot: bool,
 <a href=#211 id=211 data-nosnippet>211</a>
-<a href=#212 id=212 data-nosnippet>212</a>    <span class="doccomment">/// Allow instances to send http requests.
-<a href=#213 id=213 data-nosnippet>213</a>    ///
-<a href=#214 id=214 data-nosnippet>214</a>    /// Access to domains is granted by default.
-<a href=#215 id=215 data-nosnippet>215</a>    </span><span class="attr">#[clap(long)]
-<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">pub </span>http_client: bool,
-<a href=#217 id=217 data-nosnippet>217</a>
-<a href=#218 id=218 data-nosnippet>218</a>    <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.
-<a href=#219 id=219 data-nosnippet>219</a>    </span><span class="attr">#[clap(long = <span class="string">"deny-multiple-wasi-versions"</span>)]
-<a href=#220 id=220 data-nosnippet>220</a>    </span><span class="kw">pub </span>deny_multiple_wasi_versions: bool,
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>    <span class="doccomment">/// Disable the cache for the compiled modules.
-<a href=#223 id=223 data-nosnippet>223</a>    ///
-<a href=#224 id=224 data-nosnippet>224</a>    /// Cache is used to speed up the loading of modules, as the
-<a href=#225 id=225 data-nosnippet>225</a>    /// generated artifacts are cached.
-<a href=#226 id=226 data-nosnippet>226</a>    </span><span class="attr">#[clap(long = <span class="string">"disable-cache"</span>)]
-<a href=#227 id=227 data-nosnippet>227</a>    </span>disable_cache: bool,
-<a href=#228 id=228 data-nosnippet>228</a>}
-<a href=#229 id=229 data-nosnippet>229</a>
-<a href=#230 id=230 data-nosnippet>230</a><span class="kw">pub struct </span>RunProperties {
-<a href=#231 id=231 data-nosnippet>231</a>    <span class="kw">pub </span>ctx: WasiFunctionEnv,
-<a href=#232 id=232 data-nosnippet>232</a>    <span class="kw">pub </span>path: PathBuf,
-<a href=#233 id=233 data-nosnippet>233</a>    <span class="kw">pub </span>invoke: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#234 id=234 data-nosnippet>234</a>    <span class="kw">pub </span>args: Vec&lt;String&gt;,
-<a href=#235 id=235 data-nosnippet>235</a>}
-<a href=#236 id=236 data-nosnippet>236</a>
-<a href=#237 id=237 data-nosnippet>237</a><span class="attr">#[allow(dead_code)]
-<a href=#238 id=238 data-nosnippet>238</a></span><span class="kw">impl </span>Wasi {
-<a href=#239 id=239 data-nosnippet>239</a>    <span class="kw">pub fn </span>map_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str, target_on_disk: PathBuf) {
-<a href=#240 id=240 data-nosnippet>240</a>        <span class="self">self</span>.mapped_dirs.push(MappedDirectory {
-<a href=#241 id=241 data-nosnippet>241</a>            guest: alias.to_string(),
-<a href=#242 id=242 data-nosnippet>242</a>            host: target_on_disk,
-<a href=#243 id=243 data-nosnippet>243</a>        });
-<a href=#244 id=244 data-nosnippet>244</a>    }
-<a href=#245 id=245 data-nosnippet>245</a>
-<a href=#246 id=246 data-nosnippet>246</a>    <span class="kw">pub fn </span>set_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str, value: <span class="kw-2">&amp;</span>str) {
-<a href=#247 id=247 data-nosnippet>247</a>        <span class="self">self</span>.env_vars.push((key.to_string(), value.to_string()));
-<a href=#248 id=248 data-nosnippet>248</a>    }
-<a href=#249 id=249 data-nosnippet>249</a>
-<a href=#250 id=250 data-nosnippet>250</a>    <span class="doccomment">/// Gets the WASI version (if any) for the provided module
-<a href=#251 id=251 data-nosnippet>251</a>    </span><span class="kw">pub fn </span>get_versions(module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Option</span>&lt;BTreeSet&lt;WasiVersion&gt;&gt; {
-<a href=#252 id=252 data-nosnippet>252</a>        <span class="comment">// Get the wasi version in non-strict mode, so multiple wasi versions
-<a href=#253 id=253 data-nosnippet>253</a>        // are potentially allowed.
-<a href=#254 id=254 data-nosnippet>254</a>        //
-<a href=#255 id=255 data-nosnippet>255</a>        // Checking for multiple wasi versions is handled outside this function.
-<a href=#256 id=256 data-nosnippet>256</a>        </span>get_wasi_versions(module, <span class="bool-val">false</span>)
-<a href=#257 id=257 data-nosnippet>257</a>    }
-<a href=#258 id=258 data-nosnippet>258</a>
-<a href=#259 id=259 data-nosnippet>259</a>    <span class="doccomment">/// Checks if a given module has any WASI imports at all.
-<a href=#260 id=260 data-nosnippet>260</a>    </span><span class="kw">pub fn </span>has_wasi_imports(module: <span class="kw-2">&amp;</span>Module) -&gt; bool {
-<a href=#261 id=261 data-nosnippet>261</a>        <span class="comment">// Get the wasi version in non-strict mode, so no other imports
-<a href=#262 id=262 data-nosnippet>262</a>        // are allowed
-<a href=#263 id=263 data-nosnippet>263</a>        </span>get_wasi_versions(module, <span class="bool-val">false</span>).is_some()
-<a href=#264 id=264 data-nosnippet>264</a>    }
-<a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">pub fn </span>prepare(
-<a href=#267 id=267 data-nosnippet>267</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#268 id=268 data-nosnippet>268</a>        module: <span class="kw-2">&amp;</span>Module,
-<a href=#269 id=269 data-nosnippet>269</a>        program_name: String,
-<a href=#270 id=270 data-nosnippet>270</a>        args: Vec&lt;String&gt;,
-<a href=#271 id=271 data-nosnippet>271</a>        rt: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#272 id=272 data-nosnippet>272</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder&gt; {
-<a href=#273 id=273 data-nosnippet>273</a>        <span class="kw">let </span>args = args.into_iter().map(|arg| arg.into_bytes());
-<a href=#274 id=274 data-nosnippet>274</a>
-<a href=#275 id=275 data-nosnippet>275</a>        <span class="kw">let </span>map_commands = <span class="self">self
-<a href=#276 id=276 data-nosnippet>276</a>            </span>.map_commands
-<a href=#277 id=277 data-nosnippet>277</a>            .iter()
-<a href=#278 id=278 data-nosnippet>278</a>            .map(|map| map.split_once(<span class="string">'='</span>).unwrap())
-<a href=#279 id=279 data-nosnippet>279</a>            .map(|(a, b)| (a.to_string(), b.to_string()))
-<a href=#280 id=280 data-nosnippet>280</a>            .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
-<a href=#281 id=281 data-nosnippet>281</a>
-<a href=#282 id=282 data-nosnippet>282</a>        <span class="kw">let </span><span class="kw-2">mut </span>uses = Vec::new();
-<a href=#283 id=283 data-nosnippet>283</a>        <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.uses {
-<a href=#284 id=284 data-nosnippet>284</a>            <span class="kw">let </span>specifier = PackageSpecifier::from_str(name)
-<a href=#285 id=285 data-nosnippet>285</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{name}\" as a package specifier"</span>))<span class="question-mark">?</span>;
-<a href=#286 id=286 data-nosnippet>286</a>            <span class="kw">let </span>pkg = {
-<a href=#287 id=287 data-nosnippet>287</a>                <span class="kw">let </span>inner_rt = rt.clone();
-<a href=#288 id=288 data-nosnippet>288</a>                rt.task_manager()
-<a href=#289 id=289 data-nosnippet>289</a>                    .spawn_and_block_on(<span class="kw">async move </span>{
-<a href=#290 id=290 data-nosnippet>290</a>                        BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span>inner_rt).<span class="kw">await
-<a href=#291 id=291 data-nosnippet>291</a>                    </span>})
-<a href=#292 id=292 data-nosnippet>292</a>                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{name}\""</span>))<span class="question-mark">??
-<a href=#293 id=293 data-nosnippet>293</a>            </span>};
-<a href=#294 id=294 data-nosnippet>294</a>            uses.push(pkg);
-<a href=#295 id=295 data-nosnippet>295</a>        }
-<a href=#296 id=296 data-nosnippet>296</a>
-<a href=#297 id=297 data-nosnippet>297</a>        <span class="kw">let </span>builder = WasiEnv::builder(program_name)
-<a href=#298 id=298 data-nosnippet>298</a>            .runtime(Arc::clone(<span class="kw-2">&amp;</span>rt))
-<a href=#299 id=299 data-nosnippet>299</a>            .args(args)
-<a href=#300 id=300 data-nosnippet>300</a>            .envs(<span class="self">self</span>.env_vars.clone())
-<a href=#301 id=301 data-nosnippet>301</a>            .uses(uses)
-<a href=#302 id=302 data-nosnippet>302</a>            .map_commands(map_commands);
-<a href=#303 id=303 data-nosnippet>303</a>
-<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = {
-<a href=#305 id=305 data-nosnippet>305</a>            <span class="comment">// If we preopen anything from the host then shallow copy it over
-<a href=#306 id=306 data-nosnippet>306</a>            </span><span class="kw">let </span>root_fs = RootFileSystemBuilder::new()
-<a href=#307 id=307 data-nosnippet>307</a>                .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
-<a href=#308 id=308 data-nosnippet>308</a>                .build();
-<a href=#309 id=309 data-nosnippet>309</a>
-<a href=#310 id=310 data-nosnippet>310</a>            <span class="kw">let </span><span class="kw-2">mut </span>mapped_dirs = Vec::new();
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a>            <span class="comment">// Process the --dirs flag and merge it with --mapdir.
-<a href=#313 id=313 data-nosnippet>313</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>have_current_dir = <span class="bool-val">false</span>;
-<a href=#314 id=314 data-nosnippet>314</a>            <span class="kw">for </span>dir <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.pre_opened_directories {
-<a href=#315 id=315 data-nosnippet>315</a>                <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">"."</span>) {
-<a href=#316 id=316 data-nosnippet>316</a>                    <span class="kw">if </span>have_current_dir {
-<a href=#317 id=317 data-nosnippet>317</a>                        <span class="macro">bail!</span>(
-<a href=#318 id=318 data-nosnippet>318</a>                            <span class="string">"Cannot pre-open the current directory twice: --dir=. must only be specified once"
-<a href=#319 id=319 data-nosnippet>319</a>                        </span>);
-<a href=#320 id=320 data-nosnippet>320</a>                    }
-<a href=#321 id=321 data-nosnippet>321</a>                    have_current_dir = <span class="bool-val">true</span>;
-<a href=#322 id=322 data-nosnippet>322</a>
-<a href=#323 id=323 data-nosnippet>323</a>                    <span class="kw">let </span>current_dir =
-<a href=#324 id=324 data-nosnippet>324</a>                        std::env::current_dir().context(<span class="string">"could not determine current directory"</span>)<span class="question-mark">?</span>;
-<a href=#325 id=325 data-nosnippet>325</a>
-<a href=#326 id=326 data-nosnippet>326</a>                    MappedDirectory {
-<a href=#327 id=327 data-nosnippet>327</a>                        host: current_dir,
-<a href=#328 id=328 data-nosnippet>328</a>                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-<a href=#329 id=329 data-nosnippet>329</a>                    }
-<a href=#330 id=330 data-nosnippet>330</a>                } <span class="kw">else </span>{
-<a href=#331 id=331 data-nosnippet>331</a>                    <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
-<a href=#332 id=332 data-nosnippet>332</a>                        <span class="macro">format!</span>(
-<a href=#333 id=333 data-nosnippet>333</a>                            <span class="string">"could not canonicalize path for argument '--dir {}'"</span>,
-<a href=#334 id=334 data-nosnippet>334</a>                            dir.display()
-<a href=#335 id=335 data-nosnippet>335</a>                        )
-<a href=#336 id=336 data-nosnippet>336</a>                    })<span class="question-mark">?</span>;
-<a href=#337 id=337 data-nosnippet>337</a>
-<a href=#338 id=338 data-nosnippet>338</a>                    <span class="kw">if </span><span class="kw-2">&amp;</span>resolved != dir {
-<a href=#339 id=339 data-nosnippet>339</a>                        <span class="macro">bail!</span>(
-<a href=#340 id=340 data-nosnippet>340</a>                            <span class="string">"Invalid argument '--dir {}': path must either be absolute, or '.'"</span>,
-<a href=#341 id=341 data-nosnippet>341</a>                            dir.display(),
-<a href=#342 id=342 data-nosnippet>342</a>                        );
-<a href=#343 id=343 data-nosnippet>343</a>                    }
-<a href=#344 id=344 data-nosnippet>344</a>
-<a href=#345 id=345 data-nosnippet>345</a>                    <span class="kw">let </span>guest = resolved
-<a href=#346 id=346 data-nosnippet>346</a>                        .to_str()
-<a href=#347 id=347 data-nosnippet>347</a>                        .with_context(|| {
-<a href=#348 id=348 data-nosnippet>348</a>                            <span class="macro">format!</span>(
-<a href=#349 id=349 data-nosnippet>349</a>                                <span class="string">"invalid argument '--dir {}': path must be valid utf-8"</span>,
-<a href=#350 id=350 data-nosnippet>350</a>                                dir.display(),
-<a href=#351 id=351 data-nosnippet>351</a>                            )
-<a href=#352 id=352 data-nosnippet>352</a>                        })<span class="question-mark">?
-<a href=#353 id=353 data-nosnippet>353</a>                        </span>.to_string();
-<a href=#354 id=354 data-nosnippet>354</a>
-<a href=#355 id=355 data-nosnippet>355</a>                    MappedDirectory {
-<a href=#356 id=356 data-nosnippet>356</a>                        host: resolved,
-<a href=#357 id=357 data-nosnippet>357</a>                        guest,
-<a href=#358 id=358 data-nosnippet>358</a>                    }
-<a href=#359 id=359 data-nosnippet>359</a>                };
-<a href=#360 id=360 data-nosnippet>360</a>
-<a href=#361 id=361 data-nosnippet>361</a>                mapped_dirs.push(mapping);
-<a href=#362 id=362 data-nosnippet>362</a>            }
-<a href=#363 id=363 data-nosnippet>363</a>
-<a href=#364 id=364 data-nosnippet>364</a>            <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
-<a href=#365 id=365 data-nosnippet>365</a>                <span class="kw">let </span>resolved_host = host.canonicalize().with_context(|| {
-<a href=#366 id=366 data-nosnippet>366</a>                    <span class="macro">format!</span>(
-<a href=#367 id=367 data-nosnippet>367</a>                        <span class="string">"could not canonicalize path for argument '--mapdir {}:{}'"</span>,
-<a href=#368 id=368 data-nosnippet>368</a>                        host.display(),
-<a href=#369 id=369 data-nosnippet>369</a>                        guest,
-<a href=#370 id=370 data-nosnippet>370</a>                    )
-<a href=#371 id=371 data-nosnippet>371</a>                })<span class="question-mark">?</span>;
-<a href=#372 id=372 data-nosnippet>372</a>
-<a href=#373 id=373 data-nosnippet>373</a>                <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">"." </span>{
-<a href=#374 id=374 data-nosnippet>374</a>                    <span class="kw">if </span>have_current_dir {
-<a href=#375 id=375 data-nosnippet>375</a>                        <span class="macro">bail!</span>(
-<a href=#376 id=376 data-nosnippet>376</a>                            <span class="string">"Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
-<a href=#377 id=377 data-nosnippet>377</a>                        </span>);
-<a href=#378 id=378 data-nosnippet>378</a>                    }
-<a href=#379 id=379 data-nosnippet>379</a>                    have_current_dir = <span class="bool-val">true</span>;
-<a href=#380 id=380 data-nosnippet>380</a>
-<a href=#381 id=381 data-nosnippet>381</a>                    MappedDirectory {
-<a href=#382 id=382 data-nosnippet>382</a>                        host: resolved_host,
-<a href=#383 id=383 data-nosnippet>383</a>                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-<a href=#384 id=384 data-nosnippet>384</a>                    }
-<a href=#385 id=385 data-nosnippet>385</a>                } <span class="kw">else </span>{
+<a href=#212 id=212 data-nosnippet>212</a>    <span class="doccomment">/// Skip writes to stdout and stderr when replying journal events to bootstrap a module.
+<a href=#213 id=213 data-nosnippet>213</a>    </span><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#214 id=214 data-nosnippet>214</a>    #[clap(long = <span class="string">"skip-journal-stdio"</span>)]
+<a href=#215 id=215 data-nosnippet>215</a>    </span><span class="kw">pub </span>skip_stdio_during_bootstrap: bool,
+<a href=#216 id=216 data-nosnippet>216</a>
+<a href=#217 id=217 data-nosnippet>217</a>    <span class="doccomment">/// Allow instances to send http requests.
+<a href=#218 id=218 data-nosnippet>218</a>    ///
+<a href=#219 id=219 data-nosnippet>219</a>    /// Access to domains is granted by default.
+<a href=#220 id=220 data-nosnippet>220</a>    </span><span class="attr">#[clap(long)]
+<a href=#221 id=221 data-nosnippet>221</a>    </span><span class="kw">pub </span>http_client: bool,
+<a href=#222 id=222 data-nosnippet>222</a>
+<a href=#223 id=223 data-nosnippet>223</a>    <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.
+<a href=#224 id=224 data-nosnippet>224</a>    </span><span class="attr">#[clap(long = <span class="string">"deny-multiple-wasi-versions"</span>)]
+<a href=#225 id=225 data-nosnippet>225</a>    </span><span class="kw">pub </span>deny_multiple_wasi_versions: bool,
+<a href=#226 id=226 data-nosnippet>226</a>
+<a href=#227 id=227 data-nosnippet>227</a>    <span class="doccomment">/// Disable the cache for the compiled modules.
+<a href=#228 id=228 data-nosnippet>228</a>    ///
+<a href=#229 id=229 data-nosnippet>229</a>    /// Cache is used to speed up the loading of modules, as the
+<a href=#230 id=230 data-nosnippet>230</a>    /// generated artifacts are cached.
+<a href=#231 id=231 data-nosnippet>231</a>    </span><span class="attr">#[clap(long = <span class="string">"disable-cache"</span>)]
+<a href=#232 id=232 data-nosnippet>232</a>    </span>disable_cache: bool,
+<a href=#233 id=233 data-nosnippet>233</a>}
+<a href=#234 id=234 data-nosnippet>234</a>
+<a href=#235 id=235 data-nosnippet>235</a><span class="kw">pub struct </span>RunProperties {
+<a href=#236 id=236 data-nosnippet>236</a>    <span class="kw">pub </span>ctx: WasiFunctionEnv,
+<a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">pub </span>path: PathBuf,
+<a href=#238 id=238 data-nosnippet>238</a>    <span class="kw">pub </span>invoke: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#239 id=239 data-nosnippet>239</a>    <span class="kw">pub </span>args: Vec&lt;String&gt;,
+<a href=#240 id=240 data-nosnippet>240</a>}
+<a href=#241 id=241 data-nosnippet>241</a>
+<a href=#242 id=242 data-nosnippet>242</a><span class="attr">#[allow(dead_code)]
+<a href=#243 id=243 data-nosnippet>243</a></span><span class="kw">impl </span>Wasi {
+<a href=#244 id=244 data-nosnippet>244</a>    <span class="kw">pub fn </span>map_dir(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str, target_on_disk: PathBuf) {
+<a href=#245 id=245 data-nosnippet>245</a>        <span class="self">self</span>.mapped_dirs.push(MappedDirectory {
+<a href=#246 id=246 data-nosnippet>246</a>            guest: alias.to_string(),
+<a href=#247 id=247 data-nosnippet>247</a>            host: target_on_disk,
+<a href=#248 id=248 data-nosnippet>248</a>        });
+<a href=#249 id=249 data-nosnippet>249</a>    }
+<a href=#250 id=250 data-nosnippet>250</a>
+<a href=#251 id=251 data-nosnippet>251</a>    <span class="kw">pub fn </span>set_env(<span class="kw-2">&amp;mut </span><span class="self">self</span>, key: <span class="kw-2">&amp;</span>str, value: <span class="kw-2">&amp;</span>str) {
+<a href=#252 id=252 data-nosnippet>252</a>        <span class="self">self</span>.env_vars.push((key.to_string(), value.to_string()));
+<a href=#253 id=253 data-nosnippet>253</a>    }
+<a href=#254 id=254 data-nosnippet>254</a>
+<a href=#255 id=255 data-nosnippet>255</a>    <span class="doccomment">/// Gets the WASI version (if any) for the provided module
+<a href=#256 id=256 data-nosnippet>256</a>    </span><span class="kw">pub fn </span>get_versions(module: <span class="kw-2">&amp;</span>Module) -&gt; <span class="prelude-ty">Option</span>&lt;BTreeSet&lt;WasiVersion&gt;&gt; {
+<a href=#257 id=257 data-nosnippet>257</a>        <span class="comment">// Get the wasi version in non-strict mode, so multiple wasi versions
+<a href=#258 id=258 data-nosnippet>258</a>        // are potentially allowed.
+<a href=#259 id=259 data-nosnippet>259</a>        //
+<a href=#260 id=260 data-nosnippet>260</a>        // Checking for multiple wasi versions is handled outside this function.
+<a href=#261 id=261 data-nosnippet>261</a>        </span>get_wasi_versions(module, <span class="bool-val">false</span>)
+<a href=#262 id=262 data-nosnippet>262</a>    }
+<a href=#263 id=263 data-nosnippet>263</a>
+<a href=#264 id=264 data-nosnippet>264</a>    <span class="doccomment">/// Checks if a given module has any WASI imports at all.
+<a href=#265 id=265 data-nosnippet>265</a>    </span><span class="kw">pub fn </span>has_wasi_imports(module: <span class="kw-2">&amp;</span>Module) -&gt; bool {
+<a href=#266 id=266 data-nosnippet>266</a>        <span class="comment">// Get the wasi version in non-strict mode, so no other imports
+<a href=#267 id=267 data-nosnippet>267</a>        // are allowed
+<a href=#268 id=268 data-nosnippet>268</a>        </span>get_wasi_versions(module, <span class="bool-val">false</span>).is_some()
+<a href=#269 id=269 data-nosnippet>269</a>    }
+<a href=#270 id=270 data-nosnippet>270</a>
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="kw">pub fn </span>prepare(
+<a href=#272 id=272 data-nosnippet>272</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#273 id=273 data-nosnippet>273</a>        module: <span class="kw-2">&amp;</span>Module,
+<a href=#274 id=274 data-nosnippet>274</a>        program_name: String,
+<a href=#275 id=275 data-nosnippet>275</a>        args: Vec&lt;String&gt;,
+<a href=#276 id=276 data-nosnippet>276</a>        rt: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#277 id=277 data-nosnippet>277</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvBuilder&gt; {
+<a href=#278 id=278 data-nosnippet>278</a>        <span class="kw">let </span>args = args.into_iter().map(|arg| arg.into_bytes());
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>        <span class="kw">let </span>map_commands = <span class="self">self
+<a href=#281 id=281 data-nosnippet>281</a>            </span>.map_commands
+<a href=#282 id=282 data-nosnippet>282</a>            .iter()
+<a href=#283 id=283 data-nosnippet>283</a>            .map(|map| map.split_once(<span class="string">'='</span>).unwrap())
+<a href=#284 id=284 data-nosnippet>284</a>            .map(|(a, b)| (a.to_string(), b.to_string()))
+<a href=#285 id=285 data-nosnippet>285</a>            .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;();
+<a href=#286 id=286 data-nosnippet>286</a>
+<a href=#287 id=287 data-nosnippet>287</a>        <span class="kw">let </span><span class="kw-2">mut </span>uses = Vec::new();
+<a href=#288 id=288 data-nosnippet>288</a>        <span class="kw">for </span>name <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.uses {
+<a href=#289 id=289 data-nosnippet>289</a>            <span class="kw">let </span>specifier = PackageSpecifier::from_str(name)
+<a href=#290 id=290 data-nosnippet>290</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{name}\" as a package specifier"</span>))<span class="question-mark">?</span>;
+<a href=#291 id=291 data-nosnippet>291</a>            <span class="kw">let </span>pkg = {
+<a href=#292 id=292 data-nosnippet>292</a>                <span class="kw">let </span>inner_rt = rt.clone();
+<a href=#293 id=293 data-nosnippet>293</a>                rt.task_manager()
+<a href=#294 id=294 data-nosnippet>294</a>                    .spawn_and_block_on(<span class="kw">async move </span>{
+<a href=#295 id=295 data-nosnippet>295</a>                        BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, <span class="kw-2">&amp;*</span>inner_rt).<span class="kw">await
+<a href=#296 id=296 data-nosnippet>296</a>                    </span>})
+<a href=#297 id=297 data-nosnippet>297</a>                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{name}\""</span>))<span class="question-mark">??
+<a href=#298 id=298 data-nosnippet>298</a>            </span>};
+<a href=#299 id=299 data-nosnippet>299</a>            uses.push(pkg);
+<a href=#300 id=300 data-nosnippet>300</a>        }
+<a href=#301 id=301 data-nosnippet>301</a>
+<a href=#302 id=302 data-nosnippet>302</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = WasiEnv::builder(program_name)
+<a href=#303 id=303 data-nosnippet>303</a>            .runtime(Arc::clone(<span class="kw-2">&amp;</span>rt))
+<a href=#304 id=304 data-nosnippet>304</a>            .args(args)
+<a href=#305 id=305 data-nosnippet>305</a>            .envs(<span class="self">self</span>.env_vars.clone())
+<a href=#306 id=306 data-nosnippet>306</a>            .uses(uses)
+<a href=#307 id=307 data-nosnippet>307</a>            .map_commands(map_commands);
+<a href=#308 id=308 data-nosnippet>308</a>
+<a href=#309 id=309 data-nosnippet>309</a>        <span class="kw">let </span><span class="kw-2">mut </span>builder = {
+<a href=#310 id=310 data-nosnippet>310</a>            <span class="comment">// If we preopen anything from the host then shallow copy it over
+<a href=#311 id=311 data-nosnippet>311</a>            </span><span class="kw">let </span>root_fs = RootFileSystemBuilder::new()
+<a href=#312 id=312 data-nosnippet>312</a>                .with_tty(Box::new(DeviceFile::new(__WASI_STDIN_FILENO)))
+<a href=#313 id=313 data-nosnippet>313</a>                .build();
+<a href=#314 id=314 data-nosnippet>314</a>
+<a href=#315 id=315 data-nosnippet>315</a>            <span class="kw">let </span><span class="kw-2">mut </span>mapped_dirs = Vec::new();
+<a href=#316 id=316 data-nosnippet>316</a>
+<a href=#317 id=317 data-nosnippet>317</a>            <span class="comment">// Process the --dirs flag and merge it with --mapdir.
+<a href=#318 id=318 data-nosnippet>318</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>have_current_dir = <span class="bool-val">false</span>;
+<a href=#319 id=319 data-nosnippet>319</a>            <span class="kw">for </span>dir <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.pre_opened_directories {
+<a href=#320 id=320 data-nosnippet>320</a>                <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">"."</span>) {
+<a href=#321 id=321 data-nosnippet>321</a>                    <span class="kw">if </span>have_current_dir {
+<a href=#322 id=322 data-nosnippet>322</a>                        <span class="macro">bail!</span>(
+<a href=#323 id=323 data-nosnippet>323</a>                            <span class="string">"Cannot pre-open the current directory twice: --dir=. must only be specified once"
+<a href=#324 id=324 data-nosnippet>324</a>                        </span>);
+<a href=#325 id=325 data-nosnippet>325</a>                    }
+<a href=#326 id=326 data-nosnippet>326</a>                    have_current_dir = <span class="bool-val">true</span>;
+<a href=#327 id=327 data-nosnippet>327</a>
+<a href=#328 id=328 data-nosnippet>328</a>                    <span class="kw">let </span>current_dir =
+<a href=#329 id=329 data-nosnippet>329</a>                        std::env::current_dir().context(<span class="string">"could not determine current directory"</span>)<span class="question-mark">?</span>;
+<a href=#330 id=330 data-nosnippet>330</a>
+<a href=#331 id=331 data-nosnippet>331</a>                    MappedDirectory {
+<a href=#332 id=332 data-nosnippet>332</a>                        host: current_dir,
+<a href=#333 id=333 data-nosnippet>333</a>                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+<a href=#334 id=334 data-nosnippet>334</a>                    }
+<a href=#335 id=335 data-nosnippet>335</a>                } <span class="kw">else </span>{
+<a href=#336 id=336 data-nosnippet>336</a>                    <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
+<a href=#337 id=337 data-nosnippet>337</a>                        <span class="macro">format!</span>(
+<a href=#338 id=338 data-nosnippet>338</a>                            <span class="string">"could not canonicalize path for argument '--dir {}'"</span>,
+<a href=#339 id=339 data-nosnippet>339</a>                            dir.display()
+<a href=#340 id=340 data-nosnippet>340</a>                        )
+<a href=#341 id=341 data-nosnippet>341</a>                    })<span class="question-mark">?</span>;
+<a href=#342 id=342 data-nosnippet>342</a>
+<a href=#343 id=343 data-nosnippet>343</a>                    <span class="kw">if </span><span class="kw-2">&amp;</span>resolved != dir {
+<a href=#344 id=344 data-nosnippet>344</a>                        <span class="macro">bail!</span>(
+<a href=#345 id=345 data-nosnippet>345</a>                            <span class="string">"Invalid argument '--dir {}': path must either be absolute, or '.'"</span>,
+<a href=#346 id=346 data-nosnippet>346</a>                            dir.display(),
+<a href=#347 id=347 data-nosnippet>347</a>                        );
+<a href=#348 id=348 data-nosnippet>348</a>                    }
+<a href=#349 id=349 data-nosnippet>349</a>
+<a href=#350 id=350 data-nosnippet>350</a>                    <span class="kw">let </span>guest = resolved
+<a href=#351 id=351 data-nosnippet>351</a>                        .to_str()
+<a href=#352 id=352 data-nosnippet>352</a>                        .with_context(|| {
+<a href=#353 id=353 data-nosnippet>353</a>                            <span class="macro">format!</span>(
+<a href=#354 id=354 data-nosnippet>354</a>                                <span class="string">"invalid argument '--dir {}': path must be valid utf-8"</span>,
+<a href=#355 id=355 data-nosnippet>355</a>                                dir.display(),
+<a href=#356 id=356 data-nosnippet>356</a>                            )
+<a href=#357 id=357 data-nosnippet>357</a>                        })<span class="question-mark">?
+<a href=#358 id=358 data-nosnippet>358</a>                        </span>.to_string();
+<a href=#359 id=359 data-nosnippet>359</a>
+<a href=#360 id=360 data-nosnippet>360</a>                    MappedDirectory {
+<a href=#361 id=361 data-nosnippet>361</a>                        host: resolved,
+<a href=#362 id=362 data-nosnippet>362</a>                        guest,
+<a href=#363 id=363 data-nosnippet>363</a>                    }
+<a href=#364 id=364 data-nosnippet>364</a>                };
+<a href=#365 id=365 data-nosnippet>365</a>
+<a href=#366 id=366 data-nosnippet>366</a>                mapped_dirs.push(mapping);
+<a href=#367 id=367 data-nosnippet>367</a>            }
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a>            <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
+<a href=#370 id=370 data-nosnippet>370</a>                <span class="kw">let </span>resolved_host = host.canonicalize().with_context(|| {
+<a href=#371 id=371 data-nosnippet>371</a>                    <span class="macro">format!</span>(
+<a href=#372 id=372 data-nosnippet>372</a>                        <span class="string">"could not canonicalize path for argument '--mapdir {}:{}'"</span>,
+<a href=#373 id=373 data-nosnippet>373</a>                        host.display(),
+<a href=#374 id=374 data-nosnippet>374</a>                        guest,
+<a href=#375 id=375 data-nosnippet>375</a>                    )
+<a href=#376 id=376 data-nosnippet>376</a>                })<span class="question-mark">?</span>;
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>                <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">"." </span>{
+<a href=#379 id=379 data-nosnippet>379</a>                    <span class="kw">if </span>have_current_dir {
+<a href=#380 id=380 data-nosnippet>380</a>                        <span class="macro">bail!</span>(
+<a href=#381 id=381 data-nosnippet>381</a>                            <span class="string">"Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
+<a href=#382 id=382 data-nosnippet>382</a>                        </span>);
+<a href=#383 id=383 data-nosnippet>383</a>                    }
+<a href=#384 id=384 data-nosnippet>384</a>                    have_current_dir = <span class="bool-val">true</span>;
+<a href=#385 id=385 data-nosnippet>385</a>
 <a href=#386 id=386 data-nosnippet>386</a>                    MappedDirectory {
 <a href=#387 id=387 data-nosnippet>387</a>                        host: resolved_host,
-<a href=#388 id=388 data-nosnippet>388</a>                        guest: guest.clone(),
+<a href=#388 id=388 data-nosnippet>388</a>                        guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
 <a href=#389 id=389 data-nosnippet>389</a>                    }
-<a href=#390 id=390 data-nosnippet>390</a>                };
-<a href=#391 id=391 data-nosnippet>391</a>                mapped_dirs.push(mapping);
-<a href=#392 id=392 data-nosnippet>392</a>            }
-<a href=#393 id=393 data-nosnippet>393</a>
-<a href=#394 id=394 data-nosnippet>394</a>            <span class="kw">if </span>!mapped_dirs.is_empty() {
-<a href=#395 id=395 data-nosnippet>395</a>                <span class="comment">// TODO: should we expose the common ancestor instead of root?
-<a href=#396 id=396 data-nosnippet>396</a>                </span><span class="kw">let </span>fs_backing: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
-<a href=#397 id=397 data-nosnippet>397</a>                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
-<a href=#398 id=398 data-nosnippet>398</a>                <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="self">self</span>.mapped_dirs.clone() {
-<a href=#399 id=399 data-nosnippet>399</a>                    <span class="kw">let </span>host = <span class="kw">if </span>!host.is_absolute() {
-<a href=#400 id=400 data-nosnippet>400</a>                        Path::new(<span class="string">"/"</span>).join(host)
-<a href=#401 id=401 data-nosnippet>401</a>                    } <span class="kw">else </span>{
-<a href=#402 id=402 data-nosnippet>402</a>                        host
-<a href=#403 id=403 data-nosnippet>403</a>                    };
-<a href=#404 id=404 data-nosnippet>404</a>                    root_fs.mount(guest.into(), <span class="kw-2">&amp;</span>fs_backing, host)<span class="question-mark">?</span>;
-<a href=#405 id=405 data-nosnippet>405</a>                }
-<a href=#406 id=406 data-nosnippet>406</a>            }
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>            <span class="comment">// Open the root of the new filesystem
-<a href=#409 id=409 data-nosnippet>409</a>            </span><span class="kw">let </span>b = builder
-<a href=#410 id=410 data-nosnippet>410</a>                .sandbox_fs(root_fs)
-<a href=#411 id=411 data-nosnippet>411</a>                .preopen_dir(Path::new(<span class="string">"/"</span>))
-<a href=#412 id=412 data-nosnippet>412</a>                .unwrap();
-<a href=#413 id=413 data-nosnippet>413</a>
-<a href=#414 id=414 data-nosnippet>414</a>            <span class="kw">if </span>have_current_dir {
-<a href=#415 id=415 data-nosnippet>415</a>                b.map_dir(<span class="string">"."</span>, MAPPED_CURRENT_DIR_DEFAULT_PATH)<span class="question-mark">?
-<a href=#416 id=416 data-nosnippet>416</a>            </span>} <span class="kw">else </span>{
-<a href=#417 id=417 data-nosnippet>417</a>                b.map_dir(<span class="string">"."</span>, <span class="string">"/"</span>)<span class="question-mark">?
-<a href=#418 id=418 data-nosnippet>418</a>            </span>}
-<a href=#419 id=419 data-nosnippet>419</a>        };
-<a href=#420 id=420 data-nosnippet>420</a>
-<a href=#421 id=421 data-nosnippet>421</a>        <span class="kw-2">*</span>builder.capabilities_mut() = <span class="self">self</span>.capabilities();
-<a href=#422 id=422 data-nosnippet>422</a>
-<a href=#423 id=423 data-nosnippet>423</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#424 id=424 data-nosnippet>424</a>        </span>{
-<a href=#425 id=425 data-nosnippet>425</a>            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.snapshot_on.iter().cloned() {
-<a href=#426 id=426 data-nosnippet>426</a>                builder.add_snapshot_trigger(trigger);
-<a href=#427 id=427 data-nosnippet>427</a>            }
-<a href=#428 id=428 data-nosnippet>428</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(interval) = <span class="self">self</span>.snapshot_interval {
-<a href=#429 id=429 data-nosnippet>429</a>                builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
-<a href=#430 id=430 data-nosnippet>430</a>            }
-<a href=#431 id=431 data-nosnippet>431</a>            <span class="kw">if </span><span class="self">self</span>.stop_after_snapshot {
-<a href=#432 id=432 data-nosnippet>432</a>                builder.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
-<a href=#433 id=433 data-nosnippet>433</a>            }
-<a href=#434 id=434 data-nosnippet>434</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
-<a href=#435 id=435 data-nosnippet>435</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
-<a href=#436 id=436 data-nosnippet>436</a>                builder.add_read_only_journal(journal);
-<a href=#437 id=437 data-nosnippet>437</a>            }
-<a href=#438 id=438 data-nosnippet>438</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
-<a href=#439 id=439 data-nosnippet>439</a>                builder.add_writable_journal(journal);
-<a href=#440 id=440 data-nosnippet>440</a>            }
-<a href=#441 id=441 data-nosnippet>441</a>            builder.with_skip_stdio_during_bootstrap(<span class="self">self</span>.skip_stdio_during_bootstrap);
-<a href=#442 id=442 data-nosnippet>442</a>        }
-<a href=#443 id=443 data-nosnippet>443</a>
-<a href=#444 id=444 data-nosnippet>444</a>        <span class="prelude-val">Ok</span>(builder)
-<a href=#445 id=445 data-nosnippet>445</a>    }
-<a href=#446 id=446 data-nosnippet>446</a>
-<a href=#447 id=447 data-nosnippet>447</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#448 id=448 data-nosnippet>448</a>    #[allow(clippy::type_complexity)]
-<a href=#449 id=449 data-nosnippet>449</a>    </span><span class="kw">pub fn </span>build_journals(
-<a href=#450 id=450 data-nosnippet>450</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#451 id=451 data-nosnippet>451</a>    ) -&gt; anyhow::Result&lt;(Vec&lt;Arc&lt;DynReadableJournal&gt;&gt;, Vec&lt;Arc&lt;DynJournal&gt;&gt;)&gt; {
-<a href=#452 id=452 data-nosnippet>452</a>        <span class="kw">let </span><span class="kw-2">mut </span>readable = Vec::new();
-<a href=#453 id=453 data-nosnippet>453</a>        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.read_only_journals.clone() {
-<a href=#454 id=454 data-nosnippet>454</a>            <span class="kw">if </span><span class="macro">matches!</span>(std::fs::metadata(<span class="kw-2">&amp;</span>journal), <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound)
-<a href=#455 id=455 data-nosnippet>455</a>            {
-<a href=#456 id=456 data-nosnippet>456</a>                <span class="macro">bail!</span>(<span class="string">"Read-only journal file does not exist: {journal:?}"</span>);
-<a href=#457 id=457 data-nosnippet>457</a>            }
+<a href=#390 id=390 data-nosnippet>390</a>                } <span class="kw">else </span>{
+<a href=#391 id=391 data-nosnippet>391</a>                    MappedDirectory {
+<a href=#392 id=392 data-nosnippet>392</a>                        host: resolved_host,
+<a href=#393 id=393 data-nosnippet>393</a>                        guest: guest.clone(),
+<a href=#394 id=394 data-nosnippet>394</a>                    }
+<a href=#395 id=395 data-nosnippet>395</a>                };
+<a href=#396 id=396 data-nosnippet>396</a>                mapped_dirs.push(mapping);
+<a href=#397 id=397 data-nosnippet>397</a>            }
+<a href=#398 id=398 data-nosnippet>398</a>
+<a href=#399 id=399 data-nosnippet>399</a>            <span class="kw">if </span>!mapped_dirs.is_empty() {
+<a href=#400 id=400 data-nosnippet>400</a>                <span class="comment">// TODO: should we expose the common ancestor instead of root?
+<a href=#401 id=401 data-nosnippet>401</a>                </span><span class="kw">let </span>fs_backing: Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt; =
+<a href=#402 id=402 data-nosnippet>402</a>                    Arc::new(PassthruFileSystem::new(default_fs_backing()));
+<a href=#403 id=403 data-nosnippet>403</a>                <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="self">self</span>.mapped_dirs.clone() {
+<a href=#404 id=404 data-nosnippet>404</a>                    <span class="kw">let </span>host = <span class="kw">if </span>!host.is_absolute() {
+<a href=#405 id=405 data-nosnippet>405</a>                        Path::new(<span class="string">"/"</span>).join(host)
+<a href=#406 id=406 data-nosnippet>406</a>                    } <span class="kw">else </span>{
+<a href=#407 id=407 data-nosnippet>407</a>                        host
+<a href=#408 id=408 data-nosnippet>408</a>                    };
+<a href=#409 id=409 data-nosnippet>409</a>                    root_fs.mount(guest.into(), <span class="kw-2">&amp;</span>fs_backing, host)<span class="question-mark">?</span>;
+<a href=#410 id=410 data-nosnippet>410</a>                }
+<a href=#411 id=411 data-nosnippet>411</a>            }
+<a href=#412 id=412 data-nosnippet>412</a>
+<a href=#413 id=413 data-nosnippet>413</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cwd) = <span class="self">self</span>.cwd.as_ref() {
+<a href=#414 id=414 data-nosnippet>414</a>                <span class="kw">if </span>!cwd.starts_with(<span class="string">"/"</span>) {
+<a href=#415 id=415 data-nosnippet>415</a>                    <span class="macro">bail!</span>(<span class="string">"The argument to --cwd must be an absolute path"</span>);
+<a href=#416 id=416 data-nosnippet>416</a>                }
+<a href=#417 id=417 data-nosnippet>417</a>                builder = builder.current_dir(cwd.clone());
+<a href=#418 id=418 data-nosnippet>418</a>            }
+<a href=#419 id=419 data-nosnippet>419</a>
+<a href=#420 id=420 data-nosnippet>420</a>            <span class="comment">// Open the root of the new filesystem
+<a href=#421 id=421 data-nosnippet>421</a>            </span>builder = builder
+<a href=#422 id=422 data-nosnippet>422</a>                .sandbox_fs(root_fs)
+<a href=#423 id=423 data-nosnippet>423</a>                .preopen_dir(Path::new(<span class="string">"/"</span>))
+<a href=#424 id=424 data-nosnippet>424</a>                .unwrap();
+<a href=#425 id=425 data-nosnippet>425</a>
+<a href=#426 id=426 data-nosnippet>426</a>            <span class="kw">if </span>have_current_dir {
+<a href=#427 id=427 data-nosnippet>427</a>                builder.map_dir(<span class="string">"."</span>, MAPPED_CURRENT_DIR_DEFAULT_PATH)<span class="question-mark">?
+<a href=#428 id=428 data-nosnippet>428</a>            </span>} <span class="kw">else </span>{
+<a href=#429 id=429 data-nosnippet>429</a>                builder.map_dir(<span class="string">"."</span>, <span class="string">"/"</span>)<span class="question-mark">?
+<a href=#430 id=430 data-nosnippet>430</a>            </span>}
+<a href=#431 id=431 data-nosnippet>431</a>        };
+<a href=#432 id=432 data-nosnippet>432</a>
+<a href=#433 id=433 data-nosnippet>433</a>        <span class="kw-2">*</span>builder.capabilities_mut() = <span class="self">self</span>.capabilities();
+<a href=#434 id=434 data-nosnippet>434</a>
+<a href=#435 id=435 data-nosnippet>435</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#436 id=436 data-nosnippet>436</a>        </span>{
+<a href=#437 id=437 data-nosnippet>437</a>            <span class="kw">for </span>trigger <span class="kw">in </span><span class="self">self</span>.snapshot_on.iter().cloned() {
+<a href=#438 id=438 data-nosnippet>438</a>                builder.add_snapshot_trigger(trigger);
+<a href=#439 id=439 data-nosnippet>439</a>            }
+<a href=#440 id=440 data-nosnippet>440</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(interval) = <span class="self">self</span>.snapshot_interval {
+<a href=#441 id=441 data-nosnippet>441</a>                builder.with_snapshot_interval(std::time::Duration::from_millis(interval));
+<a href=#442 id=442 data-nosnippet>442</a>            }
+<a href=#443 id=443 data-nosnippet>443</a>            <span class="kw">if </span><span class="self">self</span>.stop_after_snapshot {
+<a href=#444 id=444 data-nosnippet>444</a>                builder.with_stop_running_after_snapshot(<span class="bool-val">true</span>);
+<a href=#445 id=445 data-nosnippet>445</a>            }
+<a href=#446 id=446 data-nosnippet>446</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
+<a href=#447 id=447 data-nosnippet>447</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
+<a href=#448 id=448 data-nosnippet>448</a>                builder.add_read_only_journal(journal);
+<a href=#449 id=449 data-nosnippet>449</a>            }
+<a href=#450 id=450 data-nosnippet>450</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
+<a href=#451 id=451 data-nosnippet>451</a>                builder.add_writable_journal(journal);
+<a href=#452 id=452 data-nosnippet>452</a>            }
+<a href=#453 id=453 data-nosnippet>453</a>            builder.with_skip_stdio_during_bootstrap(<span class="self">self</span>.skip_stdio_during_bootstrap);
+<a href=#454 id=454 data-nosnippet>454</a>        }
+<a href=#455 id=455 data-nosnippet>455</a>
+<a href=#456 id=456 data-nosnippet>456</a>        <span class="prelude-val">Ok</span>(builder)
+<a href=#457 id=457 data-nosnippet>457</a>    }
 <a href=#458 id=458 data-nosnippet>458</a>
-<a href=#459 id=459 data-nosnippet>459</a>            readable
-<a href=#460 id=460 data-nosnippet>460</a>                .push(Arc::new(LogFileJournal::new_readonly(journal)<span class="question-mark">?</span>) <span class="kw">as </span>Arc&lt;DynReadableJournal&gt;);
-<a href=#461 id=461 data-nosnippet>461</a>        }
-<a href=#462 id=462 data-nosnippet>462</a>
-<a href=#463 id=463 data-nosnippet>463</a>        <span class="kw">let </span><span class="kw-2">mut </span>writable = Vec::new();
-<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.writable_journals.clone() {
-<a href=#465 id=465 data-nosnippet>465</a>            <span class="kw">if </span><span class="self">self</span>.enable_compaction {
-<a href=#466 id=466 data-nosnippet>466</a>                <span class="kw">let </span><span class="kw-2">mut </span>journal = CompactingLogFileJournal::new(journal)<span class="question-mark">?</span>;
-<a href=#467 id=467 data-nosnippet>467</a>                <span class="kw">if </span>!<span class="self">self</span>.without_compact_on_drop {
-<a href=#468 id=468 data-nosnippet>468</a>                    journal = journal.with_compact_on_drop()
-<a href=#469 id=469 data-nosnippet>469</a>                }
-<a href=#470 id=470 data-nosnippet>470</a>                <span class="kw">if </span><span class="self">self</span>.with_compact_on_growth.is_normal() &amp;&amp; <span class="self">self</span>.with_compact_on_growth != <span class="number">0f32 </span>{
-<a href=#471 id=471 data-nosnippet>471</a>                    journal = journal.with_compact_on_factor_size(<span class="self">self</span>.with_compact_on_growth);
-<a href=#472 id=472 data-nosnippet>472</a>                }
-<a href=#473 id=473 data-nosnippet>473</a>                writable.push(Arc::new(journal) <span class="kw">as </span>Arc&lt;DynJournal&gt;);
-<a href=#474 id=474 data-nosnippet>474</a>            } <span class="kw">else </span>{
-<a href=#475 id=475 data-nosnippet>475</a>                writable.push(Arc::new(LogFileJournal::new(journal)<span class="question-mark">?</span>));
-<a href=#476 id=476 data-nosnippet>476</a>            }
-<a href=#477 id=477 data-nosnippet>477</a>        }
-<a href=#478 id=478 data-nosnippet>478</a>        <span class="prelude-val">Ok</span>((readable, writable))
-<a href=#479 id=479 data-nosnippet>479</a>    }
-<a href=#480 id=480 data-nosnippet>480</a>
-<a href=#481 id=481 data-nosnippet>481</a>    <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
-<a href=#482 id=482 data-nosnippet>482</a>    </span><span class="kw">pub fn </span>build_journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt; {
-<a href=#483 id=483 data-nosnippet>483</a>        <span class="prelude-val">Ok</span>(Vec::new())
-<a href=#484 id=484 data-nosnippet>484</a>    }
-<a href=#485 id=485 data-nosnippet>485</a>
-<a href=#486 id=486 data-nosnippet>486</a>    <span class="kw">pub fn </span>build_mapped_directories(
-<a href=#487 id=487 data-nosnippet>487</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#488 id=488 data-nosnippet>488</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(bool, bool, Vec&lt;MappedDirectory&gt;), anyhow::Error&gt; {
-<a href=#489 id=489 data-nosnippet>489</a>        <span class="kw">let </span><span class="kw-2">mut </span>mapped_dirs = Vec::new();
-<a href=#490 id=490 data-nosnippet>490</a>
-<a href=#491 id=491 data-nosnippet>491</a>        <span class="comment">// Process the --dirs flag and merge it with --mapdir.
-<a href=#492 id=492 data-nosnippet>492</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>have_current_dir = <span class="bool-val">false</span>;
-<a href=#493 id=493 data-nosnippet>493</a>        <span class="kw">for </span>dir <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.pre_opened_directories {
-<a href=#494 id=494 data-nosnippet>494</a>            <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">"."</span>) {
-<a href=#495 id=495 data-nosnippet>495</a>                <span class="kw">if </span>have_current_dir {
-<a href=#496 id=496 data-nosnippet>496</a>                    <span class="macro">bail!</span>(
-<a href=#497 id=497 data-nosnippet>497</a>                        <span class="string">"Cannot pre-open the current directory twice: --dir=. must only be specified once"
-<a href=#498 id=498 data-nosnippet>498</a>                    </span>);
-<a href=#499 id=499 data-nosnippet>499</a>                }
-<a href=#500 id=500 data-nosnippet>500</a>                have_current_dir = <span class="bool-val">true</span>;
-<a href=#501 id=501 data-nosnippet>501</a>
-<a href=#502 id=502 data-nosnippet>502</a>                <span class="kw">let </span>current_dir =
-<a href=#503 id=503 data-nosnippet>503</a>                    std::env::current_dir().context(<span class="string">"could not determine current directory"</span>)<span class="question-mark">?</span>;
-<a href=#504 id=504 data-nosnippet>504</a>
-<a href=#505 id=505 data-nosnippet>505</a>                MappedDirectory {
-<a href=#506 id=506 data-nosnippet>506</a>                    host: current_dir,
-<a href=#507 id=507 data-nosnippet>507</a>                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-<a href=#508 id=508 data-nosnippet>508</a>                }
-<a href=#509 id=509 data-nosnippet>509</a>            } <span class="kw">else </span>{
-<a href=#510 id=510 data-nosnippet>510</a>                <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
-<a href=#511 id=511 data-nosnippet>511</a>                    <span class="macro">format!</span>(
-<a href=#512 id=512 data-nosnippet>512</a>                        <span class="string">"could not canonicalize path for argument '--dir {}'"</span>,
-<a href=#513 id=513 data-nosnippet>513</a>                        dir.display()
-<a href=#514 id=514 data-nosnippet>514</a>                    )
-<a href=#515 id=515 data-nosnippet>515</a>                })<span class="question-mark">?</span>;
-<a href=#516 id=516 data-nosnippet>516</a>
-<a href=#517 id=517 data-nosnippet>517</a>                <span class="kw">if </span><span class="kw-2">&amp;</span>resolved != dir {
-<a href=#518 id=518 data-nosnippet>518</a>                    <span class="macro">bail!</span>(
-<a href=#519 id=519 data-nosnippet>519</a>                        <span class="string">"Invalid argument '--dir {}': path must either be absolute, or '.'"</span>,
-<a href=#520 id=520 data-nosnippet>520</a>                        dir.display(),
-<a href=#521 id=521 data-nosnippet>521</a>                    );
-<a href=#522 id=522 data-nosnippet>522</a>                }
-<a href=#523 id=523 data-nosnippet>523</a>
-<a href=#524 id=524 data-nosnippet>524</a>                <span class="kw">let </span>guest = resolved
-<a href=#525 id=525 data-nosnippet>525</a>                    .to_str()
-<a href=#526 id=526 data-nosnippet>526</a>                    .with_context(|| {
-<a href=#527 id=527 data-nosnippet>527</a>                        <span class="macro">format!</span>(
-<a href=#528 id=528 data-nosnippet>528</a>                            <span class="string">"invalid argument '--dir {}': path must be valid utf-8"</span>,
-<a href=#529 id=529 data-nosnippet>529</a>                            dir.display(),
-<a href=#530 id=530 data-nosnippet>530</a>                        )
-<a href=#531 id=531 data-nosnippet>531</a>                    })<span class="question-mark">?
-<a href=#532 id=532 data-nosnippet>532</a>                    </span>.to_string();
+<a href=#459 id=459 data-nosnippet>459</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#460 id=460 data-nosnippet>460</a>    #[allow(clippy::type_complexity)]
+<a href=#461 id=461 data-nosnippet>461</a>    </span><span class="kw">pub fn </span>build_journals(
+<a href=#462 id=462 data-nosnippet>462</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#463 id=463 data-nosnippet>463</a>    ) -&gt; anyhow::Result&lt;(Vec&lt;Arc&lt;DynReadableJournal&gt;&gt;, Vec&lt;Arc&lt;DynJournal&gt;&gt;)&gt; {
+<a href=#464 id=464 data-nosnippet>464</a>        <span class="kw">let </span><span class="kw-2">mut </span>readable = Vec::new();
+<a href=#465 id=465 data-nosnippet>465</a>        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.read_only_journals.clone() {
+<a href=#466 id=466 data-nosnippet>466</a>            <span class="kw">if </span><span class="macro">matches!</span>(std::fs::metadata(<span class="kw-2">&amp;</span>journal), <span class="prelude-val">Err</span>(e) <span class="kw">if </span>e.kind() == std::io::ErrorKind::NotFound)
+<a href=#467 id=467 data-nosnippet>467</a>            {
+<a href=#468 id=468 data-nosnippet>468</a>                <span class="macro">bail!</span>(<span class="string">"Read-only journal file does not exist: {journal:?}"</span>);
+<a href=#469 id=469 data-nosnippet>469</a>            }
+<a href=#470 id=470 data-nosnippet>470</a>
+<a href=#471 id=471 data-nosnippet>471</a>            readable
+<a href=#472 id=472 data-nosnippet>472</a>                .push(Arc::new(LogFileJournal::new_readonly(journal)<span class="question-mark">?</span>) <span class="kw">as </span>Arc&lt;DynReadableJournal&gt;);
+<a href=#473 id=473 data-nosnippet>473</a>        }
+<a href=#474 id=474 data-nosnippet>474</a>
+<a href=#475 id=475 data-nosnippet>475</a>        <span class="kw">let </span><span class="kw-2">mut </span>writable = Vec::new();
+<a href=#476 id=476 data-nosnippet>476</a>        <span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.writable_journals.clone() {
+<a href=#477 id=477 data-nosnippet>477</a>            <span class="kw">if </span><span class="self">self</span>.enable_compaction {
+<a href=#478 id=478 data-nosnippet>478</a>                <span class="kw">let </span><span class="kw-2">mut </span>journal = CompactingLogFileJournal::new(journal)<span class="question-mark">?</span>;
+<a href=#479 id=479 data-nosnippet>479</a>                <span class="kw">if </span>!<span class="self">self</span>.without_compact_on_drop {
+<a href=#480 id=480 data-nosnippet>480</a>                    journal = journal.with_compact_on_drop()
+<a href=#481 id=481 data-nosnippet>481</a>                }
+<a href=#482 id=482 data-nosnippet>482</a>                <span class="kw">if </span><span class="self">self</span>.with_compact_on_growth.is_normal() &amp;&amp; <span class="self">self</span>.with_compact_on_growth != <span class="number">0f32 </span>{
+<a href=#483 id=483 data-nosnippet>483</a>                    journal = journal.with_compact_on_factor_size(<span class="self">self</span>.with_compact_on_growth);
+<a href=#484 id=484 data-nosnippet>484</a>                }
+<a href=#485 id=485 data-nosnippet>485</a>                writable.push(Arc::new(journal) <span class="kw">as </span>Arc&lt;DynJournal&gt;);
+<a href=#486 id=486 data-nosnippet>486</a>            } <span class="kw">else </span>{
+<a href=#487 id=487 data-nosnippet>487</a>                writable.push(Arc::new(LogFileJournal::new(journal)<span class="question-mark">?</span>));
+<a href=#488 id=488 data-nosnippet>488</a>            }
+<a href=#489 id=489 data-nosnippet>489</a>        }
+<a href=#490 id=490 data-nosnippet>490</a>        <span class="prelude-val">Ok</span>((readable, writable))
+<a href=#491 id=491 data-nosnippet>491</a>    }
+<a href=#492 id=492 data-nosnippet>492</a>
+<a href=#493 id=493 data-nosnippet>493</a>    <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
+<a href=#494 id=494 data-nosnippet>494</a>    </span><span class="kw">pub fn </span>build_journals(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; anyhow::Result&lt;Vec&lt;Arc&lt;DynJournal&gt;&gt;&gt; {
+<a href=#495 id=495 data-nosnippet>495</a>        <span class="prelude-val">Ok</span>(Vec::new())
+<a href=#496 id=496 data-nosnippet>496</a>    }
+<a href=#497 id=497 data-nosnippet>497</a>
+<a href=#498 id=498 data-nosnippet>498</a>    <span class="kw">pub fn </span>build_mapped_directories(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(bool, Vec&lt;MappedDirectory&gt;), anyhow::Error&gt; {
+<a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">let </span><span class="kw-2">mut </span>mapped_dirs = Vec::new();
+<a href=#500 id=500 data-nosnippet>500</a>
+<a href=#501 id=501 data-nosnippet>501</a>        <span class="comment">// Process the --dirs flag and merge it with --mapdir.
+<a href=#502 id=502 data-nosnippet>502</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>have_current_dir = <span class="bool-val">false</span>;
+<a href=#503 id=503 data-nosnippet>503</a>        <span class="kw">for </span>dir <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.pre_opened_directories {
+<a href=#504 id=504 data-nosnippet>504</a>            <span class="kw">let </span>mapping = <span class="kw">if </span>dir == Path::new(<span class="string">"."</span>) {
+<a href=#505 id=505 data-nosnippet>505</a>                <span class="kw">if </span>have_current_dir {
+<a href=#506 id=506 data-nosnippet>506</a>                    <span class="macro">bail!</span>(
+<a href=#507 id=507 data-nosnippet>507</a>                        <span class="string">"Cannot pre-open the current directory twice: --dir=. must only be specified once"
+<a href=#508 id=508 data-nosnippet>508</a>                    </span>);
+<a href=#509 id=509 data-nosnippet>509</a>                }
+<a href=#510 id=510 data-nosnippet>510</a>                have_current_dir = <span class="bool-val">true</span>;
+<a href=#511 id=511 data-nosnippet>511</a>
+<a href=#512 id=512 data-nosnippet>512</a>                <span class="kw">let </span>current_dir =
+<a href=#513 id=513 data-nosnippet>513</a>                    std::env::current_dir().context(<span class="string">"could not determine current directory"</span>)<span class="question-mark">?</span>;
+<a href=#514 id=514 data-nosnippet>514</a>
+<a href=#515 id=515 data-nosnippet>515</a>                MappedDirectory {
+<a href=#516 id=516 data-nosnippet>516</a>                    host: current_dir,
+<a href=#517 id=517 data-nosnippet>517</a>                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+<a href=#518 id=518 data-nosnippet>518</a>                }
+<a href=#519 id=519 data-nosnippet>519</a>            } <span class="kw">else </span>{
+<a href=#520 id=520 data-nosnippet>520</a>                <span class="kw">let </span>resolved = dir.canonicalize().with_context(|| {
+<a href=#521 id=521 data-nosnippet>521</a>                    <span class="macro">format!</span>(
+<a href=#522 id=522 data-nosnippet>522</a>                        <span class="string">"could not canonicalize path for argument '--dir {}'"</span>,
+<a href=#523 id=523 data-nosnippet>523</a>                        dir.display()
+<a href=#524 id=524 data-nosnippet>524</a>                    )
+<a href=#525 id=525 data-nosnippet>525</a>                })<span class="question-mark">?</span>;
+<a href=#526 id=526 data-nosnippet>526</a>
+<a href=#527 id=527 data-nosnippet>527</a>                <span class="kw">if </span><span class="kw-2">&amp;</span>resolved != dir {
+<a href=#528 id=528 data-nosnippet>528</a>                    <span class="macro">bail!</span>(
+<a href=#529 id=529 data-nosnippet>529</a>                        <span class="string">"Invalid argument '--dir {}': path must either be absolute, or '.'"</span>,
+<a href=#530 id=530 data-nosnippet>530</a>                        dir.display(),
+<a href=#531 id=531 data-nosnippet>531</a>                    );
+<a href=#532 id=532 data-nosnippet>532</a>                }
 <a href=#533 id=533 data-nosnippet>533</a>
-<a href=#534 id=534 data-nosnippet>534</a>                MappedDirectory {
-<a href=#535 id=535 data-nosnippet>535</a>                    host: resolved,
-<a href=#536 id=536 data-nosnippet>536</a>                    guest,
-<a href=#537 id=537 data-nosnippet>537</a>                }
-<a href=#538 id=538 data-nosnippet>538</a>            };
-<a href=#539 id=539 data-nosnippet>539</a>
-<a href=#540 id=540 data-nosnippet>540</a>            mapped_dirs.push(mapping);
-<a href=#541 id=541 data-nosnippet>541</a>        }
-<a href=#542 id=542 data-nosnippet>542</a>
-<a href=#543 id=543 data-nosnippet>543</a>        <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
-<a href=#544 id=544 data-nosnippet>544</a>            <span class="kw">let </span>resolved_host = host.canonicalize().with_context(|| {
-<a href=#545 id=545 data-nosnippet>545</a>                <span class="macro">format!</span>(
-<a href=#546 id=546 data-nosnippet>546</a>                    <span class="string">"could not canonicalize path for argument '--mapdir {}:{}'"</span>,
-<a href=#547 id=547 data-nosnippet>547</a>                    host.display(),
-<a href=#548 id=548 data-nosnippet>548</a>                    guest,
-<a href=#549 id=549 data-nosnippet>549</a>                )
-<a href=#550 id=550 data-nosnippet>550</a>            })<span class="question-mark">?</span>;
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a>            <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">"." </span>{
-<a href=#553 id=553 data-nosnippet>553</a>                <span class="kw">if </span>have_current_dir {
-<a href=#554 id=554 data-nosnippet>554</a>                    <span class="macro">bail!</span>(
-<a href=#555 id=555 data-nosnippet>555</a>                        <span class="string">"Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
-<a href=#556 id=556 data-nosnippet>556</a>                    </span>);
-<a href=#557 id=557 data-nosnippet>557</a>                }
-<a href=#558 id=558 data-nosnippet>558</a>                have_current_dir = <span class="bool-val">true</span>;
-<a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a>                MappedDirectory {
-<a href=#561 id=561 data-nosnippet>561</a>                    host: resolved_host,
-<a href=#562 id=562 data-nosnippet>562</a>                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
-<a href=#563 id=563 data-nosnippet>563</a>                }
-<a href=#564 id=564 data-nosnippet>564</a>            } <span class="kw">else </span>{
-<a href=#565 id=565 data-nosnippet>565</a>                MappedDirectory {
-<a href=#566 id=566 data-nosnippet>566</a>                    host: resolved_host,
-<a href=#567 id=567 data-nosnippet>567</a>                    guest: guest.clone(),
-<a href=#568 id=568 data-nosnippet>568</a>                }
-<a href=#569 id=569 data-nosnippet>569</a>            };
-<a href=#570 id=570 data-nosnippet>570</a>            mapped_dirs.push(mapping);
-<a href=#571 id=571 data-nosnippet>571</a>        }
-<a href=#572 id=572 data-nosnippet>572</a>
-<a href=#573 id=573 data-nosnippet>573</a>        <span class="kw">let </span>is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == <span class="string">"/tmp"</span>);
-<a href=#574 id=574 data-nosnippet>574</a>
-<a href=#575 id=575 data-nosnippet>575</a>        <span class="prelude-val">Ok</span>((have_current_dir, is_tmp_mapped, mapped_dirs))
-<a href=#576 id=576 data-nosnippet>576</a>    }
-<a href=#577 id=577 data-nosnippet>577</a>
-<a href=#578 id=578 data-nosnippet>578</a>    <span class="kw">pub fn </span>build_mapped_commands(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;MappedCommand&gt;, anyhow::Error&gt; {
-<a href=#579 id=579 data-nosnippet>579</a>        <span class="self">self</span>.map_commands
-<a href=#580 id=580 data-nosnippet>580</a>            .iter()
-<a href=#581 id=581 data-nosnippet>581</a>            .map(|item| {
-<a href=#582 id=582 data-nosnippet>582</a>                <span class="kw">let </span>(a, b) = item.split_once(<span class="string">'='</span>).with_context(|| {
-<a href=#583 id=583 data-nosnippet>583</a>                    <span class="macro">format!</span>(
-<a href=#584 id=584 data-nosnippet>584</a>                        <span class="string">"Invalid --map-command flag: expected &lt;ALIAS&gt;=&lt;HOST_PATH&gt;, got '{item}'"
-<a href=#585 id=585 data-nosnippet>585</a>                    </span>)
-<a href=#586 id=586 data-nosnippet>586</a>                })<span class="question-mark">?</span>;
-<a href=#587 id=587 data-nosnippet>587</a>
-<a href=#588 id=588 data-nosnippet>588</a>                <span class="kw">let </span>a = a.trim();
-<a href=#589 id=589 data-nosnippet>589</a>                <span class="kw">let </span>b = b.trim();
-<a href=#590 id=590 data-nosnippet>590</a>
-<a href=#591 id=591 data-nosnippet>591</a>                <span class="kw">if </span>a.is_empty() {
-<a href=#592 id=592 data-nosnippet>592</a>                    <span class="macro">bail!</span>(<span class="string">"Invalid --map-command flag - alias cannot be empty: '{item}'"</span>);
-<a href=#593 id=593 data-nosnippet>593</a>                }
-<a href=#594 id=594 data-nosnippet>594</a>                <span class="comment">// TODO(theduke): check if host command exists, and canonicalize PathBuf.
-<a href=#595 id=595 data-nosnippet>595</a>                </span><span class="kw">if </span>b.is_empty() {
-<a href=#596 id=596 data-nosnippet>596</a>                    <span class="macro">bail!</span>(<span class="string">"Invalid --map-command flag - host path cannot be empty: '{item}'"</span>);
-<a href=#597 id=597 data-nosnippet>597</a>                }
+<a href=#534 id=534 data-nosnippet>534</a>                <span class="kw">let </span>guest = resolved
+<a href=#535 id=535 data-nosnippet>535</a>                    .to_str()
+<a href=#536 id=536 data-nosnippet>536</a>                    .with_context(|| {
+<a href=#537 id=537 data-nosnippet>537</a>                        <span class="macro">format!</span>(
+<a href=#538 id=538 data-nosnippet>538</a>                            <span class="string">"invalid argument '--dir {}': path must be valid utf-8"</span>,
+<a href=#539 id=539 data-nosnippet>539</a>                            dir.display(),
+<a href=#540 id=540 data-nosnippet>540</a>                        )
+<a href=#541 id=541 data-nosnippet>541</a>                    })<span class="question-mark">?
+<a href=#542 id=542 data-nosnippet>542</a>                    </span>.to_string();
+<a href=#543 id=543 data-nosnippet>543</a>
+<a href=#544 id=544 data-nosnippet>544</a>                MappedDirectory {
+<a href=#545 id=545 data-nosnippet>545</a>                    host: resolved,
+<a href=#546 id=546 data-nosnippet>546</a>                    guest,
+<a href=#547 id=547 data-nosnippet>547</a>                }
+<a href=#548 id=548 data-nosnippet>548</a>            };
+<a href=#549 id=549 data-nosnippet>549</a>
+<a href=#550 id=550 data-nosnippet>550</a>            mapped_dirs.push(mapping);
+<a href=#551 id=551 data-nosnippet>551</a>        }
+<a href=#552 id=552 data-nosnippet>552</a>
+<a href=#553 id=553 data-nosnippet>553</a>        <span class="kw">for </span>MappedDirectory { host, guest } <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.mapped_dirs {
+<a href=#554 id=554 data-nosnippet>554</a>            <span class="kw">let </span>resolved_host = host.canonicalize().with_context(|| {
+<a href=#555 id=555 data-nosnippet>555</a>                <span class="macro">format!</span>(
+<a href=#556 id=556 data-nosnippet>556</a>                    <span class="string">"could not canonicalize path for argument '--mapdir {}:{}'"</span>,
+<a href=#557 id=557 data-nosnippet>557</a>                    host.display(),
+<a href=#558 id=558 data-nosnippet>558</a>                    guest,
+<a href=#559 id=559 data-nosnippet>559</a>                )
+<a href=#560 id=560 data-nosnippet>560</a>            })<span class="question-mark">?</span>;
+<a href=#561 id=561 data-nosnippet>561</a>
+<a href=#562 id=562 data-nosnippet>562</a>            <span class="kw">let </span>mapping = <span class="kw">if </span>guest == <span class="string">"." </span>{
+<a href=#563 id=563 data-nosnippet>563</a>                <span class="kw">if </span>have_current_dir {
+<a href=#564 id=564 data-nosnippet>564</a>                    <span class="macro">bail!</span>(
+<a href=#565 id=565 data-nosnippet>565</a>                        <span class="string">"Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
+<a href=#566 id=566 data-nosnippet>566</a>                    </span>);
+<a href=#567 id=567 data-nosnippet>567</a>                }
+<a href=#568 id=568 data-nosnippet>568</a>                have_current_dir = <span class="bool-val">true</span>;
+<a href=#569 id=569 data-nosnippet>569</a>
+<a href=#570 id=570 data-nosnippet>570</a>                MappedDirectory {
+<a href=#571 id=571 data-nosnippet>571</a>                    host: resolved_host,
+<a href=#572 id=572 data-nosnippet>572</a>                    guest: MAPPED_CURRENT_DIR_DEFAULT_PATH.to_string(),
+<a href=#573 id=573 data-nosnippet>573</a>                }
+<a href=#574 id=574 data-nosnippet>574</a>            } <span class="kw">else </span>{
+<a href=#575 id=575 data-nosnippet>575</a>                MappedDirectory {
+<a href=#576 id=576 data-nosnippet>576</a>                    host: resolved_host,
+<a href=#577 id=577 data-nosnippet>577</a>                    guest: guest.clone(),
+<a href=#578 id=578 data-nosnippet>578</a>                }
+<a href=#579 id=579 data-nosnippet>579</a>            };
+<a href=#580 id=580 data-nosnippet>580</a>            mapped_dirs.push(mapping);
+<a href=#581 id=581 data-nosnippet>581</a>        }
+<a href=#582 id=582 data-nosnippet>582</a>
+<a href=#583 id=583 data-nosnippet>583</a>        <span class="prelude-val">Ok</span>((have_current_dir, mapped_dirs))
+<a href=#584 id=584 data-nosnippet>584</a>    }
+<a href=#585 id=585 data-nosnippet>585</a>
+<a href=#586 id=586 data-nosnippet>586</a>    <span class="kw">pub fn </span>build_mapped_commands(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;MappedCommand&gt;, anyhow::Error&gt; {
+<a href=#587 id=587 data-nosnippet>587</a>        <span class="self">self</span>.map_commands
+<a href=#588 id=588 data-nosnippet>588</a>            .iter()
+<a href=#589 id=589 data-nosnippet>589</a>            .map(|item| {
+<a href=#590 id=590 data-nosnippet>590</a>                <span class="kw">let </span>(a, b) = item.split_once(<span class="string">'='</span>).with_context(|| {
+<a href=#591 id=591 data-nosnippet>591</a>                    <span class="macro">format!</span>(
+<a href=#592 id=592 data-nosnippet>592</a>                        <span class="string">"Invalid --map-command flag: expected &lt;ALIAS&gt;=&lt;HOST_PATH&gt;, got '{item}'"
+<a href=#593 id=593 data-nosnippet>593</a>                    </span>)
+<a href=#594 id=594 data-nosnippet>594</a>                })<span class="question-mark">?</span>;
+<a href=#595 id=595 data-nosnippet>595</a>
+<a href=#596 id=596 data-nosnippet>596</a>                <span class="kw">let </span>a = a.trim();
+<a href=#597 id=597 data-nosnippet>597</a>                <span class="kw">let </span>b = b.trim();
 <a href=#598 id=598 data-nosnippet>598</a>
-<a href=#599 id=599 data-nosnippet>599</a>                <span class="prelude-val">Ok</span>(MappedCommand {
-<a href=#600 id=600 data-nosnippet>600</a>                    alias: a.to_string(),
-<a href=#601 id=601 data-nosnippet>601</a>                    target: b.to_string(),
-<a href=#602 id=602 data-nosnippet>602</a>                })
-<a href=#603 id=603 data-nosnippet>603</a>            })
-<a href=#604 id=604 data-nosnippet>604</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, anyhow::Error&gt;&gt;()
-<a href=#605 id=605 data-nosnippet>605</a>    }
+<a href=#599 id=599 data-nosnippet>599</a>                <span class="kw">if </span>a.is_empty() {
+<a href=#600 id=600 data-nosnippet>600</a>                    <span class="macro">bail!</span>(<span class="string">"Invalid --map-command flag - alias cannot be empty: '{item}'"</span>);
+<a href=#601 id=601 data-nosnippet>601</a>                }
+<a href=#602 id=602 data-nosnippet>602</a>                <span class="comment">// TODO(theduke): check if host command exists, and canonicalize PathBuf.
+<a href=#603 id=603 data-nosnippet>603</a>                </span><span class="kw">if </span>b.is_empty() {
+<a href=#604 id=604 data-nosnippet>604</a>                    <span class="macro">bail!</span>(<span class="string">"Invalid --map-command flag - host path cannot be empty: '{item}'"</span>);
+<a href=#605 id=605 data-nosnippet>605</a>                }
 <a href=#606 id=606 data-nosnippet>606</a>
-<a href=#607 id=607 data-nosnippet>607</a>    <span class="kw">pub fn </span>capabilities(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Capabilities {
-<a href=#608 id=608 data-nosnippet>608</a>        <span class="kw">let </span><span class="kw-2">mut </span>caps = Capabilities::default();
-<a href=#609 id=609 data-nosnippet>609</a>
-<a href=#610 id=610 data-nosnippet>610</a>        <span class="kw">if </span><span class="self">self</span>.http_client {
-<a href=#611 id=611 data-nosnippet>611</a>            caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
-<a href=#612 id=612 data-nosnippet>612</a>        }
-<a href=#613 id=613 data-nosnippet>613</a>
-<a href=#614 id=614 data-nosnippet>614</a>        caps.threading.enable_asynchronous_threading = <span class="self">self</span>.enable_async_threads;
-<a href=#615 id=615 data-nosnippet>615</a>        caps.threading.enable_exponential_cpu_backoff =
-<a href=#616 id=616 data-nosnippet>616</a>            <span class="self">self</span>.enable_cpu_backoff.map(Duration::from_millis);
+<a href=#607 id=607 data-nosnippet>607</a>                <span class="prelude-val">Ok</span>(MappedCommand {
+<a href=#608 id=608 data-nosnippet>608</a>                    alias: a.to_string(),
+<a href=#609 id=609 data-nosnippet>609</a>                    target: b.to_string(),
+<a href=#610 id=610 data-nosnippet>610</a>                })
+<a href=#611 id=611 data-nosnippet>611</a>            })
+<a href=#612 id=612 data-nosnippet>612</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, anyhow::Error&gt;&gt;()
+<a href=#613 id=613 data-nosnippet>613</a>    }
+<a href=#614 id=614 data-nosnippet>614</a>
+<a href=#615 id=615 data-nosnippet>615</a>    <span class="kw">pub fn </span>capabilities(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Capabilities {
+<a href=#616 id=616 data-nosnippet>616</a>        <span class="kw">let </span><span class="kw-2">mut </span>caps = Capabilities::default();
 <a href=#617 id=617 data-nosnippet>617</a>
-<a href=#618 id=618 data-nosnippet>618</a>        caps
-<a href=#619 id=619 data-nosnippet>619</a>    }
-<a href=#620 id=620 data-nosnippet>620</a>
-<a href=#621 id=621 data-nosnippet>621</a>    <span class="kw">pub fn </span>prepare_runtime&lt;I&gt;(
-<a href=#622 id=622 data-nosnippet>622</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#623 id=623 data-nosnippet>623</a>        engine: Engine,
-<a href=#624 id=624 data-nosnippet>624</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
-<a href=#625 id=625 data-nosnippet>625</a>        pkg_cache_path: <span class="kw-2">&amp;</span>Path,
-<a href=#626 id=626 data-nosnippet>626</a>        rt_or_handle: I,
-<a href=#627 id=627 data-nosnippet>627</a>        preferred_webc_version: webc::Version,
-<a href=#628 id=628 data-nosnippet>628</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync + <span class="kw">use</span>&lt;I&gt;&gt;
-<a href=#629 id=629 data-nosnippet>629</a>    <span class="kw">where
-<a href=#630 id=630 data-nosnippet>630</a>        </span>I: Into&lt;RuntimeOrHandle&gt;,
-<a href=#631 id=631 data-nosnippet>631</a>    {
-<a href=#632 id=632 data-nosnippet>632</a>        <span class="kw">let </span>tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
-<a href=#633 id=633 data-nosnippet>633</a>        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(tokio_task_manager.clone());
-<a href=#634 id=634 data-nosnippet>634</a>
-<a href=#635 id=635 data-nosnippet>635</a>        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking.is_some()
-<a href=#636 id=636 data-nosnippet>636</a>            || capabilities::get_cached_capability(pkg_cache_path)
-<a href=#637 id=637 data-nosnippet>637</a>                .ok()
-<a href=#638 id=638 data-nosnippet>638</a>                .is_some_and(|v| v.enable_networking);
-<a href=#639 id=639 data-nosnippet>639</a>
-<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">let </span>ruleset = <span class="self">self
-<a href=#641 id=641 data-nosnippet>641</a>            </span>.networking
-<a href=#642 id=642 data-nosnippet>642</a>            .clone()
-<a href=#643 id=643 data-nosnippet>643</a>            .flatten()
-<a href=#644 id=644 data-nosnippet>644</a>            .map(|ruleset| Ruleset::from_str(<span class="kw-2">&amp;</span>ruleset))
-<a href=#645 id=645 data-nosnippet>645</a>            .transpose()<span class="question-mark">?</span>;
-<a href=#646 id=646 data-nosnippet>646</a>
-<a href=#647 id=647 data-nosnippet>647</a>        <span class="kw">let </span>network = <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = ruleset {
-<a href=#648 id=648 data-nosnippet>648</a>            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
-<a href=#649 id=649 data-nosnippet>649</a>        } <span class="kw">else </span>{
-<a href=#650 id=650 data-nosnippet>650</a>            virtual_net::host::LocalNetworking::default()
-<a href=#651 id=651 data-nosnippet>651</a>        };
-<a href=#652 id=652 data-nosnippet>652</a>
-<a href=#653 id=653 data-nosnippet>653</a>        <span class="kw">if </span>has_networking {
-<a href=#654 id=654 data-nosnippet>654</a>            rt.set_networking_implementation(network);
-<a href=#655 id=655 data-nosnippet>655</a>        } <span class="kw">else </span>{
-<a href=#656 id=656 data-nosnippet>656</a>            <span class="kw">let </span>net = <span class="kw">super</span>::capabilities::net::AskingNetworking::new(
-<a href=#657 id=657 data-nosnippet>657</a>                pkg_cache_path.to_path_buf(),
-<a href=#658 id=658 data-nosnippet>658</a>                Arc::new(network),
-<a href=#659 id=659 data-nosnippet>659</a>            );
+<a href=#618 id=618 data-nosnippet>618</a>        <span class="kw">if </span><span class="self">self</span>.http_client {
+<a href=#619 id=619 data-nosnippet>619</a>            caps.http_client = wasmer_wasix::http::HttpClientCapabilityV1::new_allow_all();
+<a href=#620 id=620 data-nosnippet>620</a>        }
+<a href=#621 id=621 data-nosnippet>621</a>
+<a href=#622 id=622 data-nosnippet>622</a>        caps.threading.enable_asynchronous_threading = <span class="self">self</span>.enable_async_threads;
+<a href=#623 id=623 data-nosnippet>623</a>        caps.threading.enable_exponential_cpu_backoff =
+<a href=#624 id=624 data-nosnippet>624</a>            <span class="self">self</span>.enable_cpu_backoff.map(Duration::from_millis);
+<a href=#625 id=625 data-nosnippet>625</a>
+<a href=#626 id=626 data-nosnippet>626</a>        caps
+<a href=#627 id=627 data-nosnippet>627</a>    }
+<a href=#628 id=628 data-nosnippet>628</a>
+<a href=#629 id=629 data-nosnippet>629</a>    <span class="kw">pub fn </span>prepare_runtime&lt;I&gt;(
+<a href=#630 id=630 data-nosnippet>630</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#631 id=631 data-nosnippet>631</a>        engine: Engine,
+<a href=#632 id=632 data-nosnippet>632</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
+<a href=#633 id=633 data-nosnippet>633</a>        pkg_cache_path: <span class="kw-2">&amp;</span>Path,
+<a href=#634 id=634 data-nosnippet>634</a>        rt_or_handle: I,
+<a href=#635 id=635 data-nosnippet>635</a>        preferred_webc_version: webc::Version,
+<a href=#636 id=636 data-nosnippet>636</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">impl </span>Runtime + Send + Sync + <span class="kw">use</span>&lt;I&gt;&gt;
+<a href=#637 id=637 data-nosnippet>637</a>    <span class="kw">where
+<a href=#638 id=638 data-nosnippet>638</a>        </span>I: Into&lt;RuntimeOrHandle&gt;,
+<a href=#639 id=639 data-nosnippet>639</a>    {
+<a href=#640 id=640 data-nosnippet>640</a>        <span class="kw">let </span>tokio_task_manager = Arc::new(TokioTaskManager::new(rt_or_handle.into()));
+<a href=#641 id=641 data-nosnippet>641</a>        <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(tokio_task_manager.clone());
+<a href=#642 id=642 data-nosnippet>642</a>
+<a href=#643 id=643 data-nosnippet>643</a>        <span class="kw">let </span>has_networking = <span class="self">self</span>.networking.is_some()
+<a href=#644 id=644 data-nosnippet>644</a>            || capabilities::get_cached_capability(pkg_cache_path)
+<a href=#645 id=645 data-nosnippet>645</a>                .ok()
+<a href=#646 id=646 data-nosnippet>646</a>                .is_some_and(|v| v.enable_networking);
+<a href=#647 id=647 data-nosnippet>647</a>
+<a href=#648 id=648 data-nosnippet>648</a>        <span class="kw">let </span>ruleset = <span class="self">self
+<a href=#649 id=649 data-nosnippet>649</a>            </span>.networking
+<a href=#650 id=650 data-nosnippet>650</a>            .clone()
+<a href=#651 id=651 data-nosnippet>651</a>            .flatten()
+<a href=#652 id=652 data-nosnippet>652</a>            .map(|ruleset| Ruleset::from_str(<span class="kw-2">&amp;</span>ruleset))
+<a href=#653 id=653 data-nosnippet>653</a>            .transpose()<span class="question-mark">?</span>;
+<a href=#654 id=654 data-nosnippet>654</a>
+<a href=#655 id=655 data-nosnippet>655</a>        <span class="kw">let </span>network = <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = ruleset {
+<a href=#656 id=656 data-nosnippet>656</a>            virtual_net::host::LocalNetworking::with_ruleset(ruleset)
+<a href=#657 id=657 data-nosnippet>657</a>        } <span class="kw">else </span>{
+<a href=#658 id=658 data-nosnippet>658</a>            virtual_net::host::LocalNetworking::default()
+<a href=#659 id=659 data-nosnippet>659</a>        };
 <a href=#660 id=660 data-nosnippet>660</a>
-<a href=#661 id=661 data-nosnippet>661</a>            rt.set_networking_implementation(net);
-<a href=#662 id=662 data-nosnippet>662</a>        }
-<a href=#663 id=663 data-nosnippet>663</a>
-<a href=#664 id=664 data-nosnippet>664</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#665 id=665 data-nosnippet>665</a>        </span>{
-<a href=#666 id=666 data-nosnippet>666</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
-<a href=#667 id=667 data-nosnippet>667</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
-<a href=#668 id=668 data-nosnippet>668</a>                rt.add_read_only_journal(journal);
-<a href=#669 id=669 data-nosnippet>669</a>            }
-<a href=#670 id=670 data-nosnippet>670</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
-<a href=#671 id=671 data-nosnippet>671</a>                rt.add_writable_journal(journal);
-<a href=#672 id=672 data-nosnippet>672</a>            }
-<a href=#673 id=673 data-nosnippet>673</a>        }
-<a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>        <span class="kw">if </span>!<span class="self">self</span>.no_tty {
-<a href=#676 id=676 data-nosnippet>676</a>            <span class="kw">let </span>tty = Arc::new(SysTty);
-<a href=#677 id=677 data-nosnippet>677</a>            tty.reset();
-<a href=#678 id=678 data-nosnippet>678</a>            rt.set_tty(tty);
-<a href=#679 id=679 data-nosnippet>679</a>        }
-<a href=#680 id=680 data-nosnippet>680</a>
-<a href=#681 id=681 data-nosnippet>681</a>        <span class="kw">let </span>client =
-<a href=#682 id=682 data-nosnippet>682</a>            wasmer_wasix::http::default_http_client().context(<span class="string">"No HTTP client available"</span>)<span class="question-mark">?</span>;
-<a href=#683 id=683 data-nosnippet>683</a>        <span class="kw">let </span>client = Arc::new(client);
-<a href=#684 id=684 data-nosnippet>684</a>
-<a href=#685 id=685 data-nosnippet>685</a>        <span class="kw">let </span>package_loader = <span class="self">self
-<a href=#686 id=686 data-nosnippet>686</a>            </span>.prepare_package_loader(env, client.clone())
-<a href=#687 id=687 data-nosnippet>687</a>            .context(<span class="string">"Unable to prepare the package loader"</span>)<span class="question-mark">?</span>;
+<a href=#661 id=661 data-nosnippet>661</a>        <span class="kw">if </span>has_networking {
+<a href=#662 id=662 data-nosnippet>662</a>            rt.set_networking_implementation(network);
+<a href=#663 id=663 data-nosnippet>663</a>        } <span class="kw">else </span>{
+<a href=#664 id=664 data-nosnippet>664</a>            <span class="kw">let </span>net = <span class="kw">super</span>::capabilities::net::AskingNetworking::new(
+<a href=#665 id=665 data-nosnippet>665</a>                pkg_cache_path.to_path_buf(),
+<a href=#666 id=666 data-nosnippet>666</a>                Arc::new(network),
+<a href=#667 id=667 data-nosnippet>667</a>            );
+<a href=#668 id=668 data-nosnippet>668</a>
+<a href=#669 id=669 data-nosnippet>669</a>            rt.set_networking_implementation(net);
+<a href=#670 id=670 data-nosnippet>670</a>        }
+<a href=#671 id=671 data-nosnippet>671</a>
+<a href=#672 id=672 data-nosnippet>672</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#673 id=673 data-nosnippet>673</a>        </span>{
+<a href=#674 id=674 data-nosnippet>674</a>            <span class="kw">let </span>(r, w) = <span class="self">self</span>.build_journals()<span class="question-mark">?</span>;
+<a href=#675 id=675 data-nosnippet>675</a>            <span class="kw">for </span>journal <span class="kw">in </span>r {
+<a href=#676 id=676 data-nosnippet>676</a>                rt.add_read_only_journal(journal);
+<a href=#677 id=677 data-nosnippet>677</a>            }
+<a href=#678 id=678 data-nosnippet>678</a>            <span class="kw">for </span>journal <span class="kw">in </span>w {
+<a href=#679 id=679 data-nosnippet>679</a>                rt.add_writable_journal(journal);
+<a href=#680 id=680 data-nosnippet>680</a>            }
+<a href=#681 id=681 data-nosnippet>681</a>        }
+<a href=#682 id=682 data-nosnippet>682</a>
+<a href=#683 id=683 data-nosnippet>683</a>        <span class="kw">if </span>!<span class="self">self</span>.no_tty {
+<a href=#684 id=684 data-nosnippet>684</a>            <span class="kw">let </span>tty = Arc::new(SysTty);
+<a href=#685 id=685 data-nosnippet>685</a>            tty.reset();
+<a href=#686 id=686 data-nosnippet>686</a>            rt.set_tty(tty);
+<a href=#687 id=687 data-nosnippet>687</a>        }
 <a href=#688 id=688 data-nosnippet>688</a>
-<a href=#689 id=689 data-nosnippet>689</a>        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
-<a href=#690 id=690 data-nosnippet>690</a>
-<a href=#691 id=691 data-nosnippet>691</a>        <span class="kw">if </span>!<span class="self">self</span>.disable_cache {
-<a href=#692 id=692 data-nosnippet>692</a>            <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
-<a href=#693 id=693 data-nosnippet>693</a>            <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
-<a href=#694 id=694 data-nosnippet>694</a>                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
-<a href=#695 id=695 data-nosnippet>695</a>            rt.set_module_cache(module_cache);
-<a href=#696 id=696 data-nosnippet>696</a>        }
-<a href=#697 id=697 data-nosnippet>697</a>
-<a href=#698 id=698 data-nosnippet>698</a>        rt.set_package_loader(package_loader)
-<a href=#699 id=699 data-nosnippet>699</a>            .set_source(registry)
-<a href=#700 id=700 data-nosnippet>700</a>            .set_engine(engine);
-<a href=#701 id=701 data-nosnippet>701</a>
-<a href=#702 id=702 data-nosnippet>702</a>        <span class="prelude-val">Ok</span>(rt)
-<a href=#703 id=703 data-nosnippet>703</a>    }
-<a href=#704 id=704 data-nosnippet>704</a>
-<a href=#705 id=705 data-nosnippet>705</a>    <span class="doccomment">/// Helper function for instantiating a module with Wasi imports for the `Run` command.
-<a href=#706 id=706 data-nosnippet>706</a>    </span><span class="kw">pub fn </span>instantiate(
-<a href=#707 id=707 data-nosnippet>707</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#708 id=708 data-nosnippet>708</a>        module: <span class="kw-2">&amp;</span>Module,
-<a href=#709 id=709 data-nosnippet>709</a>        module_hash: ModuleHash,
-<a href=#710 id=710 data-nosnippet>710</a>        program_name: String,
-<a href=#711 id=711 data-nosnippet>711</a>        args: Vec&lt;String&gt;,
-<a href=#712 id=712 data-nosnippet>712</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#713 id=713 data-nosnippet>713</a>        store: <span class="kw-2">&amp;mut </span>Store,
-<a href=#714 id=714 data-nosnippet>714</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFunctionEnv, Instance)&gt; {
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw">let </span>builder = <span class="self">self</span>.prepare(module, program_name, args, runtime)<span class="question-mark">?</span>;
-<a href=#716 id=716 data-nosnippet>716</a>        <span class="kw">let </span>(instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)<span class="question-mark">?</span>;
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a>        <span class="prelude-val">Ok</span>((wasi_env, instance))
-<a href=#719 id=719 data-nosnippet>719</a>    }
-<a href=#720 id=720 data-nosnippet>720</a>
-<a href=#721 id=721 data-nosnippet>721</a>    <span class="kw">pub fn </span>for_binfmt_interpreter() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
-<a href=#722 id=722 data-nosnippet>722</a>        <span class="kw">let </span>dir = std::env::var_os(<span class="string">"WASMER_BINFMT_MISC_PREOPEN"</span>)
-<a href=#723 id=723 data-nosnippet>723</a>            .map(Into::into)
-<a href=#724 id=724 data-nosnippet>724</a>            .unwrap_or_else(|| PathBuf::from(<span class="string">"."</span>));
-<a href=#725 id=725 data-nosnippet>725</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
-<a href=#726 id=726 data-nosnippet>726</a>            deny_multiple_wasi_versions: <span class="bool-val">true</span>,
-<a href=#727 id=727 data-nosnippet>727</a>            env_vars: std::env::vars().collect(),
-<a href=#728 id=728 data-nosnippet>728</a>            pre_opened_directories: <span class="macro">vec!</span>[dir],
-<a href=#729 id=729 data-nosnippet>729</a>            ..<span class="self">Self</span>::default()
-<a href=#730 id=730 data-nosnippet>730</a>        })
-<a href=#731 id=731 data-nosnippet>731</a>    }
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>    <span class="kw">fn </span>prepare_package_loader(
-<a href=#734 id=734 data-nosnippet>734</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#735 id=735 data-nosnippet>735</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
-<a href=#736 id=736 data-nosnippet>736</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
-<a href=#737 id=737 data-nosnippet>737</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BuiltinPackageLoader&gt; {
-<a href=#738 id=738 data-nosnippet>738</a>        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">"checkouts"</span>);
-<a href=#739 id=739 data-nosnippet>739</a>        <span class="kw">let </span>tokens = tokens_by_authority(env)<span class="question-mark">?</span>;
+<a href=#689 id=689 data-nosnippet>689</a>        <span class="kw">let </span>client =
+<a href=#690 id=690 data-nosnippet>690</a>            wasmer_wasix::http::default_http_client().context(<span class="string">"No HTTP client available"</span>)<span class="question-mark">?</span>;
+<a href=#691 id=691 data-nosnippet>691</a>        <span class="kw">let </span>client = Arc::new(client);
+<a href=#692 id=692 data-nosnippet>692</a>
+<a href=#693 id=693 data-nosnippet>693</a>        <span class="kw">let </span>package_loader = <span class="self">self
+<a href=#694 id=694 data-nosnippet>694</a>            </span>.prepare_package_loader(env, client.clone())
+<a href=#695 id=695 data-nosnippet>695</a>            .context(<span class="string">"Unable to prepare the package loader"</span>)<span class="question-mark">?</span>;
+<a href=#696 id=696 data-nosnippet>696</a>
+<a href=#697 id=697 data-nosnippet>697</a>        <span class="kw">let </span>registry = <span class="self">self</span>.prepare_source(env, client, preferred_webc_version)<span class="question-mark">?</span>;
+<a href=#698 id=698 data-nosnippet>698</a>
+<a href=#699 id=699 data-nosnippet>699</a>        <span class="kw">if </span>!<span class="self">self</span>.disable_cache {
+<a href=#700 id=700 data-nosnippet>700</a>            <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"compiled"</span>);
+<a href=#701 id=701 data-nosnippet>701</a>            <span class="kw">let </span>module_cache = wasmer_wasix::runtime::module_cache::in_memory()
+<a href=#702 id=702 data-nosnippet>702</a>                .with_fallback(FileSystemCache::new(cache_dir, tokio_task_manager));
+<a href=#703 id=703 data-nosnippet>703</a>            rt.set_module_cache(module_cache);
+<a href=#704 id=704 data-nosnippet>704</a>        }
+<a href=#705 id=705 data-nosnippet>705</a>
+<a href=#706 id=706 data-nosnippet>706</a>        rt.set_package_loader(package_loader)
+<a href=#707 id=707 data-nosnippet>707</a>            .set_source(registry)
+<a href=#708 id=708 data-nosnippet>708</a>            .set_engine(engine);
+<a href=#709 id=709 data-nosnippet>709</a>
+<a href=#710 id=710 data-nosnippet>710</a>        <span class="prelude-val">Ok</span>(rt)
+<a href=#711 id=711 data-nosnippet>711</a>    }
+<a href=#712 id=712 data-nosnippet>712</a>
+<a href=#713 id=713 data-nosnippet>713</a>    <span class="doccomment">/// Helper function for instantiating a module with Wasi imports for the `Run` command.
+<a href=#714 id=714 data-nosnippet>714</a>    </span><span class="kw">pub fn </span>instantiate(
+<a href=#715 id=715 data-nosnippet>715</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#716 id=716 data-nosnippet>716</a>        module: <span class="kw-2">&amp;</span>Module,
+<a href=#717 id=717 data-nosnippet>717</a>        module_hash: ModuleHash,
+<a href=#718 id=718 data-nosnippet>718</a>        program_name: String,
+<a href=#719 id=719 data-nosnippet>719</a>        args: Vec&lt;String&gt;,
+<a href=#720 id=720 data-nosnippet>720</a>        runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#721 id=721 data-nosnippet>721</a>        store: <span class="kw-2">&amp;mut </span>Store,
+<a href=#722 id=722 data-nosnippet>722</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(WasiFunctionEnv, Instance)&gt; {
+<a href=#723 id=723 data-nosnippet>723</a>        <span class="kw">let </span>builder = <span class="self">self</span>.prepare(module, program_name, args, runtime)<span class="question-mark">?</span>;
+<a href=#724 id=724 data-nosnippet>724</a>        <span class="kw">let </span>(instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)<span class="question-mark">?</span>;
+<a href=#725 id=725 data-nosnippet>725</a>
+<a href=#726 id=726 data-nosnippet>726</a>        <span class="prelude-val">Ok</span>((wasi_env, instance))
+<a href=#727 id=727 data-nosnippet>727</a>    }
+<a href=#728 id=728 data-nosnippet>728</a>
+<a href=#729 id=729 data-nosnippet>729</a>    <span class="kw">pub fn </span>for_binfmt_interpreter() -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>&gt; {
+<a href=#730 id=730 data-nosnippet>730</a>        <span class="kw">let </span>dir = std::env::var_os(<span class="string">"WASMER_BINFMT_MISC_PREOPEN"</span>)
+<a href=#731 id=731 data-nosnippet>731</a>            .map(Into::into)
+<a href=#732 id=732 data-nosnippet>732</a>            .unwrap_or_else(|| PathBuf::from(<span class="string">"."</span>));
+<a href=#733 id=733 data-nosnippet>733</a>        <span class="prelude-val">Ok</span>(<span class="self">Self </span>{
+<a href=#734 id=734 data-nosnippet>734</a>            deny_multiple_wasi_versions: <span class="bool-val">true</span>,
+<a href=#735 id=735 data-nosnippet>735</a>            env_vars: std::env::vars().collect(),
+<a href=#736 id=736 data-nosnippet>736</a>            pre_opened_directories: <span class="macro">vec!</span>[dir],
+<a href=#737 id=737 data-nosnippet>737</a>            ..<span class="self">Self</span>::default()
+<a href=#738 id=738 data-nosnippet>738</a>        })
+<a href=#739 id=739 data-nosnippet>739</a>    }
 <a href=#740 id=740 data-nosnippet>740</a>
-<a href=#741 id=741 data-nosnippet>741</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
-<a href=#742 id=742 data-nosnippet>742</a>            .with_cache_dir(checkout_dir)
-<a href=#743 id=743 data-nosnippet>743</a>            .with_shared_http_client(client)
-<a href=#744 id=744 data-nosnippet>744</a>            .with_tokens(tokens);
-<a href=#745 id=745 data-nosnippet>745</a>
-<a href=#746 id=746 data-nosnippet>746</a>        <span class="prelude-val">Ok</span>(loader)
-<a href=#747 id=747 data-nosnippet>747</a>    }
+<a href=#741 id=741 data-nosnippet>741</a>    <span class="kw">fn </span>prepare_package_loader(
+<a href=#742 id=742 data-nosnippet>742</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#743 id=743 data-nosnippet>743</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
+<a href=#744 id=744 data-nosnippet>744</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
+<a href=#745 id=745 data-nosnippet>745</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BuiltinPackageLoader&gt; {
+<a href=#746 id=746 data-nosnippet>746</a>        <span class="kw">let </span>checkout_dir = env.cache_dir().join(<span class="string">"checkouts"</span>);
+<a href=#747 id=747 data-nosnippet>747</a>        <span class="kw">let </span>tokens = tokens_by_authority(env)<span class="question-mark">?</span>;
 <a href=#748 id=748 data-nosnippet>748</a>
-<a href=#749 id=749 data-nosnippet>749</a>    <span class="kw">fn </span>prepare_source(
-<a href=#750 id=750 data-nosnippet>750</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#751 id=751 data-nosnippet>751</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
-<a href=#752 id=752 data-nosnippet>752</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
-<a href=#753 id=753 data-nosnippet>753</a>        preferred_webc_version: webc::Version,
-<a href=#754 id=754 data-nosnippet>754</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;MultiSource&gt; {
-<a href=#755 id=755 data-nosnippet>755</a>        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::default();
+<a href=#749 id=749 data-nosnippet>749</a>        <span class="kw">let </span>loader = BuiltinPackageLoader::new()
+<a href=#750 id=750 data-nosnippet>750</a>            .with_cache_dir(checkout_dir)
+<a href=#751 id=751 data-nosnippet>751</a>            .with_shared_http_client(client)
+<a href=#752 id=752 data-nosnippet>752</a>            .with_tokens(tokens);
+<a href=#753 id=753 data-nosnippet>753</a>
+<a href=#754 id=754 data-nosnippet>754</a>        <span class="prelude-val">Ok</span>(loader)
+<a href=#755 id=755 data-nosnippet>755</a>    }
 <a href=#756 id=756 data-nosnippet>756</a>
-<a href=#757 id=757 data-nosnippet>757</a>        <span class="comment">// Note: This should be first so our "preloaded" sources get a chance to
-<a href=#758 id=758 data-nosnippet>758</a>        // override the main registry.
-<a href=#759 id=759 data-nosnippet>759</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>preloaded = InMemorySource::new();
-<a href=#760 id=760 data-nosnippet>760</a>        <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
-<a href=#761 id=761 data-nosnippet>761</a>            preloaded
-<a href=#762 id=762 data-nosnippet>762</a>                .add_webc(path)
-<a href=#763 id=763 data-nosnippet>763</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
-<a href=#764 id=764 data-nosnippet>764</a>        }
-<a href=#765 id=765 data-nosnippet>765</a>        source.add_source(preloaded);
-<a href=#766 id=766 data-nosnippet>766</a>
-<a href=#767 id=767 data-nosnippet>767</a>        <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
-<a href=#768 id=768 data-nosnippet>768</a>        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"queries"</span>);
-<a href=#769 id=769 data-nosnippet>769</a>        <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
-<a href=#770 id=770 data-nosnippet>770</a>            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
-<a href=#771 id=771 data-nosnippet>771</a>            .with_preferred_webc_version(preferred_webc_version);
-<a href=#772 id=772 data-nosnippet>772</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = env
-<a href=#773 id=773 data-nosnippet>773</a>            .config()<span class="question-mark">?
-<a href=#774 id=774 data-nosnippet>774</a>            </span>.registry
-<a href=#775 id=775 data-nosnippet>775</a>            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
-<a href=#776 id=776 data-nosnippet>776</a>        {
-<a href=#777 id=777 data-nosnippet>777</a>            wapm_source = wapm_source.with_auth_token(token);
-<a href=#778 id=778 data-nosnippet>778</a>        }
-<a href=#779 id=779 data-nosnippet>779</a>        source.add_source(wapm_source);
-<a href=#780 id=780 data-nosnippet>780</a>
-<a href=#781 id=781 data-nosnippet>781</a>        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"downloads"</span>);
-<a href=#782 id=782 data-nosnippet>782</a>        source.add_source(WebSource::new(cache_dir, client));
-<a href=#783 id=783 data-nosnippet>783</a>
-<a href=#784 id=784 data-nosnippet>784</a>        source.add_source(FileSystemSource::default());
-<a href=#785 id=785 data-nosnippet>785</a>
-<a href=#786 id=786 data-nosnippet>786</a>        <span class="prelude-val">Ok</span>(source)
-<a href=#787 id=787 data-nosnippet>787</a>    }
+<a href=#757 id=757 data-nosnippet>757</a>    <span class="kw">fn </span>prepare_source(
+<a href=#758 id=758 data-nosnippet>758</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#759 id=759 data-nosnippet>759</a>        env: <span class="kw-2">&amp;</span>WasmerEnv,
+<a href=#760 id=760 data-nosnippet>760</a>        client: Arc&lt;<span class="kw">dyn </span>HttpClient + Send + Sync&gt;,
+<a href=#761 id=761 data-nosnippet>761</a>        preferred_webc_version: webc::Version,
+<a href=#762 id=762 data-nosnippet>762</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;MultiSource&gt; {
+<a href=#763 id=763 data-nosnippet>763</a>        <span class="kw">let </span><span class="kw-2">mut </span>source = MultiSource::default();
+<a href=#764 id=764 data-nosnippet>764</a>
+<a href=#765 id=765 data-nosnippet>765</a>        <span class="comment">// Note: This should be first so our "preloaded" sources get a chance to
+<a href=#766 id=766 data-nosnippet>766</a>        // override the main registry.
+<a href=#767 id=767 data-nosnippet>767</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>preloaded = InMemorySource::new();
+<a href=#768 id=768 data-nosnippet>768</a>        <span class="kw">for </span>path <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.include_webcs {
+<a href=#769 id=769 data-nosnippet>769</a>            preloaded
+<a href=#770 id=770 data-nosnippet>770</a>                .add_webc(path)
+<a href=#771 id=771 data-nosnippet>771</a>                .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to load \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
+<a href=#772 id=772 data-nosnippet>772</a>        }
+<a href=#773 id=773 data-nosnippet>773</a>        source.add_source(preloaded);
+<a href=#774 id=774 data-nosnippet>774</a>
+<a href=#775 id=775 data-nosnippet>775</a>        <span class="kw">let </span>graphql_endpoint = <span class="self">self</span>.graphql_endpoint(env)<span class="question-mark">?</span>;
+<a href=#776 id=776 data-nosnippet>776</a>        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"queries"</span>);
+<a href=#777 id=777 data-nosnippet>777</a>        <span class="kw">let </span><span class="kw-2">mut </span>wapm_source = BackendSource::new(graphql_endpoint, Arc::clone(<span class="kw-2">&amp;</span>client))
+<a href=#778 id=778 data-nosnippet>778</a>            .with_local_cache(cache_dir, WAPM_SOURCE_CACHE_TIMEOUT)
+<a href=#779 id=779 data-nosnippet>779</a>            .with_preferred_webc_version(preferred_webc_version);
+<a href=#780 id=780 data-nosnippet>780</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = env
+<a href=#781 id=781 data-nosnippet>781</a>            .config()<span class="question-mark">?
+<a href=#782 id=782 data-nosnippet>782</a>            </span>.registry
+<a href=#783 id=783 data-nosnippet>783</a>            .get_login_token_for_registry(wapm_source.registry_endpoint().as_str())
+<a href=#784 id=784 data-nosnippet>784</a>        {
+<a href=#785 id=785 data-nosnippet>785</a>            wapm_source = wapm_source.with_auth_token(token);
+<a href=#786 id=786 data-nosnippet>786</a>        }
+<a href=#787 id=787 data-nosnippet>787</a>        source.add_source(wapm_source);
 <a href=#788 id=788 data-nosnippet>788</a>
-<a href=#789 id=789 data-nosnippet>789</a>    <span class="kw">fn </span>graphql_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
-<a href=#790 id=790 data-nosnippet>790</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(endpoint) = env.registry_endpoint() {
-<a href=#791 id=791 data-nosnippet>791</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(endpoint);
-<a href=#792 id=792 data-nosnippet>792</a>        }
+<a href=#789 id=789 data-nosnippet>789</a>        <span class="kw">let </span>cache_dir = env.cache_dir().join(<span class="string">"downloads"</span>);
+<a href=#790 id=790 data-nosnippet>790</a>        source.add_source(WebSource::new(cache_dir, client));
+<a href=#791 id=791 data-nosnippet>791</a>
+<a href=#792 id=792 data-nosnippet>792</a>        source.add_source(FileSystemSource::default());
 <a href=#793 id=793 data-nosnippet>793</a>
-<a href=#794 id=794 data-nosnippet>794</a>        <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
-<a href=#795 id=795 data-nosnippet>795</a>        <span class="kw">let </span>graphql_endpoint = config.registry.get_graphql_url();
-<a href=#796 id=796 data-nosnippet>796</a>        <span class="kw">let </span>graphql_endpoint = graphql_endpoint
-<a href=#797 id=797 data-nosnippet>797</a>            .parse()
-<a href=#798 id=798 data-nosnippet>798</a>            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{graphql_endpoint}\" as a URL"</span>))<span class="question-mark">?</span>;
-<a href=#799 id=799 data-nosnippet>799</a>
-<a href=#800 id=800 data-nosnippet>800</a>        <span class="prelude-val">Ok</span>(graphql_endpoint)
-<a href=#801 id=801 data-nosnippet>801</a>    }
-<a href=#802 id=802 data-nosnippet>802</a>}
-<a href=#803 id=803 data-nosnippet>803</a>
-<a href=#804 id=804 data-nosnippet>804</a><span class="kw">fn </span>parse_registry(r: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
-<a href=#805 id=805 data-nosnippet>805</a>    UserRegistry::from(r).graphql_endpoint()
-<a href=#806 id=806 data-nosnippet>806</a>}
+<a href=#794 id=794 data-nosnippet>794</a>        <span class="prelude-val">Ok</span>(source)
+<a href=#795 id=795 data-nosnippet>795</a>    }
+<a href=#796 id=796 data-nosnippet>796</a>
+<a href=#797 id=797 data-nosnippet>797</a>    <span class="kw">fn </span>graphql_endpoint(<span class="kw-2">&amp;</span><span class="self">self</span>, env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
+<a href=#798 id=798 data-nosnippet>798</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(endpoint) = env.registry_endpoint() {
+<a href=#799 id=799 data-nosnippet>799</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(endpoint);
+<a href=#800 id=800 data-nosnippet>800</a>        }
+<a href=#801 id=801 data-nosnippet>801</a>
+<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
+<a href=#803 id=803 data-nosnippet>803</a>        <span class="kw">let </span>graphql_endpoint = config.registry.get_graphql_url();
+<a href=#804 id=804 data-nosnippet>804</a>        <span class="kw">let </span>graphql_endpoint = graphql_endpoint
+<a href=#805 id=805 data-nosnippet>805</a>            .parse()
+<a href=#806 id=806 data-nosnippet>806</a>            .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to parse \"{graphql_endpoint}\" as a URL"</span>))<span class="question-mark">?</span>;
 <a href=#807 id=807 data-nosnippet>807</a>
-<a href=#808 id=808 data-nosnippet>808</a><span class="kw">fn </span>tokens_by_authority(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, String&gt;&gt; {
-<a href=#809 id=809 data-nosnippet>809</a>    <span class="kw">let </span><span class="kw-2">mut </span>tokens = HashMap::new();
-<a href=#810 id=810 data-nosnippet>810</a>    <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
+<a href=#808 id=808 data-nosnippet>808</a>        <span class="prelude-val">Ok</span>(graphql_endpoint)
+<a href=#809 id=809 data-nosnippet>809</a>    }
+<a href=#810 id=810 data-nosnippet>810</a>}
 <a href=#811 id=811 data-nosnippet>811</a>
-<a href=#812 id=812 data-nosnippet>812</a>    <span class="kw">for </span>credentials <span class="kw">in </span>config.registry.tokens {
-<a href=#813 id=813 data-nosnippet>813</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(<span class="kw-2">&amp;</span>credentials.registry) {
-<a href=#814 id=814 data-nosnippet>814</a>            <span class="kw">if </span>url.has_authority() {
-<a href=#815 id=815 data-nosnippet>815</a>                tokens.insert(url.authority().to_string(), credentials.token);
-<a href=#816 id=816 data-nosnippet>816</a>            }
-<a href=#817 id=817 data-nosnippet>817</a>        }
-<a href=#818 id=818 data-nosnippet>818</a>    }
+<a href=#812 id=812 data-nosnippet>812</a><span class="kw">fn </span>parse_registry(r: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;Url&gt; {
+<a href=#813 id=813 data-nosnippet>813</a>    UserRegistry::from(r).graphql_endpoint()
+<a href=#814 id=814 data-nosnippet>814</a>}
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a><span class="kw">fn </span>tokens_by_authority(env: <span class="kw-2">&amp;</span>WasmerEnv) -&gt; <span class="prelude-ty">Result</span>&lt;HashMap&lt;String, String&gt;&gt; {
+<a href=#817 id=817 data-nosnippet>817</a>    <span class="kw">let </span><span class="kw-2">mut </span>tokens = HashMap::new();
+<a href=#818 id=818 data-nosnippet>818</a>    <span class="kw">let </span>config = env.config()<span class="question-mark">?</span>;
 <a href=#819 id=819 data-nosnippet>819</a>
-<a href=#820 id=820 data-nosnippet>820</a>    <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(current_registry), <span class="prelude-val">Some</span>(token)) = (env.registry_endpoint(), env.token()) {
-<a href=#821 id=821 data-nosnippet>821</a>        <span class="kw">if </span>current_registry.has_authority() {
-<a href=#822 id=822 data-nosnippet>822</a>            tokens.insert(current_registry.authority().to_string(), token);
-<a href=#823 id=823 data-nosnippet>823</a>        }
-<a href=#824 id=824 data-nosnippet>824</a>    }
-<a href=#825 id=825 data-nosnippet>825</a>
-<a href=#826 id=826 data-nosnippet>826</a>    <span class="comment">// Note: The global wasmer.toml config file stores URLs for the GraphQL
-<a href=#827 id=827 data-nosnippet>827</a>    // endpoint, however that's often on the backend (i.e.
-<a href=#828 id=828 data-nosnippet>828</a>    // https://registry.wasmer.io/graphql) and we also want to use the same API
-<a href=#829 id=829 data-nosnippet>829</a>    // token when sending requests to the frontend (e.g. downloading a package
-<a href=#830 id=830 data-nosnippet>830</a>    // using the `Accept: application/webc` header).
-<a href=#831 id=831 data-nosnippet>831</a>    //
-<a href=#832 id=832 data-nosnippet>832</a>    // As a workaround to avoid needing to query *all* backends to find out
-<a href=#833 id=833 data-nosnippet>833</a>    // their frontend URL every time the `wasmer` CLI runs, we'll assume that
-<a href=#834 id=834 data-nosnippet>834</a>    // when a backend is called something like `registry.wasmer.io`, the
-<a href=#835 id=835 data-nosnippet>835</a>    // frontend will be at `wasmer.io`. This works everywhere except for people
-<a href=#836 id=836 data-nosnippet>836</a>    // developing the backend locally... Sorry, Ayush.
-<a href=#837 id=837 data-nosnippet>837</a>
-<a href=#838 id=838 data-nosnippet>838</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>frontend_tokens = HashMap::new();
-<a href=#839 id=839 data-nosnippet>839</a>    <span class="kw">for </span>(hostname, token) <span class="kw">in </span><span class="kw-2">&amp;</span>tokens {
-<a href=#840 id=840 data-nosnippet>840</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">"registry."</span>) {
-<a href=#841 id=841 data-nosnippet>841</a>            <span class="kw">if </span>!tokens.contains_key(frontend_url) {
-<a href=#842 id=842 data-nosnippet>842</a>                frontend_tokens.insert(frontend_url.to_string(), token.clone());
-<a href=#843 id=843 data-nosnippet>843</a>            }
-<a href=#844 id=844 data-nosnippet>844</a>        }
-<a href=#845 id=845 data-nosnippet>845</a>    }
-<a href=#846 id=846 data-nosnippet>846</a>    tokens.extend(frontend_tokens);
-<a href=#847 id=847 data-nosnippet>847</a>
-<a href=#848 id=848 data-nosnippet>848</a>    <span class="prelude-val">Ok</span>(tokens)
-<a href=#849 id=849 data-nosnippet>849</a>}</code></pre></div></section></main></body></html>
+<a href=#820 id=820 data-nosnippet>820</a>    <span class="kw">for </span>credentials <span class="kw">in </span>config.registry.tokens {
+<a href=#821 id=821 data-nosnippet>821</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(url) = Url::parse(<span class="kw-2">&amp;</span>credentials.registry) {
+<a href=#822 id=822 data-nosnippet>822</a>            <span class="kw">if </span>url.has_authority() {
+<a href=#823 id=823 data-nosnippet>823</a>                tokens.insert(url.authority().to_string(), credentials.token);
+<a href=#824 id=824 data-nosnippet>824</a>            }
+<a href=#825 id=825 data-nosnippet>825</a>        }
+<a href=#826 id=826 data-nosnippet>826</a>    }
+<a href=#827 id=827 data-nosnippet>827</a>
+<a href=#828 id=828 data-nosnippet>828</a>    <span class="kw">if let </span>(<span class="prelude-val">Ok</span>(current_registry), <span class="prelude-val">Some</span>(token)) = (env.registry_endpoint(), env.token()) {
+<a href=#829 id=829 data-nosnippet>829</a>        <span class="kw">if </span>current_registry.has_authority() {
+<a href=#830 id=830 data-nosnippet>830</a>            tokens.insert(current_registry.authority().to_string(), token);
+<a href=#831 id=831 data-nosnippet>831</a>        }
+<a href=#832 id=832 data-nosnippet>832</a>    }
+<a href=#833 id=833 data-nosnippet>833</a>
+<a href=#834 id=834 data-nosnippet>834</a>    <span class="comment">// Note: The global wasmer.toml config file stores URLs for the GraphQL
+<a href=#835 id=835 data-nosnippet>835</a>    // endpoint, however that's often on the backend (i.e.
+<a href=#836 id=836 data-nosnippet>836</a>    // https://registry.wasmer.io/graphql) and we also want to use the same API
+<a href=#837 id=837 data-nosnippet>837</a>    // token when sending requests to the frontend (e.g. downloading a package
+<a href=#838 id=838 data-nosnippet>838</a>    // using the `Accept: application/webc` header).
+<a href=#839 id=839 data-nosnippet>839</a>    //
+<a href=#840 id=840 data-nosnippet>840</a>    // As a workaround to avoid needing to query *all* backends to find out
+<a href=#841 id=841 data-nosnippet>841</a>    // their frontend URL every time the `wasmer` CLI runs, we'll assume that
+<a href=#842 id=842 data-nosnippet>842</a>    // when a backend is called something like `registry.wasmer.io`, the
+<a href=#843 id=843 data-nosnippet>843</a>    // frontend will be at `wasmer.io`. This works everywhere except for people
+<a href=#844 id=844 data-nosnippet>844</a>    // developing the backend locally... Sorry, Ayush.
+<a href=#845 id=845 data-nosnippet>845</a>
+<a href=#846 id=846 data-nosnippet>846</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>frontend_tokens = HashMap::new();
+<a href=#847 id=847 data-nosnippet>847</a>    <span class="kw">for </span>(hostname, token) <span class="kw">in </span><span class="kw-2">&amp;</span>tokens {
+<a href=#848 id=848 data-nosnippet>848</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(frontend_url) = hostname.strip_prefix(<span class="string">"registry."</span>) {
+<a href=#849 id=849 data-nosnippet>849</a>            <span class="kw">if </span>!tokens.contains_key(frontend_url) {
+<a href=#850 id=850 data-nosnippet>850</a>                frontend_tokens.insert(frontend_url.to_string(), token.clone());
+<a href=#851 id=851 data-nosnippet>851</a>            }
+<a href=#852 id=852 data-nosnippet>852</a>        }
+<a href=#853 id=853 data-nosnippet>853</a>    }
+<a href=#854 id=854 data-nosnippet>854</a>    tokens.extend(frontend_tokens);
+<a href=#855 id=855 data-nosnippet>855</a>
+<a href=#856 id=856 data-nosnippet>856</a>    <span class="prelude-val">Ok</span>(tokens)
+<a href=#857 id=857 data-nosnippet>857</a>}</code></pre></div></section></main></body></html>
