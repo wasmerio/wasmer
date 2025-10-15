@@ -612,7 +612,7 @@ impl RuntimeOptions {
             compiler => {
                 bail!(
                     "The `{}` compiler is not included in this binary.",
-                    compiler.to_string()
+                    compiler
                 )
             }
         };
