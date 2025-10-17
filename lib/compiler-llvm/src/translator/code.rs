@@ -1170,50 +1170,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         }
     }
 
-    fn quiet_nan(&self, value: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
-        let intrinsic = if value
-            .get_type()
-            .eq(&self.intrinsics.f32_ty.as_basic_type_enum())
-        {
-            Some(self.intrinsics.add_f32)
-        } else if value
-            .get_type()
-            .eq(&self.intrinsics.f64_ty.as_basic_type_enum())
-        {
-            Some(self.intrinsics.add_f64)
-        } else if value
-            .get_type()
-            .eq(&self.intrinsics.f32x4_ty.as_basic_type_enum())
-        {
-            Some(self.intrinsics.add_f32x4)
-        } else if value
-            .get_type()
-            .eq(&self.intrinsics.f64x2_ty.as_basic_type_enum())
-        {
-            Some(self.intrinsics.add_f64x2)
-        } else {
-            None
-        };
-
-        match intrinsic {
-            Some(intrinsic) => err_nt!(
-                self.builder
-                    .build_call(
-                        intrinsic,
-                        &[
-                            value.into(),
-                            value.get_type().const_zero().into(),
-                            self.intrinsics.fp_rounding_md,
-                            self.intrinsics.fp_exception_md,
-                        ],
-                        "",
-                    )
-                    .map(|v| v.try_as_basic_value().left().unwrap())
-            ),
-            None => Ok(value),
-        }
-    }
-
     // If this memory access must trap when out of bounds (i.e. it is a memory
     // access written in the user program as opposed to one used by our VM)
     // then mark that it can't be delete.
@@ -1981,6 +1937,133 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
 }
 
 impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
+    fn quiet_nan(&self, value: BasicValueEnum<'ctx>) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        let intrinsic = if value
+            .get_type()
+            .eq(&self.intrinsics.f32_ty.as_basic_type_enum())
+        {
+            Some(self.intrinsics.add_f32)
+        } else if value
+            .get_type()
+            .eq(&self.intrinsics.f64_ty.as_basic_type_enum())
+        {
+            Some(self.intrinsics.add_f64)
+        } else if value
+            .get_type()
+            .eq(&self.intrinsics.f32x4_ty.as_basic_type_enum())
+        {
+            Some(self.intrinsics.add_f32x4)
+        } else if value
+            .get_type()
+            .eq(&self.intrinsics.f64x2_ty.as_basic_type_enum())
+        {
+            Some(self.intrinsics.add_f64x2)
+        } else {
+            None
+        };
+
+        match intrinsic {
+            Some(intrinsic) => err_nt!(
+                self.builder
+                    .build_call(
+                        intrinsic,
+                        &[
+                            value.into(),
+                            value.get_type().const_zero().into(),
+                            self.intrinsics.fp_rounding_md,
+                            self.intrinsics.fp_exception_md,
+                        ],
+                        "",
+                    )
+                    .map(|v| v.try_as_basic_value().left().unwrap())
+            ),
+            None => Ok(value),
+        }
+    }
+
+    fn finalize_minmax_result(
+        &self,
+        value: BasicValueEnum<'ctx>,
+    ) -> Result<BasicValueEnum<'ctx>, CompileError> {
+        if self.config.enable_nan_canonicalization {
+            return self.canonicalize_nans(value);
+        }
+
+        let ty = value.get_type();
+        if ty.eq(&self.intrinsics.f32_ty.as_basic_type_enum())
+            || ty.eq(&self.intrinsics.f64_ty.as_basic_type_enum())
+        {
+            let value = value.into_float_value();
+            let is_nan = err!(self.builder.build_float_compare(
+                FloatPredicate::UNO,
+                value,
+                value,
+                "res_is_nan"
+            ));
+            let quiet = self.quiet_nan(value.as_basic_value_enum())?;
+            let result =
+                err!(
+                    self.builder
+                        .build_select(is_nan, quiet, value.as_basic_value_enum(), "")
+                );
+            Ok(result.as_basic_value_enum())
+        } else if ty.eq(&self.intrinsics.f32x4_ty.as_basic_type_enum()) {
+            let value = value.into_vector_value();
+            let is_nan = err!(self.builder.build_call(
+                self.intrinsics.cmp_f32x4,
+                &[
+                    value.into(),
+                    value.into(),
+                    self.intrinsics.fp_uno_md,
+                    self.intrinsics.fp_exception_md,
+                ],
+                "",
+            ))
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_vector_value();
+            let quiet = self
+                .quiet_nan(value.as_basic_value_enum())?
+                .into_vector_value();
+            let result = err!(self.builder.build_select(
+                is_nan,
+                quiet.as_basic_value_enum(),
+                value.as_basic_value_enum(),
+                "",
+            ));
+            Ok(result.as_basic_value_enum())
+        } else if ty.eq(&self.intrinsics.f64x2_ty.as_basic_type_enum()) {
+            let value = value.into_vector_value();
+            let is_nan = err!(self.builder.build_call(
+                self.intrinsics.cmp_f64x2,
+                &[
+                    value.into(),
+                    value.into(),
+                    self.intrinsics.fp_uno_md,
+                    self.intrinsics.fp_exception_md,
+                ],
+                "",
+            ))
+            .try_as_basic_value()
+            .left()
+            .unwrap()
+            .into_vector_value();
+            let quiet = self
+                .quiet_nan(value.as_basic_value_enum())?
+                .into_vector_value();
+            let result = err!(self.builder.build_select(
+                is_nan,
+                quiet.as_basic_value_enum(),
+                value.as_basic_value_enum(),
+                "",
+            ));
+            Ok(result.as_basic_value_enum())
+        } else {
+            Ok(value)
+        }
+    }
+
     fn translate_operator(&mut self, op: Operator, _source_loc: u32) -> Result<(), CompileError> {
         // TODO: remove this vmctx by moving everything into CtxType. Values
         // computed off vmctx usually benefit from caching.
@@ -5278,329 +5361,58 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(bits);
             }
             Operator::F32Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
-                let (v1, v2) = self.state.pop2()?;
-                let v1 = self.canonicalize_nans(v1)?;
-                let v2 = self.canonicalize_nans(v2)?;
+                let (lhs, rhs) = self.state.pop2()?;
+                let lhs = self.canonicalize_nans(lhs)?.into_float_value();
+                let rhs = self.canonicalize_nans(rhs)?.into_float_value();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f32_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.minimum_f32,
+                    &[lhs.into(), rhs.into()],
                     "",
                 ))
                 .try_as_basic_value()
                 .left()
-                .unwrap()
-                .into_int_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f32_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                .unwrap();
 
-                let res = err!(self.builder.build_select(
-                    v1_is_nan,
-                    self.quiet_nan(v1)?,
-                    err!(self.builder.build_select(
-                        v2_is_nan,
-                        self.quiet_nan(v2)?,
-                        err!(self.builder.build_select(
-                            v1_lt_v2,
-                            v1,
-                            err!(self.builder.build_select(
-                                v1_gt_v2,
-                                v2,
-                                err!(self.builder.build_bit_cast(
-                                    err!(self.builder.build_or(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i32_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i32_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        "",
-                                    )),
-                                    self.intrinsics.f32_ty,
-                                    "",
-                                )),
-                                "",
-                            )),
-                            "",
-                        )),
-                        "",
-                    )),
-                    "",
-                ));
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_float_value();
 
                 self.state.push1(res);
             }
             Operator::F64Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
-                let (v1, v2) = self.state.pop2()?;
-                let v1 = self.canonicalize_nans(v1)?;
-                let v2 = self.canonicalize_nans(v2)?;
+                let (lhs, rhs) = self.state.pop2()?;
+                let lhs = self.canonicalize_nans(lhs)?.into_float_value();
+                let rhs = self.canonicalize_nans(rhs)?.into_float_value();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f64_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.minimum_f64,
+                    &[lhs.into(), rhs.into()],
                     "",
                 ))
                 .try_as_basic_value()
                 .left()
-                .unwrap()
-                .into_int_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f64_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                .unwrap();
 
-                let res = err!(self.builder.build_select(
-                    v1_is_nan,
-                    self.quiet_nan(v1)?,
-                    err!(self.builder.build_select(
-                        v2_is_nan,
-                        self.quiet_nan(v2)?,
-                        err!(self.builder.build_select(
-                            v1_lt_v2,
-                            v1,
-                            err!(self.builder.build_select(
-                                v1_gt_v2,
-                                v2,
-                                err!(self.builder.build_bit_cast(
-                                    err!(self.builder.build_or(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i64_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i64_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        "",
-                                    )),
-                                    self.intrinsics.f64_ty,
-                                    "",
-                                )),
-                                "",
-                            )),
-                            "",
-                        )),
-                        "",
-                    )),
-                    "",
-                ));
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_float_value();
 
                 self.state.push1(res);
             }
             Operator::F32x4Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f32x4(v1, i1)?;
                 let (v2, _) = self.v128_into_f32x4(v2, i2)?;
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.minimum_f32x4,
+                    &[v1.into(), v2.into()],
+                    "",
+                ))
+                .try_as_basic_value()
+                .left()
+                .unwrap();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f32x4_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f32x4_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-
-                let res = err!(
-                    self.builder.build_select(
-                        v1_is_nan,
-                        self.quiet_nan(v1.into())?.into_vector_value(),
-                        err!(
-                            self.builder.build_select(
-                                v2_is_nan,
-                                self.quiet_nan(v2.into())?.into_vector_value(),
-                                err!(self.builder.build_select(
-                                    v1_lt_v2,
-                                    v1.into(),
-                                    err!(self.builder.build_select(
-                                        v1_gt_v2,
-                                        v2.into(),
-                                        err!(self.builder.build_bit_cast(
-                                            err!(self.builder.build_or(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i32x4_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i32x4_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        "",
-                                    )),
-                                            self.intrinsics.f32x4_ty,
-                                            "",
-                                        )),
-                                        "",
-                                    )),
-                                    "",
-                                ))
-                                .into_vector_value(),
-                                "",
-                            )
-                        )
-                        .into_vector_value(),
-                        "",
-                    )
-                );
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_vector_value();
 
                 let res = err!(
                     self.builder
@@ -5625,115 +5437,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(res);
             }
             Operator::F64x2Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f64x2(v1, i1)?;
                 let (v2, _) = self.v128_into_f64x2(v2, i2)?;
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.minimum_f64x2,
+                    &[v1.into(), v2.into()],
+                    "",
+                ))
+                .try_as_basic_value()
+                .left()
+                .unwrap();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f64x2_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f64x2_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-
-                let res = err!(
-                    self.builder.build_select(
-                        v1_is_nan,
-                        self.quiet_nan(v1.into())?.into_vector_value(),
-                        err!(
-                            self.builder.build_select(
-                                v2_is_nan,
-                                self.quiet_nan(v2.into())?.into_vector_value(),
-                                err!(self.builder.build_select(
-                                    v1_lt_v2,
-                                    v1.into(),
-                                    err!(self.builder.build_select(
-                                        v1_gt_v2,
-                                        v2.into(),
-                                        err!(self.builder.build_bit_cast(
-                                            err!(self.builder.build_or(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i64x2_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i64x2_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        "",
-                                    )),
-                                            self.intrinsics.f64x2_ty,
-                                            "",
-                                        )),
-                                        "",
-                                    )),
-                                    "",
-                                ))
-                                .into_vector_value(),
-                                "",
-                            )
-                        )
-                        .into_vector_value(),
-                        "",
-                    )
-                );
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_vector_value();
 
                 let res = err!(
                     self.builder
@@ -5758,329 +5475,58 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(res);
             }
             Operator::F32Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
-                let (v1, v2) = self.state.pop2()?;
-                let v1 = self.canonicalize_nans(v1)?;
-                let v2 = self.canonicalize_nans(v2)?;
+                let (lhs, rhs) = self.state.pop2()?;
+                let lhs = self.canonicalize_nans(lhs)?.into_float_value();
+                let rhs = self.canonicalize_nans(rhs)?.into_float_value();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f32_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.maximum_f32,
+                    &[lhs.into(), rhs.into()],
                     "",
                 ))
                 .try_as_basic_value()
                 .left()
-                .unwrap()
-                .into_int_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f32_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                .unwrap();
 
-                let res = err!(self.builder.build_select(
-                    v1_is_nan,
-                    self.quiet_nan(v1)?,
-                    err!(self.builder.build_select(
-                        v2_is_nan,
-                        self.quiet_nan(v2)?,
-                        err!(self.builder.build_select(
-                            v1_lt_v2,
-                            v2,
-                            err!(self.builder.build_select(
-                                v1_gt_v2,
-                                v1,
-                                err!(self.builder.build_bit_cast(
-                                    err!(self.builder.build_and(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i32_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i32_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        "",
-                                    )),
-                                    self.intrinsics.f32_ty,
-                                    "",
-                                )),
-                                "",
-                            )),
-                            "",
-                        )),
-                        "",
-                    )),
-                    "",
-                ));
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_float_value();
 
                 self.state.push1(res);
             }
             Operator::F64Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
-                let (v1, v2) = self.state.pop2()?;
-                let v1 = self.canonicalize_nans(v1)?;
-                let v2 = self.canonicalize_nans(v2)?;
+                let (lhs, rhs) = self.state.pop2()?;
+                let lhs = self.canonicalize_nans(lhs)?.into_float_value();
+                let rhs = self.canonicalize_nans(rhs)?.into_float_value();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f64_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.maximum_f64,
+                    &[lhs.into(), rhs.into()],
                     "",
                 ))
                 .try_as_basic_value()
                 .left()
-                .unwrap()
-                .into_int_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f64_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_int_value();
+                .unwrap();
 
-                let res = err!(self.builder.build_select(
-                    v1_is_nan,
-                    self.quiet_nan(v1)?,
-                    err!(self.builder.build_select(
-                        v2_is_nan,
-                        self.quiet_nan(v2)?,
-                        err!(self.builder.build_select(
-                            v1_lt_v2,
-                            v2,
-                            err!(self.builder.build_select(
-                                v1_gt_v2,
-                                v1,
-                                err!(self.builder.build_bit_cast(
-                                    err!(self.builder.build_and(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i64_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i64_ty,
-                                            ""
-                                        ))
-                                        .into_int_value(),
-                                        "",
-                                    )),
-                                    self.intrinsics.f64_ty,
-                                    "",
-                                )),
-                                "",
-                            )),
-                            "",
-                        )),
-                        "",
-                    )),
-                    "",
-                ));
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_float_value();
 
                 self.state.push1(res);
             }
             Operator::F32x4Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f32x4(v1, i1)?;
                 let (v2, _) = self.v128_into_f32x4(v2, i2)?;
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.maximum_f32x4,
+                    &[v1.into(), v2.into()],
+                    "",
+                ))
+                .try_as_basic_value()
+                .left()
+                .unwrap();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f32x4_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f32x4_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f32x4,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-
-                let res = err!(
-                    self.builder.build_select(
-                        v1_is_nan,
-                        self.quiet_nan(v1.into())?.into_vector_value(),
-                        err!(
-                            self.builder.build_select(
-                                v2_is_nan,
-                                self.quiet_nan(v2.into())?.into_vector_value(),
-                                err!(self.builder.build_select(
-                                    v1_lt_v2,
-                                    v2.into(),
-                                    err!(self.builder.build_select(
-                                        v1_gt_v2,
-                                        v1.into(),
-                                        err!(self.builder.build_bit_cast(
-                                            err!(self.builder.build_and(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i32x4_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i32x4_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        "",
-                                    )),
-                                            self.intrinsics.f32x4_ty,
-                                            "",
-                                        )),
-                                        "",
-                                    )),
-                                    "",
-                                ))
-                                .into_vector_value(),
-                                "",
-                            )
-                        )
-                        .into_vector_value(),
-                        "",
-                    )
-                );
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_vector_value();
 
                 let res = err!(
                     self.builder
@@ -6106,115 +5552,20 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 self.state.push1(res);
             }
             Operator::F64x2Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 11.
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_f64x2(v1, i1)?;
                 let (v2, _) = self.v128_into_f64x2(v2, i2)?;
+                let res = err!(self.builder.build_call(
+                    self.intrinsics.maximum_f64x2,
+                    &[v1.into(), v2.into()],
+                    "",
+                ))
+                .try_as_basic_value()
+                .left()
+                .unwrap();
 
-                let v1_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v1.into(),
-                        self.intrinsics.f64x2_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v2_is_nan = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v2.into(),
-                        self.intrinsics.f64x2_zero.into(),
-                        self.intrinsics.fp_uno_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_lt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_olt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-                let v1_gt_v2 = err!(self.builder.build_call(
-                    self.intrinsics.cmp_f64x2,
-                    &[
-                        v1.into(),
-                        v2.into(),
-                        self.intrinsics.fp_ogt_md,
-                        self.intrinsics.fp_exception_md,
-                    ],
-                    "",
-                ))
-                .try_as_basic_value()
-                .left()
-                .unwrap()
-                .into_vector_value();
-
-                let res = err!(
-                    self.builder.build_select(
-                        v1_is_nan,
-                        self.quiet_nan(v1.into())?.into_vector_value(),
-                        err!(
-                            self.builder.build_select(
-                                v2_is_nan,
-                                self.quiet_nan(v2.into())?.into_vector_value(),
-                                err!(self.builder.build_select(
-                                    v1_lt_v2,
-                                    v2.into(),
-                                    err!(self.builder.build_select(
-                                        v1_gt_v2,
-                                        v1.into(),
-                                        err!(self.builder.build_bit_cast(
-                                            err!(self.builder.build_and(
-                                        err!(self.builder.build_bit_cast(
-                                            v1,
-                                            self.intrinsics.i64x2_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        err!(self.builder.build_bit_cast(
-                                            v2,
-                                            self.intrinsics.i64x2_ty,
-                                            "",
-                                        ))
-                                        .into_vector_value(),
-                                        "",
-                                    )),
-                                            self.intrinsics.f64x2_ty,
-                                            "",
-                                        )),
-                                        "",
-                                    )),
-                                    "",
-                                ))
-                                .into_vector_value(),
-                                "",
-                            )
-                        )
-                        .into_vector_value(),
-                        "",
-                    )
-                );
+                let res = self.finalize_minmax_result(res.as_basic_value_enum())?;
+                let res = res.into_vector_value();
 
                 let res = err!(
                     self.builder
