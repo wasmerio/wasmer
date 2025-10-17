@@ -1504,29 +1504,25 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; lsl W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsl X(dst), X(src1), imm as u32);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsl X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsl W(dst), W(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
@@ -1564,29 +1560,25 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; asr W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr X(dst), X(src1), imm as u32);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr W(dst), W(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
@@ -1624,29 +1616,25 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; lsr W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr X(dst), X(src1), imm as u32);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr W(dst), W(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
@@ -1673,8 +1661,7 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; ror X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let imm = imm as u32;
 
                 if imm == 0 || imm > 63 {
@@ -1682,8 +1669,7 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 let imm = imm as u32;
 
                 if imm == 0 || imm > 63 {
@@ -1691,8 +1677,7 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -1701,15 +1686,13 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; ror W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
