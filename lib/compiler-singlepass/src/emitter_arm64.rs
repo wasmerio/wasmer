@@ -2856,7 +2856,12 @@ pub fn gen_std_trampoline_arm64(
             stack_offset += 8;
             assert!(stack_offset % 16 == 0);
         }
-        dynasm!(a ; sub sp, sp, stack_offset);
+        if stack_offset < 0x1000 {
+            dynasm!(a ; sub sp, sp, stack_offset);
+        } else {
+            a.emit_mov_imm(Location::GPR(GPR::X26), stack_offset as u64)?;
+            dynasm!(a ; sub sp, sp, x26);
+        }
     }
 
     // Move arguments to their locations.
@@ -2939,9 +2944,15 @@ pub fn gen_std_trampoline_arm64(
     dynasm!(a
         ; ldp X(fptr), X(args), [x29, 16]
         ; ldp x29, x30, [x29]
-        ; add sp, sp, 32 + stack_offset as u32
-        ; ret
     );
+    let restored_stack_offset = 32 + stack_offset;
+    if restored_stack_offset < 0x1000 {
+        dynasm!(a; add sp, sp, restored_stack_offset);
+    } else {
+        a.emit_mov_imm(Location::GPR(GPR::X26), restored_stack_offset as u64)?;
+        dynasm!(a; add sp, sp, x26);
+    }
+    dynasm!(a; ret);
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
