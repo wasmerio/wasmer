@@ -1924,7 +1924,7 @@ impl EmitterARM64 for Assembler {
                 dynasm!(self ; sdiv X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
-                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                "singlepass can't emit SDIV {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,
