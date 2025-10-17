@@ -2,17 +2,17 @@
 //! needed so that a `Box<dyn VirtualFileSystem>` can be wrapped in an Arc and
 //! shared - some of the interfaces pass around a `Box<dyn VirtualFileSystem>`
 
-use std::path::Path;
+use std::{path::Path, sync::Arc};
 
 use crate::*;
 
 #[derive(Debug)]
 pub struct PassthruFileSystem {
-    fs: Box<dyn FileSystem + Send + Sync + 'static>,
+    fs: Arc<dyn FileSystem + Send + Sync + 'static>,
 }
 
 impl PassthruFileSystem {
-    pub fn new(inner: Box<dyn FileSystem + Send + Sync + 'static>) -> Self {
+    pub fn new(inner: Arc<dyn FileSystem + Send + Sync + 'static>) -> Self {
         Self { fs: inner }
     }
 }
@@ -66,6 +66,8 @@ impl FileSystem for PassthruFileSystem {
 
 #[cfg(test)]
 mod test_builder {
+    use std::sync::Arc;
+
     use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
     use crate::{FileSystem, PassthruFileSystem};
@@ -96,7 +98,7 @@ mod test_builder {
             .unwrap();
         assert_eq!(buf, b"hello");
 
-        let passthru_fs = PassthruFileSystem::new(Box::new(mem_fs.clone()));
+        let passthru_fs = PassthruFileSystem::new(Arc::new(mem_fs.clone()));
         let mut buf = Vec::new();
         passthru_fs
             .new_open_options()

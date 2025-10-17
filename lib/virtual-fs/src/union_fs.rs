@@ -8,7 +8,7 @@ use crate::*;
 
 use std::{path::Path, sync::Arc};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct MountPoint {
     pub path: PathBuf,
     pub name: String,
@@ -36,6 +36,13 @@ pub struct UnionFileSystem {
     pub mounts: DashMap<PathBuf, MountPoint>,
 }
 
+#[derive(Clone, Copy, Debug)]
+pub enum UnionMergeMode {
+    Replace,
+    Skip,
+    Fail,
+}
+
 impl UnionFileSystem {
     pub fn new() -> Self {
         Self::default()
@@ -57,6 +64,43 @@ impl UnionFileSystem {
                 .unwrap_or(path)
                 .to_owned()
         }
+    }
+
+    pub fn merge(&self, other: &UnionFileSystem, mode: UnionMergeMode) -> Result<()> {
+        for item in other.mounts.iter() {
+            if self.mounts.contains_key(item.key()) {
+                match mode {
+                    UnionMergeMode::Replace => {
+                        self.mounts.insert(item.key().clone(), item.value().clone());
+                    }
+                    UnionMergeMode::Skip => {
+                        tracing::debug!(
+                            path = %item.key().display(),
+                            "skipping existing mount point while merging two union file systems"
+                        );
+                    }
+                    UnionMergeMode::Fail => {
+                        return Err(FsError::AlreadyExists);
+                    }
+                }
+            } else {
+                self.mounts.insert(item.key().clone(), item.value().clone());
+            }
+        }
+
+        Ok(())
+    }
+
+    // TODO: this was only added for making BinaryPackage::webc_fs clonable,
+    // remove once the TODO in BinaryPackage is resolved
+    pub fn duplicate(&self) -> Self {
+        let mounts = DashMap::new();
+
+        for item in self.mounts.iter() {
+            mounts.insert(item.key().clone(), item.value().clone());
+        }
+
+        Self { mounts }
     }
 }
 
