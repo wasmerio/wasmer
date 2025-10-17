@@ -15,7 +15,7 @@ use crate::{
     WasiEnvBuilder,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
-    fs::WasiFsRoot,
+    fs::{WasiFsRoot, relative_path_hack::RelativeOrAbsolutePathHack},
     journal::{DynJournal, DynReadableJournal, SnapshotTrigger},
 };
 
@@ -207,7 +207,17 @@ fn prepare_filesystem(
         build_directory_mappings(&mut root_fs, mounted_dirs)?;
     }
 
+    // HACK(Michael-F-Bryan): The WebcVolumeFileSystem only accepts relative
+    // paths, but our Python executable will try to access its standard library
+    // with relative paths assuming that it is being run from the root
+    // directory (i.e. it does `open("lib/python3.6/io.py")` instead of
+    // `open("/lib/python3.6/io.py")`).
+    // Until the FileSystem trait figures out whether relative paths should be
+    // supported or not, we'll add an adapter that automatically retries
+    // operations using an absolute path if it failed using a relative path.
+
     let fs = if let Some(container) = container_fs {
+        let container = RelativeOrAbsolutePathHack(container);
         let fs = OverlayFileSystem::new(root_fs, [container]);
         WasiFsRoot::Overlay(Arc::new(fs))
     } else {
@@ -306,6 +316,7 @@ mod tests {
 
     use tempfile::TempDir;
     use virtual_fs::{DirEntry, FileType, Metadata};
+    use wasmer_package::utils::from_bytes;
 
     use super::*;
 
@@ -372,6 +383,48 @@ mod tests {
     fn unix_timestamp_nanos(instant: SystemTime) -> Option<u64> {
         let duration = instant.duration_since(SystemTime::UNIX_EPOCH).ok()?;
         Some(duration.as_nanos() as u64)
+    }
+
+    #[tokio::test]
+    #[cfg_attr(not(feature = "host-fs"), ignore)]
+    async fn python_use_case() {
+        let temp = TempDir::new().unwrap();
+        let sub_dir = temp.path().join("path").join("to");
+        std::fs::create_dir_all(&sub_dir).unwrap();
+        std::fs::write(sub_dir.join("file.txt"), b"Hello, World!").unwrap();
+        let mapping = [MountedDirectory::from(MappedDirectory {
+            guest: "/home".to_string(),
+            host: sub_dir,
+        })];
+        let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
+        let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
+
+        let root_fs = RootFileSystemBuilder::default().build();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(webc_fs)).unwrap();
+
+        assert!(matches!(fs, WasiFsRoot::Overlay(_)));
+        if let WasiFsRoot::Overlay(overlay_fs) = &fs {
+            use virtual_fs::FileSystem;
+            assert!(
+                overlay_fs
+                    .metadata("/home/file.txt".as_ref())
+                    .unwrap()
+                    .is_file()
+            );
+            assert!(overlay_fs.metadata("lib".as_ref()).unwrap().is_dir());
+            assert!(
+                overlay_fs
+                    .metadata("lib/python3.6/collections/__init__.py".as_ref())
+                    .unwrap()
+                    .is_file()
+            );
+            assert!(
+                overlay_fs
+                    .metadata("lib/python3.6/encodings/__init__.py".as_ref())
+                    .unwrap()
+                    .is_file()
+            );
+        }
     }
 
     #[tokio::test]

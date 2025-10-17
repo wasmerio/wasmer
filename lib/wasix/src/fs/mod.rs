@@ -9,6 +9,7 @@ mod fd;
 mod fd_list;
 mod inode_guard;
 mod notification;
+pub(crate) mod relative_path_hack;
 
 use std::{
     borrow::{Borrow, Cow},
@@ -52,6 +53,7 @@ pub(crate) use self::inode_guard::{
     InodeValFileReadGuard, InodeValFileWriteGuard, POLL_GUARD_MAX_RET, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
+use self::relative_path_hack::RelativeOrAbsolutePathHack;
 use crate::syscalls::map_io_err;
 use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 
@@ -366,7 +368,14 @@ impl Default for WasiInodes {
 #[derive(Debug, Clone)]
 pub enum WasiFsRoot {
     Sandbox(TmpFileSystem),
-    Overlay(Arc<virtual_fs::OverlayFileSystem<TmpFileSystem, [UnionFileSystem; 1]>>),
+    Overlay(
+        Arc<
+            virtual_fs::OverlayFileSystem<
+                TmpFileSystem,
+                [RelativeOrAbsolutePathHack<UnionFileSystem>; 1],
+            >,
+        >,
+    ),
     Backing(Arc<dyn FileSystem + Send + Sync>),
 }
 
@@ -658,7 +667,7 @@ impl WasiFs {
             }
             WasiFsRoot::Overlay(overlay) => {
                 let union = &overlay.secondaries()[0];
-                union.merge(webc_fs, virtual_fs::UnionMergeMode::Skip)
+                union.0.merge(webc_fs, virtual_fs::UnionMergeMode::Skip)
             }
             WasiFsRoot::Backing(backing) => merge_filesystems(webc_fs, backing).await,
         }
