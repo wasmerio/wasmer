@@ -3169,13 +3169,11 @@ pub fn gen_import_call_trampoline_arm64(
                     GPR::X7,
                 ];
                 let mut param_locations = vec![];
-                /* Clippy is wrong about using `i` to index `PARAM_REGS` here. */
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..sig.params().len() {
+                for (i, param_reg) in PARAM_REGS.iter().enumerate().take(sig.params().len()) {
                     let loc = match i {
                         0..=6 => {
                             let loc = Location::Memory(GPR::XzrSp, (i * 8) as i32);
-                            a.emit_str(Size::S64, Location::GPR(PARAM_REGS[i]), loc)?;
+                            a.emit_str(Size::S64, Location::GPR(*param_reg), loc)?;
                             loc
                         }
                         _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 7) * 8) as i32),
