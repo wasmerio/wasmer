@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use futures::future::BoxFuture;
 use virtual_fs::{FileSystem, FsError, OpenOptions, OpenOptionsConfig};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct RelativeOrAbsolutePathHack<F>(pub F);
 
 impl<F: FileSystem> RelativeOrAbsolutePathHack<F> {

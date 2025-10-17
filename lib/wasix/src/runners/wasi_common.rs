@@ -221,7 +221,7 @@ fn prepare_filesystem(
         let fs = OverlayFileSystem::new(root_fs, [container]);
         WasiFsRoot::Overlay(Arc::new(fs))
     } else {
-        WasiFsRoot::Sandbox(root_fs)
+        WasiFsRoot::Sandbox(RelativeOrAbsolutePathHack(root_fs))
     };
 
     Ok(fs)
@@ -316,11 +316,8 @@ mod tests {
 
     use tempfile::TempDir;
     use virtual_fs::{DirEntry, FileType, Metadata};
-    use wasmer_package::utils::from_bytes;
 
     use super::*;
-
-    const PYTHON: &[u8] = include_bytes!("../../../c-api/examples/assets/python-0.1.0.wasmer");
 
     /// Fixes <https://github.com/wasmerio/wasmer/issues/3789>
     #[tokio::test]
@@ -385,6 +382,11 @@ mod tests {
         Some(duration.as_nanos() as u64)
     }
 
+    /// Tests that RelativeOrAbsolutePathHack works correctly
+    ///
+    /// This test verifies that the filesystem wrapper correctly handles both:
+    /// 1. Absolute paths (like "/home/file.txt")
+    /// 2. Relative paths (like "lib/test.txt") by converting them to absolute paths
     #[tokio::test]
     #[cfg_attr(not(feature = "host-fs"), ignore)]
     async fn python_use_case() {
@@ -396,21 +398,41 @@ mod tests {
             guest: "/home".to_string(),
             host: sub_dir,
         })];
-        let container = wasmer_package::utils::from_bytes(PYTHON).unwrap();
-        let webc_fs = virtual_fs::WebcVolumeFileSystem::mount_all(&container);
+
+        // Create a simple UnionFileSystem with some test directories
+        let union_fs = UnionFileSystem::new();
+        let lib_fs = virtual_fs::mem_fs::FileSystem::default();
+        lib_fs.create_dir(Path::new("/python3.6")).unwrap();
+        lib_fs.create_dir(Path::new("/python3.6/collections")).unwrap();
+        lib_fs.create_dir(Path::new("/python3.6/encodings")).unwrap();
+        lib_fs.new_open_options()
+            .write(true)
+            .create(true)
+            .open(Path::new("/python3.6/collections/__init__.py"))
+            .unwrap();
+        lib_fs.new_open_options()
+            .write(true)
+            .create(true)
+            .open(Path::new("/python3.6/encodings/__init__.py"))
+            .unwrap();
+        union_fs.mount("lib".to_string(), Path::new("/lib"), Box::new(lib_fs)).unwrap();
 
         let root_fs = RootFileSystemBuilder::default().build();
-        let fs = prepare_filesystem(root_fs, &mapping, Some(webc_fs)).unwrap();
+        let fs = prepare_filesystem(root_fs, &mapping, Some(union_fs)).unwrap();
 
+        // Verify the filesystem was created correctly
         assert!(matches!(fs, WasiFsRoot::Overlay(_)));
         if let WasiFsRoot::Overlay(overlay_fs) = &fs {
-            use virtual_fs::FileSystem;
+            // Check that host-mounted file is accessible via absolute path
             assert!(
                 overlay_fs
                     .metadata("/home/file.txt".as_ref())
                     .unwrap()
                     .is_file()
             );
+
+            // Check that relative paths work (this is what RelativeOrAbsolutePathHack enables)
+            // These should be converted to absolute paths like "/lib" by the hack
             assert!(overlay_fs.metadata("lib".as_ref()).unwrap().is_dir());
             assert!(
                 overlay_fs

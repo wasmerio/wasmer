@@ -1062,6 +1062,7 @@ impl WasiEnv {
                 match root_fs {
                     WasiFsRoot::Sandbox(root_fs) => {
                         if let Err(err) = root_fs
+                            .0
                             .new_open_options_ext()
                             .insert_ro_file(path, atom.clone())
                         {
@@ -1073,7 +1074,7 @@ impl WasiEnv {
                             );
                             continue;
                         }
-                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
+                        if let Err(err) = root_fs.0.new_open_options_ext().insert_ro_file(path2, atom)
                         {
                             tracing::debug!(
                                 "failed to add package [{}] command [{}] - {}",
@@ -1203,13 +1204,14 @@ impl WasiEnv {
             let file = OwnedBuffer::from(file);
 
             if let WasiFsRoot::Sandbox(root_fs) = &self.state.fs.root_fs {
-                let _ = root_fs.create_dir(Path::new("/bin"));
-                let _ = root_fs.create_dir(Path::new("/usr"));
-                let _ = root_fs.create_dir(Path::new("/usr/bin"));
+                let _ = root_fs.0.create_dir(Path::new("/bin"));
+                let _ = root_fs.0.create_dir(Path::new("/usr"));
+                let _ = root_fs.0.create_dir(Path::new("/usr/bin"));
 
                 let path = format!("/bin/{command}");
                 let path = Path::new(path.as_str());
                 if let Err(err) = root_fs
+                    .0
                     .new_open_options_ext()
                     .insert_ro_file(path, file.clone())
                 {
@@ -1218,7 +1220,7 @@ impl WasiEnv {
                 }
                 let path = format!("/usr/bin/{command}");
                 let path = Path::new(path.as_str());
-                if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path, file) {
+                if let Err(err) = root_fs.0.new_open_options_ext().insert_ro_file(path, file) {
                     tracing::debug!("failed to add atom command [{}] - {}", command, err);
                     continue;
                 }

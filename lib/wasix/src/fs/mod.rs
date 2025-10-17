@@ -367,7 +367,7 @@ impl Default for WasiInodes {
 
 #[derive(Debug, Clone)]
 pub enum WasiFsRoot {
-    Sandbox(TmpFileSystem),
+    Sandbox(RelativeOrAbsolutePathHack<TmpFileSystem>),
     Overlay(
         Arc<
             virtual_fs::OverlayFileSystem<
@@ -662,7 +662,7 @@ impl WasiFs {
             WasiFsRoot::Sandbox(fs) => {
                 // TODO: this can be changed to switch to Self::Overlay instead!
                 let fdyn: Arc<dyn FileSystem + Send + Sync> = webc_fs.clone();
-                fs.union(&fdyn);
+                fs.0.union(&fdyn);
                 Ok(())
             }
             WasiFsRoot::Overlay(overlay) => {

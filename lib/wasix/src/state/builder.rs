@@ -18,7 +18,7 @@ use crate::{
     Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
-    fs::{WasiFs, WasiFsRoot, WasiInodes},
+    fs::{WasiFs, WasiFsRoot, WasiInodes, relative_path_hack::RelativeOrAbsolutePathHack},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
@@ -715,7 +715,7 @@ impl WasiEnvBuilder {
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(fs));
+        self.fs = Some(WasiFsRoot::Sandbox(RelativeOrAbsolutePathHack(fs)));
         self
     }
 
@@ -847,7 +847,7 @@ impl WasiEnvBuilder {
         let fs_backing = self
             .fs
             .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
+            .unwrap_or_else(|| WasiFsRoot::Sandbox(RelativeOrAbsolutePathHack(TmpFileSystem::new())));
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {
