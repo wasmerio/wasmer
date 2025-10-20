@@ -2948,7 +2948,7 @@ impl Machine for MachineRiscv {
         let dest = self.location_to_reg(Size::S32, ret, &mut temps, ImmType::None, false, None)?;
 
         self.assembler
-            .emit_on_false_label(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero)?;
         let label_nooverflow = self.assembler.get_label();
         let tmp = self.location_to_reg(
             Size::S32,
@@ -2962,7 +2962,8 @@ impl Machine for MachineRiscv {
         self.assembler.emit_on_true_label(tmp, label_nooverflow)?;
         self.move_location(Size::S32, Location::Imm32(-1i32 as _), tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
-        self.assembler.emit_on_true_label(tmp, integer_overflow)?;
+        self.assembler
+            .emit_on_true_label_far(tmp, integer_overflow)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S32, src1, src2, dest)?;
@@ -4190,7 +4191,7 @@ impl Machine for MachineRiscv {
         let dest = self.location_to_reg(Size::S64, ret, &mut temps, ImmType::None, false, None)?;
 
         self.assembler
-            .emit_on_false_label(src2, integer_division_by_zero)?;
+            .emit_on_false_label_far(src2, integer_division_by_zero)?;
         let label_nooverflow = self.assembler.get_label();
         let tmp = self.location_to_reg(
             Size::S64,
@@ -4205,7 +4206,8 @@ impl Machine for MachineRiscv {
         self.assembler.emit_on_true_label(tmp, label_nooverflow)?;
         self.move_location(Size::S64, Location::Imm64(-1i64 as _), tmp)?;
         self.assembler.emit_cmp(Condition::Eq, tmp, src2, tmp)?;
-        self.assembler.emit_on_true_label(tmp, integer_overflow)?;
+        self.assembler
+            .emit_on_true_label_far(tmp, integer_overflow)?;
         let offset = self.mark_instruction_with_trap_code(TrapCode::IntegerOverflow);
         self.assembler.emit_label(label_nooverflow)?;
         self.assembler.emit_sdiv(Size::S64, src1, src2, dest)?;
