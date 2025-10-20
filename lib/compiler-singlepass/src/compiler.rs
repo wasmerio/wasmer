@@ -85,7 +85,11 @@ impl Compiler for SinglepassCompiler {
             Architecture::Aarch64(_) => {}
             #[cfg(feature = "riscv")]
             Architecture::Riscv32(_) | Architecture::Riscv64(_) => {}
-            _ => {}
+            _ => {
+                return Err(CompileError::UnsupportedTarget(
+                    target.triple().architecture.to_string(),
+                ));
+            }
         }
 
         let calling_convention = match target.triple().default_calling_convention() {
