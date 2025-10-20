@@ -283,7 +283,7 @@ pub enum WasiRuntimeError {
 impl WasiRuntimeError {
     /// Retrieve the concrete exit code returned by an instance.
     ///
-    /// Returns [`None`] if a general execution error ocurred.
+    /// Returns [`None`] if a general execution error occurred.
     pub fn as_exit_code(&self) -> Option<ExitCode> {
         if let WasiRuntimeError::Wasi(WasiError::Exit(code)) = self {
             Some(*code)

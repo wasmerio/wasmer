@@ -7,7 +7,7 @@ use webc::Container;
 use super::ConversionError;
 
 /// Convert a webc image into a directory with a wasmer.toml file that can
-/// be used for generating a new pacakge.
+/// be used for generating a new package.
 pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), ConversionError> {
     let mut pkg_manifest = wasmer_config::package::Manifest::new_empty();
 
@@ -253,7 +253,7 @@ mod tests {
 
     use super::*;
 
-    // Build a webc from a pacakge directory, and then restore the directory
+    // Build a webc from a package directory, and then restore the directory
     // from the webc.
     #[test]
     fn test_wasmer_package_webc_roundtrip() {
