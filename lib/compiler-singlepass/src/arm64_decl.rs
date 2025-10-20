@@ -9,6 +9,48 @@ use std::slice::Iter;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
 
+/*
+Register definition: https://github.com/ARM-software/abi-aa/blob/main/aapcs64/aapcs64.rst#611general-purpose-registers
+
++------+-----------+--------------------------------------------+-------------------+
+| Reg  | ABI Name  | Description                                | Saved by Callee   |
++------+-----------+--------------------------------------------+-------------------+
+| x0   | a0        | argument / return value 0                  | -R                |
+| x1   | a1        | argument / return value 1                  | -R                |
+| x2   | a2        | argument 2                                 | -R                |
+| x3   | a3        | argument 3                                 | -R                |
+| x4   | a4        | argument 4                                 | -R                |
+| x5   | a5        | argument 5                                 | -R                |
+| x6   | a6        | argument 6                                 | -R                |
+| x7   | a7        | argument 7                                 | -R                |
+| x8   | x8 (IP0)  | indirect result / scratch (IP0)            | -R                |
+| x9   | x9 (IP1)  | scratch / intra-proc-call temporary        | -R                |
+| x10  | x10       | scratch / temporary                        | -R                |
+| x11  | x11       | scratch / temporary                        | -R                |
+| x12  | x12       | scratch / temporary                        | -R                |
+| x13  | x13       | scratch / temporary                        | -R                |
+| x14  | x14       | scratch / temporary                        | -R                |
+| x15  | x15       | scratch / temporary                        | -R                |
+| x16  | ip0       | intra-procedure-call scratch (IP0)         | -R                |
+| x17  | ip1       | intra-procedure-call scratch (IP1)         | -R                |
+| x18  | pr        | platform register (varies by OS/platform)  | -                 |
+| x19  | s0        | callee-saved register 0                    | -E                |
+| x20  | s1        | callee-saved register 1                    | -E                |
+| x21  | s2        | callee-saved register 2                    | -E                |
+| x22  | s3        | callee-saved register 3                    | -E                |
+| x23  | s4        | callee-saved register 4                    | -E                |
+| x24  | s5        | callee-saved register 5                    | -E                |
+| x25  | s6        | callee-saved register 6                    | -E                |
+| x26  | s7        | callee-saved register 7                    | -E                |
+| x27  | s8        | callee-saved register 8                    | -E                |
+| x28  | s9        | callee-saved register 9                    | -E                |
+| x29  | fp / s10  | frame pointer / callee-saved register 10   | -E                |
+| x30  | lr        | link register (return address)             | -R                |
+| x31  | sp / wzr  | stack pointer (sp) or zero register (wzr)  | -                 |
++------+-----------+--------------------------------------------+-------------------+
+Legend: -R = caller-saved, -E = callee-saved, - = not saved
+*/
+
 /// General-purpose registers.
 #[repr(u8)]
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]

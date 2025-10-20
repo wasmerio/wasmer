@@ -1841,7 +1841,7 @@ pub async fn generate_deploy_config_token_raw(
         .context("no token returned")
 }
 
-/// Generate an SSH token for accesing Edge over SSH or SFTP.
+/// Generate an SSH token for accessing Edge over SSH or SFTP.
 ///
 /// If an app id is provided, the token will be scoped to that app,
 /// and using the token will open an ssh context for that app.

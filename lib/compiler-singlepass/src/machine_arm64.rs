@@ -1177,7 +1177,7 @@ impl MachineARM64 {
                 }
                 self.pushed = !self.pushed;
             }
-            _ => codegen_error!("singlepass can't emit PUSH {:?} {:?}", sz, dst),
+            _ => codegen_error!("singlepass can't emit POP {:?} {:?}", sz, dst),
         }
         Ok(())
     }

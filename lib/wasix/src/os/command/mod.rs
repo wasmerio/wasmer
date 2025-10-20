@@ -19,7 +19,7 @@ where
     /// Returns the canonical name of the command.
     fn name(&self) -> &str;
 
-    /// Retrieve the command as as a [`std::any::Any`] reference.
+    /// Retrieve the command as a [`std::any::Any`] reference.
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Executes the command.
