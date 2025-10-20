@@ -1523,13 +1523,6 @@ impl MachineRiscv {
         let src = self.location_to_fpr(size_in, loc, &mut fprs, ImmType::None, true)?;
         let dest = self.location_to_reg(size_out, ret, &mut gprs, ImmType::None, false, None)?;
 
-        // The documentation link connected to the behavior connected to FCSR register: https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/f.html.
-
-        // TODO: save+restore the rounding moves in the FCSR register?
-        if !sat {
-            self.reset_fscr_fflags()?;
-        }
-
         if sat {
             // On RISC-V, if the input value is any NaN, the output of the operation is i32::MAX and thus we must
             // convert it to zero on our own.
@@ -1549,9 +1542,19 @@ impl MachineRiscv {
                 .emit_fcvt(signed, size_in, src, size_out, dest)?;
             self.emit_label(end)?;
         } else {
+            let old_fcsr = self.acquire_temp_gpr().ok_or_else(|| {
+                CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
+            })?;
+            self.move_location(
+                Size::S32,
+                Location::GPR(GPR::XZero),
+                Location::GPR(old_fcsr),
+            )?;
+            self.assembler.emit_swap_fscr(old_fcsr)?;
             self.assembler
                 .emit_fcvt(signed, size_in, src, size_out, dest)?;
-            self.trap_float_convertion_errors(size_in, src, &mut gprs)?;
+            self.trap_float_convertion_errors(size_in, src, old_fcsr, &mut gprs)?;
+            self.release_gpr(old_fcsr);
         }
 
         if ret != dest {
@@ -1622,31 +1625,25 @@ impl MachineRiscv {
         Ok(())
     }
 
-    fn reset_fscr_fflags(&mut self) -> Result<(), CompileError> {
-        let tmp = self.acquire_temp_gpr().ok_or_else(|| {
-            CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
-        })?;
-        self.move_location(Size::S32, Location::GPR(GPR::XZero), Location::GPR(tmp))?;
-        self.assembler.emit_write_fscr(tmp)?;
-        self.release_gpr(tmp);
-        Ok(())
-    }
-
     fn trap_float_convertion_errors(
         &mut self,
         sz: Size,
         f: Location,
+        old_fcsr: GPR,
         temps: &mut Vec<GPR>,
     ) -> Result<(), CompileError> {
         let fscr = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
         })?;
+        self.zero_location(Size::S64, Location::GPR(fscr))?;
         temps.push(fscr);
 
         let trap_badconv = self.assembler.get_label();
         let end = self.assembler.get_label();
 
-        self.assembler.emit_read_fscr(fscr)?;
+        self.assembler.emit_swap_fscr(fscr)?;
+
+        // The documentation link connected to the behavior connected to FCSR register: https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/f.html.
         // clear all fflags bits except NV (1 << 4)
         self.assembler.emit_srl(
             Size::S32,
@@ -1673,8 +1670,7 @@ impl MachineRiscv {
         self.emit_illegal_op_internal(TrapCode::BadConversionToInteger)?;
 
         self.emit_label(end)?;
-        // TODO:???
-        // self.restore_fpcr(old_fpcr)
+        self.assembler.emit_swap_fscr(old_fcsr)?;
 
         Ok(())
     }

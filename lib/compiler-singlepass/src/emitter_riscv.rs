@@ -298,8 +298,7 @@ pub trait EmitterRiscv {
         dst: Location,
         tmp: GPR,
     ) -> Result<(), CompileError>;
-    fn emit_write_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
-    fn emit_read_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
+    fn emit_swap_fscr(&mut self, reg: GPR) -> Result<(), CompileError>;
 
     // Control-flow related instructions
     fn emit_cmp(
@@ -1327,13 +1326,9 @@ impl EmitterRiscv for Assembler {
         Ok(())
     }
 
-    fn emit_write_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; fscsr X(GPR::XZero), X(reg));
-        Ok(())
-    }
-
-    fn emit_read_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
-        dynasm!(self ; frcsr X(reg));
+    // Swap `source` register with FSCR.
+    fn emit_swap_fscr(&mut self, reg: GPR) -> Result<(), CompileError> {
+        dynasm!(self ; fscsr X(reg), X(reg));
         Ok(())
     }
 
