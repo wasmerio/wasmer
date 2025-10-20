@@ -7,7 +7,7 @@
 <a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span><span class="kw">super</span>::ConversionError;
 <a href=#8 id=8 data-nosnippet>8</a>
 <a href=#9 id=9 data-nosnippet>9</a><span class="doccomment">/// Convert a webc image into a directory with a wasmer.toml file that can
-<a href=#10 id=10 data-nosnippet>10</a>/// be used for generating a new pacakge.
+<a href=#10 id=10 data-nosnippet>10</a>/// be used for generating a new package.
 <a href=#11 id=11 data-nosnippet>11</a></span><span class="kw">pub fn </span>webc_to_package_dir(webc: <span class="kw-2">&amp;</span>Container, target_dir: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), ConversionError&gt; {
 <a href=#12 id=12 data-nosnippet>12</a>    <span class="kw">let </span><span class="kw-2">mut </span>pkg_manifest = wasmer_config::package::Manifest::new_empty();
 <a href=#13 id=13 data-nosnippet>13</a>
@@ -253,7 +253,7 @@
 <a href=#253 id=253 data-nosnippet>253</a>
 <a href=#254 id=254 data-nosnippet>254</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#255 id=255 data-nosnippet>255</a>
-<a href=#256 id=256 data-nosnippet>256</a>    <span class="comment">// Build a webc from a pacakge directory, and then restore the directory
+<a href=#256 id=256 data-nosnippet>256</a>    <span class="comment">// Build a webc from a package directory, and then restore the directory
 <a href=#257 id=257 data-nosnippet>257</a>    // from the webc.
 <a href=#258 id=258 data-nosnippet>258</a>    </span><span class="attr">#[test]
 <a href=#259 id=259 data-nosnippet>259</a>    </span><span class="kw">fn </span>test_wasmer_package_webc_roundtrip() {

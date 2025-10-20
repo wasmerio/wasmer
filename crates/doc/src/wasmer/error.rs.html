@@ -18,7 +18,7 @@
 <a href=#18 id=18 data-nosnippet>18</a>    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"Error while importing {0:?}.{1:?}: {2}"</span>))]
 <a href=#19 id=19 data-nosnippet>19</a>    </span>Import(String, String, ImportError),
 <a href=#20 id=20 data-nosnippet>20</a>
-<a href=#21 id=21 data-nosnippet>21</a>    <span class="doccomment">/// A trap ocurred during linking.
+<a href=#21 id=21 data-nosnippet>21</a>    <span class="doccomment">/// A trap occurred during linking.
 <a href=#22 id=22 data-nosnippet>22</a>    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(<span class="string">"RuntimeError occurred during linking: {0}"</span>))]
 <a href=#23 id=23 data-nosnippet>23</a>    </span>Trap(<span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, source)] </span>RuntimeError),
 <a href=#24 id=24 data-nosnippet>24</a>    <span class="doccomment">/// Insufficient resources available for linking.
@@ -37,7 +37,7 @@
 <a href=#37 id=37 data-nosnippet>37</a></span><span class="attr">#[derive(Debug, Clone)]
 <a href=#38 id=38 data-nosnippet>38</a>#[cfg_attr(feature = <span class="string">"std"</span>, derive(Error))]
 <a href=#39 id=39 data-nosnippet>39</a></span><span class="kw">pub enum </span>InstantiationError {
-<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// A linking ocurred during instantiation.
+<a href=#40 id=40 data-nosnippet>40</a>    <span class="doccomment">/// A linking occurred during instantiation.
 <a href=#41 id=41 data-nosnippet>41</a>    </span><span class="attr">#[cfg_attr(feature = <span class="string">"std"</span>, error(transparent))]
 <a href=#42 id=42 data-nosnippet>42</a>    </span>Link(LinkError),
 <a href=#43 id=43 data-nosnippet>43</a>
