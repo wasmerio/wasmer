@@ -1522,7 +1522,10 @@ impl MachineRiscv {
         let mut fprs = vec![];
         let src = self.location_to_fpr(size_in, loc, &mut fprs, ImmType::None, true)?;
         let dest = self.location_to_reg(size_out, ret, &mut gprs, ImmType::None, false, None)?;
-        // TODO: save+restore the rounding moves in the FSCR register?
+
+        // The documentation link connected to the behavior connected to FCSR register: https://five-embeddev.com/riscv-user-isa-manual/Priv-v1.12/f.html.
+
+        // TODO: save+restore the rounding moves in the FCSR register?
         if !sat {
             self.reset_fscr_fflags()?;
         }

@@ -12,6 +12,9 @@ use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
 
 /*
+
+Register definition: https://en.wikichip.org/wiki/risc-v/registers#Calling_convention
+
 +-----+-----------+-------------------------------+-------------------+
 | Reg | ABI Name  | Description                   | Saved by Callee   |
 +-----+-----------+-------------------------------+-------------------+
@@ -450,7 +453,7 @@ impl ArgumentRegisterAllocator {
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "No register available for type {ty}"
-                    )))
+                    )));
                 }
             }
         };
