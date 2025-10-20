@@ -2276,8 +2276,21 @@ impl Machine for MachineRiscv {
                 self.release_gpr(tmp);
                 Ok(())
             }
-            (Location::Memory(_, _), Location::GPR(_)) => {
-                self.assembler.emit_ld(size, false, dest, source)
+            (Location::Memory(addr, offset), Location::GPR(_)) => {
+                let addr = if ImmType::Bits12.compatible_imm(offset as _) {
+                    source
+                } else {
+                    self.assembler
+                        .emit_mov_imm(Location::GPR(SCRATCH_REG), offset as _)?;
+                    self.assembler.emit_add(
+                        Size::S64,
+                        Location::GPR(addr),
+                        Location::GPR(SCRATCH_REG),
+                        Location::GPR(SCRATCH_REG),
+                    )?;
+                    Location::Memory(SCRATCH_REG, 0)
+                };
+                self.assembler.emit_ld(size, false, dest, addr)
             }
             (Location::GPR(_), Location::SIMD(_)) => self.assembler.emit_mov(size, source, dest),
             (Location::SIMD(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),

@@ -1747,7 +1747,12 @@ pub fn gen_std_trampoline_riscv(
             stack_offset += 8;
             assert!(stack_offset % 16 == 0);
         }
-        dynasm!(a ; addi sp, sp, -(stack_offset as i32));
+        if ImmType::Bits12Subtraction.compatible_imm(stack_offset as _) {
+            dynasm!(a ; addi sp, sp, -(stack_offset as i32));
+        } else {
+            a.emit_mov_imm(Location::GPR(SCRATCH_REG), stack_offset as _)?;
+            dynasm!(a ; sub sp, sp, X(SCRATCH_REG));
+        }
     }
 
     // Move arguments to their locations.
@@ -1787,13 +1792,22 @@ pub fn gen_std_trampoline_riscv(
                     )?;
                     Location::Memory(SCRATCH_REG, 0)
                 };
-
                 a.emit_ld(sz, false, Location::GPR(SCRATCH_REG), arg_location)?;
-                a.emit_sd(
-                    sz,
-                    Location::GPR(SCRATCH_REG),
-                    Location::Memory(GPR::Sp, caller_stack_offset),
-                )?;
+
+                let arg_dest_location =
+                    if ImmType::Bits12.compatible_imm(caller_stack_offset as i64) {
+                        Location::Memory(GPR::Sp, caller_stack_offset)
+                    } else {
+                        a.emit_mov_imm(Location::GPR(GPR::X29), caller_stack_offset as i64)?;
+                        a.emit_add(
+                            Size::S64,
+                            Location::GPR(GPR::X29),
+                            Location::GPR(GPR::Sp),
+                            Location::GPR(GPR::X29),
+                        )?;
+                        Location::Memory(GPR::X29, 0)
+                    };
+                a.emit_sd(sz, Location::GPR(SCRATCH_REG), arg_dest_location)?;
                 caller_stack_offset += 8;
             }
         }
@@ -1817,9 +1831,15 @@ pub fn gen_std_trampoline_riscv(
         ; ld X(fptr), [s0,8]
         ; ld ra, [s0,16]
         ; ld s0, [s0,24]
-        ; addi sp, sp, 32 + stack_offset as i32
-        ; ret
     );
+    let restored_stack_offset = 32 + stack_offset;
+    if ImmType::Bits12.compatible_imm(restored_stack_offset as _) {
+        dynasm!(a; addi sp, sp, restored_stack_offset as _);
+    } else {
+        a.emit_mov_imm(Location::GPR(SCRATCH_REG), restored_stack_offset as _)?;
+        dynasm!(a; add sp, sp, X(SCRATCH_REG));
+    }
+    dynasm!(a; ret);
 
     let mut body = a.finalize().unwrap();
 
