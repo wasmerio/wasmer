@@ -6305,6 +6305,6 @@ impl Machine for MachineRiscv {
         None
     }
     fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
-        todo!()
+        None
     }
 }
