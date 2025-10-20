@@ -1,27 +1,19 @@
 //! RISC-V emitter scaffolding.
 
-// TODO: handle warnings
-#![allow(unused_variables, unused_imports)]
-
-use std::{ops::Add, path::Path};
-
 use crate::{
     codegen_error,
     common_decl::{Size, save_assembly_to_file},
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
-    machine_riscv::{AssemblerRiscv, ImmType},
+    machine_riscv::ImmType,
     riscv_decl::{ArgumentRegisterAllocator, RiscvRegister},
 };
 pub use crate::{
-    location::Multiplier,
     machine::{Label, Offset},
     riscv_decl::{FPR, GPR},
 };
 use dynasm::dynasm;
-use dynasmrt::{
-    AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler, riscv::RiscvRelocation,
-};
+use dynasmrt::{DynasmApi, DynasmLabelApi, VecAssembler, riscv::RiscvRelocation};
 use wasmer_compiler::types::{
     function::FunctionBody,
     section::{CustomSection, CustomSectionProtection, SectionBody},
@@ -32,8 +24,6 @@ use wasmer_types::{
 };
 
 type Assembler = VecAssembler<RiscvRelocation>;
-
-// TODO: handle features properly
 
 /// Force `dynasm!` to use the correct arch (riscv64) when cross-compiling.
 macro_rules! dynasm {
@@ -133,10 +123,7 @@ pub trait EmitterRiscv {
     fn finalize_function(&mut self) -> Result<(), CompileError>;
 
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError>;
-
-    // TODO: add methods for emitting RISC-V instructions (e.g., loads, stores, arithmetic, branches, etc.)
     fn emit_brk(&mut self) -> Result<(), CompileError>;
-
     fn emit_ld(
         &mut self,
         sz: Size,
@@ -1033,7 +1020,6 @@ impl EmitterRiscv for Assembler {
             (Size::S32, Location::SIMD(src), Location::SIMD(dst)) => {
                 dynasm!(self ; fmv.s F(dst), F(src));
             }
-            // TODO: add more variants
             _ => codegen_error!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
         }
 
@@ -1716,7 +1702,7 @@ impl EmitterRiscv for Assembler {
 
 pub fn gen_std_trampoline_riscv(
     sig: &FunctionType,
-    calling_convention: CallingConvention,
+    _calling_convention: CallingConvention,
 ) -> Result<FunctionBody, CompileError> {
     let mut a = Assembler::new(0);
 
@@ -1983,7 +1969,7 @@ pub fn gen_import_call_trampoline_riscv(
     vmoffsets: &VMOffsets,
     index: FunctionIndex,
     sig: &FunctionType,
-    calling_convention: CallingConvention,
+    _calling_convention: CallingConvention,
 ) -> Result<CustomSection, CompileError> {
     let mut a = Assembler::new(0);
 

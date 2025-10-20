@@ -1,8 +1,5 @@
 //! RISC-V machine scaffolding.
 
-// TODO: handle warnings
-#![allow(unused_variables, unused_imports, dead_code)]
-
 use dynasmrt::{DynasmError, VecAssembler, riscv::RiscvRelocation};
 #[cfg(feature = "unwind")]
 use gimli::{RiscV, write::CallFrameInstruction};
@@ -12,13 +9,13 @@ use wasmer_compiler::{
         address_map::InstructionAddressMap,
         function::FunctionBody,
         relocation::{Relocation, RelocationKind, RelocationTarget},
-        section::{CustomSection, CustomSectionProtection, SectionBody},
+        section::CustomSection,
     },
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
-    target::{CallingConvention, CpuFeature, Target},
+    target::{CallingConvention, Target},
 };
 
 use crate::{
@@ -39,20 +36,14 @@ use std::ops::{Deref, DerefMut};
 pub struct AssemblerRiscv {
     /// Inner dynasm assembler.
     pub inner: Assembler,
-    /// Optional FPU (SIMD) feature.
-    pub simd_arch: Option<CpuFeature>,
-    /// Target CPU configuration.
-    pub target: Option<Target>,
 }
 
 impl AssemblerRiscv {
     /// Create a new RISC-V assembler.
-    pub fn new(base_addr: usize, target: Option<Target>) -> Result<Self, CompileError> {
-        let simd_arch = None; // TODO: detect RISC-V FPU extensions (e.g., F/D)
+    pub fn new(base_addr: usize, _target: Option<Target>) -> Result<Self, CompileError> {
+        // TODO: detect RISC-V FPU extensions (e.g., F/D)
         Ok(Self {
             inner: Assembler::new(base_addr),
-            simd_arch,
-            target,
         })
     }
 
@@ -88,8 +79,6 @@ pub struct MachineRiscv {
     src_loc: u32,
     /// Vector of unwind operations with offset.
     unwind_ops: Vec<(usize, UnwindOps<GPR, FPR>)>,
-    /// Flag indicating if this machine supports floating-point.
-    has_fpu: bool,
 }
 
 const SCRATCH_REG: GPR = GPR::X28;
@@ -99,10 +88,7 @@ const CANONICAL_NAN_F32: u32 = 0x7fc00000;
 impl MachineRiscv {
     /// Creates a new RISC-V machine for code generation.
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
-        let has_fpu = match target {
-            Some(ref t) => t.cpu_features().contains(CpuFeature::NEON), // TODO: replace with RISC-V FPU feature
-            None => false,
-        };
+        // TODO: for now always require FPU
         Ok(MachineRiscv {
             assembler: AssemblerRiscv::new(0, target)?,
             used_gprs: 0,
@@ -111,7 +97,6 @@ impl MachineRiscv {
             instructions_address_map: vec![],
             src_loc: 0,
             unwind_ops: vec![],
-            has_fpu,
         })
     }
 
@@ -228,7 +213,7 @@ impl MachineRiscv {
                 }
                 Ok(Location::SIMD(tmp))
             }
-            Location::Memory(reg, val) => {
+            Location::Memory(_, _) => {
                 let tmp = self.acquire_temp_simd().ok_or_else(|| {
                     CompileError::Codegen("singlepass cannot acquire temp fpr".to_owned())
                 })?;
@@ -1829,11 +1814,6 @@ impl ImmType {
     }
 }
 
-#[allow(dead_code)]
-impl MachineRiscv {
-    // TODO: helper functions for RISC-V immediates and addressing.
-}
-
 impl Machine for MachineRiscv {
     type GPR = GPR;
     type SIMD = FPR;
@@ -2001,7 +1981,6 @@ impl Machine for MachineRiscv {
         self.src_loc = offset;
     }
 
-    // TODO: refactoring: make the code generic
     fn mark_address_range_with_trap_code(&mut self, code: TrapCode, begin: usize, end: usize) {
         for i in begin..end {
             self.trap_table.offset_to_code.insert(i, code);
@@ -2009,7 +1988,9 @@ impl Machine for MachineRiscv {
         self.mark_instruction_address_end(begin);
     }
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
-        todo!()
+        let offset = self.assembler.get_offset().0;
+        self.trap_table.offset_to_code.insert(offset, code);
+        self.mark_instruction_address_end(offset);
     }
     /// Marks the instruction as trappable with trap code `code`. return "begin" offset
     fn mark_instruction_with_trap_code(&mut self, code: TrapCode) -> usize {
@@ -2071,7 +2052,6 @@ impl Machine for MachineRiscv {
         let delta = if ImmType::Bits12.compatible_imm(delta_stack_offset as _) {
             Location::Imm64(delta_stack_offset as _)
         } else {
-            let tmp = GPR::X28;
             self.assembler
                 .emit_mov_imm(Location::GPR(SCRATCH_REG), delta_stack_offset as _)?;
             Location::GPR(SCRATCH_REG)
@@ -2167,15 +2147,15 @@ impl Machine for MachineRiscv {
         }
         Ok(())
     }
-    fn list_to_save(&self, calling_convention: CallingConvention) -> Vec<Location> {
+    fn list_to_save(&self, _calling_convention: CallingConvention) -> Vec<Location> {
         vec![]
     }
     fn get_param_location(
         &self,
         idx: usize,
-        sz: Size,
+        _sz: Size,
         stack_args: &mut usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
         match idx {
             0 => Location::GPR(GPR::X10),
@@ -2197,9 +2177,9 @@ impl Machine for MachineRiscv {
     fn get_call_param_location(
         &self,
         idx: usize,
-        sz: Size,
+        _sz: Size,
         stack_args: &mut usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
         match idx {
             0 => Location::GPR(GPR::X10),
@@ -2220,7 +2200,7 @@ impl Machine for MachineRiscv {
     fn get_simple_param_location(
         &self,
         idx: usize,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
     ) -> Location {
         match idx {
             0 => Location::GPR(GPR::X10),
@@ -2244,7 +2224,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         match (source, dest) {
             (Location::GPR(_), Location::GPR(_)) => self.assembler.emit_mov(size, source, dest),
-            (Location::Imm32(_) | Location::Imm64(_), Location::GPR(dst)) => self
+            (Location::Imm32(_) | Location::Imm64(_), Location::GPR(_)) => self
                 .assembler
                 .emit_mov_imm(dest, source.imm_value_scalar().unwrap()),
             (Location::GPR(_), Location::Memory(addr, offset)) => {
@@ -2342,11 +2322,11 @@ impl Machine for MachineRiscv {
 
     fn load_address(
         &mut self,
-        size: Size,
-        gpr: Location,
-        mem: Location,
+        _size: Size,
+        _gpr: Location,
+        _mem: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass load_address unimplemented");
     }
 
     // Init the stack loc counter
@@ -2594,16 +2574,16 @@ impl Machine for MachineRiscv {
         self.assembler.emit_call_register(register)
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_call_label(label)
     }
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
         false
     }
     fn arch_emit_indirect_call_with_trampoline(
         &mut self,
-        location: Location,
+        _location: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass arch_emit_indirect_call_with_trampoline unimplemented")
     }
     fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
         let mut temps = vec![];
@@ -2629,45 +2609,45 @@ impl Machine for MachineRiscv {
     }
     fn location_address(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_address not implemented")
     }
     fn location_and(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
+        _flags: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_and not implemented")
     }
     fn location_xor(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
+        _flags: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_xor not implemented")
     }
     fn location_or(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
+        _flags: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_or not implemented")
     }
     fn location_add(
         &mut self,
         size: Size,
         source: Location,
         dest: Location,
-        flags: bool,
+        _flags: bool,
     ) -> Result<(), CompileError> {
         let mut temps = vec![];
         let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits12, true, None)?;
@@ -2683,38 +2663,38 @@ impl Machine for MachineRiscv {
     }
     fn location_sub(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
+        _flags: bool,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_sub not implemented")
     }
     fn location_neg(
         &mut self,
-        size_val: Size, // size of src
-        signed: bool,
-        source: Location,
-        size_op: Size,
-        dest: Location,
+        _size_val: Size, // size of src
+        _signed: bool,
+        _source: Location,
+        _size_op: Size,
+        _dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_neg not implemented")
     }
     fn location_cmp(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_cmp not implemented")
     }
     fn location_test(
         &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
+        _size: Size,
+        _source: Location,
+        _dest: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass location_test not implemented")
     }
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_j_label(label)
@@ -2810,23 +2790,23 @@ impl Machine for MachineRiscv {
     }
     fn emit_relaxed_cmp(
         &mut self,
-        sz: Size,
-        src: Location,
-        dst: Location,
+        _sz: Size,
+        _src: Location,
+        _dst: Location,
     ) -> Result<(), CompileError> {
         todo!();
     }
     fn emit_memory_fence(&mut self) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_rwfence()
     }
     fn emit_relaxed_zero_extension(
         &mut self,
-        sz_src: Size,
-        src: Location,
-        sz_dst: Size,
-        dst: Location,
+        _sz_src: Size,
+        _src: Location,
+        _sz_dst: Size,
+        _dst: Location,
     ) -> Result<(), CompileError> {
-        todo!()
+        codegen_error!("singlepass emit_relaxed_zero_extension unimplemented");
     }
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -2993,7 +2973,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
+        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -3018,7 +2998,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
+        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -3237,7 +3217,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3260,7 +3240,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3283,7 +3263,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3306,7 +3286,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3329,7 +3309,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3352,7 +3332,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3375,7 +3355,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3398,7 +3378,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3421,7 +3401,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3444,7 +3424,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3467,7 +3447,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3490,7 +3470,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3514,7 +3494,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3538,7 +3518,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3563,7 +3543,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3589,7 +3569,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3615,7 +3595,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3641,7 +3621,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3667,7 +3647,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3693,7 +3673,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3719,7 +3699,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3745,7 +3725,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3771,7 +3751,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3797,7 +3777,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3823,7 +3803,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3849,7 +3829,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3875,7 +3855,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3901,7 +3881,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3927,7 +3907,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3953,7 +3933,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -3979,7 +3959,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4005,7 +3985,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4032,7 +4012,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4057,7 +4037,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4082,7 +4062,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4102,13 +4082,12 @@ impl Machine for MachineRiscv {
     }
     fn emit_call_with_reloc(
         &mut self,
-        calling_convention: CallingConvention,
+        _calling_convention: CallingConvention,
         reloc_target: RelocationTarget,
     ) -> Result<Vec<Relocation>, CompileError> {
         let mut relocations = vec![];
         let next = self.get_label();
         let reloc_at = self.assembler.get_offset().0;
-        // TODO: verify if valid for RISC-V
         self.emit_label(next)?; // this is to be sure the current imm26 value is 0
         self.assembler.emit_call_label(next)?;
         relocations.push(Relocation {
@@ -4237,7 +4216,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
+        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4262,7 +4241,7 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
+        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4481,7 +4460,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4504,7 +4483,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4527,7 +4506,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4550,7 +4529,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4573,7 +4552,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4596,7 +4575,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4619,7 +4598,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4642,7 +4621,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4665,7 +4644,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4688,7 +4667,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4711,7 +4690,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4734,7 +4713,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4757,7 +4736,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4780,7 +4759,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4803,7 +4782,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4826,7 +4805,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4850,7 +4829,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4874,7 +4853,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4898,7 +4877,7 @@ impl Machine for MachineRiscv {
         value: Location,
         memarg: &MemArg,
         addr: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4923,7 +4902,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4949,7 +4928,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -4975,7 +4954,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5001,7 +4980,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5027,7 +5006,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5053,7 +5032,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5079,7 +5058,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5105,7 +5084,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5131,7 +5110,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5157,7 +5136,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5183,7 +5162,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5209,7 +5188,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5235,7 +5214,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5261,7 +5240,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5287,7 +5266,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5313,7 +5292,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5339,7 +5318,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5365,7 +5344,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5391,7 +5370,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5417,7 +5396,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5443,7 +5422,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5469,7 +5448,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5495,7 +5474,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5521,7 +5500,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5548,7 +5527,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5573,7 +5552,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5598,7 +5577,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5623,7 +5602,7 @@ impl Machine for MachineRiscv {
         target: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5646,7 +5625,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5670,7 +5649,7 @@ impl Machine for MachineRiscv {
         memarg: &MemArg,
         addr: Location,
         canonicalize: bool,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5700,7 +5679,7 @@ impl Machine for MachineRiscv {
         addr: Location,
         memarg: &MemArg,
         ret: Location,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -5724,7 +5703,7 @@ impl Machine for MachineRiscv {
         memarg: &MemArg,
         addr: Location,
         canonicalize: bool,
-        need_check: bool,
+        _need_check: bool,
         imported_memories: bool,
         offset: i32,
         heap_access_oob: Label,
@@ -6325,7 +6304,7 @@ impl Machine for MachineRiscv {
     fn gen_dwarf_unwind_info(&mut self, _code_len: usize) -> Option<UnwindInstructions> {
         None
     }
-    fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>> {
+    fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         todo!()
     }
 }

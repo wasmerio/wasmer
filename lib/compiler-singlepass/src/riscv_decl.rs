@@ -1,14 +1,10 @@
 //! RISC-V structures.
 
-// TODO: handle warnings
-#![allow(unused_variables, unused_imports)]
-
 use crate::{
     common_decl::{MachineState, MachineValue, RegisterIndex},
     location::{CombinedRegister, Reg as AbstractReg},
 };
 use std::{collections::BTreeMap, slice::Iter};
-use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
 
 /*
