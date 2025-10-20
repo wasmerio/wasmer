@@ -5,7 +5,6 @@ This crate contains a compiler implementation based on the Singlepass linear com
 Supported targets:
 - x86_64
 - aarch64
-- riscv32 (experimental)
 - riscv64 (experimental)
 ## Usage
 

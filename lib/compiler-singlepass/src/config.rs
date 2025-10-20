@@ -45,16 +45,10 @@ impl CompilerConfig for Singlepass {
     }
 
     /// Gets the supported features for this compiler in the given target
-    fn supported_features_for_target(&self, target: &Target) -> Features {
+    fn supported_features_for_target(&self, _target: &Target) -> Features {
         let mut features = Features::default();
         features.multi_value(false);
-        // RISC-V support
-        match target.triple().architecture {
-            Architecture::Riscv32(_) | Architecture::Riscv64(_) => {
-                // TODO: enable RISC-V specific CPU features if any
-            }
-            _ => {}
-        }
+        // TODO: RISC-V support: enable RISC-V specific CPU features if any
         features
     }
 

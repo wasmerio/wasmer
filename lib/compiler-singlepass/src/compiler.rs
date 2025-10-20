@@ -84,7 +84,7 @@ impl Compiler for SinglepassCompiler {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
             #[cfg(feature = "riscv")]
-            Architecture::Riscv32(_) | Architecture::Riscv64(_) => {}
+            Architecture::Riscv64(_) => {}
             _ => {
                 return Err(CompileError::UnsupportedTarget(
                     target.triple().architecture.to_string(),
@@ -97,7 +97,7 @@ impl Compiler for SinglepassCompiler {
             Ok(CallingConvention::SystemV) => CallingConvention::SystemV,
             Ok(CallingConvention::AppleAarch64) => CallingConvention::AppleAarch64,
             _ => match target.triple().architecture {
-                Architecture::Riscv32(_) | Architecture::Riscv64(_) => CallingConvention::SystemV,
+                Architecture::Riscv64(_) => CallingConvention::SystemV,
                 _ => {
                     return Err(CompileError::UnsupportedTarget(
                         "Unsupported Calling convention for Singlepass compiler".to_string(),
@@ -218,7 +218,7 @@ impl Compiler for SinglepassCompiler {
                         generator.finalize(input)
                     }
                     #[cfg(feature = "riscv")]
-                    Architecture::Riscv32(_) | Architecture::Riscv64(_) => {
+                    Architecture::Riscv64(_) => {
                         let machine = MachineRiscv::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
                             module,
