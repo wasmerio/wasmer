@@ -36,7 +36,6 @@ pub(crate) struct CommonWasiOptions {
     pub(crate) mapped_host_commands: Vec<MappedCommand>,
     pub(crate) mounts: Vec<MountedDirectory>,
     pub(crate) is_home_mapped: bool,
-    pub(crate) is_tmp_mapped: bool,
     pub(crate) injected_packages: Vec<BinaryPackage>,
     pub(crate) capabilities: Capabilities,
     pub(crate) read_only_journals: Vec<Arc<DynReadableJournal>>,
@@ -61,9 +60,12 @@ impl CommonWasiOptions {
         }
 
         let root_fs = root_fs.unwrap_or_else(|| {
-            RootFileSystemBuilder::default()
-                .with_tmp(!self.is_tmp_mapped)
-                .build()
+            let mapped_dirs = self
+                .mounts
+                .iter()
+                .map(|d| d.guest.as_str())
+                .collect::<Vec<_>>();
+            RootFileSystemBuilder::default().build_ext(&mapped_dirs)
         });
         let fs = prepare_filesystem(root_fs, &self.mounts, container_fs)?;
 
