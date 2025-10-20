@@ -1259,6 +1259,12 @@ impl EmitterX64 for AssemblerX64 {
         }
         Ok(())
     }
+
+    /// Emit a CMP instruction that compares `left` against `right`.
+    ///
+    /// Note: callers sometimes pass operands in the opposite order compared
+    /// to other binary operators. This function performs the comparison as
+    /// provided (i.e. it emits `cmp left, right` semantics).
     fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CompileError> {
         // Constant elimination for comparison between consts.
         //
