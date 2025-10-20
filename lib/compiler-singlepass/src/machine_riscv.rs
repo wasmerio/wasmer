@@ -2629,7 +2629,7 @@ impl Machine for MachineRiscv {
         FPR::F10
     }
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError> {
-        todo!()
+        self.assembler.emit_brk()
     }
     fn location_address(
         &mut self,
