@@ -1869,6 +1869,9 @@ impl Machine for MachineRiscv {
     // Picks an unused general purpose register for internal temporary use.
     fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
+        // Reserve a few registers for the first locals of a function!
+        // These registers below are also used for argument passing, so they must
+        // be saved/moved in the function prologue before being used as temps.
         static REGS: &[GPR] = &[X17, X16, X15, X14, X13, X12, X11, X10];
         for r in REGS {
             if !self.used_gprs_contains(r) {
