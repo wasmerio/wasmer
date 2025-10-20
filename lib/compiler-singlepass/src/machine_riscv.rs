@@ -2149,7 +2149,7 @@ impl Machine for MachineRiscv {
 
     // Move a local to the stack
     fn move_local(&mut self, stack_offset: i32, location: Location) -> Result<(), CompileError> {
-        self.assembler.emit_sd(
+        self.move_location(
             Size::S64,
             location,
             Location::Memory(GPR::Fp, -stack_offset),
