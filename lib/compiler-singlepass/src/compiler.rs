@@ -97,7 +97,7 @@ impl Compiler for SinglepassCompiler {
                 _ => {
                     return Err(CompileError::UnsupportedTarget(
                         "Unsupported Calling convention for Singlepass compiler".to_string(),
-                    ))
+                    ));
                 }
             },
         };

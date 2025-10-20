@@ -12,7 +12,7 @@
 
 use std::iter;
 
-use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, TypedFunction, Value};
+use wasmer::{Function, Instance, Module, Store, TypedFunction, Value, imports, wat2wasm};
 use wasmer_compiler_singlepass::Singlepass;
 
 fn gen_wat_add_function(arguments: usize) -> String {
