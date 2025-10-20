@@ -393,13 +393,13 @@
 <a href=#393 id=393 data-nosnippet>393</a>    <span class="doccomment">/// jmp without condidtion
 <a href=#394 id=394 data-nosnippet>394</a>    </span><span class="kw">fn </span>jmp_unconditionnal(<span class="kw-2">&amp;mut </span><span class="self">self</span>, label: Label) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#395 id=395 data-nosnippet>395</a>
-<a href=#396 id=396 data-nosnippet>396</a>    <span class="doccomment">/// jmp to label if the provided condition is true (when comparing source and dest)
+<a href=#396 id=396 data-nosnippet>396</a>    <span class="doccomment">/// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
 <a href=#397 id=397 data-nosnippet>397</a>    </span><span class="kw">fn </span>jmp_on_condition(
 <a href=#398 id=398 data-nosnippet>398</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#399 id=399 data-nosnippet>399</a>        cond: UnsignedCondition,
 <a href=#400 id=400 data-nosnippet>400</a>        size: Size,
-<a href=#401 id=401 data-nosnippet>401</a>        source: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
-<a href=#402 id=402 data-nosnippet>402</a>        dest: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+<a href=#401 id=401 data-nosnippet>401</a>        loc_a: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+<a href=#402 id=402 data-nosnippet>402</a>        loc_b: Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#403 id=403 data-nosnippet>403</a>        label: Label,
 <a href=#404 id=404 data-nosnippet>404</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt;;
 <a href=#405 id=405 data-nosnippet>405</a>

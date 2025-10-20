@@ -2532,11 +2532,11 @@
 <a href=#2532 id=2532 data-nosnippet>2532</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#2533 id=2533 data-nosnippet>2533</a>        cond: UnsignedCondition,
 <a href=#2534 id=2534 data-nosnippet>2534</a>        size: Size,
-<a href=#2535 id=2535 data-nosnippet>2535</a>        source: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
-<a href=#2536 id=2536 data-nosnippet>2536</a>        dest: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+<a href=#2535 id=2535 data-nosnippet>2535</a>        loc_a: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+<a href=#2536 id=2536 data-nosnippet>2536</a>        loc_b: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#2537 id=2537 data-nosnippet>2537</a>        label: Label,
 <a href=#2538 id=2538 data-nosnippet>2538</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#2539 id=2539 data-nosnippet>2539</a>        <span class="self">self</span>.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
+<a href=#2539 id=2539 data-nosnippet>2539</a>        <span class="self">self</span>.emit_relaxed_binop(Assembler::emit_cmp, size, loc_b, loc_a, <span class="bool-val">false</span>)<span class="question-mark">?</span>;
 <a href=#2540 id=2540 data-nosnippet>2540</a>        <span class="kw">let </span>cond = <span class="kw">match </span>cond {
 <a href=#2541 id=2541 data-nosnippet>2541</a>            UnsignedCondition::Equal =&gt; Condition::Eq,
 <a href=#2542 id=2542 data-nosnippet>2542</a>            UnsignedCondition::NotEqual =&gt; Condition::Ne,

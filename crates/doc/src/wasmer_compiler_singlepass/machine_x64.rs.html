@@ -2718,11 +2718,11 @@
 <a href=#2718 id=2718 data-nosnippet>2718</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
 <a href=#2719 id=2719 data-nosnippet>2719</a>        cond: UnsignedCondition,
 <a href=#2720 id=2720 data-nosnippet>2720</a>        size: Size,
-<a href=#2721 id=2721 data-nosnippet>2721</a>        source: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
-<a href=#2722 id=2722 data-nosnippet>2722</a>        dest: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+<a href=#2721 id=2721 data-nosnippet>2721</a>        loc_a: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
+<a href=#2722 id=2722 data-nosnippet>2722</a>        loc_b: AbstractLocation&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;,
 <a href=#2723 id=2723 data-nosnippet>2723</a>        label: Label,
 <a href=#2724 id=2724 data-nosnippet>2724</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), CompileError&gt; {
-<a href=#2725 id=2725 data-nosnippet>2725</a>        <span class="self">self</span>.assembler.emit_cmp(size, source, dest)<span class="question-mark">?</span>;
+<a href=#2725 id=2725 data-nosnippet>2725</a>        <span class="self">self</span>.assembler.emit_cmp(size, loc_b, loc_a)<span class="question-mark">?</span>;
 <a href=#2726 id=2726 data-nosnippet>2726</a>        <span class="kw">let </span>cond = <span class="kw">match </span>cond {
 <a href=#2727 id=2727 data-nosnippet>2727</a>            UnsignedCondition::Equal =&gt; Condition::Equal,
 <a href=#2728 id=2728 data-nosnippet>2728</a>            UnsignedCondition::NotEqual =&gt; Condition::NotEqual,

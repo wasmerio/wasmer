@@ -2821,8 +2821,8 @@
 <a href=#2821 id=2821 data-nosnippet>2821</a>                <span class="self">self</span>.machine.jmp_on_condition(
 <a href=#2822 id=2822 data-nosnippet>2822</a>                    UnsignedCondition::BelowEqual,
 <a href=#2823 id=2823 data-nosnippet>2823</a>                    Size::S32,
-<a href=#2824 id=2824 data-nosnippet>2824</a>                    func_index,
-<a href=#2825 id=2825 data-nosnippet>2825</a>                    Location::GPR(table_count),
+<a href=#2824 id=2824 data-nosnippet>2824</a>                    Location::GPR(table_count),
+<a href=#2825 id=2825 data-nosnippet>2825</a>                    func_index,
 <a href=#2826 id=2826 data-nosnippet>2826</a>                    <span class="self">self</span>.special_labels.table_access_oob,
 <a href=#2827 id=2827 data-nosnippet>2827</a>                )<span class="question-mark">?</span>;
 <a href=#2828 id=2828 data-nosnippet>2828</a>                <span class="self">self</span>.machine
@@ -2849,8 +2849,8 @@
 <a href=#2849 id=2849 data-nosnippet>2849</a>                </span><span class="self">self</span>.machine.jmp_on_condition(
 <a href=#2850 id=2850 data-nosnippet>2850</a>                    UnsignedCondition::Equal,
 <a href=#2851 id=2851 data-nosnippet>2851</a>                    Size::S64,
-<a href=#2852 id=2852 data-nosnippet>2852</a>                    Location::Imm32(<span class="number">0</span>),
-<a href=#2853 id=2853 data-nosnippet>2853</a>                    Location::GPR(table_count),
+<a href=#2852 id=2852 data-nosnippet>2852</a>                    Location::GPR(table_count),
+<a href=#2853 id=2853 data-nosnippet>2853</a>                    Location::Imm32(<span class="number">0</span>),
 <a href=#2854 id=2854 data-nosnippet>2854</a>                    <span class="self">self</span>.special_labels.indirect_call_null,
 <a href=#2855 id=2855 data-nosnippet>2855</a>                )<span class="question-mark">?</span>;
 <a href=#2856 id=2856 data-nosnippet>2856</a>                <span class="self">self</span>.machine.move_location(
@@ -2986,8 +2986,8 @@
 <a href=#2986 id=2986 data-nosnippet>2986</a>                <span class="self">self</span>.machine.jmp_on_condition(
 <a href=#2987 id=2987 data-nosnippet>2987</a>                    UnsignedCondition::Equal,
 <a href=#2988 id=2988 data-nosnippet>2988</a>                    Size::S32,
-<a href=#2989 id=2989 data-nosnippet>2989</a>                    Location::Imm32(<span class="number">0</span>),
-<a href=#2990 id=2990 data-nosnippet>2990</a>                    cond,
+<a href=#2989 id=2989 data-nosnippet>2989</a>                    cond,
+<a href=#2990 id=2990 data-nosnippet>2990</a>                    Location::Imm32(<span class="number">0</span>),
 <a href=#2991 id=2991 data-nosnippet>2991</a>                    label_else,
 <a href=#2992 id=2992 data-nosnippet>2992</a>                )<span class="question-mark">?</span>;
 <a href=#2993 id=2993 data-nosnippet>2993</a>            }
@@ -3060,8 +3060,8 @@
 <a href=#3060 id=3060 data-nosnippet>3060</a>                <span class="self">self</span>.machine.jmp_on_condition(
 <a href=#3061 id=3061 data-nosnippet>3061</a>                    UnsignedCondition::Equal,
 <a href=#3062 id=3062 data-nosnippet>3062</a>                    Size::S32,
-<a href=#3063 id=3063 data-nosnippet>3063</a>                    Location::Imm32(<span class="number">0</span>),
-<a href=#3064 id=3064 data-nosnippet>3064</a>                    cond,
+<a href=#3063 id=3063 data-nosnippet>3063</a>                    cond,
+<a href=#3064 id=3064 data-nosnippet>3064</a>                    Location::Imm32(<span class="number">0</span>),
 <a href=#3065 id=3065 data-nosnippet>3065</a>                    zero_label,
 <a href=#3066 id=3066 data-nosnippet>3066</a>                )<span class="question-mark">?</span>;
 <a href=#3067 id=3067 data-nosnippet>3067</a>                <span class="kw">match </span>cncl {
@@ -4064,8 +4064,8 @@
 <a href=#4064 id=4064 data-nosnippet>4064</a>                <span class="self">self</span>.machine.jmp_on_condition(
 <a href=#4065 id=4065 data-nosnippet>4065</a>                    UnsignedCondition::Equal,
 <a href=#4066 id=4066 data-nosnippet>4066</a>                    Size::S32,
-<a href=#4067 id=4067 data-nosnippet>4067</a>                    Location::Imm32(<span class="number">0</span>),
-<a href=#4068 id=4068 data-nosnippet>4068</a>                    cond,
+<a href=#4067 id=4067 data-nosnippet>4067</a>                    cond,
+<a href=#4068 id=4068 data-nosnippet>4068</a>                    Location::Imm32(<span class="number">0</span>),
 <a href=#4069 id=4069 data-nosnippet>4069</a>                    after,
 <a href=#4070 id=4070 data-nosnippet>4070</a>                )<span class="question-mark">?</span>;
 <a href=#4071 id=4071 data-nosnippet>4071</a>
@@ -4113,8 +4113,8 @@
 <a href=#4113 id=4113 data-nosnippet>4113</a>                <span class="self">self</span>.machine.jmp_on_condition(
 <a href=#4114 id=4114 data-nosnippet>4114</a>                    UnsignedCondition::AboveEqual,
 <a href=#4115 id=4115 data-nosnippet>4115</a>                    Size::S32,
-<a href=#4116 id=4116 data-nosnippet>4116</a>                    Location::Imm32(targets.len() <span class="kw">as </span>u32),
-<a href=#4117 id=4117 data-nosnippet>4117</a>                    cond,
+<a href=#4116 id=4116 data-nosnippet>4116</a>                    cond,
+<a href=#4117 id=4117 data-nosnippet>4117</a>                    Location::Imm32(targets.len() <span class="kw">as </span>u32),
 <a href=#4118 id=4118 data-nosnippet>4118</a>                    default_br,
 <a href=#4119 id=4119 data-nosnippet>4119</a>                )<span class="question-mark">?</span>;
 <a href=#4120 id=4120 data-nosnippet>4120</a>
