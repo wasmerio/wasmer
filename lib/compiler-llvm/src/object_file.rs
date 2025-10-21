@@ -30,6 +30,7 @@ pub struct CompiledFunction {
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
     pub compact_unwind_section_indices: Vec<SectionIndex>,
+    pub gcc_except_table_section_indices: Vec<SectionIndex>,
 }
 
 static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -220,6 +221,12 @@ where
     // Add macos-specific unwind sections.
     let mut compact_unwind_section_indices = vec![];
 
+    // .gcc_except_table sections, which contain the actual LSDA data.
+    // We don't need the actual sections for anything (yet), but trampoline
+    // codegen checks custom section counts to verify there aren't any
+    // unexpected custom sections, so we do a bit of book-keeping here.
+    let mut gcc_except_table_section_indices = vec![];
+
     for section in obj.sections() {
         let index = section.index();
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
@@ -233,6 +240,11 @@ where
         } else if section.name().unwrap_or_default() == "__compact_unwind" {
             worklist.push(index);
             compact_unwind_section_indices.push(index);
+
+            elf_section_to_target(index);
+        } else if section.name().unwrap_or_default() == ".gcc_except_table" {
+            worklist.push(index);
+            gcc_except_table_section_indices.push(index);
 
             elf_section_to_target(index);
         }
@@ -611,6 +623,20 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
+    let gcc_except_table_section_indices = gcc_except_table_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".gcc_except_table section with index={index:?} was never loaded",
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
+
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
@@ -670,5 +696,6 @@ where
         custom_sections,
         eh_frame_section_indices,
         compact_unwind_section_indices,
+        gcc_except_table_section_indices,
     })
 }

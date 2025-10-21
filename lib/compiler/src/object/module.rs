@@ -461,6 +461,7 @@ pub fn emit_compilation(
                     )
                     .map_err(ObjectError::Write)?;
                 }
+                RelocationTarget::DynamicTrampoline(_) => todo!("Not supported yet"),
                 RelocationTarget::LibCall(libcall) => {
                     let mut libcall_fn_name = libcall.to_function_name().to_string();
                     if matches!(triple.binary_format, BinaryFormat::Macho) {
@@ -510,6 +511,7 @@ pub fn emit_compilation(
                     )
                     .map_err(ObjectError::Write)?;
                 }
+                RelocationTarget::Invalid => panic!("Invalid relocation target encountered"),
             };
         }
     }

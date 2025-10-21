@@ -74,7 +74,6 @@ members = [
 	"tests/lib/wast",
 	"tests/wasi-wast",
 	"tests/wasmer-argus",
-	"lib/sdk",
 ]
 exclude = ["./lib/cli/tests/packages/axum"]
 resolver = "2"
@@ -444,7 +443,6 @@ required-features = ["cranelift"]
 name = "http-dynamic-size"
 path = "examples/http_dynamic_size.rs"
 required-features = ["cranelift"]
-
 
 [[example]]
 name = "throw-exception"

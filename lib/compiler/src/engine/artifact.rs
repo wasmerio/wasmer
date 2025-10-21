@@ -373,6 +373,7 @@ impl Artifact {
             ArtifactBuildVariant::Plain(p) => link_module(
                 module_info,
                 &finished_functions,
+                &finished_dynamic_function_trampolines,
                 p.get_function_relocations()
                     .iter()
                     .map(|(k, v)| (k, v.iter())),
@@ -387,6 +388,7 @@ impl Artifact {
             ArtifactBuildVariant::Archived(a) => link_module(
                 module_info,
                 &finished_functions,
+                &finished_dynamic_function_trampolines,
                 a.get_function_relocations()
                     .iter()
                     .map(|(k, v)| (k, v.iter())),

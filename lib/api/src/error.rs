@@ -232,6 +232,7 @@ impl RuntimeError {
     pub fn to_exception(&self) -> Option<Exception> {
         match &self.inner.source {
             #[cfg(feature = "sys")]
+            // TODO: this loses the backtrace
             Trap::Sys(crate::backend::sys::vm::Trap::UncaughtException { exnref, .. }) => Some(
                 Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(exnref.clone())),
             ),

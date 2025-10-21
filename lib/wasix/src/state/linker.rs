@@ -3636,6 +3636,7 @@ impl InstanceGroupState {
 
         let ty = ty.clone();
         let resolved: Mutex<Option<Option<Function>>> = Mutex::new(None);
+
         Function::new_with_env(
             store,
             env,
@@ -3798,7 +3799,9 @@ impl InstanceGroupState {
                 drop(resolved_guard);
 
                 let mut store = env.as_store_mut();
-                func.call(&mut store, params).map(|ret| ret.into())
+                func.call(&mut store, params)
+                    .map(|ret| ret.into())
+                    .map_err(crate::flatten_runtime_error)
             },
         )
     }

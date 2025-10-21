@@ -89,7 +89,10 @@ impl Function {
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
-            ctx: DynamicFunction { func: wrapper },
+            ctx: DynamicFunction {
+                func: wrapper,
+                raw_store,
+            },
         });
         host_data.address = host_data.ctx.func_body_ptr();
 
@@ -428,6 +431,7 @@ impl Function {
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
     func: F,
+    raw_store: *mut u8,
 }
 
 impl<F> DynamicFunction<F>
@@ -436,7 +440,7 @@ where
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
-    unsafe extern "C" fn func_wrapper(
+    unsafe extern "C-unwind" fn func_wrapper(
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
@@ -451,7 +455,20 @@ where
         // See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
             Ok(Ok(())) => {}
-            Ok(Err(trap)) => raise_user_trap(trap),
+            Ok(Err(trap)) => {
+                // TODO: is it safe to do all this on the WASM stack?
+                let dyn_err_ref = trap.as_ref() as &dyn Error;
+                if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>() {
+                    if let Some(exception) = runtime_error.to_exception() {
+                        let store = StoreMut::from_raw(this.ctx.raw_store as *mut _);
+                        wasmer_vm::libcalls::throw(
+                            store.as_store_ref().objects().as_sys(),
+                            exception.vm_exceptionref().as_sys().to_u32_exnref(),
+                        );
+                    }
+                }
+                raise_user_trap(trap)
+            }
             Err(panic) => resume_panic(panic),
         }
     }

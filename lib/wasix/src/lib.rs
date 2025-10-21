@@ -916,3 +916,22 @@ where
         }
     }
 }
+
+pub(crate) fn flatten_runtime_error(err: RuntimeError) -> RuntimeError {
+    let e_ref = err.downcast_ref::<WasiRuntimeError>();
+    match e_ref {
+        Some(WasiRuntimeError::Wasi(_)) => {
+            let Ok(WasiRuntimeError::Wasi(err)) = err.downcast::<WasiRuntimeError>() else {
+                unreachable!()
+            };
+            RuntimeError::user(Box::new(err))
+        }
+        Some(WasiRuntimeError::Runtime(_)) => {
+            let Ok(WasiRuntimeError::Runtime(err)) = err.downcast::<WasiRuntimeError>() else {
+                unreachable!()
+            };
+            flatten_runtime_error(err)
+        }
+        _ => err,
+    }
+}
