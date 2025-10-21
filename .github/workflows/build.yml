@@ -483,8 +483,7 @@ jobs:
           docker build -t wasmer/riscv64 ${GITHUB_WORKSPACE}/.github/cross-linux-riscv64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-
-      - name: "RISC-V: Run wast test suite for all compilers"
+      - name: "Run wast test suite for all compilers"
         run: test-stage-0-wast
         env:
           CARGO_BINARY: docker run -v /var/run/docker.sock:/var/run/docker.sock -v ${GITHUB_WORKSPACE}:/project -w /project wasmer/riscv64:latest cargo
