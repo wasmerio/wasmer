@@ -48,7 +48,7 @@ use crate::{
 };
 use crate::{VMExceptionObj, probestack::PROBESTACK};
 use crate::{VMFuncRef, on_host_stack};
-pub use eh::throw;
+pub use eh::{throw, wasmer_eh_personality};
 pub use wasmer_types::LibCall;
 use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, RawValue,

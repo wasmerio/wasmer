@@ -232,7 +232,7 @@ impl CompactUnwindManager {
 
             if info.dli_fbase.is_null() {
                 _ = libc::dladdr(
-                    wasmer_vm::libcalls::eh::wasmer_eh_personality as *const _,
+                    wasmer_vm::libcalls::wasmer_eh_personality as *const _,
                     &mut info as *mut _,
                 );
             }
