@@ -86,4 +86,4 @@ pub use proc_raise::*;
 pub use random_get::*;
 pub use thread_spawn::*;
 
-use tracing::{debug_span, field, instrument, trace_span, Span};
+use tracing::{Span, debug_span, field, instrument, trace_span};

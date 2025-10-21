@@ -1,11 +1,11 @@
 use crate::{
     commands::{
+        AsyncCliCommand,
         package::{
             common::{wait::*, *},
             push::PackagePush,
             tag::PackageTag,
         },
-        AsyncCliCommand,
     },
     config::WasmerEnv,
 };

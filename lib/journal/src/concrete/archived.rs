@@ -2,7 +2,7 @@ use num_enum::{IntoPrimitive, TryFromPrimitive};
 use rkyv::rancor::Fallible;
 use rkyv::ser::{Allocator, Writer};
 use rkyv::{
-    api::serialize_using, Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
+    Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize, api::serialize_using,
 };
 use std::net::{IpAddr, Ipv4Addr, Ipv6Addr, SocketAddr};
 use std::time::{Duration, SystemTime};
@@ -101,187 +101,215 @@ impl JournalEntryRecordType {
     pub unsafe fn deserialize_archive(self, data: &[u8]) -> anyhow::Result<JournalEntry<'_>> {
         match self {
             JournalEntryRecordType::InitModuleV1 => {
-                ArchivedJournalEntry::InitModuleV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::InitModuleV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::ClearEtherealV1 => {
-                ArchivedJournalEntry::ClearEtherealV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::ClearEtherealV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::ProcessExitV1 => {
-                ArchivedJournalEntry::ProcessExitV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::ProcessExitV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SetThreadV1 => {
-                ArchivedJournalEntry::SetThreadV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SetThreadV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::CloseThreadV1 => {
-                ArchivedJournalEntry::CloseThreadV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CloseThreadV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::FileDescriptorSeekV1 => {
-                ArchivedJournalEntry::FileDescriptorSeekV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorSeekV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::FileDescriptorWriteV1 => {
-                ArchivedJournalEntry::FileDescriptorWriteV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorWriteV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::UpdateMemoryRegionV1 => {
-                ArchivedJournalEntry::UpdateMemoryRegionV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::UpdateMemoryRegionV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SetClockTimeV1 => {
-                ArchivedJournalEntry::SetClockTimeV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SetClockTimeV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::OpenFileDescriptorV1 => {
-                ArchivedJournalEntry::OpenFileDescriptorV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::OpenFileDescriptorV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::OpenFileDescriptorV2 => {
-                ArchivedJournalEntry::OpenFileDescriptorV2(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::OpenFileDescriptorV2(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::CloseFileDescriptorV1 => {
-                ArchivedJournalEntry::CloseFileDescriptorV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CloseFileDescriptorV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::RenumberFileDescriptorV1 => {
-                ArchivedJournalEntry::RenumberFileDescriptorV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::RenumberFileDescriptorV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::DuplicateFileDescriptorV1 => {
-                ArchivedJournalEntry::DuplicateFileDescriptorV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::DuplicateFileDescriptorV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::DuplicateFileDescriptorV2 => {
-                ArchivedJournalEntry::DuplicateFileDescriptorV2(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::DuplicateFileDescriptorV2(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::CreateDirectoryV1 => {
-                ArchivedJournalEntry::CreateDirectoryV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CreateDirectoryV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::RemoveDirectoryV1 => {
-                ArchivedJournalEntry::RemoveDirectoryV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::RemoveDirectoryV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PathSetTimesV1 => {
-                ArchivedJournalEntry::PathSetTimesV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PathSetTimesV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::FileDescriptorSetTimesV1 => {
-                ArchivedJournalEntry::FileDescriptorSetTimesV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorSetTimesV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::FileDescriptorSetSizeV1 => {
-                ArchivedJournalEntry::FileDescriptorSetSizeV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorSetSizeV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::FileDescriptorSetFdFlagsV1 => {
-                ArchivedJournalEntry::FileDescriptorSetFdFlagsV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorSetFdFlagsV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::FileDescriptorSetFlagsV1 => {
-                ArchivedJournalEntry::FileDescriptorSetFlagsV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorSetFlagsV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::FileDescriptorSetRightsV1 => {
-                ArchivedJournalEntry::FileDescriptorSetRightsV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorSetRightsV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::FileDescriptorAdviseV1 => {
-                ArchivedJournalEntry::FileDescriptorAdviseV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorAdviseV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::FileDescriptorAllocateV1 => {
-                ArchivedJournalEntry::FileDescriptorAllocateV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::FileDescriptorAllocateV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::CreateHardLinkV1 => {
-                ArchivedJournalEntry::CreateHardLinkV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CreateHardLinkV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::CreateSymbolicLinkV1 => {
-                ArchivedJournalEntry::CreateSymbolicLinkV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CreateSymbolicLinkV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::UnlinkFileV1 => {
-                ArchivedJournalEntry::UnlinkFileV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::UnlinkFileV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PathRenameV1 => {
-                ArchivedJournalEntry::PathRenameV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PathRenameV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::ChangeDirectoryV1 => {
-                ArchivedJournalEntry::ChangeDirectoryV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::ChangeDirectoryV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::EpollCreateV1 => {
-                ArchivedJournalEntry::EpollCreateV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::EpollCreateV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::EpollCtlV1 => {
-                ArchivedJournalEntry::EpollCtlV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::EpollCtlV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::TtySetV1 => {
-                ArchivedJournalEntry::TtySetV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::TtySetV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::CreatePipeV1 => {
-                ArchivedJournalEntry::CreatePipeV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CreatePipeV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::CreateEventV1 => {
-                ArchivedJournalEntry::CreateEventV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::CreateEventV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PortAddAddrV1 => {
-                ArchivedJournalEntry::PortAddAddrV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PortAddAddrV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PortDelAddrV1 => {
-                ArchivedJournalEntry::PortDelAddrV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PortDelAddrV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PortAddrClearV1 => return Ok(JournalEntry::PortAddrClearV1),
             JournalEntryRecordType::PortBridgeV1 => {
-                ArchivedJournalEntry::PortBridgeV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PortBridgeV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PortUnbridgeV1 => return Ok(JournalEntry::PortUnbridgeV1),
             JournalEntryRecordType::PortDhcpAcquireV1 => {
-                return Ok(JournalEntry::PortDhcpAcquireV1)
+                return Ok(JournalEntry::PortDhcpAcquireV1);
             }
             JournalEntryRecordType::PortGatewaySetV1 => {
-                ArchivedJournalEntry::PortGatewaySetV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PortGatewaySetV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PortRouteAddV1 => {
-                ArchivedJournalEntry::PortRouteAddV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PortRouteAddV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::PortRouteClearV1 => return Ok(JournalEntry::PortRouteClearV1),
             JournalEntryRecordType::PortRouteDelV1 => {
-                ArchivedJournalEntry::PortRouteDelV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::PortRouteDelV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketOpenV1 => {
-                ArchivedJournalEntry::SocketOpenV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketOpenV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketPairV1 => {
-                ArchivedJournalEntry::SocketPairV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketPairV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketListenV1 => {
-                ArchivedJournalEntry::SocketListenV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketListenV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketBindV1 => {
-                ArchivedJournalEntry::SocketBindV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketBindV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketConnectedV1 => {
-                ArchivedJournalEntry::SocketConnectedV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketConnectedV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketAcceptedV1 => {
-                ArchivedJournalEntry::SocketAcceptedV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketAcceptedV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketJoinIpv4MulticastV1 => {
-                ArchivedJournalEntry::SocketJoinIpv4MulticastV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketJoinIpv4MulticastV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::SocketJoinIpv6MulticastV1 => {
-                ArchivedJournalEntry::SocketJoinIpv6MulticastV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketJoinIpv6MulticastV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::SocketLeaveIpv4MulticastV1 => {
-                ArchivedJournalEntry::SocketLeaveIpv4MulticastV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketLeaveIpv4MulticastV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::SocketLeaveIpv6MulticastV1 => {
-                ArchivedJournalEntry::SocketLeaveIpv6MulticastV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketLeaveIpv6MulticastV1(unsafe {
+                    rkyv::access_unchecked(data)
+                })
             }
             JournalEntryRecordType::SocketSendFileV1 => {
-                ArchivedJournalEntry::SocketSendFileV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketSendFileV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketSendToV1 => {
-                ArchivedJournalEntry::SocketSendToV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketSendToV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketSendV1 => {
-                ArchivedJournalEntry::SocketSendV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketSendV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketSetOptFlagV1 => {
-                ArchivedJournalEntry::SocketSetOptFlagV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketSetOptFlagV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketSetOptSizeV1 => {
-                ArchivedJournalEntry::SocketSetOptSizeV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketSetOptSizeV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketSetOptTimeV1 => {
-                ArchivedJournalEntry::SocketSetOptTimeV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketSetOptTimeV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SocketShutdownV1 => {
-                ArchivedJournalEntry::SocketShutdownV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SocketShutdownV1(unsafe { rkyv::access_unchecked(data) })
             }
             JournalEntryRecordType::SnapshotV1 => {
-                ArchivedJournalEntry::SnapshotV1(rkyv::access_unchecked(data))
+                ArchivedJournalEntry::SnapshotV1(unsafe { rkyv::access_unchecked(data) })
             }
         }
         .try_into()
@@ -960,7 +988,7 @@ impl JournalEntry<'_> {
                 serializer,
             ),
         }
-        .map_err(|err| anyhow::format_err!("failed to serialize journal record - {}", err))?;
+        .map_err(|err| anyhow::format_err!("failed to serialize journal record - {err}"))?;
         Ok(amt)
     }
 }

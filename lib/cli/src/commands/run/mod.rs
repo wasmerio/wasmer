@@ -4,7 +4,7 @@ mod capabilities;
 mod wasi;
 
 use std::{
-    collections::{hash_map::DefaultHasher, BTreeMap},
+    collections::{BTreeMap, hash_map::DefaultHasher},
     fmt::{Binary, Display},
     fs::File,
     hash::{BuildHasherDefault, Hash, Hasher},
@@ -16,7 +16,7 @@ use std::{
     time::{Duration, SystemTime, UNIX_EPOCH},
 };
 
-use anyhow::{anyhow, bail, Context, Error};
+use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
 use futures::future::BoxFuture;
 use indicatif::{MultiProgress, ProgressBar};
@@ -31,7 +31,7 @@ use wasmer::{
     Type, TypedFunction, Value,
 };
 
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
@@ -42,14 +42,15 @@ use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
+    Runtime, SpawnError, WasiError,
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     journal::CompactingLogFileJournal,
     runners::{
+        MappedCommand, MappedDirectory, Runner,
         dcgi::{DcgiInstanceFactory, DcgiRunner},
         dproxy::DProxyRunner,
         wasi::{RuntimeOrEngine, WasiRunner},
         wcgi::{self, AbortHandle, NoOpWcgiCallbacks, WcgiRunner},
-        MappedCommand, MappedDirectory, Runner,
     },
     runtime::{
         module_cache::{CacheError, HashedModuleData},
@@ -57,10 +58,9 @@ use wasmer_wasix::{
         resolver::QueryError,
         task_manager::VirtualTaskManagerExt,
     },
-    Runtime, SpawnError, WasiError,
 };
-use webc::metadata::Manifest;
 use webc::Container;
+use webc::metadata::Manifest;
 
 use crate::{
     backend::RuntimeOptions, commands::run::wasi::Wasi, common::HashAlgorithm, config::WasmerEnv,
@@ -158,7 +158,9 @@ impl Run {
                             );
                             wasm_bytes = Some(bytes);
                         } else {
-                            tracing::info!("File does not have valid WebAssembly magic number, will try to run it anyway");
+                            tracing::info!(
+                                "File does not have valid WebAssembly magic number, will try to run it anyway"
+                            );
                             // Still provide the bytes so the engine can attempt to run it
                             wasm_bytes = Some(bytes);
                         }
@@ -184,7 +186,7 @@ impl Run {
             }
             None => {
                 // No WebAssembly file available for analysis, check if we have a webc package
-                if let PackageSource::Package(ref pkg_source) = &self.input {
+                if let PackageSource::Package(pkg_source) = &self.input {
                     tracing::info!("Checking package for WebAssembly features: {}", pkg_source);
                     self.rt.get_engine(&Target::default())?
                 } else {
@@ -277,13 +279,15 @@ impl Run {
                                         engine_id
                                     );
                                     // Create a new runtime with the updated engine
+                                    let capability_cache_path =
+                                        capabilities::get_capability_cache_path(
+                                            &self.env,
+                                            &self.input,
+                                        )?;
                                     let new_runtime = self.wasi.prepare_runtime(
                                         new_engine,
                                         &self.env,
-                                        &capabilities::get_capability_cache_path(
-                                            &self.env,
-                                            &self.input,
-                                        )?,
+                                        &capability_cache_path,
                                         tokio::runtime::Builder::new_multi_thread()
                                             .enable_all()
                                             .build()?,
@@ -533,8 +537,7 @@ impl Run {
 
         let mut runner = WasiRunner::new();
 
-        let (is_home_mapped, is_tmp_mapped, mapped_diretories) =
-            self.wasi.build_mapped_directories()?;
+        let (is_home_mapped, mapped_diretories) = self.wasi.build_mapped_directories()?;
 
         runner
             .with_args(&self.args)
@@ -543,9 +546,15 @@ impl Run {
             .with_mapped_host_commands(self.wasi.build_mapped_commands()?)
             .with_mapped_directories(mapped_diretories)
             .with_home_mapped(is_home_mapped)
-            .with_tmp_mapped(is_tmp_mapped)
             .with_forward_host_env(self.wasi.forward_host_env)
             .with_capabilities(self.wasi.capabilities());
+
+        if let Some(cwd) = self.wasi.cwd.as_ref() {
+            if !cwd.starts_with("/") {
+                bail!("The argument to --cwd must be an absolute path");
+            }
+            runner.with_current_dir(cwd.clone());
+        }
 
         if let Some(ref entry_function) = self.invoke {
             runner.with_entry_function(entry_function);
@@ -615,44 +624,6 @@ impl Run {
             }
         }
     }
-
-    /// Create Run instance for arguments/env, assuming we're being run from a
-    /// CFP binfmt interpreter.
-    pub fn from_binfmt_args() -> Self {
-        Run::from_binfmt_args_fallible().unwrap_or_else(|e| {
-            crate::error::PrettyError::report::<()>(
-                Err(e).context("Failed to set up wasmer binfmt invocation"),
-            )
-        })
-    }
-
-    fn from_binfmt_args_fallible() -> Result<Self, Error> {
-        if cfg!(not(target_os = "linux")) {
-            bail!("binfmt_misc is only available on linux.");
-        }
-
-        let argv = std::env::args().collect::<Vec<_>>();
-        let (_interpreter, executable, original_executable, args) = match &argv[..] {
-            [a, b, c, rest @ ..] => (a, b, c, rest),
-            _ => {
-                bail!("Wasmer binfmt interpreter needs at least three arguments (including $0) - must be registered as binfmt interpreter with the CFP flags. (Got arguments: {:?})", argv);
-            }
-        };
-        let rt = RuntimeOptions::default();
-        Ok(Run {
-            env: WasmerEnv::default(),
-            rt,
-            wasi: Wasi::for_binfmt_interpreter()?,
-            wcgi: WcgiOptions::default(),
-            stack_size: None,
-            entrypoint: Some(original_executable.to_string()),
-            invoke: None,
-            coredump_on_trap: None,
-            input: PackageSource::infer(executable)?,
-            args: args.to_vec(),
-            hash_algorithm: None,
-        })
-    }
 }
 
 fn invoke_function(
@@ -667,9 +638,7 @@ fn invoke_function(
 
     anyhow::ensure!(
         required_arguments == provided_arguments,
-        "Function expected {} arguments, but received {}",
-        required_arguments,
-        provided_arguments,
+        "Function expected {required_arguments} arguments, but received {provided_arguments}"
     );
 
     let invoke_args = args
@@ -745,7 +714,7 @@ impl PackageSource {
                 let pkg = rt.task_manager().spawn_and_block_on(async move {
                     BinaryPackage::from_registry(&inner_pck, inner_rt.as_ref()).await
                 })??;
-                Ok(ExecutableTarget::Package(pkg))
+                Ok(ExecutableTarget::Package(Box::new(pkg)))
             }
         }
     }
@@ -815,7 +784,7 @@ enum ExecutableTarget {
         module_hash: ModuleHash,
         path: PathBuf,
     },
-    Package(BinaryPackage),
+    Package(Box<BinaryPackage>),
 }
 
 impl ExecutableTarget {
@@ -836,7 +805,7 @@ impl ExecutableTarget {
             async move { BinaryPackage::from_dir(&path, inner_runtime.as_ref()).await }
         })??;
 
-        Ok(ExecutableTarget::Package(pkg))
+        Ok(ExecutableTarget::Package(Box::new(pkg)))
     }
 
     /// Try to load a file into something that can be used to run it.
@@ -888,7 +857,7 @@ impl ExecutableTarget {
                 let pkg = runtime.task_manager().spawn_and_block_on(async move {
                     BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
                 })??;
-                Ok(ExecutableTarget::Package(pkg))
+                Ok(ExecutableTarget::Package(Box::new(pkg)))
             }
         }
     }

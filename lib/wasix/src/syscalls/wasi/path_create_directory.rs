@@ -73,11 +73,7 @@ pub(crate) fn path_create_directory_internal(
 
     let mut guard = parent_inode.write();
     match guard.deref_mut() {
-        Kind::Dir {
-            ref entries,
-            ref path,
-            ..
-        } => {
+        Kind::Dir { entries, path, .. } => {
             if let Some(child) = entries.get(&dir_name) {
                 return Err(Errno::Exist);
             }
@@ -116,10 +112,7 @@ pub(crate) fn path_create_directory_internal(
             // reborrow to insert
             {
                 let mut guard = parent_inode.write();
-                let Kind::Dir {
-                    ref mut entries, ..
-                } = guard.deref_mut()
-                else {
+                let Kind::Dir { entries, .. } = guard.deref_mut() else {
                     unreachable!();
                 };
 

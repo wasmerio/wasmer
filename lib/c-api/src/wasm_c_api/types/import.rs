@@ -13,7 +13,7 @@ pub struct wasm_importtype_t {
 wasm_declare_boxed_vec!(importtype);
 wasm_impl_copy!(importtype);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_importtype_new(
     module: Option<&mut wasm_name_t>,
     name: Option<&mut wasm_name_t>,
@@ -26,22 +26,22 @@ pub extern "C" fn wasm_importtype_new(
     }))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_importtype_module(import_type: &wasm_importtype_t) -> &wasm_name_t {
     &import_type.module
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_importtype_name(import_type: &wasm_importtype_t) -> &wasm_name_t {
     &import_type.name
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_importtype_type(import_type: &wasm_importtype_t) -> &wasm_externtype_t {
     &import_type.extern_type
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_importtype_delete(_import_type: Option<Box<wasm_importtype_t>>) {}
 
 impl From<ImportType> for wasm_importtype_t {

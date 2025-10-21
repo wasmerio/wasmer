@@ -6,10 +6,10 @@ pub use wasmer_types::MemoryError;
 use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
     shared::SharedMemory,
     v8::{bindings::*, vm::VMMemory},
     vm::{VMExtern, VMExternMemory},
-    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
 };
 
 pub(crate) mod view;
@@ -188,7 +188,7 @@ impl Memory {
     /// can be put into a new store
     pub fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
         check_isolate(store);
-        Ok(self.handle.clone())
+        Ok(self.handle)
     }
 
     /// Copying the memory will actually copy all the bytes in the memory to
@@ -319,26 +319,36 @@ impl<'a> MemoryBuffer<'a> {
 unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
     unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(packed)]
+        #[repr(C, packed)]
         struct Unaligned<T>(T);
-        let val = (*src as *const Unaligned<T>).read_volatile();
-        (*dst as *mut Unaligned<T>).write(val);
-        *src = src.add(std::mem::size_of::<T>());
-        *dst = dst.add(std::mem::size_of::<T>());
-        *len -= std::mem::size_of::<T>();
+        unsafe {
+            let val = (*src as *const Unaligned<T>).read_volatile();
+            (*dst as *mut Unaligned<T>).write(val);
+            *src = src.add(std::mem::size_of::<T>());
+            *dst = dst.add(std::mem::size_of::<T>());
+            *len -= std::mem::size_of::<T>();
+        }
     }
 
     while len >= 8 {
-        copy_one::<u64>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u64>(&mut src, &mut dst, &mut len);
+        }
     }
     if len >= 4 {
-        copy_one::<u32>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u32>(&mut src, &mut dst, &mut len);
+        }
     }
     if len >= 2 {
-        copy_one::<u16>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u16>(&mut src, &mut dst, &mut len);
+        }
     }
     if len >= 1 {
-        copy_one::<u8>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u8>(&mut src, &mut dst, &mut len);
+        }
     }
 }
 
@@ -346,26 +356,36 @@ unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: us
 unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
     unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(packed)]
+        #[repr(C, packed)]
         struct Unaligned<T>(T);
-        let val = (*src as *const Unaligned<T>).read();
-        (*dst as *mut Unaligned<T>).write_volatile(val);
-        *src = src.add(std::mem::size_of::<T>());
-        *dst = dst.add(std::mem::size_of::<T>());
-        *len -= std::mem::size_of::<T>();
+        unsafe {
+            let val = (*src as *const Unaligned<T>).read();
+            (*dst as *mut Unaligned<T>).write_volatile(val);
+            *src = src.add(std::mem::size_of::<T>());
+            *dst = dst.add(std::mem::size_of::<T>());
+            *len -= std::mem::size_of::<T>();
+        }
     }
 
     while len >= 8 {
-        copy_one::<u64>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u64>(&mut src, &mut dst, &mut len);
+        }
     }
     if len >= 4 {
-        copy_one::<u32>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u32>(&mut src, &mut dst, &mut len);
+        }
     }
     if len >= 2 {
-        copy_one::<u16>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u16>(&mut src, &mut dst, &mut len);
+        }
     }
     if len >= 1 {
-        copy_one::<u8>(&mut src, &mut dst, &mut len);
+        unsafe {
+            copy_one::<u8>(&mut src, &mut dst, &mut len);
+        }
     }
 }
 

@@ -17,8 +17,8 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{Architecture, CallingConvention, Target},
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
+    target::{Architecture, CallingConvention, Target},
 };
 pub type Label = DynamicLabel;
 pub type Offset = AssemblyOffset;
@@ -57,6 +57,16 @@ pub struct TrapTable {
 pub const NATIVE_PAGE_SIZE: usize = 4096;
 
 pub struct MachineStackOffset(pub usize);
+
+#[allow(dead_code)]
+pub enum UnsignedCondition {
+    Equal,
+    NotEqual,
+    Above,
+    AboveEqual,
+    Below,
+    BelowEqual,
+}
 
 #[allow(unused)]
 pub trait Machine {
@@ -382,24 +392,16 @@ pub trait Machine {
 
     /// jmp without condidtion
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError>;
-    /// jmp on equal (src==dst)
-    /// like Equal set on x86_64
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError>;
-    /// jmp on different (src!=dst)
-    /// like NotEqual set on x86_64
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError>;
-    /// jmp on above (src>dst)
-    /// like Above set on x86_64
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError>;
-    /// jmp on above (src>=dst)
-    /// like Above or Equal set on x86_64
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError>;
-    /// jmp on above (src<=dst)
-    /// like Below or Equal set on x86_64
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError>;
-    /// jmp on overflow
-    /// like Carry set on x86_64
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError>;
+
+    /// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
+    fn jmp_on_condition(
+        &mut self,
+        cond: UnsignedCondition,
+        size: Size,
+        loc_a: Location<Self::GPR, Self::SIMD>,
+        loc_b: Location<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError>;
 
     /// jmp using a jump table at lable with cond as the indice
     fn emit_jmp_to_jumptable(

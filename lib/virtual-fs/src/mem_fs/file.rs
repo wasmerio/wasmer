@@ -385,10 +385,11 @@ impl VirtualFile for FileHandle {
             )));
         }
 
-        let mut fs =
-            self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+        let mut fs = self
+            .filesystem
+            .inner
+            .write()
+            .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
@@ -440,10 +441,11 @@ impl VirtualFile for FileHandle {
             )));
         }
 
-        let mut fs =
-            self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+        let mut fs = self
+            .filesystem
+            .inner
+            .write()
+            .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
@@ -488,9 +490,11 @@ impl VirtualFile for FileHandle {
 
         let mut cursor = self.cursor;
         {
-            let mut fs = self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+            let mut fs = self
+                .filesystem
+                .inner
+                .write()
+                .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
@@ -522,12 +526,12 @@ impl VirtualFile for FileHandle {
 
 #[cfg(test)]
 mod test_virtual_file {
-    use crate::{mem_fs::*, FileSystem as FS};
+    use crate::{FileSystem as FS, mem_fs::*};
     use std::thread::sleep;
     use std::time::Duration;
 
     macro_rules! path {
-        ($path:expr) => {
+        ($path:expr_2021) => {
             std::path::Path::new($path)
         };
     }
@@ -715,9 +719,11 @@ impl AsyncRead for FileHandle {
 
         let mut cursor = self.cursor;
         let ret = {
-            let mut fs = self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+            let mut fs = self
+                .filesystem
+                .inner
+                .write()
+                .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
@@ -782,7 +788,7 @@ impl AsyncRead for FileHandle {
                             return Poll::Ready(Err(io::Error::new(
                                 io::ErrorKind::NotFound,
                                 format!("inode `{}` doesn't match a file", self.inode),
-                            )))
+                            )));
                         }
                     }
                 }
@@ -807,9 +813,11 @@ impl AsyncSeek for FileHandle {
 
         let mut cursor = self.cursor;
         let ret = {
-            let mut fs = self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+            let mut fs = self
+                .filesystem
+                .inner
+                .write()
+                .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
@@ -876,10 +884,11 @@ impl AsyncSeek for FileHandle {
             return Poll::Ready(Ok(0));
         }
 
-        let mut fs =
-            self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+        let mut fs = self
+            .filesystem
+            .inner
+            .write()
+            .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
@@ -930,9 +939,11 @@ impl AsyncWrite for FileHandle {
 
         let mut cursor = self.cursor;
         let bytes_written = {
-            let mut fs = self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+            let mut fs = self
+                .filesystem
+                .inner
+                .write()
+                .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
@@ -983,7 +994,7 @@ impl AsyncWrite for FileHandle {
                             return Poll::Ready(Err(io::Error::new(
                                 io::ErrorKind::NotFound,
                                 format!("inode `{}` doesn't match a file", self.inode),
-                            )))
+                            )));
                         }
                     }
                 }
@@ -991,7 +1002,7 @@ impl AsyncWrite for FileHandle {
                     return Poll::Ready(Err(io::Error::new(
                         io::ErrorKind::NotFound,
                         format!("inode `{}` doesn't match a file", self.inode),
-                    )))
+                    )));
                 }
             }
         };
@@ -1006,9 +1017,11 @@ impl AsyncWrite for FileHandle {
     ) -> Poll<io::Result<usize>> {
         let mut cursor = self.cursor;
         let ret = {
-            let mut fs = self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+            let mut fs = self
+                .filesystem
+                .inner
+                .write()
+                .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
             let inode = fs.storage.get_mut(self.inode);
             match inode {
@@ -1068,10 +1081,11 @@ impl AsyncWrite for FileHandle {
     }
 
     fn poll_flush(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut fs =
-            self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+        let mut fs = self
+            .filesystem
+            .inner
+            .write()
+            .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
@@ -1104,10 +1118,11 @@ impl AsyncWrite for FileHandle {
     }
 
     fn poll_shutdown(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        let mut fs =
-            self.filesystem.inner.write().map_err(|_| {
-                io::Error::new(io::ErrorKind::Other, "failed to acquire a write lock")
-            })?;
+        let mut fs = self
+            .filesystem
+            .inner
+            .write()
+            .map_err(|_| io::Error::other("failed to acquire a write lock"))?;
 
         let inode = fs.storage.get_mut(self.inode);
         match inode {
@@ -1170,11 +1185,11 @@ impl AsyncWrite for FileHandle {
 mod test_read_write_seek {
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-    use crate::{mem_fs::*, FileSystem as FS};
+    use crate::{FileSystem as FS, mem_fs::*};
     use std::io;
 
     macro_rules! path {
-        ($path:expr) => {
+        ($path:expr_2021) => {
             std::path::Path::new($path)
         };
     }

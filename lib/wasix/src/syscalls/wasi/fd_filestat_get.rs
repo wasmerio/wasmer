@@ -7,11 +7,11 @@ use crate::types::wasi::Snapshot0Filestat;
 ///
 /// Input:
 /// - `Fd fd`
-///     The open file descriptor whose metadata will be read
+///   The open file descriptor whose metadata will be read
 ///
 /// Output:
 /// - `Filestat *buf`
-///     Where the metadata from `fd` will be written
+///   Where the metadata from `fd` will be written
 #[instrument(level = "trace", skip_all, fields(%fd, size = field::Empty, mtime = field::Empty), ret)]
 pub fn fd_filestat_get<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -39,11 +39,11 @@ pub fn fd_filestat_get<M: MemorySize>(
 ///
 /// Input:
 /// - `__wasi_fd_t fd`
-///     The open file descriptor whose metadata will be read
+///   The open file descriptor whose metadata will be read
 ///
 /// Output:
 /// - `__wasi_filestat_t *buf`
-///     Where the metadata from `fd` will be written
+///   Where the metadata from `fd` will be written
 pub(crate) fn fd_filestat_get_internal(
     ctx: &mut FunctionEnvMut<'_, WasiEnv>,
     fd: WasiFd,
@@ -63,11 +63,11 @@ pub(crate) fn fd_filestat_get_internal(
 ///
 /// Input:
 /// - `Fd fd`
-///     The open file descriptor whose metadata will be read
+///   The open file descriptor whose metadata will be read
 ///
 /// Output:
 /// - `Snapshot0Filestat *buf`
-///     Where the metadata from `fd` will be written
+///   Where the metadata from `fd` will be written
 #[instrument(level = "trace", skip_all, fields(%fd), ret)]
 pub fn fd_filestat_get_old<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,

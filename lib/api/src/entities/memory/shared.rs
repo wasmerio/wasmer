@@ -1,9 +1,9 @@
 use wasmer_types::MemoryError;
 
 use crate::{
+    Memory,
     error::AtomicsError,
     location::{MemoryLocation, SharedMemoryOps},
-    Memory,
 };
 
 /// A handle that exposes operations only relevant for shared memories.

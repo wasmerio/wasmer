@@ -75,17 +75,17 @@ impl Source for MultiSource {
                 Err(QueryError::Unsupported { .. })
                     if self.strategy.continue_if_unsupported || self.strategy.merge_results =>
                 {
-                    continue
+                    continue;
                 }
                 Err(QueryError::NotFound { .. })
                     if self.strategy.continue_if_not_found || self.strategy.merge_results =>
                 {
-                    continue
+                    continue;
                 }
                 Err(QueryError::NoMatches { .. })
                     if self.strategy.continue_if_no_matches || self.strategy.merge_results =>
                 {
-                    continue
+                    continue;
                 }
                 // Generic errors do not respect the `merge_results` strategy
                 // flag, because unexpected errors should be bubbled to the

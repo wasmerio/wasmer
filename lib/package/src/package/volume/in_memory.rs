@@ -5,8 +5,8 @@ use std::{
 };
 
 use webc::{
-    v3::{self, write::FileEntry},
     AbstractVolume, Metadata, PathSegment, PathSegments,
+    v3::{self, write::FileEntry},
 };
 
 use crate::package::Strictness;
@@ -36,7 +36,7 @@ pub enum MemoryNode {
 }
 
 impl MemoryNode {
-    /// Try to return a [`MemoryDir`] out of [`self`].
+    /// Try to return a [`MemoryDir`] out of `self`.
     pub fn as_dir(&self) -> Option<&MemoryDir> {
         match self {
             MemoryNode::Dir(d) => Some(d),
@@ -44,7 +44,7 @@ impl MemoryNode {
         }
     }
 
-    /// Try to return a [`MemoryFile`] out of [`self`].
+    /// Try to return a [`MemoryFile`] out of `self`.
     pub fn as_file(&self) -> Option<&MemoryFile> {
         match self {
             MemoryNode::File(f) => Some(f),
@@ -226,8 +226,7 @@ impl WasmerPackageVolume for MemoryVolume {
         &self,
         strictness: Strictness,
     ) -> Result<webc::v3::write::Directory<'_>, anyhow::Error> {
-        let res = self.node.as_directory_tree(strictness);
-        res
+        self.node.as_directory_tree(strictness)
     }
 }
 
@@ -235,8 +234,8 @@ impl WasmerPackageVolume for MemoryVolume {
 mod tests {
     use sha2::{Digest, Sha256};
     use v3::{
-        write::Writer, Checksum, ChecksumAlgorithm, Index, IndexEntry, Signature,
-        SignatureAlgorithm, Span, Tag, Timestamps,
+        Checksum, ChecksumAlgorithm, Index, IndexEntry, Signature, SignatureAlgorithm, Span, Tag,
+        Timestamps, write::Writer,
     };
     use webc::metadata::Manifest;
 

@@ -1,6 +1,6 @@
 use bytes::Bytes;
 use std::{path::Path, sync::Arc};
-use wasmer_types::{target::Target, DeserializeError, Features};
+use wasmer_types::{DeserializeError, Features, target::Target};
 
 #[cfg(feature = "sys")]
 use wasmer_compiler::Artifact;
@@ -8,8 +8,8 @@ use wasmer_compiler::Artifact;
 use wasmer_compiler::CompilerConfig;
 
 use crate::{
-    macros::backend::{gen_rt_ty, match_rt},
     BackendKind, IntoBytes, Store,
+    macros::backend::{gen_rt_ty, match_rt},
 };
 
 gen_rt_ty!(Engine @derives Debug, Clone);
@@ -44,7 +44,9 @@ impl BackendEngine {
     ) -> Result<Arc<Artifact>, DeserializeError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.deserialize_unchecked(bytes.into_bytes().to_owned().into()),
+            Self::Sys(s) => unsafe {
+                s.deserialize_unchecked(bytes.into_bytes().to_owned().into())
+            },
             _ => Err(DeserializeError::Generic(
                 "The selected runtime does not support `deserialize_unchecked`".into(),
             )),
@@ -66,7 +68,7 @@ impl BackendEngine {
     ) -> Result<Arc<Artifact>, DeserializeError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.deserialize(bytes.into_bytes().to_owned().into()),
+            Self::Sys(s) => unsafe { s.deserialize(bytes.into_bytes().to_owned().into()) },
             _ => Err(DeserializeError::Generic(
                 "The selected runtime does not support `deserialize`".into(),
             )),
@@ -93,7 +95,7 @@ impl BackendEngine {
     ) -> Result<Arc<Artifact>, DeserializeError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.deserialize_from_file_unchecked(file_ref),
+            Self::Sys(s) => unsafe { s.deserialize_from_file_unchecked(file_ref) },
             _ => Err(DeserializeError::Generic(
                 "The selected runtime does not support `deserialize_from_file_unchecked`".into(),
             )),
@@ -117,7 +119,7 @@ impl BackendEngine {
     ) -> Result<Arc<Artifact>, DeserializeError> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.deserialize_from_file(file_ref),
+            Self::Sys(s) => unsafe { s.deserialize_from_file(file_ref) },
             _ => Err(DeserializeError::Generic(
                 "The selected runtime does not support `deserialize_from_file`".into(),
             )),

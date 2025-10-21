@@ -8,7 +8,7 @@ categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
 repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
-edition = "2018"
+edition = "2024"
 
 [dependencies]
 wasmer-types = { path = "../../../lib/types", version = "=6.1.0" }

@@ -6,12 +6,12 @@ use crate::{
     emitter_x64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    unwind::{UnwindInstructions, UnwindOps},
-    x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM, new_machine_state},
 };
-use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
+use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, X86_64};
+use gimli::{X86_64, write::CallFrameInstruction};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::{
     types::{
@@ -23,9 +23,9 @@ use wasmer_compiler::{
     wasmparser::{MemArg, ValType as WpType},
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 type Assembler = VecAssembler<X64Relocation>;
@@ -85,51 +85,6 @@ impl DerefMut for AssemblerX64 {
 
 type Location = AbstractLocation<GPR, XMM>;
 
-#[cfg(feature = "unwind")]
-fn dwarf_index(reg: u16) -> gimli::Register {
-    static DWARF_GPR: [gimli::Register; 16] = [
-        X86_64::RAX,
-        X86_64::RDX,
-        X86_64::RCX,
-        X86_64::RBX,
-        X86_64::RSI,
-        X86_64::RDI,
-        X86_64::RBP,
-        X86_64::RSP,
-        X86_64::R8,
-        X86_64::R9,
-        X86_64::R10,
-        X86_64::R11,
-        X86_64::R12,
-        X86_64::R13,
-        X86_64::R14,
-        X86_64::R15,
-    ];
-    static DWARF_XMM: [gimli::Register; 16] = [
-        X86_64::XMM0,
-        X86_64::XMM1,
-        X86_64::XMM2,
-        X86_64::XMM3,
-        X86_64::XMM4,
-        X86_64::XMM5,
-        X86_64::XMM6,
-        X86_64::XMM7,
-        X86_64::XMM8,
-        X86_64::XMM9,
-        X86_64::XMM10,
-        X86_64::XMM11,
-        X86_64::XMM12,
-        X86_64::XMM13,
-        X86_64::XMM14,
-        X86_64::XMM15,
-    ];
-    match reg {
-        0..=15 => DWARF_GPR[reg as usize],
-        17..=24 => DWARF_XMM[reg as usize - 17],
-        _ => panic!("Unknown register index {reg}"),
-    }
-}
-
 pub struct MachineX86_64 {
     assembler: AssemblerX64,
     used_gprs: u32,
@@ -142,7 +97,7 @@ pub struct MachineX86_64 {
     /// The source location for the current operator.
     src_loc: u32,
     /// Vector of unwind operations with offset
-    unwind_ops: Vec<(usize, UnwindOps)>,
+    unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
 }
 
 impl MachineX86_64 {
@@ -682,7 +637,7 @@ impl MachineX86_64 {
             },
         )?;
 
-        self.jmp_on_different(retry)?;
+        self.assembler.emit_jmp(Condition::NotEqual, retry)?;
 
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
         self.release_gpr(compare);
@@ -1923,7 +1878,7 @@ impl MachineX86_64 {
         self.used_simd &= !(1 << r.into_index());
         ret
     }
-    fn emit_unwind_op(&mut self, op: UnwindOps) -> Result<(), CompileError> {
+    fn emit_unwind_op(&mut self, op: UnwindOps<GPR, XMM>) -> Result<(), CompileError> {
         self.unwind_ops.push((self.get_offset().0, op));
         Ok(())
     }
@@ -2246,11 +2201,11 @@ impl Machine for MachineX86_64 {
         )?;
         match location {
             Location::GPR(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::GPR(x),
                 bp_neg_offset: stack_offset,
             }),
             Location::SIMD(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::FPR(x),
                 bp_neg_offset: stack_offset,
             }),
             _ => Ok(()),
@@ -2433,7 +2388,9 @@ impl Machine for MachineX86_64 {
                     }
                 }
             },
-            _ => panic!(                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"            ),
+            _ => panic!(
+                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"
+            ),
         }?;
         if dst != dest {
             self.assembler.emit_mov(size_op, dst, dest)?;
@@ -2751,28 +2708,30 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.assembler.emit_cmp(size, source, dest)
     }
-    // (un)conditionnal jmp
-    // (un)conditionnal jmp
+
+    // unconditionnal jmp
     fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::None, label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Equal, label)
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::NotEqual, label)
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Above, label)
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::AboveEqual, label)
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::BelowEqual, label)
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Carry, label)
+
+    fn jmp_on_condition(
+        &mut self,
+        cond: UnsignedCondition,
+        size: Size,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_cmp(size, loc_b, loc_a)?;
+        let cond = match cond {
+            UnsignedCondition::Equal => Condition::Equal,
+            UnsignedCondition::NotEqual => Condition::NotEqual,
+            UnsignedCondition::Above => Condition::Above,
+            UnsignedCondition::AboveEqual => Condition::AboveEqual,
+            UnsignedCondition::Below => Condition::Below,
+            UnsignedCondition::BelowEqual => Condition::BelowEqual,
+        };
+        self.assembler.emit_jmp(cond, label)
     }
 
     // jmp table
@@ -8264,7 +8223,7 @@ impl Machine for MachineX86_64 {
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
                 UnwindOps::Push2Regs { .. } => unimplemented!(),
             }

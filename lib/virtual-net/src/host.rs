@@ -1,12 +1,12 @@
 #![allow(unused_variables)]
 use crate::ruleset::{Direction, Ruleset};
-use crate::{io_err_into_net_error, VirtualIoSource};
 #[allow(unused_imports)]
 use crate::{
     IpCidr, IpRoute, NetworkError, Result, SocketStatus, StreamSecurity, VirtualConnectedSocket,
     VirtualConnectionlessSocket, VirtualIcmpSocket, VirtualNetworking, VirtualRawSocket,
     VirtualSocket, VirtualTcpListener, VirtualTcpSocket, VirtualUdpSocket,
 };
+use crate::{VirtualIoSource, io_err_into_net_error};
 use bytes::{Buf, BytesMut};
 use std::collections::VecDeque;
 use std::io::{self, Read, Write};
@@ -26,7 +26,7 @@ use tokio::runtime::Handle;
 #[allow(unused_imports, dead_code)]
 use tracing::{debug, error, info, trace, warn};
 use virtual_mio::{
-    state_as_waker_map, HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector,
+    HandlerGuardState, InterestGuard, InterestHandler, InterestType, Selector, state_as_waker_map,
 };
 
 #[derive(Debug)]

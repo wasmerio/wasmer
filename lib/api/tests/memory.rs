@@ -1,11 +1,10 @@
 use std::sync::{
-    atomic::{AtomicBool, Ordering},
     Arc,
+    atomic::{AtomicBool, Ordering},
 };
-use wasmer::{
-    imports, Instance, Memory, MemoryAccessError, MemoryLocation, MemoryType, Module, Store,
-    WasmSlice,
-};
+use wasmer::{Instance, Memory, MemoryLocation, MemoryType, Module, Store, imports};
+#[cfg(feature = "sys")]
+use wasmer::{MemoryAccessError, WasmSlice};
 
 #[test]
 #[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]
@@ -44,9 +43,11 @@ fn test_shared_memory_atomics_notify_send() {
 
     // Test basic notify.
     let mem2 = mem.clone();
-    std::thread::spawn(move || loop {
-        if mem2.notify(MemoryLocation::new_32(10), 1).unwrap() > 0 {
-            break;
+    std::thread::spawn(move || {
+        loop {
+            if mem2.notify(MemoryLocation::new_32(10), 1).unwrap() > 0 {
+                break;
+            }
         }
     });
 
@@ -108,12 +109,12 @@ fn test_wasm_slice_issue_5444() {
     let _inst = Instance::new(&mut store, &module, &imports).unwrap();
 
     let view = mem.view(&store);
-    let slice = WasmSlice::<u64>::new(&view, 1, 10).unwrap();
+    let slice = wasmer::WasmSlice::<u64>::new(&view, 1, 10).unwrap();
     let access = slice.access();
 
     assert!(matches!(
         access.err(),
-        Some(MemoryAccessError::UnalignedPointerRead)
+        Some(wasmer::MemoryAccessError::UnalignedPointerRead)
     ))
 }
 

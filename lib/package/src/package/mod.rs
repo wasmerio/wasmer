@@ -8,11 +8,11 @@ pub(crate) mod volume;
 pub use self::{
     manifest::ManifestError,
     package::{
-        include_everything_walker, wasmer_ignore_walker, Package, WalkBuilderFactory,
-        WasmerPackageError,
+        Package, WalkBuilderFactory, WasmerPackageError, include_everything_walker,
+        wasmer_ignore_walker,
     },
     strictness::Strictness,
-    volume::{fs::*, in_memory::*, WasmerPackageVolume},
+    volume::{WasmerPackageVolume, fs::*, in_memory::*},
 };
 
 #[cfg(test)]

@@ -4,7 +4,10 @@ use std::any::Any;
 use wasmer_types::{TagType, Type};
 use wasmer_vm::{StoreHandle, StoreId};
 
-use crate::{sys::vm::VMExceptionRef, AsStoreMut, AsStoreRef, BackendTag, Tag, Value};
+use crate::{
+    AsStoreMut, AsStoreRef, BackendTag, Tag, Value,
+    sys::vm::{VMExceptionObj, VMExceptionRef},
+};
 
 #[derive(Debug, Clone, PartialEq, Eq)]
 /// A WebAssembly `exnref` in the `sys` runtime.

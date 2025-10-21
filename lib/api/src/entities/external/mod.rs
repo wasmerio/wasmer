@@ -4,8 +4,8 @@ pub use extref::*;
 use wasmer_types::ExternType;
 
 use crate::{
-    vm::VMExtern, AsStoreMut, AsStoreRef, ExportError, Exportable, Function, Global, Memory, Table,
-    Tag,
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Function, Global, Memory, Table, Tag,
+    vm::VMExtern,
 };
 
 /// Trait convert a VMExtern to a Extern

@@ -10,14 +10,14 @@ use crate::syscalls::*;
 /// Inputs:
 ///
 /// - `Clockid clock_id`
-///     The ID of the clock to query
+///   The ID of the clock to query
 /// - `Timestamp precision`
-///     The maximum amount of error the reading may have
+///   The maximum amount of error the reading may have
 ///
 /// Output:
 ///
 /// - `Timestamp *time`
-///     The value of the clock in nanoseconds
+///   The value of the clock in nanoseconds
 #[cfg_attr(
     feature = "extra-logging",
     tracing::instrument(level = "trace", skip_all, ret)

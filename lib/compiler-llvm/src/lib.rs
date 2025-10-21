@@ -24,5 +24,5 @@ mod translator;
 
 pub use crate::compiler::LLVMCompiler;
 pub use crate::config::{
-    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMOptLevel, LLVM,
+    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks, LLVMOptLevel,
 };

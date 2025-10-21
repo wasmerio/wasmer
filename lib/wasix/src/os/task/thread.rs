@@ -16,10 +16,10 @@ use wasmer_wasix_types::{
 };
 
 use crate::{
+    WasiRuntimeError,
     os::task::process::{WasiProcessId, WasiProcessInner},
     state::LinkError,
     syscalls::HandleRewindType,
-    WasiRuntimeError,
 };
 
 use super::{

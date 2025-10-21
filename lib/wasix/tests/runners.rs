@@ -14,6 +14,7 @@ static INIT: Once = Once::new();
 use reqwest::Client;
 use tokio::runtime::Handle;
 use wasmer_wasix::{
+    PluggableRuntime, Runtime,
     http::HttpClient,
     runners::Runner,
     runtime::{
@@ -21,16 +22,15 @@ use wasmer_wasix::{
         package_loader::BuiltinPackageLoader,
         task_manager::tokio::TokioTaskManager,
     },
-    PluggableRuntime, Runtime,
 };
 
 mod wasi {
     use virtual_fs::{AsyncReadExt, AsyncSeekExt};
     use wasmer_package::utils::from_bytes;
     use wasmer_wasix::{
+        WasiError,
         bin_factory::BinaryPackage,
         runners::wasi::{RuntimeOrEngine, WasiRunner},
-        WasiError,
     };
 
     use super::*;
@@ -144,7 +144,7 @@ mod wasi {
 mod wcgi {
     use std::{future::Future, sync::Arc};
 
-    use futures::{channel::mpsc::Sender, future::AbortHandle, SinkExt, StreamExt};
+    use futures::{SinkExt, StreamExt, channel::mpsc::Sender, future::AbortHandle};
     use rand::Rng;
     use tokio::runtime::Handle;
     use wasmer_package::utils::from_bytes;

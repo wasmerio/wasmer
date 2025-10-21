@@ -16,8 +16,8 @@
 //! Ready?
 
 use wasmer::{
-    imports, wat2wasm, Function, FunctionType, Global, Instance, Memory, Module, Store, Table,
-    Type, Value,
+    Function, FunctionType, Global, Instance, Memory, Module, Store, Table, Type, Value, imports,
+    wat2wasm,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

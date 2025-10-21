@@ -10,8 +10,8 @@ use std::{
 use futures::future::BoxFuture;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite};
 use webc::{
-    compat::SharedBytes, Container, Metadata as WebcMetadata, PathSegmentError, PathSegments,
-    ToPathSegments, Volume,
+    Container, Metadata as WebcMetadata, PathSegmentError, PathSegments, ToPathSegments, Volume,
+    compat::SharedBytes,
 };
 
 use crate::{
@@ -152,7 +152,7 @@ impl FileSystem for WebcVolumeFileSystem {
         Err(FsError::PermissionDenied)
     }
 
-    fn new_open_options(&self) -> crate::OpenOptions {
+    fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)
     }
 

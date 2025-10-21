@@ -131,14 +131,14 @@ impl Default for wasm_val_t {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_val_copy(
     // own
     out: &mut wasm_val_t,
     val: &wasm_val_t,
 ) {
     out.kind = val.kind;
-    out.of = c_try!(val.kind.try_into().map(|kind| {
+    out.of = c_try!(val.kind.try_into().map(|kind| unsafe {
         match kind {
             wasm_valkind_enum::WASM_I32 => wasm_val_inner {
                 int32_t: val.of.int32_t,
@@ -173,10 +173,12 @@ impl Drop for wasm_val_t {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_val_delete(val: *mut wasm_val_t) {
     if !val.is_null() {
-        std::ptr::drop_in_place(val);
+        unsafe {
+            std::ptr::drop_in_place(val);
+        }
     }
 }
 
@@ -215,7 +217,7 @@ impl TryFrom<&wasm_val_t> for Value {
             wasm_valkind_enum::WASM_F32 => Value::F32(unsafe { item.of.float32_t }),
             wasm_valkind_enum::WASM_F64 => Value::F64(unsafe { item.of.float64_t }),
             wasm_valkind_enum::WASM_EXTERNREF => {
-                return Err("EXTERNREF not supported at this time")
+                return Err("EXTERNREF not supported at this time");
             }
             wasm_valkind_enum::WASM_FUNCREF => return Err("FUNCREF not supported at this time"),
             wasm_valkind_enum::WASM_EXNREF => return Err("EXNREF not supported at this time"),

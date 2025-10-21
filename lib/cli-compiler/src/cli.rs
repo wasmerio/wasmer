@@ -5,7 +5,7 @@ use crate::commands::{Config, Validate};
 use crate::error::PrettyError;
 use anyhow::Result;
 
-use clap::{error::ErrorKind, Parser};
+use clap::{Parser, error::ErrorKind};
 
 #[derive(Parser)]
 #[clap(

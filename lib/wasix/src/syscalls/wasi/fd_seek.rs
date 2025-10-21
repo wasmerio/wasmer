@@ -76,11 +76,13 @@ pub(crate) fn fd_seek_internal(
             } else if offset < 0 {
                 let offset = offset.unsigned_abs();
 
-                wasi_try_ok_ok!(fd_entry
-                    .offset
-                    .fetch_sub(offset, Ordering::AcqRel)
-                    .checked_sub(offset)
-                    .ok_or(Errno::Inval))
+                wasi_try_ok_ok!(
+                    fd_entry
+                        .offset
+                        .fetch_sub(offset, Ordering::AcqRel)
+                        .checked_sub(offset)
+                        .ok_or(Errno::Inval)
+                )
             } else {
                 fd_entry.offset.load(Ordering::Acquire)
             }
@@ -90,7 +92,7 @@ pub(crate) fn fd_seek_internal(
             let mut guard = fd_entry.inode.write();
             let deref_mut = guard.deref_mut();
             match deref_mut {
-                Kind::File { ref mut handle, .. } => {
+                Kind::File { handle, .. } => {
                     // TODO: remove allow once inodes are refactored (see comments on [`WasiState`])
                     #[allow(clippy::await_holding_lock)]
                     if let Some(handle) = handle {

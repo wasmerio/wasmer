@@ -84,7 +84,7 @@ where
     }
 
     #[tracing::instrument(level = "trace", skip(self))]
-    fn new_open_options(&self) -> crate::OpenOptions {
+    fn new_open_options(&self) -> crate::OpenOptions<'_> {
         crate::OpenOptions::new(self)
     }
 

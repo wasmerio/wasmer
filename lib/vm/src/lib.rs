@@ -43,8 +43,8 @@ pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{InstanceAllocator, VMInstance};
 pub use crate::memory::{
-    initialize_memory_with_data, LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory,
-    VMSharedMemory,
+    LinearMemory, NotifyLocation, VMMemory, VMOwnedMemory, VMSharedMemory,
+    initialize_memory_with_data,
 };
 pub use crate::mmap::{Mmap, MmapType};
 pub use crate::probestack::PROBESTACK;
@@ -132,7 +132,7 @@ impl VMFuncRef {
     /// # Safety
     /// `raw.funcref` must be a valid pointer.
     pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
-        NonNull::new(raw.funcref as *mut VMCallerCheckedAnyfunc).map(Self)
+        unsafe { NonNull::new(raw.funcref as *mut VMCallerCheckedAnyfunc).map(Self) }
     }
 }
 

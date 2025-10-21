@@ -1,6 +1,6 @@
 use std::{collections::HashSet, time::Duration};
 
-use anyhow::{bail, Context};
+use anyhow::{Context, bail};
 use cynic::{MutationBuilder, QueryBuilder};
 use futures::StreamExt;
 use merge_streams::MergeStreams;
@@ -12,8 +12,8 @@ use wasmer_package::utils::from_bytes;
 use webc::Container;
 
 use crate::{
-    types::{self, *},
     GraphQLApiFailure, WasmerClient,
+    types::{self, *},
 };
 
 /// Rotate the s3 secrets tied to an app given its id.
@@ -449,7 +449,7 @@ pub async fn fetch_webc_package(
         ))?,
         PackageIdent::Hash(h) => match get_package_release(client, &h.to_string()).await? {
             Some(webc) => Url::parse(&webc.webc_url)?,
-            None => anyhow::bail!("Could not find package with hash '{}'", h),
+            None => anyhow::bail!("Could not find package with hash '{h}'"),
         },
     };
 
@@ -1841,7 +1841,7 @@ pub async fn generate_deploy_config_token_raw(
         .context("no token returned")
 }
 
-/// Generate an SSH token for accesing Edge over SSH or SFTP.
+/// Generate an SSH token for accessing Edge over SSH or SFTP.
 ///
 /// If an app id is provided, the token will be scoped to that app,
 /// and using the token will open an ssh context for that app.
@@ -1960,7 +1960,7 @@ fn get_app_logs(
 /// Get pages of logs associated with an application that lie within the
 /// specified date range.
 ///
-/// In contrast to [`get_app_logs`], this function collects the stream into a
+/// In contrast to `get_app_logs`, this function collects the stream into a
 /// final vector.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
@@ -1997,7 +1997,7 @@ pub async fn get_app_logs_paginated(
 /// Get pages of logs associated with an application that lie within the
 /// specified date range with a specific instance identifier.
 ///
-/// In contrast to [`get_app_logs`], this function collects the stream into a
+/// In contrast to `get_app_logs`, this function collects the stream into a
 /// final vector.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
@@ -2044,7 +2044,7 @@ pub async fn get_app_logs_paginated_filter_instance(
 /// Get pages of logs associated with an specific request for application that lie within the
 /// specified date range.
 ///
-/// In contrast to [`get_app_logs`], this function collects the stream into a
+/// In contrast to `get_app_logs`, this function collects the stream into a
 /// final vector.
 #[tracing::instrument(skip_all, level = "debug")]
 #[allow(clippy::let_with_type_underscore)]
@@ -2099,8 +2099,7 @@ pub async fn get_domain(
 
     let opt = client
         .run_graphql(types::GetDomain::build(vars))
-        .await
-        .map_err(anyhow::Error::from)?
+        .await?
         .get_domain;
     Ok(opt)
 }
@@ -2116,8 +2115,7 @@ pub async fn get_domain_zone_file(
 
     let opt = client
         .run_graphql(types::GetDomainWithZoneFile::build(vars))
-        .await
-        .map_err(anyhow::Error::from)?
+        .await?
         .get_domain;
     Ok(opt)
 }
@@ -2131,8 +2129,7 @@ pub async fn get_domain_with_records(
 
     let opt = client
         .run_graphql(types::GetDomainWithRecords::build(vars))
-        .await
-        .map_err(anyhow::Error::from)?
+        .await?
         .get_domain;
     Ok(opt)
 }
@@ -2151,8 +2148,7 @@ pub async fn register_domain(
     };
     let opt = client
         .run_graphql_strict(types::RegisterDomain::build(vars))
-        .await
-        .map_err(anyhow::Error::from)?
+        .await?
         .register_domain
         .context("Domain registration failed")?
         .domain
@@ -2170,7 +2166,6 @@ pub async fn get_all_dns_records(
     client
         .run_graphql_strict(types::GetAllDnsRecords::build(vars))
         .await
-        .map_err(anyhow::Error::from)
         .map(|x| x.get_all_dnsrecords)
 }
 
@@ -2182,7 +2177,6 @@ pub async fn get_all_domains(
     let connection = client
         .run_graphql_strict(types::GetAllDomains::build(vars))
         .await
-        .map_err(anyhow::Error::from)
         .map(|x| x.get_all_domains)
         .context("no domains returned")?;
     Ok(connection
@@ -2235,7 +2229,6 @@ pub async fn purge_cache_for_app_version(
     client
         .run_graphql_strict(types::PurgeCacheForAppVersion::build(vars))
         .await
-        .map_err(anyhow::Error::from)
         .map(|x| x.purge_cache_for_app_version)
         .context("backend did not return data")?;
 

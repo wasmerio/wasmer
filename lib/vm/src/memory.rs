@@ -239,13 +239,15 @@ impl VMOwnedMemory {
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Self::new_internal(
-            memory,
-            style,
-            Some(vm_memory_location),
-            None,
-            MmapType::Private,
-        )
+        unsafe {
+            Self::new_internal(
+                memory,
+                style,
+                Some(vm_memory_location),
+                None,
+                MmapType::Private,
+            )
+        }
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
@@ -264,13 +266,15 @@ impl VMOwnedMemory {
         backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
-        Self::new_internal(
-            memory,
-            style,
-            Some(vm_memory_location),
-            backing_file,
-            memory_type,
-        )
+        unsafe {
+            Self::new_internal(
+                memory,
+                style,
+                Some(vm_memory_location),
+                backing_file,
+                memory_type,
+            )
+        }
     }
 
     /// Build a `Memory` with either self-owned or VM owned metadata.
@@ -281,82 +285,84 @@ impl VMOwnedMemory {
         backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
-        if memory.minimum > Pages::max_value() {
-            return Err(MemoryError::MinimumMemoryTooLarge {
-                min_requested: memory.minimum,
-                max_allowed: Pages::max_value(),
-            });
-        }
-        // `maximum` cannot be set to more than `65536` pages.
-        if let Some(max) = memory.maximum {
-            if max > Pages::max_value() {
-                return Err(MemoryError::MaximumMemoryTooLarge {
-                    max_requested: max,
+        unsafe {
+            if memory.minimum > Pages::max_value() {
+                return Err(MemoryError::MinimumMemoryTooLarge {
+                    min_requested: memory.minimum,
                     max_allowed: Pages::max_value(),
                 });
             }
-            if max < memory.minimum {
-                return Err(MemoryError::InvalidMemory {
-                    reason: format!(
-                        "the maximum ({} pages) is less than the minimum ({} pages)",
-                        max.0, memory.minimum.0
-                    ),
-                });
-            }
-        }
-
-        let offset_guard_bytes = style.offset_guard_size() as usize;
-
-        let minimum_pages = match style {
-            MemoryStyle::Dynamic { .. } => memory.minimum,
-            MemoryStyle::Static { bound, .. } => {
-                assert_ge!(*bound, memory.minimum);
-                *bound
-            }
-        };
-        let minimum_bytes = minimum_pages.bytes().0;
-        let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
-        let mapped_pages = memory.minimum;
-        let mapped_bytes = mapped_pages.bytes();
-
-        let mut alloc =
-            Mmap::accessible_reserved(mapped_bytes.0, request_bytes, backing_file, memory_type)
-                .map_err(MemoryError::Region)?;
-
-        let base_ptr = alloc.as_mut_ptr();
-        let mem_length = memory
-            .minimum
-            .bytes()
-            .0
-            .max(alloc.as_slice_accessible().len());
-        let mmap = WasmMmap {
-            vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
-                {
-                    let mut ptr = mem_loc;
-                    let md = ptr.as_mut();
-                    md.base = base_ptr;
-                    md.current_length = mem_length;
+            // `maximum` cannot be set to more than `65536` pages.
+            if let Some(max) = memory.maximum {
+                if max > Pages::max_value() {
+                    return Err(MemoryError::MaximumMemoryTooLarge {
+                        max_requested: max,
+                        max_allowed: Pages::max_value(),
+                    });
                 }
-                MaybeInstanceOwned::Instance(mem_loc)
-            } else {
-                MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
-                    base: base_ptr,
-                    current_length: mem_length,
-                })))
-            },
-            alloc,
-            size: Bytes::from(mem_length).try_into().unwrap(),
-        };
+                if max < memory.minimum {
+                    return Err(MemoryError::InvalidMemory {
+                        reason: format!(
+                            "the maximum ({} pages) is less than the minimum ({} pages)",
+                            max.0, memory.minimum.0
+                        ),
+                    });
+                }
+            }
 
-        Ok(Self {
-            mmap,
-            config: VMMemoryConfig {
-                maximum: memory.maximum,
-                offset_guard_size: offset_guard_bytes,
-                memory: *memory,
-                style: *style,
-            },
-        })
+            let offset_guard_bytes = style.offset_guard_size() as usize;
+
+            let minimum_pages = match style {
+                MemoryStyle::Dynamic { .. } => memory.minimum,
+                MemoryStyle::Static { bound, .. } => {
+                    assert_ge!(*bound, memory.minimum);
+                    *bound
+                }
+            };
+            let minimum_bytes = minimum_pages.bytes().0;
+            let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
+            let mapped_pages = memory.minimum;
+            let mapped_bytes = mapped_pages.bytes();
+
+            let mut alloc =
+                Mmap::accessible_reserved(mapped_bytes.0, request_bytes, backing_file, memory_type)
+                    .map_err(MemoryError::Region)?;
+
+            let base_ptr = alloc.as_mut_ptr();
+            let mem_length = memory
+                .minimum
+                .bytes()
+                .0
+                .max(alloc.as_slice_accessible().len());
+            let mmap = WasmMmap {
+                vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
+                    {
+                        let mut ptr = mem_loc;
+                        let md = ptr.as_mut();
+                        md.base = base_ptr;
+                        md.current_length = mem_length;
+                    }
+                    MaybeInstanceOwned::Instance(mem_loc)
+                } else {
+                    MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                        base: base_ptr,
+                        current_length: mem_length,
+                    })))
+                },
+                alloc,
+                size: Bytes::from(mem_length).try_into().unwrap(),
+            };
+
+            Ok(Self {
+                mmap,
+                config: VMMemoryConfig {
+                    maximum: memory.maximum,
+                    offset_guard_size: offset_guard_bytes,
+                    memory: *memory,
+                    style: *style,
+                },
+            })
+        }
     }
 
     /// Converts this owned memory into shared memory
@@ -481,7 +487,9 @@ impl VMSharedMemory {
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
+        unsafe {
+            Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
+        }
     }
 
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages
@@ -500,14 +508,16 @@ impl VMSharedMemory {
         backing_file: Option<std::path::PathBuf>,
         memory_type: MmapType,
     ) -> Result<Self, MemoryError> {
-        Ok(VMOwnedMemory::from_definition_with_file(
-            memory,
-            style,
-            vm_memory_location,
-            backing_file,
-            memory_type,
-        )?
-        .to_shared())
+        unsafe {
+            Ok(VMOwnedMemory::from_definition_with_file(
+                memory,
+                style,
+                vm_memory_location,
+                backing_file,
+                memory_type,
+            )?
+            .to_shared())
+        }
     }
 
     /// Copies this memory to a new memory
@@ -671,7 +681,7 @@ impl LinearMemory for VMMemory {
 
     /// Initialize memory with data
     unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
-        self.0.initialize_with_data(start, data)
+        unsafe { self.0.initialize_with_data(start, data) }
     }
 
     /// Copies this memory to a new memory
@@ -729,19 +739,21 @@ impl VMMemory {
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Ok(if memory.shared {
-            Self(Box::new(VMSharedMemory::from_definition(
-                memory,
-                style,
-                vm_memory_location,
-            )?))
-        } else {
-            Self(Box::new(VMOwnedMemory::from_definition(
-                memory,
-                style,
-                vm_memory_location,
-            )?))
-        })
+        unsafe {
+            Ok(if memory.shared {
+                Self(Box::new(VMSharedMemory::from_definition(
+                    memory,
+                    style,
+                    vm_memory_location,
+                )?))
+            } else {
+                Self(Box::new(VMOwnedMemory::from_definition(
+                    memory,
+                    style,
+                    vm_memory_location,
+                )?))
+            })
+        }
     }
 
     /// Creates VMMemory from a custom implementation - the following into implementations
@@ -768,12 +780,14 @@ pub unsafe fn initialize_memory_with_data(
     start: usize,
     data: &[u8],
 ) -> Result<(), Trap> {
-    let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
-    let end = start + data.len();
-    let to_init = &mut mem_slice[start..end];
-    to_init.copy_from_slice(data);
+    unsafe {
+        let mem_slice = slice::from_raw_parts_mut(memory.base, memory.current_length);
+        let end = start + data.len();
+        let to_init = &mut mem_slice[start..end];
+        to_init.copy_from_slice(data);
 
-    Ok(())
+        Ok(())
+    }
 }
 
 /// Represents memory that is used by the WebAsssembly module
@@ -822,9 +836,11 @@ where
     /// This function is unsafe because WebAssembly specification requires that data is always set at initialization time.
     /// It should be the implementors responsibility to make sure this respects the spec
     unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
-        let memory = self.vmmemory().as_ref();
+        unsafe {
+            let memory = self.vmmemory().as_ref();
 
-        initialize_memory_with_data(memory, start, data)
+            initialize_memory_with_data(memory, start, data)
+        }
     }
 
     /// Copies this memory to a new memory

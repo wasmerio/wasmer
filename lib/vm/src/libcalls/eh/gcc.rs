@@ -99,7 +99,7 @@ const UNWIND_DATA_REG: (i32, i32) = (10, 11); // x10, x11
 #[cfg(target_arch = "loongarch64")]
 const UNWIND_DATA_REG: (i32, i32) = (4, 5); // a0, a1
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 /// The implementation of Wasmer's personality function.
 ///
 /// # Safety
@@ -172,7 +172,7 @@ pub unsafe extern "C" fn wasmer_eh_personality(
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 /// The second stage of the personality function. See module level documentation
 /// for an explanation of the exact procedure used during unwinding.
 ///
@@ -234,7 +234,7 @@ pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
     if exception.is_null() {
         0
     } else {
-        (*(exception as *mut UwExceptionWrapper)).exnref
+        unsafe { (*(exception as *mut UwExceptionWrapper)).exnref }
     }
 }
 
@@ -242,34 +242,38 @@ pub unsafe fn read_exnref(exception: *mut c_void) -> u32 {
 ///
 /// Performs libunwind unwinding magic. Highly unsafe.
 pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
-    if exnref == 0 {
-        crate::raise_lib_trap(crate::Trap::lib(
-            wasmer_types::TrapCode::UninitializedExnRef,
-        ))
-    }
-
-    let exception = Box::new(UwExceptionWrapper::new(exnref));
-    let exception_ptr = Box::into_raw(exception);
-
-    match uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception) {
-        libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-            delete_exception(exception_ptr as *mut c_void);
-
-            let exnref = VMExceptionRef(StoreHandle::from_internal(
-                ctx.id(),
-                InternalStoreHandle::from_index(exnref as usize).unwrap(),
-            ));
-            crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
+    unsafe {
+        if exnref == 0 {
+            crate::raise_lib_trap(crate::Trap::lib(
+                wasmer_types::TrapCode::UninitializedExnRef,
+            ))
         }
-        _ => {
-            unreachable!()
+
+        let exception = Box::new(UwExceptionWrapper::new(exnref));
+        let exception_ptr = Box::into_raw(exception);
+
+        match uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception) {
+            libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
+                delete_exception(exception_ptr as *mut c_void);
+
+                let exnref = VMExceptionRef(StoreHandle::from_internal(
+                    ctx.id(),
+                    InternalStoreHandle::from_index(exnref as usize).unwrap(),
+                ));
+                crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
+            }
+            _ => {
+                unreachable!()
+            }
         }
     }
 }
 
 pub unsafe fn delete_exception(exception: *mut c_void) {
-    if !exception.is_null() {
-        uw::_Unwind_DeleteException(exception as *mut uw::_Unwind_Exception);
+    unsafe {
+        if !exception.is_null() {
+            uw::_Unwind_DeleteException(exception as *mut uw::_Unwind_Exception);
+        }
     }
 }
 
@@ -277,6 +281,8 @@ unsafe extern "C" fn deallocate_exception(
     _: uw::_Unwind_Reason_Code,
     exception: *mut uw::_Unwind_Exception,
 ) {
-    let exception = Box::from_raw(exception as *mut UwExceptionWrapper);
-    drop(exception);
+    unsafe {
+        let exception = Box::from_raw(exception as *mut UwExceptionWrapper);
+        drop(exception);
+    }
 }

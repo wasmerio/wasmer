@@ -11,7 +11,7 @@ pub struct wasm_exporttype_t {
 wasm_declare_boxed_vec!(exporttype);
 wasm_impl_copy_delete!(exporttype);
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_exporttype_new(
     name: &wasm_name_t,
     extern_type: Box<wasm_externtype_t>,
@@ -22,12 +22,12 @@ pub extern "C" fn wasm_exporttype_new(
     })
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_exporttype_name(export_type: &wasm_exporttype_t) -> &wasm_name_t {
     &export_type.name
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_exporttype_type(export_type: &wasm_exporttype_t) -> &wasm_externtype_t {
     &export_type.extern_type
 }

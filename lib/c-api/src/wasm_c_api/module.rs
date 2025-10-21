@@ -24,15 +24,16 @@ pub struct wasm_module_t {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_new(
     store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    let store = store?.inner.store_mut();
+    let store = store?;
+    let store_mut = unsafe { store.inner.store_mut() };
     let bytes = bytes?;
 
-    let module = c_try!(Module::from_binary(&store, bytes.as_slice()));
+    let module = c_try!(Module::from_binary(&store_mut, bytes.as_slice()));
 
     Some(Box::new(wasm_module_t { inner: module }))
 }
@@ -42,7 +43,7 @@ pub unsafe extern "C" fn wasm_module_new(
 /// # Example
 ///
 /// See [`wasm_module_new`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
 
 /// Validates a new WebAssembly module given the configuration
@@ -86,13 +87,13 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_validate(
     store: Option<&mut wasm_store_t>,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> bool {
     let store = match store {
-        Some(store) => store.inner.store_mut(),
+        Some(store) => unsafe { store.inner.store_mut() },
         None => return false,
     };
     let bytes = match bytes {
@@ -213,7 +214,7 @@ pub unsafe extern "C" fn wasm_module_validate(
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_exports(
     module: &wasm_module_t,
     // own
@@ -353,7 +354,7 @@ pub unsafe extern "C" fn wasm_module_exports(
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
     // own
@@ -451,18 +452,19 @@ pub unsafe extern "C" fn wasm_module_imports(
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_deserialize(
     store: &wasm_store_t,
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<NonNull<wasm_module_t>> {
     let bytes = bytes?;
 
-    let module = c_try!(Module::deserialize(&store.inner.store(), bytes.as_slice()));
+    let store_ref = unsafe { store.inner.store() };
+    let module = c_try!(unsafe { Module::deserialize(&store_ref, bytes.as_slice()) });
 
-    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
-        wasm_module_t { inner: module },
-    ))))
+    Some(unsafe {
+        NonNull::new_unchecked(Box::into_raw(Box::new(wasm_module_t { inner: module })))
+    })
 }
 
 /// Serializes a module into a binary representation that the
@@ -472,7 +474,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 /// # Example
 ///
 /// See [`wasm_module_deserialize`].
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_module_serialize(module: &wasm_module_t, out: &mut wasm_byte_vec_t) {
     let byte_vec = c_try!(module.inner.serialize(); otherwise ());
     out.set_buffer(byte_vec.to_vec());
@@ -485,6 +487,10 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_validate() {
@@ -513,6 +519,10 @@ mod tests {
         .success();
     }
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_new() {
@@ -543,6 +553,10 @@ mod tests {
         .success();
     }
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_exports() {
@@ -652,6 +666,10 @@ mod tests {
         .success();
     }
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_imports() {
@@ -771,6 +789,10 @@ mod tests {
         .success();
     }
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_serialize() {
@@ -806,6 +828,10 @@ mod tests {
         .success();
     }
 
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
     #[cfg_attr(coverage, ignore)]
     #[test]
     fn test_module_serialize_and_deserialize() {

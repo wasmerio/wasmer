@@ -4,11 +4,11 @@ use crate::Features;
 use enumset::EnumSet;
 use std::any::Any;
 use std::sync::Arc;
-use wasmer_types::entity::PrimaryMap;
 use wasmer_types::SerializeError;
+use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    target::CpuFeature, DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex,
-    TableStyle,
+    DataInitializerLike, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+    target::CpuFeature,
 };
 
 /// An `Artifact` is the product that the `Engine`

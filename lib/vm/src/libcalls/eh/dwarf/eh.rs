@@ -72,14 +72,14 @@ pub const USING_SJLJ_EXCEPTIONS: bool = cfg!(all(
 
 /* change to true to enable logging from the personality function */
 macro_rules! log {
-    ($e: expr) => {
+    ($e: expr_2021) => {
         if false {
             eprintln!($e)
         }
 
     };
 
-    ($($e: expr),*) => {
+    ($($e: expr_2021),*) => {
         if false {
             eprintln!($($e),*)
         }
@@ -210,7 +210,9 @@ pub unsafe fn find_eh_action(lsda: *const u8, context: &EHContext<'_>) -> Result
                                         _ => panic!(),
                                     };
 
-                                    log!("(pers) new_ttype_index for action #{cs_action_entry}: {new_ttype_index:?}");
+                                    log!(
+                                        "(pers) new_ttype_index for action #{cs_action_entry}: {new_ttype_index:?}"
+                                    );
 
                                     let i = class_info.wrapping_sub(new_ttype_index as usize);
                                     log!("(pers) reading ttype info from {i:?}");

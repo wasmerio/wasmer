@@ -15,13 +15,13 @@ use wasmer_config::package::PackageId;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, DynReadableJournal, SnapshotTrigger};
 use crate::{
+    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
     bin_factory::{BinFactory, BinaryPackage},
     capabilities::Capabilities,
     fs::{WasiFs, WasiFsRoot, WasiInodes},
     os::task::control_plane::{ControlPlaneConfig, ControlPlaneError, WasiControlPlane},
     state::WasiState,
     syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
-    Runtime, WasiEnv, WasiFunctionEnv, WasiRuntimeError, WasiThreadError,
 };
 use wasmer_types::ModuleHash;
 use wasmer_wasix_types::wasi::SignalDisposition;
@@ -783,7 +783,7 @@ impl WasiEnvBuilder {
     /// Returns the error from `WasiFs::new` if there's an error
     ///
     /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
-    /// Use [`WasiEnvBuilder::run`] or [`WasiEnvBuilder::run_with_store`] instead
+    /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
     /// to ensure proper invokation of WASI modules.
     pub fn build_init(mut self) -> Result<WasiEnvInit, WasiStateCreationError> {
         for arg in self.args.iter() {
@@ -812,19 +812,19 @@ impl WasiEnvBuilder {
                 Some(InvalidCharacter::Nul) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                         format!("found nul byte in env var key \"{env_key}\" (key=value)"),
-                    ))
+                    ));
                 }
 
                 Some(InvalidCharacter::Equal) => {
                     return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                         format!("found equal sign in env var key \"{env_key}\" (key=value)"),
-                    ))
+                    ));
                 }
 
                 None => (),
             }
 
-            if env_value.iter().any(|&ch| ch == 0) {
+            if env_value.contains(&0) {
                 return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                     format!(
                         "found nul byte in env var value \"{}\" (key=value)",
@@ -914,7 +914,7 @@ impl WasiEnvBuilder {
 
         let state = WasiState {
             fs: wasi_fs,
-            secret: rand::thread_rng().gen::<[u8; 32]>(),
+            secret: rand::thread_rng().r#gen::<[u8; 32]>(),
             inodes,
             args: std::sync::Mutex::new(self.args.clone()),
             preopen: self.vfs_preopens.clone(),

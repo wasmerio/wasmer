@@ -1,6 +1,6 @@
 use crate::{
-    jsc::{utils::convert::AsJsc, vm::VMInstance},
     AsStoreMut, BackendInstance, Exports, Extern, Imports, InstantiationError, Module,
+    jsc::{utils::convert::AsJsc, vm::VMInstance},
 };
 
 use super::engine::IntoJSC;
@@ -15,6 +15,7 @@ pub struct Instance {
 // unsafe impl Send for Instance {}
 
 impl Instance {
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         mut store: &mut impl AsStoreMut,
         module: &Module,
@@ -23,11 +24,12 @@ impl Instance {
         let instance = module
             .as_jsc()
             .instantiate(&mut store, imports)
-            .map_err(|e| InstantiationError::Start(e))?;
+            .map_err(InstantiationError::Start)?;
 
-        Self::from_module_and_instance(store, &module, instance)
+        Self::from_module_and_instance(store, module, instance)
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -40,6 +42,7 @@ impl Instance {
         Self::new(store, module, &imports)
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn from_module_and_instance(
         mut store: &mut impl AsStoreMut,
         module: &Module,
@@ -49,8 +52,8 @@ impl Instance {
         let context = engine.jsc().context();
 
         let mut instance_exports = instance
-            .get_property(&context, "exports".to_string())
-            .to_object(&context)
+            .get_property(context, "exports".to_string())
+            .to_object(context)
             .unwrap();
 
         let exports_ty = module.exports().collect::<Vec<_>>();
@@ -63,7 +66,7 @@ impl Instance {
                 let context = store.jsc().context();
                 let extern_type = export_type.ty();
                 // Annotation is here to prevent spurious IDE warnings.
-                let js_export = instance_exports.get_property(&context, name.to_string());
+                let js_export = instance_exports.get_property(context, name.to_string());
                 let extern_ = Extern::from_jsc_value(&mut store, extern_type, &js_export).unwrap();
                 Ok((name.to_string(), extern_))
             })

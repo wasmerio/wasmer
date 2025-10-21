@@ -1,6 +1,6 @@
 //! [`GlobalId`]s are used by the backend to identify a specific object.
 //!
-//! This module provides a parser/encoder and related type defintions
+//! This module provides a parser/encoder and related type definitions
 //! for global ids.
 
 use std::fmt::Display;

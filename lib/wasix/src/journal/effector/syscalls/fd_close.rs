@@ -11,11 +11,7 @@ impl JournalEffector {
         // FIXME: the journal should use the same logic as the fd_close syscall,
         // NOT invent its own!!
         if let Err(err) = state.fs.close_fd(fd) {
-            bail!(
-                "journal restore error: failed to close descriptor (fd={}) - {}",
-                fd,
-                err
-            );
+            bail!("journal restore error: failed to close descriptor (fd={fd}) - {err}");
         }
         Ok(())
     }

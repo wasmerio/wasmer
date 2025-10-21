@@ -2,8 +2,8 @@ use anyhow::Result;
 use wasmer_middlewares::Metering;
 
 use std::sync::Arc;
-use wasmer::wasmparser::Operator;
 use wasmer::FunctionEnv;
+use wasmer::wasmparser::Operator;
 use wasmer::*;
 
 fn cost_always_one(_: &Operator) -> u64 {

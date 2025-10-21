@@ -1,7 +1,7 @@
 use crate::{
+    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
     js::vm::{VMFunction, VMTable},
     vm::{VMExtern, VMExternTable},
-    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
 };
 use js_sys::Function;
 use wasmer_types::{FunctionType, TableType};
@@ -71,7 +71,7 @@ impl Table {
     }
 
     pub fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
-        if let Some(func) = self.handle.table.get(index).ok() {
+        if let Ok(func) = self.handle.table.get(index) {
             let ty = FunctionType::new(vec![], vec![]);
             let vm_function = VMFunction::new(func, ty);
             let function = crate::Function::from_vm_extern(
@@ -151,16 +151,16 @@ impl crate::Table {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::js::table::Table`].
     pub fn as_js(&self) -> &crate::backend::js::table::Table {
-        match self.0 {
-            BackendTable::Js(ref s) => s,
+        match &self.0 {
+            BackendTable::Js(s) => s,
             _ => panic!("Not a `js` table!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::js::table::Table`].
     pub fn as_js_mut(&mut self) -> &mut crate::backend::js::table::Table {
-        match self.0 {
-            BackendTable::Js(ref mut s) => s,
+        match &mut self.0 {
+            BackendTable::Js(s) => s,
             _ => panic!("Not a `js` table!"),
         }
     }
@@ -178,7 +178,7 @@ impl crate::BackendTable {
     /// Convert a reference to [`self`] into a reference [`crate::backend::js::table::Table`].
     pub fn as_js(&self) -> &crate::backend::js::table::Table {
         match self {
-            Self::Js(ref s) => s,
+            Self::Js(s) => s,
             _ => panic!("Not a `js` table!"),
         }
     }
@@ -186,7 +186,7 @@ impl crate::BackendTable {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::js::table::Table`].
     pub fn as_js_mut(&mut self) -> &mut crate::backend::js::table::Table {
         match self {
-            Self::Js(ref mut s) => s,
+            Self::Js(s) => s,
             _ => panic!("Not a `js` table!"),
         }
     }

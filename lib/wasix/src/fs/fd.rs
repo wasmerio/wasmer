@@ -2,12 +2,12 @@ use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
     path::PathBuf,
-    sync::{atomic::AtomicU64, Arc, RwLock, RwLockReadGuard, RwLockWriteGuard},
+    sync::{Arc, RwLock, RwLockReadGuard, RwLockWriteGuard, atomic::AtomicU64},
 };
 
 use serde_derive::{Deserialize, Serialize};
 use std::sync::Mutex as StdMutex;
-use tokio::sync::{watch, Mutex as AsyncMutex};
+use tokio::sync::{Mutex as AsyncMutex, watch};
 use virtual_fs::{Pipe, PipeRx, PipeTx, VirtualFile};
 use wasmer_wasix_types::wasi::{EpollType, Fd as WasiFd, Fdflags, Fdflagsext, Filestat, Rights};
 
@@ -74,11 +74,11 @@ pub struct InodeVal {
 }
 
 impl InodeVal {
-    pub fn read(&self) -> RwLockReadGuard<Kind> {
+    pub fn read(&self) -> RwLockReadGuard<'_, Kind> {
         self.kind.read().unwrap()
     }
 
-    pub fn write(&self) -> RwLockWriteGuard<Kind> {
+    pub fn write(&self) -> RwLockWriteGuard<'_, Kind> {
         self.kind.write().unwrap()
     }
 }

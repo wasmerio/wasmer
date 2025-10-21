@@ -1,5 +1,5 @@
 use wasmer::{
-    imports, wat2wasm, Function, Instance, Module, Store, TableType, Type, TypedFunction, Value,
+    Function, Instance, Module, Store, TableType, Type, TypedFunction, Value, imports, wat2wasm,
 };
 
 /// A function we'll call through a table.

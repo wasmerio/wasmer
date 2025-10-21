@@ -427,7 +427,10 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
                     args.tempdir.push(value.to_string());
                 }
                 "stdin" => {
-                    assert!(args.stdin.is_none(), "Only the first `stdin` directive is used! Please correct this or update this code");
+                    assert!(
+                        args.stdin.is_none(),
+                        "Only the first `stdin` directive is used! Please correct this or update this code"
+                    );
                     let s = value;
                     let s = s.strip_prefix('"').expect("expected leading '\"' in stdin");
                     let s = s

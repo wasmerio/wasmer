@@ -47,22 +47,26 @@ pub fn fd_readdir<M: MemorySize>(
                 // we need to support multiple calls,
                 // simple and obviously correct implementation for now:
                 // maintain consistent order via lexacographic sorting
-                let fs_info = wasi_try_ok!(wasi_try_ok!(state.fs_read_dir(path))
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(fs_error_into_wasi_err));
-                let mut entry_vec = wasi_try_ok!(fs_info
-                    .into_iter()
-                    .map(|entry| {
-                        let filename = entry.file_name().to_string_lossy().to_string();
-                        trace!("getting file: {:?}", filename);
-                        let filetype = virtual_file_type_to_wasi_file_type(
-                            entry.file_type().map_err(fs_error_into_wasi_err)?,
-                        );
-                        Ok((
-                            filename, filetype, 0, // TODO: inode
-                        ))
-                    })
-                    .collect::<Result<Vec<(String, Filetype, u64)>, _>>());
+                let fs_info = wasi_try_ok!(
+                    wasi_try_ok!(state.fs_read_dir(path))
+                        .collect::<Result<Vec<_>, _>>()
+                        .map_err(fs_error_into_wasi_err)
+                );
+                let mut entry_vec = wasi_try_ok!(
+                    fs_info
+                        .into_iter()
+                        .map(|entry| {
+                            let filename = entry.file_name().to_string_lossy().to_string();
+                            trace!("getting file: {:?}", filename);
+                            let filetype = virtual_file_type_to_wasi_file_type(
+                                entry.file_type().map_err(fs_error_into_wasi_err)?,
+                            );
+                            Ok((
+                                filename, filetype, 0, // TODO: inode
+                            ))
+                        })
+                        .collect::<Result<Vec<(String, Filetype, u64)>, _>>()
+                );
                 entry_vec.extend(entries.iter().filter(|(_, inode)| inode.is_preopened).map(
                     |(name, inode)| {
                         let stat = inode.stat.read().unwrap();

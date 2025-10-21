@@ -1,7 +1,7 @@
 use std::{fmt::Display, str::FromStr};
 
 use schemars::JsonSchema;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Hash)]
 pub enum SnapshotTrigger {
@@ -111,7 +111,7 @@ impl JsonSchema for SnapshotTrigger {
         "SnapshotTrigger".to_owned()
     }
 
-    fn json_schema(generator: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
+    fn json_schema(generator: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
         <String as JsonSchema>::json_schema(generator)
     }
 }

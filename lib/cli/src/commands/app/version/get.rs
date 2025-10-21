@@ -1,7 +1,7 @@
 use anyhow::Context;
 
 use crate::{
-    commands::{app::util::AppIdentOpts, AsyncCliCommand},
+    commands::{AsyncCliCommand, app::util::AppIdentOpts},
     config::WasmerEnv,
     opts::ItemFormatOpts,
     utils::render::ItemFormat,

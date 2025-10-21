@@ -17,9 +17,9 @@
 use std::{io::Read, sync::Arc};
 
 use wasmer_wasix::{
+    Pipe, PluggableRuntime, Runtime,
     runners::wasi::{RuntimeOrEngine, WasiRunner},
     runtime::{module_cache::HashedModuleData, task_manager::tokio::TokioTaskManager},
-    Pipe, PluggableRuntime, Runtime,
 };
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {

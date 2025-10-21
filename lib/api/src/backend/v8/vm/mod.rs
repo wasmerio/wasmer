@@ -38,6 +38,7 @@ pub(crate) type VMInstance = *mut wasm_instance_t;
 pub(crate) type VMExternObj = ();
 pub(crate) type VMConfig = ();
 
+#[allow(clippy::not_unsafe_ptr_arg_deref, clippy::unnecessary_mut_passed)]
 impl crate::VMExternToExtern for VMExtern {
     fn to_extern(self, store: &mut impl AsStoreMut) -> Extern {
         let kind = unsafe { wasm_extern_kind(&mut *self) };

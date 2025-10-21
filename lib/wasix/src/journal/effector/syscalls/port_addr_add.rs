@@ -19,10 +19,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to add address to port file descriptor (cidr={:?}) - {}",
-                    cidr,
-                    err
-                )
+                    "journal restore error: failed to add address to port file descriptor (cidr={cidr:?}) - {err}")
             })?;
         Ok(())
     }

@@ -1,9 +1,9 @@
 use wasmer_types::{TagType, Type};
 
 use crate::{
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern,
 };
 
 /// A WebAssembly `global` instance.

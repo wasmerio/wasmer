@@ -7,15 +7,16 @@ use crate::{
     common_decl::*,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE},
+    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE, UnsignedCondition},
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
-use smallvec::{smallvec, SmallVec};
+use smallvec::{SmallVec, smallvec};
 use std::{cmp, iter};
 
 use wasmer_compiler::{
+    FunctionBodyData,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -25,7 +26,6 @@ use wasmer_compiler::{
         BlockType as WpTypeOrFuncType, HeapType as WpHeapType, Operator, RefType as WpRefType,
         ValType as WpType,
     },
-    FunctionBodyData,
 };
 
 #[cfg(feature = "unwind")]
@@ -33,10 +33,10 @@ use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap},
     CompileError, FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex,
     MemoryIndex, MemoryStyle, ModuleInfo, SignatureIndex, TableIndex, TableStyle, TrapCode, Type,
     VMBuiltinFunctionIndex, VMOffsets,
+    entity::{EntityRef, PrimaryMap},
 };
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
@@ -909,7 +909,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 _ => {
                     return Err(CompileError::Codegen(
                         "emit_call_native loc: unreachable code".to_owned(),
-                    ))
+                    ));
                 }
             }
         }
@@ -2818,10 +2818,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     )?;
                 }
 
-                self.machine
-                    .location_cmp(Size::S32, func_index, Location::GPR(table_count))?;
-                self.machine
-                    .jmp_on_belowequal(self.special_labels.table_access_oob)?;
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::BelowEqual,
+                    Size::S32,
+                    Location::GPR(table_count),
+                    func_index,
+                    self.special_labels.table_access_oob,
+                )?;
                 self.machine
                     .move_location(Size::S32, func_index, Location::GPR(table_count))?;
                 self.machine.emit_imul_imm32(
@@ -2843,13 +2846,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(table_count),
                 )?;
                 // Trap if the FuncRef is null
-                self.machine.location_cmp(
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
                     Size::S64,
-                    Location::Imm32(0),
                     Location::GPR(table_count),
+                    Location::Imm32(0),
+                    self.special_labels.indirect_call_null,
                 )?;
-                self.machine
-                    .jmp_on_equal(self.special_labels.indirect_call_null)?;
                 self.machine.move_location(
                     Size::S64,
                     Location::Memory(
@@ -2860,17 +2863,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
 
                 // Trap if signature mismatches.
-                self.machine.location_cmp(
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::NotEqual,
                     Size::S32,
                     Location::GPR(sigidx),
                     Location::Memory(
                         table_count,
                         (self.vmoffsets.vmcaller_checked_anyfunc_type_index() as usize) as i32,
                     ),
+                    self.special_labels.bad_signature,
                 )?;
-                self.machine
-                    .jmp_on_different(self.special_labels.bad_signature)?;
-
                 self.machine.release_gpr(sigidx);
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);
@@ -2972,7 +2974,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         _ => {
                             return Err(CompileError::Codegen(
                                 "If: multi-value returns not yet implemented".to_owned(),
-                            ))
+                            ));
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -2981,9 +2983,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
-                self.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-                self.machine.jmp_on_equal(label_else)?;
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
+                    Size::S32,
+                    cond,
+                    Location::Imm32(0),
+                    label_else,
+                )?;
             }
             Operator::Else => {
                 let frame = self.control_stack.last_mut().unwrap();
@@ -3020,7 +3026,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     _ => {
                         return Err(CompileError::Codegen(
                             "Else: frame.if_else unreachable code".to_owned(),
-                        ))
+                        ));
                     }
                 }
             }
@@ -3051,9 +3057,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let end_label = self.machine.get_label();
                 let zero_label = self.machine.get_label();
 
-                self.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-                self.machine.jmp_on_equal(zero_label)?;
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
+                    Size::S32,
+                    cond,
+                    Location::Imm32(0),
+                    zero_label,
+                )?;
                 match cncl {
                     Some((Some(fp), _))
                         if self.machine.arch_supports_canonicalize_nan()
@@ -3095,7 +3105,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         _ => {
                             return Err(CompileError::Codegen(
                                 "Block: multi-value returns not yet implemented".to_owned(),
-                            ))
+                            ));
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -3121,7 +3131,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         _ => {
                             return Err(CompileError::Codegen(
                                 "Loop: multi-value returns not yet implemented".to_owned(),
-                            ))
+                            ));
                         }
                     },
                     value_stack_depth: self.value_stack.len(),
@@ -4051,9 +4061,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::BrIf { relative_depth } => {
                 let after = self.machine.get_label();
                 let cond = self.pop_value_released()?;
-                self.machine
-                    .emit_relaxed_cmp(Size::S32, Location::Imm32(0), cond)?;
-                self.machine.jmp_on_equal(after)?;
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::Equal,
+                    Size::S32,
+                    cond,
+                    Location::Imm32(0),
+                    after,
+                )?;
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
@@ -4096,12 +4110,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_label = self.machine.get_label();
                 let mut table: Vec<Label> = vec![];
                 let default_br = self.machine.get_label();
-                self.machine.emit_relaxed_cmp(
+                self.machine.jmp_on_condition(
+                    UnsignedCondition::AboveEqual,
                     Size::S32,
-                    Location::Imm32(targets.len() as u32),
                     cond,
+                    Location::Imm32(targets.len() as u32),
+                    default_br,
                 )?;
-                self.machine.jmp_on_aboveequal(default_br)?;
 
                 self.machine.emit_jmp_to_jumptable(table_label, cond)?;
 
@@ -6666,7 +6681,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let body_len = self.machine.assembler_get_offset().0;
 
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = None;
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut fde = None;
         #[cfg(feature = "unwind")]
         match self.calling_convention {

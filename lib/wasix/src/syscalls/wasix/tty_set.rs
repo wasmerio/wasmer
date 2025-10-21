@@ -1,5 +1,5 @@
 use super::*;
-use crate::{syscalls::*, WasiTtyState};
+use crate::{WasiTtyState, syscalls::*};
 
 /// ### `tty_set()`
 /// Updates the properties of the rect

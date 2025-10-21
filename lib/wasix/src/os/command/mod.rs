@@ -6,7 +6,7 @@ use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
-    runtime::task_manager::InlineWaker, syscalls::stderr_write, Runtime, SpawnError, WasiEnv,
+    Runtime, SpawnError, WasiEnv, runtime::task_manager::InlineWaker, syscalls::stderr_write,
 };
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
@@ -19,7 +19,7 @@ where
     /// Returns the canonical name of the command.
     fn name(&self) -> &str;
 
-    /// Retrieve the command as as a [`std::any::Any`] reference.
+    /// Retrieve the command as a [`std::any::Any`] reference.
     fn as_any(&self) -> &dyn std::any::Any;
 
     /// Executes the command.

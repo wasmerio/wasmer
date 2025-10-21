@@ -13,8 +13,8 @@ use replace_with::replace_with_or_abort;
 use tokio::io::{AsyncRead, AsyncSeek, AsyncWrite, ReadBuf};
 
 use crate::{
-    ops, FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
-    ReadDir, VirtualFile,
+    FileOpener, FileSystem, FileSystems, FsError, Metadata, OpenOptions, OpenOptionsConfig,
+    ReadDir, VirtualFile, ops,
 };
 
 /// A primary filesystem and chain of secondary filesystems that are overlayed

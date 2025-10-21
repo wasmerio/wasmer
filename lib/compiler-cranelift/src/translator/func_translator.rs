@@ -12,12 +12,13 @@ use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
 use crate::translator::code_translator::bitcast_wasm_returns;
+use core::convert::TryFrom;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
-use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
+use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
+use wasmer_compiler::{FunctionBinaryReader, ModuleTranslationState, wptype_to_type};
 use wasmer_compiler::{wasm_unsupported, wasmparser};
-use wasmer_compiler::{wptype_to_type, FunctionBinaryReader, ModuleTranslationState};
 use wasmer_types::{LocalFunctionIndex, WasmResult};
 
 /// WebAssembly to Cranelift IR function translator.
@@ -137,8 +138,10 @@ fn declare_wasm_parameters<FE: FuncEnvironment + ?Sized>(
         // signature parameters. For example, a `vmctx` pointer.
         if environ.is_wasm_parameter(&builder.func.signature, i) {
             // This is a normal WebAssembly signature parameter, so create a local for it.
-            let local = Variable::new(next_local);
-            builder.declare_var(local, param_type.value_type);
+            let local = builder.declare_var(param_type.value_type);
+            let local_index = local.index();
+            debug_assert_eq!(local_index, next_local);
+            debug_assert!(u32::try_from(local_index).is_ok());
             next_local += 1;
 
             let param_value = builder.block_params(entry_block)[i];
@@ -197,7 +200,7 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
         }
         Ref(ty) => {
             if ty.is_func_ref() || ty.is_extern_ref() {
-                builder.ins().null(environ.reference_type())
+                builder.ins().iconst(environ.reference_type(), 0)
             } else {
                 return Err(wasm_unsupported!("unsupported reference type: {:?}", ty));
             }
@@ -207,8 +210,10 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
     let wasmer_ty = wptype_to_type(wasm_type).unwrap();
     let ty = builder.func.dfg.value_type(zeroval);
     for _ in 0..count {
-        let local = Variable::new(*next_local);
-        builder.declare_var(local, ty);
+        let local = builder.declare_var(ty);
+        let local_index = local.index();
+        debug_assert_eq!(local_index, *next_local);
+        debug_assert!(u32::try_from(local_index).is_ok());
         builder.def_var(local, zeroval);
         builder.set_val_label(zeroval, ValueLabel::new(*next_local));
         environ.push_local_decl_on_stack(wasmer_ty);

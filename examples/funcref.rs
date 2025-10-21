@@ -1,5 +1,5 @@
 use std::error::Error;
-use wasmer::{imports, Instance, Module, Store, Table, TableType, Type, Value};
+use wasmer::{Instance, Module, Store, Table, TableType, Type, Value, imports};
 
 fn main() -> Result<(), Box<dyn Error>> {
     // 1) Create a default Wasmer Store.

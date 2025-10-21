@@ -1,8 +1,8 @@
-use std::sync::{atomic::AtomicUsize, Arc};
+use std::sync::{Arc, atomic::AtomicUsize};
 
 use wasmer::{
-    imports, sys::Target, wat2wasm, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance,
-    Module, RuntimeError, Store, Type, TypedFunction, Value,
+    Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, RuntimeError, Store,
+    Type, TypedFunction, Value, imports, sys::Target, wat2wasm,
 };
 use wasmer_types::Features;
 

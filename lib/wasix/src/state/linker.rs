@@ -265,8 +265,8 @@ use std::{
     ops::{Deref, DerefMut},
     path::{Path, PathBuf},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc, Barrier, Mutex, MutexGuard, RwLock, RwLockWriteGuard, TryLockError,
+        atomic::{AtomicBool, Ordering},
     },
 };
 
@@ -280,14 +280,14 @@ use wasmer::{
     AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
     FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
     InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
-    Value, WasmTypeList, WASM_PAGE_SIZE,
+    Value, WASM_PAGE_SIZE, WasmTypeList,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
 use crate::{
-    fs::WasiFsRoot, import_object_for_all_wasi_versions, runtime::module_cache::HashedModuleData,
     Runtime, SpawnError, WasiEnv, WasiError, WasiFs, WasiFunctionEnv, WasiModuleTreeHandles,
-    WasiProcess, WasiThreadId,
+    WasiProcess, WasiThreadId, fs::WasiFsRoot, import_object_for_all_wasi_versions,
+    runtime::module_cache::HashedModuleData,
 };
 
 use super::{WasiModuleInstanceHandles, WasiState};
@@ -445,9 +445,7 @@ impl MemoryAllocator {
 
         trace!(
             page_count = to_grow,
-            size,
-            base_ptr,
-            "Allocated new memory page(s) to accommodate requested memory"
+            size, base_ptr, "Allocated new memory page(s) to accommodate requested memory"
         );
 
         Ok(base_ptr)
@@ -1735,10 +1733,10 @@ impl Linker {
                     } => {
                         return Ok(ResolvedExport::Function {
                             func_ptr: *addr as u64,
-                        })
+                        });
                     }
                     SymbolResolutionResult::Memory(addr) => {
-                        return Ok(ResolvedExport::Global { data_ptr: *addr })
+                        return Ok(ResolvedExport::Global { data_ptr: *addr });
                     }
                     SymbolResolutionResult::Tls {
                         resolved_from,
@@ -2552,8 +2550,7 @@ impl InstanceGroupState {
 
         trace!(
             memory_base,
-            table_base,
-            "Allocated memory and table for module"
+            table_base, "Allocated memory and table for module"
         );
 
         let mut imports = import_object_for_all_wasi_versions(&pending_module.module, store, env);
@@ -2812,7 +2809,9 @@ impl InstanceGroupState {
             .allocate_function_table(store, size, 0)
             .map_err(LinkError::TableAllocationError)? as u32;
         if allocated_index != index {
-            panic!("Internal error: allocated index {allocated_index} does not match expected index {index}");
+            panic!(
+                "Internal error: allocated index {allocated_index} does not match expected index {index}"
+            );
         }
         Ok(())
     }
@@ -3670,8 +3669,7 @@ impl InstanceGroupState {
                             Ok(guard) => {
                                 trace!(
                                     ?requesting_module,
-                                    name,
-                                    "Locked linker state successfully"
+                                    name, "Locked linker state successfully"
                                 );
                                 Some(guard)
                             }
@@ -3709,8 +3707,7 @@ impl InstanceGroupState {
                             }) => {
                                 trace!(
                                     ?requesting_module,
-                                    name,
-                                    "Function was already resolved in the linker"
+                                    name, "Function was already resolved in the linker"
                                 );
 
                                 if ty != *resolved_ty {
@@ -3897,7 +3894,7 @@ impl InstanceGroupState {
                         unresolved.import_module().to_string(),
                         key.import_name.clone(),
                         Box::new(ResolveError::MissingExport),
-                    ))
+                    ));
                 }
 
                 // Missing weak symbols get resolved to a null address
@@ -3915,7 +3912,7 @@ impl InstanceGroupState {
                         "GOT.mem".to_string(),
                         key.import_name.clone(),
                         Box::new(e),
-                    ))
+                    ));
                 }
             }
         }

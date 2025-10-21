@@ -8,7 +8,7 @@ use crate::bin_factory::BinaryPackageCommand;
 /// Allows passing around WASM code and it's hash without the danger of
 /// using a wrong hash.
 ///
-/// Safe by construction: can only be created from a [`BinaryCommand`], which
+/// Safe by construction: can only be created from a [`BinaryPackageCommand`](crate::bin_factory::BinaryPackageCommand), which
 /// already has the hash embedded, or from bytes that will be hashed in the
 /// constructor.
 ///
@@ -38,7 +38,7 @@ impl HashedModuleData {
         Self { hash, wasm }
     }
 
-    /// Create new [`HashedModuleData`] from the given [`BinaryPackageCommand`].
+    /// Create new [`HashedModuleData`] from the given [`BinaryPackageCommand`](crate::bin_factory::BinaryPackageCommand).
     ///
     /// This is very cheap, as the hash is already available in the command.
     pub fn from_command(command: &BinaryPackageCommand) -> Self {

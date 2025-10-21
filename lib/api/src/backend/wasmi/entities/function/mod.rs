@@ -7,15 +7,15 @@ use std::{
 };
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
+    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
+    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
     vm::{VMExtern, VMExternFunction},
     wasmi::{
         bindings::*,
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::{VMFuncRef, VMFunction, VMFunctionCallback, VMFunctionEnvironment},
     },
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
-    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
-    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
 };
 
 use super::{super::error::Trap, store::StoreHandle};
@@ -90,9 +90,9 @@ impl Function {
         let params = fn_ty.params();
 
         let mut param_types = params
-            .into_iter()
+            .iter()
             .map(|param| {
-                let kind = param.into_ct();
+                let kind = (*param).into_ct();
                 unsafe { wasm_valtype_new(kind) }
             })
             .collect::<Vec<_>>();
@@ -105,9 +105,9 @@ impl Function {
 
         let results = fn_ty.results();
         let mut result_types = results
-            .into_iter()
+            .iter()
             .map(|param| {
-                let kind = param.into_ct();
+                let kind = (*param).into_ct();
                 unsafe { wasm_valtype_new(kind) }
             })
             .collect::<Vec<_>>();
@@ -151,7 +151,7 @@ impl Function {
             panic!("failed when creating new typed function");
         }
 
-        Function {
+        Self {
             handle: wasm_function,
         }
     }
@@ -164,9 +164,9 @@ impl Function {
         Rets: WasmTypeList,
     {
         let mut param_types = Args::wasm_types()
-            .into_iter()
+            .iter()
             .map(|param| {
-                let kind = param.into_ct();
+                let kind = (*param).into_ct();
                 unsafe { wasm_valtype_new(kind) }
             })
             .collect::<Vec<_>>();
@@ -178,9 +178,9 @@ impl Function {
         };
 
         let mut result_types = Rets::wasm_types()
-            .into_iter()
+            .iter()
             .map(|param| {
-                let kind = param.into_ct();
+                let kind = (*param).into_ct();
                 unsafe { wasm_valtype_new(kind) }
             })
             .collect::<Vec<_>>();
@@ -225,7 +225,7 @@ impl Function {
             panic!("failed when creating new typed function");
         }
 
-        Function {
+        Self {
             handle: wasm_function,
         }
     }
@@ -242,9 +242,9 @@ impl Function {
         T: Send + 'static,
     {
         let mut param_types = Args::wasm_types()
-            .into_iter()
+            .iter()
             .map(|param| {
-                let kind = param.into_ct();
+                let kind = (*param).into_ct();
                 unsafe { wasm_valtype_new(kind) }
             })
             .collect::<Vec<_>>();
@@ -256,9 +256,9 @@ impl Function {
         };
 
         let mut result_types = Rets::wasm_types()
-            .into_iter()
+            .iter()
             .map(|param| {
-                let kind = param.into_ct();
+                let kind = (*param).into_ct();
                 unsafe { wasm_valtype_new(kind) }
             })
             .collect::<Vec<_>>();
@@ -307,7 +307,7 @@ impl Function {
             panic!("failed when creating new typed function");
         }
 
-        Function {
+        Self {
             handle: wasm_function,
         }
     }
@@ -359,7 +359,7 @@ impl Function {
         let mut args = {
             unsafe {
                 let mut wasm_params = params
-                    .into_iter()
+                    .iter()
                     .map(|v| IntoCApiValue::into_cv(v.clone()))
                     .collect::<Vec<_>>()
                     .into_boxed_slice();
@@ -394,7 +394,7 @@ impl Function {
                         break;
                     }
                     Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                        return Err(RuntimeError::user(trap))
+                        return Err(RuntimeError::user(trap));
                     }
                     Err(trap) => return Err(RuntimeError::user(trap)),
                 }
@@ -406,14 +406,15 @@ impl Function {
             return Err(Into::<Trap>::into(trap).into());
         }
 
-        unsafe {
+        let values = unsafe {
             let results = std::ptr::slice_from_raw_parts(results.data, results.size);
-            return Ok((*results)
-                .into_iter()
+            (*results)
+                .iter()
                 .map(|v| IntoWasmerValue::into_wv(*v))
                 .collect::<Vec<_>>()
-                .into_boxed_slice());
-        }
+                .into_boxed_slice()
+        };
+        Ok(values)
     }
 
     pub(crate) fn from_vm_extern(_store: &mut impl AsStoreMut, internal: VMExternFunction) -> Self {
@@ -459,15 +460,18 @@ where
     {
         let r: *mut (FunctionCallbackEnv<'_, F>) = env as _;
 
-        let mut store = (*r).store.as_store_mut();
-        let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+        let mut store = unsafe { (*r).store.as_store_mut() };
+        let env_handle = unsafe { (*r).env_handle.as_ref().unwrap().clone() };
         let mut fn_env = env::FunctionEnv::from_handle(env_handle).into_mut(&mut store);
-        let func: &F = &(*r).func;
+        let func: &F = unsafe { &(*r).func };
 
         let mut wasmer_args = vec![];
+        let args_ptr = unsafe { (*args).data };
+        let args_len = unsafe { (*args).size };
 
-        for i in 0..(*args).size {
-            wasmer_args.push((*(*args).data.wrapping_add(i)).into_wv().clone());
+        for i in 0..args_len {
+            let value = unsafe { (*args_ptr.wrapping_add(i)).into_wv().clone() };
+            wasmer_args.push(value);
         }
 
         let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
@@ -481,13 +485,18 @@ where
                     .map(IntoCApiValue::into_cv)
                     .collect();
 
-                if c_results.len() != (*rets).size {
-                    panic!("when calling host function: number of observed results differ from wanted results")
+                let rets_size = unsafe { (*rets).size };
+                if c_results.len() != rets_size {
+                    panic!(
+                        "when calling host function: number of observed results differ from wanted results"
+                    )
                 }
 
+                let rets_ptr = unsafe { (*rets).data };
                 unsafe {
-                    for i in 0..(*rets).size {
-                        *((*rets).data.wrapping_add(i)) = c_results[i]
+                    let rets_slice = std::slice::from_raw_parts_mut(rets_ptr, rets_size);
+                    for (dst, value) in rets_slice.iter_mut().zip(&c_results) {
+                        *dst = *value;
                     }
                 }
 
@@ -505,7 +514,7 @@ where
         }
     }
 
-    return fn_callback::<F, T>;
+    fn_callback::<F, T>
 }
 
 impl std::fmt::Debug for Function {
@@ -525,16 +534,16 @@ impl crate::Function {
 
     /// Convert a reference to [`self`] into a reference to [`crate::backend::wasmi::function::Function`].
     pub fn as_wasmi(&self) -> &crate::backend::wasmi::function::Function {
-        match self.0 {
-            BackendFunction::Wasmi(ref s) => s,
+        match &self.0 {
+            BackendFunction::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` function!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wasmi::function::Function`].
     pub fn as_wasmi_mut(&mut self) -> &mut crate::backend::wasmi::function::Function {
-        match self.0 {
-            BackendFunction::Wasmi(ref mut s) => s,
+        match &mut self.0 {
+            BackendFunction::Wasmi(s) => s,
             _ => panic!("Not a `wasmi` function!"),
         }
     }
@@ -558,43 +567,49 @@ macro_rules! impl_host_function {
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut r: *mut crate::backend::wasmi::function::FunctionCallbackEnv<Func> = unsafe {std::mem::transmute(env)};
-                let store = &mut (*r).store.as_store_mut();
+                let mut r: *mut crate::backend::wasmi::function::FunctionCallbackEnv<Func> = unsafe { std::mem::transmute(env) };
+                let store = unsafe { &mut (*r).store.as_store_mut() };
                 let mut i = 0;
+                let args_ptr = unsafe { (*args).data };
 
                 $(
-                    let c_arg = (*(*args).data.wrapping_add(i)).clone();
+                    let c_arg = unsafe { (*args_ptr.wrapping_add(i)).clone() };
                     let wasmer_arg = c_arg.into_wv();
                     let raw_arg : RawValue = wasmer_arg.as_raw(store);
-                    let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
+                    let native_value = unsafe { $x::Native::from_raw(store, raw_arg) };
+                    let $x : $x = FromToNativeWasmType::from_native(native_value);
 
                     i += 1;
                 )*
 
+                let func = unsafe { &(*r).func };
                 let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                    ((*r).func)( $( $x, )* ).into_result()
+                    (func)( $( $x, )* ).into_result()
                 }));
 
                 match result {
                     Ok(Ok(result)) => {
 
                         let types = Rets::wasm_types();
-                        let mut native_results = result.into_array(store);
+                        let mut native_results = unsafe { result.into_array(store) };
                         let native_results = native_results.as_mut();
 
-                        let native_results: Vec<Value> = native_results.into_iter().enumerate()
-                            .map(|(i, r)| Value::from_raw(store, types[i], r.clone()))
+                        let native_results: Vec<Value> = native_results.iter().enumerate()
+                            .map(|(i, r)| unsafe { Value::from_raw(store, types[i], r.clone()) })
                             .collect();
 
                         let mut c_results: Vec<wasm_val_t> = native_results.into_iter().map(IntoCApiValue::into_cv).collect();
-
-                        if c_results.len() != (*results).size {
+                        let results_len = unsafe { (*results).size };
+                        if c_results.len() != results_len {
                             panic!("when calling host function: number of observed results differ from wanted results")
                         }
 
+                        let results_ptr = unsafe { (*results).data };
                         unsafe {
-                            for i in 0..(*results).size {
-                                *((*results).data.wrapping_add(i)) = c_results[i]
+                            let results_slice =
+                                std::slice::from_raw_parts_mut(results_ptr, results_len);
+                            for (dst, value) in results_slice.iter_mut().zip(&c_results) {
+                                *dst = *value;
                             }
                         }
 
@@ -630,47 +645,51 @@ macro_rules! impl_host_function {
             {
 
               let r: *mut (crate::backend::wasmi::function::FunctionCallbackEnv<'_, Func>) = env as _;
-              let store = &mut (*r).store.as_store_mut();
+              let store = unsafe { &mut (*r).store.as_store_mut() };
 
               let mut i = 0;
+              let args_ptr = unsafe { (*args).data };
 
               $(
-              let c_arg = (*(*args).data.wrapping_add(i)).clone();
+              let c_arg = unsafe { (*args_ptr.wrapping_add(i)).clone() };
               let wasmer_arg = c_arg.into_wv();
               let raw_arg : RawValue = wasmer_arg.as_raw(store);
-              let $x : $x = FromToNativeWasmType::from_native($x::Native::from_raw(store, raw_arg));
+              let native_value = unsafe { $x::Native::from_raw(store, raw_arg) };
+              let $x : $x = FromToNativeWasmType::from_native(native_value);
 
               i += 1;
               )*
 
-              let env_handle = (*r).env_handle.as_ref().unwrap().clone();
+              let env_handle = unsafe { (*r).env_handle.as_ref().unwrap().clone() };
               let mut fn_env = crate::backend::wasmi::function::env::FunctionEnv::from_handle(env_handle).into_mut(store);
-              let func: &Func = &(*r).func;
+              let func: &Func = unsafe { &(*r).func };
 
               let result = panic::catch_unwind(AssertUnwindSafe(|| unsafe {
-                  ((*r).func)(BackendFunctionEnvMut::Wasmi(fn_env).into(), $( $x, )* ).into_result()
+                  (func)(BackendFunctionEnvMut::Wasmi(fn_env).into(), $( $x, )* ).into_result()
               }));
 
 
               match result {
                   Ok(Ok(result)) => {
                     let types = Rets::wasm_types();
-                    let mut native_results = result.into_array(store);
+                    let mut native_results = unsafe { result.into_array(store) };
                     let native_results = native_results.as_mut();
 
-                    let native_results: Vec<Value> = native_results.into_iter().enumerate().map(|(i, r)| Value::from_raw(store, types[i], r.clone())).collect();
+                    let native_results: Vec<Value> = native_results.iter().enumerate().map(|(i, r)| unsafe { Value::from_raw(store, types[i], r.clone()) }).collect();
 
                     let mut c_results: Vec<wasm_val_t> = native_results.into_iter().map(IntoCApiValue::into_cv).collect();
-
-                    if c_results.len() != (*results).size {
+                    let results_len = unsafe { (*results).size };
+                    if c_results.len() != results_len {
                         panic!("when calling host function: number of observed results differ from wanted results")
                     }
 
+                    let results_ptr = unsafe { (*results).data };
                     unsafe {
-                        for i in 0..(*results).size {
-                            *((*results).data.wrapping_add(i)) = c_results[i]
+                        let results_slice =
+                            std::slice::from_raw_parts_mut(results_ptr, results_len);
+                        for (dst, value) in results_slice.iter_mut().zip(&c_results) {
+                            *dst = *value;
                         }
-
                     }
 
                     unsafe { std::ptr::null_mut() }

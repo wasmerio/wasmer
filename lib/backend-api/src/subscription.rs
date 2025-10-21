@@ -1,9 +1,9 @@
 use crate::{
+    WasmerClient,
     types::{
         AutobuildDeploymentSubscription, AutobuildDeploymentSubscriptionVariables,
         PackageVersionReadySubscription, PackageVersionReadySubscriptionVariables, Uuid,
     },
-    WasmerClient,
 };
 use anyhow::Context;
 use async_tungstenite::tungstenite::client::IntoClientRequest;

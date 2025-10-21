@@ -10,11 +10,11 @@ pub struct StoreRef {
 
 impl StoreRef {
     pub unsafe fn store(&self) -> BaseStoreRef<'_> {
-        (*self.inner.get()).as_store_ref()
+        unsafe { (*self.inner.get()).as_store_ref() }
     }
 
     pub unsafe fn store_mut(&mut self) -> StoreMut<'_> {
-        (*self.inner.get()).as_store_mut()
+        unsafe { (*self.inner.get()).as_store_mut() }
     }
 }
 
@@ -29,7 +29,7 @@ pub struct wasm_store_t {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_store_new(
     engine: Option<&wasm_engine_t>,
 ) -> Option<Box<wasm_store_t>> {
@@ -48,5 +48,5 @@ pub unsafe extern "C" fn wasm_store_new(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_store_delete(_store: Option<Box<wasm_store_t>>) {}

@@ -117,10 +117,11 @@ pub fn call_dynamic<M: MemorySize>(
 
     let strict = matches!(strict, Bool::True);
 
-    let function = wasi_try_ok!(env
-        .inner()
-        .indirect_function_table_lookup(&mut store, function_id)
-        .map_err(Errno::from));
+    let function = wasi_try_ok!(
+        env.inner()
+            .indirect_function_table_lookup(&mut store, function_id)
+            .map_err(Errno::from)
+    );
 
     let function_type = function.ty(&store);
 

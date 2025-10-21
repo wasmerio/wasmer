@@ -8,7 +8,7 @@ use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::WasiRuntimeError;
 
-use super::signal::{default_signal_handler, DynSignalHandlerAbi};
+use super::signal::{DynSignalHandlerAbi, default_signal_handler};
 
 #[derive(Clone, Debug)]
 pub enum TaskStatus {

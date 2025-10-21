@@ -1,3 +1,8 @@
+#![allow(
+    clippy::result_large_err,
+    reason = "WasmerPackageError is large, but not often used"
+)]
+
 use std::{
     borrow::Cow,
     collections::{BTreeMap, BTreeSet},
@@ -17,19 +22,19 @@ use tempfile::TempDir;
 use wasmer_config::package::Manifest as WasmerManifest;
 
 use webc::{
-    metadata::{annotations::Wapm, Manifest as WebcManifest},
-    v3::{
-        write::{FileEntry, Writer},
-        ChecksumAlgorithm, Timestamps,
-    },
     AbstractVolume, AbstractWebc, Container, ContainerError, DetectError, PathSegment, Version,
     Volume,
+    metadata::{Manifest as WebcManifest, annotations::Wapm},
+    v3::{
+        ChecksumAlgorithm, Timestamps,
+        write::{FileEntry, Writer},
+    },
 };
 
 use super::{
-    manifest::wasmer_manifest_to_webc,
-    volume::{fs::FsVolume, WasmerPackageVolume},
     ManifestError, MemoryVolume, Strictness,
+    manifest::wasmer_manifest_to_webc,
+    volume::{WasmerPackageVolume, fs::FsVolume},
 };
 
 /// Errors that may occur while loading a Wasmer package from disk.
@@ -339,12 +344,14 @@ impl Package {
         Package::load(wasmer_toml, base_dir, strictness, walker_factory)
     }
 
-    /// (Re)loads a package from a manifest.json file which was created as the result of calling [`Container::unpack`](crate::Container::unpack)
+    /// (Re)loads a package from a `manifest.json` file produced by unpacking a
+    /// Wasmer package archive.
     pub fn from_json_manifest(manifest: PathBuf) -> Result<Self, WasmerPackageError> {
         Self::from_json_manifest_with_strictness(manifest, Strictness::default())
     }
 
-    /// (Re)loads a package from a manifest.json file which was created as the result of calling [`Container::unpack`](crate::Container::unpack)
+    /// (Re)loads a package from a `manifest.json` file produced by unpacking a
+    /// Wasmer package archive.
     pub fn from_json_manifest_with_strictness(
         manifest: PathBuf,
         strictness: Strictness,
@@ -872,16 +879,16 @@ mod tests {
         time::SystemTime,
     };
 
-    use flate2::{write::GzEncoder, Compression};
+    use flate2::{Compression, write::GzEncoder};
     use sha2::Digest;
     use shared_buffer::OwnedBuffer;
     use tempfile::TempDir;
     use webc::{
-        metadata::{
-            annotations::{FileSystemMapping, VolumeSpecificPath},
-            Binding, BindingsExtended, WaiBindings, WitBindings,
-        },
         PathSegment, PathSegments,
+        metadata::{
+            Binding, BindingsExtended, WaiBindings, WitBindings,
+            annotations::{FileSystemMapping, VolumeSpecificPath},
+        },
     };
 
     use crate::{package::*, utils::from_bytes};

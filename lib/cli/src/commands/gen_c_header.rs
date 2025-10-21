@@ -4,11 +4,11 @@ use anyhow::{Context, Error};
 use bytes::Bytes;
 use clap::Parser;
 use wasmer_compiler::{
-    object::ObjectMetadataBuilder, types::symbols::ModuleMetadataSymbolRegistry, Artifact,
+    Artifact, object::ObjectMetadataBuilder, types::symbols::ModuleMetadataSymbolRegistry,
 };
 use wasmer_package::{package::WasmerPackageError, utils::from_bytes};
 use wasmer_types::target::{CpuFeature, Triple};
-use webc::{compat::SharedBytes, Container, ContainerError, DetectError};
+use webc::{Container, ContainerError, DetectError, compat::SharedBytes};
 
 use crate::backend::RuntimeOptions;
 
@@ -82,7 +82,9 @@ impl GenCHeader {
         let engine =
             RuntimeOptions::default().get_sys_compiler_engine_for_target(target.clone())?;
         if !engine.is_sys() {
-            anyhow::bail!("Cannot use this engine to generate c-headers! Please, use one of `cranelift`, `llvm` or `singlepass`.");
+            anyhow::bail!(
+                "Cannot use this engine to generate c-headers! Please, use one of `cranelift`, `llvm` or `singlepass`."
+            );
         }
         let engine = engine.into_sys();
 

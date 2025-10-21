@@ -2,7 +2,7 @@ use backtrace::Backtrace;
 use std::{cell::UnsafeCell, ptr::NonNull};
 use wasmer_types::{RawValue, StoreId};
 
-use crate::{store::InternalStoreHandle, StoreHandle, StoreObjects, VMTag};
+use crate::{StoreHandle, StoreObjects, VMTag, store::InternalStoreHandle};
 
 /// Underlying object referenced by a `VMExceptionRef`.
 #[derive(Debug)]
@@ -94,7 +94,9 @@ impl VMExceptionRef {
     /// # Safety
     /// `raw` must be a valid `VMExceptionRef` instance.
     pub unsafe fn from_raw(store_id: StoreId, raw: RawValue) -> Option<Self> {
-        InternalStoreHandle::from_index(raw.exnref as usize)
-            .map(|handle| Self(StoreHandle::from_internal(store_id, handle)))
+        unsafe {
+            InternalStoreHandle::from_index(raw.exnref as usize)
+                .map(|handle| Self(StoreHandle::from_internal(store_id, handle)))
+        }
     }
 }

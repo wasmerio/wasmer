@@ -1,6 +1,6 @@
-use std::sync::mpsc::TryRecvError;
 use std::sync::Mutex;
-use std::sync::{mpsc, Arc};
+use std::sync::mpsc::TryRecvError;
+use std::sync::{Arc, mpsc};
 
 use super::*;
 
@@ -75,7 +75,7 @@ impl WritableJournal for PipeJournalTx {
                 record: entry,
             })
             .map_err(|err| {
-                anyhow::format_err!("failed to send journal event through the pipe - {}", err)
+                anyhow::format_err!("failed to send journal event through the pipe - {err}")
             })?;
         sender.offset += entry_size;
         Ok(LogWriteResult {

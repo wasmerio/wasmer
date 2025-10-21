@@ -57,7 +57,7 @@ impl Source for FileSystemSource {
             _ => {
                 return Err(QueryError::Unsupported {
                     query: package.clone(),
-                })
+                });
             }
         };
 

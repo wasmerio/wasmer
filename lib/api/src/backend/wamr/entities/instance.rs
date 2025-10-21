@@ -3,8 +3,8 @@ use std::sync::Arc;
 
 use crate::entities::external::VMExternToExtern;
 use crate::{
-    backend::wamr::bindings::*, vm::VMExtern, wamr::error::Trap, AsStoreMut, AsStoreRef, Exports,
-    Extern, Imports, InstantiationError, Module,
+    AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError, Module,
+    backend::wamr::bindings::*, vm::VMExtern, wamr::error::Trap,
 };
 
 #[derive(PartialEq, Eq)]
@@ -14,6 +14,7 @@ unsafe impl Send for InstanceHandle {}
 unsafe impl Sync for InstanceHandle {}
 
 impl InstanceHandle {
+    #[allow(clippy::result_large_err)]
     fn new(
         store: *mut wasm_store_t,
         module: *mut wasm_module_t,
@@ -40,7 +41,7 @@ impl InstanceHandle {
 
             std::mem::forget(externs);
 
-            wasm_instance_new(store, module, &mut imports, &mut trap)
+            wasm_instance_new(store, module, &imports, &mut trap)
         };
 
         if instance.is_null() {
@@ -48,7 +49,7 @@ impl InstanceHandle {
             return Err(InstantiationError::Start(trap.into()));
         }
 
-        Ok(InstanceHandle(instance))
+        Ok(Self(instance))
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
@@ -66,7 +67,6 @@ impl InstanceHandle {
         } else {
             unsafe { std::slice::from_raw_parts(c_api_externs.data, c_api_externs.size) }.to_vec()
         };
-        let c_api_externs = c_api_externs.to_vec();
         let mut exports = unsafe {
             let mut vec = Default::default();
             wasm_module_exports(module.as_wamr().handle.inner, &mut vec);
@@ -86,7 +86,7 @@ impl InstanceHandle {
 
         let c_api_exports: Exports = c_api_exports
             .into_iter()
-            .zip(c_api_externs.into_iter())
+            .zip(c_api_externs)
             .map(|(export, ext)| unsafe {
                 let name = wasm_exporttype_name(export);
                 let name = std::slice::from_raw_parts((*name).data as *const u8, (*name).size);
@@ -104,10 +104,7 @@ impl InstanceHandle {
         for e in module_exports {
             let ext: Extern = c_api_exports
                 .get::<Extern>(e.name())
-                .expect(&format!(
-                    "c_api_exports: {c_api_exports:?} (name: {})",
-                    e.name()
-                ))
+                .unwrap_or_else(|_| panic!("c_api_exports: {c_api_exports:?} (name: {})", e.name()))
                 .clone();
             exports.insert(e.name().to_string(), ext);
         }
@@ -128,6 +125,7 @@ pub struct Instance {
 }
 
 impl Instance {
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -148,9 +146,10 @@ impl Instance {
         let mut store_from_module = wamr_module.handle.store.lock().unwrap();
         let mut store = store_from_module.as_store_mut();
 
-        return Self::new_by_index(&mut store, module, &externs);
+        Self::new_by_index(&mut store, module, &externs)
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,

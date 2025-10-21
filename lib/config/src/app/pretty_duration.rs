@@ -6,7 +6,7 @@ use std::{
 };
 
 use schemars::JsonSchema;
-use serde::{de::Error, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PrettyDuration {
@@ -59,8 +59,8 @@ impl JsonSchema for PrettyDuration {
         "PrettyDuration".to_owned()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
     }
 }
 

@@ -2,9 +2,9 @@ use rusty_jsc::{JSObject, JSValue};
 use wasmer_types::TableType;
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
     jsc::vm::{VMExternTable, VMTable},
     vm::VMExtern,
-    AsStoreMut, AsStoreRef, BackendTable, RuntimeError, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -35,30 +35,30 @@ impl Table {
         let engine = store_mut.engine();
         let context = engine.as_jsc().context();
 
-        let mut descriptor = JSObject::new(&context);
+        let mut descriptor = JSObject::new(context);
         descriptor.set_property(
-            &context,
+            context,
             "initial".to_string(),
-            JSValue::number(&context, ty.minimum.into()),
+            JSValue::number(context, ty.minimum.into()),
         );
         if let Some(max) = ty.maximum {
             descriptor.set_property(
-                &context,
+                context,
                 "maximum".to_string(),
-                JSValue::number(&context, max.into()),
+                JSValue::number(context, max.into()),
             );
         }
         descriptor.set_property(
-            &context,
+            context,
             "element".to_string(),
-            JSValue::string(&context, "anyfunc".to_string()),
+            JSValue::string(context, "anyfunc".to_string()),
         );
 
         let js_table = engine
             .as_jsc()
             .wasm_table_type()
-            .construct(&context, &[descriptor.to_jsvalue()])
-            .map_err(|e| <JSValue as Into<RuntimeError>>::into(e))?;
+            .construct(context, &[descriptor.to_jsvalue()])
+            .map_err(<JSValue as Into<RuntimeError>>::into)?;
         let vm_table = VMTable::new(js_table, ty);
         Ok(Self { handle: vm_table })
     }
@@ -94,8 +94,8 @@ impl Table {
         let context = engine.as_jsc().context();
         self.handle
             .table
-            .get_property(&context, "length".to_string())
-            .to_number(&context)
+            .get_property(context, "length".to_string())
+            .to_number(context)
             .unwrap() as _
     }
 
@@ -111,15 +111,15 @@ impl Table {
         let func = self
             .handle
             .table
-            .get_property(&context, "grow".to_string())
-            .to_object(&context)
+            .get_property(context, "grow".to_string())
+            .to_object(context)
             .unwrap();
         match func.call(
-            &context,
+            context,
             Some(&self.handle.table),
-            &[JSValue::number(&context, delta as _)],
+            &[JSValue::number(context, delta as _)],
         ) {
-            Ok(val) => Ok(val.to_number(&context).unwrap() as _),
+            Ok(val) => Ok(val.to_number(context).unwrap() as _),
             Err(e) => Err(<JSValue as Into<RuntimeError>>::into(e)),
         }
     }
@@ -187,7 +187,7 @@ impl crate::BackendTable {
     /// Convert a reference to [`self`] into a reference [`crate::backend::jsc::table::Table`].
     pub fn as_jsc(&self) -> &crate::backend::jsc::table::Table {
         match self {
-            Self::Jsc(ref s) => s,
+            Self::Jsc(s) => s,
             _ => panic!("Not a `jsc` table!"),
         }
     }
@@ -195,7 +195,7 @@ impl crate::BackendTable {
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::jsc::table::Table`].
     pub fn as_jsc_mut(&mut self) -> &mut crate::backend::jsc::table::Table {
         match self {
-            Self::Jsc(ref mut s) => s,
+            Self::Jsc(s) => s,
             _ => panic!("Not a `jsc` table!"),
         }
     }

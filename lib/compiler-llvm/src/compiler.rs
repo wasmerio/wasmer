@@ -1,15 +1,15 @@
+use crate::CompiledKind;
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
-use crate::CompiledKind;
+use inkwell::DLLStorageClass;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
-use inkwell::DLLStorageClass;
+use rayon::ThreadPoolBuilder;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use rayon::ThreadPoolBuilder;
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
@@ -17,12 +17,12 @@ use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
 use wasmer_compiler::{
+    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
     types::{
         relocation::RelocationTarget,
         section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex},
         symbols::{Symbol, SymbolRegistry},
     },
-    Compiler, FunctionBodyData, ModuleMiddleware, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;

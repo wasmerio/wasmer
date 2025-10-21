@@ -2,15 +2,15 @@ use std::{
     future::poll_fn,
     net::{IpAddr, Ipv4Addr, SocketAddr},
     sync::{
-        atomic::{AtomicBool, Ordering},
         Arc,
+        atomic::{AtomicBool, Ordering},
     },
     task::{Context, Poll},
     time::Duration,
 };
 
 use tokio::sync::broadcast;
-use virtual_net::{tcp_pair::TcpSocketHalf, LoopbackNetworking};
+use virtual_net::{LoopbackNetworking, tcp_pair::TcpSocketHalf};
 
 pub type PollListeningFn =
     Arc<dyn Fn(&mut Context<'_>) -> Poll<SocketAddr> + Send + Sync + 'static>;

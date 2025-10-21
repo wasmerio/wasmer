@@ -146,4 +146,4 @@ webc_runner = ["virtual-fs", "webc"]
 jit = ["compiler"]
 
 [build-dependencies]
-cbindgen = { version = "0.27", default-features = false }
+cbindgen = { version = "0.29", default-features = false }

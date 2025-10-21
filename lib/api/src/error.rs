@@ -18,9 +18,9 @@ pub enum LinkError {
     #[cfg_attr(feature = "std", error("Error while importing {0:?}.{1:?}: {2}"))]
     Import(String, String, ImportError),
 
-    /// A trap ocurred during linking.
+    /// A trap occurred during linking.
     #[cfg_attr(feature = "std", error("RuntimeError occurred during linking: {0}"))]
-    Trap(#[source] RuntimeError),
+    Trap(#[cfg_attr(feature = "std", source)] RuntimeError),
     /// Insufficient resources available for linking.
     #[cfg_attr(feature = "std", error("Insufficient resources: {0}"))]
     Resource(String),
@@ -37,7 +37,7 @@ pub enum LinkError {
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum InstantiationError {
-    /// A linking ocurred during instantiation.
+    /// A linking occurred during instantiation.
     #[cfg_attr(feature = "std", error(transparent))]
     Link(LinkError),
 

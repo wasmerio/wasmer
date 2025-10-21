@@ -53,7 +53,7 @@ const MIDDLEWARES_FEATURE_AS_C_DEFINE: &str = "WASMER_MIDDLEWARES_ENABLED";
 const JSC_FEATURE_AS_C_DEFINE: &str = "WASMER_JSC_BACKEND";
 
 macro_rules! map_feature_as_c_define {
-    ($feature:expr, $c_define:ident, $accumulator:ident) => {
+    ($feature:expr_2021, $c_define:ident, $accumulator:ident) => {
         #[cfg(feature = $feature)]
         {
             use std::fmt::Write;
@@ -330,13 +330,15 @@ fn shared_object_dir() -> PathBuf {
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("out")));
     shared_object_dir.pop();
 
-    assert!(shared_object_dir
-        .file_name()
-        .as_ref()
-        .unwrap()
-        .to_string_lossy()
-        .to_string()
-        .starts_with("wasmer-c-api"));
+    assert!(
+        shared_object_dir
+            .file_name()
+            .as_ref()
+            .unwrap()
+            .to_string_lossy()
+            .to_string()
+            .starts_with("wasmer-c-api")
+    );
     shared_object_dir.pop();
 
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("build")));

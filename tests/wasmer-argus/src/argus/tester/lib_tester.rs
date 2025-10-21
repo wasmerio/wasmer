@@ -4,9 +4,9 @@ use indicatif::ProgressBar;
 use std::{fs::File, io::BufReader, sync::Arc};
 use tokio::time;
 use tracing::*;
-use wasmer::{sys::Features, Engine, NativeEngineExt, Target};
+use wasmer::{Engine, NativeEngineExt, Target, sys::Features};
 use wasmer_backend_api::types::PackageVersionWithPackage;
-use webc::{v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3, Container, Version};
+use webc::{Container, Version, v2::read::OwnedReader, v3::read::OwnedReader as OwnedReaderV3};
 
 pub struct LibRunner<'a> {
     pub test_id: u64,

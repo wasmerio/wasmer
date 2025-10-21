@@ -51,7 +51,7 @@ pub struct UnwDynamicUnwindSections {
 type UnwFindDynamicUnwindSections =
     unsafe extern "C" fn(addr: usize, info: *mut UnwDynamicUnwindSections) -> u32;
 
-extern "C" {
+unsafe extern "C" {
     // Register a dynamic unwind-info lookup callback. If libunwind does not find
     // unwind info for a given frame in the executable program or normal dynamic
     // shared objects then it will call all registered dynamic lookup functions
@@ -77,7 +77,6 @@ extern "C" {
 
     pub fn __unw_add_dynamic_eh_frame_section(eh_frame_start: usize);
     pub fn __unw_remove_dynamic_eh_frame_section(eh_frame_start: usize);
-
 }
 
 trait ToBytes {
@@ -118,44 +117,48 @@ struct UnwindInfoEntry {
     section_len: usize,
 }
 
+fn reset_unwind_sections(info: &mut UnwDynamicUnwindSections) {
+    info.compact_unwind_section = 0;
+    info.compact_unwind_section_length = 0;
+    info.dwarf_section = 0;
+    info.dwarf_section_length = 0;
+    info.dso_base = 0;
+}
+
 unsafe extern "C" fn find_dynamic_unwind_sections(
     addr: usize,
     info: *mut UnwDynamicUnwindSections,
 ) -> u32 {
-    unsafe {
-        if let Ok(uw_info) = UNWIND_INFO.try_lock() {
-            if uw_info.is_none() {
-                (*info).compact_unwind_section = 0;
-                (*info).compact_unwind_section_length = 0;
-                (*info).dwarf_section = 0;
-                (*info).dwarf_section_length = 0;
-                (*info).dso_base = 0;
+    let Some(info) = (unsafe { info.as_mut() }) else {
+        return 0;
+    };
 
-                return 0;
-            }
-
-            let uw_info = uw_info.as_ref().unwrap();
-
-            for (range, u) in uw_info.iter() {
+    // TODO: refactor to not use static mut
+    #[allow(
+        static_mut_refs,
+        reason = "existing behaviour that was disallowed by edition 2024"
+    )]
+    let guard_result = unsafe { UNWIND_INFO.try_lock() };
+    if let Ok(uw_info_guard) = guard_result {
+        if let Some(uw_info) = uw_info_guard.as_ref() {
+            for (range, entry) in uw_info.iter() {
                 if range.contains(&addr) {
-                    (*info).compact_unwind_section = u.section_ptr as _;
-                    (*info).compact_unwind_section_length = u.section_len as _;
-                    (*info).dwarf_section = 0;
-                    (*info).dwarf_section_length = 0;
-                    (*info).dso_base = u.dso_base as u64;
+                    info.compact_unwind_section = entry.section_ptr as u64;
+                    info.compact_unwind_section_length = entry.section_len as u64;
+                    info.dwarf_section = 0;
+                    info.dwarf_section_length = 0;
+                    info.dso_base = entry.dso_base as u64;
 
                     return 1;
                 }
             }
+        } else {
+            reset_unwind_sections(info);
+            return 0;
         }
     }
 
-    (*info).compact_unwind_section = 0;
-    (*info).compact_unwind_section_length = 0;
-    (*info).dwarf_section = 0;
-    (*info).dwarf_section_length = 0;
-    (*info).dso_base = 0;
-
+    reset_unwind_sections(info);
     0
 }
 
@@ -187,10 +190,12 @@ impl CompactUnwindManager {
         }
         let mut offset = 0;
         while offset < len {
-            let entry = CompactUnwindEntry::from_ptr_and_len(
-                compact_unwind_section_ptr.wrapping_add(offset),
-                len,
-            );
+            let entry = unsafe {
+                CompactUnwindEntry::from_ptr_and_len(
+                    compact_unwind_section_ptr.wrapping_add(offset),
+                    len,
+                )
+            };
             self.compact_unwind_entries.push(entry);
             offset += size_of::<CompactUnwindEntry>();
         }
@@ -250,6 +255,11 @@ impl CompactUnwindManager {
         let dso_base = self.dso_base;
 
         unsafe {
+            // TODO: refactor to not use static mut
+            #[allow(
+                static_mut_refs,
+                reason = "existing behaviour that was disallowed by edition 2024"
+            )]
             let mut uw_info = UNWIND_INFO.lock().map_err(|_| {
                 CompileError::Codegen("Failed to acquire lock for UnwindInfo!".into())
             })?;
@@ -330,7 +340,9 @@ impl CompactUnwindManager {
     }
 
     unsafe fn write_unwind_info(&mut self) -> CUResult<()> {
-        self.write_header()?;
+        unsafe {
+            self.write_header()?;
+        }
         self.write_personalities()?;
         self.write_indices()?;
         self.write_lsdas()?;

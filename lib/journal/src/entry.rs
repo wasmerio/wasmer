@@ -11,7 +11,7 @@ use wasmer_wasix_types::wasi::{
 };
 use wasmer_wasix_types::wasix::{ThreadStartType, WasiMemoryLayout};
 
-use crate::{base64, SnapshotTrigger};
+use crate::{SnapshotTrigger, base64};
 
 type Fd = u32;
 

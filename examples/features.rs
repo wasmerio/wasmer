@@ -11,9 +11,9 @@
 //! Ready?
 
 use wasmer::{
-    imports,
+    Instance, Module, Store, Value, imports,
     sys::{EngineBuilder, Features},
-    wat2wasm, Instance, Module, Store, Value,
+    wat2wasm,
 };
 use wasmer_compiler_cranelift::Cranelift;
 

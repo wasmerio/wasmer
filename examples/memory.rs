@@ -15,7 +15,7 @@
 //! Ready?
 
 use std::mem;
-use wasmer::{imports, wat2wasm, Bytes, Instance, Module, Pages, Store, TypedFunction};
+use wasmer::{Bytes, Instance, Module, Pages, Store, TypedFunction, imports, wat2wasm};
 
 // this example is a work in progress:
 // TODO: clean it up and comment it https://github.com/wasmerio/wasmer/issues/1749

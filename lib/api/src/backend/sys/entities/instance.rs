@@ -1,8 +1,8 @@
 //! Data types, functions and traits for `sys` runtime's `Instance` implementation.
 
 use crate::{
-    error::InstantiationError, exports::Exports, imports::Imports, module::Module,
-    store::AsStoreMut, Extern,
+    Extern, error::InstantiationError, exports::Exports, imports::Imports, module::Module,
+    store::AsStoreMut,
 };
 use wasmer_vm::{StoreHandle, VMInstance};
 

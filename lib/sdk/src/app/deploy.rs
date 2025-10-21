@@ -4,13 +4,13 @@ use anyhow::Context as _;
 use reqwest;
 use thiserror::Error;
 use wasmer_backend_api::{
-    types::{DeployApp, DeployAppVersion, PublishDeployAppVars},
     WasmerClient,
+    types::{DeployApp, DeployAppVersion, PublishDeployAppVars},
 };
 use wasmer_config::{app::AppConfigV1, package::PackageSource};
 
 use crate::package::publish::{
-    publish_package_directory, PackagePublishError, PublishOptions, PublishProgress, PublishWait,
+    PackagePublishError, PublishOptions, PublishProgress, PublishWait, publish_package_directory,
 };
 
 /// When waiting for an app deployment.

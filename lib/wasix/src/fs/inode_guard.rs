@@ -15,11 +15,11 @@ use wasmer_wasix_types::{
     wasi::{Errno, EventFdReadwrite, Eventrwflags, Subscription},
 };
 
-use super::{notification::NotificationInner, InodeGuard, Kind};
+use super::{InodeGuard, Kind, notification::NotificationInner};
 use crate::{
     net::socket::{InodeSocketInner, InodeSocketKind},
-    state::{iterate_poll_events, PollEvent, PollEventSet, WasiState},
-    syscalls::{map_io_err, EventResult, EventResultType},
+    state::{PollEvent, PollEventSet, WasiState, iterate_poll_events},
+    syscalls::{EventResult, EventResultType, map_io_err},
     utils::{OwnedRwLockReadGuard, OwnedRwLockWriteGuard},
 };
 
@@ -91,11 +91,11 @@ impl std::fmt::Debug for InodeValFilePollGuard {
             }
             InodeValFilePollGuardMode::Socket { inner } => {
                 let inner = inner.protected.read().unwrap();
-                match inner.kind {
+                match &inner.kind {
                     InodeSocketKind::TcpListener { .. } => {
                         write!(f, "guard-tcp-listener(fd={}, peb={})", self.fd, self.peb)
                     }
-                    InodeSocketKind::TcpStream { ref socket, .. } => {
+                    InodeSocketKind::TcpStream { socket, .. } => {
                         if socket.is_closed() {
                             write!(
                                 f,
@@ -194,7 +194,7 @@ impl Future for InodeValFilePollGuardJoin {
                     file.poll_read_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
-                InodeValFilePollGuardMode::Socket { ref inner } => {
+                InodeValFilePollGuardMode::Socket { inner } => {
                     let mut guard = inner.protected.write().unwrap();
                     guard.poll_read_ready(cx)
                 }
@@ -293,7 +293,7 @@ impl Future for InodeValFilePollGuardJoin {
                     file.poll_write_ready(cx)
                 }
                 InodeValFilePollGuardMode::EventNotifications(inner) => inner.poll(waker).map(Ok),
-                InodeValFilePollGuardMode::Socket { ref inner } => {
+                InodeValFilePollGuardMode::Socket { inner } => {
                     let mut guard = inner.protected.write().unwrap();
                     guard.poll_write_ready(cx)
                 }

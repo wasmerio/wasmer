@@ -1,10 +1,10 @@
 use std::{borrow::Cow, ops::Deref};
 
 use rkyv::{
+    Archive, Archived,
     rancor::Fallible,
     ser::{Allocator, WriterExt},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived,
 };
 
 #[derive(Clone)]

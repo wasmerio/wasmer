@@ -274,8 +274,7 @@ impl FileSystem for StaticFileSystem {
     }
     fn create_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
-        let result = self.memory.create_dir(Path::new(&path));
-        result
+        self.memory.create_dir(Path::new(&path))
     }
     fn remove_dir(&self, path: &Path) -> Result<(), FsError> {
         let path = normalizes_path(path);
@@ -348,7 +347,7 @@ impl FileSystem for StaticFileSystem {
             result
         }
     }
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         OpenOptions::new(self)
     }
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata, FsError> {

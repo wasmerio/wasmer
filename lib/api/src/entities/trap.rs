@@ -1,6 +1,6 @@
 use std::{any::Any, error::Error, fmt::Debug};
 
-use crate::{macros::backend::match_rt, RuntimeError};
+use crate::{RuntimeError, macros::backend::match_rt};
 
 /// An enumeration of all the trap kinds supported by the runtimes.
 #[derive(Debug, derive_more::From)]

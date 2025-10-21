@@ -18,7 +18,7 @@ pub enum LinkError {
     Import(String, String, ImportError),
 
     #[cfg(not(target_arch = "wasm32"))]
-    /// A trap ocurred during linking.
+    /// A trap occurred during linking.
     #[error("Trap occurred during linking: {0}")]
     Trap(#[source] Trap),
 
@@ -36,7 +36,7 @@ pub enum LinkError {
 /// start function.
 #[derive(Error, Debug)]
 pub enum InstantiationError {
-    /// A linking ocurred during instantiation.
+    /// A linking occurred during instantiation.
     #[error(transparent)]
     Link(LinkError),
 

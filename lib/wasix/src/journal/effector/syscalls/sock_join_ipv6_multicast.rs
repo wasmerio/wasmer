@@ -30,12 +30,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to join ipv6 multicast (fd={}, multiaddr={}, iface={}) - {}",
-                    fd,
-                    multiaddr,
-                    iface,
-                    err
-                )
+                    "journal restore error: failed to join ipv6 multicast (fd={fd}, multiaddr={multiaddr}, iface={iface}) - {err}")
             })?;
         Ok(())
     }

@@ -1,4 +1,4 @@
-use crate::{state::FunctionLookupError, WasiEnv, WasiError};
+use crate::{WasiEnv, WasiError, state::FunctionLookupError};
 use tracing::{instrument, trace};
 use wasmer::{FunctionEnvMut, MemorySize, Type, WasmPtr, WasmSlice};
 use wasmer_wasix_types::wasi::{Bool, Errno, ReflectionResult, WasmValueType};

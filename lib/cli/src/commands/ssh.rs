@@ -1,9 +1,9 @@
 //! Edge SSH command.
 
 use anyhow::Context;
-use wasmer_backend_api::{types::DeployApp, WasmerClient};
+use wasmer_backend_api::{WasmerClient, types::DeployApp};
 
-use super::{app::AppIdentArgOpts, AsyncCliCommand};
+use super::{AsyncCliCommand, app::AppIdentArgOpts};
 use crate::{config::WasmerEnv, edge_config::LoadedEdgeConfig};
 
 /// Start a remote SSH session.
@@ -126,7 +126,7 @@ impl AsyncCliCommand for CmdSsh {
         if exit.success() {
             Ok(())
         } else {
-            Err(anyhow::anyhow!("ssh failed with status {}", exit))
+            Err(anyhow::anyhow!("ssh failed with status {exit}"))
         }
     }
 }

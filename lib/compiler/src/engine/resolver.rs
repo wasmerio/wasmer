@@ -3,12 +3,12 @@
 use crate::LinkError;
 use more_asserts::assert_ge;
 use wasmer_types::{
-    entity::{BoxedSlice, EntityRef, PrimaryMap},
-    TagIndex, TagKind,
-};
-use wasmer_types::{
     ExternType, FunctionIndex, ImportError, ImportIndex, MemoryIndex, ModuleInfo, TableIndex,
     TagType,
+};
+use wasmer_types::{
+    TagIndex, TagKind,
+    entity::{BoxedSlice, EntityRef, PrimaryMap},
 };
 
 use wasmer_vm::{

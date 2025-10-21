@@ -2,8 +2,8 @@
 
 use super::store::StoreHandle;
 use crate::{
-    js::vm::{VMException, VMExceptionRef},
     AsStoreMut, AsStoreRef, Tag, Value,
+    js::vm::{VMException, VMExceptionRef},
 };
 use std::any::Any;
 use wasmer_types::{TagType, Type};

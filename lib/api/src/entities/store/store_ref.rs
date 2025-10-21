@@ -1,6 +1,6 @@
 use std::ops::{Deref, DerefMut};
 
-use super::{inner::StoreInner, StoreObjects};
+use super::{StoreObjects, inner::StoreInner};
 use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use wasmer_types::{ExternType, OnCalledAction};
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
@@ -63,7 +63,9 @@ impl StoreMut<'_> {
 
     #[allow(unused)]
     pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
-        Self { inner: &mut *raw }
+        Self {
+            inner: unsafe { &mut *raw },
+        }
     }
 
     #[allow(unused)]

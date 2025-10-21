@@ -21,7 +21,6 @@ wasmer-compiler-singlepass = { version = "=6.1.0", path = "lib/compiler-singlepa
 wasmer-compiler-llvm = { version = "=6.1.0", path = "lib/compiler-llvm", optional = true }
 wasmer-wasix = { path = "lib/wasix", optional = true }
 wasmer-wast = { version = "=6.1.0", path = "tests/lib/wast", optional = true }
-wasi-test-generator = { version = "=6.1.0", path = "tests/wasi-wast", optional = true }
 wasmer-cache = { version = "=6.1.0", path = "lib/cache", optional = true }
 wasmer-types = { version = "=6.1.0", path = "lib/types" }
 wasmer-middlewares = { version = "=6.1.0", path = "lib/middlewares", optional = true }
@@ -80,11 +79,11 @@ resolver = "2"
 
 [workspace.package]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2021"
+edition = "2024"
 homepage = "https://wasmer.io/"
 license = "MIT"
 repository = "https://github.com/wasmerio/wasmer"
-rust-version = "1.84"
+rust-version = "1.87"
 version = "6.1.0"
 
 [workspace.dependencies]
@@ -149,7 +148,7 @@ serde_yaml = { version = "0.9.34" }
 serde_json = { version = "1" }
 bytecheck = { version = "0.6.8" }
 libc = { version = "^0.2", default-features = false }
-gimli = { version = "0.28.1" }
+gimli = { version = "0.32.3" }
 futures-util = { version = "0.3.31" }
 mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
@@ -164,7 +163,7 @@ base64 = "0.22.0"
 time = "0.3.36"
 url = "2.5"
 thiserror = "1"
-target-lexicon = { version = "0.12.2", default-features = false }
+target-lexicon = { version = "0.13.3", default-features = false }
 object = { version = "0.32.0", default-features = true }
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
 wasm-encoder = { version = "0.235.0", default-features = false, features = [
@@ -203,6 +202,7 @@ tracing-subscriber = { version = "0.3", default-features = false, features = [
 	"fmt",
 ] }
 reqwest = { workspace = true, features = ["blocking", "rustls-tls"] }
+itertools.workspace = true
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile

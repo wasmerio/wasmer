@@ -3,7 +3,7 @@ use std::{
     path::{Path, PathBuf},
 };
 
-use ciborium::{cbor, Value};
+use ciborium::{Value, cbor};
 use semver::VersionReq;
 use sha2::Digest;
 use shared_buffer::{MmapError, OwnedBuffer};
@@ -20,19 +20,19 @@ use webc::{
 use crate::utils::features_to_wasm_annotations;
 
 use webc::metadata::{
+    Atom, Binding, Command, Manifest as WebcManifest, UrlOrManifest, WaiBindings, WitBindings,
     annotations::{
         Atom as AtomAnnotation, FileSystemMapping, FileSystemMappings, VolumeSpecificPath, Wapm,
         Wasi,
     },
-    Atom, Binding, Command, Manifest as WebcManifest, UrlOrManifest, WaiBindings, WitBindings,
 };
 
 use super::{FsVolume, Strictness};
 
 const METADATA_VOLUME: &str = FsVolume::METADATA;
 
-/// Errors that may occur when converting from a [`wasmer_config::package::Manifest`] to
-/// a [`crate::metadata::Manifest`].
+/// Errors that may occur when converting from a `wasmer_config::package::Manifest`
+/// into a WebC manifest.
 #[derive(Debug, thiserror::Error)]
 #[non_exhaustive]
 pub enum ManifestError {

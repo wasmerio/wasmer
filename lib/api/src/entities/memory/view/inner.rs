@@ -2,9 +2,9 @@ use std::{mem::MaybeUninit, ops::Range};
 use wasmer_types::Pages;
 
 use crate::{
+    AsStoreRef, Memory, MemoryAccessError,
     buffer::{BackendMemoryBuffer, MemoryBuffer},
     macros::backend::{gen_rt_ty, match_rt},
-    AsStoreRef, Memory, MemoryAccessError,
 };
 
 /// A WebAssembly `memory` view.
@@ -90,7 +90,7 @@ impl<'a> BackendMemoryView<'a> {
     #[inline]
     pub unsafe fn data_unchecked(&self) -> &[u8] {
         match_rt!(on self => s {
-            s.data_unchecked()
+            unsafe { s.data_unchecked() }
         })
     }
 
@@ -108,7 +108,7 @@ impl<'a> BackendMemoryView<'a> {
     #[inline]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         match_rt!(on self => s {
-            s.data_unchecked_mut()
+            unsafe { s.data_unchecked_mut() }
         })
     }
 

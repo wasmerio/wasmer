@@ -104,7 +104,7 @@ pub fn translate_module<'data>(
             k => {
                 return Err(WasmError::Unsupported(format!(
                     "Unsupported paylod kind: {k:?}"
-                )))
+                )));
             }
         }
     }
