@@ -1154,6 +1154,8 @@ where
 
 fn new_progressbar_compile(hash: &ModuleHash, name: Option<&str>, quiet_mode: bool) -> ProgressBar {
     // Only show a spinner if we're running in a TTY
+    let hash = hash.to_string();
+    let hash = &hash[0..8];
     if !quiet_mode && std::io::stderr().is_terminal() {
         let msg = if let Some(name) = name {
             format!("Compiling WebAssembly module for command '{name}' ({hash})...")
