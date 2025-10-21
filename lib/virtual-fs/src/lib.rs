@@ -83,7 +83,7 @@ pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
-pub use ops::{copy_reference, copy_reference_ext, create_dir_all};
+pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
