@@ -14,15 +14,15 @@ cfg_if::cfg_if! {
             panic!()
         }
 
-        pub unsafe fn read_exnref(_exception: *mut std::ffi::c_void) -> u32 {
+        pub fn read_exnref(_exception: *mut std::ffi::c_void) -> u32 {
             panic!()
         }
 
-        pub unsafe fn throw(_ctx: &crate::StoreObjects, _exnref: u32) -> ! {
+        pub fn throw(_ctx: &crate::StoreObjects, _exnref: u32) -> ! {
             panic!()
         }
 
-        pub unsafe fn delete_exception(_exception: *mut std::ffi::c_void) {
+        pub fn delete_exception(_exception: *mut std::ffi::c_void) {
             panic!()
         }
     } else if #[cfg(any(
