@@ -4,6 +4,8 @@ use itertools::Itertools;
 use wasmer::FunctionEnv;
 use wasmer::*;
 
+use crate::Compiler;
+
 /// Corruption of WasmerEnv when using call indirect.
 ///
 /// Note: this one is specific to Singlepass, but we want to test in all
@@ -568,6 +570,12 @@ fn gen_wat_sum_function(arguments: usize) -> String {
 fn huge_number_of_arguments_fn(
     mut config: crate::Config,
 ) -> Result<(), Box<dyn std::error::Error>> {
+    // #5711 - stuck compilation with Cranelift on riscv64 target
+    if config.compiler == Compiler::Cranelift {
+        #[cfg(target_arch = "riscv64")]
+        return Ok(());
+    }
+
     for params in [1, 10, 100, 500, 1000] {
         println!("Testing sum fn with {params} parameters");
         let mut store = config.store();
