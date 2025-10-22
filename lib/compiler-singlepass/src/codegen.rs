@@ -2924,7 +2924,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 match frame.if_else {
                     IfElseState::If(label) => {
-                        self.machine.jmp_unconditionnal(frame.label)?;
+                        self.machine.jmp_unconditional(frame.label)?;
                         self.machine.emit_label(label)?;
                         frame.if_else = IfElseState::Else;
                     }
@@ -2982,7 +2982,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                     }
                 }
-                self.machine.jmp_unconditionnal(end_label)?;
+                self.machine.jmp_unconditional(end_label)?;
                 self.machine.emit_label(zero_label)?;
                 match cncl {
                     Some((_, Some(fp)))
@@ -3923,7 +3923,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame_depth = frame.value_stack_depth;
                 let label = frame.label;
                 self.release_locations_keep_state(frame_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
             Operator::Br { relative_depth } => {
@@ -3954,7 +3954,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let label = frame.label;
 
                 self.release_locations_keep_state(frame_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
             Operator::BrIf { relative_depth } => {
@@ -3995,7 +3995,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let stack_depth = frame.value_stack_depth;
                 let label = frame.label;
                 self.release_locations_keep_state(stack_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.machine.jmp_unconditional(label)?;
 
                 self.machine.emit_label(after)?;
             }
@@ -4050,7 +4050,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth)?;
-                    self.machine.jmp_unconditionnal(label)?;
+                    self.machine.jmp_unconditional(label)?;
                 }
                 self.machine.emit_label(default_br)?;
 
@@ -4082,12 +4082,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth)?;
-                    self.machine.jmp_unconditionnal(label)?;
+                    self.machine.jmp_unconditional(label)?;
                 }
 
                 self.machine.emit_label(table_label)?;
                 for x in table {
-                    self.machine.jmp_unconditionnal(x)?;
+                    self.machine.jmp_unconditional(x)?;
                 }
                 self.unreachable_depth = 1;
             }

@@ -263,7 +263,7 @@ pub trait Machine {
     fn emit_function_prolog(&mut self) -> Result<(), CompileError>;
     /// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
     fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
-    /// handle return value, with optionnal cannonicalization if wanted
+    /// handle return value, with optional cannonicalization if wanted
     fn emit_function_return_value(
         &mut self,
         ty: WpType,
@@ -391,7 +391,7 @@ pub trait Machine {
     ) -> Result<(), CompileError>;
 
     /// jmp without condidtion
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError>;
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError>;
 
     /// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
     fn jmp_on_condition(

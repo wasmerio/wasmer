@@ -2709,8 +2709,8 @@ impl Machine for MachineX86_64 {
         self.assembler.emit_cmp(size, source, dest)
     }
 
-    // unconditionnal jmp
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
+    // unconditional jmp
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::None, label)
     }
 
