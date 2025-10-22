@@ -254,6 +254,7 @@ pub unsafe extern "C" fn wasmer_vm_table_copy(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -281,6 +282,7 @@ pub unsafe extern "C" fn wasmer_vm_table_init(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -312,6 +314,7 @@ pub unsafe extern "C" fn wasmer_vm_table_fill(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -367,7 +370,7 @@ pub unsafe extern "C" fn wasmer_vm_table_get(
         // TODO: type checking, maybe have specialized accessors
         match instance.table_get(table_index, elem_index) {
             Some(table_ref) => table_ref.into(),
-            None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
+            None => {raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds));unreachable!()},
         }
     }
 }
@@ -390,7 +393,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_get(
         // TODO: type checking, maybe have specialized accessors
         match instance.imported_table_get(table_index, elem_index) {
             Some(table_ref) => table_ref.into(),
-            None => raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)),
+            None => {raise_lib_trap(Trap::lib(TrapCode::TableAccessOutOfBounds)); unreachable!()},
         }
     }
 }
@@ -429,6 +432,7 @@ pub unsafe extern "C" fn wasmer_vm_table_set(
 
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -458,6 +462,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_set(
 
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -576,6 +581,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_copy(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -601,6 +607,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_copy(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -626,6 +633,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_fill(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -651,6 +659,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_fill(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -678,6 +687,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_init(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!()
         }
     }
 }
@@ -705,10 +715,12 @@ pub unsafe extern "C" fn wasmer_vm_data_drop(vmctx: *mut VMContext, data_index: 
 /// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
 /// `wasmer_call_trampoline` must have been previously called.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
+pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> () {
     unsafe {
         let trap = Trap::lib(trap_code);
-        raise_lib_trap(trap)
+        raise_lib_trap(trap);
+        // TODO: When integrating with exceptions, look into how this works when a UncaughtException trapcode is raised manually
+        unreachable!()
     }
 }
 
@@ -832,6 +844,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait32(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!();
         }
         result.unwrap()
     }
@@ -859,6 +872,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait32(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!();
         }
         result.unwrap()
     }
@@ -886,6 +900,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_wait64(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!();
         }
         result.unwrap()
     }
@@ -913,6 +928,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_wait64(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!();
         }
         result.unwrap()
     }
@@ -939,6 +955,7 @@ pub unsafe extern "C" fn wasmer_vm_memory32_atomic_notify(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!();
         }
         result.unwrap()
     }
@@ -965,6 +982,7 @@ pub unsafe extern "C" fn wasmer_vm_imported_memory32_atomic_notify(
         };
         if let Err(trap) = result {
             raise_lib_trap(trap);
+            unreachable!();
         }
         result.unwrap()
     }

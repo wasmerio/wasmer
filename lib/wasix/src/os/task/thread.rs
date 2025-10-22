@@ -102,6 +102,7 @@ pub struct WasiThread {
     state: Arc<WasiThreadState>,
     layout: WasiMemoryLayout,
     start: ThreadStartType,
+    
 
     // This is used for stack rewinds
     rewind: Option<RewindResult>,

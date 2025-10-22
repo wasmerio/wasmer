@@ -1,9 +1,9 @@
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     ops::Deref,
     path::{Path, PathBuf},
     str,
-    sync::Arc,
+    sync::{atomic::AtomicU32, Arc, RwLock},
     time::Duration,
 };
 
@@ -39,6 +39,7 @@ use crate::{
     },
     runtime::task_manager::InlineWaker,
     syscalls::platform_clock_time_get,
+    syscalls::wasix::coroutine_switch::CoroutineStack,
 };
 use wasmer_types::ModuleHash;
 
@@ -174,6 +175,12 @@ pub struct WasiEnv {
     /// (this is normally used so that the instance can be reused later on)
     pub(crate) disable_fs_cleanup: bool,
 
+    /// TODO: Document this field
+    pub coroutines: Arc<RwLock<BTreeMap<u32, Arc<RwLock<CoroutineStack>>>>>,
+    pub next_coroutine_id: Arc<AtomicU32>,
+    pub current_coroutine: Arc<RwLock<Option<u32>>>,
+    pub next_coroutine: Arc<RwLock<Option<u32>>>,
+
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
     ///  not be cloned when `WasiEnv` is cloned)
@@ -208,6 +215,10 @@ impl Clone for WasiEnv {
             replaying_journal: self.replaying_journal,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
+            coroutines: self.coroutines.clone(),
+            next_coroutine_id: self.next_coroutine_id.clone(),
+            current_coroutine: self.current_coroutine.clone(),
+            next_coroutine: self.next_coroutine.clone(),
         }
     }
 }
@@ -249,6 +260,11 @@ impl WasiEnv {
             replaying_journal: false,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
+            // TODO: Not sure if we can even properly fok coroutines at all
+            coroutines: Default::default(),
+            next_coroutine_id: Arc::new(AtomicU32::new(1)),
+            current_coroutine: Default::default(),
+            next_coroutine: Default::default(),
         };
         Ok((new_env, handle))
     }
@@ -393,6 +409,10 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
+            coroutines: Default::default(),
+            next_coroutine_id: Arc::new(AtomicU32::new(1)),
+            current_coroutine: Default::default(),
+            next_coroutine: Default::default(),
         };
         env.owned_handles.push(thread);
 

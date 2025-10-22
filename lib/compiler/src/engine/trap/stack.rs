@@ -30,6 +30,8 @@ pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>)
             trap_code,
             backtrace,
         } => (wasm_trace(&info, None, backtrace), Some(*trap_code)),
+        // TODO: Implement continuations properly
+        Trap::Continuation { .. } => todo!(),
     }
 }
 

@@ -38,6 +38,16 @@ pub enum Trap {
         /// Native stack backtrace at the time the OOM occurred
         backtrace: Backtrace,
     },
+
+    /// A trap raised to indicate a resumable yield
+    // TODO: Replace the entire content with a Continuation reference type
+    Continuation {
+        /// Stuff
+        resumable: Option<u32>,
+        // TODO: Replace with Vec<Value> (because that will also support the stackswitching proposal)
+        /// Stuff
+        next: u32,
+    },
 }
 
 fn _assert_trap_is_sync_and_send(t: &Trap) -> (&dyn Sync, &dyn Send) {
@@ -112,6 +122,14 @@ impl Trap {
             _ => false,
         }
     }
+
+    /// Returns true if the `Trap` is resumable
+    pub fn is_resumable(&self) -> bool {
+        match self {
+            Self::Continuation { .. } => true,
+            _ => false,
+        }
+    }
 }
 
 impl std::error::Error for Trap {
@@ -130,6 +148,7 @@ impl fmt::Display for Trap {
             Self::Lib { .. } => write!(f, "lib"),
             Self::Wasm { .. } => write!(f, "wasm"),
             Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),
+            Self::Continuation { .. } => write!(f, "continuation"),
         }
     }
 }

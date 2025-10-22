@@ -250,6 +250,16 @@ impl Function {
         self.0.call(store, params)
     }
 
+    // TODO: Write docs
+    /// TODO: Write docs
+    pub fn call_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.0.call_resume(store, continuation)
+    }
+
     #[doc(hidden)]
     #[allow(missing_docs)]
     pub fn call_raw(
@@ -259,6 +269,17 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call_raw(store, params)
     }
+
+    #[doc(hidden)]
+    #[allow(missing_docs)]
+    pub fn call_raw_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        self.0.call_raw_resume(store, continuation)
+    }
+
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
         self.0.vm_funcref(store)

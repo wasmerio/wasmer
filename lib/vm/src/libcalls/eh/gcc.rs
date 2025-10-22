@@ -273,7 +273,8 @@ pub unsafe fn throw(tag: u32, vmctx: *mut VMContext, data_ptr: usize, data_size:
 
         match uw::_Unwind_RaiseException(exception_param) {
             libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException));
+                unreachable!();
             }
             _ => {
                 unreachable!()
@@ -294,7 +295,8 @@ pub unsafe fn rethrow(exc: *mut UwExceptionWrapper) -> ! {
         >(exc))
         {
             libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
-                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException))
+                crate::raise_lib_trap(crate::Trap::lib(wasmer_types::TrapCode::UncaughtException));
+                unreachable!()
             }
             _ => unreachable!(),
         }
