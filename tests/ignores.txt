@@ -86,6 +86,9 @@ windows wasmer::max_size_of_memory
 aarch64+linux spec::align
 aarch64+linux spec::memory_trap
 
+# TODO: #5816
+cranelift+riscv64 spec::skip_stack_guard_page
+
 # Frontends
 
 ## WASI
