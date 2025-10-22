@@ -1338,7 +1338,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I32DivS => {
@@ -1358,7 +1357,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I32RemS => {
@@ -1368,7 +1366,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I32And => {
@@ -1503,7 +1500,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I64DivS => {
@@ -1523,7 +1519,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I64RemS => {
@@ -1533,7 +1528,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I64And => {
