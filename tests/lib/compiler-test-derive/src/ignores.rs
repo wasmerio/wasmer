@@ -1,11 +1,9 @@
+use std::env;
 use std::fs::File;
 use std::path::PathBuf;
 
 use std::io::{BufRead, BufReader};
-
-pub const CFG_TARGET_OS: &str = env!("CFG_TARGET_OS");
-pub const CFG_TARGET_ARCH: &str = env!("CFG_TARGET_ARCH");
-pub const CFG_TARGET_ENV: &str = env!("CFG_TARGET_ENV");
+use std::sync::OnceLock;
 
 #[derive(Debug, Clone)]
 struct IgnorePattern {
@@ -60,10 +58,29 @@ impl Ignores {
     }
 
     pub fn should_ignore_host(&self, engine: &str, compiler: &str, canonical_path: &str) -> bool {
+        static CFG_TARGET_OS: OnceLock<String> = OnceLock::new();
+        let target_os = CFG_TARGET_OS.get_or_init(|| {
+            env::var("CFG_TARGET_OS")
+                .expect("CFG_TARGET_OS variable expected from build.rs")
+                .to_string()
+        });
+        static CFG_TARGET_ARCH: OnceLock<String> = OnceLock::new();
+        let target_arch = CFG_TARGET_ARCH.get_or_init(|| {
+            env::var("CFG_TARGET_ARCH")
+                .expect("CFG_TARGET_ARCH variable expected from build.rs")
+                .to_string()
+        });
+        static CFG_TARGET_ENV: OnceLock<String> = OnceLock::new();
+        let target_env = CFG_TARGET_ENV.get_or_init(|| {
+            env::var("CFG_TARGET_ENV")
+                .expect("CFG_TARGET_ENV variable expected from build.rs")
+                .to_string()
+        });
+
         self.should_ignore(
-            CFG_TARGET_OS,
-            CFG_TARGET_ARCH,
-            CFG_TARGET_ENV,
+            target_os,
+            target_arch,
+            target_env,
             engine,
             compiler,
             canonical_path,
