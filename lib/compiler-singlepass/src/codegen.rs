@@ -80,16 +80,14 @@ pub struct FuncGen<'a, M: Machine> {
 
     state: MachineState,
 
-    track_state: bool,
-
     /// Low-level machine state.
     machine: M,
 
     /// Nesting level of unreachable code.
     unreachable_depth: usize,
 
-    /// Function state map. Not yet used in the reborn version but let's keep it.
-    fsm: FunctionStateMap,
+    /// Index of a function defined locally inside the WebAssembly module.
+    local_func_index: LocalFunctionIndex,
 
     /// Relocation information.
     relocations: Vec<Relocation>,
@@ -231,8 +229,6 @@ pub struct ControlFrame {
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
     pub fp_stack_depth: usize,
-    pub state: MachineState,
-    pub state_diff_id: usize,
 }
 
 #[derive(Debug, Copy, Clone)]
@@ -1008,20 +1004,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         )
     }
 
-    pub fn get_state_diff(&mut self) -> usize {
-        if !self.track_state {
-            return usize::MAX;
-        }
-        let last_frame = self.control_stack.last_mut().unwrap();
-        let mut diff = self.state.diff(&last_frame.state);
-        diff.last = Some(last_frame.state_diff_id);
-        let id = self.fsm.diffs.len();
-        last_frame.state = self.state.clone();
-        last_frame.state_diff_id = id;
-        self.fsm.diffs.push(diff);
-        id
-    }
-
     fn emit_head(&mut self) -> Result<(), CompileError> {
         self.machine.emit_function_prolog()?;
 
@@ -1035,11 +1017,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
         self.state.register_values[self.machine.index_from_gpr(self.machine.get_vmctx_reg()).0] =
             MachineValue::Vmctx;
-
-        // TODO: Explicit stack check is not supported for now.
-        let diff = self.state.diff(&self.machine.new_machine_state());
-        let state_diff_id = self.fsm.diffs.len();
-        self.fsm.diffs.push(diff);
 
         // simulate "red zone" if not supported by the platform
         self.machine.adjust_stack(32)?;
@@ -1056,8 +1033,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .collect(),
             value_stack_depth: 0,
             fp_stack_depth: 0,
-            state: self.state.clone(),
-            state_diff_id,
         });
 
         // TODO: Full preemption by explicit signal checking
@@ -1108,15 +1083,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             unaligned_atomic: machine.get_label(),
         };
 
-        let fsm = FunctionStateMap::new(
-            machine.new_machine_state(),
-            local_func_index.index() as usize,
-            32,
-            (0..local_types.len())
-                .map(|_| WasmAbstractValue::Runtime)
-                .collect(),
-        );
-
         let mut fg = FuncGen {
             module,
             config,
@@ -1132,10 +1098,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             stack_offset: MachineStackOffset(0),
             save_area_offset: None,
             state: machine.new_machine_state(),
-            track_state: true,
             machine,
             unreachable_depth: 0,
-            fsm,
+            local_func_index,
             relocations: vec![],
             special_labels,
             calling_convention,
@@ -2921,8 +2886,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
-                    state: self.state.clone(),
-                    state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
                 self.machine.jmp_on_condition(
@@ -3052,15 +3015,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
-                    state: self.state.clone(),
-                    state_diff_id: self.get_state_diff(),
                 };
                 self.control_stack.push(frame);
             }
             Operator::Loop { blockty } => {
                 self.machine.align_for_loop()?;
                 let label = self.machine.get_label();
-                let state_diff_id = self.get_state_diff();
                 let _activate_offset = self.machine.assembler_get_offset().0;
 
                 self.control_stack.push(ControlFrame {
@@ -3078,8 +3038,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
-                    state: self.state.clone(),
-                    state_diff_id,
                 });
                 self.machine.emit_label(label)?;
 
@@ -6633,7 +6591,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if let Some(unwind) = unwind {
                     fde = Some(unwind.to_fde(Address::Symbol {
                         symbol: WriterRelocate::FUNCTION_SYMBOL,
-                        addend: self.fsm.local_function_id as _,
+                        addend: self.local_func_index.index() as _,
                     }));
                     unwind_info = Some(CompiledFunctionUnwindInfo::Dwarf);
                 }
