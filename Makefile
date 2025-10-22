@@ -371,8 +371,8 @@ HOST_TARGET=$(shell rustc -Vv | grep 'host: ' | cut -d':' -f2 | tr -d ' ')
 
 TARGET_DIR ?= target/release
 
-ifneq (, $(TARGET))
-	TARGET_DIR ?= target/$(TARGET)/release
+ifneq (, $(CARGO_TARGET))
+	TARGET_DIR = target/$(CARGO_TARGET)/release
 endif
 
 $(info -----------)
@@ -380,17 +380,17 @@ $(info $(bold)$(green)INFORMATION$(reset))
 $(info -----------)
 $(info )
 $(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
-ifneq (, $(TARGET))
+ifneq (, $(CARGO_TARGET))
 	# We use spaces instead of tabs to indent `$(info)`
 	# otherwise it's considered as a command outside a
 	# target and it will fail.
-        $(info Build Target: $(bold)$(green)$(TARGET)$(reset) $(yellow)($(TARGET_DIR))$(reset))
+    $(info Build Target: $(bold)$(green)$(CARGO_TARGET)$(reset) $(yellow)($(TARGET_DIR))$(reset))
 endif
 ifneq (, $(LIBC))
 	# We use spaces instead of tabs to indent `$(info)`
 	# otherwise it's considered as a command outside a
 	# target and it will fail.
-        $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+    $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Testing the following compilers & engines:)
@@ -401,7 +401,7 @@ $(info   * Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
 $(info Rust version: $(bold)$(green)$(shell rustc --version)$(reset).)
 $(info NodeJS version: $(bold)$(green)$(shell node --version)$(reset).)
 ifeq ($(ENABLE_LLVM), 1)
-        $(info LLVM version: $(bold)$(green)${LLVM_VERSION}$(reset).)
+    $(info LLVM version: $(bold)$(green)${LLVM_VERSION}$(reset).)
 endif
 $(info )
 $(info )
@@ -629,7 +629,9 @@ build-capi-headless-ios:
 
 # test compilers
 test-stage-0-wast:
-	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked --jobs=1
+	# host_fs WASI tests clash with the other FS: #5807
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked -- --skip host_fs
+	$(CARGO_BINARY) nextest run $(CARGO_TARGET_FLAG) --release $(compiler_features) --locked host_fs
 
 # test packages
 test-stage-1-test-all:
