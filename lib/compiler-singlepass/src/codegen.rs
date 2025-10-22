@@ -3015,7 +3015,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Loop { blockty } => {
                 self.machine.align_for_loop()?;
                 let label = self.machine.get_label();
-                let _activate_offset = self.machine.assembler_get_offset().0;
 
                 self.control_stack.push(ControlFrame {
                     label,
@@ -3143,9 +3142,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     iter::once(WpType::I64),
                 )?;
             }
-            Operator::MemoryCopy { dst_mem, src_mem } => {
+            Operator::MemoryCopy { src_mem, .. } => {
                 // ignore until we support multiple memories
-                let _dst = dst_mem;
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
