@@ -179,10 +179,16 @@ impl FuncTrampoline {
             callbacks.asm_memory_buffer(&function, &asm_buffer);
         }
 
+        let mem_buf_slice = memory_buffer.as_slice();
+
+        // Use a dummy function index to detect relocations against the trampoline
+        // function's address, which shouldn't exist and are not supported.
+        let dummy_reloc_target =
+            RelocationTarget::DynamicTrampoline(FunctionIndex::from_u32(u32::MAX));
+
         // Note: we don't count .gcc_except_table here because native-to-wasm
         // trampolines are not supposed to generate any LSDA sections. We *want* them
         // to terminate libunwind's stack searches.
-        let mem_buf_slice = memory_buffer.as_slice();
         let CompiledFunction {
             compiled_function,
             custom_sections,
@@ -192,7 +198,7 @@ impl FuncTrampoline {
         } = load_object_file(
             mem_buf_slice,
             &self.func_section,
-            RelocationTarget::Invalid,
+            dummy_reloc_target,
             |name: &str| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {name}",
@@ -200,6 +206,14 @@ impl FuncTrampoline {
             },
             self.binary_fmt,
         )?;
+        if compiled_function
+            .relocations
+            .iter()
+            .chain(custom_sections.iter().flat_map(|s| s.1.relocations.iter()))
+            .any(|r| r.reloc_target == dummy_reloc_target)
+        {
+            panic!("trampoline generation produced relocation against trampoline function address");
+        }
         let mut all_sections_are_eh_sections = true;
         let mut unwind_section_indices = eh_frame_section_indices;
         unwind_section_indices.append(&mut compact_unwind_section_indices);

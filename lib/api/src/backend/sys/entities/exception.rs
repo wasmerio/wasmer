@@ -19,14 +19,10 @@ impl Exception {
     /// Creates a new exception with the given tag and payload, and also creates
     /// a reference to it, returning the reference.
     #[allow(irrefutable_let_patterns)]
-    pub fn new(store: &mut impl AsStoreMut, tag: &Tag, payload: &[Value]) -> Self {
+    pub fn new(store: &mut impl AsStoreMut, tag: &crate::sys::tag::Tag, payload: &[Value]) -> Self {
         if !tag.is_from_store(store) {
             panic!("cannot create Exception with Tag from another Store");
         }
-
-        let BackendTag::Sys(tag) = &tag.0 else {
-            panic!("cannot create Exception with Tag from another backend");
-        };
 
         let store_objects = store.as_store_ref().objects().as_sys();
         let store_id = store_objects.id();
@@ -69,16 +65,16 @@ impl Exception {
         self.exnref.0.store_id() == store.as_store_ref().objects().id()
     }
 
-    pub fn tag(&self, store: &impl AsStoreRef) -> Tag {
+    pub fn tag(&self, store: &impl AsStoreRef) -> crate::sys::tag::Tag {
         if !self.is_from_store(store) {
             panic!("Exception is from another Store");
         }
         let ctx = store.as_store_ref().objects().as_sys();
         let exception = self.exnref.0.get(ctx);
         let tag_handle = exception.tag();
-        Tag(BackendTag::Sys(crate::sys::tag::Tag {
+        crate::sys::tag::Tag {
             handle: unsafe { StoreHandle::from_internal(ctx.id(), tag_handle) },
-        }))
+        }
     }
 
     pub fn payload(&self, store: &mut impl AsStoreMut) -> Vec<Value> {

@@ -510,7 +510,6 @@ pub fn emit_compilation(
                     )
                     .map_err(ObjectError::Write)?;
                 }
-                RelocationTarget::Invalid => panic!("Invalid relocation target encountered"),
             };
         }
     }

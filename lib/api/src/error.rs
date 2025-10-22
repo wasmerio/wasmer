@@ -221,24 +221,12 @@ impl RuntimeError {
 
     /// Returns true if the `RuntimeError` is an uncaught exception.
     pub fn is_exception(&self) -> bool {
-        match &self.inner.source {
-            #[cfg(feature = "sys")]
-            Trap::Sys(crate::backend::sys::vm::Trap::UncaughtException { .. }) => true,
-            _ => false,
-        }
+        self.inner.source.is_exception()
     }
 
     /// If the `RuntimeError` is an uncaught exception, returns it.
     pub fn to_exception(&self) -> Option<Exception> {
-        match &self.inner.source {
-            #[cfg(feature = "sys")]
-            // TODO: this loses the backtrace
-            Trap::Sys(crate::backend::sys::vm::Trap::UncaughtException { exnref, .. }) => Some(
-                Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Sys(exnref.clone())),
-            ),
-
-            _ => None,
-        }
+        self.inner.source.to_exception()
     }
 
     /// Returns a displayable version of the `RuntimeError` that also shows exception payloads.

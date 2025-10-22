@@ -67,7 +67,6 @@ fn apply_relocation(
             RelocationTarget::CustomSection(custom_section) => {
                 *allocated_sections[custom_section] as usize
             }
-            RelocationTarget::Invalid => panic!("Invalid relocation target encountered"),
         }
     };
 

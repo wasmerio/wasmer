@@ -131,6 +131,25 @@ impl Trap {
             _ => false,
         }
     }
+
+    /// Returns true if the trap is an exception
+    pub fn is_exception(&self) -> bool {
+        match self {
+            Self::UncaughtException { .. } => true,
+            _ => false,
+        }
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        match self {
+            // Self::UncaughtException { exnref, .. } => Some(Exception::from_vm_exceptionref(
+            //     crate::vm::VMExceptionRef::Sys(exnref.clone()),
+            // )),
+            Self::UncaughtException { exnref, .. } => Some(exnref.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl std::error::Error for Trap {

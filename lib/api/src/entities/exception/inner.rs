@@ -1,6 +1,6 @@
 use crate::vm::VMExceptionRef;
 use crate::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, Tag, Value,
+    AsStoreMut, AsStoreRef, BackendTag, ExportError, Exportable, Extern, Tag, Value,
     macros::backend::{gen_rt_ty, match_rt},
     vm::{VMExtern, VMExternTag},
 };
@@ -19,12 +19,19 @@ gen_rt_ty!(Exception
 impl BackendException {
     /// Create a new exception with the given tag type and payload.
     #[inline]
+    #[allow(irrefutable_let_patterns)]
     pub fn new(store: &mut impl AsStoreMut, tag: &Tag, payload: &[Value]) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::exception::Exception::new(store, tag, payload),
-            ),
+            crate::BackendStore::Sys(_) => {
+                let BackendTag::Sys(tag) = &tag.0 else {
+                    panic!("cannot create Exception with Tag from another backend");
+                };
+
+                Self::Sys(crate::backend::sys::exception::Exception::new(
+                    store, tag, payload,
+                ))
+            }
             _ => unimplemented!("new is only implemented for the sys backend"),
         }
     }
@@ -44,7 +51,7 @@ impl BackendException {
     pub fn tag(&self, store: &impl AsStoreRef) -> Tag {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(s) => s.tag(store),
+            Self::Sys(s) => Tag(BackendTag::Sys(s.tag(store))),
             _ => unimplemented!("tag is only implemented for the sys backend"),
         }
     }

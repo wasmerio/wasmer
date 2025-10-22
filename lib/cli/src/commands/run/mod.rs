@@ -631,7 +631,7 @@ fn invoke_function(
     store: &mut Store,
     func: &Function,
     args: &[String],
-) -> Result<Result<Box<[Value]>, RuntimeError>, Error> {
+) -> anyhow::Result<Result<Box<[Value]>, RuntimeError>> {
     let func_ty = func.ty(store);
     let required_arguments = func_ty.params().len();
     let provided_arguments = args.len();
