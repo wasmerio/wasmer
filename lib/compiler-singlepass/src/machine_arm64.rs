@@ -1057,25 +1057,6 @@ impl MachineARM64 {
         Ok(())
     }
 
-    /*fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
-        &mut self,
-        _loc: Location,
-        _target: Location,
-        _ret: Location,
-        _memarg: &MemArg,
-        _value_size: usize,
-        _memory_sz: Size,
-        _stack_sz: Size,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
-        _unaligned_atomic: Label,
-        _cb: F,
-    ) {
-        unimplemented!();
-    }*/
-
     fn offset_is_ok(&self, size: Size, offset: i32) -> bool {
         if offset < 0 {
             return false;
