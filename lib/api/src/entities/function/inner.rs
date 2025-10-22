@@ -1,11 +1,7 @@
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
-    HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
-    error::RuntimeError,
-    macros::backend::{gen_rt_ty, match_rt},
-    vm::{VMExtern, VMExternFunction, VMFuncRef},
+    error::RuntimeError, macros::backend::{gen_rt_ty, match_rt, match_rt_sys_lol}, vm::{VMExtern, VMExternFunction, VMFuncRef}, AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut, HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv
 };
 
 /// A WebAssembly `function` instance.
@@ -29,6 +25,17 @@ gen_rt_ty!(Function
     @cfg feature = "artifact-size" => derive(loupe::MemoryUsage)
     @derives Debug, Clone, PartialEq, Eq
 );
+
+// // TODO: Write better docs
+// #[cfg(feature = "sys")]
+// /// Suspend the current execution
+// pub unsafe fn suspend(next: u32) -> () {
+//     let trap = crate::sys::Trap::Continuation { resumable: None, next: next };
+//     unsafe { unwind_with(UnwindReason::LibTrap(trap)) }
+//     if !is_resumable {
+//         unreachable!();
+//     }
+// }
 
 impl BackendFunction {
     /// Creates a new host `Function` (dynamic) with the provided signature.
@@ -358,6 +365,17 @@ impl BackendFunction {
         })
     }
 
+    #[inline]
+    pub fn call_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        match_rt_sys_lol!(on self => f {
+            f.call_resume(store, continuation)
+        })
+    }
+
     #[doc(hidden)]
     #[allow(missing_docs)]
     #[inline]
@@ -368,6 +386,19 @@ impl BackendFunction {
     ) -> Result<Box<[Value]>, RuntimeError> {
         match_rt!(on self => f {
             f.call_raw(store, params)
+        })
+    }
+
+    #[doc(hidden)]
+    #[allow(missing_docs)]
+    #[inline]
+    pub fn call_raw_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        match_rt_sys_lol!(on self => f {
+            f.call_raw_resume(store, continuation)
         })
     }
 

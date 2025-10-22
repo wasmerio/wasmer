@@ -6,7 +6,7 @@ mod closure_free;
 mod closure_prepare;
 mod coroutine_delete;
 mod coroutine_new;
-mod coroutine_switch;
+pub mod coroutine_switch;
 mod dl_invalid_handle;
 mod dlopen;
 mod dlsym;

@@ -218,6 +218,14 @@ impl RuntimeError {
     pub fn is<T: std::error::Error + 'static>(&self) -> bool {
         self.inner.source.is::<T>()
     }
+    
+    /// Get the resumable (.0) and next (.1) coroutine ids if this is a continuation trap
+    pub fn to_continuation(&self) -> Option<(u32, u32)> {
+        match self.inner.source {
+            crate::BackendTrap::Sys(crate::backend::sys::vm::Trap::Continuation { resumable, next }) => Some((resumable.unwrap(), next)),
+            _ => None,
+        }
+    }
 
     /// Returns true if the `RuntimeError` is an uncaught exception.
     pub fn is_exception(&self) -> bool {

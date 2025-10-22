@@ -171,4 +171,42 @@ macro_rules! match_rt {
     };
 }
 
-pub(crate) use {gen_rt_ty, match_rt};
+/// Automatically create a match statement, repeating the expression for each backend.
+#[macro_use]
+macro_rules! match_rt_sys_lol {
+    (on $self:expr => $var:ident { $stmt:expr }) => {
+        match $self {
+            #[cfg(feature = "sys")]
+            Self::Sys($var) => $stmt,
+            #[cfg(feature = "wamr")]
+            Self::Wamr($var) => todo!(),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi($var) => todo!(),
+            #[cfg(feature = "v8")]
+            Self::V8($var) => todo!(),
+            #[cfg(feature = "js")]
+            Self::Js($var) => todo!(),
+            #[cfg(feature = "jsc")]
+            Self::Jsc($var) => todo!(),
+        }
+    };
+
+    (on $value:expr ; $match:expr => $var:ident { $stmt:expr }) => {
+        match $self {
+            #[cfg(feature = "sys")]
+            Self::Sys($var) => $stmt,
+            #[cfg(feature = "wamr")]
+            Self::Wamr($var) => todo!(),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi($var) => todo!(),
+            #[cfg(feature = "v8")]
+            Self::V8($var) => todo!(),
+            #[cfg(feature = "js")]
+            Self::Js($var) => todo!(),
+            #[cfg(feature = "jsc")]
+            Self::Jsc($var) => todo!(),
+        }
+    };
+}
+
+pub(crate) use {gen_rt_ty, match_rt, match_rt_sys_lol};

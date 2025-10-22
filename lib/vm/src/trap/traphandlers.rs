@@ -10,20 +10,22 @@ use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
+use std::ops::Deref;
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-use corosensei::{CoroutineResult, ScopedCoroutine, Yielder};
+use corosensei::{Coroutine, CoroutineResult, ScopedCoroutine, Yielder};
 use scopeguard::defer;
 use std::any::Any;
-use std::cell::Cell;
+use std::cell::{Cell, RefCell};
+use std::collections::{BTreeMap, HashMap};
 use std::error::Error;
 use std::io;
 use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
-use std::sync::{LazyLock, Once};
+use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicU32, AtomicUsize, Ordering};
+use std::sync::{Arc, LazyLock, Mutex, Once};
 use wasmer_types::TrapCode;
 
 /// Configuration for the runtime VM
@@ -644,6 +646,7 @@ pub fn init_traps() {
 /// They will be skipped and not executed.
 pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
     unsafe { unwind_with(UnwindReason::UserTrap(data)) }
+    unreachable!();
 }
 
 /// Raises a trap from inside library code immediately.
@@ -657,8 +660,12 @@ pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
 /// have been previous called and not yet returned.
 /// Additionally no Rust destructors may be on the stack.
 /// They will be skipped and not executed.
-pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
+pub unsafe fn raise_lib_trap(trap: Trap) -> () {
+    let is_resumable = trap.is_resumable();
     unsafe { unwind_with(UnwindReason::LibTrap(trap)) }
+    if !is_resumable {
+        unreachable!();
+    }
 }
 
 /// Carries a Rust panic across wasm code and resumes the panic on the other
@@ -671,6 +678,7 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 /// stack. They will be skipped and not executed.
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     unsafe { unwind_with(UnwindReason::Panic(payload)) }
+    unreachable!();
 }
 
 /// Call the wasm function pointed to by `callee`.
@@ -710,6 +718,30 @@ pub unsafe fn wasmer_call_trampoline(
     }
 }
 
+/// Call the wasm function pointed to by `callee`.
+///
+/// * `vmctx` - the callee vmctx argument
+/// * `caller_vmctx` - the caller vmctx argument
+/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
+///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
+///   `values_vec` argument.
+/// * `callee` - the third argument to the `trampoline` function
+/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
+///   which the outgoing return values will be written.
+///
+/// # Safety
+///
+/// Wildly unsafe because it calls raw function pointers and reads/writes raw
+/// function pointers.
+pub unsafe fn wasmer_call_trampoline_resume(
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    continuation: u32,
+) -> Result<(), Trap> {
+    unsafe {
+        catch_traps_resume(trap_handler, continuation)
+    }
+}
+
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
 ///
@@ -732,6 +764,23 @@ where
     on_wasm_stack(stack_size, trap_handler, closure).map_err(UnwindReason::into_trap)
 }
 
+/// Catches any wasm traps that happen within the execution of `closure`,
+/// returning them as a `Result`.
+///
+/// # Safety
+///
+/// Highly unsafe since `closure` won't have any dtors run.
+pub unsafe fn catch_traps_resume<R: 'static>(
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+    continuation: u32,
+) -> Result<R, Trap>
+{
+    // Ensure that per-thread initialization is done.
+    // TODO: We don't need this
+    lazy_per_thread_init()?;
+    on_wasm_stack_resume::<R>(continuation, trap_handler).map_err(UnwindReason::into_trap)
+}
+
 // We need two separate thread-local variables here:
 // - YIELDER is set within the new stack and is used to unwind back to the root
 //   of the stack from inside it.
@@ -741,9 +790,25 @@ where
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
+    static YIELDER: Cell<Option<(NonNull<Yielder<(), UnwindReason>>, u32)>> = const { Cell::new(None) };
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
+    static ACTIVE_STACKS: RefCell<BTreeMap<u32, MyErasedCoroutine>> = const { RefCell::new(BTreeMap::new()) };
+    static NEXT_STACK_ID: AtomicU32 = const { AtomicU32::new(0) };
+    static QUEUED_ERROR: Cell<Option<UnwindReason>> = const { Cell::new(None) };
 }
+
+macro_rules! print_yielder {
+    ($name:expr) => {
+        YIELDER.with(|yielder| {
+            if let Some((yielder, id)) = yielder.get() {
+                eprintln!("yielder: {:p} (id {})  : {}", yielder, id, $name);
+            } else {
+                eprintln!("yielder: none                   : {}", $name);
+            }
+        });
+    };
+}
+
 
 /// Read-only information that is used by signal handlers to handle and recover
 /// from traps.
@@ -933,18 +998,242 @@ impl UnwindReason {
             Self::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
+    fn is_resumable(&self) -> bool {
+        match self {
+            Self::LibTrap(trap) => trap.is_resumable(),
+            _ => false,
+        }
+    }
 }
 
-unsafe fn unwind_with(reason: UnwindReason) -> ! {
+unsafe fn unwind_with(mut reason: UnwindReason) -> () {
     unsafe {
-        let yielder = YIELDER
-            .with(|cell| cell.replace(None))
-            .expect("not running on Wasm stack");
+        print_yielder!("reset in unwind_with");
+        let Some(yielder) = YIELDER
+            .with(|cell| cell.replace(None)) else {
+                QUEUED_ERROR.with(|c| {
+                    c.set(Some(reason));
+                });
+                // TODO: Handle the case where we don't want to resume
+                return;
+            }
+           ;
 
-        yielder.as_ref().suspend(reason);
+        let is_resumable = reason.is_resumable();
+        match &mut reason {
+            UnwindReason::LibTrap(Trap::Continuation { resumable, .. }) => {
+                *resumable = Some(yielder.1);
+            },
+            _ => {}
+        }
+
+        yielder.0.as_ref().suspend(reason);
 
         // on_wasm_stack will forcibly reset the coroutine stack after yielding.
-        unreachable!();
+        if !is_resumable {
+            unreachable!("suspend resumed after a non-resumable trap");
+        }
+    }
+}
+
+// unsafe fn suspend(payload: u32) -> () {
+//     unsafe {
+//         let yielder = YIELDER
+//             .with(|cell| cell.replace(None))
+//             .expect("not running on Wasm stack");
+
+//         let trap = UnwindReason::LibTrap(Trap::Continuation { resumable: Some(5), next: payload });
+
+//         yielder.as_ref().suspend(trap);
+
+//     }
+// }
+
+// /// Runs the given function on a separate stack so that its stack usage can be
+// /// bounded. Stack overflows and other traps can be caught and execution
+// /// returned to the root of the stack.
+// fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
+//     stack_size: usize,
+//     trap_handler: Option<*const TrapHandlerFn<'static>>,
+//     f: F,
+// ) -> Result<T, UnwindReason> {
+//     // Allocating a new stack is pretty expensive since it involves several
+//     // system calls. We therefore keep a cache of pre-allocated stacks which
+//     // allows them to be reused multiple times.
+//     // FIXME(Amanieu): We should refactor this to avoid the lock.
+//     static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
+//         LazyLock::new(crossbeam_queue::SegQueue::new);
+
+//     let stack = STACK_POOL
+//         .pop()
+//         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
+//     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
+
+//     // Create a coroutine with a new stack to run the function on.
+//     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
+//         // Save the yielder to TLS so that it can be used later.
+//         YIELDER.with(|cell| cell.set(Some(yielder.into())));
+
+//         Ok(f())
+//     });
+
+//     // Ensure that YIELDER is reset on exit even if the coroutine panics,
+//     defer! {
+//         YIELDER.with(|cell| cell.set(None));
+//     }
+
+//     coro.scope(|mut coro_ref| {
+//         // Set up metadata for the trap handler for the duration of the coroutine
+//         // execution. This is restored to its previous value afterwards.
+//         TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
+//             match coro_ref.resume(()) {
+//                 CoroutineResult::Yield(trap) => {
+//                     // This came from unwind_with which requires that there be only
+//                     // Wasm code on the stack.
+//                     if !trap.is_resumable() {
+//                         // If the trap is not resumable, we need to reset the coroutine
+//                         // so that it can be used again.
+//                         unsafe {
+//                             coro_ref.force_reset();
+//                         }
+//                     }
+//                     Err(trap)
+//                 }
+//                 CoroutineResult::Return(result) => result,
+//             }
+//         })
+//     })
+// }
+
+struct MyCoroutine<T: 'static> {
+    coro: Arc<Mutex<Coroutine<(), UnwindReason, Result<T, UnwindReason>>>>,
+    yielder: Arc<Mutex<Option<NonNull<Yielder<(), UnwindReason>>>>>,
+    id: u32,
+}
+impl<T: 'static> Clone for MyCoroutine<T> {
+    fn clone(&self) -> Self {
+        Self {
+            coro: self.coro.clone(),
+            yielder: self.yielder.clone(),
+            id: self.id,
+        }
+    }
+}
+struct MyErasedCoroutine {
+    /// Owned pointer to the inner coroutine
+    inner: *mut MyCoroutine<()>,
+}
+impl Clone for MyErasedCoroutine {
+    fn clone(&self) -> Self {
+        let coro = unsafe { Box::from_raw(self.inner) };
+        let cloned = coro.clone();
+        Box::leak(coro);
+        Self {
+            inner: Box::into_raw(cloned) as *mut MyCoroutine<()>,
+        }
+    }
+}
+impl<T: 'static> From<MyCoroutine<T>> for MyErasedCoroutine {
+    fn from(coro: MyCoroutine<T>) -> Self {
+        Self {
+            inner: Box::into_raw(Box::new(coro)) as *mut MyCoroutine<()>,
+        }
+    }
+}
+
+// TODO: This from implementation is horribly unsafe
+impl<T: 'static> From<MyErasedCoroutine> for MyCoroutine<T> {
+    fn from(mut coro: MyErasedCoroutine) -> Self {
+        let boxed_coro = unsafe {
+            let boxed_coro = Box::from_raw(coro.inner as *mut MyCoroutine<T>);
+            coro.inner = ptr::null_mut();
+            boxed_coro
+        };
+        boxed_coro.as_ref().clone()
+    }
+}
+
+impl<T: 'static> MyCoroutine<T> {
+    fn new<F: FnOnce() -> T + 'static>(f: F) -> Self {
+        let future_yielder: Arc<Mutex<Option<NonNull<Yielder<(), UnwindReason>>>>> =
+            Arc::new(Mutex::new(None));
+        let future_yielder2 = future_yielder.clone();
+        let id = NEXT_STACK_ID.with(|cell| {
+            cell.fetch_add(1, Ordering::Relaxed)
+        });
+        let coro = Coroutine::new(move |yielder, ()| {
+            // Save the yielder to TLS so that it can be used later.
+            print_yielder!("Setting in new coro");
+            YIELDER.with(|cell| cell.set(Some((yielder.into(), id))));
+            future_yielder2.lock().unwrap().replace(yielder.into());
+            Ok(f())
+        });
+        MyCoroutine {
+            coro: Arc::new(Mutex::new(coro)),
+            yielder: future_yielder,
+            id
+        }
+    }
+    // fn new_internal(
+    //     coro: Coroutine<(), UnwindReason, Result<T, UnwindReason>>,
+    //     future_yielder: Arc<Mutex<Option<NonNull<Yielder<(), UnwindReason>>>>>,
+    // ) -> Self {
+    //     Self {
+    //         coro: Arc::new(Mutex::new(coro)),
+    //         yielder: future_yielder,
+    //         id
+    //     }
+    // }
+    fn lock(
+        &self,
+    ) -> std::sync::MutexGuard<'_, Coroutine<(), UnwindReason, Result<T, UnwindReason>>> {
+        self.coro.lock().unwrap()
+    }
+    fn resume(
+        &self,
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
+    ) -> Result<T, UnwindReason> {
+
+        // Set global YIELDER to the current coroutine's yielder
+        let current_yielder = self.yielder.lock().unwrap().clone();
+        let id = self.id;
+        print_yielder!("Setting in resume");
+        YIELDER.with(|cell| cell.set(current_yielder.map(|yielder| (yielder, id))));
+
+        // Reset global YIELDER to None when leaving this stack
+        defer! {
+            print_yielder!("Resetting after resume");
+            YIELDER.with(|cell| cell.set(None));
+        }
+
+        let coro_trap_handler = {
+            self.coro.lock().unwrap().trap_handler()
+        };
+        let cloned_coro = self.coro.clone();
+
+
+        TrapHandlerContext::install(
+            trap_handler,
+            coro_trap_handler,
+            || {
+                let mut coro = cloned_coro.lock().unwrap();
+                match coro.resume(()) {
+                    CoroutineResult::Yield(trap) => {
+                        // This came from unwind_with which requires that there be only
+                        // Wasm code on the stack.
+                                            if !trap.is_resumable() {
+                        // If the trap is not resumable, we need to reset the coroutine
+                        // so that it can be used again.
+                        unsafe {
+                            coro.force_reset();
+                        }
+                    }
+                        Err(trap)
+                    }
+                    CoroutineResult::Return(result) => result,
+                }
+            },
+        )
     }
 }
 
@@ -952,53 +1241,73 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
-    stack_size: usize,
+    _stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    // Allocating a new stack is pretty expensive since it involves several
-    // system calls. We therefore keep a cache of pre-allocated stacks which
-    // allows them to be reused multiple times.
-    // FIXME(Amanieu): We should refactor this to avoid the lock.
-    static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
-        LazyLock::new(crossbeam_queue::SegQueue::new);
+    let boxed_coro = MyCoroutine::new(f);
 
-    let stack = STACK_POOL
-        .pop()
-        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
+    //  ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
+    //     // Save the yielder to TLS so that it can be used later.
+    //     YIELDER.with(|cell| cell.set(Some(yielder.into())));
 
-    // Create a coroutine with a new stack to run the function on.
-    let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
-        // Save the yielder to TLS so that it can be used later.
-        YIELDER.with(|cell| cell.set(Some(yielder.into())));
-
-        Ok(f())
-    });
+    //     Ok(f())
+    // });
 
     // Ensure that YIELDER is reset on exit even if the coroutine panics,
-    defer! {
-        YIELDER.with(|cell| cell.set(None));
-    }
 
-    coro.scope(|mut coro_ref| {
-        // Set up metadata for the trap handler for the duration of the coroutine
-        // execution. This is restored to its previous value afterwards.
-        TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
-            match coro_ref.resume(()) {
-                CoroutineResult::Yield(trap) => {
-                    // This came from unwind_with which requires that there be only
-                    // Wasm code on the stack.
-                    unsafe {
-                        coro_ref.force_reset();
-                    }
-                    Err(trap)
-                }
-                CoroutineResult::Return(result) => result,
-            }
-        })
-    })
+    boxed_coro.resume(trap_handler)
+
+    // let cloned_coro = coro.clone();
+    // TrapHandlerContext::install(trap_handler, coro.lock().unwrap().trap_handler(), || {
+    //     let mut coro = cloned_coro.lock().unwrap();
+
+    //         match coro.resume(()) {
+    //             CoroutineResult::Yield(trap) => {
+    //                 // This came from unwind_with which requires that there be only
+    //                 // Wasm code on the stack.
+    //                 unsafe {
+    //                     coro.force_reset();
+    //                 }
+    //                 Err(trap)
+    //             }
+    //             CoroutineResult::Return(result) => result,
+    //         }
+    //     })
+
+    // coro.scope(|mut coro_ref| {
+    //     // Set up metadata for the trap handler for the duration of the coroutine
+    //     // execution. This is restored to its previous value afterwards.
+    //     TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
+    //         match coro_ref.resume(()) {
+    //             CoroutineResult::Yield(trap) => {
+    //                 // This came from unwind_with which requires that there be only
+    //                 // Wasm code on the stack.
+    //                 unsafe {
+    //                     coro_ref.force_reset();
+    //                 }
+    //                 Err(trap)
+    //             }
+    //             CoroutineResult::Return(result) => result,
+    //         }
+    //     })
+    // })
 }
+
+fn on_wasm_stack_resume<T: 'static>(
+    continuation: u32,
+    trap_handler: Option<*const TrapHandlerFn<'static>>,
+) -> Result<T, UnwindReason> {
+    let erased_coroutine = ACTIVE_STACKS.with(|cell| {
+        let map: &BTreeMap<u32, MyErasedCoroutine> = &cell.borrow();
+        let thing = map.get(&continuation).expect("stack function not found").clone();
+        thing
+    });
+    let coroutine: MyCoroutine<T> = erased_coroutine.into();
+    coroutine.resume(trap_handler)
+}
+
+
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
 /// to perform an operation that should not be constrainted by the Wasm stack
@@ -1008,21 +1317,31 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
 /// the control of untrusted code. Malicious code could artificially induce a
 /// stack overflow in the middle of a sensitive host operations (e.g. growing
 /// a memory) which would be hard to recover from.
+#[inline(always)]
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     // Reset YIEDER to None for the duration of this call to indicate that we
     // are no longer on the Wasm stack.
+    print_yielder!("Resetting on entering host stack");
     let yielder_ptr = YIELDER.with(|cell| cell.replace(None));
 
     // If we are already on the host stack, execute the function directly. This
     // happens if a host function is called directly from the API.
     let yielder = match yielder_ptr {
-        Some(ptr) => unsafe { ptr.as_ref() },
+        Some(ptr) => unsafe { ptr.0.as_ref() },
         None => return f(),
     };
 
+    QUEUED_ERROR.with(|cell| {
+        if let Some(_) = cell.replace(None) {
+            // If there was a queued error, return it immediately without
+            // executing the closure.
+            unreachable!("tried to re-enter host stack with a queued error; should never happen");
+        }
+    });
+
     // Restore YIELDER upon exiting normally or unwinding.
     defer! {
-        YIELDER.with(|cell| cell.set(yielder_ptr));
+     
     }
 
     // on_parent_stack requires the closure to be Send so that the Yielder
@@ -1031,10 +1350,20 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     struct SendWrapper<T>(T);
     unsafe impl<T> Send for SendWrapper<T> {}
     let wrapped = SendWrapper(f);
-    yielder.on_parent_stack(move || {
+    let result = yielder.on_parent_stack(move || {
         let wrapped = wrapped;
         (wrapped.0)()
-    })
+    });
+
+       print_yielder!("Restoring on leaving host stack");
+        YIELDER.with(|cell| cell.set(yielder_ptr));
+        let error = QUEUED_ERROR.with(|cell| {
+            cell.replace(None)
+        });
+        if let Some(error) = error {
+            unsafe { unwind_with(error) }
+        }
+        result
 }
 
 #[cfg(windows)]

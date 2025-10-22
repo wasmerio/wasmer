@@ -17,7 +17,7 @@ use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
     VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
+    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, wasmer_call_trampoline_resume
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -278,10 +278,66 @@ impl Function {
         Ok(())
     }
 
+    fn call_wasm_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+        results: &mut [Value],
+    ) -> Result<(), RuntimeError> {
+        // let format_types_for_error_message = |items: &[Value]| {
+        //     items
+        //         .iter()
+        //         .map(|param| param.ty().to_string())
+        //         .collect::<Vec<String>>()
+        //         .join(", ")
+        // };
+        // // TODO: Avoid cloning the signature here, it's expensive.
+        // let signature = self.ty(store);
+        // if signature.params().len() != params.len() {
+        //     return Err(RuntimeError::new(format!(
+        //         "Parameters of type [{}] did not match signature {}",
+        //         format_types_for_error_message(params),
+        //         &signature
+        //     )));
+        // }
+        // if signature.results().len() != results.len() {
+        //     return Err(RuntimeError::new(format!(
+        //         "Results of type [{}] did not match signature {}",
+        //         format_types_for_error_message(results),
+        //         &signature,
+        //     )));
+        // }
+
+        // let mut values_vec = vec![RawValue { i32: 0 }; max(params.len(), results.len())];
+
+        // // Store the argument values into `values_vec`.
+        // let param_tys = signature.params().iter();
+        // for ((arg, slot), ty) in params.iter().zip(&mut values_vec).zip(param_tys) {
+        //     if arg.ty() != *ty {
+        //         let param_types = format_types_for_error_message(params);
+        //         return Err(RuntimeError::new(format!(
+        //             "Parameters of type [{}] did not match signature {}",
+        //             param_types, &signature,
+        //         )));
+        //     }
+        //     if !arg.is_from_store(store) {
+        //         return Err(RuntimeError::new("cross-`Store` values are not supported"));
+        //     }
+        //     *slot = arg.as_raw(store);
+        // }
+
+        // Invoke the call
+
+        // TODO: This currently does absolutely no checks that the continuation matches the function or the store
+        self.call_wasm_raw_resume(store, continuation, results)?;
+        Ok(())
+    }
+
     fn call_wasm_raw(
         &self,
         store: &mut impl AsStoreMut,
         trampoline: VMTrampoline,
+        // TODO: Params probably die at the end of this function. This could be a problem
         mut params: Vec<RawValue>,
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
@@ -337,6 +393,75 @@ impl Function {
         Ok(())
     }
 
+    // warn on unused vars in this functions
+    #[warn(dead_code, clippy::unused_self, clippy::unused_variables, unused_variables)]
+    fn call_wasm_raw_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+        results: &mut [Value],
+    ) -> Result<(), RuntimeError> {
+        // Call the trampoline.
+        let result = {
+            let mut r;
+            // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
+            loop {
+                // let storeref = store.as_store_ref();
+                // let vm_function = self.handle.get(storeref.objects().as_sys());
+                // let config = storeref.engine().tunables().vmconfig();
+                r = unsafe {
+                    wasmer_call_trampoline_resume(
+                        store.as_store_ref().signal_handler(),
+                        continuation,
+                    )
+                };
+                
+
+                // TODO: Continuations should be safe as long as this is never triggered
+                //       I add added a todo so this is a guaranteed error
+                let store_mut = store.as_store_mut();
+                if let Some(callback) = store_mut.inner.on_called.take() {
+                    todo!("Evaluate if this works with continuations");
+                    match callback(store_mut) {
+                        Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
+                            continue;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Finish) => {
+                            break;
+                        }
+                        Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
+                            return Err(RuntimeError::user(trap));
+                        }
+                        Err(trap) => return Err(RuntimeError::user(trap)),
+                    }
+                }
+                break;
+            }
+            r
+        };
+        if let Err(error) = result {
+            // Continuations should return here if they suspend again
+            return Err(error.into());
+        }
+
+        // TODO: Figure out how to provide proper results here without passing the parameters in
+        todo!("Continuations are not allowed to return for now");
+        for result in results.iter_mut() {
+            *result = Value::I32(0);
+        }
+        Ok(())
+        // // Load the return values out of `values_vec`.
+        // let signature = self.ty(store);
+
+        // for (index, &value_type) in signature.results().iter().enumerate() {
+        //     unsafe {
+        //         results[index] = Value::from_raw(store, value_type, RawValue { i32: 0 });
+        //     }
+        // }
+
+        // Ok(())
+    }
+
     pub(crate) fn result_arity(&self, store: &impl AsStoreRef) -> usize {
         self.ty(store).results().len()
     }
@@ -359,6 +484,24 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
+    pub(crate) fn call_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        // let trampoline = unsafe {
+        //     self.handle
+        //         .get(store.as_store_ref().objects().as_sys())
+        //         .anyfunc
+        //         .as_ptr()
+        //         .as_ref()
+        //         .call_trampoline
+        // };
+        let mut results = vec![Value::null(); self.result_arity(store)];
+        self.call_wasm_resume(store, continuation, &mut results)?;
+        Ok(results.into_boxed_slice())
+    }
+
     #[doc(hidden)]
     #[allow(missing_docs)]
     pub(crate) fn call_raw(
@@ -376,6 +519,19 @@ impl Function {
         };
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm_raw(store, trampoline, params, &mut results)?;
+        Ok(results.into_boxed_slice())
+    }
+
+    #[doc(hidden)]
+    #[allow(missing_docs)]
+    pub(crate) fn call_raw_resume(
+        &self,
+        store: &mut impl AsStoreMut,
+        continuation: u32,
+    ) -> Result<Box<[Value]>, RuntimeError> {
+        let mut results = vec![Value::null(); self.result_arity(store)];
+        self.call_wasm_raw_resume(store, continuation, &mut results)?;
+        todo!("Continuations are not allowed to return for now");
         Ok(results.into_boxed_slice())
     }
 
@@ -481,6 +637,7 @@ where
                 to_invocation_result((this.ctx.func)(values_vec))
             }))
         });
+        
 
         // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
