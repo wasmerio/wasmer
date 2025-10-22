@@ -4,7 +4,6 @@ use crate::{
     common_decl::{MachineState, MachineValue, RegisterIndex},
     location::{CombinedRegister, Reg as AbstractReg},
 };
-use std::collections::BTreeMap;
 use std::slice::Iter;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
@@ -436,7 +435,6 @@ pub fn new_machine_state() -> MachineState {
     MachineState {
         stack_values: vec![],
         register_values: vec![MachineValue::Undefined; 32 + 32],
-        prev_frame: BTreeMap::new(),
         wasm_stack: vec![],
         wasm_inst_offset: usize::MAX,
     }

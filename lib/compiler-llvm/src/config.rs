@@ -287,10 +287,15 @@ impl LLVM {
 
                 let my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
 
-                *((my_target_machine.target_machine as *mut u8).offset(0x410) as *mut u64) = 5;
+                #[cfg(target_arch = "riscv64")]
+                let target_machine_ptr = my_target_machine.target_machine as *mut u8;
+                #[cfg(not(target_arch = "riscv64"))]
+                let target_machine_ptr = my_target_machine.target_machine as *mut i8;
+
+                *(target_machine_ptr.offset(0x410) as *mut u64) = 5;
                 std::ptr::copy_nonoverlapping(
                     c"lp64d".as_ptr(),
-                    (my_target_machine.target_machine as *mut i8).offset(0x418),
+                    target_machine_ptr.offset(0x418),
                     6,
                 );
 
