@@ -2093,14 +2093,7 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn load_address(
-        &mut self,
-        _size: Size,
-        _reg: Location,
-        _mem: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass load_address unimplemented");
-    }
+
     // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -2424,51 +2417,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-
-    fn location_address(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_address not implemented")
-    }
-    // logic
-    fn location_and(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_and not implemented")
-    }
-    fn location_xor(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_xor not implemented")
-    }
-    fn location_or(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_or not implemented")
-    }
-    fn location_test(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_test not implemented")
-    }
     // math
     fn location_add(
         &mut self,
@@ -2484,29 +2432,6 @@ impl Machine for MachineARM64 {
             self.assembler.emit_adds(size, dst, src, dst)?;
         } else {
             self.assembler.emit_add(size, dst, src, dst)?;
-        }
-        if dst != dest {
-            self.move_location(size, dst, dest)?;
-        }
-        for r in temps {
-            self.release_gpr(r);
-        }
-        Ok(())
-    }
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
-    ) -> Result<(), CompileError> {
-        let mut temps = vec![];
-        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits12, true, None)?;
-        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None, true, None)?;
-        if flags {
-            self.assembler.emit_subs(size, dst, src, dst)?;
-        } else {
-            self.assembler.emit_sub(size, dst, src, dst)?;
         }
         if dst != dest {
             self.move_location(size, dst, dest)?;
@@ -2593,17 +2518,6 @@ impl Machine for MachineARM64 {
         self.assembler.emit_dmb()
     }
 
-    fn location_neg(
-        &mut self,
-        _size_val: Size, // size of src
-        _signed: bool,
-        _source: Location,
-        _size_op: Size,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_neg unimplemented");
-    }
-
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2636,15 +2550,6 @@ impl Machine for MachineARM64 {
         dst: Location,
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst, false)
-    }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        _sz_src: Size,
-        _src: Location,
-        _sz_dst: Size,
-        _dst: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass emit_relaxed_zero_extension unimplemented");
     }
     fn emit_relaxed_sign_extension(
         &mut self,

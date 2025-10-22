@@ -1886,6 +1886,75 @@ impl MachineX86_64 {
         let v = trap as u8;
         self.assembler.emit_ud1_payload(v)
     }
+
+    // logic
+    fn location_xor(
+        &mut self,
+        size: Size,
+        source: Location,
+        dest: Location,
+        _flags: bool,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_xor(size, source, dest)
+    }
+    fn location_or(
+        &mut self,
+        size: Size,
+        source: Location,
+        dest: Location,
+        _flags: bool,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_or(size, source, dest)
+    }
+    fn load_address(
+        &mut self,
+        size: Size,
+        reg: Location,
+        mem: Location,
+    ) -> Result<(), CompileError> {
+        match reg {
+            Location::GPR(_) => {
+                match mem {
+                    Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                        // Memory moves with size < 32b do not zero upper bits.
+                        if size < Size::S32 {
+                            self.assembler.emit_xor(Size::S32, reg, reg)?;
+                        }
+                        self.assembler.emit_mov(size, mem, reg)?;
+                    }
+                    _ => codegen_error!("singlepass load_address unreachable"),
+                }
+            }
+            _ => codegen_error!("singlepass load_address unreachable"),
+        }
+        Ok(())
+    }
+
+    fn location_neg(
+        &mut self,
+        size_val: Size, // size of src
+        signed: bool,
+        source: Location,
+        size_op: Size,
+        dest: Location,
+    ) -> Result<(), CompileError> {
+        self.move_location_extend(size_val, signed, source, size_op, dest)?;
+        self.assembler.emit_neg(size_val, dest)
+    }
+
+    fn emit_relaxed_zero_extension(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
+            self.emit_relaxed_binop(AssemblerX64::emit_mov, sz_src, src, dst)
+        } else {
+            self.emit_relaxed_zx_sx(AssemblerX64::emit_movzx, sz_src, src, sz_dst, dst)
+        }
+    }
 }
 
 impl Machine for MachineX86_64 {
@@ -2401,29 +2470,7 @@ impl Machine for MachineX86_64 {
         }
         Ok(())
     }
-    fn load_address(
-        &mut self,
-        size: Size,
-        reg: Location,
-        mem: Location,
-    ) -> Result<(), CompileError> {
-        match reg {
-            Location::GPR(_) => {
-                match mem {
-                    Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                        // Memory moves with size < 32b do not zero upper bits.
-                        if size < Size::S32 {
-                            self.assembler.emit_xor(Size::S32, reg, reg)?;
-                        }
-                        self.assembler.emit_mov(size, mem, reg)?;
-                    }
-                    _ => codegen_error!("singlepass load_address unreachable"),
-                }
-            }
-            _ => codegen_error!("singlepass load_address unreachable"),
-        }
-        Ok(())
-    }
+
     // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -2636,52 +2683,6 @@ impl Machine for MachineX86_64 {
     fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_call_location(location)
     }
-
-    fn location_address(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_lea(size, source, dest)
-    }
-    // logic
-    fn location_and(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_and(size, source, dest)
-    }
-    fn location_xor(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_xor(size, source, dest)
-    }
-    fn location_or(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_or(size, source, dest)
-    }
-    fn location_test(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_test(size, source, dest)
-    }
-    // math
     fn location_add(
         &mut self,
         size: Size,
@@ -2690,15 +2691,6 @@ impl Machine for MachineX86_64 {
         _flags: bool,
     ) -> Result<(), CompileError> {
         self.assembler.emit_add(size, source, dest)
-    }
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_sub(size, source, dest)
     }
     fn location_cmp(
         &mut self,
@@ -2789,18 +2781,6 @@ impl Machine for MachineX86_64 {
         Ok(())
     }
 
-    fn location_neg(
-        &mut self,
-        size_val: Size, // size of src
-        signed: bool,
-        source: Location,
-        size_op: Size,
-        dest: Location,
-    ) -> Result<(), CompileError> {
-        self.move_location_extend(size_val, signed, source, size_op, dest)?;
-        self.assembler.emit_neg(size_val, dest)
-    }
-
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         match size {
             Size::S64 => self.assembler.emit_imul_imm32_gpr64(imm32, gpr),
@@ -2827,19 +2807,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(AssemblerX64::emit_cmp, sz, src, dst)
     }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        sz_src: Size,
-        src: Location,
-        sz_dst: Size,
-        dst: Location,
-    ) -> Result<(), CompileError> {
-        if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
-            self.emit_relaxed_binop(AssemblerX64::emit_mov, sz_src, src, dst)
-        } else {
-            self.emit_relaxed_zx_sx(AssemblerX64::emit_movzx, sz_src, src, sz_dst, dst)
-        }
-    }
+
     fn emit_relaxed_sign_extension(
         &mut self,
         sz_src: Size,

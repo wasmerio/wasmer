@@ -226,14 +226,6 @@ pub trait Machine {
         size_op: Size,
         dest: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Load a memory value to a register, zero extending to 64bits.
-    /// Panic if gpr is not a Location::GPR or if mem is not a Memory(2)
-    fn load_address(
-        &mut self,
-        size: Size,
-        gpr: Location<Self::GPR, Self::SIMD>,
-        mem: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
     /// Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -315,40 +307,6 @@ pub trait Machine {
     /// Emit a debug breakpoint
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError>;
 
-    /// load the address of a memory location (will panic if src is not a memory)
-    /// like LEA opcode on x86_64
-    fn location_address(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
-
-    /// And src & dst -> dst (with or without flags)
-    fn location_and(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-    /// Xor src & dst -> dst (with or without flags)
-    fn location_xor(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-    /// Or src & dst -> dst (with or without flags)
-    fn location_or(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-
     /// Add src+dst -> dst (with or without flags)
     fn location_add(
         &mut self,
@@ -357,33 +315,9 @@ pub trait Machine {
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
     ) -> Result<(), CompileError>;
-    /// Sub dst-src -> dst (with or without flags)
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-    /// -src -> dst
-    fn location_neg(
-        &mut self,
-        size_val: Size, // size of src
-        signed: bool,
-        source: Location<Self::GPR, Self::SIMD>,
-        size_op: Size,
-        dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
 
     /// Cmp src - dst and set flags
     fn location_cmp(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
-    /// Test src & dst and set flags
-    fn location_test(
         &mut self,
         size: Size,
         source: Location<Self::GPR, Self::SIMD>,
@@ -444,14 +378,6 @@ pub trait Machine {
     ) -> Result<(), CompileError>;
     /// Emit a memory fence. Can be nothing for x86_64 or a DMB on ARM64 for example
     fn emit_memory_fence(&mut self) -> Result<(), CompileError>;
-    /// relaxed move with zero extension
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        sz_src: Size,
-        src: Location<Self::GPR, Self::SIMD>,
-        sz_dst: Size,
-        dst: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
     /// relaxed move with sign extension
     fn emit_relaxed_sign_extension(
         &mut self,
