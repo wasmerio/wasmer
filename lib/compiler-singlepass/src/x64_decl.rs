@@ -65,16 +65,6 @@ impl From<XMM> for u8 {
 }
 
 impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, true, true, true, false, false, false, false, false, false, true,
-            true, true, true,
-        ];
-        IS_CALLEE_SAVE[self as usize]
-    }
-    fn is_reserved(self) -> bool {
-        self == GPR::RSP || self == GPR::RBP || self == GPR::R10 || self == GPR::R15
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -131,16 +121,6 @@ impl AbstractReg for GPR {
 }
 
 impl AbstractReg for XMM {
-    fn is_callee_save(self) -> bool {
-        const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, false, false, false, false, false, true, true, true, true, true,
-            true, true, true,
-        ];
-        IS_CALLEE_SAVE[self as usize]
-    }
-    fn is_reserved(self) -> bool {
-        false
-    }
     fn into_index(self) -> usize {
         self as usize
     }
