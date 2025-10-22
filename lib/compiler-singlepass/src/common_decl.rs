@@ -96,16 +96,6 @@ pub struct FunctionStateMap {
     pub shadow_size: usize, // for single-pass backend, 32 bytes on x86-64
     /// Diffs.
     pub diffs: Vec<MachineStateDiff>,
-    /// Wasm Function Header target offset.
-    pub wasm_function_header_target_offset: Option<SuspendOffset>,
-    /// Wasm offset to target offset
-    pub wasm_offset_to_target_offset: BTreeMap<usize, SuspendOffset>,
-    /// Loop offsets.
-    pub loop_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
-    /// Call offsets.
-    pub call_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
-    /// Trappable offsets.
-    pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
 }
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd)]
@@ -154,11 +144,6 @@ impl FunctionStateMap {
             shadow_size,
             locals,
             diffs: vec![],
-            wasm_function_header_target_offset: None,
-            wasm_offset_to_target_offset: BTreeMap::new(),
-            loop_offsets: BTreeMap::new(),
-            call_offsets: BTreeMap::new(),
-            trappable_offsets: BTreeMap::new(),
         }
     }
 }
@@ -222,46 +207,5 @@ impl MachineState {
 
             wasm_inst_offset: self.wasm_inst_offset,
         }
-    }
-}
-
-impl MachineStateDiff {
-    /// Creates a `MachineState` from the given `&FunctionStateMap`.
-    pub fn _build_state(&self, m: &FunctionStateMap) -> MachineState {
-        let mut chain: Vec<&MachineStateDiff> = vec![self];
-        let mut current = self.last;
-        while let Some(x) = current {
-            let that = &m.diffs[x];
-            current = that.last;
-            chain.push(that);
-        }
-        chain.reverse();
-        let mut state = m.initial.clone();
-        for x in chain {
-            for _ in 0..x.stack_pop {
-                state.stack_values.pop().unwrap();
-            }
-            for v in &x.stack_push {
-                state.stack_values.push(v.clone());
-            }
-            for &(index, ref v) in &x.reg_diff {
-                state.register_values[index.0] = v.clone();
-            }
-            for (index, ref v) in &x.prev_frame_diff {
-                if let Some(x) = v {
-                    state.prev_frame.insert(*index, x.clone());
-                } else {
-                    state.prev_frame.remove(index).unwrap();
-                }
-            }
-            for _ in 0..x.wasm_stack_pop {
-                state.wasm_stack.pop().unwrap();
-            }
-            for v in &x.wasm_stack_push {
-                state.wasm_stack.push(*v);
-            }
-        }
-        state.wasm_inst_offset = self.wasm_inst_offset;
-        state
     }
 }

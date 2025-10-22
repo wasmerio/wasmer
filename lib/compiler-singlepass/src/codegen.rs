@@ -739,38 +739,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(I2O1 { loc_a, loc_b, ret })
     }
 
-    fn mark_trappable(&mut self) {
-        let state_diff_id = self.get_state_diff();
-        let offset = self.machine.assembler_get_offset().0;
-        self.fsm.trappable_offsets.insert(
-            offset,
-            OffsetInfo {
-                end_offset: offset + 1,
-                activate_offset: offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_offset_to_target_offset.insert(
-            self.state.wasm_inst_offset,
-            SuspendOffset::Trappable(offset),
-        );
-    }
-    fn mark_offset_trappable(&mut self, offset: usize) {
-        let state_diff_id = self.get_state_diff();
-        self.fsm.trappable_offsets.insert(
-            offset,
-            OffsetInfo {
-                end_offset: offset + 1,
-                activate_offset: offset,
-                diff_id: state_diff_id,
-            },
-        );
-        self.fsm.wasm_offset_to_target_offset.insert(
-            self.state.wasm_inst_offset,
-            SuspendOffset::Trappable(offset),
-        );
-    }
-
     /// Emits a Native ABI call sequence.
     ///
     /// The caller MUST NOT hold any temporary registers allocated by `acquire_temp_gpr` when calling
@@ -939,24 +907,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // release the GPR used for call
         self.machine.release_gpr(self.machine.get_grp_for_call());
         cb(self)?;
-
-        // Offset needs to be after the 'call' instruction.
-        // TODO: Now the state information is also inserted for internal calls (e.g. MemoryGrow). Is this expected?
-        {
-            let state_diff_id = self.get_state_diff();
-            let offset = self.machine.assembler_get_offset().0;
-            self.fsm.call_offsets.insert(
-                offset,
-                OffsetInfo {
-                    end_offset: offset + 1,
-                    activate_offset: offset,
-                    diff_id: state_diff_id,
-                },
-            );
-            self.fsm
-                .wasm_offset_to_target_offset
-                .insert(self.state.wasm_inst_offset, SuspendOffset::Call(offset));
-        }
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
@@ -1418,47 +1368,43 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::I32DivU => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_udiv32(
+                self.machine.emit_binop_udiv32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32DivS => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_sdiv32(
+                self.machine.emit_binop_sdiv32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32RemU => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_urem32(
+                self.machine.emit_binop_urem32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32RemS => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
-                let offset = self.machine.emit_binop_srem32(
+                self.machine.emit_binop_srem32(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I32And => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
@@ -1587,47 +1533,43 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::I64DivU => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_udiv64(
+                self.machine.emit_binop_udiv64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64DivS => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_sdiv64(
+                self.machine.emit_binop_sdiv64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64RemU => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_urem64(
+                self.machine.emit_binop_urem64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64RemS => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
-                let offset = self.machine.emit_binop_srem64(
+                self.machine.emit_binop_srem64(
                     loc_a,
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
                     self.special_labels.integer_overflow,
                 )?;
-                self.mark_offset_trappable(offset);
             }
             Operator::I64And => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
@@ -3994,7 +3936,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::Unreachable => {
-                self.mark_trappable();
                 self.machine
                     .emit_illegal_op(TrapCode::UnreachableCodeReached)?;
                 self.unreachable_depth = 1;
