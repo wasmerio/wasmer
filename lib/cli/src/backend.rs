@@ -197,16 +197,19 @@ pub struct RuntimeOptions {
     /// LLVM debug directory, where IR and object files will be written to.
     ///
     /// Only available for the LLVM compiler.
+    #[cfg(feature = "llvm")]
     #[clap(long)]
     llvm_debug_dir: Option<PathBuf>,
 
     /// Only available for the LLVM compiler. Enable the "pass-params" optimization, where the first (#0)
     /// global and the first (#0) memory passed between guest functions as explicit parameters.
+    #[cfg(feature = "llvm")]
     #[clap(long)]
     enable_pass_params_opt: bool,
 
     /// Only available for the LLVM compiler. Sets the number of threads used to compile the
     /// input module(s).
+    #[cfg(feature = "llvm")]
     #[clap(long)]
     llvm_num_threads: Option<NonZero<usize>>,
 
