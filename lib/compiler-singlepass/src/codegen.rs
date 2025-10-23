@@ -1338,7 +1338,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I32DivS => {
@@ -1358,7 +1357,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I32RemS => {
@@ -1368,7 +1366,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I32And => {
@@ -1503,7 +1500,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I64DivS => {
@@ -1523,7 +1519,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I64RemS => {
@@ -1533,7 +1528,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     loc_b,
                     ret,
                     self.special_labels.integer_division_by_zero,
-                    self.special_labels.integer_overflow,
                 )?;
             }
             Operator::I64And => {
@@ -2924,7 +2918,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 match frame.if_else {
                     IfElseState::If(label) => {
-                        self.machine.jmp_unconditionnal(frame.label)?;
+                        self.machine.jmp_unconditional(frame.label)?;
                         self.machine.emit_label(label)?;
                         frame.if_else = IfElseState::Else;
                     }
@@ -2982,7 +2976,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                     }
                 }
-                self.machine.jmp_unconditionnal(end_label)?;
+                self.machine.jmp_unconditional(end_label)?;
                 self.machine.emit_label(zero_label)?;
                 match cncl {
                     Some((_, Some(fp)))
@@ -3021,7 +3015,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Loop { blockty } => {
                 self.machine.align_for_loop()?;
                 let label = self.machine.get_label();
-                let _activate_offset = self.machine.assembler_get_offset().0;
 
                 self.control_stack.push(ControlFrame {
                     label,
@@ -3149,9 +3142,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     iter::once(WpType::I64),
                 )?;
             }
-            Operator::MemoryCopy { dst_mem, src_mem } => {
+            Operator::MemoryCopy { src_mem, .. } => {
                 // ignore until we support multiple memories
-                let _dst = dst_mem;
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
@@ -3923,7 +3915,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame_depth = frame.value_stack_depth;
                 let label = frame.label;
                 self.release_locations_keep_state(frame_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
             Operator::Br { relative_depth } => {
@@ -3954,7 +3946,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let label = frame.label;
 
                 self.release_locations_keep_state(frame_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
             Operator::BrIf { relative_depth } => {
@@ -3995,7 +3987,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let stack_depth = frame.value_stack_depth;
                 let label = frame.label;
                 self.release_locations_keep_state(stack_depth)?;
-                self.machine.jmp_unconditionnal(label)?;
+                self.machine.jmp_unconditional(label)?;
 
                 self.machine.emit_label(after)?;
             }
@@ -4050,7 +4042,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth)?;
-                    self.machine.jmp_unconditionnal(label)?;
+                    self.machine.jmp_unconditional(label)?;
                 }
                 self.machine.emit_label(default_br)?;
 
@@ -4082,12 +4074,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth)?;
-                    self.machine.jmp_unconditionnal(label)?;
+                    self.machine.jmp_unconditional(label)?;
                 }
 
                 self.machine.emit_label(table_label)?;
                 for x in table {
-                    self.machine.jmp_unconditionnal(x)?;
+                    self.machine.jmp_unconditional(x)?;
                 }
                 self.unreachable_depth = 1;
             }

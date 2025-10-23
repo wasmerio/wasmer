@@ -142,12 +142,6 @@ impl From<NEON> for u8 {
 }
 
 impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        self as usize > 18
-    }
-    fn is_reserved(self) -> bool {
-        !matches!(self.into_index(), 0..=16 | 19..=27)
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -236,12 +230,6 @@ impl AbstractReg for GPR {
 }
 
 impl AbstractReg for NEON {
-    fn is_callee_save(self) -> bool {
-        self as usize > 16
-    }
-    fn is_reserved(self) -> bool {
-        false
-    }
     fn into_index(self) -> usize {
         self as usize
     }

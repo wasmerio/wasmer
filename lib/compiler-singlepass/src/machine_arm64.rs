@@ -1057,25 +1057,6 @@ impl MachineARM64 {
         Ok(())
     }
 
-    /*fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
-        &mut self,
-        _loc: Location,
-        _target: Location,
-        _ret: Location,
-        _memarg: &MemArg,
-        _value_size: usize,
-        _memory_sz: Size,
-        _stack_sz: Size,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
-        _unaligned_atomic: Label,
-        _cb: F,
-    ) {
-        unimplemented!();
-    }*/
-
     fn offset_is_ok(&self, size: Size, offset: i32) -> bool {
         if offset < 0 {
             return false;
@@ -2093,14 +2074,7 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn load_address(
-        &mut self,
-        _size: Size,
-        _reg: Location,
-        _mem: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass load_address unimplemented");
-    }
+
     // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -2424,51 +2398,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-
-    fn location_address(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_address not implemented")
-    }
-    // logic
-    fn location_and(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_and not implemented")
-    }
-    fn location_xor(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_xor not implemented")
-    }
-    fn location_or(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_or not implemented")
-    }
-    fn location_test(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_test not implemented")
-    }
     // math
     fn location_add(
         &mut self,
@@ -2493,29 +2422,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
-    ) -> Result<(), CompileError> {
-        let mut temps = vec![];
-        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits12, true, None)?;
-        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None, true, None)?;
-        if flags {
-            self.assembler.emit_subs(size, dst, src, dst)?;
-        } else {
-            self.assembler.emit_sub(size, dst, src, dst)?;
-        }
-        if dst != dest {
-            self.move_location(size, dst, dest)?;
-        }
-        for r in temps {
-            self.release_gpr(r);
-        }
-        Ok(())
-    }
     fn location_cmp(
         &mut self,
         size: Size,
@@ -2524,7 +2430,7 @@ impl Machine for MachineARM64 {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)
     }
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_b_label(label)
     }
 
@@ -2593,17 +2499,6 @@ impl Machine for MachineARM64 {
         self.assembler.emit_dmb()
     }
 
-    fn location_neg(
-        &mut self,
-        _size_val: Size, // size of src
-        _signed: bool,
-        _source: Location,
-        _size_op: Size,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_neg unimplemented");
-    }
-
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2636,15 +2531,6 @@ impl Machine for MachineARM64 {
         dst: Location,
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst, false)
-    }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        _sz_src: Size,
-        _src: Location,
-        _sz_dst: Size,
-        _dst: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass emit_relaxed_zero_extension unimplemented");
     }
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -2734,7 +2620,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2801,7 +2686,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2839,7 +2723,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4880,7 +4763,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4947,7 +4829,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4985,7 +4866,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
