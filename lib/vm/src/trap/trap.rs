@@ -134,10 +134,7 @@ impl Trap {
 
     /// Returns true if the trap is an exception
     pub fn is_exception(&self) -> bool {
-        match self {
-            Self::UncaughtException { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::UncaughtException { .. })
     }
 
     /// If the `Trap` is an uncaught exception, returns it.

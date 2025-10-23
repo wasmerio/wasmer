@@ -183,8 +183,12 @@ impl FuncTrampoline {
 
         // Use a dummy function index to detect relocations against the trampoline
         // function's address, which shouldn't exist and are not supported.
+        // Note, we just drop all custom sections, and verify that the function
+        // body itself has no relocations at all. This value should never be
+        // touched at all. However, it is set up so that if we do touch it (maybe
+        // due to someone changing the code later on), it'll explode, which is desirable!
         let dummy_reloc_target =
-            RelocationTarget::DynamicTrampoline(FunctionIndex::from_u32(u32::MAX));
+            RelocationTarget::DynamicTrampoline(FunctionIndex::from_u32(u32::MAX - 1));
 
         // Note: we don't count .gcc_except_table here because native-to-wasm
         // trampolines are not supposed to generate any LSDA sections. We *want* them
@@ -206,14 +210,6 @@ impl FuncTrampoline {
             },
             self.binary_fmt,
         )?;
-        if compiled_function
-            .relocations
-            .iter()
-            .chain(custom_sections.iter().flat_map(|s| s.1.relocations.iter()))
-            .any(|r| r.reloc_target == dummy_reloc_target)
-        {
-            panic!("trampoline generation produced relocation against trampoline function address");
-        }
         let mut all_sections_are_eh_sections = true;
         let mut unwind_section_indices = eh_frame_section_indices;
         unwind_section_indices.append(&mut compact_unwind_section_indices);
