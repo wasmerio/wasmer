@@ -220,11 +220,9 @@ pub struct TagCatchInfo<'ctx> {
     pub tag: u32,
     // The catch block
     pub catch_block: BasicBlock<'ctx>,
-    // The PHI node to receive the exception object
-    pub wasmer_exc_phi: Option<PhiValue<'ctx>>,
-    // The PHI node to receive the libunwind exception pointer,
-    // which stands in as the exnref for now
-    pub uw_exc_ptr_phi: Option<PhiValue<'ctx>>,
+    // The PHI node to receive the exnref, if needed; catch_all
+    // blocks don't need the exnref.
+    pub exnref_phi: Option<PhiValue<'ctx>>,
 }
 
 #[derive(Debug)]

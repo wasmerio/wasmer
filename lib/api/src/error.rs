@@ -2,7 +2,7 @@ use std::sync::Arc;
 use thiserror::Error;
 use wasmer_types::{FrameInfo, ImportError, TrapCode};
 
-use crate::BackendTrap as Trap;
+use crate::{AsStoreMut, AsStoreRef, BackendTrap as Trap, Exception, Value};
 
 /// The WebAssembly.LinkError object indicates an error during
 /// module instantiation (besides traps from the start function).
@@ -153,6 +153,26 @@ impl RuntimeError {
         }
     }
 
+    /// Creates a `RuntimeError` containing an exception.
+    ///
+    /// If this error is returned from an imported function, the exception
+    /// will be thrown in the WebAssembly code instead of the usual trapping.
+    pub fn exception(ctx: &impl AsStoreRef, exception: Exception) -> Self {
+        let exnref = exception.vm_exceptionref();
+        let store = ctx.as_store_ref();
+        match store.inner.objects {
+            #[cfg(feature = "sys")]
+            crate::StoreObjects::Sys(ref store_objects) => {
+                crate::backend::sys::vm::Trap::uncaught_exception(
+                    exnref.as_sys().clone(),
+                    store_objects,
+                )
+                .into()
+            }
+            _ => panic!("exceptions are only supported in the `sys` backend"),
+        }
+    }
+
     /// Returns a reference the `message` stored in `Trap`.
     pub fn message(&self) -> String {
         if let Some(trap_code) = self.inner.trap_code {
@@ -198,25 +218,32 @@ impl RuntimeError {
     pub fn is<T: std::error::Error + 'static>(&self) -> bool {
         self.inner.source.is::<T>()
     }
-}
 
-impl std::fmt::Debug for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("RuntimeError")
-            .field("source", &self.inner.source)
-            .field("wasm_trace", &self.inner.wasm_trace)
-            .finish()
+    /// Returns true if the `RuntimeError` is an uncaught exception.
+    pub fn is_exception(&self) -> bool {
+        self.inner.source.is_exception()
     }
-}
 
-impl std::fmt::Display for RuntimeError {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        write!(f, "RuntimeError: {}", self.message())?;
-        let trace = self.trace();
+    /// If the `RuntimeError` is an uncaught exception, returns it.
+    pub fn to_exception(&self) -> Option<Exception> {
+        self.inner.source.to_exception()
+    }
+
+    /// Returns a displayable version of the `RuntimeError` that also shows exception payloads.
+    pub fn display<'a>(&'a self, store: &'a mut impl AsStoreMut) -> RuntimeErrorDisplay<'a> {
+        if let Some(exception) = self.to_exception() {
+            RuntimeErrorDisplay::Exception(exception.payload(store), self.trace())
+        } else {
+            RuntimeErrorDisplay::Other(self)
+        }
+    }
+
+    /// Write the WASM trace to the given formatter, if we have one.
+    pub fn write_trace(trace: &[FrameInfo], f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         if trace.is_empty() {
             return Ok(());
         }
-        for frame in self.trace().iter() {
+        for frame in trace.iter() {
             let name = frame.module_name();
             let func_index = frame.func_index();
             writeln!(f)?;
@@ -237,6 +264,45 @@ impl std::fmt::Display for RuntimeError {
             )?;
         }
         Ok(())
+    }
+}
+
+impl std::fmt::Debug for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("RuntimeError")
+            .field("source", &self.inner.source)
+            .field("wasm_trace", &self.inner.wasm_trace)
+            .finish()
+    }
+}
+
+impl std::fmt::Display for RuntimeError {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "RuntimeError: {}", self.message())?;
+        Self::write_trace(self.trace(), f)
+    }
+}
+
+/// A displayable version of the `RuntimeError` that also shows exception payloads.
+pub enum RuntimeErrorDisplay<'a> {
+    /// The error is an uncaught exception, with its payload and trace.
+    Exception(Vec<Value>, &'a [FrameInfo]),
+    /// The error is not an exception, just display it.
+    Other(&'a RuntimeError),
+}
+
+impl std::fmt::Display for RuntimeErrorDisplay<'_> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            RuntimeErrorDisplay::Exception(payload, trace) => {
+                write!(f, "Uncaught exception")?;
+                if !payload.is_empty() {
+                    write!(f, " with payload: {payload:?}")?;
+                }
+                RuntimeError::write_trace(trace, f)
+            }
+            RuntimeErrorDisplay::Other(err) => write!(f, "{err}"),
+        }
     }
 }
 

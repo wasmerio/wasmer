@@ -3,7 +3,10 @@ use std::{
     ffi::{CStr, c_char},
 };
 
-use crate::{AsStoreMut, wamr::bindings::*};
+use crate::{
+    AsStoreMut,
+    wamr::{bindings::*, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -50,6 +53,16 @@ impl Trap {
             InnerTrap::User(err) => err.is::<T>(),
             _ => false,
         }
+    }
+
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
     }
 
     pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {

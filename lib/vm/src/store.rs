@@ -15,6 +15,7 @@ pub trait StoreObject: Sized {
     /// List the objects in the store, mutably.
     fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
 }
+
 macro_rules! impl_context_object {
     ($($field:ident => $ty:ty,)*) => {
         $(
@@ -29,6 +30,7 @@ macro_rules! impl_context_object {
         )*
     };
 }
+
 impl_context_object! {
     functions => VMFunction,
     tables => VMTable,
