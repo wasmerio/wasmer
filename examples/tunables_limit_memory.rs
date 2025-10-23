@@ -35,7 +35,7 @@ impl<T: Tunables> LimitingTunables<T> {
     /// valid. However, this can produce invalid types, such that
     /// validate_memory must be called before creating the memory.
     fn adjust_memory(&self, requested: &MemoryType) -> MemoryType {
-        let mut adjusted = requested.clone();
+        let mut adjusted = *requested;
         if requested.maximum.is_none() {
             adjusted.maximum = Some(self.limit);
         }

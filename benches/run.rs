@@ -6,13 +6,13 @@ static BENCHMARKS_ARTIFACTS_BASE_URL: &str = "https://pub-083d1a0568d446d1aa5b2e
 #[allow(unreachable_code)]
 fn get_engine() -> Engine {
     #[cfg(feature = "llvm")]
-    return LLVM::new().into();
+    return wasmer_compiler_llvm::LLVM::new().into();
 
     #[cfg(feature = "singlepass")]
-    return Singlepass::new().into();
+    return wasmer_compiler_singlepass::Singlepass::new().into();
 
     #[cfg(feature = "cranelift")]
-    return Cranelift::new().into();
+    return wasmer_compiler_cranelift::Cranelift::new().into();
 
     #[cfg(not(any(feature = "cranelift", feature = "llvm", feature = "singlepass")))]
     return Default::default();

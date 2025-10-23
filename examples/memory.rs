@@ -14,7 +14,6 @@
 //!
 //! Ready?
 
-use std::mem;
 use wasmer::{Bytes, Instance, Module, Pages, Store, TypedFunction, imports, wat2wasm};
 
 // this example is a work in progress:
@@ -68,13 +67,11 @@ fn main() -> anyhow::Result<()> {
     // The module exports some utility functions, let's get them.
     //
     // These function will be used later in this example.
-    let mem_size: TypedFunction<(), i32> = instance
-        .exports
-        .get_typed_function(&mut store, "mem_size")?;
-    let get_at: TypedFunction<i32, i32> =
-        instance.exports.get_typed_function(&mut store, "get_at")?;
+    let mem_size: TypedFunction<(), i32> =
+        instance.exports.get_typed_function(&store, "mem_size")?;
+    let get_at: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "get_at")?;
     let set_at: TypedFunction<(i32, i32), ()> =
-        instance.exports.get_typed_function(&mut store, "set_at")?;
+        instance.exports.get_typed_function(&store, "set_at")?;
     let memory = instance.exports.get_memory("memory")?;
 
     // We now have an instance ready to be used.
@@ -90,7 +87,7 @@ fn main() -> anyhow::Result<()> {
     println!("Querying memory size...");
     let memory_view = memory.view(&store);
     assert_eq!(memory_view.size(), Pages::from(1));
-    assert_eq!(memory_view.size().bytes(), Bytes::from(65536 as usize));
+    assert_eq!(memory_view.size().bytes(), Bytes::from(65536_usize));
     assert_eq!(memory_view.data_size(), 65536);
 
     // Sometimes, the guest module may also export a function to let you

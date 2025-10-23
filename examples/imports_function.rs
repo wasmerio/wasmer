@@ -87,7 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The Wasm module exports a function called `sum`. Let's get it.
     let sum: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_function("sum")?.typed(&mut store)?;
+        instance.exports.get_function("sum")?.typed(&store)?;
 
     println!("Calling `sum` function...");
     // Let's call the `sum` exported function. It will call each
