@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["AtomicsError","InstantiationError","LinkError"],"struct":["RuntimeError","RuntimeErrorInner","RuntimeStringError"]};
+window.SIDEBAR_ITEMS = {"enum":["AtomicsError","InstantiationError","LinkError","RuntimeErrorDisplay"],"struct":["RuntimeError","RuntimeErrorInner","RuntimeStringError"]};

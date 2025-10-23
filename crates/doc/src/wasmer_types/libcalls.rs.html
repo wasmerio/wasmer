@@ -133,96 +133,90 @@
 <a href=#133 id=133 data-nosnippet>133</a>    <span class="doccomment">/// memory.atomic.notify for local memories
 <a href=#134 id=134 data-nosnippet>134</a>    </span>Memory32AtomicNotify,
 <a href=#135 id=135 data-nosnippet>135</a>
-<a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// memory.atomic.botify for imported memories
+<a href=#136 id=136 data-nosnippet>136</a>    <span class="doccomment">/// memory.atomic.notify for imported memories
 <a href=#137 id=137 data-nosnippet>137</a>    </span>ImportedMemory32AtomicNotify,
 <a href=#138 id=138 data-nosnippet>138</a>
 <a href=#139 id=139 data-nosnippet>139</a>    <span class="doccomment">/// throw
 <a href=#140 id=140 data-nosnippet>140</a>    </span>Throw,
 <a href=#141 id=141 data-nosnippet>141</a>
-<a href=#142 id=142 data-nosnippet>142</a>    <span class="doccomment">/// rethrow
-<a href=#143 id=143 data-nosnippet>143</a>    </span>Rethrow,
-<a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>    <span class="doccomment">/// alloc_exception
-<a href=#146 id=146 data-nosnippet>146</a>    </span>AllocException,
-<a href=#147 id=147 data-nosnippet>147</a>
-<a href=#148 id=148 data-nosnippet>148</a>    <span class="doccomment">/// delete_exception
-<a href=#149 id=149 data-nosnippet>149</a>    </span>DeleteException,
-<a href=#150 id=150 data-nosnippet>150</a>
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="doccomment">/// read_exception
-<a href=#152 id=152 data-nosnippet>152</a>    </span>ReadException,
+<a href=#142 id=142 data-nosnippet>142</a>    <span class="doccomment">/// allocate exception object and get an exnref for it
+<a href=#143 id=143 data-nosnippet>143</a>    </span>AllocException,
+<a href=#144 id=144 data-nosnippet>144</a>    <span class="doccomment">/// Get the values buffer pointer out of an exnref
+<a href=#145 id=145 data-nosnippet>145</a>    </span>ReadExnRef,
+<a href=#146 id=146 data-nosnippet>146</a>    <span class="doccomment">/// Given a caught native exception pointer, get the exnref and delete the exception itself
+<a href=#147 id=147 data-nosnippet>147</a>    </span>LibunwindExceptionIntoExnRef,
+<a href=#148 id=148 data-nosnippet>148</a>
+<a href=#149 id=149 data-nosnippet>149</a>    <span class="doccomment">/// The personality function
+<a href=#150 id=150 data-nosnippet>150</a>    </span>EHPersonality,
+<a href=#151 id=151 data-nosnippet>151</a>    <span class="doccomment">/// The second stage of the EH personality function
+<a href=#152 id=152 data-nosnippet>152</a>    </span>EHPersonality2,
 <a href=#153 id=153 data-nosnippet>153</a>
-<a href=#154 id=154 data-nosnippet>154</a>    <span class="doccomment">/// The personality function
-<a href=#155 id=155 data-nosnippet>155</a>    </span>EHPersonality,
-<a href=#156 id=156 data-nosnippet>156</a>    <span class="doccomment">/// The second stage of the EH personality function
-<a href=#157 id=157 data-nosnippet>157</a>    </span>EHPersonality2,
-<a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="doccomment">/// debug_usize
-<a href=#160 id=160 data-nosnippet>160</a>    </span>DebugUsize,
-<a href=#161 id=161 data-nosnippet>161</a>    <span class="doccomment">/// debug_str
-<a href=#162 id=162 data-nosnippet>162</a>    </span>DebugStr,
-<a href=#163 id=163 data-nosnippet>163</a>}
-<a href=#164 id=164 data-nosnippet>164</a>
-<a href=#165 id=165 data-nosnippet>165</a><span class="kw">impl </span>LibCall {
-<a href=#166 id=166 data-nosnippet>166</a>    <span class="doccomment">/// Return the function name associated to the libcall.
-<a href=#167 id=167 data-nosnippet>167</a>    </span><span class="kw">pub fn </span>to_function_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#169 id=169 data-nosnippet>169</a>            <span class="self">Self</span>::CeilF32 =&gt; <span class="string">"wasmer_vm_f32_ceil"</span>,
-<a href=#170 id=170 data-nosnippet>170</a>            <span class="self">Self</span>::CeilF64 =&gt; <span class="string">"wasmer_vm_f64_ceil"</span>,
-<a href=#171 id=171 data-nosnippet>171</a>            <span class="self">Self</span>::FloorF32 =&gt; <span class="string">"wasmer_vm_f32_floor"</span>,
-<a href=#172 id=172 data-nosnippet>172</a>            <span class="self">Self</span>::FloorF64 =&gt; <span class="string">"wasmer_vm_f64_floor"</span>,
-<a href=#173 id=173 data-nosnippet>173</a>            <span class="self">Self</span>::NearestF32 =&gt; <span class="string">"wasmer_vm_f32_nearest"</span>,
-<a href=#174 id=174 data-nosnippet>174</a>            <span class="self">Self</span>::NearestF64 =&gt; <span class="string">"wasmer_vm_f64_nearest"</span>,
-<a href=#175 id=175 data-nosnippet>175</a>            <span class="self">Self</span>::TruncF32 =&gt; <span class="string">"wasmer_vm_f32_trunc"</span>,
-<a href=#176 id=176 data-nosnippet>176</a>            <span class="self">Self</span>::TruncF64 =&gt; <span class="string">"wasmer_vm_f64_trunc"</span>,
-<a href=#177 id=177 data-nosnippet>177</a>            <span class="self">Self</span>::Memory32Size =&gt; <span class="string">"wasmer_vm_memory32_size"</span>,
-<a href=#178 id=178 data-nosnippet>178</a>            <span class="self">Self</span>::ImportedMemory32Size =&gt; <span class="string">"wasmer_vm_imported_memory32_size"</span>,
-<a href=#179 id=179 data-nosnippet>179</a>            <span class="self">Self</span>::TableCopy =&gt; <span class="string">"wasmer_vm_table_copy"</span>,
-<a href=#180 id=180 data-nosnippet>180</a>            <span class="self">Self</span>::TableInit =&gt; <span class="string">"wasmer_vm_table_init"</span>,
-<a href=#181 id=181 data-nosnippet>181</a>            <span class="self">Self</span>::TableFill =&gt; <span class="string">"wasmer_vm_table_fill"</span>,
-<a href=#182 id=182 data-nosnippet>182</a>            <span class="self">Self</span>::TableSize =&gt; <span class="string">"wasmer_vm_table_size"</span>,
-<a href=#183 id=183 data-nosnippet>183</a>            <span class="self">Self</span>::ImportedTableSize =&gt; <span class="string">"wasmer_vm_imported_table_size"</span>,
-<a href=#184 id=184 data-nosnippet>184</a>            <span class="self">Self</span>::TableGet =&gt; <span class="string">"wasmer_vm_table_get"</span>,
-<a href=#185 id=185 data-nosnippet>185</a>            <span class="self">Self</span>::ImportedTableGet =&gt; <span class="string">"wasmer_vm_imported_table_get"</span>,
-<a href=#186 id=186 data-nosnippet>186</a>            <span class="self">Self</span>::TableSet =&gt; <span class="string">"wasmer_vm_table_set"</span>,
-<a href=#187 id=187 data-nosnippet>187</a>            <span class="self">Self</span>::ImportedTableSet =&gt; <span class="string">"wasmer_vm_imported_table_set"</span>,
-<a href=#188 id=188 data-nosnippet>188</a>            <span class="self">Self</span>::TableGrow =&gt; <span class="string">"wasmer_vm_table_grow"</span>,
-<a href=#189 id=189 data-nosnippet>189</a>            <span class="self">Self</span>::ImportedTableGrow =&gt; <span class="string">"wasmer_vm_imported_table_grow"</span>,
-<a href=#190 id=190 data-nosnippet>190</a>            <span class="self">Self</span>::FuncRef =&gt; <span class="string">"wasmer_vm_func_ref"</span>,
-<a href=#191 id=191 data-nosnippet>191</a>            <span class="self">Self</span>::ElemDrop =&gt; <span class="string">"wasmer_vm_elem_drop"</span>,
-<a href=#192 id=192 data-nosnippet>192</a>            <span class="self">Self</span>::Memory32Copy =&gt; <span class="string">"wasmer_vm_memory32_copy"</span>,
-<a href=#193 id=193 data-nosnippet>193</a>            <span class="self">Self</span>::ImportedMemory32Copy =&gt; <span class="string">"wasmer_vm_imported_memory32_copy"</span>,
-<a href=#194 id=194 data-nosnippet>194</a>            <span class="self">Self</span>::Memory32Fill =&gt; <span class="string">"wasmer_vm_memory32_fill"</span>,
-<a href=#195 id=195 data-nosnippet>195</a>            <span class="self">Self</span>::ImportedMemory32Fill =&gt; <span class="string">"wasmer_vm_imported_memory32_fill"</span>,
-<a href=#196 id=196 data-nosnippet>196</a>            <span class="self">Self</span>::Memory32Init =&gt; <span class="string">"wasmer_vm_memory32_init"</span>,
-<a href=#197 id=197 data-nosnippet>197</a>            <span class="self">Self</span>::DataDrop =&gt; <span class="string">"wasmer_vm_data_drop"</span>,
-<a href=#198 id=198 data-nosnippet>198</a>            <span class="self">Self</span>::RaiseTrap =&gt; <span class="string">"wasmer_vm_raise_trap"</span>,
-<a href=#199 id=199 data-nosnippet>199</a>            <span class="comment">// We have to do this because macOS requires a leading `_` and it's not
-<a href=#200 id=200 data-nosnippet>200</a>            // a normal function, it's a static variable, so we have to do it manually.
-<a href=#201 id=201 data-nosnippet>201</a>            </span><span class="attr">#[cfg(target_vendor = <span class="string">"apple"</span>)]
-<a href=#202 id=202 data-nosnippet>202</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"_wasmer_vm_probestack"</span>,
-<a href=#203 id=203 data-nosnippet>203</a>            <span class="attr">#[cfg(not(target_vendor = <span class="string">"apple"</span>))]
-<a href=#204 id=204 data-nosnippet>204</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"wasmer_vm_probestack"</span>,
-<a href=#205 id=205 data-nosnippet>205</a>            <span class="self">Self</span>::Memory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait32"</span>,
-<a href=#206 id=206 data-nosnippet>206</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait32"</span>,
-<a href=#207 id=207 data-nosnippet>207</a>            <span class="self">Self</span>::Memory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait64"</span>,
-<a href=#208 id=208 data-nosnippet>208</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait64"</span>,
-<a href=#209 id=209 data-nosnippet>209</a>            <span class="self">Self</span>::Memory32AtomicNotify =&gt; <span class="string">"wasmer_vm_memory32_atomic_notify"</span>,
-<a href=#210 id=210 data-nosnippet>210</a>            <span class="self">Self</span>::ImportedMemory32AtomicNotify =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_notify"</span>,
-<a href=#211 id=211 data-nosnippet>211</a>            <span class="self">Self</span>::Throw =&gt; <span class="string">"wasmer_vm_throw"</span>,
-<a href=#212 id=212 data-nosnippet>212</a>            <span class="self">Self</span>::Rethrow =&gt; <span class="string">"wasmer_vm_rethrow"</span>,
-<a href=#213 id=213 data-nosnippet>213</a>            <span class="self">Self</span>::EHPersonality =&gt; <span class="string">"wasmer_eh_personality"</span>,
-<a href=#214 id=214 data-nosnippet>214</a>            <span class="self">Self</span>::EHPersonality2 =&gt; <span class="string">"wasmer_eh_personality2"</span>,
-<a href=#215 id=215 data-nosnippet>215</a>            <span class="self">Self</span>::AllocException =&gt; <span class="string">"wasmer_vm_alloc_exception"</span>,
-<a href=#216 id=216 data-nosnippet>216</a>            <span class="self">Self</span>::DeleteException =&gt; <span class="string">"wasmer_vm_delete_exception"</span>,
-<a href=#217 id=217 data-nosnippet>217</a>            <span class="self">Self</span>::ReadException =&gt; <span class="string">"wasmer_vm_read_exception"</span>,
-<a href=#218 id=218 data-nosnippet>218</a>            <span class="self">Self</span>::DebugUsize =&gt; <span class="string">"wasmer_vm_dbg_usize"</span>,
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="self">Self</span>::DebugStr =&gt; <span class="string">"wasmer_vm_dbg_str"</span>,
-<a href=#220 id=220 data-nosnippet>220</a>        }
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="doccomment">/// debug_usize
+<a href=#155 id=155 data-nosnippet>155</a>    </span>DebugUsize,
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="doccomment">/// debug_str
+<a href=#157 id=157 data-nosnippet>157</a>    </span>DebugStr,
+<a href=#158 id=158 data-nosnippet>158</a>}
+<a href=#159 id=159 data-nosnippet>159</a>
+<a href=#160 id=160 data-nosnippet>160</a><span class="kw">impl </span>LibCall {
+<a href=#161 id=161 data-nosnippet>161</a>    <span class="doccomment">/// Return the function name associated to the libcall.
+<a href=#162 id=162 data-nosnippet>162</a>    </span><span class="kw">pub fn </span>to_function_name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#164 id=164 data-nosnippet>164</a>            <span class="self">Self</span>::CeilF32 =&gt; <span class="string">"wasmer_vm_f32_ceil"</span>,
+<a href=#165 id=165 data-nosnippet>165</a>            <span class="self">Self</span>::CeilF64 =&gt; <span class="string">"wasmer_vm_f64_ceil"</span>,
+<a href=#166 id=166 data-nosnippet>166</a>            <span class="self">Self</span>::FloorF32 =&gt; <span class="string">"wasmer_vm_f32_floor"</span>,
+<a href=#167 id=167 data-nosnippet>167</a>            <span class="self">Self</span>::FloorF64 =&gt; <span class="string">"wasmer_vm_f64_floor"</span>,
+<a href=#168 id=168 data-nosnippet>168</a>            <span class="self">Self</span>::NearestF32 =&gt; <span class="string">"wasmer_vm_f32_nearest"</span>,
+<a href=#169 id=169 data-nosnippet>169</a>            <span class="self">Self</span>::NearestF64 =&gt; <span class="string">"wasmer_vm_f64_nearest"</span>,
+<a href=#170 id=170 data-nosnippet>170</a>            <span class="self">Self</span>::TruncF32 =&gt; <span class="string">"wasmer_vm_f32_trunc"</span>,
+<a href=#171 id=171 data-nosnippet>171</a>            <span class="self">Self</span>::TruncF64 =&gt; <span class="string">"wasmer_vm_f64_trunc"</span>,
+<a href=#172 id=172 data-nosnippet>172</a>            <span class="self">Self</span>::Memory32Size =&gt; <span class="string">"wasmer_vm_memory32_size"</span>,
+<a href=#173 id=173 data-nosnippet>173</a>            <span class="self">Self</span>::ImportedMemory32Size =&gt; <span class="string">"wasmer_vm_imported_memory32_size"</span>,
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="self">Self</span>::TableCopy =&gt; <span class="string">"wasmer_vm_table_copy"</span>,
+<a href=#175 id=175 data-nosnippet>175</a>            <span class="self">Self</span>::TableInit =&gt; <span class="string">"wasmer_vm_table_init"</span>,
+<a href=#176 id=176 data-nosnippet>176</a>            <span class="self">Self</span>::TableFill =&gt; <span class="string">"wasmer_vm_table_fill"</span>,
+<a href=#177 id=177 data-nosnippet>177</a>            <span class="self">Self</span>::TableSize =&gt; <span class="string">"wasmer_vm_table_size"</span>,
+<a href=#178 id=178 data-nosnippet>178</a>            <span class="self">Self</span>::ImportedTableSize =&gt; <span class="string">"wasmer_vm_imported_table_size"</span>,
+<a href=#179 id=179 data-nosnippet>179</a>            <span class="self">Self</span>::TableGet =&gt; <span class="string">"wasmer_vm_table_get"</span>,
+<a href=#180 id=180 data-nosnippet>180</a>            <span class="self">Self</span>::ImportedTableGet =&gt; <span class="string">"wasmer_vm_imported_table_get"</span>,
+<a href=#181 id=181 data-nosnippet>181</a>            <span class="self">Self</span>::TableSet =&gt; <span class="string">"wasmer_vm_table_set"</span>,
+<a href=#182 id=182 data-nosnippet>182</a>            <span class="self">Self</span>::ImportedTableSet =&gt; <span class="string">"wasmer_vm_imported_table_set"</span>,
+<a href=#183 id=183 data-nosnippet>183</a>            <span class="self">Self</span>::TableGrow =&gt; <span class="string">"wasmer_vm_table_grow"</span>,
+<a href=#184 id=184 data-nosnippet>184</a>            <span class="self">Self</span>::ImportedTableGrow =&gt; <span class="string">"wasmer_vm_imported_table_grow"</span>,
+<a href=#185 id=185 data-nosnippet>185</a>            <span class="self">Self</span>::FuncRef =&gt; <span class="string">"wasmer_vm_func_ref"</span>,
+<a href=#186 id=186 data-nosnippet>186</a>            <span class="self">Self</span>::ElemDrop =&gt; <span class="string">"wasmer_vm_elem_drop"</span>,
+<a href=#187 id=187 data-nosnippet>187</a>            <span class="self">Self</span>::Memory32Copy =&gt; <span class="string">"wasmer_vm_memory32_copy"</span>,
+<a href=#188 id=188 data-nosnippet>188</a>            <span class="self">Self</span>::ImportedMemory32Copy =&gt; <span class="string">"wasmer_vm_imported_memory32_copy"</span>,
+<a href=#189 id=189 data-nosnippet>189</a>            <span class="self">Self</span>::Memory32Fill =&gt; <span class="string">"wasmer_vm_memory32_fill"</span>,
+<a href=#190 id=190 data-nosnippet>190</a>            <span class="self">Self</span>::ImportedMemory32Fill =&gt; <span class="string">"wasmer_vm_imported_memory32_fill"</span>,
+<a href=#191 id=191 data-nosnippet>191</a>            <span class="self">Self</span>::Memory32Init =&gt; <span class="string">"wasmer_vm_memory32_init"</span>,
+<a href=#192 id=192 data-nosnippet>192</a>            <span class="self">Self</span>::DataDrop =&gt; <span class="string">"wasmer_vm_data_drop"</span>,
+<a href=#193 id=193 data-nosnippet>193</a>            <span class="self">Self</span>::RaiseTrap =&gt; <span class="string">"wasmer_vm_raise_trap"</span>,
+<a href=#194 id=194 data-nosnippet>194</a>            <span class="comment">// We have to do this because macOS requires a leading `_` and it's not
+<a href=#195 id=195 data-nosnippet>195</a>            // a normal function, it's a static variable, so we have to do it manually.
+<a href=#196 id=196 data-nosnippet>196</a>            </span><span class="attr">#[cfg(target_vendor = <span class="string">"apple"</span>)]
+<a href=#197 id=197 data-nosnippet>197</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"_wasmer_vm_probestack"</span>,
+<a href=#198 id=198 data-nosnippet>198</a>            <span class="attr">#[cfg(not(target_vendor = <span class="string">"apple"</span>))]
+<a href=#199 id=199 data-nosnippet>199</a>            </span><span class="self">Self</span>::Probestack =&gt; <span class="string">"wasmer_vm_probestack"</span>,
+<a href=#200 id=200 data-nosnippet>200</a>            <span class="self">Self</span>::Memory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait32"</span>,
+<a href=#201 id=201 data-nosnippet>201</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait32 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait32"</span>,
+<a href=#202 id=202 data-nosnippet>202</a>            <span class="self">Self</span>::Memory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_memory32_atomic_wait64"</span>,
+<a href=#203 id=203 data-nosnippet>203</a>            <span class="self">Self</span>::ImportedMemory32AtomicWait64 =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_wait64"</span>,
+<a href=#204 id=204 data-nosnippet>204</a>            <span class="self">Self</span>::Memory32AtomicNotify =&gt; <span class="string">"wasmer_vm_memory32_atomic_notify"</span>,
+<a href=#205 id=205 data-nosnippet>205</a>            <span class="self">Self</span>::ImportedMemory32AtomicNotify =&gt; <span class="string">"wasmer_vm_imported_memory32_atomic_notify"</span>,
+<a href=#206 id=206 data-nosnippet>206</a>            <span class="self">Self</span>::Throw =&gt; <span class="string">"wasmer_vm_throw"</span>,
+<a href=#207 id=207 data-nosnippet>207</a>            <span class="self">Self</span>::EHPersonality =&gt; <span class="string">"wasmer_eh_personality"</span>,
+<a href=#208 id=208 data-nosnippet>208</a>            <span class="self">Self</span>::EHPersonality2 =&gt; <span class="string">"wasmer_eh_personality2"</span>,
+<a href=#209 id=209 data-nosnippet>209</a>            <span class="self">Self</span>::AllocException =&gt; <span class="string">"wasmer_vm_alloc_exception"</span>,
+<a href=#210 id=210 data-nosnippet>210</a>            <span class="self">Self</span>::ReadExnRef =&gt; <span class="string">"wasmer_vm_read_exnref"</span>,
+<a href=#211 id=211 data-nosnippet>211</a>            <span class="self">Self</span>::LibunwindExceptionIntoExnRef =&gt; <span class="string">"wasmer_vm_exception_into_exnref"</span>,
+<a href=#212 id=212 data-nosnippet>212</a>            <span class="self">Self</span>::DebugUsize =&gt; <span class="string">"wasmer_vm_dbg_usize"</span>,
+<a href=#213 id=213 data-nosnippet>213</a>            <span class="self">Self</span>::DebugStr =&gt; <span class="string">"wasmer_vm_dbg_str"</span>,
+<a href=#214 id=214 data-nosnippet>214</a>        }
+<a href=#215 id=215 data-nosnippet>215</a>    }
+<a href=#216 id=216 data-nosnippet>216</a>}
+<a href=#217 id=217 data-nosnippet>217</a>
+<a href=#218 id=218 data-nosnippet>218</a><span class="kw">impl </span>fmt::Display <span class="kw">for </span>LibCall {
+<a href=#219 id=219 data-nosnippet>219</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
+<a href=#220 id=220 data-nosnippet>220</a>        fmt::Debug::fmt(<span class="self">self</span>, f)
 <a href=#221 id=221 data-nosnippet>221</a>    }
-<a href=#222 id=222 data-nosnippet>222</a>}
-<a href=#223 id=223 data-nosnippet>223</a>
-<a href=#224 id=224 data-nosnippet>224</a><span class="kw">impl </span>fmt::Display <span class="kw">for </span>LibCall {
-<a href=#225 id=225 data-nosnippet>225</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>fmt::Formatter) -&gt; fmt::Result {
-<a href=#226 id=226 data-nosnippet>226</a>        fmt::Debug::fmt(<span class="self">self</span>, f)
-<a href=#227 id=227 data-nosnippet>227</a>    }
-<a href=#228 id=228 data-nosnippet>228</a>}</code></pre></div></section></main></body></html>
+<a href=#222 id=222 data-nosnippet>222</a>}</code></pre></div></section></main></body></html>

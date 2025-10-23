@@ -757,120 +757,109 @@
 <a href=#757 id=757 data-nosnippet>757</a>            wasmer_vm_memory32_atomic_notify <span class="kw">as </span>usize;
 <a href=#758 id=758 data-nosnippet>758</a>        ptrs[VMBuiltinFunctionIndex::get_imported_memory_atomic_notify_index().index() <span class="kw">as </span>usize] =
 <a href=#759 id=759 data-nosnippet>759</a>            wasmer_vm_imported_memory32_atomic_notify <span class="kw">as </span>usize;
-<a href=#760 id=760 data-nosnippet>760</a>        ptrs[VMBuiltinFunctionIndex::get_imported_throw_index().index() <span class="kw">as </span>usize] =
-<a href=#761 id=761 data-nosnippet>761</a>            wasmer_vm_throw <span class="kw">as </span>usize;
-<a href=#762 id=762 data-nosnippet>762</a>        ptrs[VMBuiltinFunctionIndex::get_imported_rethrow_index().index() <span class="kw">as </span>usize] =
-<a href=#763 id=763 data-nosnippet>763</a>            wasmer_vm_rethrow <span class="kw">as </span>usize;
-<a href=#764 id=764 data-nosnippet>764</a>
-<a href=#765 id=765 data-nosnippet>765</a>        ptrs[VMBuiltinFunctionIndex::get_imported_alloc_exception_index().index() <span class="kw">as </span>usize] =
-<a href=#766 id=766 data-nosnippet>766</a>            wasmer_vm_alloc_exception <span class="kw">as </span>usize;
-<a href=#767 id=767 data-nosnippet>767</a>        ptrs[VMBuiltinFunctionIndex::get_imported_delete_exception_index().index() <span class="kw">as </span>usize] =
-<a href=#768 id=768 data-nosnippet>768</a>            wasmer_vm_delete_exception <span class="kw">as </span>usize;
-<a href=#769 id=769 data-nosnippet>769</a>        ptrs[VMBuiltinFunctionIndex::get_imported_read_exception_index().index() <span class="kw">as </span>usize] =
-<a href=#770 id=770 data-nosnippet>770</a>            wasmer_vm_read_exception <span class="kw">as </span>usize;
+<a href=#760 id=760 data-nosnippet>760</a>
+<a href=#761 id=761 data-nosnippet>761</a>        ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() <span class="kw">as </span>usize] =
+<a href=#762 id=762 data-nosnippet>762</a>            wasmer_vm_dbg_usize <span class="kw">as </span>usize;
+<a href=#763 id=763 data-nosnippet>763</a>        ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() <span class="kw">as </span>usize] =
+<a href=#764 id=764 data-nosnippet>764</a>            wasmer_vm_dbg_str <span class="kw">as </span>usize;
+<a href=#765 id=765 data-nosnippet>765</a>
+<a href=#766 id=766 data-nosnippet>766</a>        <span class="macro">debug_assert!</span>(ptrs.iter().cloned().all(|p| p != <span class="number">0</span>));
+<a href=#767 id=767 data-nosnippet>767</a>
+<a href=#768 id=768 data-nosnippet>768</a>        <span class="self">Self </span>{ ptrs }
+<a href=#769 id=769 data-nosnippet>769</a>    }
+<a href=#770 id=770 data-nosnippet>770</a>}
 <a href=#771 id=771 data-nosnippet>771</a>
-<a href=#772 id=772 data-nosnippet>772</a>        ptrs[VMBuiltinFunctionIndex::get_imported_debug_usize_index().index() <span class="kw">as </span>usize] =
-<a href=#773 id=773 data-nosnippet>773</a>            wasmer_vm_dbg_usize <span class="kw">as </span>usize;
-<a href=#774 id=774 data-nosnippet>774</a>        ptrs[VMBuiltinFunctionIndex::get_imported_debug_str_index().index() <span class="kw">as </span>usize] =
-<a href=#775 id=775 data-nosnippet>775</a>            wasmer_vm_dbg_str <span class="kw">as </span>usize;
-<a href=#776 id=776 data-nosnippet>776</a>
-<a href=#777 id=777 data-nosnippet>777</a>        <span class="macro">debug_assert!</span>(ptrs.iter().cloned().all(|p| p != <span class="number">0</span>));
-<a href=#778 id=778 data-nosnippet>778</a>
-<a href=#779 id=779 data-nosnippet>779</a>        <span class="self">Self </span>{ ptrs }
-<a href=#780 id=780 data-nosnippet>780</a>    }
-<a href=#781 id=781 data-nosnippet>781</a>}
-<a href=#782 id=782 data-nosnippet>782</a>
-<a href=#783 id=783 data-nosnippet>783</a><span class="doccomment">/// The VM "context", which is pointed to by the `vmctx` arg in the compiler.
-<a href=#784 id=784 data-nosnippet>784</a>/// This has information about globals, memories, tables, and other runtime
-<a href=#785 id=785 data-nosnippet>785</a>/// state associated with the current instance.
-<a href=#786 id=786 data-nosnippet>786</a>///
-<a href=#787 id=787 data-nosnippet>787</a>/// The struct here is empty, as the sizes of these fields are dynamic, and
-<a href=#788 id=788 data-nosnippet>788</a>/// we can't describe them in Rust's type system. Sufficient memory is
-<a href=#789 id=789 data-nosnippet>789</a>/// allocated at runtime.
-<a href=#790 id=790 data-nosnippet>790</a>///
-<a href=#791 id=791 data-nosnippet>791</a>/// TODO: We could move the globals into the `vmctx` allocation too.
-<a href=#792 id=792 data-nosnippet>792</a></span><span class="attr">#[derive(Debug)]
-<a href=#793 id=793 data-nosnippet>793</a>#[repr(C, align(<span class="number">16</span>))] </span><span class="comment">// align 16 since globals are aligned to that and contained inside
-<a href=#794 id=794 data-nosnippet>794</a></span><span class="kw">pub struct </span>VMContext {}
-<a href=#795 id=795 data-nosnippet>795</a>
-<a href=#796 id=796 data-nosnippet>796</a><span class="kw">impl </span>VMContext {
-<a href=#797 id=797 data-nosnippet>797</a>    <span class="doccomment">/// Return a mutable reference to the associated `Instance`.
-<a href=#798 id=798 data-nosnippet>798</a>    ///
-<a href=#799 id=799 data-nosnippet>799</a>    /// # Safety
-<a href=#800 id=800 data-nosnippet>800</a>    /// This is unsafe because it doesn't work on just any `VMContext`, it must
-<a href=#801 id=801 data-nosnippet>801</a>    /// be a `VMContext` allocated as part of an `Instance`.
-<a href=#802 id=802 data-nosnippet>802</a>    </span><span class="attr">#[allow(clippy::cast_ptr_alignment)]
-<a href=#803 id=803 data-nosnippet>803</a>    #[inline]
-<a href=#804 id=804 data-nosnippet>804</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Instance {
-<a href=#805 id=805 data-nosnippet>805</a>        <span class="kw">unsafe </span>{
-<a href=#806 id=806 data-nosnippet>806</a>            <span class="kw-2">&amp;*</span>((<span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self </span><span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(-Instance::vmctx_offset())
-<a href=#807 id=807 data-nosnippet>807</a>                <span class="kw">as </span><span class="kw-2">*const </span>Instance)
-<a href=#808 id=808 data-nosnippet>808</a>        }
-<a href=#809 id=809 data-nosnippet>809</a>    }
-<a href=#810 id=810 data-nosnippet>810</a>
-<a href=#811 id=811 data-nosnippet>811</a>    <span class="attr">#[inline]
-<a href=#812 id=812 data-nosnippet>812</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>instance_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Instance {
-<a href=#813 id=813 data-nosnippet>813</a>        <span class="kw">unsafe </span>{
-<a href=#814 id=814 data-nosnippet>814</a>            <span class="kw-2">&amp;mut *</span>((<span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self </span><span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(-Instance::vmctx_offset())
-<a href=#815 id=815 data-nosnippet>815</a>                <span class="kw">as </span><span class="kw-2">*mut </span>Instance)
-<a href=#816 id=816 data-nosnippet>816</a>        }
-<a href=#817 id=817 data-nosnippet>817</a>    }
-<a href=#818 id=818 data-nosnippet>818</a>}
-<a href=#819 id=819 data-nosnippet>819</a>
-<a href=#820 id=820 data-nosnippet>820</a><span class="doccomment">/// The type for tramplines in the VM.
-<a href=#821 id=821 data-nosnippet>821</a></span><span class="kw">pub type </span>VMTrampoline = <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(
-<a href=#822 id=822 data-nosnippet>822</a>    <span class="kw-2">*mut </span>VMContext,        <span class="comment">// callee vmctx
-<a href=#823 id=823 data-nosnippet>823</a>    </span><span class="kw-2">*const </span>VMFunctionBody, <span class="comment">// function we're actually calling
-<a href=#824 id=824 data-nosnippet>824</a>    </span><span class="kw-2">*mut </span>RawValue,         <span class="comment">// space for arguments and return values
-<a href=#825 id=825 data-nosnippet>825</a></span>);
-<a href=#826 id=826 data-nosnippet>826</a>
-<a href=#827 id=827 data-nosnippet>827</a><span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear
-<a href=#828 id=828 data-nosnippet>828</a>/// memory defined within the instance, namely the start address and the
-<a href=#829 id=829 data-nosnippet>829</a>/// size in bytes.
-<a href=#830 id=830 data-nosnippet>830</a></span><span class="attr">#[derive(Debug, Copy, Clone)]
-<a href=#831 id=831 data-nosnippet>831</a>#[repr(C)]
-<a href=#832 id=832 data-nosnippet>832</a></span><span class="kw">pub struct </span>VMMemoryDefinition {
-<a href=#833 id=833 data-nosnippet>833</a>    <span class="doccomment">/// The start address which is always valid, even if the memory grows.
-<a href=#834 id=834 data-nosnippet>834</a>    </span><span class="kw">pub </span>base: <span class="kw-2">*mut </span>u8,
-<a href=#835 id=835 data-nosnippet>835</a>
-<a href=#836 id=836 data-nosnippet>836</a>    <span class="doccomment">/// The current logical size of this linear memory in bytes.
-<a href=#837 id=837 data-nosnippet>837</a>    </span><span class="kw">pub </span>current_length: usize,
-<a href=#838 id=838 data-nosnippet>838</a>}
+<a href=#772 id=772 data-nosnippet>772</a><span class="doccomment">/// The VM "context", which is pointed to by the `vmctx` arg in the compiler.
+<a href=#773 id=773 data-nosnippet>773</a>/// This has information about globals, memories, tables, and other runtime
+<a href=#774 id=774 data-nosnippet>774</a>/// state associated with the current instance.
+<a href=#775 id=775 data-nosnippet>775</a>///
+<a href=#776 id=776 data-nosnippet>776</a>/// The struct here is empty, as the sizes of these fields are dynamic, and
+<a href=#777 id=777 data-nosnippet>777</a>/// we can't describe them in Rust's type system. Sufficient memory is
+<a href=#778 id=778 data-nosnippet>778</a>/// allocated at runtime.
+<a href=#779 id=779 data-nosnippet>779</a>///
+<a href=#780 id=780 data-nosnippet>780</a>/// TODO: We could move the globals into the `vmctx` allocation too.
+<a href=#781 id=781 data-nosnippet>781</a></span><span class="attr">#[derive(Debug)]
+<a href=#782 id=782 data-nosnippet>782</a>#[repr(C, align(<span class="number">16</span>))] </span><span class="comment">// align 16 since globals are aligned to that and contained inside
+<a href=#783 id=783 data-nosnippet>783</a></span><span class="kw">pub struct </span>VMContext {}
+<a href=#784 id=784 data-nosnippet>784</a>
+<a href=#785 id=785 data-nosnippet>785</a><span class="kw">impl </span>VMContext {
+<a href=#786 id=786 data-nosnippet>786</a>    <span class="doccomment">/// Return a mutable reference to the associated `Instance`.
+<a href=#787 id=787 data-nosnippet>787</a>    ///
+<a href=#788 id=788 data-nosnippet>788</a>    /// # Safety
+<a href=#789 id=789 data-nosnippet>789</a>    /// This is unsafe because it doesn't work on just any `VMContext`, it must
+<a href=#790 id=790 data-nosnippet>790</a>    /// be a `VMContext` allocated as part of an `Instance`.
+<a href=#791 id=791 data-nosnippet>791</a>    </span><span class="attr">#[allow(clippy::cast_ptr_alignment)]
+<a href=#792 id=792 data-nosnippet>792</a>    #[inline]
+<a href=#793 id=793 data-nosnippet>793</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Instance {
+<a href=#794 id=794 data-nosnippet>794</a>        <span class="kw">unsafe </span>{
+<a href=#795 id=795 data-nosnippet>795</a>            <span class="kw-2">&amp;*</span>((<span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self </span><span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(-Instance::vmctx_offset())
+<a href=#796 id=796 data-nosnippet>796</a>                <span class="kw">as </span><span class="kw-2">*const </span>Instance)
+<a href=#797 id=797 data-nosnippet>797</a>        }
+<a href=#798 id=798 data-nosnippet>798</a>    }
+<a href=#799 id=799 data-nosnippet>799</a>
+<a href=#800 id=800 data-nosnippet>800</a>    <span class="attr">#[inline]
+<a href=#801 id=801 data-nosnippet>801</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">unsafe fn </span>instance_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Instance {
+<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">unsafe </span>{
+<a href=#803 id=803 data-nosnippet>803</a>            <span class="kw-2">&amp;mut *</span>((<span class="self">self </span><span class="kw">as </span><span class="kw-2">*const </span><span class="self">Self </span><span class="kw">as </span><span class="kw-2">*mut </span>u8).offset(-Instance::vmctx_offset())
+<a href=#804 id=804 data-nosnippet>804</a>                <span class="kw">as </span><span class="kw-2">*mut </span>Instance)
+<a href=#805 id=805 data-nosnippet>805</a>        }
+<a href=#806 id=806 data-nosnippet>806</a>    }
+<a href=#807 id=807 data-nosnippet>807</a>}
+<a href=#808 id=808 data-nosnippet>808</a>
+<a href=#809 id=809 data-nosnippet>809</a><span class="doccomment">/// The type for tramplines in the VM.
+<a href=#810 id=810 data-nosnippet>810</a></span><span class="kw">pub type </span>VMTrampoline = <span class="kw">unsafe extern </span><span class="string">"C" </span><span class="kw">fn</span>(
+<a href=#811 id=811 data-nosnippet>811</a>    <span class="kw-2">*mut </span>VMContext,        <span class="comment">// callee vmctx
+<a href=#812 id=812 data-nosnippet>812</a>    </span><span class="kw-2">*const </span>VMFunctionBody, <span class="comment">// function we're actually calling
+<a href=#813 id=813 data-nosnippet>813</a>    </span><span class="kw-2">*mut </span>RawValue,         <span class="comment">// space for arguments and return values
+<a href=#814 id=814 data-nosnippet>814</a></span>);
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a><span class="doccomment">/// The fields compiled code needs to access to utilize a WebAssembly linear
+<a href=#817 id=817 data-nosnippet>817</a>/// memory defined within the instance, namely the start address and the
+<a href=#818 id=818 data-nosnippet>818</a>/// size in bytes.
+<a href=#819 id=819 data-nosnippet>819</a></span><span class="attr">#[derive(Debug, Copy, Clone)]
+<a href=#820 id=820 data-nosnippet>820</a>#[repr(C)]
+<a href=#821 id=821 data-nosnippet>821</a></span><span class="kw">pub struct </span>VMMemoryDefinition {
+<a href=#822 id=822 data-nosnippet>822</a>    <span class="doccomment">/// The start address which is always valid, even if the memory grows.
+<a href=#823 id=823 data-nosnippet>823</a>    </span><span class="kw">pub </span>base: <span class="kw-2">*mut </span>u8,
+<a href=#824 id=824 data-nosnippet>824</a>
+<a href=#825 id=825 data-nosnippet>825</a>    <span class="doccomment">/// The current logical size of this linear memory in bytes.
+<a href=#826 id=826 data-nosnippet>826</a>    </span><span class="kw">pub </span>current_length: usize,
+<a href=#827 id=827 data-nosnippet>827</a>}
+<a href=#828 id=828 data-nosnippet>828</a>
+<a href=#829 id=829 data-nosnippet>829</a><span class="doccomment">/// # Safety
+<a href=#830 id=830 data-nosnippet>830</a>/// This data is safe to share between threads because it's plain data that
+<a href=#831 id=831 data-nosnippet>831</a>/// is the user's responsibility to synchronize.
+<a href=#832 id=832 data-nosnippet>832</a></span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMMemoryDefinition {}
+<a href=#833 id=833 data-nosnippet>833</a><span class="doccomment">/// # Safety
+<a href=#834 id=834 data-nosnippet>834</a>/// This data is safe to share between threads because it's plain data that
+<a href=#835 id=835 data-nosnippet>835</a>/// is the user's responsibility to synchronize. And it's `Copy` so there's
+<a href=#836 id=836 data-nosnippet>836</a>/// really no difference between passing it by reference or by value as far as
+<a href=#837 id=837 data-nosnippet>837</a>/// correctness in a multi-threaded context is concerned.
+<a href=#838 id=838 data-nosnippet>838</a></span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMMemoryDefinition {}
 <a href=#839 id=839 data-nosnippet>839</a>
-<a href=#840 id=840 data-nosnippet>840</a><span class="doccomment">/// # Safety
-<a href=#841 id=841 data-nosnippet>841</a>/// This data is safe to share between threads because it's plain data that
-<a href=#842 id=842 data-nosnippet>842</a>/// is the user's responsibility to synchronize.
-<a href=#843 id=843 data-nosnippet>843</a></span><span class="kw">unsafe impl </span>Send <span class="kw">for </span>VMMemoryDefinition {}
-<a href=#844 id=844 data-nosnippet>844</a><span class="doccomment">/// # Safety
-<a href=#845 id=845 data-nosnippet>845</a>/// This data is safe to share between threads because it's plain data that
-<a href=#846 id=846 data-nosnippet>846</a>/// is the user's responsibility to synchronize. And it's `Copy` so there's
-<a href=#847 id=847 data-nosnippet>847</a>/// really no difference between passing it by reference or by value as far as
-<a href=#848 id=848 data-nosnippet>848</a>/// correctness in a multi-threaded context is concerned.
-<a href=#849 id=849 data-nosnippet>849</a></span><span class="kw">unsafe impl </span>Sync <span class="kw">for </span>VMMemoryDefinition {}
-<a href=#850 id=850 data-nosnippet>850</a>
-<a href=#851 id=851 data-nosnippet>851</a><span class="attr">#[cfg(test)]
-<a href=#852 id=852 data-nosnippet>852</a></span><span class="kw">mod </span>test_vmmemory_definition {
-<a href=#853 id=853 data-nosnippet>853</a>    <span class="kw">use </span><span class="kw">super</span>::VMMemoryDefinition;
-<a href=#854 id=854 data-nosnippet>854</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
-<a href=#855 id=855 data-nosnippet>855</a>    <span class="kw">use </span>memoffset::offset_of;
-<a href=#856 id=856 data-nosnippet>856</a>    <span class="kw">use </span>std::mem::size_of;
-<a href=#857 id=857 data-nosnippet>857</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
-<a href=#858 id=858 data-nosnippet>858</a>
-<a href=#859 id=859 data-nosnippet>859</a>    <span class="attr">#[test]
-<a href=#860 id=860 data-nosnippet>860</a>    </span><span class="kw">fn </span>check_vmmemory_definition_offsets() {
-<a href=#861 id=861 data-nosnippet>861</a>        <span class="kw">let </span>module = ModuleInfo::new();
-<a href=#862 id=862 data-nosnippet>862</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
-<a href=#863 id=863 data-nosnippet>863</a>        <span class="macro">assert_eq!</span>(
-<a href=#864 id=864 data-nosnippet>864</a>            size_of::&lt;VMMemoryDefinition&gt;(),
-<a href=#865 id=865 data-nosnippet>865</a>            usize::from(offsets.size_of_vmmemory_definition())
-<a href=#866 id=866 data-nosnippet>866</a>        );
-<a href=#867 id=867 data-nosnippet>867</a>        <span class="macro">assert_eq!</span>(
-<a href=#868 id=868 data-nosnippet>868</a>            <span class="macro">offset_of!</span>(VMMemoryDefinition, base),
-<a href=#869 id=869 data-nosnippet>869</a>            usize::from(offsets.vmmemory_definition_base())
-<a href=#870 id=870 data-nosnippet>870</a>        );
-<a href=#871 id=871 data-nosnippet>871</a>        <span class="macro">assert_eq!</span>(
-<a href=#872 id=872 data-nosnippet>872</a>            <span class="macro">offset_of!</span>(VMMemoryDefinition, current_length),
-<a href=#873 id=873 data-nosnippet>873</a>            usize::from(offsets.vmmemory_definition_current_length())
-<a href=#874 id=874 data-nosnippet>874</a>        );
-<a href=#875 id=875 data-nosnippet>875</a>    }
-<a href=#876 id=876 data-nosnippet>876</a>}</code></pre></div></section></main></body></html>
+<a href=#840 id=840 data-nosnippet>840</a><span class="attr">#[cfg(test)]
+<a href=#841 id=841 data-nosnippet>841</a></span><span class="kw">mod </span>test_vmmemory_definition {
+<a href=#842 id=842 data-nosnippet>842</a>    <span class="kw">use </span><span class="kw">super</span>::VMMemoryDefinition;
+<a href=#843 id=843 data-nosnippet>843</a>    <span class="kw">use </span><span class="kw">crate</span>::VMOffsets;
+<a href=#844 id=844 data-nosnippet>844</a>    <span class="kw">use </span>memoffset::offset_of;
+<a href=#845 id=845 data-nosnippet>845</a>    <span class="kw">use </span>std::mem::size_of;
+<a href=#846 id=846 data-nosnippet>846</a>    <span class="kw">use </span>wasmer_types::ModuleInfo;
+<a href=#847 id=847 data-nosnippet>847</a>
+<a href=#848 id=848 data-nosnippet>848</a>    <span class="attr">#[test]
+<a href=#849 id=849 data-nosnippet>849</a>    </span><span class="kw">fn </span>check_vmmemory_definition_offsets() {
+<a href=#850 id=850 data-nosnippet>850</a>        <span class="kw">let </span>module = ModuleInfo::new();
+<a href=#851 id=851 data-nosnippet>851</a>        <span class="kw">let </span>offsets = VMOffsets::new(size_of::&lt;<span class="kw-2">*mut </span>u8&gt;() <span class="kw">as </span>u8, <span class="kw-2">&amp;</span>module);
+<a href=#852 id=852 data-nosnippet>852</a>        <span class="macro">assert_eq!</span>(
+<a href=#853 id=853 data-nosnippet>853</a>            size_of::&lt;VMMemoryDefinition&gt;(),
+<a href=#854 id=854 data-nosnippet>854</a>            usize::from(offsets.size_of_vmmemory_definition())
+<a href=#855 id=855 data-nosnippet>855</a>        );
+<a href=#856 id=856 data-nosnippet>856</a>        <span class="macro">assert_eq!</span>(
+<a href=#857 id=857 data-nosnippet>857</a>            <span class="macro">offset_of!</span>(VMMemoryDefinition, base),
+<a href=#858 id=858 data-nosnippet>858</a>            usize::from(offsets.vmmemory_definition_base())
+<a href=#859 id=859 data-nosnippet>859</a>        );
+<a href=#860 id=860 data-nosnippet>860</a>        <span class="macro">assert_eq!</span>(
+<a href=#861 id=861 data-nosnippet>861</a>            <span class="macro">offset_of!</span>(VMMemoryDefinition, current_length),
+<a href=#862 id=862 data-nosnippet>862</a>            usize::from(offsets.vmmemory_definition_current_length())
+<a href=#863 id=863 data-nosnippet>863</a>        );
+<a href=#864 id=864 data-nosnippet>864</a>    }
+<a href=#865 id=865 data-nosnippet>865</a>}</code></pre></div></section></main></body></html>

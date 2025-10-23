@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Exception","ExceptionRef"]};
+window.SIDEBAR_ITEMS = {"struct":["Exception"]};

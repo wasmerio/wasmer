@@ -3,49 +3,46 @@
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">crate</span>::store::AsStoreMut;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">pub use </span>wasmer_vm::<span class="kw-2">*</span>;
 <a href=#5 id=5 data-nosnippet>5</a>
-<a href=#6 id=6 data-nosnippet>6</a><span class="comment">// No EH for now.
-<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VMException = ();
-<a href=#8 id=8 data-nosnippet>8</a>
-<a href=#9 id=9 data-nosnippet>9</a><span class="doccomment">/// The type of extern tables in the `sys` VM.
-<a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">pub type </span>VMExternTable = InternalStoreHandle&lt;VMTable&gt;;
-<a href=#11 id=11 data-nosnippet>11</a><span class="doccomment">///
-<a href=#12 id=12 data-nosnippet>12</a>/// The type of extern memories in the `sys` VM.
-<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub type </span>VMExternMemory = InternalStoreHandle&lt;VMMemory&gt;;
+<a href=#6 id=6 data-nosnippet>6</a><span class="doccomment">/// The type of extern tables in the `sys` VM.
+<a href=#7 id=7 data-nosnippet>7</a></span><span class="kw">pub type </span>VMExternTable = InternalStoreHandle&lt;VMTable&gt;;
+<a href=#8 id=8 data-nosnippet>8</a><span class="doccomment">///
+<a href=#9 id=9 data-nosnippet>9</a>/// The type of extern memories in the `sys` VM.
+<a href=#10 id=10 data-nosnippet>10</a></span><span class="kw">pub type </span>VMExternMemory = InternalStoreHandle&lt;VMMemory&gt;;
+<a href=#11 id=11 data-nosnippet>11</a>
+<a href=#12 id=12 data-nosnippet>12</a><span class="doccomment">/// The type of extern globals in the `sys` VM.
+<a href=#13 id=13 data-nosnippet>13</a></span><span class="kw">pub type </span>VMExternGlobal = InternalStoreHandle&lt;VMGlobal&gt;;
 <a href=#14 id=14 data-nosnippet>14</a>
-<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// The type of extern globals in the `sys` VM.
-<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">pub type </span>VMExternGlobal = InternalStoreHandle&lt;VMGlobal&gt;;
+<a href=#15 id=15 data-nosnippet>15</a><span class="doccomment">/// The type of extern functions in the `sys` VM.
+<a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">pub type </span>VMExternFunction = InternalStoreHandle&lt;VMFunction&gt;;
 <a href=#17 id=17 data-nosnippet>17</a>
-<a href=#18 id=18 data-nosnippet>18</a><span class="doccomment">/// The type of extern functions in the `sys` VM.
-<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">pub type </span>VMExternFunction = InternalStoreHandle&lt;VMFunction&gt;;
+<a href=#18 id=18 data-nosnippet>18</a><span class="doccomment">/// The type of extern tags in the `sys` VM.
+<a href=#19 id=19 data-nosnippet>19</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VMExternTag = InternalStoreHandle&lt;VMTag&gt;;
 <a href=#20 id=20 data-nosnippet>20</a>
-<a href=#21 id=21 data-nosnippet>21</a><span class="doccomment">/// The type of extern tags in the `sys` VM.
-<a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">type </span>VMExternTag = InternalStoreHandle&lt;VMTag&gt;;
+<a href=#21 id=21 data-nosnippet>21</a><span class="doccomment">/// The type of function callbacks in the `sys` VM.
+<a href=#22 id=22 data-nosnippet>22</a></span><span class="kw">pub type </span>VMFunctionCallback = <span class="kw-2">*const </span>VMFunctionBody;
 <a href=#23 id=23 data-nosnippet>23</a>
-<a href=#24 id=24 data-nosnippet>24</a><span class="doccomment">/// The type of function callbacks in the `sys` VM.
-<a href=#25 id=25 data-nosnippet>25</a></span><span class="kw">pub type </span>VMFunctionCallback = <span class="kw-2">*const </span>VMFunctionBody;
-<a href=#26 id=26 data-nosnippet>26</a>
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">impl </span><span class="kw">crate</span>::VMExternToExtern <span class="kw">for </span>VMExtern {
-<a href=#28 id=28 data-nosnippet>28</a>    <span class="kw">fn </span>to_extern(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="kw">crate</span>::Extern {
-<a href=#29 id=29 data-nosnippet>29</a>        <span class="kw">match </span><span class="self">self </span>{
-<a href=#30 id=30 data-nosnippet>30</a>            <span class="self">Self</span>::Function(f) =&gt; <span class="kw">crate</span>::Extern::Function(Function::from_vm_extern(
-<a href=#31 id=31 data-nosnippet>31</a>                store,
-<a href=#32 id=32 data-nosnippet>32</a>                <span class="kw">crate</span>::vm::VMExternFunction::Sys(f),
-<a href=#33 id=33 data-nosnippet>33</a>            )),
-<a href=#34 id=34 data-nosnippet>34</a>            <span class="self">Self</span>::Memory(m) =&gt; <span class="kw">crate</span>::Extern::Memory(Memory::from_vm_extern(
-<a href=#35 id=35 data-nosnippet>35</a>                store,
-<a href=#36 id=36 data-nosnippet>36</a>                <span class="kw">crate</span>::vm::VMExternMemory::Sys(m),
-<a href=#37 id=37 data-nosnippet>37</a>            )),
-<a href=#38 id=38 data-nosnippet>38</a>            <span class="self">Self</span>::Global(g) =&gt; <span class="kw">crate</span>::Extern::Global(Global::from_vm_extern(
-<a href=#39 id=39 data-nosnippet>39</a>                store,
-<a href=#40 id=40 data-nosnippet>40</a>                <span class="kw">crate</span>::vm::VMExternGlobal::Sys(g),
-<a href=#41 id=41 data-nosnippet>41</a>            )),
-<a href=#42 id=42 data-nosnippet>42</a>            <span class="self">Self</span>::Table(t) =&gt; <span class="kw">crate</span>::Extern::Table(Table::from_vm_extern(
-<a href=#43 id=43 data-nosnippet>43</a>                store,
-<a href=#44 id=44 data-nosnippet>44</a>                <span class="kw">crate</span>::vm::VMExternTable::Sys(t),
-<a href=#45 id=45 data-nosnippet>45</a>            )),
-<a href=#46 id=46 data-nosnippet>46</a>            <span class="self">Self</span>::Tag(t) =&gt; {
-<a href=#47 id=47 data-nosnippet>47</a>                <span class="kw">crate</span>::Extern::Tag(Tag::from_vm_extern(store, <span class="kw">crate</span>::vm::VMExternTag::Sys(t)))
-<a href=#48 id=48 data-nosnippet>48</a>            }
-<a href=#49 id=49 data-nosnippet>49</a>        }
-<a href=#50 id=50 data-nosnippet>50</a>    }
-<a href=#51 id=51 data-nosnippet>51</a>}</code></pre></div></section></main></body></html>
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">impl </span><span class="kw">crate</span>::VMExternToExtern <span class="kw">for </span>VMExtern {
+<a href=#25 id=25 data-nosnippet>25</a>    <span class="kw">fn </span>to_extern(<span class="self">self</span>, store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut) -&gt; <span class="kw">crate</span>::Extern {
+<a href=#26 id=26 data-nosnippet>26</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#27 id=27 data-nosnippet>27</a>            <span class="self">Self</span>::Function(f) =&gt; <span class="kw">crate</span>::Extern::Function(Function::from_vm_extern(
+<a href=#28 id=28 data-nosnippet>28</a>                store,
+<a href=#29 id=29 data-nosnippet>29</a>                <span class="kw">crate</span>::vm::VMExternFunction::Sys(f),
+<a href=#30 id=30 data-nosnippet>30</a>            )),
+<a href=#31 id=31 data-nosnippet>31</a>            <span class="self">Self</span>::Memory(m) =&gt; <span class="kw">crate</span>::Extern::Memory(Memory::from_vm_extern(
+<a href=#32 id=32 data-nosnippet>32</a>                store,
+<a href=#33 id=33 data-nosnippet>33</a>                <span class="kw">crate</span>::vm::VMExternMemory::Sys(m),
+<a href=#34 id=34 data-nosnippet>34</a>            )),
+<a href=#35 id=35 data-nosnippet>35</a>            <span class="self">Self</span>::Global(g) =&gt; <span class="kw">crate</span>::Extern::Global(Global::from_vm_extern(
+<a href=#36 id=36 data-nosnippet>36</a>                store,
+<a href=#37 id=37 data-nosnippet>37</a>                <span class="kw">crate</span>::vm::VMExternGlobal::Sys(g),
+<a href=#38 id=38 data-nosnippet>38</a>            )),
+<a href=#39 id=39 data-nosnippet>39</a>            <span class="self">Self</span>::Table(t) =&gt; <span class="kw">crate</span>::Extern::Table(Table::from_vm_extern(
+<a href=#40 id=40 data-nosnippet>40</a>                store,
+<a href=#41 id=41 data-nosnippet>41</a>                <span class="kw">crate</span>::vm::VMExternTable::Sys(t),
+<a href=#42 id=42 data-nosnippet>42</a>            )),
+<a href=#43 id=43 data-nosnippet>43</a>            <span class="self">Self</span>::Tag(t) =&gt; {
+<a href=#44 id=44 data-nosnippet>44</a>                <span class="kw">crate</span>::Extern::Tag(Tag::from_vm_extern(store, <span class="kw">crate</span>::vm::VMExternTag::Sys(t)))
+<a href=#45 id=45 data-nosnippet>45</a>            }
+<a href=#46 id=46 data-nosnippet>46</a>        }
+<a href=#47 id=47 data-nosnippet>47</a>    }
+<a href=#48 id=48 data-nosnippet>48</a>}</code></pre></div></section></main></body></html>

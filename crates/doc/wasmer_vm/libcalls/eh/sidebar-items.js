@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["dwarf","gcc"]};
+window.SIDEBAR_ITEMS = {"fn":["exn_obj_from_exnref"],"mod":["dwarf","gcc"]};

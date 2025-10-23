@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["exnref","inner"],"struct":["Exception"]};
+window.SIDEBAR_ITEMS = {"mod":["inner"],"struct":["Exception"]};

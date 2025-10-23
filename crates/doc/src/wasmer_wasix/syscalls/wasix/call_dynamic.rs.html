@@ -69,124 +69,105 @@
 <a href=#69 id=69 data-nosnippet>69</a>    }
 <a href=#70 id=70 data-nosnippet>70</a>}
 <a href=#71 id=71 data-nosnippet>71</a>
-<a href=#72 id=72 data-nosnippet>72</a><span class="kw">fn </span>flatten_runtime_error(err: RuntimeError) -&gt; RuntimeError {
-<a href=#73 id=73 data-nosnippet>73</a>    <span class="kw">let </span>e_ref = err.downcast_ref::&lt;WasiRuntimeError&gt;();
-<a href=#74 id=74 data-nosnippet>74</a>    <span class="kw">match </span>e_ref {
-<a href=#75 id=75 data-nosnippet>75</a>        <span class="prelude-val">Some</span>(WasiRuntimeError::Wasi(<span class="kw">_</span>)) =&gt; {
-<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Wasi(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
-<a href=#77 id=77 data-nosnippet>77</a>                <span class="macro">unreachable!</span>()
-<a href=#78 id=78 data-nosnippet>78</a>            };
-<a href=#79 id=79 data-nosnippet>79</a>            RuntimeError::user(Box::new(err))
-<a href=#80 id=80 data-nosnippet>80</a>        }
-<a href=#81 id=81 data-nosnippet>81</a>        <span class="prelude-val">Some</span>(WasiRuntimeError::Runtime(<span class="kw">_</span>)) =&gt; {
-<a href=#82 id=82 data-nosnippet>82</a>            <span class="kw">let </span><span class="prelude-val">Ok</span>(WasiRuntimeError::Runtime(err)) = err.downcast::&lt;WasiRuntimeError&gt;() <span class="kw">else </span>{
-<a href=#83 id=83 data-nosnippet>83</a>                <span class="macro">unreachable!</span>()
-<a href=#84 id=84 data-nosnippet>84</a>            };
-<a href=#85 id=85 data-nosnippet>85</a>            flatten_runtime_error(err)
-<a href=#86 id=86 data-nosnippet>86</a>        }
-<a href=#87 id=87 data-nosnippet>87</a>        <span class="kw">_ </span>=&gt; err,
-<a href=#88 id=88 data-nosnippet>88</a>    }
-<a href=#89 id=89 data-nosnippet>89</a>}
-<a href=#90 id=90 data-nosnippet>90</a>
-<a href=#91 id=91 data-nosnippet>91</a><span class="doccomment">/// Call a function from the `__indirect_function_table` with parameters and results from memory.
-<a href=#92 id=92 data-nosnippet>92</a>///
-<a href=#93 id=93 data-nosnippet>93</a>/// This function can be used to call functions whose types are not known at
-<a href=#94 id=94 data-nosnippet>94</a>/// compile time of the caller. It is the callers responsibility to ensure
-<a href=#95 id=95 data-nosnippet>95</a>/// that the passed parameters and results match the signature of the function
-<a href=#96 id=96 data-nosnippet>96</a>/// beeing called.
-<a href=#97 id=97 data-nosnippet>97</a>///
-<a href=#98 id=98 data-nosnippet>98</a>/// ### Format of the values and results buffer
+<a href=#72 id=72 data-nosnippet>72</a><span class="doccomment">/// Call a function from the `__indirect_function_table` with parameters and results from memory.
+<a href=#73 id=73 data-nosnippet>73</a>///
+<a href=#74 id=74 data-nosnippet>74</a>/// This function can be used to call functions whose types are not known at
+<a href=#75 id=75 data-nosnippet>75</a>/// compile time of the caller. It is the callers responsibility to ensure
+<a href=#76 id=76 data-nosnippet>76</a>/// that the passed parameters and results match the signature of the function
+<a href=#77 id=77 data-nosnippet>77</a>/// beeing called.
+<a href=#78 id=78 data-nosnippet>78</a>///
+<a href=#79 id=79 data-nosnippet>79</a>/// ### Format of the values and results buffer
+<a href=#80 id=80 data-nosnippet>80</a>///
+<a href=#81 id=81 data-nosnippet>81</a>/// The buffers contain all values sequentially. i32, and f32 are 4 bytes,
+<a href=#82 id=82 data-nosnippet>82</a>/// i64 and f64 are 8 bytes, v128 is 16 bytes.
+<a href=#83 id=83 data-nosnippet>83</a>///     
+<a href=#84 id=84 data-nosnippet>84</a>/// For example if the function takes an i32 and an i64, the values buffer will
+<a href=#85 id=85 data-nosnippet>85</a>/// be 12 bytes long, with the first 4 bytes being the i32 and the next 8
+<a href=#86 id=86 data-nosnippet>86</a>/// bytes being the i64.
+<a href=#87 id=87 data-nosnippet>87</a>///
+<a href=#88 id=88 data-nosnippet>88</a>/// ### Parameters
+<a href=#89 id=89 data-nosnippet>89</a>///
+<a href=#90 id=90 data-nosnippet>90</a>/// * function_id: The indirect function table index of the function to call
+<a href=#91 id=91 data-nosnippet>91</a>///
+<a href=#92 id=92 data-nosnippet>92</a>/// * values: Pointer to a sequence of values that will be passed to the function.
+<a href=#93 id=93 data-nosnippet>93</a>///   The buffer will be interpreted as described above.
+<a href=#94 id=94 data-nosnippet>94</a>///   If the function does not have any parameters, this can be a nullptr (0).
+<a href=#95 id=95 data-nosnippet>95</a>///
+<a href=#96 id=96 data-nosnippet>96</a>/// * results: Pointer to a sequence of values.
+<a href=#97 id=97 data-nosnippet>97</a>///   If the function does not return a value, this can be a nullptr (0).
+<a href=#98 id=98 data-nosnippet>98</a>///   The buffer needs to be large enough to hold all return values.
 <a href=#99 id=99 data-nosnippet>99</a>///
-<a href=#100 id=100 data-nosnippet>100</a>/// The buffers contain all values sequentially. i32, and f32 are 4 bytes,
-<a href=#101 id=101 data-nosnippet>101</a>/// i64 and f64 are 8 bytes, v128 is 16 bytes.
-<a href=#102 id=102 data-nosnippet>102</a>///     
-<a href=#103 id=103 data-nosnippet>103</a>/// For example if the function takes an i32 and an i64, the values buffer will
-<a href=#104 id=104 data-nosnippet>104</a>/// be 12 bytes long, with the first 4 bytes being the i32 and the next 8
-<a href=#105 id=105 data-nosnippet>105</a>/// bytes being the i64.
-<a href=#106 id=106 data-nosnippet>106</a>///
-<a href=#107 id=107 data-nosnippet>107</a>/// ### Parameters
-<a href=#108 id=108 data-nosnippet>108</a>///
-<a href=#109 id=109 data-nosnippet>109</a>/// * function_id: The indirect function table index of the function to call
-<a href=#110 id=110 data-nosnippet>110</a>///
-<a href=#111 id=111 data-nosnippet>111</a>/// * values: Pointer to a sequence of values that will be passed to the function.
-<a href=#112 id=112 data-nosnippet>112</a>///   The buffer will be interpreted as described above.
-<a href=#113 id=113 data-nosnippet>113</a>///   If the function does not have any parameters, this can be a nullptr (0).
-<a href=#114 id=114 data-nosnippet>114</a>///
-<a href=#115 id=115 data-nosnippet>115</a>/// * results: Pointer to a sequence of values.
-<a href=#116 id=116 data-nosnippet>116</a>///   If the function does not return a value, this can be a nullptr (0).
-<a href=#117 id=117 data-nosnippet>117</a>///   The buffer needs to be large enough to hold all return values.
-<a href=#118 id=118 data-nosnippet>118</a>///
-<a href=#119 id=119 data-nosnippet>119</a></span><span class="attr">#[instrument(
-<a href=#120 id=120 data-nosnippet>120</a>    level = <span class="string">"trace"</span>,
-<a href=#121 id=121 data-nosnippet>121</a>    skip_all,
-<a href=#122 id=122 data-nosnippet>122</a>    fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
-<a href=#123 id=123 data-nosnippet>123</a>    ret
-<a href=#124 id=124 data-nosnippet>124</a>)]
-<a href=#125 id=125 data-nosnippet>125</a>#[allow(clippy::result_large_err)]
-<a href=#126 id=126 data-nosnippet>126</a></span><span class="kw">pub fn </span>call_dynamic&lt;M: MemorySize&gt;(
-<a href=#127 id=127 data-nosnippet>127</a>    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-<a href=#128 id=128 data-nosnippet>128</a>    function_id: u32,
-<a href=#129 id=129 data-nosnippet>129</a>    values: WasmPtr&lt;u8, M&gt;,
-<a href=#130 id=130 data-nosnippet>130</a>    values_len: M::Offset,
-<a href=#131 id=131 data-nosnippet>131</a>    results: WasmPtr&lt;u8, M&gt;,
-<a href=#132 id=132 data-nosnippet>132</a>    results_len: M::Offset,
-<a href=#133 id=133 data-nosnippet>133</a>    strict: Bool,
-<a href=#134 id=134 data-nosnippet>134</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, RuntimeError&gt; {
-<a href=#135 id=135 data-nosnippet>135</a>    <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
-<a href=#136 id=136 data-nosnippet>136</a>
-<a href=#137 id=137 data-nosnippet>137</a>    <span class="kw">let </span>strict = <span class="macro">matches!</span>(strict, Bool::True);
-<a href=#138 id=138 data-nosnippet>138</a>
-<a href=#139 id=139 data-nosnippet>139</a>    <span class="kw">let </span>function = <span class="macro">wasi_try_ok!</span>(
-<a href=#140 id=140 data-nosnippet>140</a>        env.inner()
-<a href=#141 id=141 data-nosnippet>141</a>            .indirect_function_table_lookup(<span class="kw-2">&amp;mut </span>store, function_id)
-<a href=#142 id=142 data-nosnippet>142</a>            .map_err(Errno::from)
-<a href=#143 id=143 data-nosnippet>143</a>    );
+<a href=#100 id=100 data-nosnippet>100</a></span><span class="attr">#[instrument(
+<a href=#101 id=101 data-nosnippet>101</a>    level = <span class="string">"trace"</span>,
+<a href=#102 id=102 data-nosnippet>102</a>    skip_all,
+<a href=#103 id=103 data-nosnippet>103</a>    fields(%function_id, values_ptr = values.offset().into(), results_ptr = results.offset().into()),
+<a href=#104 id=104 data-nosnippet>104</a>    ret
+<a href=#105 id=105 data-nosnippet>105</a>)]
+<a href=#106 id=106 data-nosnippet>106</a>#[allow(clippy::result_large_err)]
+<a href=#107 id=107 data-nosnippet>107</a></span><span class="kw">pub fn </span>call_dynamic&lt;M: MemorySize&gt;(
+<a href=#108 id=108 data-nosnippet>108</a>    <span class="kw-2">mut </span>ctx: FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#109 id=109 data-nosnippet>109</a>    function_id: u32,
+<a href=#110 id=110 data-nosnippet>110</a>    values: WasmPtr&lt;u8, M&gt;,
+<a href=#111 id=111 data-nosnippet>111</a>    values_len: M::Offset,
+<a href=#112 id=112 data-nosnippet>112</a>    results: WasmPtr&lt;u8, M&gt;,
+<a href=#113 id=113 data-nosnippet>113</a>    results_len: M::Offset,
+<a href=#114 id=114 data-nosnippet>114</a>    strict: Bool,
+<a href=#115 id=115 data-nosnippet>115</a>) -&gt; <span class="prelude-ty">Result</span>&lt;Errno, RuntimeError&gt; {
+<a href=#116 id=116 data-nosnippet>116</a>    <span class="kw">let </span>(env, <span class="kw-2">mut </span>store) = ctx.data_and_store_mut();
+<a href=#117 id=117 data-nosnippet>117</a>
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">let </span>strict = <span class="macro">matches!</span>(strict, Bool::True);
+<a href=#119 id=119 data-nosnippet>119</a>
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="kw">let </span>function = <span class="macro">wasi_try_ok!</span>(
+<a href=#121 id=121 data-nosnippet>121</a>        env.inner()
+<a href=#122 id=122 data-nosnippet>122</a>            .indirect_function_table_lookup(<span class="kw-2">&amp;mut </span>store, function_id)
+<a href=#123 id=123 data-nosnippet>123</a>            .map_err(Errno::from)
+<a href=#124 id=124 data-nosnippet>124</a>    );
+<a href=#125 id=125 data-nosnippet>125</a>
+<a href=#126 id=126 data-nosnippet>126</a>    <span class="kw">let </span>function_type = function.ty(<span class="kw-2">&amp;</span>store);
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
+<a href=#129 id=129 data-nosnippet>129</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_values_offset: u64 = values.offset().into();
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="kw">let </span>max_values_offset = current_values_offset + values_len.into();
+<a href=#131 id=131 data-nosnippet>131</a>    <span class="kw">let </span><span class="kw-2">mut </span>values_buffer = <span class="macro">vec!</span>[];
+<a href=#132 id=132 data-nosnippet>132</a>    <span class="kw">for </span>ty <span class="kw">in </span>function_type.params() {
+<a href=#133 id=133 data-nosnippet>133</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(value) = <span class="macro">wasi_try_mem_ok!</span>(read_value(
+<a href=#134 id=134 data-nosnippet>134</a>            <span class="kw-2">&amp;</span>memory,
+<a href=#135 id=135 data-nosnippet>135</a>            <span class="kw-2">&amp;mut </span>current_values_offset,
+<a href=#136 id=136 data-nosnippet>136</a>            max_values_offset,
+<a href=#137 id=137 data-nosnippet>137</a>            strict,
+<a href=#138 id=138 data-nosnippet>138</a>            ty
+<a href=#139 id=139 data-nosnippet>139</a>        )) <span class="kw">else </span>{
+<a href=#140 id=140 data-nosnippet>140</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
+<a href=#141 id=141 data-nosnippet>141</a>        };
+<a href=#142 id=142 data-nosnippet>142</a>        values_buffer.push(value);
+<a href=#143 id=143 data-nosnippet>143</a>    }
 <a href=#144 id=144 data-nosnippet>144</a>
-<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">let </span>function_type = function.ty(<span class="kw-2">&amp;</span>store);
-<a href=#146 id=146 data-nosnippet>146</a>
-<a href=#147 id=147 data-nosnippet>147</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
-<a href=#148 id=148 data-nosnippet>148</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_values_offset: u64 = values.offset().into();
-<a href=#149 id=149 data-nosnippet>149</a>    <span class="kw">let </span>max_values_offset = current_values_offset + values_len.into();
-<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">let </span><span class="kw-2">mut </span>values_buffer = <span class="macro">vec!</span>[];
-<a href=#151 id=151 data-nosnippet>151</a>    <span class="kw">for </span>ty <span class="kw">in </span>function_type.params() {
-<a href=#152 id=152 data-nosnippet>152</a>        <span class="kw">let </span><span class="prelude-val">Some</span>(value) = <span class="macro">wasi_try_mem_ok!</span>(read_value(
-<a href=#153 id=153 data-nosnippet>153</a>            <span class="kw-2">&amp;</span>memory,
-<a href=#154 id=154 data-nosnippet>154</a>            <span class="kw-2">&amp;mut </span>current_values_offset,
-<a href=#155 id=155 data-nosnippet>155</a>            max_values_offset,
-<a href=#156 id=156 data-nosnippet>156</a>            strict,
-<a href=#157 id=157 data-nosnippet>157</a>            ty
-<a href=#158 id=158 data-nosnippet>158</a>        )) <span class="kw">else </span>{
-<a href=#159 id=159 data-nosnippet>159</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
-<a href=#160 id=160 data-nosnippet>160</a>        };
-<a href=#161 id=161 data-nosnippet>161</a>        values_buffer.push(value);
-<a href=#162 id=162 data-nosnippet>162</a>    }
-<a href=#163 id=163 data-nosnippet>163</a>
-<a href=#164 id=164 data-nosnippet>164</a>    <span class="kw">if </span>strict &amp;&amp; current_values_offset != max_values_offset {
-<a href=#165 id=165 data-nosnippet>165</a>        <span class="comment">// If strict is true, we expect to have read all values
-<a href=#166 id=166 data-nosnippet>166</a>        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
-<a href=#167 id=167 data-nosnippet>167</a>    }
-<a href=#168 id=168 data-nosnippet>168</a>
-<a href=#169 id=169 data-nosnippet>169</a>    <span class="kw">let </span>result_values = function
-<a href=#170 id=170 data-nosnippet>170</a>        .call(<span class="kw-2">&amp;mut </span>store, values_buffer.as_slice())
-<a href=#171 id=171 data-nosnippet>171</a>        .map_err(flatten_runtime_error)<span class="question-mark">?</span>;
-<a href=#172 id=172 data-nosnippet>172</a>
-<a href=#173 id=173 data-nosnippet>173</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
-<a href=#174 id=174 data-nosnippet>174</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_results_offset: u64 = results.offset().into();
-<a href=#175 id=175 data-nosnippet>175</a>    <span class="kw">let </span>max_results_offset = current_results_offset + results_len.into();
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">for </span>result_value <span class="kw">in </span>result_values {
-<a href=#177 id=177 data-nosnippet>177</a>        <span class="macro">wasi_try_mem_ok!</span>(write_value(
-<a href=#178 id=178 data-nosnippet>178</a>            <span class="kw-2">&amp;</span>memory,
-<a href=#179 id=179 data-nosnippet>179</a>            <span class="kw-2">&amp;mut </span>current_results_offset,
-<a href=#180 id=180 data-nosnippet>180</a>            max_results_offset,
-<a href=#181 id=181 data-nosnippet>181</a>            strict,
-<a href=#182 id=182 data-nosnippet>182</a>            <span class="kw-2">&amp;</span>result_value
-<a href=#183 id=183 data-nosnippet>183</a>        ));
-<a href=#184 id=184 data-nosnippet>184</a>    }
-<a href=#185 id=185 data-nosnippet>185</a>
-<a href=#186 id=186 data-nosnippet>186</a>    <span class="kw">if </span>strict &amp;&amp; current_results_offset != max_results_offset {
-<a href=#187 id=187 data-nosnippet>187</a>        <span class="comment">// If strict is true, we expect to have written all results
-<a href=#188 id=188 data-nosnippet>188</a>        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
-<a href=#189 id=189 data-nosnippet>189</a>    }
-<a href=#190 id=190 data-nosnippet>190</a>
-<a href=#191 id=191 data-nosnippet>191</a>    <span class="prelude-val">Ok</span>(Errno::Success)
-<a href=#192 id=192 data-nosnippet>192</a>}</code></pre></div></section></main></body></html>
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">if </span>strict &amp;&amp; current_values_offset != max_values_offset {
+<a href=#146 id=146 data-nosnippet>146</a>        <span class="comment">// If strict is true, we expect to have read all values
+<a href=#147 id=147 data-nosnippet>147</a>        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
+<a href=#148 id=148 data-nosnippet>148</a>    }
+<a href=#149 id=149 data-nosnippet>149</a>
+<a href=#150 id=150 data-nosnippet>150</a>    <span class="kw">let </span>result_values = function
+<a href=#151 id=151 data-nosnippet>151</a>        .call(<span class="kw-2">&amp;mut </span>store, values_buffer.as_slice())
+<a href=#152 id=152 data-nosnippet>152</a>        .map_err(<span class="kw">crate</span>::flatten_runtime_error)<span class="question-mark">?</span>;
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>store) };
+<a href=#155 id=155 data-nosnippet>155</a>    <span class="kw">let </span><span class="kw-2">mut </span>current_results_offset: u64 = results.offset().into();
+<a href=#156 id=156 data-nosnippet>156</a>    <span class="kw">let </span>max_results_offset = current_results_offset + results_len.into();
+<a href=#157 id=157 data-nosnippet>157</a>    <span class="kw">for </span>result_value <span class="kw">in </span>result_values {
+<a href=#158 id=158 data-nosnippet>158</a>        <span class="macro">wasi_try_mem_ok!</span>(write_value(
+<a href=#159 id=159 data-nosnippet>159</a>            <span class="kw-2">&amp;</span>memory,
+<a href=#160 id=160 data-nosnippet>160</a>            <span class="kw-2">&amp;mut </span>current_results_offset,
+<a href=#161 id=161 data-nosnippet>161</a>            max_results_offset,
+<a href=#162 id=162 data-nosnippet>162</a>            strict,
+<a href=#163 id=163 data-nosnippet>163</a>            <span class="kw-2">&amp;</span>result_value
+<a href=#164 id=164 data-nosnippet>164</a>        ));
+<a href=#165 id=165 data-nosnippet>165</a>    }
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a>    <span class="kw">if </span>strict &amp;&amp; current_results_offset != max_results_offset {
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="comment">// If strict is true, we expect to have written all results
+<a href=#169 id=169 data-nosnippet>169</a>        </span><span class="kw">return </span><span class="prelude-val">Ok</span>(Errno::Inval);
+<a href=#170 id=170 data-nosnippet>170</a>    }
+<a href=#171 id=171 data-nosnippet>171</a>
+<a href=#172 id=172 data-nosnippet>172</a>    <span class="prelude-val">Ok</span>(Errno::Success)
+<a href=#173 id=173 data-nosnippet>173</a>}</code></pre></div></section></main></body></html>

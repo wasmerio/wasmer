@@ -55,6 +55,11 @@
 <a href=#55 id=55 data-nosnippet>55</a><span class="kw">impl </span>VMExceptionRef {
 <a href=#56 id=56 data-nosnippet>56</a>    <span class="doccomment">/// Converts the `VMExternRef` into a `RawValue`.
 <a href=#57 id=57 data-nosnippet>57</a>    </span><span class="kw">pub fn </span>into_raw(<span class="self">self</span>) -&gt; RawValue {
-<a href=#58 id=58 data-nosnippet>58</a>        <span class="macro">todo!</span>()
-<a href=#59 id=59 data-nosnippet>59</a>    }
-<a href=#60 id=60 data-nosnippet>60</a>}</code></pre></div></section></main></body></html>
+<a href=#58 id=58 data-nosnippet>58</a>        <span class="kw">match </span><span class="self">self </span>{
+<a href=#59 id=59 data-nosnippet>59</a>            <span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#60 id=60 data-nosnippet>60</a>            </span><span class="self">Self</span>::Sys(s) =&gt; s.into_raw(),
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a>            <span class="kw">_ </span>=&gt; <span class="macro">unimplemented!</span>(<span class="string">"VMExceptionRef::into_raw is only implemented for the sys backend"</span>),
+<a href=#63 id=63 data-nosnippet>63</a>        }
+<a href=#64 id=64 data-nosnippet>64</a>    }
+<a href=#65 id=65 data-nosnippet>65</a>}</code></pre></div></section></main></body></html>
