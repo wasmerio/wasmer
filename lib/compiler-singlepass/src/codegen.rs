@@ -259,6 +259,12 @@ struct I2O1<R: Reg, S: Reg> {
     ret: Location<R, S>,
 }
 
+/// Type of native call we emit.
+enum NativeCallType {
+    IncludeVMCtxArgument,
+    Unreachable,
+}
+
 impl<'a, M: Machine> FuncGen<'a, M> {
     fn get_stack_offset(&self) -> usize {
         self.stack_offset.0
@@ -748,6 +754,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         cb: F,
         params: I,
         params_type: J,
+        call_type: NativeCallType,
     ) -> Result<(), CompileError> {
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
@@ -807,7 +814,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
             args.push(self.machine.get_param_location(
-                1 + i,
+                match call_type {
+                    NativeCallType::IncludeVMCtxArgument => 1,
+                    NativeCallType::Unreachable => 0,
+                } + i,
                 params_size[i],
                 &mut stack_offset,
                 calling_convention,
@@ -889,20 +899,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         }
 
-        // Put vmctx as the first parameter.
-        self.machine.move_location(
-            Size::S64,
-            Location::GPR(self.machine.get_vmctx_reg()),
-            self.machine
-                .get_simple_param_location(0, calling_convention),
-        )?; // vmctx
+        if matches!(call_type, NativeCallType::IncludeVMCtxArgument) {
+            // Put vmctx as the first parameter.
+            self.machine.move_location(
+                Size::S64,
+                Location::GPR(self.machine.get_vmctx_reg()),
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            )?; // vmctx
+        }
 
         if stack_padding > 0 {
             self.machine.adjust_stack(stack_padding as u32)?;
         }
         // release the GPR used for call
         self.machine.release_gpr(self.machine.get_grp_for_call());
+
+        let begin = self.machine.assembler_get_offset().0;
         cb(self)?;
+        if matches!(call_type, NativeCallType::Unreachable) {
+            let end = self.machine.assembler_get_offset().0;
+            self.machine.mark_address_range_with_trap_code(
+                TrapCode::UnreachableCodeReached,
+                begin,
+                end,
+            );
+        }
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
@@ -971,6 +993,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             |this| this.machine.emit_call_label(label),
             params,
             params_type,
+            NativeCallType::IncludeVMCtxArgument,
         )?;
         Ok(())
     }
@@ -2599,6 +2622,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&params)?;
@@ -2829,6 +2853,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&params)?;
@@ -3061,6 +3086,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, memory_index]
                     iter::once(Location::Imm32(memory_index.index() as u32)),
                     iter::once(WpType::I64),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 let ret = self.acquire_locations(
                     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
@@ -3117,6 +3143,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 self.release_locations_only_stack(&[dst, src, len])?;
             }
@@ -3140,6 +3167,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, data_index]
                     iter::once(Location::Imm32(data_index)),
                     iter::once(WpType::I64),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::MemoryCopy { src_mem, .. } => {
@@ -3192,6 +3220,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 self.release_locations_only_stack(&[dst_pos, src_pos, len])?;
             }
@@ -3239,6 +3268,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 self.release_locations_only_stack(&[dst, val, len])?;
             }
@@ -3274,6 +3304,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     iter::once(param_pages)
                         .chain(iter::once(Location::Imm32(memory_index.index() as u32))),
                     [WpType::I64, WpType::I64].iter().cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[param_pages])?;
@@ -3886,8 +3917,29 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::Unreachable => {
-                self.machine
-                    .emit_illegal_op(TrapCode::UnreachableCodeReached)?;
+                self.machine.move_location(
+                    Size::S64,
+                    Location::Memory(
+                        self.machine.get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_raise_trap_index())
+                            as i32,
+                    ),
+                    Location::GPR(self.machine.get_grp_for_call()),
+                )?;
+
+                self.emit_call_native(
+                    |this| {
+                        this.machine
+                            .emit_call_register(this.machine.get_grp_for_call())
+                    },
+                    // [trap_code]
+                    [Location::Imm32(TrapCode::UnreachableCodeReached as u32)]
+                        .iter()
+                        .cloned(),
+                    [WpType::I32].iter().cloned(),
+                    NativeCallType::Unreachable,
+                )?;
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
@@ -5984,6 +6036,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, func_index] -> funcref
                     iter::once(Location::Imm32(function_index as u32)),
                     iter::once(WpType::I64),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 let ret = self.acquire_locations(
@@ -6044,6 +6097,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32, WpType::I64, WpType::I64].iter().cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[index, value])?;
@@ -6080,6 +6134,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32, WpType::I64].iter().cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[index])?;
@@ -6124,6 +6179,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, table_index] -> i32
                     iter::once(Location::Imm32(table_index.index() as u32)),
                     iter::once(WpType::I32),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 let ret = self.acquire_locations(
@@ -6174,6 +6230,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .iter()
                     .cloned(),
                     [WpType::I64, WpType::I64, WpType::I64].iter().cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[init_value, delta])?;
@@ -6235,6 +6292,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[dest, src, len])?;
@@ -6269,6 +6327,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[dest, val, len])?;
@@ -6316,6 +6375,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
 
                 self.release_locations_only_stack(&[dest, src, len])?;
@@ -6342,6 +6402,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, elem_index]
                     [Location::Imm32(elem_index)].iter().cloned(),
                     [WpType::I32].iter().cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
             Operator::MemoryAtomicWait32 { ref memarg } => {
@@ -6393,6 +6454,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
                         .iter()
                         .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 self.release_locations_only_stack(&[dst, val, timeout])?;
                 let ret = self.acquire_locations(
@@ -6455,6 +6517,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 self.release_locations_only_stack(&[dst, val, timeout])?;
                 let ret = self.acquire_locations(
@@ -6509,6 +6572,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32, WpType::I32].iter().cloned(),
+                    NativeCallType::IncludeVMCtxArgument,
                 )?;
                 self.release_locations_only_stack(&[dst, cnt])?;
                 let ret = self.acquire_locations(
