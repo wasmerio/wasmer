@@ -6667,6 +6667,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut body = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
 
+        save_assembly_to_file("-module-dump.o", &body);
+
         Ok((
             CompiledFunction {
                 body: FunctionBody { body, unwind_info },
