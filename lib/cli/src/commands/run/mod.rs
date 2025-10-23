@@ -220,7 +220,8 @@ impl Run {
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
-        let monitoring_runtime = Arc::new(MonitoringRuntime::new(runtime, pb.clone()));
+        let monitoring_runtime =
+            Arc::new(MonitoringRuntime::new(runtime, pb.clone(), output.quiet));
         let runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime.runtime.clone();
         let monitoring_runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime;
 
@@ -294,8 +295,11 @@ impl Run {
                                         preferred_webc_version,
                                     )?;
 
-                                    let new_runtime =
-                                        Arc::new(MonitoringRuntime::new(new_runtime, pb.clone()));
+                                    let new_runtime = Arc::new(MonitoringRuntime::new(
+                                        new_runtime,
+                                        pb.clone(),
+                                        output.quiet,
+                                    ));
                                     return self.execute_webc(&pkg, new_runtime);
                                 }
                             }
@@ -989,13 +993,15 @@ fn get_exit_code(
 struct MonitoringRuntime<R> {
     runtime: Arc<R>,
     progress: ProgressBar,
+    quiet_mode: bool,
 }
 
 impl<R> MonitoringRuntime<R> {
-    fn new(runtime: R, progress: ProgressBar) -> Self {
+    fn new(runtime: R, progress: ProgressBar, quiet_mode: bool) -> Self {
         MonitoringRuntime {
             runtime: Arc::new(runtime),
             progress,
+            quiet_mode,
         }
     }
 }
@@ -1075,7 +1081,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
         let hash = *module.hash();
         let fut = self.runtime.load_hashed_module(module, engine);
-        Box::pin(compile_with_progress(fut, hash, None))
+        Box::pin(compile_with_progress(fut, hash, None, self.quiet_mode))
     }
 
     fn load_hashed_module_sync(
@@ -1088,6 +1094,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
             || self.runtime.load_hashed_module_sync(wasm, engine),
             &hash,
             None,
+            self.quiet_mode,
         )
     }
 
@@ -1101,6 +1108,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
             fut,
             *cmd.hash(),
             Some(cmd.name().to_owned()),
+            self.quiet_mode,
         ))
     }
 
@@ -1112,34 +1120,47 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
             || self.runtime.load_command_module_sync(cmd),
             cmd.hash(),
             Some(cmd.name()),
+            self.quiet_mode,
         )
     }
 }
 
-async fn compile_with_progress<'a, F, T>(fut: F, hash: ModuleHash, name: Option<String>) -> T
+async fn compile_with_progress<'a, F, T>(
+    fut: F,
+    hash: ModuleHash,
+    name: Option<String>,
+    quiet_mode: bool,
+) -> T
 where
     F: std::future::Future<Output = T> + Send + 'a,
     T: Send + 'static,
 {
-    let mut pb = new_progressbar_compile(&hash, name.as_deref());
+    let mut pb = new_progressbar_compile(&hash, name.as_deref(), quiet_mode);
     let res = fut.await;
     pb.finish_and_clear();
     res
 }
 
-fn compile_with_progress_sync<F, T>(f: F, hash: &ModuleHash, name: Option<&str>) -> T
+fn compile_with_progress_sync<F, T>(
+    f: F,
+    hash: &ModuleHash,
+    name: Option<&str>,
+    quiet_mode: bool,
+) -> T
 where
     F: FnOnce() -> T,
 {
-    let mut pb = new_progressbar_compile(hash, name);
+    let mut pb = new_progressbar_compile(hash, name, quiet_mode);
     let res = f();
     pb.finish_and_clear();
     res
 }
 
-fn new_progressbar_compile(hash: &ModuleHash, name: Option<&str>) -> ProgressBar {
+fn new_progressbar_compile(hash: &ModuleHash, name: Option<&str>, quiet_mode: bool) -> ProgressBar {
     // Only show a spinner if we're running in a TTY
-    if std::io::stderr().is_terminal() {
+    let hash = hash.to_string();
+    let hash = &hash[0..8];
+    if !quiet_mode && std::io::stderr().is_terminal() {
         let msg = if let Some(name) = name {
             format!("Compiling WebAssembly module for command '{name}' ({hash})...")
         } else {

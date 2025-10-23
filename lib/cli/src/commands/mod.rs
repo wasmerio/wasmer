@@ -277,6 +277,7 @@ impl WasmerCmd {
                 binfmt_args.push(format!("--mapdir={mount_path}:{mount_path}").into());
             }
             binfmt_args.push(format!("--cwd={current_dir}").into());
+            binfmt_args.push("--quiet".into());
             binfmt_args.push("--".into());
             binfmt_args.push(args_os.next().unwrap());
             args_os.next().unwrap();
