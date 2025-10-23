@@ -1002,7 +1002,7 @@ pub fn function_pointer(libcall: LibCall) -> usize {
         LibCall::EHPersonality2 => eh::wasmer_eh_personality2 as usize,
         LibCall::AllocException => wasmer_vm_alloc_exception as usize,
         LibCall::ReadExnRef => wasmer_vm_read_exnref as usize,
-        LibCall::NativeExceptionIntoExnRef => wasmer_vm_exception_into_exnref as usize,
+        LibCall::LibunwindExceptionIntoExnRef => wasmer_vm_exception_into_exnref as usize,
         LibCall::DebugUsize => wasmer_vm_dbg_usize as usize,
         LibCall::DebugStr => wasmer_vm_dbg_str as usize,
     }

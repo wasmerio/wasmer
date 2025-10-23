@@ -81,7 +81,7 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_throw" => LibCall::Throw,
     "wasmer_vm_alloc_exception" => LibCall::AllocException,
     "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
-    "wasmer_vm_exception_into_exnref" => LibCall::NativeExceptionIntoExnRef,
+    "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     "wasmer_eh_personality" => LibCall::EHPersonality,
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
     "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
@@ -137,7 +137,7 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_throw" => LibCall::Throw,
     "_wasmer_vm_alloc_exception" => LibCall::AllocException,
     "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
-    "_wasmer_vm_exception_into_exnref" => LibCall::NativeExceptionIntoExnRef,
+    "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
     // will generate things differently than "normal", wreaking havoc.
     //

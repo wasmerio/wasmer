@@ -144,7 +144,7 @@ pub enum LibCall {
     /// Get the values buffer pointer out of an exnref
     ReadExnRef,
     /// Given a caught native exception pointer, get the exnref and delete the exception itself
-    NativeExceptionIntoExnRef,
+    LibunwindExceptionIntoExnRef,
 
     /// The personality function
     EHPersonality,
@@ -208,7 +208,7 @@ impl LibCall {
             Self::EHPersonality2 => "wasmer_eh_personality2",
             Self::AllocException => "wasmer_vm_alloc_exception",
             Self::ReadExnRef => "wasmer_vm_read_exnref",
-            Self::NativeExceptionIntoExnRef => "wasmer_vm_exception_into_exnref",
+            Self::LibunwindExceptionIntoExnRef => "wasmer_vm_exception_into_exnref",
             Self::DebugUsize => "wasmer_vm_dbg_usize",
             Self::DebugStr => "wasmer_vm_dbg_str",
         }
