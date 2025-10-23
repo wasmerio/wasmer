@@ -3,143 +3,27 @@ use crate::{
     VMTable, VMTag,
 };
 use core::slice::Iter;
-use fnv::FnvHashMap;
 use std::{cell::UnsafeCell, fmt, marker::PhantomData, num::NonZeroUsize, ptr::NonNull};
 use wasmer_types::StoreId;
-
-/// Trait to represent a collection of objects that can live in a store.
-pub trait StoreObjectList<T> {
-    /// Gets the object at the given index.
-    fn get(&self, index: NonZeroUsize) -> &T;
-
-    /// Mutably gets the object at the given index.
-    fn get_mut(&mut self, index: NonZeroUsize) -> &mut T;
-
-    /// Adds an object to the list, returning its index.
-    fn append(&mut self, obj: T) -> NonZeroUsize;
-
-    /// Gets a pair of mutable references to two elements in the list.
-    /// Only supported for the Vec<T> implementation.
-    fn pair_mut(&mut self, a: NonZeroUsize, b: NonZeroUsize) -> Result<(&mut T, &mut T), ()>;
-
-    /// Deletes the given index from the list, if the operation
-    /// is supported by the specific implementation. Notably,
-    /// the implementation for Vec<T> does *not* support deletion
-    /// because deleting an element would mess up existing indices.
-    #[allow(dead_code)]
-    // FIXME: remove the #allow after we implement exception deallocation
-    fn try_delete(&mut self, index: NonZeroUsize) -> Result<Option<T>, ()>;
-}
-
-impl<T> StoreObjectList<T> for Vec<T> {
-    fn get(&self, index: NonZeroUsize) -> &T {
-        &self[index.get() - 1]
-    }
-
-    fn get_mut(&mut self, index: NonZeroUsize) -> &mut T {
-        &mut self[index.get() - 1]
-    }
-
-    fn append(&mut self, obj: T) -> NonZeroUsize {
-        let idx = self.len();
-        self.push(obj);
-        NonZeroUsize::new(idx + 1).unwrap()
-    }
-
-    fn pair_mut(&mut self, a: NonZeroUsize, b: NonZeroUsize) -> Result<(&mut T, &mut T), ()> {
-        if a == b {
-            panic!("attempted to get two mutable references to the same object");
-        }
-        if a.get() < b.get() {
-            let (low, high) = self.split_at_mut(b.get() - 1);
-            Ok((&mut low[a.get() - 1], &mut high[0]))
-        } else {
-            let (low, high) = self.split_at_mut(a.get() - 1);
-            Ok((&mut high[0], &mut low[b.get() - 1]))
-        }
-    }
-
-    fn try_delete(&mut self, _index: NonZeroUsize) -> Result<Option<T>, ()> {
-        Err(())
-    }
-}
-
-/// A collection of exceptions managed by a store. Exceptions need to be
-/// (de)allocated on the fly, so they can't use the same Vec<T> storage
-/// as other store objects.
-#[derive(Debug)]
-pub struct ExceptionCollection {
-    next_index: usize,
-    exceptions: FnvHashMap<NonZeroUsize, VMExceptionObj>,
-}
-
-impl Default for ExceptionCollection {
-    fn default() -> Self {
-        Self::new()
-    }
-}
-
-impl ExceptionCollection {
-    fn new() -> Self {
-        Self {
-            next_index: 1,
-            exceptions: FnvHashMap::default(),
-        }
-    }
-}
-
-impl StoreObjectList<VMExceptionObj> for ExceptionCollection {
-    fn get(&self, index: NonZeroUsize) -> &VMExceptionObj {
-        self.exceptions.get(&index).expect("invalid index")
-    }
-
-    fn get_mut(&mut self, index: NonZeroUsize) -> &mut VMExceptionObj {
-        self.exceptions.get_mut(&index).expect("invalid index")
-    }
-
-    fn append(&mut self, obj: VMExceptionObj) -> NonZeroUsize {
-        let idx = NonZeroUsize::new(self.next_index).unwrap();
-        self.next_index += 1;
-        self.exceptions.insert(idx, obj);
-        idx
-    }
-
-    fn pair_mut(
-        &mut self,
-        _a: NonZeroUsize,
-        _b: NonZeroUsize,
-    ) -> Result<(&mut VMExceptionObj, &mut VMExceptionObj), ()> {
-        Err(())
-    }
-
-    fn try_delete(&mut self, index: NonZeroUsize) -> Result<Option<VMExceptionObj>, ()> {
-        Ok(self.exceptions.remove(&index))
-    }
-}
 
 /// Trait to represent an object managed by a context. This is implemented on
 /// the VM types managed by the context.
 pub trait StoreObject: Sized {
-    /// The type of the list that holds instances of this object.
-    type List: StoreObjectList<Self>;
-
     /// List the objects in the store.
-    fn list(ctx: &StoreObjects) -> &Self::List;
+    fn list(ctx: &StoreObjects) -> &Vec<Self>;
 
     /// List the objects in the store, mutably.
-    fn list_mut(ctx: &mut StoreObjects) -> &mut Self::List;
+    fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self>;
 }
 
 macro_rules! impl_context_object {
-    ($($field:ident => $ty:ty => $list:ty,)*) => {
+    ($($field:ident => $ty:ty,)*) => {
         $(
             impl StoreObject for $ty {
-                type List = $list;
-
-                fn list(ctx: &StoreObjects) -> &Self::List {
+                fn list(ctx: &StoreObjects) -> &Vec<Self> {
                     &ctx.$field
                 }
-                fn list_mut(ctx: &mut StoreObjects) -> &mut Self::List {
+                fn list_mut(ctx: &mut StoreObjects) -> &mut Vec<Self> {
                     &mut ctx.$field
                 }
             }
@@ -148,15 +32,15 @@ macro_rules! impl_context_object {
 }
 
 impl_context_object! {
-    functions => VMFunction => Vec<VMFunction>,
-    tables => VMTable => Vec<VMTable>,
-    globals => VMGlobal => Vec<VMGlobal>,
-    instances => VMInstance => Vec<VMInstance>,
-    memories => VMMemory => Vec<VMMemory>,
-    extern_objs => VMExternObj => Vec<VMExternObj>,
-    exceptions => VMExceptionObj => ExceptionCollection,
-    tags => VMTag => Vec<VMTag>,
-    function_environments => VMFunctionEnvironment => Vec<VMFunctionEnvironment>,
+    functions => VMFunction,
+    tables => VMTable,
+    globals => VMGlobal,
+    instances => VMInstance,
+    memories => VMMemory,
+    extern_objs => VMExternObj,
+    exceptions => VMExceptionObj,
+    tags => VMTag,
+    function_environments => VMFunctionEnvironment,
 }
 
 /// Set of objects managed by a context.
@@ -169,7 +53,7 @@ pub struct StoreObjects {
     functions: Vec<VMFunction>,
     instances: Vec<VMInstance>,
     extern_objs: Vec<VMExternObj>,
-    exceptions: ExceptionCollection,
+    exceptions: Vec<VMExceptionObj>,
     tags: Vec<VMTag>,
     function_environments: Vec<VMFunctionEnvironment>,
 }
@@ -185,7 +69,7 @@ impl StoreObjects {
         functions: Vec<VMFunction>,
         instances: Vec<VMInstance>,
         extern_objs: Vec<VMExternObj>,
-        exceptions: ExceptionCollection,
+        exceptions: Vec<VMExceptionObj>,
         tags: Vec<VMTag>,
         function_environments: Vec<VMFunctionEnvironment>,
     ) -> Self {
@@ -215,16 +99,21 @@ impl StoreObjects {
 
     /// Returns a pair of mutable references from two handles.
     ///
-    /// Panics if both handles point to the same object. This operation
-    /// is not supported for VMExceptionObj.
+    /// Panics if both handles point to the same object.
     pub fn get_2_mut<T: StoreObject>(
         &mut self,
         a: InternalStoreHandle<T>,
         b: InternalStoreHandle<T>,
     ) -> (&mut T, &mut T) {
-        T::list_mut(self)
-            .pair_mut(a.idx, b.idx)
-            .expect("get_2_mut not supported for this type")
+        assert_ne!(a.index(), b.index());
+        let list = T::list_mut(self);
+        if a.index() < b.index() {
+            let (low, high) = list.split_at_mut(b.index());
+            (&mut low[a.index()], &mut high[0])
+        } else {
+            let (low, high) = list.split_at_mut(a.index());
+            (&mut high[0], &mut low[a.index()])
+        }
     }
 
     /// Return an immutable iterator over all globals
@@ -380,7 +269,9 @@ impl<T> Eq for InternalStoreHandle<T> {}
 impl<T: StoreObject> InternalStoreHandle<T> {
     /// Moves the given object into a context and returns a handle to it.
     pub fn new(ctx: &mut StoreObjects, val: T) -> Self {
-        let idx = T::list_mut(ctx).append(val);
+        let list = T::list_mut(ctx);
+        let idx = NonZeroUsize::new(list.len() + 1).unwrap();
+        list.push(val);
         Self {
             idx,
             marker: PhantomData,
@@ -389,12 +280,12 @@ impl<T: StoreObject> InternalStoreHandle<T> {
 
     /// Returns a reference to the object that this handle points to.
     pub fn get<'a>(&self, ctx: &'a StoreObjects) -> &'a T {
-        T::list(ctx).get(self.idx)
+        &T::list(ctx)[self.idx.get() - 1]
     }
 
     /// Returns a mutable reference to the object that this handle points to.
     pub fn get_mut<'a>(&self, ctx: &'a mut StoreObjects) -> &'a mut T {
-        T::list_mut(ctx).get_mut(self.idx)
+        &mut T::list_mut(ctx)[self.idx.get() - 1]
     }
 
     pub(crate) fn index(&self) -> usize {

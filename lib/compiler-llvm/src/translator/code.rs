@@ -13139,13 +13139,6 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     err!(self.builder.build_unconditional_branch(catch_end_block));
 
                     self.builder.position_at_end(catch_specific_block);
-                    // TODO: do we need to do this?
-                    // let vmctx_alloca = err!(self.build_or_get_vmctx_alloca());
-                    // let vmctx_ptr = err!(self.builder.build_load(
-                    //     self.intrinsics.ptr_ty,
-                    //     vmctx_alloca,
-                    //     "vmctx"
-                    // ));
                     let selector_value = err!(self.builder.build_call(
                         self.intrinsics.personality2,
                         &[self.ctx.basic().into(), uw_exc.into()],
