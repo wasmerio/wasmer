@@ -157,7 +157,7 @@ fn table_set() -> Result<(), String> {
         let v = v.unwrap();
 
         let v = if let Value::ExternRef(Some(ext)) = v {
-            ext.downcast::<u32>(&mut store)
+            ext.downcast::<u32>(&store)
         } else {
             return Err("table.get does not match `ExternRef(Some(..))`!".into());
         };
@@ -175,7 +175,7 @@ fn table_set() -> Result<(), String> {
         let v = v.unwrap();
 
         let v = if let Value::ExternRef(Some(ext)) = v {
-            ext.downcast::<u32>(&mut store)
+            ext.downcast::<u32>(&store)
         } else {
             return Err("table.get does not match `ExternRef(Some(..))`!".into());
         };
@@ -194,7 +194,7 @@ fn table_set() -> Result<(), String> {
         let v = v.unwrap();
 
         let v = if let Value::ExternRef(Some(ext)) = v {
-            ext.downcast::<u32>(&mut store)
+            ext.downcast::<u32>(&store)
         } else {
             return Err("table.get does not match `ExternRef(Some(..))`!".into());
         };
@@ -250,7 +250,7 @@ fn table_copy() -> Result<(), String> {
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
     let memory_type = MemoryType {
-        shared: if cfg!(feature = "wamr") { true } else { false },
+        shared: cfg!(feature = "wamr"),
         minimum: Pages(0),
         maximum: Some(Pages(10)),
     };

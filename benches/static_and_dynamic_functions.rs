@@ -50,31 +50,29 @@ pub fn run_basic_static_function(store: &mut Store, compiler_name: &str, c: &mut
     });
 
     let dyn_f_many: &Function = instance.exports.get("add20").unwrap();
-    let f_many: TypedFunction<
-        (
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-            i32,
-        ),
+    type TupleWithMany = (
         i32,
-    > = dyn_f_many.typed(store).unwrap();
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+        i32,
+    );
+    let f_many: TypedFunction<TupleWithMany, i32> = dyn_f_many.typed(store).unwrap();
     c.bench_function(
         &format!("basic static func with many args {compiler_name}"),
         |b| {
