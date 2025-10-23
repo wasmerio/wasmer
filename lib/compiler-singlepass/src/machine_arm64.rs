@@ -1723,6 +1723,20 @@ impl Machine for MachineARM64 {
         vec![]
     }
 
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
+        &[
+            GPR::X0,
+            GPR::X1,
+            GPR::X2,
+            GPR::X3,
+            GPR::X4,
+            GPR::X5,
+            GPR::X6,
+            GPR::X7,
+        ]
+    }
+
     // Get param location, MUST be called in order!
     fn get_param_location(
         &self,
@@ -1731,17 +1745,10 @@ impl Machine for MachineARM64 {
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
-            CallingConvention::AppleAarch64 => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+            CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
+                || {
                     let sz = 1
                         << match sz {
                             Size::S8 => 0,
@@ -1756,23 +1763,18 @@ impl Machine for MachineARM64 {
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += sz;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => {
+                if let Some(reg) = register_params.get(idx) {
+                    Location::GPR(*reg)
+                } else {
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += 8;
                     loc
                 }
-            },
+            }
         }
     }
     // Get call param location, MUST be called in order!
@@ -1783,17 +1785,10 @@ impl Machine for MachineARM64 {
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
-            CallingConvention::AppleAarch64 => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+            CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
+                || {
                     let sz = 1
                         << match sz {
                             Size::S8 => 0,
@@ -1808,23 +1803,17 @@ impl Machine for MachineARM64 {
                     let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
                     *stack_args += sz;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || {
                     let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
                     *stack_args += 8;
                     loc
-                }
-            },
+                },
+                |reg| Location::GPR(*reg),
+            ),
         }
     }
     // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
@@ -1833,20 +1822,16 @@ impl Machine for MachineARM64 {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        #[allow(clippy::match_single_binding)]
-        match calling_convention {
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => Location::Memory(GPR::X29, (16 * 2 + (idx - 8) * 8) as i32),
+        let register_params = self.get_param_registers(calling_convention);
+        register_params.get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::X29,
+                    (16 * 2 + (idx - register_params.len()) * 8) as i32,
+                )
             },
-        }
+            |reg| Location::GPR(*reg),
+        )
     }
     // move a location to another
     fn move_location(

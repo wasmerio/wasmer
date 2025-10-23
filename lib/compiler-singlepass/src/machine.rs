@@ -188,6 +188,8 @@ pub trait Machine {
         &self,
         calling_convention: CallingConvention,
     ) -> Vec<Location<Self::GPR, Self::SIMD>>;
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, calling_convention: CallingConvention) -> &'static [Self::GPR];
     /// Get param location (to build a call, using SP for stack args)
     fn get_param_location(
         &self,
