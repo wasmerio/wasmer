@@ -5,7 +5,7 @@ use std::{sync::Arc, time::Duration};
 use anyhow::Error;
 use futures::future::BoxFuture;
 use indicatif::ProgressBar;
-use is_terminal::IsTerminal as _;
+use std::io::IsTerminal as _;
 use wasmer::{Engine, Module};
 use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
@@ -193,8 +193,6 @@ where
     F: std::future::Future<Output = T> + Send + 'a,
     T: Send + 'static,
 {
-    
-
     if quiet_mode {
         fut.await
     } else {

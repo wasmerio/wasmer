@@ -8,7 +8,7 @@ use crate::{
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::{Confirm, theme::ColorfulTheme};
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::{
     path::{Path, PathBuf},
     str::FromStr,

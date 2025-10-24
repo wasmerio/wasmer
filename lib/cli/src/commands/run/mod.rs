@@ -305,13 +305,12 @@ impl Run {
                                     preferred_webc_version,
                                 )?;
 
-                                    let new_runtime = Arc::new(MonitoringRuntime::new(
-                                        new_runtime,
-                                        pb.clone(),
-                                        output.is_quiet_or_no_tty(),
-                                    ));
-                                    return self.execute_webc(&pkg, new_runtime);
-                                }
+                                let new_runtime = Arc::new(MonitoringRuntime::new(
+                                    new_runtime,
+                                    pb.clone(),
+                                    output.is_quiet_or_no_tty(),
+                                ));
+                                return self.execute_webc(&pkg, new_runtime);
                             }
                         }
                     }

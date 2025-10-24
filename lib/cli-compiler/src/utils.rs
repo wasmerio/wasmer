@@ -1,6 +1,6 @@
 //! Utility functions for the WebAssembly module
 use anyhow::{Context, Result, bail};
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 use std::{env, path::Path};
 
