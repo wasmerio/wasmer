@@ -8,14 +8,14 @@ use std::{
 use anyhow::{Context as _, Error, bail};
 use indicatif::ProgressBar;
 use wasmer::Module;
+#[cfg(feature = "compiler")]
+use wasmer_compiler::ArtifactBuild;
 use wasmer_types::ModuleHash;
 use wasmer_wasix::{
     Runtime,
     bin_factory::BinaryPackage,
     runtime::{module_cache::HashedModuleData, task_manager::VirtualTaskManagerExt as _},
 };
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ArtifactBuild;
 
 /// We've been given the path for a file... What does it contain and how should
 /// that be run?

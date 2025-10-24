@@ -4,7 +4,7 @@ use crate::{
 };
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::WasmerClient;
 
