@@ -1,5 +1,5 @@
 use crate::LinkError;
-use wasmer_vm::Trap;
+use wasmer_vm::{Trap, VMExceptionRef};
 
 impl From<wasmer_compiler::LinkError> for LinkError {
     fn from(other: wasmer_compiler::LinkError) -> Self {

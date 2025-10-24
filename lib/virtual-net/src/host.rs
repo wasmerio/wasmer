@@ -106,6 +106,7 @@ impl VirtualNetworking for LocalNetworking {
         reuse_port: bool,
         reuse_addr: bool,
     ) -> Result<Box<dyn VirtualUdpSocket + Sync>> {
+        #[cfg(not(windows))]
         use socket2::{Domain, Socket, Type};
 
         if let Some(ruleset) = self.ruleset.as_ref() {

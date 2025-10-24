@@ -1,38 +1,11 @@
 // Part of the logic, here, is borrowed as-is from rust's stdlib.
 
+use crate::{InternalStoreHandle, VMContext, VMExceptionObj};
+
 mod dwarf;
 
 cfg_if::cfg_if! {
     if #[cfg(any(target_env = "msvc", target_family = "wasm"))] {
-        // We have yet to figure this out.
-        #[repr(C)]
-        pub struct UwExceptionWrapper {
-            pub _uwe: (),
-            pub cause: Box<dyn std::any::Any + Send>,
-        }
-
-        impl UwExceptionWrapper {
-            pub fn new(tag: u64, data_ptr: usize, data_size: u64) -> Self {
-                Self {
-                    _uwe: (),
-                    cause: Box::new(WasmerException {
-                        tag,
-                        data_ptr,
-                        data_size,
-                    }),
-                }
-            }
-        }
-
-        #[repr(C)]
-        #[derive(Debug, thiserror::Error, Clone)]
-        #[error("Uncaught exception in wasm code!")]
-        pub struct WasmerException {
-            pub tag: u64,
-            pub data_ptr: usize,
-            pub data_size: u64,
-        }
-
         pub fn wasmer_eh_personality() {
             panic!()
         }
@@ -41,20 +14,17 @@ cfg_if::cfg_if! {
             panic!()
         }
 
-        pub unsafe fn throw(
-            _tag: u32,
-            _vmctx: *mut crate::VMContext,
-            _data_ptr: usize,
-            _data_size: u64,
-        ) -> ! {
+        pub fn read_exnref(_exception: *mut std::ffi::c_void) -> u32 {
             panic!()
         }
 
-        pub fn rethrow(_exc: *mut UwExceptionWrapper) -> ! {
+        pub fn throw(_ctx: &crate::StoreObjects, _exnref: u32) -> ! {
             panic!()
         }
 
-
+        pub fn delete_exception(_exception: *mut std::ffi::c_void) {
+            panic!()
+        }
     } else if #[cfg(any(
         all(target_family = "windows", target_env = "gnu"),
         target_family = "unix",
@@ -71,4 +41,11 @@ cfg_if::cfg_if! {
         // - nvptx64-nvidia-cuda
         // - arch=avr
     }
+}
+
+pub(crate) fn exn_obj_from_exnref(vmctx: *mut VMContext, exnref: u32) -> *mut VMExceptionObj {
+    let instance = unsafe { (*vmctx).instance_mut() };
+    let exnref = InternalStoreHandle::<VMExceptionObj>::from_index(exnref as usize).unwrap();
+    let exn = exnref.get_mut(instance.context_mut());
+    exn as *mut VMExceptionObj
 }

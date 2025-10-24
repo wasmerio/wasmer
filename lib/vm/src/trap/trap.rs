@@ -3,6 +3,8 @@ use std::error::Error;
 use std::fmt;
 use wasmer_types::TrapCode;
 
+use crate::{StoreObjects, VMExceptionRef};
+
 /// Stores trace message with backtrace.
 #[derive(Debug)]
 pub enum Trap {
@@ -36,6 +38,15 @@ pub enum Trap {
     /// Note: this trap is nondeterministic, since it depends on the host system.
     OOM {
         /// Native stack backtrace at the time the OOM occurred
+        backtrace: Backtrace,
+    },
+
+    /// A WASM exception was thrown but not caught.
+    UncaughtException {
+        /// The exception reference of the uncaught exception.
+        exnref: VMExceptionRef,
+        /// Native stack backtrace at the time the exception was thrown.
+        /// This is a clone of the backtrace stored in the exception itself.
         backtrace: Backtrace,
     },
 }
@@ -87,6 +98,14 @@ impl Trap {
         Self::OOM { backtrace }
     }
 
+    /// Construct a new UncaughtException trap with the given exception reference.
+    pub fn uncaught_exception(exnref: VMExceptionRef, ctx: &StoreObjects) -> Self {
+        Self::UncaughtException {
+            backtrace: exnref.0.get(ctx).backtrace().clone(),
+            exnref,
+        }
+    }
+
     /// Attempts to downcast the `Trap` to a concrete type.
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match self {
@@ -112,6 +131,22 @@ impl Trap {
             _ => false,
         }
     }
+
+    /// Returns true if the trap is an exception
+    pub fn is_exception(&self) -> bool {
+        matches!(self, Self::UncaughtException { .. })
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        match self {
+            // Self::UncaughtException { exnref, .. } => Some(Exception::from_vm_exceptionref(
+            //     crate::vm::VMExceptionRef::Sys(exnref.clone()),
+            // )),
+            Self::UncaughtException { exnref, .. } => Some(exnref.clone()),
+            _ => None,
+        }
+    }
 }
 
 impl std::error::Error for Trap {
@@ -130,6 +165,7 @@ impl fmt::Display for Trap {
             Self::Lib { .. } => write!(f, "lib"),
             Self::Wasm { .. } => write!(f, "wasm"),
             Self::OOM { .. } => write!(f, "Wasmer VM out of memory"),
+            Self::UncaughtException { .. } => write!(f, "Uncaught wasm exception"),
         }
     }
 }

@@ -3,7 +3,10 @@ use std::{
     ffi::{CStr, c_char},
 };
 
-use crate::{AsStoreMut, v8::bindings::*};
+use crate::{
+    AsStoreMut,
+    v8::{bindings::*, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -51,6 +54,16 @@ impl Trap {
             InnerTrap::User(err) => err.is::<T>(),
             _ => false,
         }
+    }
+
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
     }
 
     #[allow(clippy::unnecessary_mut_passed)]
