@@ -1,6 +1,6 @@
 //! Logging functions for the debug feature.
 
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 

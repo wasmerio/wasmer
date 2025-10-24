@@ -13,8 +13,8 @@ use colored::Colorize;
 use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use futures::stream::TryStreamExt;
 use indexmap::IndexMap;
-use is_terminal::IsTerminal;
 use path_clean::PathClean;
+use std::io::IsTerminal as _;
 use wasmer_backend_api::{
     WasmerClient,
     types::{AppTemplate, TemplateLanguage},

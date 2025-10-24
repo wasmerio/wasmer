@@ -6,7 +6,7 @@ use crate::{
     utils::render::{ItemFormat, ListFormat},
 };
 use dialoguer::theme::ColorfulTheme;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::PathBuf;
 
 /// Reveal the value of an existing app secret.
