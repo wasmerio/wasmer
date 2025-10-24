@@ -2740,7 +2740,7 @@ impl Machine for MachineRiscv {
                     self.location_to_reg(sz_src, src, &mut temps, ImmType::None, true, None)?;
                 let dest =
                     self.location_to_reg(sz_dst, dst, &mut temps, ImmType::None, false, None)?;
-                self.assembler.emit_extend(sz_src, true, src, dst)?;
+                self.assembler.emit_extend(sz_src, true, src, dest)?;
                 if dst != dest {
                     self.move_location(sz_dst, dest, dst)?;
                 }
