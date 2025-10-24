@@ -14,6 +14,7 @@
 //!
 //! Ready?
 
+use std::mem;
 use wasmer::{Bytes, Instance, Module, Pages, Store, TypedFunction, imports, wat2wasm};
 
 // this example is a work in progress:
@@ -70,9 +71,11 @@ fn main() -> anyhow::Result<()> {
     let mem_size: TypedFunction<(), i32> = instance
         .exports
         .get_typed_function(&mut store, "mem_size")?;
-    let _get_at: TypedFunction<i32, i32> =
+    #[cfg(not(feature = "wamr"))]
+    let get_at: TypedFunction<i32, i32> =
         instance.exports.get_typed_function(&mut store, "get_at")?;
-    let _set_at: TypedFunction<(i32, i32), ()> =
+    #[cfg(not(feature = "wamr"))]
+    let set_at: TypedFunction<(i32, i32), ()> =
         instance.exports.get_typed_function(&mut store, "set_at")?;
     let memory = instance.exports.get_memory("memory")?;
 
