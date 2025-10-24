@@ -1,6 +1,9 @@
 #![allow(missing_docs, unused)]
 
 mod capabilities;
+mod package_source;
+mod runtime;
+mod target;
 mod wasi;
 
 use std::{
@@ -35,7 +38,7 @@ use wasmer_types::{Features, target::Target};
 
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ArtifactBuild;
-use wasmer_config::package::PackageSource as PackageSpecifier;
+use wasmer_config::package::PackageSource;
 use wasmer_package::utils::from_disk;
 use wasmer_types::ModuleHash;
 
@@ -67,6 +70,10 @@ use crate::{
     error::PrettyError, logging::Output,
 };
 
+use self::{
+    package_source::CliPackageSource, runtime::MonitoringRuntime, target::ExecutableTarget,
+};
+
 const TICK: Duration = Duration::from_millis(250);
 
 /// The unstable `wasmer run` subcommand.
@@ -93,8 +100,8 @@ pub struct Run {
     #[clap(name = "COREDUMP_PATH", long)]
     coredump_on_trap: Option<PathBuf>,
     /// The file, URL, or package to run.
-    #[clap(value_parser = PackageSource::infer)]
-    input: PackageSource,
+    #[clap(value_parser = CliPackageSource::infer)]
+    input: CliPackageSource,
     /// Command-line arguments passed to the package
     args: Vec<String>,
     /// Hashing algorithm to be used for module hash
@@ -139,7 +146,7 @@ impl Run {
 
         // Try to detect WebAssembly features before selecting a backend
         tracing::info!("Input source: {:?}", self.input);
-        if let PackageSource::File(path) = &self.input {
+        if let CliPackageSource::File(path) = &self.input {
             tracing::info!("Input file path: {}", path.display());
 
             // Try to read and detect any file that exists, regardless of extension
@@ -186,7 +193,7 @@ impl Run {
             }
             None => {
                 // No WebAssembly file available for analysis, check if we have a webc package
-                if let PackageSource::Package(pkg_source) = &self.input {
+                if let CliPackageSource::Package(pkg_source) = &self.input {
                     tracing::info!("Checking package for WebAssembly features: {}", pkg_source);
                     self.rt.get_engine(&Target::default())?
                 } else {
@@ -379,7 +386,8 @@ impl Run {
         let mut dependencies = Vec::new();
 
         for name in &self.wasi.uses {
-            let specifier = PackageSpecifier::from_str(name)
+            let specifier = name
+                .parse::<PackageSource>()
                 .with_context(|| format!("Unable to parse \"{name}\" as a package specifier"))?;
             let pkg = {
                 let specifier = specifier.clone();
@@ -669,205 +677,6 @@ fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {
     Ok(value)
 }
 
-/// The input that was passed in via the command-line.
-#[derive(Debug, Clone, PartialEq)]
-enum PackageSource {
-    /// A file on disk (`*.wasm`, `*.webc`, etc.).
-    File(PathBuf),
-    /// A directory containing a `wasmer.toml` file
-    Dir(PathBuf),
-    /// A package to be downloaded (a URL, package name, etc.)
-    Package(PackageSpecifier),
-}
-
-impl PackageSource {
-    fn infer(s: &str) -> Result<PackageSource, Error> {
-        let path = Path::new(s);
-        if path.is_file() {
-            return Ok(PackageSource::File(path.to_path_buf()));
-        } else if path.is_dir() {
-            return Ok(PackageSource::Dir(path.to_path_buf()));
-        }
-
-        if let Ok(pkg) = PackageSpecifier::from_str(s) {
-            return Ok(PackageSource::Package(pkg));
-        }
-
-        Err(anyhow::anyhow!(
-            "Unable to resolve \"{s}\" as a URL, package name, or file on disk"
-        ))
-    }
-
-    /// Try to resolve the [`PackageSource`] to an executable artifact.
-    ///
-    /// This will try to automatically download and cache any resources from the
-    /// internet.
-    #[tracing::instrument(level = "debug", skip_all)]
-    fn resolve_target(
-        &self,
-        rt: &Arc<dyn Runtime + Send + Sync>,
-        pb: &ProgressBar,
-    ) -> Result<ExecutableTarget, Error> {
-        match self {
-            PackageSource::File(path) => ExecutableTarget::from_file(path, rt, pb),
-            PackageSource::Dir(d) => ExecutableTarget::from_dir(d, rt, pb),
-            PackageSource::Package(pkg) => {
-                pb.set_message("Loading from the registry");
-                let inner_pck = pkg.clone();
-                let inner_rt = rt.clone();
-                let pkg = rt.task_manager().spawn_and_block_on(async move {
-                    BinaryPackage::from_registry(&inner_pck, inner_rt.as_ref()).await
-                })??;
-                Ok(ExecutableTarget::Package(Box::new(pkg)))
-            }
-        }
-    }
-}
-
-impl Display for PackageSource {
-    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self {
-            PackageSource::File(path) | PackageSource::Dir(path) => write!(f, "{}", path.display()),
-            PackageSource::Package(p) => write!(f, "{p}"),
-        }
-    }
-}
-
-/// We've been given the path for a file... What does it contain and how should
-/// that be run?
-#[derive(Debug, Clone)]
-enum TargetOnDisk {
-    WebAssemblyBinary,
-    Wat,
-    LocalWebc,
-    Artifact,
-}
-
-impl TargetOnDisk {
-    fn from_file(path: &Path) -> Result<TargetOnDisk, Error> {
-        // Normally the first couple hundred bytes is enough to figure
-        // out what type of file this is.
-        let mut buffer = [0_u8; 512];
-
-        let mut f = File::open(path)
-            .with_context(|| format!("Unable to open \"{}\" for reading", path.display()))?;
-        let bytes_read = f.read(&mut buffer)?;
-
-        let leading_bytes = &buffer[..bytes_read];
-
-        if wasmer::is_wasm(leading_bytes) {
-            return Ok(TargetOnDisk::WebAssemblyBinary);
-        }
-
-        if webc::detect(leading_bytes).is_ok() {
-            return Ok(TargetOnDisk::LocalWebc);
-        }
-
-        #[cfg(feature = "compiler")]
-        if ArtifactBuild::is_deserializable(leading_bytes) {
-            return Ok(TargetOnDisk::Artifact);
-        }
-
-        // If we can't figure out the file type based on its content, fall back
-        // to checking the extension.
-
-        match path.extension().and_then(|s| s.to_str()) {
-            Some("wat") => Ok(TargetOnDisk::Wat),
-            Some("wasm") => Ok(TargetOnDisk::WebAssemblyBinary),
-            Some("webc") => Ok(TargetOnDisk::LocalWebc),
-            Some("wasmu") => Ok(TargetOnDisk::WebAssemblyBinary),
-            _ => bail!("Unable to determine how to execute \"{}\"", path.display()),
-        }
-    }
-}
-
-#[derive(Debug, Clone)]
-#[allow(clippy::large_enum_variant)]
-enum ExecutableTarget {
-    WebAssembly {
-        module: Module,
-        module_hash: ModuleHash,
-        path: PathBuf,
-    },
-    Package(Box<BinaryPackage>),
-}
-
-impl ExecutableTarget {
-    /// Try to load a Wasmer package from a directory containing a `wasmer.toml`
-    /// file.
-    #[tracing::instrument(level = "debug", skip_all)]
-    fn from_dir(
-        dir: &Path,
-        runtime: &Arc<dyn Runtime + Send + Sync>,
-        pb: &ProgressBar,
-    ) -> Result<Self, Error> {
-        pb.set_message(format!("Loading \"{}\" into memory", dir.display()));
-        pb.set_message("Resolving dependencies");
-        let inner_runtime = runtime.clone();
-        let pkg = runtime.task_manager().spawn_and_block_on({
-            let path = dir.to_path_buf();
-
-            async move { BinaryPackage::from_dir(&path, inner_runtime.as_ref()).await }
-        })??;
-
-        Ok(ExecutableTarget::Package(Box::new(pkg)))
-    }
-
-    /// Try to load a file into something that can be used to run it.
-    #[tracing::instrument(level = "debug", skip_all)]
-    fn from_file(
-        path: &Path,
-        runtime: &Arc<dyn Runtime + Send + Sync>,
-        pb: &ProgressBar,
-    ) -> Result<Self, Error> {
-        pb.set_message(format!("Loading from \"{}\"", path.display()));
-
-        match TargetOnDisk::from_file(path)? {
-            TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat => {
-                let wasm = std::fs::read(path)?;
-                let module_data = HashedModuleData::new(wasm);
-                let module_hash = *module_data.hash();
-
-                pb.set_message("Compiling to WebAssembly");
-                let module = runtime
-                    .load_hashed_module_sync(module_data, None)
-                    .with_context(|| format!("Unable to compile \"{}\"", path.display()))?;
-
-                Ok(ExecutableTarget::WebAssembly {
-                    module,
-                    module_hash,
-                    path: path.to_path_buf(),
-                })
-            }
-            TargetOnDisk::Artifact => {
-                let engine = runtime.engine();
-                pb.set_message("Deserializing pre-compiled WebAssembly module");
-                let module = unsafe { Module::deserialize_from_file(&engine, path)? };
-
-                let module_hash = module.info().hash.ok_or_else(|| {
-                    anyhow::Error::msg("module hash is not present in the artifact")
-                })?;
-
-                Ok(ExecutableTarget::WebAssembly {
-                    module,
-                    module_hash,
-                    path: path.to_path_buf(),
-                })
-            }
-            TargetOnDisk::LocalWebc => {
-                let container = from_disk(path)?;
-                pb.set_message("Resolving dependencies");
-
-                let inner_runtime = runtime.clone();
-                let pkg = runtime.task_manager().spawn_and_block_on(async move {
-                    BinaryPackage::from_webc(&container, inner_runtime.as_ref()).await
-                })??;
-                Ok(ExecutableTarget::Package(Box::new(pkg)))
-            }
-        }
-    }
-}
-
 #[cfg(feature = "coredump")]
 fn generate_coredump(err: &Error, source_name: String, coredump_path: &Path) -> Result<(), Error> {
     let err: &wasmer::RuntimeError = match err.downcast_ref() {
@@ -988,236 +797,4 @@ fn get_exit_code(
     }
 
     None
-}
-
-#[derive(Debug)]
-struct MonitoringRuntime<R> {
-    runtime: Arc<R>,
-    progress: ProgressBar,
-    quiet_mode: bool,
-}
-
-impl<R> MonitoringRuntime<R> {
-    fn new(runtime: R, progress: ProgressBar, quiet_mode: bool) -> Self {
-        MonitoringRuntime {
-            runtime: Arc::new(runtime),
-            progress,
-            quiet_mode,
-        }
-    }
-}
-
-impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for MonitoringRuntime<R> {
-    fn networking(&self) -> &virtual_net::DynVirtualNetworking {
-        self.runtime.networking()
-    }
-
-    fn task_manager(&self) -> &Arc<dyn wasmer_wasix::VirtualTaskManager> {
-        self.runtime.task_manager()
-    }
-
-    fn package_loader(
-        &self,
-    ) -> Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync> {
-        let inner = self.runtime.package_loader();
-        Arc::new(MonitoringPackageLoader {
-            inner,
-            progress: self.progress.clone(),
-        })
-    }
-
-    fn module_cache(
-        &self,
-    ) -> Arc<dyn wasmer_wasix::runtime::module_cache::ModuleCache + Send + Sync> {
-        self.runtime.module_cache()
-    }
-
-    fn source(&self) -> Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync> {
-        let inner = self.runtime.source();
-        Arc::new(MonitoringSource {
-            inner,
-            progress: self.progress.clone(),
-        })
-    }
-
-    fn engine(&self) -> wasmer::Engine {
-        self.runtime.engine()
-    }
-
-    fn new_store(&self) -> wasmer::Store {
-        self.runtime.new_store()
-    }
-
-    fn http_client(&self) -> Option<&wasmer_wasix::http::DynHttpClient> {
-        self.runtime.http_client()
-    }
-
-    fn tty(&self) -> Option<&(dyn wasmer_wasix::os::TtyBridge + Send + Sync)> {
-        self.runtime.tty()
-    }
-
-    #[cfg(feature = "journal")]
-    fn read_only_journals<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynReadableJournal>> + 'a> {
-        self.runtime.read_only_journals()
-    }
-
-    #[cfg(feature = "journal")]
-    fn writable_journals<'a>(
-        &'a self,
-    ) -> Box<dyn Iterator<Item = Arc<wasmer_wasix::journal::DynJournal>> + 'a> {
-        self.runtime.writable_journals()
-    }
-
-    #[cfg(feature = "journal")]
-    fn active_journal(&self) -> Option<&'_ wasmer_wasix::journal::DynJournal> {
-        self.runtime.active_journal()
-    }
-
-    fn load_hashed_module(
-        &self,
-        module: HashedModuleData,
-        engine: Option<&Engine>,
-    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let hash = *module.hash();
-        let fut = self.runtime.load_hashed_module(module, engine);
-        Box::pin(compile_with_progress(fut, hash, None, self.quiet_mode))
-    }
-
-    fn load_hashed_module_sync(
-        &self,
-        wasm: HashedModuleData,
-        engine: Option<&Engine>,
-    ) -> Result<Module, wasmer_wasix::SpawnError> {
-        let hash = *wasm.hash();
-        compile_with_progress_sync(
-            || self.runtime.load_hashed_module_sync(wasm, engine),
-            &hash,
-            None,
-            self.quiet_mode,
-        )
-    }
-
-    fn load_command_module(
-        &self,
-        cmd: &BinaryPackageCommand,
-    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let fut = self.runtime.load_command_module(cmd);
-
-        Box::pin(compile_with_progress(
-            fut,
-            *cmd.hash(),
-            Some(cmd.name().to_owned()),
-            self.quiet_mode,
-        ))
-    }
-
-    fn load_command_module_sync(
-        &self,
-        cmd: &wasmer_wasix::bin_factory::BinaryPackageCommand,
-    ) -> Result<Module, wasmer_wasix::SpawnError> {
-        compile_with_progress_sync(
-            || self.runtime.load_command_module_sync(cmd),
-            cmd.hash(),
-            Some(cmd.name()),
-            self.quiet_mode,
-        )
-    }
-}
-
-async fn compile_with_progress<'a, F, T>(
-    fut: F,
-    hash: ModuleHash,
-    name: Option<String>,
-    quiet_mode: bool,
-) -> T
-where
-    F: std::future::Future<Output = T> + Send + 'a,
-    T: Send + 'static,
-{
-    let mut pb = new_progressbar_compile(&hash, name.as_deref(), quiet_mode);
-    let res = fut.await;
-    pb.finish_and_clear();
-    res
-}
-
-fn compile_with_progress_sync<F, T>(
-    f: F,
-    hash: &ModuleHash,
-    name: Option<&str>,
-    quiet_mode: bool,
-) -> T
-where
-    F: FnOnce() -> T,
-{
-    let mut pb = new_progressbar_compile(hash, name, quiet_mode);
-    let res = f();
-    pb.finish_and_clear();
-    res
-}
-
-fn new_progressbar_compile(hash: &ModuleHash, name: Option<&str>, quiet_mode: bool) -> ProgressBar {
-    // Only show a spinner if we're running in a TTY
-    let hash = hash.to_string();
-    let hash = &hash[0..8];
-    if !quiet_mode && std::io::stderr().is_terminal() {
-        let msg = if let Some(name) = name {
-            format!("Compiling WebAssembly module for command '{name}' ({hash})...")
-        } else {
-            format!("Compiling WebAssembly module {hash}...")
-        };
-        let pb = ProgressBar::new_spinner().with_message(msg);
-        pb.enable_steady_tick(Duration::from_millis(100));
-        pb
-    } else {
-        ProgressBar::hidden()
-    }
-}
-
-#[derive(Debug)]
-struct MonitoringSource {
-    inner: Arc<dyn wasmer_wasix::runtime::resolver::Source + Send + Sync>,
-    progress: ProgressBar,
-}
-
-#[async_trait::async_trait]
-impl wasmer_wasix::runtime::resolver::Source for MonitoringSource {
-    async fn query(
-        &self,
-        package: &PackageSpecifier,
-    ) -> Result<Vec<wasmer_wasix::runtime::resolver::PackageSummary>, QueryError> {
-        self.progress.set_message(format!("Looking up {package}"));
-        self.inner.query(package).await
-    }
-}
-
-#[derive(Debug)]
-struct MonitoringPackageLoader {
-    inner: Arc<dyn wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync>,
-    progress: ProgressBar,
-}
-
-#[async_trait::async_trait]
-impl wasmer_wasix::runtime::package_loader::PackageLoader for MonitoringPackageLoader {
-    async fn load(
-        &self,
-        summary: &wasmer_wasix::runtime::resolver::PackageSummary,
-    ) -> Result<Container, Error> {
-        let pkg_id = summary.package_id();
-        self.progress.set_message(format!("Downloading {pkg_id}"));
-
-        self.inner.load(summary).await
-    }
-
-    async fn load_package_tree(
-        &self,
-        root: &Container,
-        resolution: &wasmer_wasix::runtime::resolver::Resolution,
-        root_is_local_dir: bool,
-    ) -> Result<BinaryPackage, Error> {
-        self.inner
-            .load_package_tree(root, resolution, root_is_local_dir)
-            .await
-    }
 }
