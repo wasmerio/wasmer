@@ -1,8 +1,8 @@
 //! Provides CLI-specific Wasix components.
 
-use anyhow::Error;
 use std::{sync::Arc, time::Duration};
 
+use anyhow::Error;
 use futures::future::BoxFuture;
 use indicatif::ProgressBar;
 use is_terminal::IsTerminal as _;
@@ -113,9 +113,19 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         module: HashedModuleData,
         engine: Option<&Engine>,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let hash = *module.hash();
-        let fut = self.runtime.load_hashed_module(module, engine);
-        Box::pin(compile_with_progress(fut, hash, None, self.quiet_mode))
+        if self.quiet_mode {
+            Box::pin(self.runtime.load_hashed_module(module, engine))
+        } else {
+            let hash = *module.hash();
+            let fut = self.runtime.load_hashed_module(module, engine);
+            Box::pin(compile_with_progress(
+                &self.progress,
+                fut,
+                hash,
+                None,
+                self.quiet_mode,
+            ))
+        }
     }
 
     fn load_hashed_module_sync(
@@ -123,43 +133,57 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         wasm: HashedModuleData,
         engine: Option<&Engine>,
     ) -> Result<Module, wasmer_wasix::SpawnError> {
-        let hash = *wasm.hash();
-        compile_with_progress_sync(
-            || self.runtime.load_hashed_module_sync(wasm, engine),
-            &hash,
-            None,
-            self.quiet_mode,
-        )
+        if self.quiet_mode {
+            self.runtime.load_hashed_module_sync(wasm, engine)
+        } else {
+            let hash = *wasm.hash();
+            compile_with_progress_sync(
+                &self.progress,
+                move || self.runtime.load_hashed_module_sync(wasm, engine),
+                &hash,
+                None,
+            )
+        }
     }
 
     fn load_command_module(
         &self,
         cmd: &BinaryPackageCommand,
     ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        let fut = self.runtime.load_command_module(cmd);
+        if self.quiet_mode {
+            self.runtime.load_command_module(cmd)
+        } else {
+            let fut = self.runtime.load_command_module(cmd);
 
-        Box::pin(compile_with_progress(
-            fut,
-            *cmd.hash(),
-            Some(cmd.name().to_owned()),
-            self.quiet_mode,
-        ))
+            Box::pin(compile_with_progress(
+                &self.progress,
+                fut,
+                *cmd.hash(),
+                Some(cmd.name().to_owned()),
+                self.quiet_mode,
+            ))
+        }
     }
 
     fn load_command_module_sync(
         &self,
         cmd: &wasmer_wasix::bin_factory::BinaryPackageCommand,
     ) -> Result<Module, wasmer_wasix::SpawnError> {
-        compile_with_progress_sync(
-            || self.runtime.load_command_module_sync(cmd),
-            cmd.hash(),
-            Some(cmd.name()),
-            self.quiet_mode,
-        )
+        if self.quiet_mode {
+            self.runtime.load_command_module_sync(cmd)
+        } else {
+            compile_with_progress_sync(
+                &self.progress,
+                || self.runtime.load_command_module_sync(cmd),
+                cmd.hash(),
+                Some(cmd.name()),
+            )
+        }
     }
 }
 
 async fn compile_with_progress<'a, F, T>(
+    bar: &ProgressBar,
     fut: F,
     hash: ModuleHash,
     name: Option<String>,
@@ -169,42 +193,55 @@ where
     F: std::future::Future<Output = T> + Send + 'a,
     T: Send + 'static,
 {
-    let mut pb = new_progressbar_compile(&hash, name.as_deref(), quiet_mode);
-    let res = fut.await;
-    pb.finish_and_clear();
-    res
+    
+
+    if quiet_mode {
+        fut.await
+    } else {
+        let should_clear = bar.is_finished() || bar.is_hidden();
+        show_compile_progress(bar, &hash, name.as_deref());
+        let res = fut.await;
+        if should_clear {
+            bar.finish_and_clear();
+        }
+
+        res
+    }
 }
 
 fn compile_with_progress_sync<F, T>(
+    bar: &ProgressBar,
     f: F,
     hash: &ModuleHash,
     name: Option<&str>,
-    quiet_mode: bool,
 ) -> T
 where
     F: FnOnce() -> T,
 {
-    let mut pb = new_progressbar_compile(hash, name, quiet_mode);
+    let should_clear = bar.is_finished() || bar.is_hidden();
+    show_compile_progress(bar, hash, name);
     let res = f();
-    pb.finish_and_clear();
+    if should_clear {
+        bar.finish_and_clear();
+    }
     res
 }
 
-fn new_progressbar_compile(hash: &ModuleHash, name: Option<&str>, quiet_mode: bool) -> ProgressBar {
+fn show_compile_progress(bar: &ProgressBar, hash: &ModuleHash, name: Option<&str>) {
     // Only show a spinner if we're running in a TTY
     let hash = hash.to_string();
     let hash = &hash[0..8];
-    if !quiet_mode && std::io::stderr().is_terminal() {
-        let msg = if let Some(name) = name {
-            format!("Compiling WebAssembly module for command '{name}' ({hash})...")
-        } else {
-            format!("Compiling WebAssembly module {hash}...")
-        };
-        let pb = ProgressBar::new_spinner().with_message(msg);
-        pb.enable_steady_tick(Duration::from_millis(100));
-        pb
+    let msg = if let Some(name) = name {
+        format!("Compiling WebAssembly module for command '{name}' ({hash})...")
     } else {
-        ProgressBar::hidden()
+        format!("Compiling WebAssembly module {hash}...")
+    };
+
+    bar.set_message(msg);
+    bar.enable_steady_tick(Duration::from_millis(100));
+
+    if bar.is_finished() || bar.is_hidden() {
+        bar.reset();
     }
 }
 
