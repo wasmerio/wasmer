@@ -732,12 +732,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn emit_call_native<
         I: Iterator<Item = Location<M::GPR, M::SIMD>>,
         J: Iterator<Item = WpType>,
+        K: Iterator<Item = WpType>,
         F: FnOnce(&mut Self) -> Result<(), CompileError>,
     >(
         &mut self,
         cb: F,
         params: I,
         params_type: J,
+        return_types: K,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
         // Values pushed in this function are above the shadow region.
@@ -751,6 +753,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 _ => Size::S64,
             })
             .collect();
+        let return_types: Vec<_> = return_types.collect();
 
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
@@ -960,25 +963,32 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 "emit_call_native: Popped value is not ExplicitShadow".to_owned(),
             ));
         }
-        Ok(())
-    }
 
-    /// Emits a Native ABI call sequence, specialized for labels as the call target.
-    fn _emit_call_native_label<
-        I: Iterator<Item = Location<M::GPR, M::SIMD>>,
-        J: Iterator<Item = WpType>,
-    >(
-        &mut self,
-        label: Label,
-        params: I,
-        params_type: J,
-    ) -> Result<(), CompileError> {
-        self.emit_call_native(
-            |this| this.machine.emit_call_label(label),
-            params,
-            params_type,
-            NativeCallType::IncludeVMCtxArgument,
-        )?;
+        self.release_locations_only_stack(&params)?;
+
+        // TODO: support N return values
+        if !return_types.is_empty() {
+            let return_type = &return_types[0];
+
+            let ret = self.acquire_location(return_type)?;
+            self.value_stack.push(ret);
+            if return_type.is_float() {
+                self.machine.move_location(
+                    Size::S64,
+                    Location::SIMD(self.machine.get_simd_for_ret()),
+                    ret,
+                )?;
+                self.fp_stack
+                    .push(FloatValue::new(self.value_stack.len() - 1));
+            } else {
+                self.machine.move_location(
+                    Size::S64,
+                    Location::GPR(self.machine.get_gpr_for_ret()),
+                    ret,
+                )?;
+            }
+        }
+
         Ok(())
     }
 
@@ -2420,30 +2430,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
+                    return_types.iter().copied(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&params)?;
-
-                if !return_types.is_empty() {
-                    let ret = self.acquire_location(&return_types[0])?;
-                    self.value_stack.push(ret);
-                    if return_types[0].is_float() {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::SIMD(self.machine.get_simd_for_ret()),
-                            ret,
-                        )?;
-                        self.fp_stack
-                            .push(FloatValue::new(self.value_stack.len() - 1));
-                    } else {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            ret,
-                        )?;
-                    }
-                }
             }
             Operator::CallIndirect {
                 type_index,
@@ -2645,30 +2634,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     },
                     params.iter().copied(),
                     param_types.iter().copied(),
+                    return_types.iter().copied(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&params)?;
-
-                if !return_types.is_empty() {
-                    let ret = self.acquire_location(&return_types[0])?;
-                    self.value_stack.push(ret);
-                    if return_types[0].is_float() {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::SIMD(self.machine.get_simd_for_ret()),
-                            ret,
-                        )?;
-                        self.fp_stack
-                            .push(FloatValue::new(self.value_stack.len() - 1));
-                    } else {
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            ret,
-                        )?;
-                    }
-                }
             }
             Operator::If { blockty } => {
                 let label_end = self.machine.get_label();
@@ -2869,14 +2837,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, memory_index]
                     iter::once(Location::Imm32(memory_index.index() as u32)),
                     iter::once(WpType::I64),
+                    iter::once(WpType::I64),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-                let ret = self.acquire_location(&WpType::I64)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::MemoryInit { data_index, mem } => {
@@ -2923,9 +2885,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, src, len])?;
             }
             Operator::DataDrop { data_index } => {
                 self.machine.move_location(
@@ -2947,6 +2909,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, data_index]
                     iter::once(Location::Imm32(data_index)),
                     iter::once(WpType::I64),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
@@ -3000,9 +2963,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst_pos, src_pos, len])?;
             }
             Operator::MemoryFill { mem } => {
                 let len = self.value_stack.pop().unwrap();
@@ -3048,9 +3011,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, val, len])?;
             }
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
@@ -3084,17 +3047,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     iter::once(param_pages)
                         .chain(iter::once(Location::Imm32(memory_index.index() as u32))),
                     [WpType::I64, WpType::I64].iter().cloned(),
+                    iter::once(WpType::I64),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-
-                self.release_locations_only_stack(&[param_pages])?;
-
-                let ret = self.acquire_location(&WpType::I64)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::I32Load { ref memarg } => {
@@ -3673,6 +3627,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32].iter().cloned(),
+                    iter::empty(),
                     NativeCallType::Unreachable,
                 )?;
                 self.unreachable_depth = 1;
@@ -5597,17 +5552,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, func_index] -> funcref
                     iter::once(Location::Imm32(function_index as u32)),
                     iter::once(WpType::I64),
+                    iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-
-                let ret = self.acquire_location(&WpType::Ref(
-                    WpRefType::new(true, WpHeapType::FUNC).unwrap(),
-                ))?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::RefIsNull => {
@@ -5651,10 +5597,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32, WpType::I64, WpType::I64].iter().cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[index, value])?;
             }
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
@@ -5688,19 +5633,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32, WpType::I64].iter().cloned(),
+                    iter::once(WpType::Ref(WpRefType::new(true, WpHeapType::FUNC).unwrap())),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-
-                self.release_locations_only_stack(&[index])?;
-
-                let ret = self.acquire_location(&WpType::Ref(
-                    WpRefType::new(true, WpHeapType::FUNC).unwrap(),
-                ))?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::TableSize { table: index } => {
@@ -5729,15 +5663,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, table_index] -> i32
                     iter::once(Location::Imm32(table_index.index() as u32)),
                     iter::once(WpType::I32),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-
-                let ret = self.acquire_location(&WpType::I32)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::TableGrow { table: index } => {
@@ -5777,17 +5704,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .iter()
                     .cloned(),
                     [WpType::I64, WpType::I64, WpType::I64].iter().cloned(),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-
-                self.release_locations_only_stack(&[init_value, delta])?;
-
-                let ret = self.acquire_location(&WpType::I32)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::TableCopy {
@@ -5836,10 +5754,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[dest, src, len])?;
             }
 
             Operator::TableFill { table } => {
@@ -5871,10 +5788,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I64, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[dest, val, len])?;
             }
             Operator::TableInit { elem_index, table } => {
                 let len = self.value_stack.pop().unwrap();
@@ -5919,10 +5835,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ]
                     .iter()
                     .cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-
-                self.release_locations_only_stack(&[dest, src, len])?;
             }
             Operator::ElemDrop { elem_index } => {
                 self.machine.move_location(
@@ -5946,6 +5861,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     // [vmctx, elem_index]
                     [Location::Imm32(elem_index)].iter().cloned(),
                     [WpType::I32].iter().cloned(),
+                    iter::empty(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
             }
@@ -5998,15 +5914,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32, WpType::I32, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-                self.release_locations_only_stack(&[dst, val, timeout])?;
-                let ret = self.acquire_location(&WpType::I32)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::MemoryAtomicWait64 { ref memarg } => {
@@ -6058,15 +5967,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32, WpType::I64, WpType::I64]
                         .iter()
                         .cloned(),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-                self.release_locations_only_stack(&[dst, val, timeout])?;
-                let ret = self.acquire_location(&WpType::I32)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             Operator::MemoryAtomicNotify { ref memarg } => {
@@ -6110,15 +6012,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .iter()
                         .cloned(),
                     [WpType::I32, WpType::I32].iter().cloned(),
+                    iter::once(WpType::I32),
                     NativeCallType::IncludeVMCtxArgument,
-                )?;
-                self.release_locations_only_stack(&[dst, cnt])?;
-                let ret = self.acquire_location(&WpType::I32)?;
-                self.value_stack.push(ret);
-                self.machine.move_location(
-                    Size::S32,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
                 )?;
             }
             _ => {
