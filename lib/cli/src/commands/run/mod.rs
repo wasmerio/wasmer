@@ -23,7 +23,6 @@ use anyhow::{Context, Error, anyhow, bail};
 use clap::{Parser, ValueEnum};
 use futures::future::BoxFuture;
 use indicatif::{MultiProgress, ProgressBar};
-use is_terminal::IsTerminal as _;
 use once_cell::sync::Lazy;
 use tempfile::NamedTempFile;
 use url::Url;
@@ -227,8 +226,11 @@ impl Run {
 
         // This is a slow operation, so let's temporarily wrap the runtime with
         // something that displays progress
-        let monitoring_runtime =
-            Arc::new(MonitoringRuntime::new(runtime, pb.clone(), output.quiet));
+        let monitoring_runtime = Arc::new(MonitoringRuntime::new(
+            runtime,
+            pb.clone(),
+            output.is_quiet_or_no_tty(),
+        ));
         let runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime.runtime.clone();
         let monitoring_runtime: Arc<dyn Runtime + Send + Sync> = monitoring_runtime;
 
@@ -303,12 +305,13 @@ impl Run {
                                     preferred_webc_version,
                                 )?;
 
-                                let new_runtime = Arc::new(MonitoringRuntime::new(
-                                    new_runtime,
-                                    pb.clone(),
-                                    output.quiet,
-                                ));
-                                return self.execute_webc(&pkg, new_runtime);
+                                    let new_runtime = Arc::new(MonitoringRuntime::new(
+                                        new_runtime,
+                                        pb.clone(),
+                                        output.is_quiet_or_no_tty(),
+                                    ));
+                                    return self.execute_webc(&pkg, new_runtime);
+                                }
                             }
                         }
                     }

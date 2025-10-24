@@ -32,6 +32,11 @@ impl Output {
         self.verbose > 0
     }
 
+    /// Returns true if either the `--quiet` flag is set or stderr is not a TTY.
+    pub fn is_quiet_or_no_tty(&self) -> bool {
+        self.quiet || !std::io::stderr().is_terminal()
+    }
+
     /// Initialize logging based on the `$RUST_LOG` environment variable and
     /// command-line flags.
     pub fn initialize_logging(&self) {
