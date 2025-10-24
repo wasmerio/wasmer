@@ -14,6 +14,8 @@
 //!
 //! Ready?
 
+#[cfg(not(feature = "wamr"))]
+use std::mem;
 use wasmer::{Bytes, Instance, Module, Pages, Store, TypedFunction, imports, wat2wasm};
 
 // this example is a work in progress:
