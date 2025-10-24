@@ -192,6 +192,8 @@ pub trait Machine {
         &self,
         calling_convention: CallingConvention,
     ) -> Vec<Location<Self::GPR, Self::SIMD>>;
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, calling_convention: CallingConvention) -> &'static [Self::GPR];
     /// Get param location (to build a call, using SP for stack args)
     fn get_param_location(
         &self,
@@ -230,14 +232,6 @@ pub trait Machine {
         size_op: Size,
         dest: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Load a memory value to a register, zero extending to 64bits.
-    /// Panic if gpr is not a Location::GPR or if mem is not a Memory(2)
-    fn load_address(
-        &mut self,
-        size: Size,
-        gpr: Location<Self::GPR, Self::SIMD>,
-        mem: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
     /// Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -267,7 +261,7 @@ pub trait Machine {
     fn emit_function_prolog(&mut self) -> Result<(), CompileError>;
     /// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
     fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
-    /// handle return value, with optionnal cannonicalization if wanted
+    /// handle return value, with optional cannonicalization if wanted
     fn emit_function_return_value(
         &mut self,
         ty: WpType,
@@ -319,40 +313,6 @@ pub trait Machine {
     /// Emit a debug breakpoint
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError>;
 
-    /// load the address of a memory location (will panic if src is not a memory)
-    /// like LEA opcode on x86_64
-    fn location_address(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
-
-    /// And src & dst -> dst (with or without flags)
-    fn location_and(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-    /// Xor src & dst -> dst (with or without flags)
-    fn location_xor(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-    /// Or src & dst -> dst (with or without flags)
-    fn location_or(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-
     /// Add src+dst -> dst (with or without flags)
     fn location_add(
         &mut self,
@@ -360,23 +320,6 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
         flags: bool,
-    ) -> Result<(), CompileError>;
-    /// Sub dst-src -> dst (with or without flags)
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-        flags: bool,
-    ) -> Result<(), CompileError>;
-    /// -src -> dst
-    fn location_neg(
-        &mut self,
-        size_val: Size, // size of src
-        signed: bool,
-        source: Location<Self::GPR, Self::SIMD>,
-        size_op: Size,
-        dest: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
 
     /// Cmp src - dst and set flags
@@ -386,16 +329,9 @@ pub trait Machine {
         source: Location<Self::GPR, Self::SIMD>,
         dest: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Test src & dst and set flags
-    fn location_test(
-        &mut self,
-        size: Size,
-        source: Location<Self::GPR, Self::SIMD>,
-        dest: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
 
     /// jmp without condidtion
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError>;
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError>;
 
     /// jmp to label if the provided condition is true (when comparing loc_a and loc_b)
     fn jmp_on_condition(
@@ -448,14 +384,6 @@ pub trait Machine {
     ) -> Result<(), CompileError>;
     /// Emit a memory fence. Can be nothing for x86_64 or a DMB on ARM64 for example
     fn emit_memory_fence(&mut self) -> Result<(), CompileError>;
-    /// relaxed move with zero extension
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        sz_src: Size,
-        src: Location<Self::GPR, Self::SIMD>,
-        sz_dst: Size,
-        dst: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
     /// relaxed move with sign extension
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -499,7 +427,6 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
     ) -> Result<usize, CompileError>;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv32(
@@ -517,7 +444,6 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
     ) -> Result<usize, CompileError>;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem32(
@@ -526,7 +452,6 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
     ) -> Result<usize, CompileError>;
     /// And with location directly from the stack
     fn emit_binop_and32(
@@ -1186,7 +1111,6 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
     ) -> Result<usize, CompileError>;
     /// Signed Division with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_sdiv64(
@@ -1204,7 +1128,6 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
     ) -> Result<usize, CompileError>;
     /// Signed Reminder (of a Division) with location directly from the stack. return the offset of the DIV opcode, to mark as trappable.
     fn emit_binop_srem64(
@@ -1213,7 +1136,6 @@ pub trait Machine {
         loc_b: Location<Self::GPR, Self::SIMD>,
         ret: Location<Self::GPR, Self::SIMD>,
         integer_division_by_zero: Label,
-        integer_overflow: Label,
     ) -> Result<usize, CompileError>;
     /// And with location directly from the stack
     fn emit_binop_and64(

@@ -1,6 +1,6 @@
 use rusty_jsc::{JSContext, JSObject, JSValue};
 
-use crate::RuntimeError;
+use crate::{RuntimeError, jsc::vm::VMExceptionRef};
 use std::error::Error;
 use std::fmt;
 
@@ -50,6 +50,16 @@ impl Trap {
             InnerTrap::User(err) => err.is::<T>(),
             _ => false,
         }
+    }
+
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
     }
 
     pub(crate) fn into_jsc_value(self, ctx: &JSContext) -> JSValue {

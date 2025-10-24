@@ -14,7 +14,7 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
-mod exception_ref;
+mod exception;
 mod export;
 mod extern_ref;
 mod function_env;
@@ -35,7 +35,7 @@ pub mod libcalls;
 
 use std::ptr::NonNull;
 
-pub use crate::exception_ref::{VMExceptionObj, VMExceptionRef};
+pub use crate::exception::{VMExceptionObj, VMExceptionRef};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
 pub use crate::function_env::VMFunctionEnvironment;

@@ -3,7 +3,10 @@ use std::error::Error;
 use js_sys::Reflect;
 use wasm_bindgen::{JsValue, prelude::*};
 
-use crate::RuntimeError;
+use crate::{
+    RuntimeError,
+    js::{exception::Exception, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -49,6 +52,16 @@ impl Trap {
             InnerTrap::User(err) => err.is::<T>(),
             _ => false,
         }
+    }
+
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
     }
 }
 

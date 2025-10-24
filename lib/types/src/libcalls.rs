@@ -133,23 +133,18 @@ pub enum LibCall {
     /// memory.atomic.notify for local memories
     Memory32AtomicNotify,
 
-    /// memory.atomic.botify for imported memories
+    /// memory.atomic.notify for imported memories
     ImportedMemory32AtomicNotify,
 
     /// throw
     Throw,
 
-    /// rethrow
-    Rethrow,
-
-    /// alloc_exception
+    /// allocate exception object and get an exnref for it
     AllocException,
-
-    /// delete_exception
-    DeleteException,
-
-    /// read_exception
-    ReadException,
+    /// Get the values buffer pointer out of an exnref
+    ReadExnRef,
+    /// Given a caught native exception pointer, get the exnref and delete the exception itself
+    LibunwindExceptionIntoExnRef,
 
     /// The personality function
     EHPersonality,
@@ -209,12 +204,11 @@ impl LibCall {
             Self::Memory32AtomicNotify => "wasmer_vm_memory32_atomic_notify",
             Self::ImportedMemory32AtomicNotify => "wasmer_vm_imported_memory32_atomic_notify",
             Self::Throw => "wasmer_vm_throw",
-            Self::Rethrow => "wasmer_vm_rethrow",
             Self::EHPersonality => "wasmer_eh_personality",
             Self::EHPersonality2 => "wasmer_eh_personality2",
             Self::AllocException => "wasmer_vm_alloc_exception",
-            Self::DeleteException => "wasmer_vm_delete_exception",
-            Self::ReadException => "wasmer_vm_read_exception",
+            Self::ReadExnRef => "wasmer_vm_read_exnref",
+            Self::LibunwindExceptionIntoExnRef => "wasmer_vm_exception_into_exnref",
             Self::DebugUsize => "wasmer_vm_dbg_usize",
             Self::DebugStr => "wasmer_vm_dbg_str",
         }

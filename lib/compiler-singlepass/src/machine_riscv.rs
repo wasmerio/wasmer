@@ -1099,7 +1099,7 @@ impl MachineRiscv {
         // Aligned load
         self.assembler
             .emit_ld(sz, signed, dest, Location::Memory(src, 0))?;
-        self.jmp_unconditionnal(label_completed)?;
+        self.jmp_unconditional(label_completed)?;
         self.emit_label(label_unaligned)?;
 
         // Unaligned load
@@ -1208,7 +1208,7 @@ impl MachineRiscv {
         // Aligned store
         self.assembler
             .emit_sd(sz, src_value, Location::Memory(dst, 0))?;
-        self.jmp_unconditionnal(label_completed)?;
+        self.jmp_unconditional(label_completed)?;
         self.emit_label(label_unaligned)?;
 
         // Unaligned store
@@ -1365,7 +1365,7 @@ impl MachineRiscv {
             .emit_srl(sz, Location::GPR(arg), one_imm, Location::GPR(arg))?;
         self.assembler
             .emit_on_false_label(Location::GPR(arg), label_exit)?;
-        self.jmp_unconditionnal(label_loop)?;
+        self.jmp_unconditional(label_loop)?;
 
         self.assembler.emit_label(label_exit)?; // exit:
 
@@ -1416,7 +1416,7 @@ impl MachineRiscv {
             .emit_add(sz, Location::GPR(cnt), one_imm, Location::GPR(cnt))?;
         self.assembler
             .emit_srl(sz, Location::GPR(arg), one_imm, Location::GPR(arg))?;
-        self.jmp_unconditionnal(label_loop)?;
+        self.jmp_unconditional(label_loop)?;
 
         self.assembler.emit_label(label_exit)?; // exit:
 
@@ -1482,7 +1482,7 @@ impl MachineRiscv {
 
         self.assembler
             .emit_add(sz, Location::GPR(cnt), one_imm, Location::GPR(cnt))?;
-        self.jmp_unconditionnal(label_loop)?;
+        self.jmp_unconditional(label_loop)?;
 
         self.assembler.emit_label(label_exit)?; // exit:i
 
@@ -2150,27 +2150,35 @@ impl Machine for MachineRiscv {
     fn list_to_save(&self, _calling_convention: CallingConvention) -> Vec<Location> {
         vec![]
     }
+
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
+        &[
+            GPR::X10,
+            GPR::X11,
+            GPR::X12,
+            GPR::X13,
+            GPR::X14,
+            GPR::X15,
+            GPR::X16,
+            GPR::X17,
+        ]
+    }
+
     fn get_param_location(
         &self,
         idx: usize,
         _sz: Size,
         stack_args: &mut usize,
-        _calling_convention: CallingConvention,
+        calling_convention: CallingConvention,
     ) -> Location {
-        match idx {
-            0 => Location::GPR(GPR::X10),
-            1 => Location::GPR(GPR::X11),
-            2 => Location::GPR(GPR::X12),
-            3 => Location::GPR(GPR::X13),
-            4 => Location::GPR(GPR::X14),
-            5 => Location::GPR(GPR::X15),
-            6 => Location::GPR(GPR::X16),
-            7 => Location::GPR(GPR::X17),
-            _ => {
-                let loc = Location::Memory(GPR::Sp, *stack_args as i32);
-                *stack_args += 8;
-                loc
-            }
+        let register_params: &[GPR] = self.get_param_registers(calling_convention);
+        if let Some(reg) = register_params.get(idx) {
+            Location::GPR(*reg)
+        } else {
+            let loc = Location::Memory(GPR::Sp, *stack_args as i32);
+            *stack_args += 8;
+            loc
         }
     }
     // Get call param location, MUST be called in order!
@@ -2179,40 +2187,28 @@ impl Machine for MachineRiscv {
         idx: usize,
         _sz: Size,
         stack_args: &mut usize,
-        _calling_convention: CallingConvention,
+        calling_convention: CallingConvention,
     ) -> Location {
-        match idx {
-            0 => Location::GPR(GPR::X10),
-            1 => Location::GPR(GPR::X11),
-            2 => Location::GPR(GPR::X12),
-            3 => Location::GPR(GPR::X13),
-            4 => Location::GPR(GPR::X14),
-            5 => Location::GPR(GPR::X15),
-            6 => Location::GPR(GPR::X16),
-            7 => Location::GPR(GPR::X17),
-            _ => {
-                let loc = Location::Memory(GPR::Fp, 16 + *stack_args as i32);
-                *stack_args += 8;
-                loc
-            }
-        }
+        self.get_param_registers(calling_convention)
+            .get(idx)
+            .map_or_else(
+                || {
+                    let loc = Location::Memory(GPR::Fp, 16 + *stack_args as i32);
+                    *stack_args += 8;
+                    loc
+                },
+                |reg| Location::GPR(*reg),
+            )
     }
     fn get_simple_param_location(
         &self,
         idx: usize,
-        _calling_convention: CallingConvention,
+        calling_convention: CallingConvention,
     ) -> Location {
-        match idx {
-            0 => Location::GPR(GPR::X10),
-            1 => Location::GPR(GPR::X11),
-            2 => Location::GPR(GPR::X12),
-            3 => Location::GPR(GPR::X13),
-            4 => Location::GPR(GPR::X14),
-            5 => Location::GPR(GPR::X15),
-            6 => Location::GPR(GPR::X16),
-            7 => Location::GPR(GPR::X17),
-            _ => todo!("memory parameters are not supported yet"),
-        }
+        self.get_param_registers(calling_convention)
+            .get(idx)
+            .map(|reg| Location::GPR(*reg))
+            .expect("memory parameters are not supported yet")
     }
 
     // move a location to another
@@ -2318,15 +2314,6 @@ impl Machine for MachineRiscv {
             self.release_gpr(r);
         }
         Ok(())
-    }
-
-    fn load_address(
-        &mut self,
-        _size: Size,
-        _gpr: Location,
-        _mem: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass load_address unimplemented");
     }
 
     // Init the stack loc counter
@@ -2607,41 +2594,6 @@ impl Machine for MachineRiscv {
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_brk()
     }
-    fn location_address(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_address not implemented")
-    }
-    fn location_and(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_and not implemented")
-    }
-    fn location_xor(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_xor not implemented")
-    }
-    fn location_or(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_or not implemented")
-    }
     fn location_add(
         &mut self,
         size: Size,
@@ -2661,25 +2613,6 @@ impl Machine for MachineRiscv {
         }
         Ok(())
     }
-    fn location_sub(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_sub not implemented")
-    }
-    fn location_neg(
-        &mut self,
-        _size_val: Size, // size of src
-        _signed: bool,
-        _source: Location,
-        _size_op: Size,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_neg not implemented")
-    }
     fn location_cmp(
         &mut self,
         _size: Size,
@@ -2688,18 +2621,9 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         codegen_error!("singlepass location_cmp not implemented")
     }
-    fn location_test(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_test not implemented")
-    }
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_j_label(label)
     }
-
     fn jmp_on_condition(
         &mut self,
         cond: UnsignedCondition,
@@ -2798,15 +2722,6 @@ impl Machine for MachineRiscv {
     }
     fn emit_memory_fence(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_rwfence()
-    }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        _sz_src: Size,
-        _src: Location,
-        _sz_dst: Size,
-        _dst: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass emit_relaxed_zero_extension unimplemented");
     }
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -2907,7 +2822,6 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2973,7 +2887,6 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2998,7 +2911,6 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4149,7 +4061,6 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4216,7 +4127,6 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4241,7 +4151,6 @@ impl Machine for MachineRiscv {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;

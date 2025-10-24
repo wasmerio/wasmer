@@ -3,9 +3,6 @@ use crate::entities::{Function, Global, Memory, Table, Tag};
 use crate::store::AsStoreMut;
 pub use wasmer_vm::*;
 
-// No EH for now.
-pub(crate) type VMException = ();
-
 /// The type of extern tables in the `sys` VM.
 pub type VMExternTable = InternalStoreHandle<VMTable>;
 ///

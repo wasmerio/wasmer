@@ -12,7 +12,7 @@ use crate::{
     vm::{VMExtern, VMExternFunction},
 };
 use std::panic::{self, AssertUnwindSafe};
-use std::{cell::UnsafeCell, cmp::max, ffi::c_void};
+use std::{cell::UnsafeCell, cmp::max, error::Error, ffi::c_void};
 use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
@@ -89,7 +89,10 @@ impl Function {
         };
         let mut host_data = Box::new(VMDynamicFunctionContext {
             address: std::ptr::null(),
-            ctx: DynamicFunction { func: wrapper },
+            ctx: DynamicFunction {
+                func: wrapper,
+                raw_store,
+            },
         });
         host_data.address = host_data.ctx.func_body_ptr();
 
@@ -428,9 +431,39 @@ impl Function {
     }
 }
 
+// We want to keep as much logic as possible on the host stack,
+// since the WASM stack may be out of memory. In that scenario,
+// throwing exceptions won't work since libunwind requires
+// considerable stack space to do its magic, but everything else
+// should work.
+enum InvocationResult<T, E> {
+    Success(T),
+    Exception(crate::Exception),
+    Trap(Box<E>),
+}
+
+fn to_invocation_result<T, E>(result: Result<T, E>) -> InvocationResult<T, E>
+where
+    E: Error + 'static,
+{
+    match result {
+        Ok(value) => InvocationResult::Success(value),
+        Err(trap) => {
+            let dyn_err_ref = &trap as &dyn Error;
+            if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>() {
+                if let Some(exception) = runtime_error.to_exception() {
+                    return InvocationResult::Exception(exception);
+                }
+            }
+            InvocationResult::Trap(Box::new(trap))
+        }
+    }
+}
+
 /// Host state for a dynamic function.
 pub(crate) struct DynamicFunction<F> {
     func: F,
+    raw_store: *mut u8,
 }
 
 impl<F> DynamicFunction<F>
@@ -439,13 +472,13 @@ where
 {
     // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
-    unsafe extern "C" fn func_wrapper(
+    unsafe extern "C-unwind" fn func_wrapper(
         this: &mut VMDynamicFunctionContext<Self>,
         values_vec: *mut RawValue,
     ) {
         let result = on_host_stack(|| {
             panic::catch_unwind(AssertUnwindSafe(|| {
-                (this.ctx.func)(values_vec).map_err(Box::new)
+                to_invocation_result((this.ctx.func)(values_vec))
             }))
         });
 
@@ -453,8 +486,15 @@ where
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
         // See: https://github.com/wasmerio/wasmer/pull/5700
         match result {
-            Ok(Ok(())) => {}
-            Ok(Err(trap)) => unsafe { raise_user_trap(trap) },
+            Ok(InvocationResult::Success(())) => {}
+            Ok(InvocationResult::Exception(exception)) => unsafe {
+                let store = StoreMut::from_raw(this.ctx.raw_store as *mut _);
+                wasmer_vm::libcalls::throw(
+                    store.as_store_ref().objects().as_sys(),
+                    exception.vm_exceptionref().as_sys().to_u32_exnref(),
+                )
+            },
+            Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
             Err(panic) => unsafe { resume_panic(panic) },
         }
     }
@@ -526,7 +566,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C-unwind" fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, ()>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -541,7 +581,7 @@ macro_rules! impl_host_function {
                                 FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
-                        (env.func)($($x),* ).into_result().map_err(Box::new)
+                        to_invocation_result((env.func)($($x),* ).into_result())
                     }))
                 });
 
@@ -549,17 +589,19 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(Ok(result)) => {
+                    Ok(InvocationResult::Success(result)) => {
                         unsafe {
                             return result.into_c_struct(&mut store);
                         }
                     },
-                    Ok(Err(trap)) => unsafe {
-                        raise_user_trap(trap)
-                    },
-                    Err(panic) => unsafe {
-                        resume_panic(panic)
-                    },
+                    Ok(InvocationResult::Exception(exception)) => unsafe {
+                        wasmer_vm::libcalls::throw(
+                            store.as_store_ref().objects().as_sys(),
+                            exception.vm_exceptionref().as_sys().to_u32_exnref()
+                        )
+                    }
+                    Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+                    Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
 
@@ -602,7 +644,7 @@ macro_rules! impl_host_function {
             /// This is a function that wraps the real host
             /// function. Its address will be used inside the
             /// runtime.
-            unsafe extern "C" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
+            unsafe extern "C-unwind" fn func_wrapper<T: Send + 'static, $( $x, )* Rets, RetsAsResult, Func>( env: &StaticFunction<Func, T>, $( $x: <$x::Native as NativeWasmType>::Abi, )* ) -> Rets::CStruct
                 where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
@@ -623,7 +665,7 @@ macro_rules! impl_host_function {
                             store_mut,
                             func_env: env.env.as_sys().clone(),
                         }.into();
-                        (env.func)(f_env, $($x),* ).into_result().map_err(Box::new)
+                        to_invocation_result((env.func)(f_env, $($x),* ).into_result())
                     }))
                 });
 
@@ -631,20 +673,19 @@ macro_rules! impl_host_function {
                 // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.
                 // See: https://github.com/wasmerio/wasmer/pull/5700
                 match result {
-                    Ok(Ok(result)) => {
-                        let cs = unsafe { result.into_c_struct(&mut store) };
-                        return cs
-                    },
-                    Ok(Err(trap)) => {
+                    Ok(InvocationResult::Success(result)) => {
                         unsafe {
-                            raise_user_trap(trap)
+                            return result.into_c_struct(&mut store);
                         }
                     },
-                    Err(panic) => {
-                        unsafe {
-                            resume_panic(panic)
-                        }
-                    },
+                    Ok(InvocationResult::Exception(exception)) => unsafe {
+                        wasmer_vm::libcalls::throw(
+                            store.as_store_ref().objects().as_sys(),
+                            exception.vm_exceptionref().as_sys().to_u32_exnref()
+                        )
+                    }
+                    Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+                    Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
             func_wrapper::< T, $( $x, )* Rets, RetsAsResult, Func > as _

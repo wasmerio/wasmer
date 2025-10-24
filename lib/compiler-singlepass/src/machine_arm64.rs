@@ -1057,25 +1057,6 @@ impl MachineARM64 {
         Ok(())
     }
 
-    /*fn emit_compare_and_swap<F: FnOnce(&mut Self, GPR, GPR)>(
-        &mut self,
-        _loc: Location,
-        _target: Location,
-        _ret: Location,
-        _memarg: &MemArg,
-        _value_size: usize,
-        _memory_sz: Size,
-        _stack_sz: Size,
-        _need_check: bool,
-        _imported_memories: bool,
-        _offset: i32,
-        _heap_access_oob: Label,
-        _unaligned_atomic: Label,
-        _cb: F,
-    ) {
-        unimplemented!();
-    }*/
-
     fn offset_is_ok(&self, size: Size, offset: i32) -> bool {
         if offset < 0 {
             return false;
@@ -1742,6 +1723,20 @@ impl Machine for MachineARM64 {
         vec![]
     }
 
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, _calling_convention: CallingConvention) -> &'static [Self::GPR] {
+        &[
+            GPR::X0,
+            GPR::X1,
+            GPR::X2,
+            GPR::X3,
+            GPR::X4,
+            GPR::X5,
+            GPR::X6,
+            GPR::X7,
+        ]
+    }
+
     // Get param location, MUST be called in order!
     fn get_param_location(
         &self,
@@ -1750,17 +1745,10 @@ impl Machine for MachineARM64 {
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
-            CallingConvention::AppleAarch64 => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+            CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
+                || {
                     let sz = 1
                         << match sz {
                             Size::S8 => 0,
@@ -1775,23 +1763,18 @@ impl Machine for MachineARM64 {
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += sz;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => {
+                if let Some(reg) = register_params.get(idx) {
+                    Location::GPR(*reg)
+                } else {
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += 8;
                     loc
                 }
-            },
+            }
         }
     }
     // Get call param location, MUST be called in order!
@@ -1802,17 +1785,10 @@ impl Machine for MachineARM64 {
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
-            CallingConvention::AppleAarch64 => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+            CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
+                || {
                     let sz = 1
                         << match sz {
                             Size::S8 => 0,
@@ -1827,23 +1803,17 @@ impl Machine for MachineARM64 {
                     let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
                     *stack_args += sz;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => {
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || {
                     let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
                     *stack_args += 8;
                     loc
-                }
-            },
+                },
+                |reg| Location::GPR(*reg),
+            ),
         }
     }
     // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
@@ -1852,20 +1822,16 @@ impl Machine for MachineARM64 {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        #[allow(clippy::match_single_binding)]
-        match calling_convention {
-            _ => match idx {
-                0 => Location::GPR(GPR::X0),
-                1 => Location::GPR(GPR::X1),
-                2 => Location::GPR(GPR::X2),
-                3 => Location::GPR(GPR::X3),
-                4 => Location::GPR(GPR::X4),
-                5 => Location::GPR(GPR::X5),
-                6 => Location::GPR(GPR::X6),
-                7 => Location::GPR(GPR::X7),
-                _ => Location::Memory(GPR::X29, (16 * 2 + (idx - 8) * 8) as i32),
+        let register_params = self.get_param_registers(calling_convention);
+        register_params.get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::X29,
+                    (16 * 2 + (idx - register_params.len()) * 8) as i32,
+                )
             },
-        }
+            |reg| Location::GPR(*reg),
+        )
     }
     // move a location to another
     fn move_location(
@@ -2093,14 +2059,7 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn load_address(
-        &mut self,
-        _size: Size,
-        _reg: Location,
-        _mem: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass load_address unimplemented");
-    }
+
     // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -2424,51 +2383,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-
-    fn location_address(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_address not implemented")
-    }
-    // logic
-    fn location_and(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_and not implemented")
-    }
-    fn location_xor(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_xor not implemented")
-    }
-    fn location_or(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_or not implemented")
-    }
-    fn location_test(
-        &mut self,
-        _size: Size,
-        _source: Location,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_test not implemented")
-    }
     // math
     fn location_add(
         &mut self,
@@ -2493,29 +2407,6 @@ impl Machine for MachineARM64 {
         }
         Ok(())
     }
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        flags: bool,
-    ) -> Result<(), CompileError> {
-        let mut temps = vec![];
-        let src = self.location_to_reg(size, source, &mut temps, ImmType::Bits12, true, None)?;
-        let dst = self.location_to_reg(size, dest, &mut temps, ImmType::None, true, None)?;
-        if flags {
-            self.assembler.emit_subs(size, dst, src, dst)?;
-        } else {
-            self.assembler.emit_sub(size, dst, src, dst)?;
-        }
-        if dst != dest {
-            self.move_location(size, dst, dest)?;
-        }
-        for r in temps {
-            self.release_gpr(r);
-        }
-        Ok(())
-    }
     fn location_cmp(
         &mut self,
         size: Size,
@@ -2524,7 +2415,7 @@ impl Machine for MachineARM64 {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, size, source, dest, false)
     }
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_b_label(label)
     }
 
@@ -2593,17 +2484,6 @@ impl Machine for MachineARM64 {
         self.assembler.emit_dmb()
     }
 
-    fn location_neg(
-        &mut self,
-        _size_val: Size, // size of src
-        _signed: bool,
-        _source: Location,
-        _size_op: Size,
-        _dest: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass location_neg unimplemented");
-    }
-
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         let tmp = self.acquire_temp_gpr().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp gpr".to_owned())
@@ -2636,15 +2516,6 @@ impl Machine for MachineARM64 {
         dst: Location,
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(Assembler::emit_cmp, sz, src, dst, false)
-    }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        _sz_src: Size,
-        _src: Location,
-        _sz_dst: Size,
-        _dst: Location,
-    ) -> Result<(), CompileError> {
-        codegen_error!("singlepass emit_relaxed_zero_extension unimplemented");
     }
     fn emit_relaxed_sign_extension(
         &mut self,
@@ -2734,7 +2605,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2801,7 +2671,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -2839,7 +2708,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S32, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4880,7 +4748,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4947,7 +4814,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;
@@ -4985,7 +4851,6 @@ impl Machine for MachineARM64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         let mut temps = vec![];
         let src1 = self.location_to_reg(Size::S64, loc_a, &mut temps, ImmType::None, true, None)?;

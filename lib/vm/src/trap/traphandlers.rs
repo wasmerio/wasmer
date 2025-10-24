@@ -29,7 +29,7 @@ use wasmer_types::TrapCode;
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
-    /// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
+    /// Optional stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
     pub wasm_stack_size: Option<usize>,
 }
 

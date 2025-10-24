@@ -49,8 +49,6 @@ impl<R, S> MaybeImmediate for Location<R, S> {
 
 #[allow(unused)]
 pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
-    fn is_callee_save(self) -> bool;
-    fn is_reserved(self) -> bool;
     fn into_index(self) -> usize;
     fn from_index(i: usize) -> Result<Self, ()>;
     fn iterator() -> Iter<'static, Self>;

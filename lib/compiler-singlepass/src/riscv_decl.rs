@@ -96,12 +96,6 @@ impl From<GPR> for u8 {
 }
 
 impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        todo!();
-    }
-    fn is_reserved(self) -> bool {
-        todo!();
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -275,14 +269,6 @@ impl From<FPR> for u8 {
 }
 
 impl AbstractReg for FPR {
-    fn is_callee_save(self) -> bool {
-        // TODO: implement callee-save registers for FPR.
-        todo!()
-    }
-    fn is_reserved(self) -> bool {
-        // TODO: implement reserved floating-point registers.
-        todo!()
-    }
     fn into_index(self) -> usize {
         self as usize
     }
