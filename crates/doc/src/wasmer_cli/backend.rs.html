@@ -11,7 +11,7 @@
 <a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>std::sync::Arc;
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>std::{path::PathBuf, str::FromStr};
 <a href=#13 id=13 data-nosnippet>13</a>
-<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>anyhow::{<span class="prelude-ty">Result</span>, bail};
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>anyhow::{Context, <span class="prelude-ty">Result</span>, bail};
 <a href=#15 id=15 data-nosnippet>15</a><span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
 <a href=#16 id=16 data-nosnippet>16</a></span><span class="kw">use </span>wasmer::sys::<span class="kw-2">*</span>;
 <a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>wasmer::<span class="kw-2">*</span>;
@@ -301,7 +301,7 @@
 <a href=#301 id=301 data-nosnippet>301</a>
 <a href=#302 id=302 data-nosnippet>302</a>    <span class="kw">pub fn </span>get_engine(<span class="kw-2">&amp;</span><span class="self">self</span>, target: <span class="kw-2">&amp;</span>Target) -&gt; <span class="prelude-ty">Result</span>&lt;Engine&gt; {
 <a href=#303 id=303 data-nosnippet>303</a>        <span class="kw">let </span>backends = <span class="self">self</span>.get_available_backends()<span class="question-mark">?</span>;
-<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">let </span>backend = backends.first().unwrap();
+<a href=#304 id=304 data-nosnippet>304</a>        <span class="kw">let </span>backend = backends.first().context(<span class="string">"no compiler backend enabled"</span>)<span class="question-mark">?</span>;
 <a href=#305 id=305 data-nosnippet>305</a>        <span class="kw">let </span>backend_kind = wasmer::BackendKind::from(backend);
 <a href=#306 id=306 data-nosnippet>306</a>        <span class="kw">let </span>required_features = wasmer::Engine::default_features_for_backend(<span class="kw-2">&amp;</span>backend_kind, target);
 <a href=#307 id=307 data-nosnippet>307</a>        backend.get_engine(target, <span class="kw-2">&amp;</span>required_features, <span class="self">self</span>)
