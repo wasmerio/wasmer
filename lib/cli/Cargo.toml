@@ -108,6 +108,8 @@ enable-serde = [
 	"wasmer-wasix/enable-serde",
 ]
 
+tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
+
 [dependencies]
 # Repo-local dependencies.
 
@@ -232,6 +234,8 @@ zip = { version = "2.4", default-features = false, features = ["deflate"] }
 console = "0.15.8"
 dotenvy = "0.15.7"
 lzma-rs = "0.3.0"
+
+console-subscriber = { version = "0.4", optional = true }
 
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
