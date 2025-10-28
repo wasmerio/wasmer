@@ -20,7 +20,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,

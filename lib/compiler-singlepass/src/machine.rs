@@ -14,7 +14,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationTarget},
         section::CustomSection,
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,

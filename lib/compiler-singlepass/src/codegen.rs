@@ -756,6 +756,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         return_types: K,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
+        // TODO: properly detect stack memory slots!
         let params = params.collect_vec();
         let stack_params = params
             .iter()
@@ -771,7 +772,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let return_types = return_types.collect_vec();
         let return_value_sizes = return_types.iter().map(|&rt| get_size(rt)).collect_vec();
 
-        let mut return_values = stack_params.clone();
+        let mut return_values = stack_params
+            .iter()
+            .take(return_value_sizes.len())
+            .copied()
+            .collect_vec();
         for _ in 0..return_value_sizes.len().saturating_sub(stack_params.len()) {
             return_values.push(self.acquire_location_on_stack()?);
         }
@@ -1002,7 +1007,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
-        let params_to_release = &params[0..params.len().saturating_sub(return_types.len())];
+        let params_to_release = &params[cmp::min(params.len(), return_types.len())..];
         self.release_locations_only_stack(params_to_release)?;
 
         for (return_value, return_type) in return_values.iter().zip(return_types.iter()) {
