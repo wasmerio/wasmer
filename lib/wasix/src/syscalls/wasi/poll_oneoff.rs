@@ -47,15 +47,15 @@ impl EventResult {
 ///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
-///   The events to subscribe to
+///     The events to subscribe to
 /// - `__wasi_event_t *out`
-///   The events that have occured
+///     The events that have occured
 /// - `u32 nsubscriptions`
-///   The number of subscriptions and the number of events
+///     The number of subscriptions and the number of events
 ///
 /// Output:
 /// - `u32 nevents`
-///   The number of events seen
+///     The number of events seen
 #[instrument(level = "trace", skip_all, fields(timeout_ms = field::Empty, fd_guards = field::Empty, seen = field::Empty), ret)]
 pub fn poll_oneoff<M: MemorySize + 'static>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
@@ -64,7 +64,7 @@ pub fn poll_oneoff<M: MemorySize + 'static>(
     nsubscriptions: M::Offset,
     nevents: WasmPtr<M::Offset, M>,
 ) -> Result<Errno, WasiError> {
-    WasiEnv::do_pending_operations(&mut ctx)?;
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
 
     ctx = wasi_try_ok!(maybe_backoff::<M>(ctx)?);
     ctx = wasi_try_ok!(maybe_snapshot::<M>(ctx)?);
@@ -203,15 +203,15 @@ pub(crate) fn poll_fd_guard(
 ///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
-///   The events to subscribe to
+///     The events to subscribe to
 /// - `__wasi_event_t *out`
-///   The events that have occured
+///     The events that have occured
 /// - `u32 nsubscriptions`
-///   The number of subscriptions and the number of events
+///     The number of subscriptions and the number of events
 ///
 /// Output:
 /// - `u32 nevents`
-///   The number of events seen
+///     The number of events seen
 pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     mut subs: Vec<(Option<WasiFd>, PollEventSet, Subscription)>,
@@ -220,6 +220,8 @@ pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
 where
     After: FnOnce(&FunctionEnvMut<'a, WasiEnv>, Vec<Event>) -> Errno,
 {
+    wasi_try_ok!(WasiEnv::process_signals_and_exit(&mut ctx)?);
+
     let pid = ctx.data().pid();
     let tid = ctx.data().tid();
     let subs_len = subs.len();
@@ -317,8 +319,11 @@ where
                                 1
                             )) as u64;
 
-                            Duration::from_nanos(clock_info.timeout)
-                                - Duration::from_nanos(now as u64)
+                            if clock_info.timeout <= now {
+                                Duration::ZERO
+                            } else {
+                                Duration::from_nanos(clock_info.timeout) - Duration::from_nanos(now)
+                            }
                         } else {
                             // if the timeout is not absolute, just use it as duration
                             Duration::from_nanos(clock_info.timeout)
