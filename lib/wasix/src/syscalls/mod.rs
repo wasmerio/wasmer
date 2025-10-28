@@ -120,7 +120,7 @@ use crate::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
         thread::{RewindResult, RewindResultType},
     },
-    runtime::task_manager::InlineWaker,
+    runtime::task_manager::block_on,
     utils::store::StoreSnapshot,
 };
 pub(crate) use crate::{
@@ -299,7 +299,7 @@ where
     }
 
     // Slow path, block on the work and process process
-    InlineWaker::block_on(work)
+    block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -556,7 +556,7 @@ where
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
-    InlineWaker::block_on(work)
+    block_on(work)
 }
 
 /// Asyncify takes the current thread and blocks on the async runtime associated with it
@@ -576,7 +576,7 @@ where
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
-    Ok(InlineWaker::block_on(work))
+    Ok(block_on(work))
 }
 
 // This should be compiled away, it will simply wait forever however its never
@@ -629,7 +629,7 @@ where
 
     // Block until the work is finished or until we
     // unload the thread using asyncify
-    InlineWaker::block_on(work)
+    block_on(work)
 }
 
 /// Performs mutable work on a socket under an asynchronous runtime with
@@ -665,7 +665,7 @@ where
 
             // Otherwise we block on the work and process it
             // using an asynchronou context
-            InlineWaker::block_on(work)
+            block_on(work)
         }
         _ => Err(Errno::Notsock),
     }
@@ -782,7 +782,7 @@ where
                 let work = actor(socket, fd_entry.inner.flags);
 
                 // Block on the work and process it
-                let res = InlineWaker::block_on(work);
+                let res = block_on(work);
                 let new_socket = res?;
 
                 if let Some(mut new_socket) = new_socket {

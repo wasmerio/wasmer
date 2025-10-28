@@ -37,7 +37,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::task_manager::InlineWaker,
+    runtime::task_manager::block_on,
     syscalls::platform_clock_time_get,
 };
 use wasmer_types::ModuleHash;
@@ -1014,7 +1014,7 @@ impl WasiEnv {
     }
 
     pub fn use_package(&self, pkg: &BinaryPackage) -> Result<(), WasiStateCreationError> {
-        InlineWaker::block_on(self.use_package_async(pkg))
+        block_on(self.use_package_async(pkg))
     }
 
     /// Make all the commands in a [`BinaryPackage`] available to the WASI
@@ -1138,13 +1138,11 @@ impl WasiEnv {
                     "package_name={package_name}, {e}",
                 ))
             })?;
-            let pkg = InlineWaker::block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(
-                |e| {
-                    WasiStateCreationError::WasiIncludePackageError(format!(
-                        "package_name={package_name}, {e}",
-                    ))
-                },
-            )?;
+            let pkg = block_on(BinaryPackage::from_registry(&specifier, rt)).map_err(|e| {
+                WasiStateCreationError::WasiIncludePackageError(format!(
+                    "package_name={package_name}, {e}",
+                ))
+            })?;
             self.use_package(&pkg)?;
         }
 
@@ -1211,7 +1209,7 @@ impl WasiEnv {
     #[allow(clippy::await_holding_lock)]
     pub fn blocking_on_exit(&self, process_exit_code: Option<ExitCode>) {
         let cleanup = self.on_exit(process_exit_code);
-        InlineWaker::block_on(cleanup);
+        block_on(cleanup);
     }
 
     /// Cleans up all the open files (if this is the main thread)

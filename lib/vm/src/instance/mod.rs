@@ -829,19 +829,22 @@ impl Instance {
     }
 
     fn memory_wait(memory: &mut VMMemory, dst: u32, timeout: i64) -> Result<u32, Trap> {
+        eprintln!("memory_wait called with dst={} timeout={}", dst, timeout);
         let location = NotifyLocation { address: dst };
         let timeout = if timeout < 0 {
             None
         } else {
             Some(std::time::Duration::from_nanos(timeout as u64))
         };
-        match memory.do_wait(location, timeout) {
+        let res = match memory.do_wait(location, timeout) {
             Ok(count) => Ok(count),
             Err(_err) => {
                 // ret is None if there is more than 2^32 waiter in queue or some other error
                 Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
             }
-        }
+        };
+        eprintln!("memory_wait returning {:?}", res);
+        res
     }
 
     /// Perform an Atomic.Wait32
@@ -959,6 +962,12 @@ impl Instance {
         let memory = self.get_local_vmmemory_mut(memory_index);
         // fetch the notifier
         let location = NotifyLocation { address: dst };
+        eprintln!(
+            "local_memory_notify called with memory_index={} dst={} count={}",
+            memory_index.index(),
+            dst,
+            count
+        );
         Ok(memory.do_notify(location, count))
     }
 
@@ -972,6 +981,12 @@ impl Instance {
         let memory = self.get_vmmemory_mut(memory_index);
         // fetch the notifier
         let location = NotifyLocation { address: dst };
+        eprintln!(
+            "imported_memory_notify called with memory_index={} dst={} count={}",
+            memory_index.index(),
+            dst,
+            count
+        );
         Ok(memory.do_notify(location, count))
     }
 }
