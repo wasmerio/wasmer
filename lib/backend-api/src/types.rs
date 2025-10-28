@@ -1369,7 +1369,6 @@ mod queries {
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct AutobuildConfigForZipUploadPayload {
         pub build_config: Option<BuildConfig>,
-        pub deployed_apps: Option<Vec<Option<DeployApp>>>,
     }
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
@@ -1379,7 +1378,6 @@ mod queries {
         pub setup_db: bool,
         pub preset_name: String,
         pub app_name: String,
-        pub can_deploy_without_repo: bool,
         pub completion_time_in_seconds: i32,
         pub branch: Option<String>,
     }
