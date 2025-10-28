@@ -762,8 +762,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .copied()
             .filter(|param| matches!(param, Location::Memory(_, _)))
             .collect_vec();
-        dbg!(&params);
-        dbg!(&stack_params);
         let get_size = |param_type: WpType| match param_type {
             WpType::F32 | WpType::I32 => Size::S32,
             WpType::V128 => unimplemented!(),
@@ -777,7 +775,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         for _ in 0..return_value_sizes.len().saturating_sub(stack_params.len()) {
             return_values.push(self.acquire_location_on_stack()?);
         }
-        dbg!(&return_values);
 
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
@@ -843,7 +840,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         for i in 0..return_value_sizes.len() {
             return_args.push(self.machine.get_return_value_location(i, &mut stack_offset));
         }
-        dbg!(&return_args);
 
         // Align stack to 16 bytes.
         let stack_unaligned =
