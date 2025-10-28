@@ -1239,6 +1239,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             was_unreachable = false;
         }
 
+        let return_types_for_block = |block_type: WpTypeOrFuncType| -> SmallVec<[_; 1]> {
+            match block_type {
+                WpTypeOrFuncType::Empty => smallvec![],
+                WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+                WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
+                    self.module.signatures[SignatureIndex::from_u32(sig_index)]
+                        .results()
+                        .iter()
+                        .map(|&ty| type_to_wp_type(ty)),
+                ),
+            }
+        };
+
         match op {
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
@@ -2720,15 +2733,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label: label_end,
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
-                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "If: multi-value returns not yet implemented".to_owned(),
-                            ));
-                        }
-                    },
+                    returns: return_types_for_block(blockty),
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
                 };
@@ -2835,15 +2840,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label: self.machine.get_label(),
                     loop_like: false,
                     if_else: IfElseState::None,
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
-                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "Block: multi-value returns not yet implemented".to_owned(),
-                            ));
-                        }
-                    },
+                    returns: return_types_for_block(blockty),
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
                 };
@@ -2857,15 +2854,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label,
                     loop_like: true,
                     if_else: IfElseState::None,
-                    returns: match blockty {
-                        WpTypeOrFuncType::Empty => smallvec![],
-                        WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                        _ => {
-                            return Err(CompileError::Codegen(
-                                "Loop: multi-value returns not yet implemented".to_owned(),
-                            ));
-                        }
-                    },
+                    returns: return_types_for_block(blockty),
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
                 });
@@ -3845,22 +3834,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
 
                     if !frame.returns.is_empty() {
-                        if frame.returns.len() != 1 {
-                            return Err(CompileError::Codegen(
-                                "End: incorrect frame.returns".to_owned(),
-                            ));
-                        }
-                        let loc = self.acquire_location(&frame.returns[0])?;
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            loc,
-                        )?;
-                        self.value_stack.push(loc);
-                        if frame.returns[0].is_float() {
-                            self.fp_stack
-                                .push(FloatValue::new(self.value_stack.len() - 1));
-                            // we already canonicalized at the `Br*` instruction or here previously.
+                        for frame_return in frame.returns.iter() {
+                            let loc = self.acquire_location(frame_return)?;
+                            self.machine.move_location(
+                                Size::S64,
+                                Location::GPR(self.machine.get_gpr_for_ret()),
+                                loc,
+                            )?;
+                            self.value_stack.push(loc);
+                            if frame_return.is_float() {
+                                self.fp_stack
+                                    .push(FloatValue::new(self.value_stack.len() - 1));
+                                // we already canonicalized at the `Br*` instruction or here previously.
+                            }
                         }
                     }
                 }
