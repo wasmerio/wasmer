@@ -40,8 +40,8 @@ use tokio_serde::formats::SymmetricalMessagePack;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 use tokio_util::codec::LengthDelimitedCodec;
-use virtual_mio::InterestType;
 use virtual_mio::block_on;
+use virtual_mio::InterestType;
 
 use crate::IpCidr;
 use crate::IpRoute;
