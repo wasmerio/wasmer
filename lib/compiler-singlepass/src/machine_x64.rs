@@ -1991,11 +1991,6 @@ impl Machine for MachineX86_64 {
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
-        /*
-        CallingConvention::WindowsFastcall => &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9],
-            _ => &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9],
-
-         */
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);
@@ -2382,6 +2377,7 @@ impl Machine for MachineX86_64 {
     }
 
     /// Get registers for first N function return values.
+    /// NOTE: The register set must be disjoint from pick_gpr registers!
     fn get_return_value_registers(&self) -> &'static [Self::GPR] {
         &[GPR::RAX, GPR::RDX]
     }

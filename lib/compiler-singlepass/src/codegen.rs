@@ -762,7 +762,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let stack_params = params
             .iter()
             .copied()
-            .filter(|param| matches!(param, Location::Memory(_, _)))
+            .filter(|param| {
+                if let Location::Memory(reg, _) = param {
+                    reg == &self.machine.local_pointer()
+                } else {
+                    false
+                }
+            })
             .collect_vec();
         let get_size = |param_type: WpType| match param_type {
             WpType::F32 | WpType::I32 => Size::S32,
@@ -1422,7 +1428,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::I32Const { value } => {
                 self.value_stack.push(Location::Imm32(value as u32));
-                dbg!(&self.value_stack);
                 self.state
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value as u32 as u64));
@@ -2762,9 +2767,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Else => {
                 let frame = self.control_stack.last().unwrap();
 
-                dbg!(frame);
                 if !was_unreachable && !frame.returns.is_empty() {
-                    dbg!("emit return");
                     self.emit_return_values(frame.returns.clone())?;
                 }
 
@@ -2851,7 +2854,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_label(end_label)?;
             }
             Operator::Block { blockty } => {
-                dbg!(&self.value_stack);
                 let frame = ControlFrame {
                     label: self.machine.get_label(),
                     loop_like: false,
@@ -2862,7 +2864,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     fp_stack_depth: self.fp_stack.len(),
                 };
                 self.control_stack.push(frame);
-                dbg!(&self.control_stack);
             }
             Operator::Loop { blockty } => {
                 self.machine.align_for_loop()?;
@@ -3703,7 +3704,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Return => {
                 let frame = &self.control_stack[0];
-                dbg!(frame);
                 if !frame.returns.is_empty() {
                     self.emit_return_values(frame.returns.clone())?;
                 }
@@ -3840,8 +3840,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     };
                     self.machine.emit_ret()?;
                 } else {
-                    dbg!(self.control_stack.last());
-                    dbg!(&frame);
                     let value_stack_depth_after = (frame.value_stack_depth as i64
                         - (frame.param_count as i64 - frame.returns.len() as i64))
                         as usize;
