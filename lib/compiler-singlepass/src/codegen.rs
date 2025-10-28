@@ -229,6 +229,7 @@ pub struct ControlFrame {
     pub label: Label,
     pub loop_like: bool,
     pub if_else: IfElseState,
+    pub param_count: usize,
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
     pub fp_stack_depth: usize,
@@ -1074,6 +1075,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             label: self.machine.get_label(),
             loop_like: false,
             if_else: IfElseState::None,
+            param_count: self.signature.params().len(),
             returns: self
                 .signature
                 .results()
@@ -1252,6 +1254,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         };
 
+        let param_count_for_block = |block_type: WpTypeOrFuncType| match block_type {
+            WpTypeOrFuncType::Empty => 0,
+            WpTypeOrFuncType::Type(inner_ty) => 1,
+            WpTypeOrFuncType::FuncType(sig_index) => self.module.signatures
+                [SignatureIndex::from_u32(sig_index)]
+            .params()
+            .len(),
+        };
+
         match op {
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
@@ -1411,6 +1422,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::I32Const { value } => {
                 self.value_stack.push(Location::Imm32(value as u32));
+                dbg!(&self.value_stack);
                 self.state
                     .wasm_stack
                     .push(WasmAbstractValue::Const(value as u32 as u64));
@@ -2733,6 +2745,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label: label_end,
                     loop_like: false,
                     if_else: IfElseState::If(label_else),
+                    param_count: param_count_for_block(blockty),
                     returns: return_types_for_block(blockty),
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
@@ -2749,7 +2762,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Else => {
                 let frame = self.control_stack.last().unwrap();
 
+                dbg!(frame);
                 if !was_unreachable && !frame.returns.is_empty() {
+                    dbg!("emit return");
                     self.emit_return_values(frame.returns.clone())?;
                 }
 
@@ -2836,15 +2851,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_label(end_label)?;
             }
             Operator::Block { blockty } => {
+                dbg!(&self.value_stack);
                 let frame = ControlFrame {
                     label: self.machine.get_label(),
                     loop_like: false,
                     if_else: IfElseState::None,
+                    param_count: param_count_for_block(blockty),
                     returns: return_types_for_block(blockty),
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
                 };
                 self.control_stack.push(frame);
+                dbg!(&self.control_stack);
             }
             Operator::Loop { blockty } => {
                 self.machine.align_for_loop()?;
@@ -2854,6 +2872,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     label,
                     loop_like: true,
                     if_else: IfElseState::None,
+                    param_count: param_count_for_block(blockty),
                     returns: return_types_for_block(blockty),
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
@@ -3684,6 +3703,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Return => {
                 let frame = &self.control_stack[0];
+                dbg!(frame);
                 if !frame.returns.is_empty() {
                     self.emit_return_values(frame.returns.clone())?;
                 }
@@ -3820,9 +3840,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     };
                     self.machine.emit_ret()?;
                 } else {
-                    let released = &self.value_stack.clone()[frame.value_stack_depth..];
+                    dbg!(self.control_stack.last());
+                    dbg!(&frame);
+                    let value_stack_depth_after = (frame.value_stack_depth as i64
+                        - (frame.param_count as i64 - frame.returns.len() as i64))
+                        as usize;
+                    let released = &self.value_stack.clone()[value_stack_depth_after..];
                     self.release_locations(released)?;
-                    self.value_stack.truncate(frame.value_stack_depth);
+                    self.value_stack.truncate(value_stack_depth_after);
+                    // TODO
                     self.fp_stack.truncate(frame.fp_stack_depth);
 
                     if !frame.loop_like {
