@@ -11,7 +11,7 @@ use std::string::ToString;
 use std::sync::Arc;
 use std::{path::PathBuf, str::FromStr};
 
-use anyhow::{Result, bail};
+use anyhow::{Context, Result, bail};
 #[cfg(feature = "sys")]
 use wasmer::sys::*;
 use wasmer::*;
@@ -301,7 +301,7 @@ impl RuntimeOptions {
 
     pub fn get_engine(&self, target: &Target) -> Result<Engine> {
         let backends = self.get_available_backends()?;
-        let backend = backends.first().unwrap();
+        let backend = backends.first().context("no compiler backend enabled")?;
         let backend_kind = wasmer::BackendKind::from(backend);
         let required_features = wasmer::Engine::default_features_for_backend(&backend_kind, target);
         backend.get_engine(target, &required_features, self)
