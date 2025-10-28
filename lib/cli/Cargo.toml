@@ -168,6 +168,7 @@ tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 dirs = "4.0"
+path-clean = "1.0.1"
 target-lexicon = { workspace = true, features = ["std"] }
 indexmap.workspace = true
 walkdir = "2.3.2"

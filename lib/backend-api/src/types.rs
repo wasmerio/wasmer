@@ -303,7 +303,7 @@ mod queries {
         pub cursor: String,
     }
 
-    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug)]
+    #[derive(serde::Serialize, cynic::QueryFragment, PartialEq, Eq, Debug, Clone)]
     pub struct AppTemplate {
         #[serde(rename = "demoUrl")]
         pub demo_url: String,
@@ -326,6 +326,10 @@ mod queries {
         pub updated_at: DateTime,
         #[serde(rename = "useCases")]
         pub use_cases: Jsonstring,
+        #[serde(rename = "branch")]
+        pub branch: Option<String>,
+        #[serde(rename = "rootDir")]
+        pub root_dir: Option<String>,
     }
 
     #[derive(cynic::QueryVariables, Debug, Clone)]
