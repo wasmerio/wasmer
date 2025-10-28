@@ -332,12 +332,12 @@ impl VirtualTaskManager for TokioTaskManager {
 
 // Used by [`VirtualTaskManager::sleep_now`] to abort a sleep task when drop.
 #[derive(Default)]
-struct SleepNow {
+pub struct SleepNow {
     abort_handle: Option<tokio::task::AbortHandle>,
 }
 
 impl SleepNow {
-    async fn enter(
+    pub async fn enter(
         &mut self,
         handle: tokio::runtime::Handle,
         time: Duration,
