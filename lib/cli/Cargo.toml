@@ -227,8 +227,8 @@ tokio-tungstenite = { workspace = true, features = [
 mac_address = { version = "1.1.5", optional = true }
 #tun-tap = { version = "0.1.4", features = ["tokio"], optional = true }
 
-clap_complete = "4.5.2"
-clap_mangen = "0.2.20"
+clap_complete = "4.5.59"
+clap_mangen = "0.2.31"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
 console = "0.15.8"
 dotenvy = "0.15.7"
@@ -237,9 +237,9 @@ lzma-rs = "0.3.0"
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-clap = { version = "4.4.0", features = ["derive", "env"] }
+clap = { version = "4.5.50", features = ["derive", "env"] }
 [target.'cfg(target_family = "wasm")'.dependencies]
-clap = { version = "4.4.0", default-features = false, features = [
+clap = { version = "4.5.50", default-features = false, features = [
 	"std",
 	"help",
 	"usage",
