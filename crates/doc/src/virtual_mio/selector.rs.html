@@ -320,7 +320,7 @@
 <a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">fn </span>push_interest(<span class="kw-2">&amp;mut </span><span class="self">self</span>, _interest: InterestType) {
 <a href=#321 id=321 data-nosnippet>321</a>            <span class="comment">// This would deadlock without a queue
 <a href=#322 id=322 data-nosnippet>322</a>            </span><span class="self">self</span>.selector
-<a href=#323 id=323 data-nosnippet>323</a>                .remove(<span class="self">self</span>.token.lock().unwrap().unwrap().clone(), <span class="prelude-val">None</span>)
+<a href=#323 id=323 data-nosnippet>323</a>                .remove(<span class="self">self</span>.token.lock().unwrap().unwrap(), <span class="prelude-val">None</span>)
 <a href=#324 id=324 data-nosnippet>324</a>                .unwrap();
 <a href=#325 id=325 data-nosnippet>325</a>            <span class="self">self</span>.success_sender.send(()).unwrap();
 <a href=#326 id=326 data-nosnippet>326</a>        }
@@ -355,7 +355,7 @@
 <a href=#355 id=355 data-nosnippet>355</a>        thread::sleep(Duration::from_millis(<span class="number">10</span>));
 <a href=#356 id=356 data-nosnippet>356</a>
 <a href=#357 id=357 data-nosnippet>357</a>        <span class="comment">// Works once
-<a href=#358 id=358 data-nosnippet>358</a>        </span>sender.write(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
+<a href=#358 id=358 data-nosnippet>358</a>        </span>sender.write_all(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
 <a href=#359 id=359 data-nosnippet>359</a>        sender.flush().unwrap();
 <a href=#360 id=360 data-nosnippet>360</a>        thread::sleep(Duration::from_millis(<span class="number">10</span>));
 <a href=#361 id=361 data-nosnippet>361</a>        <span class="macro">assert!</span>(
@@ -369,7 +369,7 @@
 <a href=#369 id=369 data-nosnippet>369</a>        thread::sleep(Duration::from_millis(<span class="number">10</span>));
 <a href=#370 id=370 data-nosnippet>370</a>
 <a href=#371 id=371 data-nosnippet>371</a>        <span class="comment">// Works multiple times
-<a href=#372 id=372 data-nosnippet>372</a>        </span>sender.write(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
+<a href=#372 id=372 data-nosnippet>372</a>        </span>sender.write_all(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
 <a href=#373 id=373 data-nosnippet>373</a>        sender.flush().unwrap();
 <a href=#374 id=374 data-nosnippet>374</a>        thread::sleep(Duration::from_millis(<span class="number">10</span>));
 <a href=#375 id=375 data-nosnippet>375</a>        <span class="macro">assert!</span>(
@@ -384,7 +384,7 @@
 <a href=#384 id=384 data-nosnippet>384</a>
 <a href=#385 id=385 data-nosnippet>385</a>        <span class="comment">// No signal after removing the handler
 <a href=#386 id=386 data-nosnippet>386</a>        </span>selector.remove(token, <span class="prelude-val">Some</span>(<span class="kw-2">&amp;mut </span>receiver)).unwrap();
-<a href=#387 id=387 data-nosnippet>387</a>        sender.write(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
+<a href=#387 id=387 data-nosnippet>387</a>        sender.write_all(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
 <a href=#388 id=388 data-nosnippet>388</a>        sender.flush().unwrap();
 <a href=#389 id=389 data-nosnippet>389</a>        thread::sleep(Duration::from_millis(<span class="number">10</span>));
 <a href=#390 id=390 data-nosnippet>390</a>        <span class="macro">assert!</span>(
@@ -416,7 +416,7 @@
 <a href=#416 id=416 data-nosnippet>416</a>            .unwrap();
 <a href=#417 id=417 data-nosnippet>417</a>        handler_token_arcmutex.lock().unwrap().replace(token);
 <a href=#418 id=418 data-nosnippet>418</a>
-<a href=#419 id=419 data-nosnippet>419</a>        sender.write(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
+<a href=#419 id=419 data-nosnippet>419</a>        sender.write_all(<span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">2</span>, <span class="number">3</span>]).unwrap();
 <a href=#420 id=420 data-nosnippet>420</a>        sender.flush().unwrap();
 <a href=#421 id=421 data-nosnippet>421</a>
 <a href=#422 id=422 data-nosnippet>422</a>        thread::sleep(Duration::from_millis(<span class="number">100</span>));

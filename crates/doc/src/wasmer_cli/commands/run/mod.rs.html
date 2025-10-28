@@ -782,441 +782,442 @@
 <a href=#782 id=782 data-nosnippet>782</a>}
 <a href=#783 id=783 data-nosnippet>783</a>
 <a href=#784 id=784 data-nosnippet>784</a><span class="attr">#[derive(Debug, Clone)]
-<a href=#785 id=785 data-nosnippet>785</a></span><span class="kw">enum </span>ExecutableTarget {
-<a href=#786 id=786 data-nosnippet>786</a>    WebAssembly {
-<a href=#787 id=787 data-nosnippet>787</a>        module: Module,
-<a href=#788 id=788 data-nosnippet>788</a>        module_hash: ModuleHash,
-<a href=#789 id=789 data-nosnippet>789</a>        path: PathBuf,
-<a href=#790 id=790 data-nosnippet>790</a>    },
-<a href=#791 id=791 data-nosnippet>791</a>    Package(Box&lt;BinaryPackage&gt;),
-<a href=#792 id=792 data-nosnippet>792</a>}
-<a href=#793 id=793 data-nosnippet>793</a>
-<a href=#794 id=794 data-nosnippet>794</a><span class="kw">impl </span>ExecutableTarget {
-<a href=#795 id=795 data-nosnippet>795</a>    <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
-<a href=#796 id=796 data-nosnippet>796</a>    /// file.
-<a href=#797 id=797 data-nosnippet>797</a>    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
-<a href=#798 id=798 data-nosnippet>798</a>    </span><span class="kw">fn </span>from_dir(
-<a href=#799 id=799 data-nosnippet>799</a>        dir: <span class="kw-2">&amp;</span>Path,
-<a href=#800 id=800 data-nosnippet>800</a>        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#801 id=801 data-nosnippet>801</a>        pb: <span class="kw-2">&amp;</span>ProgressBar,
-<a href=#802 id=802 data-nosnippet>802</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-<a href=#803 id=803 data-nosnippet>803</a>        pb.set_message(<span class="macro">format!</span>(<span class="string">"Loading \"{}\" into memory"</span>, dir.display()));
-<a href=#804 id=804 data-nosnippet>804</a>        pb.set_message(<span class="string">"Resolving dependencies"</span>);
-<a href=#805 id=805 data-nosnippet>805</a>        <span class="kw">let </span>inner_runtime = runtime.clone();
-<a href=#806 id=806 data-nosnippet>806</a>        <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on({
-<a href=#807 id=807 data-nosnippet>807</a>            <span class="kw">let </span>path = dir.to_path_buf();
-<a href=#808 id=808 data-nosnippet>808</a>
-<a href=#809 id=809 data-nosnippet>809</a>            <span class="kw">async move </span>{ BinaryPackage::from_dir(<span class="kw-2">&amp;</span>path, inner_runtime.as_ref()).<span class="kw">await </span>}
-<a href=#810 id=810 data-nosnippet>810</a>        })<span class="question-mark">??</span>;
-<a href=#811 id=811 data-nosnippet>811</a>
-<a href=#812 id=812 data-nosnippet>812</a>        <span class="prelude-val">Ok</span>(ExecutableTarget::Package(Box::new(pkg)))
-<a href=#813 id=813 data-nosnippet>813</a>    }
-<a href=#814 id=814 data-nosnippet>814</a>
-<a href=#815 id=815 data-nosnippet>815</a>    <span class="doccomment">/// Try to load a file into something that can be used to run it.
-<a href=#816 id=816 data-nosnippet>816</a>    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
-<a href=#817 id=817 data-nosnippet>817</a>    </span><span class="kw">fn </span>from_file(
-<a href=#818 id=818 data-nosnippet>818</a>        path: <span class="kw-2">&amp;</span>Path,
-<a href=#819 id=819 data-nosnippet>819</a>        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
-<a href=#820 id=820 data-nosnippet>820</a>        pb: <span class="kw-2">&amp;</span>ProgressBar,
-<a href=#821 id=821 data-nosnippet>821</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
-<a href=#822 id=822 data-nosnippet>822</a>        pb.set_message(<span class="macro">format!</span>(<span class="string">"Loading from \"{}\""</span>, path.display()));
-<a href=#823 id=823 data-nosnippet>823</a>
-<a href=#824 id=824 data-nosnippet>824</a>        <span class="kw">match </span>TargetOnDisk::from_file(path)<span class="question-mark">? </span>{
-<a href=#825 id=825 data-nosnippet>825</a>            TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat =&gt; {
-<a href=#826 id=826 data-nosnippet>826</a>                <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
-<a href=#827 id=827 data-nosnippet>827</a>                <span class="kw">let </span>module_data = HashedModuleData::new(wasm);
-<a href=#828 id=828 data-nosnippet>828</a>                <span class="kw">let </span>module_hash = <span class="kw-2">*</span>module_data.hash();
-<a href=#829 id=829 data-nosnippet>829</a>
-<a href=#830 id=830 data-nosnippet>830</a>                pb.set_message(<span class="string">"Compiling to WebAssembly"</span>);
-<a href=#831 id=831 data-nosnippet>831</a>                <span class="kw">let </span>module = runtime
-<a href=#832 id=832 data-nosnippet>832</a>                    .load_hashed_module_sync(module_data, <span class="prelude-val">None</span>)
-<a href=#833 id=833 data-nosnippet>833</a>                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to compile \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
-<a href=#834 id=834 data-nosnippet>834</a>
-<a href=#835 id=835 data-nosnippet>835</a>                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
-<a href=#836 id=836 data-nosnippet>836</a>                    module,
-<a href=#837 id=837 data-nosnippet>837</a>                    module_hash,
-<a href=#838 id=838 data-nosnippet>838</a>                    path: path.to_path_buf(),
-<a href=#839 id=839 data-nosnippet>839</a>                })
-<a href=#840 id=840 data-nosnippet>840</a>            }
-<a href=#841 id=841 data-nosnippet>841</a>            TargetOnDisk::Artifact =&gt; {
-<a href=#842 id=842 data-nosnippet>842</a>                <span class="kw">let </span>engine = runtime.engine();
-<a href=#843 id=843 data-nosnippet>843</a>                pb.set_message(<span class="string">"Deserializing pre-compiled WebAssembly module"</span>);
-<a href=#844 id=844 data-nosnippet>844</a>                <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>engine, path)<span class="question-mark">? </span>};
-<a href=#845 id=845 data-nosnippet>845</a>
-<a href=#846 id=846 data-nosnippet>846</a>                <span class="kw">let </span>module_hash = module.info().hash.ok_or_else(|| {
-<a href=#847 id=847 data-nosnippet>847</a>                    anyhow::Error::msg(<span class="string">"module hash is not present in the artifact"</span>)
-<a href=#848 id=848 data-nosnippet>848</a>                })<span class="question-mark">?</span>;
-<a href=#849 id=849 data-nosnippet>849</a>
-<a href=#850 id=850 data-nosnippet>850</a>                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
-<a href=#851 id=851 data-nosnippet>851</a>                    module,
-<a href=#852 id=852 data-nosnippet>852</a>                    module_hash,
-<a href=#853 id=853 data-nosnippet>853</a>                    path: path.to_path_buf(),
-<a href=#854 id=854 data-nosnippet>854</a>                })
-<a href=#855 id=855 data-nosnippet>855</a>            }
-<a href=#856 id=856 data-nosnippet>856</a>            TargetOnDisk::LocalWebc =&gt; {
-<a href=#857 id=857 data-nosnippet>857</a>                <span class="kw">let </span>container = from_disk(path)<span class="question-mark">?</span>;
-<a href=#858 id=858 data-nosnippet>858</a>                pb.set_message(<span class="string">"Resolving dependencies"</span>);
-<a href=#859 id=859 data-nosnippet>859</a>
-<a href=#860 id=860 data-nosnippet>860</a>                <span class="kw">let </span>inner_runtime = runtime.clone();
-<a href=#861 id=861 data-nosnippet>861</a>                <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
-<a href=#862 id=862 data-nosnippet>862</a>                    BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, inner_runtime.as_ref()).<span class="kw">await
-<a href=#863 id=863 data-nosnippet>863</a>                </span>})<span class="question-mark">??</span>;
-<a href=#864 id=864 data-nosnippet>864</a>                <span class="prelude-val">Ok</span>(ExecutableTarget::Package(Box::new(pkg)))
-<a href=#865 id=865 data-nosnippet>865</a>            }
-<a href=#866 id=866 data-nosnippet>866</a>        }
-<a href=#867 id=867 data-nosnippet>867</a>    }
-<a href=#868 id=868 data-nosnippet>868</a>}
-<a href=#869 id=869 data-nosnippet>869</a>
-<a href=#870 id=870 data-nosnippet>870</a><span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
-<a href=#871 id=871 data-nosnippet>871</a></span><span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source_name: String, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
-<a href=#872 id=872 data-nosnippet>872</a>    <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
-<a href=#873 id=873 data-nosnippet>873</a>        <span class="prelude-val">Some</span>(e) =&gt; e,
-<a href=#874 id=874 data-nosnippet>874</a>        <span class="prelude-val">None </span>=&gt; {
-<a href=#875 id=875 data-nosnippet>875</a>            <span class="macro">log::warn!</span>(<span class="string">"no runtime error found to generate coredump with"</span>);
-<a href=#876 id=876 data-nosnippet>876</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#877 id=877 data-nosnippet>877</a>        }
-<a href=#878 id=878 data-nosnippet>878</a>    };
-<a href=#879 id=879 data-nosnippet>879</a>
-<a href=#880 id=880 data-nosnippet>880</a>    <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
-<a href=#881 id=881 data-nosnippet>881</a>        wasm_coredump_builder::CoredumpBuilder::new().executable_name(<span class="kw-2">&amp;</span>source_name);
-<a href=#882 id=882 data-nosnippet>882</a>
-<a href=#883 id=883 data-nosnippet>883</a>    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">"main"</span>);
-<a href=#884 id=884 data-nosnippet>884</a>
-<a href=#885 id=885 data-nosnippet>885</a>    <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
-<a href=#886 id=886 data-nosnippet>886</a>        <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
-<a href=#887 id=887 data-nosnippet>887</a>            .codeoffset(frame.func_offset() <span class="kw">as </span>u32)
-<a href=#888 id=888 data-nosnippet>888</a>            .funcidx(frame.func_index())
-<a href=#889 id=889 data-nosnippet>889</a>            .build();
-<a href=#890 id=890 data-nosnippet>890</a>        thread_builder.add_frame(coredump_frame);
-<a href=#891 id=891 data-nosnippet>891</a>    }
-<a href=#892 id=892 data-nosnippet>892</a>
-<a href=#893 id=893 data-nosnippet>893</a>    coredump_builder.add_thread(thread_builder.build());
-<a href=#894 id=894 data-nosnippet>894</a>
-<a href=#895 id=895 data-nosnippet>895</a>    <span class="kw">let </span>coredump = coredump_builder
-<a href=#896 id=896 data-nosnippet>896</a>        .serialize()
-<a href=#897 id=897 data-nosnippet>897</a>        .map_err(Error::msg)
-<a href=#898 id=898 data-nosnippet>898</a>        .context(<span class="string">"Coredump serializing failed"</span>)<span class="question-mark">?</span>;
-<a href=#899 id=899 data-nosnippet>899</a>
-<a href=#900 id=900 data-nosnippet>900</a>    std::fs::write(coredump_path, <span class="kw-2">&amp;</span>coredump).with_context(|| {
-<a href=#901 id=901 data-nosnippet>901</a>        <span class="macro">format!</span>(
-<a href=#902 id=902 data-nosnippet>902</a>            <span class="string">"Unable to save the coredump to \"{}\""</span>,
-<a href=#903 id=903 data-nosnippet>903</a>            coredump_path.display()
-<a href=#904 id=904 data-nosnippet>904</a>        )
-<a href=#905 id=905 data-nosnippet>905</a>    })<span class="question-mark">?</span>;
-<a href=#906 id=906 data-nosnippet>906</a>
-<a href=#907 id=907 data-nosnippet>907</a>    <span class="prelude-val">Ok</span>(())
-<a href=#908 id=908 data-nosnippet>908</a>}
-<a href=#909 id=909 data-nosnippet>909</a>
-<a href=#910 id=910 data-nosnippet>910</a><span class="attr">#[derive(Debug, Clone, Parser)]
-<a href=#911 id=911 data-nosnippet>911</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WcgiOptions {
-<a href=#912 id=912 data-nosnippet>912</a>    <span class="doccomment">/// The address to serve on.
-<a href=#913 id=913 data-nosnippet>913</a>    </span><span class="attr">#[clap(long, short, env, default_value_t = ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).into())]
-<a href=#914 id=914 data-nosnippet>914</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
-<a href=#915 id=915 data-nosnippet>915</a>}
-<a href=#916 id=916 data-nosnippet>916</a>
-<a href=#917 id=917 data-nosnippet>917</a><span class="kw">impl </span>Default <span class="kw">for </span>WcgiOptions {
-<a href=#918 id=918 data-nosnippet>918</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#919 id=919 data-nosnippet>919</a>        <span class="self">Self </span>{
-<a href=#920 id=920 data-nosnippet>920</a>            addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
-<a href=#921 id=921 data-nosnippet>921</a>        }
-<a href=#922 id=922 data-nosnippet>922</a>    }
-<a href=#923 id=923 data-nosnippet>923</a>}
-<a href=#924 id=924 data-nosnippet>924</a>
-<a href=#925 id=925 data-nosnippet>925</a><span class="attr">#[derive(Debug)]
-<a href=#926 id=926 data-nosnippet>926</a></span><span class="kw">struct </span>Callbacks {
-<a href=#927 id=927 data-nosnippet>927</a>    stderr: Mutex&lt;LineWriter&lt;std::io::Stderr&gt;&gt;,
-<a href=#928 id=928 data-nosnippet>928</a>    addr: SocketAddr,
-<a href=#929 id=929 data-nosnippet>929</a>}
-<a href=#930 id=930 data-nosnippet>930</a>
-<a href=#931 id=931 data-nosnippet>931</a><span class="kw">impl </span>Callbacks {
-<a href=#932 id=932 data-nosnippet>932</a>    <span class="kw">fn </span>new(addr: SocketAddr) -&gt; <span class="self">Self </span>{
-<a href=#933 id=933 data-nosnippet>933</a>        Callbacks {
-<a href=#934 id=934 data-nosnippet>934</a>            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
-<a href=#935 id=935 data-nosnippet>935</a>            addr,
-<a href=#936 id=936 data-nosnippet>936</a>        }
-<a href=#937 id=937 data-nosnippet>937</a>    }
-<a href=#938 id=938 data-nosnippet>938</a>}
-<a href=#939 id=939 data-nosnippet>939</a>
-<a href=#940 id=940 data-nosnippet>940</a><span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
-<a href=#941 id=941 data-nosnippet>941</a>    <span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {
-<a href=#942 id=942 data-nosnippet>942</a>        <span class="macro">println!</span>(<span class="string">"WCGI Server running at http://{}/"</span>, <span class="self">self</span>.addr);
-<a href=#943 id=943 data-nosnippet>943</a>    }
-<a href=#944 id=944 data-nosnippet>944</a>
-<a href=#945 id=945 data-nosnippet>945</a>    <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
-<a href=#946 id=946 data-nosnippet>946</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = <span class="self">self</span>.stderr.lock() {
-<a href=#947 id=947 data-nosnippet>947</a>            <span class="comment">// If the WCGI runner printed any log messages we want to make sure
-<a href=#948 id=948 data-nosnippet>948</a>            // they get propagated to the user. Line buffering is important here
-<a href=#949 id=949 data-nosnippet>949</a>            // because it helps prevent the output from becoming a complete
-<a href=#950 id=950 data-nosnippet>950</a>            // mess.
-<a href=#951 id=951 data-nosnippet>951</a>            </span><span class="kw">let _ </span>= stderr.write_all(raw_message);
-<a href=#952 id=952 data-nosnippet>952</a>        }
-<a href=#953 id=953 data-nosnippet>953</a>    }
-<a href=#954 id=954 data-nosnippet>954</a>}
-<a href=#955 id=955 data-nosnippet>955</a>
-<a href=#956 id=956 data-nosnippet>956</a><span class="doccomment">/// Exit the current process, using the WASI exit code if the error contains
-<a href=#957 id=957 data-nosnippet>957</a>/// one.
-<a href=#958 id=958 data-nosnippet>958</a></span><span class="kw">fn </span>exit_with_wasi_exit_code(result: <span class="prelude-ty">Result</span>&lt;(), Error&gt;) -&gt; ! {
-<a href=#959 id=959 data-nosnippet>959</a>    <span class="kw">let </span>exit_code = <span class="kw">match </span>result {
-<a href=#960 id=960 data-nosnippet>960</a>        <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="number">0</span>,
-<a href=#961 id=961 data-nosnippet>961</a>        <span class="prelude-val">Err</span>(error) =&gt; {
-<a href=#962 id=962 data-nosnippet>962</a>            <span class="kw">match </span>error.chain().find_map(get_exit_code) {
-<a href=#963 id=963 data-nosnippet>963</a>                <span class="prelude-val">Some</span>(exit_code) =&gt; exit_code.raw(),
-<a href=#964 id=964 data-nosnippet>964</a>                <span class="prelude-val">None </span>=&gt; {
-<a href=#965 id=965 data-nosnippet>965</a>                    <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError::new(error));
-<a href=#966 id=966 data-nosnippet>966</a>                    <span class="comment">// Something else happened
-<a href=#967 id=967 data-nosnippet>967</a>                    </span><span class="number">1
-<a href=#968 id=968 data-nosnippet>968</a>                </span>}
-<a href=#969 id=969 data-nosnippet>969</a>            }
-<a href=#970 id=970 data-nosnippet>970</a>        }
-<a href=#971 id=971 data-nosnippet>971</a>    };
-<a href=#972 id=972 data-nosnippet>972</a>
-<a href=#973 id=973 data-nosnippet>973</a>    std::io::stdout().flush().ok();
-<a href=#974 id=974 data-nosnippet>974</a>    std::io::stderr().flush().ok();
-<a href=#975 id=975 data-nosnippet>975</a>
-<a href=#976 id=976 data-nosnippet>976</a>    std::process::exit(exit_code);
-<a href=#977 id=977 data-nosnippet>977</a>}
-<a href=#978 id=978 data-nosnippet>978</a>
-<a href=#979 id=979 data-nosnippet>979</a><span class="kw">fn </span>get_exit_code(
-<a href=#980 id=980 data-nosnippet>980</a>    error: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>),
-<a href=#981 id=981 data-nosnippet>981</a>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_wasix::types::wasi::ExitCode&gt; {
-<a href=#982 id=982 data-nosnippet>982</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(WasiError::Exit(exit_code)) = error.downcast_ref() {
-<a href=#983 id=983 data-nosnippet>983</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>exit_code);
-<a href=#984 id=984 data-nosnippet>984</a>    }
-<a href=#985 id=985 data-nosnippet>985</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = error.downcast_ref::&lt;wasmer_wasix::WasiRuntimeError&gt;() {
-<a href=#986 id=986 data-nosnippet>986</a>        <span class="kw">return </span>error.as_exit_code();
-<a href=#987 id=987 data-nosnippet>987</a>    }
-<a href=#988 id=988 data-nosnippet>988</a>
-<a href=#989 id=989 data-nosnippet>989</a>    <span class="prelude-val">None
-<a href=#990 id=990 data-nosnippet>990</a></span>}
-<a href=#991 id=991 data-nosnippet>991</a>
-<a href=#992 id=992 data-nosnippet>992</a><span class="attr">#[derive(Debug)]
-<a href=#993 id=993 data-nosnippet>993</a></span><span class="kw">struct </span>MonitoringRuntime&lt;R&gt; {
-<a href=#994 id=994 data-nosnippet>994</a>    runtime: Arc&lt;R&gt;,
-<a href=#995 id=995 data-nosnippet>995</a>    progress: ProgressBar,
-<a href=#996 id=996 data-nosnippet>996</a>    quiet_mode: bool,
-<a href=#997 id=997 data-nosnippet>997</a>}
-<a href=#998 id=998 data-nosnippet>998</a>
-<a href=#999 id=999 data-nosnippet>999</a><span class="kw">impl</span>&lt;R&gt; MonitoringRuntime&lt;R&gt; {
-<a href=#1000 id=1000 data-nosnippet>1000</a>    <span class="kw">fn </span>new(runtime: R, progress: ProgressBar, quiet_mode: bool) -&gt; <span class="self">Self </span>{
-<a href=#1001 id=1001 data-nosnippet>1001</a>        MonitoringRuntime {
-<a href=#1002 id=1002 data-nosnippet>1002</a>            runtime: Arc::new(runtime),
-<a href=#1003 id=1003 data-nosnippet>1003</a>            progress,
-<a href=#1004 id=1004 data-nosnippet>1004</a>            quiet_mode,
-<a href=#1005 id=1005 data-nosnippet>1005</a>        }
-<a href=#1006 id=1006 data-nosnippet>1006</a>    }
-<a href=#1007 id=1007 data-nosnippet>1007</a>}
-<a href=#1008 id=1008 data-nosnippet>1008</a>
-<a href=#1009 id=1009 data-nosnippet>1009</a><span class="kw">impl</span>&lt;R: wasmer_wasix::Runtime + Send + Sync&gt; wasmer_wasix::Runtime <span class="kw">for </span>MonitoringRuntime&lt;R&gt; {
-<a href=#1010 id=1010 data-nosnippet>1010</a>    <span class="kw">fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>virtual_net::DynVirtualNetworking {
-<a href=#1011 id=1011 data-nosnippet>1011</a>        <span class="self">self</span>.runtime.networking()
-<a href=#1012 id=1012 data-nosnippet>1012</a>    }
-<a href=#1013 id=1013 data-nosnippet>1013</a>
-<a href=#1014 id=1014 data-nosnippet>1014</a>    <span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>wasmer_wasix::VirtualTaskManager&gt; {
-<a href=#1015 id=1015 data-nosnippet>1015</a>        <span class="self">self</span>.runtime.task_manager()
-<a href=#1016 id=1016 data-nosnippet>1016</a>    }
-<a href=#1017 id=1017 data-nosnippet>1017</a>
-<a href=#1018 id=1018 data-nosnippet>1018</a>    <span class="kw">fn </span>package_loader(
-<a href=#1019 id=1019 data-nosnippet>1019</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1020 id=1020 data-nosnippet>1020</a>    ) -&gt; Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync&gt; {
-<a href=#1021 id=1021 data-nosnippet>1021</a>        <span class="kw">let </span>inner = <span class="self">self</span>.runtime.package_loader();
-<a href=#1022 id=1022 data-nosnippet>1022</a>        Arc::new(MonitoringPackageLoader {
-<a href=#1023 id=1023 data-nosnippet>1023</a>            inner,
-<a href=#1024 id=1024 data-nosnippet>1024</a>            progress: <span class="self">self</span>.progress.clone(),
-<a href=#1025 id=1025 data-nosnippet>1025</a>        })
-<a href=#1026 id=1026 data-nosnippet>1026</a>    }
-<a href=#1027 id=1027 data-nosnippet>1027</a>
-<a href=#1028 id=1028 data-nosnippet>1028</a>    <span class="kw">fn </span>module_cache(
-<a href=#1029 id=1029 data-nosnippet>1029</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1030 id=1030 data-nosnippet>1030</a>    ) -&gt; Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::module_cache::ModuleCache + Send + Sync&gt; {
-<a href=#1031 id=1031 data-nosnippet>1031</a>        <span class="self">self</span>.runtime.module_cache()
-<a href=#1032 id=1032 data-nosnippet>1032</a>    }
-<a href=#1033 id=1033 data-nosnippet>1033</a>
-<a href=#1034 id=1034 data-nosnippet>1034</a>    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::resolver::Source + Send + Sync&gt; {
-<a href=#1035 id=1035 data-nosnippet>1035</a>        <span class="kw">let </span>inner = <span class="self">self</span>.runtime.source();
-<a href=#1036 id=1036 data-nosnippet>1036</a>        Arc::new(MonitoringSource {
-<a href=#1037 id=1037 data-nosnippet>1037</a>            inner,
-<a href=#1038 id=1038 data-nosnippet>1038</a>            progress: <span class="self">self</span>.progress.clone(),
-<a href=#1039 id=1039 data-nosnippet>1039</a>        })
-<a href=#1040 id=1040 data-nosnippet>1040</a>    }
-<a href=#1041 id=1041 data-nosnippet>1041</a>
-<a href=#1042 id=1042 data-nosnippet>1042</a>    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
-<a href=#1043 id=1043 data-nosnippet>1043</a>        <span class="self">self</span>.runtime.engine()
-<a href=#1044 id=1044 data-nosnippet>1044</a>    }
-<a href=#1045 id=1045 data-nosnippet>1045</a>
-<a href=#1046 id=1046 data-nosnippet>1046</a>    <span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {
-<a href=#1047 id=1047 data-nosnippet>1047</a>        <span class="self">self</span>.runtime.new_store()
-<a href=#1048 id=1048 data-nosnippet>1048</a>    }
-<a href=#1049 id=1049 data-nosnippet>1049</a>
-<a href=#1050 id=1050 data-nosnippet>1050</a>    <span class="kw">fn </span>http_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasmer_wasix::http::DynHttpClient&gt; {
-<a href=#1051 id=1051 data-nosnippet>1051</a>        <span class="self">self</span>.runtime.http_client()
-<a href=#1052 id=1052 data-nosnippet>1052</a>    }
-<a href=#1053 id=1053 data-nosnippet>1053</a>
-<a href=#1054 id=1054 data-nosnippet>1054</a>    <span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>wasmer_wasix::os::TtyBridge + Send + Sync)&gt; {
-<a href=#1055 id=1055 data-nosnippet>1055</a>        <span class="self">self</span>.runtime.tty()
-<a href=#1056 id=1056 data-nosnippet>1056</a>    }
-<a href=#1057 id=1057 data-nosnippet>1057</a>
-<a href=#1058 id=1058 data-nosnippet>1058</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#1059 id=1059 data-nosnippet>1059</a>    </span><span class="kw">fn </span>read_only_journals&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#1060 id=1060 data-nosnippet>1060</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-<a href=#1061 id=1061 data-nosnippet>1061</a>    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;wasmer_wasix::journal::DynReadableJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
-<a href=#1062 id=1062 data-nosnippet>1062</a>        <span class="self">self</span>.runtime.read_only_journals()
-<a href=#1063 id=1063 data-nosnippet>1063</a>    }
-<a href=#1064 id=1064 data-nosnippet>1064</a>
-<a href=#1065 id=1065 data-nosnippet>1065</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#1066 id=1066 data-nosnippet>1066</a>    </span><span class="kw">fn </span>writable_journals&lt;<span class="lifetime">'a</span>&gt;(
-<a href=#1067 id=1067 data-nosnippet>1067</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
-<a href=#1068 id=1068 data-nosnippet>1068</a>    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;wasmer_wasix::journal::DynJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
-<a href=#1069 id=1069 data-nosnippet>1069</a>        <span class="self">self</span>.runtime.writable_journals()
-<a href=#1070 id=1070 data-nosnippet>1070</a>    }
-<a href=#1071 id=1071 data-nosnippet>1071</a>
-<a href=#1072 id=1072 data-nosnippet>1072</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#1073 id=1073 data-nosnippet>1073</a>    </span><span class="kw">fn </span>active_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>wasmer_wasix::journal::DynJournal&gt; {
-<a href=#1074 id=1074 data-nosnippet>1074</a>        <span class="self">self</span>.runtime.active_journal()
-<a href=#1075 id=1075 data-nosnippet>1075</a>    }
-<a href=#1076 id=1076 data-nosnippet>1076</a>
-<a href=#1077 id=1077 data-nosnippet>1077</a>    <span class="kw">fn </span>load_hashed_module(
-<a href=#1078 id=1078 data-nosnippet>1078</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1079 id=1079 data-nosnippet>1079</a>        module: HashedModuleData,
-<a href=#1080 id=1080 data-nosnippet>1080</a>        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
-<a href=#1081 id=1081 data-nosnippet>1081</a>    ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
-<a href=#1082 id=1082 data-nosnippet>1082</a>        <span class="kw">let </span>hash = <span class="kw-2">*</span>module.hash();
-<a href=#1083 id=1083 data-nosnippet>1083</a>        <span class="kw">let </span>fut = <span class="self">self</span>.runtime.load_hashed_module(module, engine);
-<a href=#1084 id=1084 data-nosnippet>1084</a>        Box::pin(compile_with_progress(fut, hash, <span class="prelude-val">None</span>, <span class="self">self</span>.quiet_mode))
-<a href=#1085 id=1085 data-nosnippet>1085</a>    }
-<a href=#1086 id=1086 data-nosnippet>1086</a>
-<a href=#1087 id=1087 data-nosnippet>1087</a>    <span class="kw">fn </span>load_hashed_module_sync(
-<a href=#1088 id=1088 data-nosnippet>1088</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1089 id=1089 data-nosnippet>1089</a>        wasm: HashedModuleData,
-<a href=#1090 id=1090 data-nosnippet>1090</a>        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
-<a href=#1091 id=1091 data-nosnippet>1091</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, wasmer_wasix::SpawnError&gt; {
-<a href=#1092 id=1092 data-nosnippet>1092</a>        <span class="kw">let </span>hash = <span class="kw-2">*</span>wasm.hash();
-<a href=#1093 id=1093 data-nosnippet>1093</a>        compile_with_progress_sync(
-<a href=#1094 id=1094 data-nosnippet>1094</a>            || <span class="self">self</span>.runtime.load_hashed_module_sync(wasm, engine),
-<a href=#1095 id=1095 data-nosnippet>1095</a>            <span class="kw-2">&amp;</span>hash,
-<a href=#1096 id=1096 data-nosnippet>1096</a>            <span class="prelude-val">None</span>,
-<a href=#1097 id=1097 data-nosnippet>1097</a>            <span class="self">self</span>.quiet_mode,
-<a href=#1098 id=1098 data-nosnippet>1098</a>        )
-<a href=#1099 id=1099 data-nosnippet>1099</a>    }
-<a href=#1100 id=1100 data-nosnippet>1100</a>
-<a href=#1101 id=1101 data-nosnippet>1101</a>    <span class="kw">fn </span>load_command_module(
-<a href=#1102 id=1102 data-nosnippet>1102</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1103 id=1103 data-nosnippet>1103</a>        cmd: <span class="kw-2">&amp;</span>BinaryPackageCommand,
-<a href=#1104 id=1104 data-nosnippet>1104</a>    ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
-<a href=#1105 id=1105 data-nosnippet>1105</a>        <span class="kw">let </span>fut = <span class="self">self</span>.runtime.load_command_module(cmd);
-<a href=#1106 id=1106 data-nosnippet>1106</a>
-<a href=#1107 id=1107 data-nosnippet>1107</a>        Box::pin(compile_with_progress(
-<a href=#1108 id=1108 data-nosnippet>1108</a>            fut,
-<a href=#1109 id=1109 data-nosnippet>1109</a>            <span class="kw-2">*</span>cmd.hash(),
-<a href=#1110 id=1110 data-nosnippet>1110</a>            <span class="prelude-val">Some</span>(cmd.name().to_owned()),
-<a href=#1111 id=1111 data-nosnippet>1111</a>            <span class="self">self</span>.quiet_mode,
-<a href=#1112 id=1112 data-nosnippet>1112</a>        ))
-<a href=#1113 id=1113 data-nosnippet>1113</a>    }
-<a href=#1114 id=1114 data-nosnippet>1114</a>
-<a href=#1115 id=1115 data-nosnippet>1115</a>    <span class="kw">fn </span>load_command_module_sync(
-<a href=#1116 id=1116 data-nosnippet>1116</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1117 id=1117 data-nosnippet>1117</a>        cmd: <span class="kw-2">&amp;</span>wasmer_wasix::bin_factory::BinaryPackageCommand,
-<a href=#1118 id=1118 data-nosnippet>1118</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, wasmer_wasix::SpawnError&gt; {
-<a href=#1119 id=1119 data-nosnippet>1119</a>        compile_with_progress_sync(
-<a href=#1120 id=1120 data-nosnippet>1120</a>            || <span class="self">self</span>.runtime.load_command_module_sync(cmd),
-<a href=#1121 id=1121 data-nosnippet>1121</a>            cmd.hash(),
-<a href=#1122 id=1122 data-nosnippet>1122</a>            <span class="prelude-val">Some</span>(cmd.name()),
-<a href=#1123 id=1123 data-nosnippet>1123</a>            <span class="self">self</span>.quiet_mode,
-<a href=#1124 id=1124 data-nosnippet>1124</a>        )
-<a href=#1125 id=1125 data-nosnippet>1125</a>    }
-<a href=#1126 id=1126 data-nosnippet>1126</a>}
-<a href=#1127 id=1127 data-nosnippet>1127</a>
-<a href=#1128 id=1128 data-nosnippet>1128</a><span class="kw">async fn </span>compile_with_progress&lt;<span class="lifetime">'a</span>, F, T&gt;(
-<a href=#1129 id=1129 data-nosnippet>1129</a>    fut: F,
-<a href=#1130 id=1130 data-nosnippet>1130</a>    hash: ModuleHash,
-<a href=#1131 id=1131 data-nosnippet>1131</a>    name: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#1132 id=1132 data-nosnippet>1132</a>    quiet_mode: bool,
-<a href=#1133 id=1133 data-nosnippet>1133</a>) -&gt; T
-<a href=#1134 id=1134 data-nosnippet>1134</a><span class="kw">where
-<a href=#1135 id=1135 data-nosnippet>1135</a>    </span>F: std::future::Future&lt;Output = T&gt; + Send + <span class="lifetime">'a</span>,
-<a href=#1136 id=1136 data-nosnippet>1136</a>    T: Send + <span class="lifetime">'static</span>,
-<a href=#1137 id=1137 data-nosnippet>1137</a>{
-<a href=#1138 id=1138 data-nosnippet>1138</a>    <span class="kw">let </span><span class="kw-2">mut </span>pb = new_progressbar_compile(<span class="kw-2">&amp;</span>hash, name.as_deref(), quiet_mode);
-<a href=#1139 id=1139 data-nosnippet>1139</a>    <span class="kw">let </span>res = fut.<span class="kw">await</span>;
-<a href=#1140 id=1140 data-nosnippet>1140</a>    pb.finish_and_clear();
-<a href=#1141 id=1141 data-nosnippet>1141</a>    res
-<a href=#1142 id=1142 data-nosnippet>1142</a>}
-<a href=#1143 id=1143 data-nosnippet>1143</a>
-<a href=#1144 id=1144 data-nosnippet>1144</a><span class="kw">fn </span>compile_with_progress_sync&lt;F, T&gt;(
-<a href=#1145 id=1145 data-nosnippet>1145</a>    f: F,
-<a href=#1146 id=1146 data-nosnippet>1146</a>    hash: <span class="kw-2">&amp;</span>ModuleHash,
-<a href=#1147 id=1147 data-nosnippet>1147</a>    name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
-<a href=#1148 id=1148 data-nosnippet>1148</a>    quiet_mode: bool,
-<a href=#1149 id=1149 data-nosnippet>1149</a>) -&gt; T
-<a href=#1150 id=1150 data-nosnippet>1150</a><span class="kw">where
-<a href=#1151 id=1151 data-nosnippet>1151</a>    </span>F: FnOnce() -&gt; T,
-<a href=#1152 id=1152 data-nosnippet>1152</a>{
-<a href=#1153 id=1153 data-nosnippet>1153</a>    <span class="kw">let </span><span class="kw-2">mut </span>pb = new_progressbar_compile(hash, name, quiet_mode);
-<a href=#1154 id=1154 data-nosnippet>1154</a>    <span class="kw">let </span>res = f();
-<a href=#1155 id=1155 data-nosnippet>1155</a>    pb.finish_and_clear();
-<a href=#1156 id=1156 data-nosnippet>1156</a>    res
-<a href=#1157 id=1157 data-nosnippet>1157</a>}
-<a href=#1158 id=1158 data-nosnippet>1158</a>
-<a href=#1159 id=1159 data-nosnippet>1159</a><span class="kw">fn </span>new_progressbar_compile(hash: <span class="kw-2">&amp;</span>ModuleHash, name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, quiet_mode: bool) -&gt; ProgressBar {
-<a href=#1160 id=1160 data-nosnippet>1160</a>    <span class="comment">// Only show a spinner if we're running in a TTY
-<a href=#1161 id=1161 data-nosnippet>1161</a>    </span><span class="kw">let </span>hash = hash.to_string();
-<a href=#1162 id=1162 data-nosnippet>1162</a>    <span class="kw">let </span>hash = <span class="kw-2">&amp;</span>hash[<span class="number">0</span>..<span class="number">8</span>];
-<a href=#1163 id=1163 data-nosnippet>1163</a>    <span class="kw">if </span>!quiet_mode &amp;&amp; std::io::stderr().is_terminal() {
-<a href=#1164 id=1164 data-nosnippet>1164</a>        <span class="kw">let </span>msg = <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = name {
-<a href=#1165 id=1165 data-nosnippet>1165</a>            <span class="macro">format!</span>(<span class="string">"Compiling WebAssembly module for command '{name}' ({hash})..."</span>)
-<a href=#1166 id=1166 data-nosnippet>1166</a>        } <span class="kw">else </span>{
-<a href=#1167 id=1167 data-nosnippet>1167</a>            <span class="macro">format!</span>(<span class="string">"Compiling WebAssembly module {hash}..."</span>)
-<a href=#1168 id=1168 data-nosnippet>1168</a>        };
-<a href=#1169 id=1169 data-nosnippet>1169</a>        <span class="kw">let </span>pb = ProgressBar::new_spinner().with_message(msg);
-<a href=#1170 id=1170 data-nosnippet>1170</a>        pb.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
-<a href=#1171 id=1171 data-nosnippet>1171</a>        pb
-<a href=#1172 id=1172 data-nosnippet>1172</a>    } <span class="kw">else </span>{
-<a href=#1173 id=1173 data-nosnippet>1173</a>        ProgressBar::hidden()
-<a href=#1174 id=1174 data-nosnippet>1174</a>    }
-<a href=#1175 id=1175 data-nosnippet>1175</a>}
-<a href=#1176 id=1176 data-nosnippet>1176</a>
-<a href=#1177 id=1177 data-nosnippet>1177</a><span class="attr">#[derive(Debug)]
-<a href=#1178 id=1178 data-nosnippet>1178</a></span><span class="kw">struct </span>MonitoringSource {
-<a href=#1179 id=1179 data-nosnippet>1179</a>    inner: Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::resolver::Source + Send + Sync&gt;,
-<a href=#1180 id=1180 data-nosnippet>1180</a>    progress: ProgressBar,
-<a href=#1181 id=1181 data-nosnippet>1181</a>}
-<a href=#1182 id=1182 data-nosnippet>1182</a>
-<a href=#1183 id=1183 data-nosnippet>1183</a><span class="attr">#[async_trait::async_trait]
-<a href=#1184 id=1184 data-nosnippet>1184</a></span><span class="kw">impl </span>wasmer_wasix::runtime::resolver::Source <span class="kw">for </span>MonitoringSource {
-<a href=#1185 id=1185 data-nosnippet>1185</a>    <span class="kw">async fn </span>query(
-<a href=#1186 id=1186 data-nosnippet>1186</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1187 id=1187 data-nosnippet>1187</a>        package: <span class="kw-2">&amp;</span>PackageSpecifier,
-<a href=#1188 id=1188 data-nosnippet>1188</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;wasmer_wasix::runtime::resolver::PackageSummary&gt;, QueryError&gt; {
-<a href=#1189 id=1189 data-nosnippet>1189</a>        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">"Looking up {package}"</span>));
-<a href=#1190 id=1190 data-nosnippet>1190</a>        <span class="self">self</span>.inner.query(package).<span class="kw">await
-<a href=#1191 id=1191 data-nosnippet>1191</a>    </span>}
-<a href=#1192 id=1192 data-nosnippet>1192</a>}
-<a href=#1193 id=1193 data-nosnippet>1193</a>
-<a href=#1194 id=1194 data-nosnippet>1194</a><span class="attr">#[derive(Debug)]
-<a href=#1195 id=1195 data-nosnippet>1195</a></span><span class="kw">struct </span>MonitoringPackageLoader {
-<a href=#1196 id=1196 data-nosnippet>1196</a>    inner: Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync&gt;,
-<a href=#1197 id=1197 data-nosnippet>1197</a>    progress: ProgressBar,
-<a href=#1198 id=1198 data-nosnippet>1198</a>}
-<a href=#1199 id=1199 data-nosnippet>1199</a>
-<a href=#1200 id=1200 data-nosnippet>1200</a><span class="attr">#[async_trait::async_trait]
-<a href=#1201 id=1201 data-nosnippet>1201</a></span><span class="kw">impl </span>wasmer_wasix::runtime::package_loader::PackageLoader <span class="kw">for </span>MonitoringPackageLoader {
-<a href=#1202 id=1202 data-nosnippet>1202</a>    <span class="kw">async fn </span>load(
-<a href=#1203 id=1203 data-nosnippet>1203</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1204 id=1204 data-nosnippet>1204</a>        summary: <span class="kw-2">&amp;</span>wasmer_wasix::runtime::resolver::PackageSummary,
-<a href=#1205 id=1205 data-nosnippet>1205</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
-<a href=#1206 id=1206 data-nosnippet>1206</a>        <span class="kw">let </span>pkg_id = summary.package_id();
-<a href=#1207 id=1207 data-nosnippet>1207</a>        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">"Downloading {pkg_id}"</span>));
-<a href=#1208 id=1208 data-nosnippet>1208</a>
-<a href=#1209 id=1209 data-nosnippet>1209</a>        <span class="self">self</span>.inner.load(summary).<span class="kw">await
-<a href=#1210 id=1210 data-nosnippet>1210</a>    </span>}
-<a href=#1211 id=1211 data-nosnippet>1211</a>
-<a href=#1212 id=1212 data-nosnippet>1212</a>    <span class="kw">async fn </span>load_package_tree(
-<a href=#1213 id=1213 data-nosnippet>1213</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#1214 id=1214 data-nosnippet>1214</a>        root: <span class="kw-2">&amp;</span>Container,
-<a href=#1215 id=1215 data-nosnippet>1215</a>        resolution: <span class="kw-2">&amp;</span>wasmer_wasix::runtime::resolver::Resolution,
-<a href=#1216 id=1216 data-nosnippet>1216</a>        root_is_local_dir: bool,
-<a href=#1217 id=1217 data-nosnippet>1217</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
-<a href=#1218 id=1218 data-nosnippet>1218</a>        <span class="self">self</span>.inner
-<a href=#1219 id=1219 data-nosnippet>1219</a>            .load_package_tree(root, resolution, root_is_local_dir)
-<a href=#1220 id=1220 data-nosnippet>1220</a>            .<span class="kw">await
-<a href=#1221 id=1221 data-nosnippet>1221</a>    </span>}
-<a href=#1222 id=1222 data-nosnippet>1222</a>}</code></pre></div></section></main></body></html>
+<a href=#785 id=785 data-nosnippet>785</a>#[allow(clippy::large_enum_variant)]
+<a href=#786 id=786 data-nosnippet>786</a></span><span class="kw">enum </span>ExecutableTarget {
+<a href=#787 id=787 data-nosnippet>787</a>    WebAssembly {
+<a href=#788 id=788 data-nosnippet>788</a>        module: Module,
+<a href=#789 id=789 data-nosnippet>789</a>        module_hash: ModuleHash,
+<a href=#790 id=790 data-nosnippet>790</a>        path: PathBuf,
+<a href=#791 id=791 data-nosnippet>791</a>    },
+<a href=#792 id=792 data-nosnippet>792</a>    Package(Box&lt;BinaryPackage&gt;),
+<a href=#793 id=793 data-nosnippet>793</a>}
+<a href=#794 id=794 data-nosnippet>794</a>
+<a href=#795 id=795 data-nosnippet>795</a><span class="kw">impl </span>ExecutableTarget {
+<a href=#796 id=796 data-nosnippet>796</a>    <span class="doccomment">/// Try to load a Wasmer package from a directory containing a `wasmer.toml`
+<a href=#797 id=797 data-nosnippet>797</a>    /// file.
+<a href=#798 id=798 data-nosnippet>798</a>    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
+<a href=#799 id=799 data-nosnippet>799</a>    </span><span class="kw">fn </span>from_dir(
+<a href=#800 id=800 data-nosnippet>800</a>        dir: <span class="kw-2">&amp;</span>Path,
+<a href=#801 id=801 data-nosnippet>801</a>        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#802 id=802 data-nosnippet>802</a>        pb: <span class="kw-2">&amp;</span>ProgressBar,
+<a href=#803 id=803 data-nosnippet>803</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+<a href=#804 id=804 data-nosnippet>804</a>        pb.set_message(<span class="macro">format!</span>(<span class="string">"Loading \"{}\" into memory"</span>, dir.display()));
+<a href=#805 id=805 data-nosnippet>805</a>        pb.set_message(<span class="string">"Resolving dependencies"</span>);
+<a href=#806 id=806 data-nosnippet>806</a>        <span class="kw">let </span>inner_runtime = runtime.clone();
+<a href=#807 id=807 data-nosnippet>807</a>        <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on({
+<a href=#808 id=808 data-nosnippet>808</a>            <span class="kw">let </span>path = dir.to_path_buf();
+<a href=#809 id=809 data-nosnippet>809</a>
+<a href=#810 id=810 data-nosnippet>810</a>            <span class="kw">async move </span>{ BinaryPackage::from_dir(<span class="kw-2">&amp;</span>path, inner_runtime.as_ref()).<span class="kw">await </span>}
+<a href=#811 id=811 data-nosnippet>811</a>        })<span class="question-mark">??</span>;
+<a href=#812 id=812 data-nosnippet>812</a>
+<a href=#813 id=813 data-nosnippet>813</a>        <span class="prelude-val">Ok</span>(ExecutableTarget::Package(Box::new(pkg)))
+<a href=#814 id=814 data-nosnippet>814</a>    }
+<a href=#815 id=815 data-nosnippet>815</a>
+<a href=#816 id=816 data-nosnippet>816</a>    <span class="doccomment">/// Try to load a file into something that can be used to run it.
+<a href=#817 id=817 data-nosnippet>817</a>    </span><span class="attr">#[tracing::instrument(level = <span class="string">"debug"</span>, skip_all)]
+<a href=#818 id=818 data-nosnippet>818</a>    </span><span class="kw">fn </span>from_file(
+<a href=#819 id=819 data-nosnippet>819</a>        path: <span class="kw-2">&amp;</span>Path,
+<a href=#820 id=820 data-nosnippet>820</a>        runtime: <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;,
+<a href=#821 id=821 data-nosnippet>821</a>        pb: <span class="kw-2">&amp;</span>ProgressBar,
+<a href=#822 id=822 data-nosnippet>822</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Error&gt; {
+<a href=#823 id=823 data-nosnippet>823</a>        pb.set_message(<span class="macro">format!</span>(<span class="string">"Loading from \"{}\""</span>, path.display()));
+<a href=#824 id=824 data-nosnippet>824</a>
+<a href=#825 id=825 data-nosnippet>825</a>        <span class="kw">match </span>TargetOnDisk::from_file(path)<span class="question-mark">? </span>{
+<a href=#826 id=826 data-nosnippet>826</a>            TargetOnDisk::WebAssemblyBinary | TargetOnDisk::Wat =&gt; {
+<a href=#827 id=827 data-nosnippet>827</a>                <span class="kw">let </span>wasm = std::fs::read(path)<span class="question-mark">?</span>;
+<a href=#828 id=828 data-nosnippet>828</a>                <span class="kw">let </span>module_data = HashedModuleData::new(wasm);
+<a href=#829 id=829 data-nosnippet>829</a>                <span class="kw">let </span>module_hash = <span class="kw-2">*</span>module_data.hash();
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>                pb.set_message(<span class="string">"Compiling to WebAssembly"</span>);
+<a href=#832 id=832 data-nosnippet>832</a>                <span class="kw">let </span>module = runtime
+<a href=#833 id=833 data-nosnippet>833</a>                    .load_hashed_module_sync(module_data, <span class="prelude-val">None</span>)
+<a href=#834 id=834 data-nosnippet>834</a>                    .with_context(|| <span class="macro">format!</span>(<span class="string">"Unable to compile \"{}\""</span>, path.display()))<span class="question-mark">?</span>;
+<a href=#835 id=835 data-nosnippet>835</a>
+<a href=#836 id=836 data-nosnippet>836</a>                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
+<a href=#837 id=837 data-nosnippet>837</a>                    module,
+<a href=#838 id=838 data-nosnippet>838</a>                    module_hash,
+<a href=#839 id=839 data-nosnippet>839</a>                    path: path.to_path_buf(),
+<a href=#840 id=840 data-nosnippet>840</a>                })
+<a href=#841 id=841 data-nosnippet>841</a>            }
+<a href=#842 id=842 data-nosnippet>842</a>            TargetOnDisk::Artifact =&gt; {
+<a href=#843 id=843 data-nosnippet>843</a>                <span class="kw">let </span>engine = runtime.engine();
+<a href=#844 id=844 data-nosnippet>844</a>                pb.set_message(<span class="string">"Deserializing pre-compiled WebAssembly module"</span>);
+<a href=#845 id=845 data-nosnippet>845</a>                <span class="kw">let </span>module = <span class="kw">unsafe </span>{ Module::deserialize_from_file(<span class="kw-2">&amp;</span>engine, path)<span class="question-mark">? </span>};
+<a href=#846 id=846 data-nosnippet>846</a>
+<a href=#847 id=847 data-nosnippet>847</a>                <span class="kw">let </span>module_hash = module.info().hash.ok_or_else(|| {
+<a href=#848 id=848 data-nosnippet>848</a>                    anyhow::Error::msg(<span class="string">"module hash is not present in the artifact"</span>)
+<a href=#849 id=849 data-nosnippet>849</a>                })<span class="question-mark">?</span>;
+<a href=#850 id=850 data-nosnippet>850</a>
+<a href=#851 id=851 data-nosnippet>851</a>                <span class="prelude-val">Ok</span>(ExecutableTarget::WebAssembly {
+<a href=#852 id=852 data-nosnippet>852</a>                    module,
+<a href=#853 id=853 data-nosnippet>853</a>                    module_hash,
+<a href=#854 id=854 data-nosnippet>854</a>                    path: path.to_path_buf(),
+<a href=#855 id=855 data-nosnippet>855</a>                })
+<a href=#856 id=856 data-nosnippet>856</a>            }
+<a href=#857 id=857 data-nosnippet>857</a>            TargetOnDisk::LocalWebc =&gt; {
+<a href=#858 id=858 data-nosnippet>858</a>                <span class="kw">let </span>container = from_disk(path)<span class="question-mark">?</span>;
+<a href=#859 id=859 data-nosnippet>859</a>                pb.set_message(<span class="string">"Resolving dependencies"</span>);
+<a href=#860 id=860 data-nosnippet>860</a>
+<a href=#861 id=861 data-nosnippet>861</a>                <span class="kw">let </span>inner_runtime = runtime.clone();
+<a href=#862 id=862 data-nosnippet>862</a>                <span class="kw">let </span>pkg = runtime.task_manager().spawn_and_block_on(<span class="kw">async move </span>{
+<a href=#863 id=863 data-nosnippet>863</a>                    BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, inner_runtime.as_ref()).<span class="kw">await
+<a href=#864 id=864 data-nosnippet>864</a>                </span>})<span class="question-mark">??</span>;
+<a href=#865 id=865 data-nosnippet>865</a>                <span class="prelude-val">Ok</span>(ExecutableTarget::Package(Box::new(pkg)))
+<a href=#866 id=866 data-nosnippet>866</a>            }
+<a href=#867 id=867 data-nosnippet>867</a>        }
+<a href=#868 id=868 data-nosnippet>868</a>    }
+<a href=#869 id=869 data-nosnippet>869</a>}
+<a href=#870 id=870 data-nosnippet>870</a>
+<a href=#871 id=871 data-nosnippet>871</a><span class="attr">#[cfg(feature = <span class="string">"coredump"</span>)]
+<a href=#872 id=872 data-nosnippet>872</a></span><span class="kw">fn </span>generate_coredump(err: <span class="kw-2">&amp;</span>Error, source_name: String, coredump_path: <span class="kw-2">&amp;</span>Path) -&gt; <span class="prelude-ty">Result</span>&lt;(), Error&gt; {
+<a href=#873 id=873 data-nosnippet>873</a>    <span class="kw">let </span>err: <span class="kw-2">&amp;</span>wasmer::RuntimeError = <span class="kw">match </span>err.downcast_ref() {
+<a href=#874 id=874 data-nosnippet>874</a>        <span class="prelude-val">Some</span>(e) =&gt; e,
+<a href=#875 id=875 data-nosnippet>875</a>        <span class="prelude-val">None </span>=&gt; {
+<a href=#876 id=876 data-nosnippet>876</a>            <span class="macro">log::warn!</span>(<span class="string">"no runtime error found to generate coredump with"</span>);
+<a href=#877 id=877 data-nosnippet>877</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#878 id=878 data-nosnippet>878</a>        }
+<a href=#879 id=879 data-nosnippet>879</a>    };
+<a href=#880 id=880 data-nosnippet>880</a>
+<a href=#881 id=881 data-nosnippet>881</a>    <span class="kw">let </span><span class="kw-2">mut </span>coredump_builder =
+<a href=#882 id=882 data-nosnippet>882</a>        wasm_coredump_builder::CoredumpBuilder::new().executable_name(<span class="kw-2">&amp;</span>source_name);
+<a href=#883 id=883 data-nosnippet>883</a>
+<a href=#884 id=884 data-nosnippet>884</a>    <span class="kw">let </span><span class="kw-2">mut </span>thread_builder = wasm_coredump_builder::ThreadBuilder::new().thread_name(<span class="string">"main"</span>);
+<a href=#885 id=885 data-nosnippet>885</a>
+<a href=#886 id=886 data-nosnippet>886</a>    <span class="kw">for </span>frame <span class="kw">in </span>err.trace() {
+<a href=#887 id=887 data-nosnippet>887</a>        <span class="kw">let </span>coredump_frame = wasm_coredump_builder::FrameBuilder::new()
+<a href=#888 id=888 data-nosnippet>888</a>            .codeoffset(frame.func_offset() <span class="kw">as </span>u32)
+<a href=#889 id=889 data-nosnippet>889</a>            .funcidx(frame.func_index())
+<a href=#890 id=890 data-nosnippet>890</a>            .build();
+<a href=#891 id=891 data-nosnippet>891</a>        thread_builder.add_frame(coredump_frame);
+<a href=#892 id=892 data-nosnippet>892</a>    }
+<a href=#893 id=893 data-nosnippet>893</a>
+<a href=#894 id=894 data-nosnippet>894</a>    coredump_builder.add_thread(thread_builder.build());
+<a href=#895 id=895 data-nosnippet>895</a>
+<a href=#896 id=896 data-nosnippet>896</a>    <span class="kw">let </span>coredump = coredump_builder
+<a href=#897 id=897 data-nosnippet>897</a>        .serialize()
+<a href=#898 id=898 data-nosnippet>898</a>        .map_err(Error::msg)
+<a href=#899 id=899 data-nosnippet>899</a>        .context(<span class="string">"Coredump serializing failed"</span>)<span class="question-mark">?</span>;
+<a href=#900 id=900 data-nosnippet>900</a>
+<a href=#901 id=901 data-nosnippet>901</a>    std::fs::write(coredump_path, <span class="kw-2">&amp;</span>coredump).with_context(|| {
+<a href=#902 id=902 data-nosnippet>902</a>        <span class="macro">format!</span>(
+<a href=#903 id=903 data-nosnippet>903</a>            <span class="string">"Unable to save the coredump to \"{}\""</span>,
+<a href=#904 id=904 data-nosnippet>904</a>            coredump_path.display()
+<a href=#905 id=905 data-nosnippet>905</a>        )
+<a href=#906 id=906 data-nosnippet>906</a>    })<span class="question-mark">?</span>;
+<a href=#907 id=907 data-nosnippet>907</a>
+<a href=#908 id=908 data-nosnippet>908</a>    <span class="prelude-val">Ok</span>(())
+<a href=#909 id=909 data-nosnippet>909</a>}
+<a href=#910 id=910 data-nosnippet>910</a>
+<a href=#911 id=911 data-nosnippet>911</a><span class="attr">#[derive(Debug, Clone, Parser)]
+<a href=#912 id=912 data-nosnippet>912</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>WcgiOptions {
+<a href=#913 id=913 data-nosnippet>913</a>    <span class="doccomment">/// The address to serve on.
+<a href=#914 id=914 data-nosnippet>914</a>    </span><span class="attr">#[clap(long, short, env, default_value_t = ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>]</span>, <span class="number">8000</span>).into())]
+<a href=#915 id=915 data-nosnippet>915</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) addr: SocketAddr,
+<a href=#916 id=916 data-nosnippet>916</a>}
+<a href=#917 id=917 data-nosnippet>917</a>
+<a href=#918 id=918 data-nosnippet>918</a><span class="kw">impl </span>Default <span class="kw">for </span>WcgiOptions {
+<a href=#919 id=919 data-nosnippet>919</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#920 id=920 data-nosnippet>920</a>        <span class="self">Self </span>{
+<a href=#921 id=921 data-nosnippet>921</a>            addr: ([<span class="number">127</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">1</span>], <span class="number">8000</span>).into(),
+<a href=#922 id=922 data-nosnippet>922</a>        }
+<a href=#923 id=923 data-nosnippet>923</a>    }
+<a href=#924 id=924 data-nosnippet>924</a>}
+<a href=#925 id=925 data-nosnippet>925</a>
+<a href=#926 id=926 data-nosnippet>926</a><span class="attr">#[derive(Debug)]
+<a href=#927 id=927 data-nosnippet>927</a></span><span class="kw">struct </span>Callbacks {
+<a href=#928 id=928 data-nosnippet>928</a>    stderr: Mutex&lt;LineWriter&lt;std::io::Stderr&gt;&gt;,
+<a href=#929 id=929 data-nosnippet>929</a>    addr: SocketAddr,
+<a href=#930 id=930 data-nosnippet>930</a>}
+<a href=#931 id=931 data-nosnippet>931</a>
+<a href=#932 id=932 data-nosnippet>932</a><span class="kw">impl </span>Callbacks {
+<a href=#933 id=933 data-nosnippet>933</a>    <span class="kw">fn </span>new(addr: SocketAddr) -&gt; <span class="self">Self </span>{
+<a href=#934 id=934 data-nosnippet>934</a>        Callbacks {
+<a href=#935 id=935 data-nosnippet>935</a>            stderr: Mutex::new(LineWriter::new(std::io::stderr())),
+<a href=#936 id=936 data-nosnippet>936</a>            addr,
+<a href=#937 id=937 data-nosnippet>937</a>        }
+<a href=#938 id=938 data-nosnippet>938</a>    }
+<a href=#939 id=939 data-nosnippet>939</a>}
+<a href=#940 id=940 data-nosnippet>940</a>
+<a href=#941 id=941 data-nosnippet>941</a><span class="kw">impl </span>wasmer_wasix::runners::wcgi::Callbacks <span class="kw">for </span>Callbacks {
+<a href=#942 id=942 data-nosnippet>942</a>    <span class="kw">fn </span>started(<span class="kw-2">&amp;</span><span class="self">self</span>, _abort: AbortHandle) {
+<a href=#943 id=943 data-nosnippet>943</a>        <span class="macro">println!</span>(<span class="string">"WCGI Server running at http://{}/"</span>, <span class="self">self</span>.addr);
+<a href=#944 id=944 data-nosnippet>944</a>    }
+<a href=#945 id=945 data-nosnippet>945</a>
+<a href=#946 id=946 data-nosnippet>946</a>    <span class="kw">fn </span>on_stderr(<span class="kw-2">&amp;</span><span class="self">self</span>, raw_message: <span class="kw-2">&amp;</span>[u8]) {
+<a href=#947 id=947 data-nosnippet>947</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = <span class="self">self</span>.stderr.lock() {
+<a href=#948 id=948 data-nosnippet>948</a>            <span class="comment">// If the WCGI runner printed any log messages we want to make sure
+<a href=#949 id=949 data-nosnippet>949</a>            // they get propagated to the user. Line buffering is important here
+<a href=#950 id=950 data-nosnippet>950</a>            // because it helps prevent the output from becoming a complete
+<a href=#951 id=951 data-nosnippet>951</a>            // mess.
+<a href=#952 id=952 data-nosnippet>952</a>            </span><span class="kw">let _ </span>= stderr.write_all(raw_message);
+<a href=#953 id=953 data-nosnippet>953</a>        }
+<a href=#954 id=954 data-nosnippet>954</a>    }
+<a href=#955 id=955 data-nosnippet>955</a>}
+<a href=#956 id=956 data-nosnippet>956</a>
+<a href=#957 id=957 data-nosnippet>957</a><span class="doccomment">/// Exit the current process, using the WASI exit code if the error contains
+<a href=#958 id=958 data-nosnippet>958</a>/// one.
+<a href=#959 id=959 data-nosnippet>959</a></span><span class="kw">fn </span>exit_with_wasi_exit_code(result: <span class="prelude-ty">Result</span>&lt;(), Error&gt;) -&gt; ! {
+<a href=#960 id=960 data-nosnippet>960</a>    <span class="kw">let </span>exit_code = <span class="kw">match </span>result {
+<a href=#961 id=961 data-nosnippet>961</a>        <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; <span class="number">0</span>,
+<a href=#962 id=962 data-nosnippet>962</a>        <span class="prelude-val">Err</span>(error) =&gt; {
+<a href=#963 id=963 data-nosnippet>963</a>            <span class="kw">match </span>error.chain().find_map(get_exit_code) {
+<a href=#964 id=964 data-nosnippet>964</a>                <span class="prelude-val">Some</span>(exit_code) =&gt; exit_code.raw(),
+<a href=#965 id=965 data-nosnippet>965</a>                <span class="prelude-val">None </span>=&gt; {
+<a href=#966 id=966 data-nosnippet>966</a>                    <span class="macro">eprintln!</span>(<span class="string">"{:?}"</span>, PrettyError::new(error));
+<a href=#967 id=967 data-nosnippet>967</a>                    <span class="comment">// Something else happened
+<a href=#968 id=968 data-nosnippet>968</a>                    </span><span class="number">1
+<a href=#969 id=969 data-nosnippet>969</a>                </span>}
+<a href=#970 id=970 data-nosnippet>970</a>            }
+<a href=#971 id=971 data-nosnippet>971</a>        }
+<a href=#972 id=972 data-nosnippet>972</a>    };
+<a href=#973 id=973 data-nosnippet>973</a>
+<a href=#974 id=974 data-nosnippet>974</a>    std::io::stdout().flush().ok();
+<a href=#975 id=975 data-nosnippet>975</a>    std::io::stderr().flush().ok();
+<a href=#976 id=976 data-nosnippet>976</a>
+<a href=#977 id=977 data-nosnippet>977</a>    std::process::exit(exit_code);
+<a href=#978 id=978 data-nosnippet>978</a>}
+<a href=#979 id=979 data-nosnippet>979</a>
+<a href=#980 id=980 data-nosnippet>980</a><span class="kw">fn </span>get_exit_code(
+<a href=#981 id=981 data-nosnippet>981</a>    error: <span class="kw-2">&amp;</span>(<span class="kw">dyn </span>std::error::Error + <span class="lifetime">'static</span>),
+<a href=#982 id=982 data-nosnippet>982</a>) -&gt; <span class="prelude-ty">Option</span>&lt;wasmer_wasix::types::wasi::ExitCode&gt; {
+<a href=#983 id=983 data-nosnippet>983</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(WasiError::Exit(exit_code)) = error.downcast_ref() {
+<a href=#984 id=984 data-nosnippet>984</a>        <span class="kw">return </span><span class="prelude-val">Some</span>(<span class="kw-2">*</span>exit_code);
+<a href=#985 id=985 data-nosnippet>985</a>    }
+<a href=#986 id=986 data-nosnippet>986</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(error) = error.downcast_ref::&lt;wasmer_wasix::WasiRuntimeError&gt;() {
+<a href=#987 id=987 data-nosnippet>987</a>        <span class="kw">return </span>error.as_exit_code();
+<a href=#988 id=988 data-nosnippet>988</a>    }
+<a href=#989 id=989 data-nosnippet>989</a>
+<a href=#990 id=990 data-nosnippet>990</a>    <span class="prelude-val">None
+<a href=#991 id=991 data-nosnippet>991</a></span>}
+<a href=#992 id=992 data-nosnippet>992</a>
+<a href=#993 id=993 data-nosnippet>993</a><span class="attr">#[derive(Debug)]
+<a href=#994 id=994 data-nosnippet>994</a></span><span class="kw">struct </span>MonitoringRuntime&lt;R&gt; {
+<a href=#995 id=995 data-nosnippet>995</a>    runtime: Arc&lt;R&gt;,
+<a href=#996 id=996 data-nosnippet>996</a>    progress: ProgressBar,
+<a href=#997 id=997 data-nosnippet>997</a>    quiet_mode: bool,
+<a href=#998 id=998 data-nosnippet>998</a>}
+<a href=#999 id=999 data-nosnippet>999</a>
+<a href=#1000 id=1000 data-nosnippet>1000</a><span class="kw">impl</span>&lt;R&gt; MonitoringRuntime&lt;R&gt; {
+<a href=#1001 id=1001 data-nosnippet>1001</a>    <span class="kw">fn </span>new(runtime: R, progress: ProgressBar, quiet_mode: bool) -&gt; <span class="self">Self </span>{
+<a href=#1002 id=1002 data-nosnippet>1002</a>        MonitoringRuntime {
+<a href=#1003 id=1003 data-nosnippet>1003</a>            runtime: Arc::new(runtime),
+<a href=#1004 id=1004 data-nosnippet>1004</a>            progress,
+<a href=#1005 id=1005 data-nosnippet>1005</a>            quiet_mode,
+<a href=#1006 id=1006 data-nosnippet>1006</a>        }
+<a href=#1007 id=1007 data-nosnippet>1007</a>    }
+<a href=#1008 id=1008 data-nosnippet>1008</a>}
+<a href=#1009 id=1009 data-nosnippet>1009</a>
+<a href=#1010 id=1010 data-nosnippet>1010</a><span class="kw">impl</span>&lt;R: wasmer_wasix::Runtime + Send + Sync&gt; wasmer_wasix::Runtime <span class="kw">for </span>MonitoringRuntime&lt;R&gt; {
+<a href=#1011 id=1011 data-nosnippet>1011</a>    <span class="kw">fn </span>networking(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>virtual_net::DynVirtualNetworking {
+<a href=#1012 id=1012 data-nosnippet>1012</a>        <span class="self">self</span>.runtime.networking()
+<a href=#1013 id=1013 data-nosnippet>1013</a>    }
+<a href=#1014 id=1014 data-nosnippet>1014</a>
+<a href=#1015 id=1015 data-nosnippet>1015</a>    <span class="kw">fn </span>task_manager(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;<span class="kw">dyn </span>wasmer_wasix::VirtualTaskManager&gt; {
+<a href=#1016 id=1016 data-nosnippet>1016</a>        <span class="self">self</span>.runtime.task_manager()
+<a href=#1017 id=1017 data-nosnippet>1017</a>    }
+<a href=#1018 id=1018 data-nosnippet>1018</a>
+<a href=#1019 id=1019 data-nosnippet>1019</a>    <span class="kw">fn </span>package_loader(
+<a href=#1020 id=1020 data-nosnippet>1020</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1021 id=1021 data-nosnippet>1021</a>    ) -&gt; Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync&gt; {
+<a href=#1022 id=1022 data-nosnippet>1022</a>        <span class="kw">let </span>inner = <span class="self">self</span>.runtime.package_loader();
+<a href=#1023 id=1023 data-nosnippet>1023</a>        Arc::new(MonitoringPackageLoader {
+<a href=#1024 id=1024 data-nosnippet>1024</a>            inner,
+<a href=#1025 id=1025 data-nosnippet>1025</a>            progress: <span class="self">self</span>.progress.clone(),
+<a href=#1026 id=1026 data-nosnippet>1026</a>        })
+<a href=#1027 id=1027 data-nosnippet>1027</a>    }
+<a href=#1028 id=1028 data-nosnippet>1028</a>
+<a href=#1029 id=1029 data-nosnippet>1029</a>    <span class="kw">fn </span>module_cache(
+<a href=#1030 id=1030 data-nosnippet>1030</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1031 id=1031 data-nosnippet>1031</a>    ) -&gt; Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::module_cache::ModuleCache + Send + Sync&gt; {
+<a href=#1032 id=1032 data-nosnippet>1032</a>        <span class="self">self</span>.runtime.module_cache()
+<a href=#1033 id=1033 data-nosnippet>1033</a>    }
+<a href=#1034 id=1034 data-nosnippet>1034</a>
+<a href=#1035 id=1035 data-nosnippet>1035</a>    <span class="kw">fn </span>source(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::resolver::Source + Send + Sync&gt; {
+<a href=#1036 id=1036 data-nosnippet>1036</a>        <span class="kw">let </span>inner = <span class="self">self</span>.runtime.source();
+<a href=#1037 id=1037 data-nosnippet>1037</a>        Arc::new(MonitoringSource {
+<a href=#1038 id=1038 data-nosnippet>1038</a>            inner,
+<a href=#1039 id=1039 data-nosnippet>1039</a>            progress: <span class="self">self</span>.progress.clone(),
+<a href=#1040 id=1040 data-nosnippet>1040</a>        })
+<a href=#1041 id=1041 data-nosnippet>1041</a>    }
+<a href=#1042 id=1042 data-nosnippet>1042</a>
+<a href=#1043 id=1043 data-nosnippet>1043</a>    <span class="kw">fn </span>engine(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Engine {
+<a href=#1044 id=1044 data-nosnippet>1044</a>        <span class="self">self</span>.runtime.engine()
+<a href=#1045 id=1045 data-nosnippet>1045</a>    }
+<a href=#1046 id=1046 data-nosnippet>1046</a>
+<a href=#1047 id=1047 data-nosnippet>1047</a>    <span class="kw">fn </span>new_store(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; wasmer::Store {
+<a href=#1048 id=1048 data-nosnippet>1048</a>        <span class="self">self</span>.runtime.new_store()
+<a href=#1049 id=1049 data-nosnippet>1049</a>    }
+<a href=#1050 id=1050 data-nosnippet>1050</a>
+<a href=#1051 id=1051 data-nosnippet>1051</a>    <span class="kw">fn </span>http_client(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasmer_wasix::http::DynHttpClient&gt; {
+<a href=#1052 id=1052 data-nosnippet>1052</a>        <span class="self">self</span>.runtime.http_client()
+<a href=#1053 id=1053 data-nosnippet>1053</a>    }
+<a href=#1054 id=1054 data-nosnippet>1054</a>
+<a href=#1055 id=1055 data-nosnippet>1055</a>    <span class="kw">fn </span>tty(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>(<span class="kw">dyn </span>wasmer_wasix::os::TtyBridge + Send + Sync)&gt; {
+<a href=#1056 id=1056 data-nosnippet>1056</a>        <span class="self">self</span>.runtime.tty()
+<a href=#1057 id=1057 data-nosnippet>1057</a>    }
+<a href=#1058 id=1058 data-nosnippet>1058</a>
+<a href=#1059 id=1059 data-nosnippet>1059</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#1060 id=1060 data-nosnippet>1060</a>    </span><span class="kw">fn </span>read_only_journals&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#1061 id=1061 data-nosnippet>1061</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+<a href=#1062 id=1062 data-nosnippet>1062</a>    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;wasmer_wasix::journal::DynReadableJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+<a href=#1063 id=1063 data-nosnippet>1063</a>        <span class="self">self</span>.runtime.read_only_journals()
+<a href=#1064 id=1064 data-nosnippet>1064</a>    }
+<a href=#1065 id=1065 data-nosnippet>1065</a>
+<a href=#1066 id=1066 data-nosnippet>1066</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#1067 id=1067 data-nosnippet>1067</a>    </span><span class="kw">fn </span>writable_journals&lt;<span class="lifetime">'a</span>&gt;(
+<a href=#1068 id=1068 data-nosnippet>1068</a>        <span class="kw-2">&amp;</span><span class="lifetime">'a </span><span class="self">self</span>,
+<a href=#1069 id=1069 data-nosnippet>1069</a>    ) -&gt; Box&lt;<span class="kw">dyn </span>Iterator&lt;Item = Arc&lt;wasmer_wasix::journal::DynJournal&gt;&gt; + <span class="lifetime">'a</span>&gt; {
+<a href=#1070 id=1070 data-nosnippet>1070</a>        <span class="self">self</span>.runtime.writable_journals()
+<a href=#1071 id=1071 data-nosnippet>1071</a>    }
+<a href=#1072 id=1072 data-nosnippet>1072</a>
+<a href=#1073 id=1073 data-nosnippet>1073</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#1074 id=1074 data-nosnippet>1074</a>    </span><span class="kw">fn </span>active_journal(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span><span class="lifetime">'_ </span>wasmer_wasix::journal::DynJournal&gt; {
+<a href=#1075 id=1075 data-nosnippet>1075</a>        <span class="self">self</span>.runtime.active_journal()
+<a href=#1076 id=1076 data-nosnippet>1076</a>    }
+<a href=#1077 id=1077 data-nosnippet>1077</a>
+<a href=#1078 id=1078 data-nosnippet>1078</a>    <span class="kw">fn </span>load_hashed_module(
+<a href=#1079 id=1079 data-nosnippet>1079</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1080 id=1080 data-nosnippet>1080</a>        module: HashedModuleData,
+<a href=#1081 id=1081 data-nosnippet>1081</a>        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
+<a href=#1082 id=1082 data-nosnippet>1082</a>    ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
+<a href=#1083 id=1083 data-nosnippet>1083</a>        <span class="kw">let </span>hash = <span class="kw-2">*</span>module.hash();
+<a href=#1084 id=1084 data-nosnippet>1084</a>        <span class="kw">let </span>fut = <span class="self">self</span>.runtime.load_hashed_module(module, engine);
+<a href=#1085 id=1085 data-nosnippet>1085</a>        Box::pin(compile_with_progress(fut, hash, <span class="prelude-val">None</span>, <span class="self">self</span>.quiet_mode))
+<a href=#1086 id=1086 data-nosnippet>1086</a>    }
+<a href=#1087 id=1087 data-nosnippet>1087</a>
+<a href=#1088 id=1088 data-nosnippet>1088</a>    <span class="kw">fn </span>load_hashed_module_sync(
+<a href=#1089 id=1089 data-nosnippet>1089</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1090 id=1090 data-nosnippet>1090</a>        wasm: HashedModuleData,
+<a href=#1091 id=1091 data-nosnippet>1091</a>        engine: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>Engine&gt;,
+<a href=#1092 id=1092 data-nosnippet>1092</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, wasmer_wasix::SpawnError&gt; {
+<a href=#1093 id=1093 data-nosnippet>1093</a>        <span class="kw">let </span>hash = <span class="kw-2">*</span>wasm.hash();
+<a href=#1094 id=1094 data-nosnippet>1094</a>        compile_with_progress_sync(
+<a href=#1095 id=1095 data-nosnippet>1095</a>            || <span class="self">self</span>.runtime.load_hashed_module_sync(wasm, engine),
+<a href=#1096 id=1096 data-nosnippet>1096</a>            <span class="kw-2">&amp;</span>hash,
+<a href=#1097 id=1097 data-nosnippet>1097</a>            <span class="prelude-val">None</span>,
+<a href=#1098 id=1098 data-nosnippet>1098</a>            <span class="self">self</span>.quiet_mode,
+<a href=#1099 id=1099 data-nosnippet>1099</a>        )
+<a href=#1100 id=1100 data-nosnippet>1100</a>    }
+<a href=#1101 id=1101 data-nosnippet>1101</a>
+<a href=#1102 id=1102 data-nosnippet>1102</a>    <span class="kw">fn </span>load_command_module(
+<a href=#1103 id=1103 data-nosnippet>1103</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1104 id=1104 data-nosnippet>1104</a>        cmd: <span class="kw-2">&amp;</span>BinaryPackageCommand,
+<a href=#1105 id=1105 data-nosnippet>1105</a>    ) -&gt; BoxFuture&lt;<span class="lifetime">'_</span>, <span class="prelude-ty">Result</span>&lt;Module, SpawnError&gt;&gt; {
+<a href=#1106 id=1106 data-nosnippet>1106</a>        <span class="kw">let </span>fut = <span class="self">self</span>.runtime.load_command_module(cmd);
+<a href=#1107 id=1107 data-nosnippet>1107</a>
+<a href=#1108 id=1108 data-nosnippet>1108</a>        Box::pin(compile_with_progress(
+<a href=#1109 id=1109 data-nosnippet>1109</a>            fut,
+<a href=#1110 id=1110 data-nosnippet>1110</a>            <span class="kw-2">*</span>cmd.hash(),
+<a href=#1111 id=1111 data-nosnippet>1111</a>            <span class="prelude-val">Some</span>(cmd.name().to_owned()),
+<a href=#1112 id=1112 data-nosnippet>1112</a>            <span class="self">self</span>.quiet_mode,
+<a href=#1113 id=1113 data-nosnippet>1113</a>        ))
+<a href=#1114 id=1114 data-nosnippet>1114</a>    }
+<a href=#1115 id=1115 data-nosnippet>1115</a>
+<a href=#1116 id=1116 data-nosnippet>1116</a>    <span class="kw">fn </span>load_command_module_sync(
+<a href=#1117 id=1117 data-nosnippet>1117</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1118 id=1118 data-nosnippet>1118</a>        cmd: <span class="kw-2">&amp;</span>wasmer_wasix::bin_factory::BinaryPackageCommand,
+<a href=#1119 id=1119 data-nosnippet>1119</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Module, wasmer_wasix::SpawnError&gt; {
+<a href=#1120 id=1120 data-nosnippet>1120</a>        compile_with_progress_sync(
+<a href=#1121 id=1121 data-nosnippet>1121</a>            || <span class="self">self</span>.runtime.load_command_module_sync(cmd),
+<a href=#1122 id=1122 data-nosnippet>1122</a>            cmd.hash(),
+<a href=#1123 id=1123 data-nosnippet>1123</a>            <span class="prelude-val">Some</span>(cmd.name()),
+<a href=#1124 id=1124 data-nosnippet>1124</a>            <span class="self">self</span>.quiet_mode,
+<a href=#1125 id=1125 data-nosnippet>1125</a>        )
+<a href=#1126 id=1126 data-nosnippet>1126</a>    }
+<a href=#1127 id=1127 data-nosnippet>1127</a>}
+<a href=#1128 id=1128 data-nosnippet>1128</a>
+<a href=#1129 id=1129 data-nosnippet>1129</a><span class="kw">async fn </span>compile_with_progress&lt;<span class="lifetime">'a</span>, F, T&gt;(
+<a href=#1130 id=1130 data-nosnippet>1130</a>    fut: F,
+<a href=#1131 id=1131 data-nosnippet>1131</a>    hash: ModuleHash,
+<a href=#1132 id=1132 data-nosnippet>1132</a>    name: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#1133 id=1133 data-nosnippet>1133</a>    quiet_mode: bool,
+<a href=#1134 id=1134 data-nosnippet>1134</a>) -&gt; T
+<a href=#1135 id=1135 data-nosnippet>1135</a><span class="kw">where
+<a href=#1136 id=1136 data-nosnippet>1136</a>    </span>F: std::future::Future&lt;Output = T&gt; + Send + <span class="lifetime">'a</span>,
+<a href=#1137 id=1137 data-nosnippet>1137</a>    T: Send + <span class="lifetime">'static</span>,
+<a href=#1138 id=1138 data-nosnippet>1138</a>{
+<a href=#1139 id=1139 data-nosnippet>1139</a>    <span class="kw">let </span><span class="kw-2">mut </span>pb = new_progressbar_compile(<span class="kw-2">&amp;</span>hash, name.as_deref(), quiet_mode);
+<a href=#1140 id=1140 data-nosnippet>1140</a>    <span class="kw">let </span>res = fut.<span class="kw">await</span>;
+<a href=#1141 id=1141 data-nosnippet>1141</a>    pb.finish_and_clear();
+<a href=#1142 id=1142 data-nosnippet>1142</a>    res
+<a href=#1143 id=1143 data-nosnippet>1143</a>}
+<a href=#1144 id=1144 data-nosnippet>1144</a>
+<a href=#1145 id=1145 data-nosnippet>1145</a><span class="kw">fn </span>compile_with_progress_sync&lt;F, T&gt;(
+<a href=#1146 id=1146 data-nosnippet>1146</a>    f: F,
+<a href=#1147 id=1147 data-nosnippet>1147</a>    hash: <span class="kw-2">&amp;</span>ModuleHash,
+<a href=#1148 id=1148 data-nosnippet>1148</a>    name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;,
+<a href=#1149 id=1149 data-nosnippet>1149</a>    quiet_mode: bool,
+<a href=#1150 id=1150 data-nosnippet>1150</a>) -&gt; T
+<a href=#1151 id=1151 data-nosnippet>1151</a><span class="kw">where
+<a href=#1152 id=1152 data-nosnippet>1152</a>    </span>F: FnOnce() -&gt; T,
+<a href=#1153 id=1153 data-nosnippet>1153</a>{
+<a href=#1154 id=1154 data-nosnippet>1154</a>    <span class="kw">let </span><span class="kw-2">mut </span>pb = new_progressbar_compile(hash, name, quiet_mode);
+<a href=#1155 id=1155 data-nosnippet>1155</a>    <span class="kw">let </span>res = f();
+<a href=#1156 id=1156 data-nosnippet>1156</a>    pb.finish_and_clear();
+<a href=#1157 id=1157 data-nosnippet>1157</a>    res
+<a href=#1158 id=1158 data-nosnippet>1158</a>}
+<a href=#1159 id=1159 data-nosnippet>1159</a>
+<a href=#1160 id=1160 data-nosnippet>1160</a><span class="kw">fn </span>new_progressbar_compile(hash: <span class="kw-2">&amp;</span>ModuleHash, name: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>str&gt;, quiet_mode: bool) -&gt; ProgressBar {
+<a href=#1161 id=1161 data-nosnippet>1161</a>    <span class="comment">// Only show a spinner if we're running in a TTY
+<a href=#1162 id=1162 data-nosnippet>1162</a>    </span><span class="kw">let </span>hash = hash.to_string();
+<a href=#1163 id=1163 data-nosnippet>1163</a>    <span class="kw">let </span>hash = <span class="kw-2">&amp;</span>hash[<span class="number">0</span>..<span class="number">8</span>];
+<a href=#1164 id=1164 data-nosnippet>1164</a>    <span class="kw">if </span>!quiet_mode &amp;&amp; std::io::stderr().is_terminal() {
+<a href=#1165 id=1165 data-nosnippet>1165</a>        <span class="kw">let </span>msg = <span class="kw">if let </span><span class="prelude-val">Some</span>(name) = name {
+<a href=#1166 id=1166 data-nosnippet>1166</a>            <span class="macro">format!</span>(<span class="string">"Compiling WebAssembly module for command '{name}' ({hash})..."</span>)
+<a href=#1167 id=1167 data-nosnippet>1167</a>        } <span class="kw">else </span>{
+<a href=#1168 id=1168 data-nosnippet>1168</a>            <span class="macro">format!</span>(<span class="string">"Compiling WebAssembly module {hash}..."</span>)
+<a href=#1169 id=1169 data-nosnippet>1169</a>        };
+<a href=#1170 id=1170 data-nosnippet>1170</a>        <span class="kw">let </span>pb = ProgressBar::new_spinner().with_message(msg);
+<a href=#1171 id=1171 data-nosnippet>1171</a>        pb.enable_steady_tick(Duration::from_millis(<span class="number">100</span>));
+<a href=#1172 id=1172 data-nosnippet>1172</a>        pb
+<a href=#1173 id=1173 data-nosnippet>1173</a>    } <span class="kw">else </span>{
+<a href=#1174 id=1174 data-nosnippet>1174</a>        ProgressBar::hidden()
+<a href=#1175 id=1175 data-nosnippet>1175</a>    }
+<a href=#1176 id=1176 data-nosnippet>1176</a>}
+<a href=#1177 id=1177 data-nosnippet>1177</a>
+<a href=#1178 id=1178 data-nosnippet>1178</a><span class="attr">#[derive(Debug)]
+<a href=#1179 id=1179 data-nosnippet>1179</a></span><span class="kw">struct </span>MonitoringSource {
+<a href=#1180 id=1180 data-nosnippet>1180</a>    inner: Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::resolver::Source + Send + Sync&gt;,
+<a href=#1181 id=1181 data-nosnippet>1181</a>    progress: ProgressBar,
+<a href=#1182 id=1182 data-nosnippet>1182</a>}
+<a href=#1183 id=1183 data-nosnippet>1183</a>
+<a href=#1184 id=1184 data-nosnippet>1184</a><span class="attr">#[async_trait::async_trait]
+<a href=#1185 id=1185 data-nosnippet>1185</a></span><span class="kw">impl </span>wasmer_wasix::runtime::resolver::Source <span class="kw">for </span>MonitoringSource {
+<a href=#1186 id=1186 data-nosnippet>1186</a>    <span class="kw">async fn </span>query(
+<a href=#1187 id=1187 data-nosnippet>1187</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1188 id=1188 data-nosnippet>1188</a>        package: <span class="kw-2">&amp;</span>PackageSpecifier,
+<a href=#1189 id=1189 data-nosnippet>1189</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;wasmer_wasix::runtime::resolver::PackageSummary&gt;, QueryError&gt; {
+<a href=#1190 id=1190 data-nosnippet>1190</a>        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">"Looking up {package}"</span>));
+<a href=#1191 id=1191 data-nosnippet>1191</a>        <span class="self">self</span>.inner.query(package).<span class="kw">await
+<a href=#1192 id=1192 data-nosnippet>1192</a>    </span>}
+<a href=#1193 id=1193 data-nosnippet>1193</a>}
+<a href=#1194 id=1194 data-nosnippet>1194</a>
+<a href=#1195 id=1195 data-nosnippet>1195</a><span class="attr">#[derive(Debug)]
+<a href=#1196 id=1196 data-nosnippet>1196</a></span><span class="kw">struct </span>MonitoringPackageLoader {
+<a href=#1197 id=1197 data-nosnippet>1197</a>    inner: Arc&lt;<span class="kw">dyn </span>wasmer_wasix::runtime::package_loader::PackageLoader + Send + Sync&gt;,
+<a href=#1198 id=1198 data-nosnippet>1198</a>    progress: ProgressBar,
+<a href=#1199 id=1199 data-nosnippet>1199</a>}
+<a href=#1200 id=1200 data-nosnippet>1200</a>
+<a href=#1201 id=1201 data-nosnippet>1201</a><span class="attr">#[async_trait::async_trait]
+<a href=#1202 id=1202 data-nosnippet>1202</a></span><span class="kw">impl </span>wasmer_wasix::runtime::package_loader::PackageLoader <span class="kw">for </span>MonitoringPackageLoader {
+<a href=#1203 id=1203 data-nosnippet>1203</a>    <span class="kw">async fn </span>load(
+<a href=#1204 id=1204 data-nosnippet>1204</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1205 id=1205 data-nosnippet>1205</a>        summary: <span class="kw-2">&amp;</span>wasmer_wasix::runtime::resolver::PackageSummary,
+<a href=#1206 id=1206 data-nosnippet>1206</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Container, Error&gt; {
+<a href=#1207 id=1207 data-nosnippet>1207</a>        <span class="kw">let </span>pkg_id = summary.package_id();
+<a href=#1208 id=1208 data-nosnippet>1208</a>        <span class="self">self</span>.progress.set_message(<span class="macro">format!</span>(<span class="string">"Downloading {pkg_id}"</span>));
+<a href=#1209 id=1209 data-nosnippet>1209</a>
+<a href=#1210 id=1210 data-nosnippet>1210</a>        <span class="self">self</span>.inner.load(summary).<span class="kw">await
+<a href=#1211 id=1211 data-nosnippet>1211</a>    </span>}
+<a href=#1212 id=1212 data-nosnippet>1212</a>
+<a href=#1213 id=1213 data-nosnippet>1213</a>    <span class="kw">async fn </span>load_package_tree(
+<a href=#1214 id=1214 data-nosnippet>1214</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#1215 id=1215 data-nosnippet>1215</a>        root: <span class="kw-2">&amp;</span>Container,
+<a href=#1216 id=1216 data-nosnippet>1216</a>        resolution: <span class="kw-2">&amp;</span>wasmer_wasix::runtime::resolver::Resolution,
+<a href=#1217 id=1217 data-nosnippet>1217</a>        root_is_local_dir: bool,
+<a href=#1218 id=1218 data-nosnippet>1218</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, Error&gt; {
+<a href=#1219 id=1219 data-nosnippet>1219</a>        <span class="self">self</span>.inner
+<a href=#1220 id=1220 data-nosnippet>1220</a>            .load_package_tree(root, resolution, root_is_local_dir)
+<a href=#1221 id=1221 data-nosnippet>1221</a>            .<span class="kw">await
+<a href=#1222 id=1222 data-nosnippet>1222</a>    </span>}
+<a href=#1223 id=1223 data-nosnippet>1223</a>}</code></pre></div></section></main></body></html>
