@@ -185,15 +185,17 @@ impl CanonicalizeType {
 }
 
 trait PopMany<T> {
-    fn peek1(&self) -> Result<&T, CompileError>;
+    fn peek_nth(&self, n: usize) -> Result<&T, CompileError>;
     fn pop1(&mut self) -> Result<T, CompileError>;
     fn pop2(&mut self) -> Result<(T, T), CompileError>;
 }
 
 impl<T> PopMany<T> for Vec<T> {
-    fn peek1(&self) -> Result<&T, CompileError> {
-        self.last()
-            .ok_or_else(|| CompileError::Codegen("peek1() expects at least 1 element".to_owned()))
+    fn peek_nth(&self, n: usize) -> Result<&T, CompileError> {
+        self.iter()
+            .rev()
+            .nth(n)
+            .ok_or_else(|| CompileError::Codegen(format!("peek_nth() cannot get {n}th argument")))
     }
     fn pop1(&mut self) -> Result<T, CompileError> {
         self.pop()
@@ -1156,6 +1158,46 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         !self.control_stack.is_empty()
     }
 
+    fn emit_return_values(&mut self, returns: SmallVec<[WpType; 1]>) -> Result<(), CompileError> {
+        let return_locations = self
+            .value_stack
+            .iter()
+            .rev()
+            .take(returns.len())
+            .collect_vec();
+        assert_eq!(return_locations.len(), returns.len());
+
+        for (i, return_loc) in return_locations.iter().enumerate() {
+            let ret = returns[i];
+            let canonicalize = if ret.is_float() {
+                let fp = self.fp_stack.peek_nth(i)?;
+                self.machine.arch_supports_canonicalize_nan()
+                    && self.config.enable_nan_canonicalization
+                    && fp.canonicalization.is_some()
+            } else {
+                false
+            };
+
+            let loc = self.machine.get_call_return_value_location(i);
+            if canonicalize {
+                self.machine.canonicalize_nan(
+                    match ret {
+                        WpType::F32 => Size::S32,
+                        WpType::F64 => Size::S64,
+                        _ => codegen_error!("singlepass emit_return_values unreachable"),
+                    },
+                    loc,
+                    **return_loc,
+                )?;
+            } else {
+                self.machine
+                    .emit_relaxed_mov(Size::S64, **return_loc, loc)?;
+            }
+        }
+
+        Ok(())
+    }
+
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         assert!(self.fp_stack.len() <= self.value_stack.len());
 
@@ -1327,7 +1369,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let loc = *self.value_stack.last().unwrap();
 
                 if self.local_types[local_index].is_float() {
-                    let fp = self.fp_stack.peek1()?;
+                    let fp = self.fp_stack.peek_nth(0)?;
                     if self.machine.arch_supports_canonicalize_nan()
                         && self.config.enable_nan_canonicalization
                         && fp.canonicalization.is_some()
@@ -2696,21 +2738,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::Else => {
-                let frame = self.control_stack.last_mut().unwrap();
+                let frame = self.control_stack.last().unwrap();
 
                 if !was_unreachable && !frame.returns.is_empty() {
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                    self.emit_return_values(frame.returns.clone())?;
                 }
 
                 let frame = &self.control_stack.last_mut().unwrap();
@@ -3661,23 +3692,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Return => {
                 let frame = &self.control_stack[0];
                 if !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        return Err(CompileError::Codegen(
-                            "Return: incorrect frame.returns".to_owned(),
-                        ));
-                    }
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                    self.emit_return_values(frame.returns.clone())?;
                 }
                 let frame = &self.control_stack[0];
                 let frame_depth = frame.value_stack_depth;
@@ -3690,23 +3705,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        return Err(CompileError::Codegen(
-                            "Br: incorrect frame.returns".to_owned(),
-                        ));
-                    }
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                    self.emit_return_values(frame.returns.clone())?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3731,24 +3730,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !frame.loop_like && !frame.returns.is_empty() {
-                    if frame.returns.len() != 1 {
-                        return Err(CompileError::Codegen(
-                            "BrIf: incorrect frame.returns".to_owned(),
-                        ));
-                    }
-
-                    let first_return = frame.returns[0];
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if first_return.is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(first_return, canonicalize, loc)?;
+                    self.emit_return_values(frame.returns.clone())?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3786,24 +3768,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     if !frame.loop_like && !frame.returns.is_empty() {
-                        if frame.returns.len() != 1 {
-                            return Err(CompileError::Codegen(format!(
-                                "BrTable: incorrect frame.returns for {target:?}",
-                            )));
-                        }
-
-                        let first_return = frame.returns[0];
-                        let loc = *self.value_stack.last().unwrap();
-                        let canonicalize = if first_return.is_float() {
-                            let fp = self.fp_stack.peek1()?;
-                            self.machine.arch_supports_canonicalize_nan()
-                                && self.config.enable_nan_canonicalization
-                                && fp.canonicalization.is_some()
-                        } else {
-                            false
-                        };
-                        self.machine
-                            .emit_function_return_value(first_return, canonicalize, loc)?;
+                        self.emit_return_values(frame.returns.clone())?;
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
@@ -3818,24 +3783,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     if !frame.loop_like && !frame.returns.is_empty() {
-                        if frame.returns.len() != 1 {
-                            return Err(CompileError::Codegen(
-                                "BrTable: incorrect frame.returns".to_owned(),
-                            ));
-                        }
-
-                        let first_return = frame.returns[0];
-                        let loc = *self.value_stack.last().unwrap();
-                        let canonicalize = if first_return.is_float() {
-                            let fp = self.fp_stack.peek1()?;
-                            self.machine.arch_supports_canonicalize_nan()
-                                && self.config.enable_nan_canonicalization
-                                && fp.canonicalization.is_some()
-                        } else {
-                            false
-                        };
-                        self.machine
-                            .emit_function_return_value(first_return, canonicalize, loc)?;
+                        self.emit_return_values(frame.returns.clone())?;
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
@@ -3863,36 +3811,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = self.control_stack.pop().unwrap();
 
                 if !was_unreachable && !frame.returns.is_empty() {
-                    let return_locations: Vec<_> = self
-                        .value_stack
-                        .iter()
-                        .rev()
-                        .take(frame.returns.len())
-                        .collect();
-                    assert_eq!(return_locations.len(), frame.returns.len());
-
-                    for (i, return_loc) in return_locations.iter().enumerate() {
-                        // TODO: handle size
-                        self.machine.emit_relaxed_mov(
-                            Size::S64,
-                            **return_loc,
-                            self.machine
-                                .get_call_return_value_location(i, CallingConvention::SystemV),
-                        )?;
-                    }
-
-                    // dbg!(&frame.returns);
-                    // let loc = *self.value_stack.last().unwrap();
-                    // let canonicalize = if frame.returns[0].is_float() {
-                    //     let fp = self.fp_stack.peek1()?;
-                    //     self.machine.arch_supports_canonicalize_nan()
-                    //         && self.config.enable_nan_canonicalization
-                    //         && fp.canonicalization.is_some()
-                    // } else {
-                    //     false
-                    // };
-                    // self.machine
-                    //     .emit_function_return_value(frame.returns[0], canonicalize, loc)?;
+                    self.emit_return_values(frame.returns.clone())?;
                 }
 
                 if self.control_stack.is_empty() {

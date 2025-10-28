@@ -1753,7 +1753,6 @@ impl Machine for MachineARM64 {
     fn get_call_return_value_location(
         &self,
         idx: usize,
-        calling_convention: CallingConvention,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
         todo!()
     }
@@ -2262,28 +2261,6 @@ impl Machine for MachineARM64 {
         self.pushed = false; // SP is restored, consider it aligned
         self.emit_double_pop(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X28))?;
         self.emit_double_pop(Size::S64, Location::GPR(GPR::X29), Location::GPR(GPR::X30))?;
-        Ok(())
-    }
-
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => unreachable!(),
-                },
-                loc,
-                Location::GPR(GPR::X0),
-            )?;
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X0))?;
-        }
         Ok(())
     }
 
