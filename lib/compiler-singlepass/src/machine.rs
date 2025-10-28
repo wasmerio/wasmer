@@ -201,6 +201,7 @@ pub trait Machine {
     /// Get call param location (from a call, using FP for stack args)
     fn get_call_param_location(
         &self,
+        result_slots: usize,
         idx: usize,
         sz: Size,
         stack_offset: &mut usize,
@@ -208,6 +209,20 @@ pub trait Machine {
     ) -> Location<Self::GPR, Self::SIMD>;
     /// Get simple param location
     fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get registers for first N function return values.
+    fn get_return_value_registers(&self) -> &'static [Self::GPR];
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,

@@ -1991,6 +1991,11 @@ impl Machine for MachineX86_64 {
     fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
         static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
+        /*
+        CallingConvention::WindowsFastcall => &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9],
+            _ => &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9],
+
+         */
         for r in REGS {
             if !self.used_gprs_contains(r) {
                 return Some(*r);
@@ -2321,12 +2326,36 @@ impl Machine for MachineX86_64 {
     // Get call param location
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         _sz: Size,
         _stack_location: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        self.get_simple_param_location(idx, calling_convention)
+        let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(self.get_return_value_registers().len());
+        match calling_convention {
+            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (32 + 16 + return_values_memory_size + (idx - register_params.len()) * 8)
+                            as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (16 + return_values_memory_size + (idx - register_params.len()) * 8) as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+        }
     }
     // Get simple param location
     fn get_simple_param_location(
@@ -2351,6 +2380,48 @@ impl Machine for MachineX86_64 {
             ),
         }
     }
+
+    /// Get registers for first N function return values.
+    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
+        &[GPR::RAX, GPR::RDX]
+    }
+
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(&self, idx: usize, stack_location: &mut usize) -> Location {
+        self.get_return_value_registers().get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        let return_registers = self.get_return_value_registers();
+        match calling_convention {
+            CallingConvention::WindowsFastcall => return_registers.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (32 + 16 + (idx - return_registers.len()) * 8) as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => return_registers.get(idx).map_or_else(
+                || Location::Memory(GPR::RBP, (16 + (idx - return_registers.len()) * 8) as i32),
+                |reg| Location::GPR(*reg),
+            ),
+        }
+    }
+
     // move a location to another
     fn move_location(
         &mut self,

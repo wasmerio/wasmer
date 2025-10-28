@@ -12,6 +12,7 @@ use crate::{
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
+use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
 use std::{cmp, iter};
 
@@ -275,7 +276,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// If the returned location is used for stack value, `release_location` needs to be called on it;
     /// Otherwise, if the returned locations is used for a local, `release_location` does not need to be called on it.
     fn acquire_location(&mut self, ty: &WpType) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
-        let mut delta_stack_offset: usize = 0;
         let machine_value = MachineValue::WasmStack(self.value_stack.len());
 
         let loc = match *ty {
@@ -287,13 +287,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             _ => codegen_error!("can't acquire location for type {:?}", ty),
         };
 
-        let loc = if let Some(x) = loc {
-            x
-        } else {
-            self.stack_offset.0 += 8;
-            delta_stack_offset += 8;
-            self.machine.local_on_stack(self.stack_offset.0 as i32)
+        let Some(loc) = loc else {
+            return self.acquire_location_on_stack();
         };
+
         if let Location::GPR(x) = loc {
             self.machine.reserve_gpr(x);
             self.state.register_values[self.machine.index_from_gpr(x).0] = machine_value.clone();
@@ -301,8 +298,22 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.reserve_simd(x);
             self.state.register_values[self.machine.index_from_simd(x).0] = machine_value.clone();
         } else {
-            self.state.stack_values.push(machine_value.clone());
+            unreachable!()
         }
+        self.state.wasm_stack.push(WasmAbstractValue::Runtime);
+
+        Ok(loc)
+    }
+
+    // TODO: add comment
+    fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
+        let machine_value = MachineValue::WasmStack(self.value_stack.len());
+
+        self.stack_offset.0 += 8;
+        let delta_stack_offset = 8;
+        let loc = self.machine.local_on_stack(self.stack_offset.0 as i32);
+
+        self.state.stack_values.push(machine_value.clone());
         self.state.wasm_stack.push(WasmAbstractValue::Runtime);
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
@@ -627,6 +638,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 _ => codegen_error!("singlepass init_local unimplemented"),
             };
             let loc = self.machine.get_call_param_location(
+                sig.results().len(),
                 i + 1,
                 sz,
                 &mut stack_offset,
@@ -742,18 +754,31 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         return_types: K,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
+        let params: Vec<_> = params.collect();
+        let stack_params = params
+            .iter()
+            .copied()
+            .filter(|param| matches!(param, Location::Memory(_, _)))
+            .collect_vec();
+        dbg!(&params);
+        dbg!(&stack_params);
+        let get_size = |param_type: WpType| match param_type {
+            WpType::F32 | WpType::I32 => Size::S32,
+            WpType::V128 => unimplemented!(),
+            _ => Size::S64,
+        };
+        let params_size: Vec<_> = params_type.map(get_size).collect();
+        let return_types: Vec<_> = return_types.collect();
+        let return_value_sizes: Vec<_> = return_types.iter().map(|&rt| get_size(rt)).collect();
+
+        let mut return_values = stack_params.clone();
+        for _ in 0..return_value_sizes.len().saturating_sub(stack_params.len()) {
+            return_values.push(self.acquire_location_on_stack()?);
+        }
+        dbg!(&return_values);
+
         // Values pushed in this function are above the shadow region.
         self.state.stack_values.push(MachineValue::ExplicitShadow);
-
-        let params: Vec<_> = params.collect();
-        let params_size: Vec<_> = params_type
-            .map(|x| match x {
-                WpType::F32 | WpType::I32 => Size::S32,
-                WpType::V128 => unimplemented!(),
-                _ => Size::S64,
-            })
-            .collect();
-        let return_types: Vec<_> = return_types.collect();
 
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
@@ -796,10 +821,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let mut stack_offset: usize = 0;
-        let mut args: Vec<Location<M::GPR, M::SIMD>> = vec![];
+        let mut args = Vec::with_capacity(params.len());
+        let mut return_args = Vec::with_capacity(return_value_sizes.len());
         let mut pushed_args: usize = 0;
         // Calculate stack offset.
-        for (i, _param) in params.iter().enumerate() {
+        for i in 0..params.len() {
             args.push(self.machine.get_param_location(
                 match call_type {
                     NativeCallType::IncludeVMCtxArgument => 1,
@@ -810,6 +836,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 calling_convention,
             ));
         }
+
+        // Allocate space for return values after the arguments.
+        for i in 0..return_value_sizes.len() {
+            return_args.push(self.machine.get_return_value_location(i, &mut stack_offset));
+        }
+        dbg!(&return_args);
 
         // Align stack to 16 bytes.
         let stack_unaligned =
@@ -913,6 +945,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             );
         }
 
+        // Take the returned values from the fn call.
+        for (i, &return_type) in return_value_sizes.iter().enumerate() {
+            self.machine
+                .move_location_for_native(return_type, return_args[i], return_values[i])?;
+        }
+
         // Restore stack.
         if stack_offset + stack_padding > 0 {
             self.machine.restore_stack(
@@ -964,28 +1002,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             ));
         }
 
-        self.release_locations_only_stack(&params)?;
+        // We are re-using the params for the return values, thus release just the chunk
+        // we're not planning to use!
+        let params_to_release = &params[0..params.len().saturating_sub(return_types.len())];
+        self.release_locations_only_stack(params_to_release)?;
 
-        // TODO: support N return values
-        if !return_types.is_empty() {
-            let return_type = &return_types[0];
-
-            let ret = self.acquire_location(return_type)?;
-            self.value_stack.push(ret);
+        for (return_value, return_type) in return_values.iter().zip(return_types.iter()) {
+            self.value_stack.push(*return_value);
             if return_type.is_float() {
-                self.machine.move_location(
-                    Size::S64,
-                    Location::SIMD(self.machine.get_simd_for_ret()),
-                    ret,
-                )?;
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
-            } else {
-                self.machine.move_location(
-                    Size::S64,
-                    Location::GPR(self.machine.get_gpr_for_ret()),
-                    ret,
-                )?;
             }
         }
 
@@ -3837,17 +3863,36 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = self.control_stack.pop().unwrap();
 
                 if !was_unreachable && !frame.returns.is_empty() {
-                    let loc = *self.value_stack.last().unwrap();
-                    let canonicalize = if frame.returns[0].is_float() {
-                        let fp = self.fp_stack.peek1()?;
-                        self.machine.arch_supports_canonicalize_nan()
-                            && self.config.enable_nan_canonicalization
-                            && fp.canonicalization.is_some()
-                    } else {
-                        false
-                    };
-                    self.machine
-                        .emit_function_return_value(frame.returns[0], canonicalize, loc)?;
+                    let return_locations: Vec<_> = self
+                        .value_stack
+                        .iter()
+                        .rev()
+                        .take(frame.returns.len())
+                        .collect();
+                    assert_eq!(return_locations.len(), frame.returns.len());
+
+                    for (i, return_loc) in return_locations.iter().enumerate() {
+                        // TODO: handle size
+                        self.machine.emit_relaxed_mov(
+                            Size::S64,
+                            **return_loc,
+                            self.machine
+                                .get_call_return_value_location(i, CallingConvention::SystemV),
+                        )?;
+                    }
+
+                    // dbg!(&frame.returns);
+                    // let loc = *self.value_stack.last().unwrap();
+                    // let canonicalize = if frame.returns[0].is_float() {
+                    //     let fp = self.fp_stack.peek1()?;
+                    //     self.machine.arch_supports_canonicalize_nan()
+                    //         && self.config.enable_nan_canonicalization
+                    //         && fp.canonicalization.is_some()
+                    // } else {
+                    //     false
+                    // };
+                    // self.machine
+                    //     .emit_function_return_value(frame.returns[0], canonicalize, loc)?;
                 }
 
                 if self.control_stack.is_empty() {

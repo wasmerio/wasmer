@@ -1737,6 +1737,27 @@ impl Machine for MachineARM64 {
         ]
     }
 
+    /// Get registers for first N function return values.
+    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
+        todo!()
+    }
+
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        todo!()
+    }
+
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        todo!()
+    }
+
     // Get param location, MUST be called in order!
     fn get_param_location(
         &self,
@@ -1780,11 +1801,13 @@ impl Machine for MachineARM64 {
     // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
+        result_slots: usize,
         idx: usize,
         sz: Size,
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        todo!("support return_slots");
         let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
