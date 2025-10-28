@@ -756,7 +756,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         return_types: K,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
-        let params: Vec<_> = params.collect();
+        let params = params.collect_vec();
         let stack_params = params
             .iter()
             .copied()
@@ -769,9 +769,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             WpType::V128 => unimplemented!(),
             _ => Size::S64,
         };
-        let params_size: Vec<_> = params_type.map(get_size).collect();
-        let return_types: Vec<_> = return_types.collect();
-        let return_value_sizes: Vec<_> = return_types.iter().map(|&rt| get_size(rt)).collect();
+        let params_size = params_type.map(get_size).collect_vec();
+        let return_types = return_types.collect_vec();
+        let return_value_sizes = return_types.iter().map(|&rt| get_size(rt)).collect_vec();
 
         let mut return_values = stack_params.clone();
         for _ in 0..return_value_sizes.len().saturating_sub(stack_params.len()) {
@@ -3820,12 +3820,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.machine.emit_function_epilog()?;
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
-                    match self.signature.results() {
-                        [x] if *x == Type::F32 || *x == Type::F64 => {
+                    if let Ok(&return_type) = self.signature.results().iter().exactly_one() {
+                        if return_type == Type::F32 || return_type == Type::F64 {
                             self.machine.emit_function_return_float()?;
                         }
-                        _ => {}
-                    }
+                    };
                     self.machine.emit_ret()?;
                 } else {
                     let released = &self.value_stack.clone()[frame.value_stack_depth..];
