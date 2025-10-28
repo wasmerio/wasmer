@@ -1737,26 +1737,6 @@ impl Machine for MachineARM64 {
         ]
     }
 
-    /// Get registers for first N function return values.
-    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
-        todo!()
-    }
-
-    fn get_return_value_location(
-        &self,
-        idx: usize,
-        stack_location: &mut usize,
-    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
-        todo!()
-    }
-
-    fn get_call_return_value_location(
-        &self,
-        idx: usize,
-    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
-        todo!()
-    }
-
     // Get param location, MUST be called in order!
     fn get_param_location(
         &self,
@@ -1800,14 +1780,16 @@ impl Machine for MachineARM64 {
     // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
-        result_slots: usize,
+        return_slots: usize,
         idx: usize,
         sz: Size,
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        todo!("support return_slots");
         let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(self.get_return_value_registers().len()) as i32;
+
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
                 || {
@@ -1822,7 +1804,10 @@ impl Machine for MachineARM64 {
                     if sz > 1 && *stack_args & (sz - 1) != 0 {
                         *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
                     }
-                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    let loc = Location::Memory(
+                        GPR::X29,
+                        16 * 2 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += sz;
                     loc
                 },
@@ -1830,7 +1815,10 @@ impl Machine for MachineARM64 {
             ),
             _ => register_params.get(idx).map_or_else(
                 || {
-                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    let loc = Location::Memory(
+                        GPR::X29,
+                        16 * 2 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += 8;
                     loc
                 },
@@ -1855,6 +1843,52 @@ impl Machine for MachineARM64 {
             |reg| Location::GPR(*reg),
         )
     }
+
+    /// Get registers for first N function return values.
+    /// NOTE: The register set must be disjoint from pick_gpr registers!
+    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
+        &[
+            GPR::X0,
+            GPR::X1,
+            GPR::X2,
+            GPR::X3,
+            GPR::X4,
+            GPR::X5,
+            GPR::X6,
+            GPR::X7,
+        ]
+    }
+
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        self.get_return_value_registers().get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::XzrSp, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        self.get_return_value_registers().get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::X29,
+                    (16 * 2 + (idx - self.get_return_value_registers().len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
     // move a location to another
     fn move_location(
         &mut self,

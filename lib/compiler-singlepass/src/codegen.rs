@@ -1016,9 +1016,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // we're not planning to use!
         let params_to_release = &params[cmp::min(params.len(), return_types.len())..];
         self.release_locations_only_stack(params_to_release)?;
-        for i in 0..return_values.len() {
-            self.state.wasm_stack.push(WasmAbstractValue::Runtime);
-        }
+        self.state.wasm_stack.extend(iter::repeat_n(
+            WasmAbstractValue::Runtime,
+            return_values.len(),
+        ));
 
         for (return_value, return_type) in return_values.iter().zip(return_types.iter()) {
             self.value_stack.push(*return_value);
@@ -1262,7 +1263,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let param_count_for_block = |block_type: WpTypeOrFuncType| match block_type {
             WpTypeOrFuncType::Empty => 0,
-            WpTypeOrFuncType::Type(inner_ty) => 1,
+            WpTypeOrFuncType::Type(_) => 1,
             WpTypeOrFuncType::FuncType(sig_index) => self.module.signatures
                 [SignatureIndex::from_u32(sig_index)]
             .params()
