@@ -320,7 +320,7 @@ mod tests {
         fn push_interest(&mut self, _interest: InterestType) {
             // This would deadlock without a queue
             self.selector
-                .remove(self.token.lock().unwrap().unwrap().clone(), None)
+                .remove(self.token.lock().unwrap().unwrap(), None)
                 .unwrap();
             self.success_sender.send(()).unwrap();
         }
@@ -355,7 +355,7 @@ mod tests {
         thread::sleep(Duration::from_millis(10));
 
         // Works once
-        sender.write(&[1, 2, 3]).unwrap();
+        sender.write_all(&[1, 2, 3]).unwrap();
         sender.flush().unwrap();
         thread::sleep(Duration::from_millis(10));
         assert!(
@@ -369,7 +369,7 @@ mod tests {
         thread::sleep(Duration::from_millis(10));
 
         // Works multiple times
-        sender.write(&[1, 2, 3]).unwrap();
+        sender.write_all(&[1, 2, 3]).unwrap();
         sender.flush().unwrap();
         thread::sleep(Duration::from_millis(10));
         assert!(
@@ -384,7 +384,7 @@ mod tests {
 
         // No signal after removing the handler
         selector.remove(token, Some(&mut receiver)).unwrap();
-        sender.write(&[1, 2, 3]).unwrap();
+        sender.write_all(&[1, 2, 3]).unwrap();
         sender.flush().unwrap();
         thread::sleep(Duration::from_millis(10));
         assert!(
@@ -416,7 +416,7 @@ mod tests {
             .unwrap();
         handler_token_arcmutex.lock().unwrap().replace(token);
 
-        sender.write(&[1, 2, 3]).unwrap();
+        sender.write_all(&[1, 2, 3]).unwrap();
         sender.flush().unwrap();
 
         thread::sleep(Duration::from_millis(100));
