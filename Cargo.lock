@@ -7147,6 +7147,7 @@ dependencies = [
  "rayon",
  "smallvec",
  "target-lexicon 0.13.3",
+ "tempfile",
  "wasmer-compiler",
  "wasmer-types",
 ]

@@ -280,6 +280,7 @@ pub(crate) fn create_unwind_info_from_insts(
             UnwindOps::Push2Regs { .. } => {
                 unreachable!("no aarch64 on x64");
             }
+            UnwindOps::SubtractFP { .. } => unreachable!(),
         }
         max_unwind_offset = instruction_offset;
     }
