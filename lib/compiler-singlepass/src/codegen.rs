@@ -2597,12 +2597,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::If { blockty } => {
                 let label_end = self.machine.get_label();
                 let label_else = self.machine.get_label();
-
-                let loc = self.acquire_location(&WpType::I32)?;
-                self.machine
-                    .emit_relaxed_mov(Size::S64, self.value_stack.pop().unwrap(), loc)?;
-                self.value_stack.push(loc);
-
                 let cond = self.pop_value_released()?;
 
                 let return_types = return_types_for_block(blockty);
