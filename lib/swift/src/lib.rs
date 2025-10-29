@@ -5,10 +5,7 @@ use wasmer_package::utils::from_bytes;
 use wasmer_wasix::{
     PluggableRuntime,
     bin_factory::BinaryPackage,
-    runners::{
-        Runner,
-        wasi::{RuntimeOrEngine, WasiRunner},
-    },
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
     runtime::{package_loader::BuiltinPackageLoader, task_manager::tokio::TokioTaskManager},
 };
 

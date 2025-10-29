@@ -83,10 +83,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // We will use an exported function for the `one` global
     // and the Global API for `some`.
-    let get_one: TypedFunction<(), f32> = instance
-        .exports
-        .get_function("get_one")?
-        .typed(&mut store)?;
+    let get_one: TypedFunction<(), f32> =
+        instance.exports.get_function("get_one")?.typed(&store)?;
 
     let one_value = get_one.call(&mut store)?;
     let some_value = some.get(&mut store);
@@ -117,10 +115,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //   2. Using the Global API directly.
     //
     // We will use both for the `some` global.
-    let set_some: TypedFunction<f32, ()> = instance
-        .exports
-        .get_function("set_some")?
-        .typed(&mut store)?;
+    let set_some: TypedFunction<f32, ()> =
+        instance.exports.get_function("set_some")?.typed(&store)?;
     set_some.call(&mut store, 21.0)?;
     let some_result = some.get(&mut store);
     println!("`some` value after `set_some`: {:?}", some_result);

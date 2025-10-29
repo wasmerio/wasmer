@@ -60,14 +60,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The Wasm module only imports some globals. We'll have to interact
     // with them either using the Global API or exported functions.
-    let get_some: TypedFunction<(), f32> = instance
-        .exports
-        .get_function("get_some")?
-        .typed(&mut store)?;
-    let get_other: TypedFunction<(), f32> = instance
-        .exports
-        .get_function("get_other")?
-        .typed(&mut store)?;
+    let get_some: TypedFunction<(), f32> =
+        instance.exports.get_function("get_some")?.typed(&store)?;
+    let get_other: TypedFunction<(), f32> =
+        instance.exports.get_function("get_other")?.typed(&store)?;
 
     let some_result = get_some.call(&mut store)?;
     let other_result = get_other.call(&mut store)?;
@@ -94,10 +90,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Altering global values through exported functions...");
     // Changes made to global through exported functions will
     // be reflected on the host side.
-    let set_other: TypedFunction<f32, ()> = instance
-        .exports
-        .get_function("set_other")?
-        .typed(&mut store)?;
+    let set_other: TypedFunction<f32, ()> =
+        instance.exports.get_function("set_other")?.typed(&store)?;
     set_other.call(&mut store, 42.0)?;
 
     println!("other value (via Global API): {:?}", other.get(&mut store));

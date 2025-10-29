@@ -89,10 +89,8 @@ fn main() -> anyhow::Result<()> {
     //
     // Our module exports a single `add_one`  function. We want to
     // measure the cost of executing this function.
-    let add_one: TypedFunction<i32, i32> = instance
-        .exports
-        .get_function("add_one")?
-        .typed(&mut store)?;
+    let add_one: TypedFunction<i32, i32> =
+        instance.exports.get_function("add_one")?.typed(&store)?;
 
     println!("Calling `add_one` function once...");
     add_one.call(&mut store, 1)?;
