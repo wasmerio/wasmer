@@ -17,7 +17,8 @@ use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
     VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline, wasmer_call_trampoline_resume
+    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
+    wasmer_call_trampoline_resume,
 };
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
@@ -281,7 +282,7 @@ impl Function {
     fn call_wasm_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
         // let format_types_for_error_message = |items: &[Value]| {
@@ -394,11 +395,16 @@ impl Function {
     }
 
     // warn on unused vars in this functions
-    #[warn(dead_code, clippy::unused_self, clippy::unused_variables, unused_variables)]
+    #[warn(
+        dead_code,
+        clippy::unused_self,
+        clippy::unused_variables,
+        unused_variables
+    )]
     fn call_wasm_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
         results: &mut [Value],
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
@@ -415,7 +421,6 @@ impl Function {
                         continuation,
                     )
                 };
-                
 
                 // TODO: Continuations should be safe as long as this is never triggered
                 //       I add added a todo so this is a guaranteed error
@@ -487,7 +492,7 @@ impl Function {
     pub(crate) fn call_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32
+        continuation: u64,
     ) -> Result<Box<[Value]>, RuntimeError> {
         // let trampoline = unsafe {
         //     self.handle
@@ -527,7 +532,7 @@ impl Function {
     pub(crate) fn call_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
     ) -> Result<Box<[Value]>, RuntimeError> {
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm_raw_resume(store, continuation, &mut results)?;
@@ -637,7 +642,6 @@ where
                 to_invocation_result((this.ctx.func)(values_vec))
             }))
         });
-        
 
         // IMPORTANT: DO NOT ALLOCATE ON THE STACK,
         // AS WE ARE IN THE WASM STACK, NOT ON THE HOST ONE.

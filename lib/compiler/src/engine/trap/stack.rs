@@ -36,7 +36,11 @@ pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>)
             Some(TrapCode::UncaughtException),
         ),
         // TODO: Implement continuations properly
-        Trap::Continuation { .. } => todo!(),
+        Trap::Continuation { 
+            continuation_ref: _,
+            next: _,
+        // TODO: Maybe add backtraces to continuations
+         } => (Vec::new(), None),
     }
 }
 

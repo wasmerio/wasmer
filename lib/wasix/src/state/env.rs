@@ -3,7 +3,7 @@ use std::{
     ops::Deref,
     path::{Path, PathBuf},
     str,
-    sync::{atomic::AtomicU32, Arc, RwLock},
+    sync::{Arc, RwLock, atomic::AtomicU64},
     time::Duration,
 };
 
@@ -39,12 +39,14 @@ use crate::{
     },
     runtime::task_manager::InlineWaker,
     syscalls::platform_clock_time_get,
-    syscalls::wasix::coroutine_switch::CoroutineStack,
+    syscalls::wasix::continuation_switch::CoroutineStack,
 };
 use wasmer_types::ModuleHash;
 
 pub use super::handles::*;
 use super::{Linker, WasiState, conv_env_vars};
+
+const MAIN_CONTINUATION_ID: u64 = 0;
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -176,10 +178,10 @@ pub struct WasiEnv {
     pub(crate) disable_fs_cleanup: bool,
 
     /// TODO: Document this field
-    pub coroutines: Arc<RwLock<BTreeMap<u32, Arc<RwLock<CoroutineStack>>>>>,
-    pub next_coroutine_id: Arc<AtomicU32>,
-    pub current_coroutine: Arc<RwLock<Option<u32>>>,
-    pub next_coroutine: Arc<RwLock<Option<u32>>>,
+    pub coroutines: Arc<RwLock<BTreeMap<u64, Arc<RwLock<CoroutineStack>>>>>,
+    pub next_coroutine_id: Arc<AtomicU64>,
+    pub current_coroutine: Arc<RwLock<Option<u64>>>,
+    pub next_coroutine: Arc<RwLock<Option<u64>>>,
 
     /// Inner functions and references that are loaded before the environment starts
     /// (inner is not safe to send between threads and so it is private and will
@@ -262,7 +264,7 @@ impl WasiEnv {
             disable_fs_cleanup: self.disable_fs_cleanup,
             // TODO: Not sure if we can even properly fok coroutines at all
             coroutines: Default::default(),
-            next_coroutine_id: Arc::new(AtomicU32::new(1)),
+            next_coroutine_id: Arc::new(AtomicU64::new(MAIN_CONTINUATION_ID)),
             current_coroutine: Default::default(),
             next_coroutine: Default::default(),
         };
@@ -410,7 +412,7 @@ impl WasiEnv {
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
             coroutines: Default::default(),
-            next_coroutine_id: Arc::new(AtomicU32::new(1)),
+            next_coroutine_id: Arc::new(AtomicU64::new(MAIN_CONTINUATION_ID)),
             current_coroutine: Default::default(),
             next_coroutine: Default::default(),
         };

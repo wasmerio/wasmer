@@ -255,7 +255,7 @@ impl Function {
     pub fn call_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call_resume(store, continuation)
     }
@@ -275,11 +275,10 @@ impl Function {
     pub fn call_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call_raw_resume(store, continuation)
     }
-
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
         self.0.vm_funcref(store)

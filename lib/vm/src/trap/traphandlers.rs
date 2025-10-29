@@ -10,22 +10,21 @@ use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
 use core::ptr::{read, read_unaligned};
-use std::ops::Deref;
 use corosensei::stack::DefaultStack;
 use corosensei::trap::{CoroutineTrapHandler, TrapHandlerRegs};
-use corosensei::{Coroutine, CoroutineResult, ScopedCoroutine, Yielder};
+use corosensei::{Coroutine, CoroutineResult, Yielder};
 use scopeguard::defer;
 use std::any::Any;
 use std::cell::{Cell, RefCell};
-use std::collections::{BTreeMap, HashMap};
+use std::collections::BTreeMap;
 use std::error::Error;
 use std::io;
 use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicU32, AtomicUsize, Ordering};
-use std::sync::{Arc, LazyLock, Mutex, Once};
+use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicU64, AtomicUsize, Ordering};
+use std::sync::{ LazyLock, Once, RwLock};
 use wasmer_types::TrapCode;
 
 /// Configuration for the runtime VM
@@ -735,11 +734,9 @@ pub unsafe fn wasmer_call_trampoline(
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline_resume(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
-    continuation: u32,
+    continuation: u64,
 ) -> Result<(), Trap> {
-    unsafe {
-        catch_traps_resume(trap_handler, continuation)
-    }
+    unsafe { catch_traps_resume(trap_handler, continuation) }
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,
@@ -772,9 +769,8 @@ where
 /// Highly unsafe since `closure` won't have any dtors run.
 pub unsafe fn catch_traps_resume<R: 'static>(
     trap_handler: Option<*const TrapHandlerFn<'static>>,
-    continuation: u32,
-) -> Result<R, Trap>
-{
+    continuation: u64,
+) -> Result<R, Trap> {
     // Ensure that per-thread initialization is done.
     // TODO: We don't need this
     lazy_per_thread_init()?;
@@ -790,25 +786,24 @@ pub unsafe fn catch_traps_resume<R: 'static>(
 // We also do per-thread signal stack initialization on the first time
 // TRAP_HANDLER is accessed.
 thread_local! {
-    static YIELDER: Cell<Option<(NonNull<Yielder<(), UnwindReason>>, u32)>> = const { Cell::new(None) };
+    static YIELDER: Cell<Option<NonNull<Yielder<(), UnwindReason>>>> = const { Cell::new(None) };
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
-    static ACTIVE_STACKS: RefCell<BTreeMap<u32, MyErasedCoroutine>> = const { RefCell::new(BTreeMap::new()) };
-    static NEXT_STACK_ID: AtomicU32 = const { AtomicU32::new(0) };
+    static ACTIVE_STACKS: RefCell<BTreeMap<u64, ErasedContinuation>> = const { RefCell::new(BTreeMap::new()) };
+    static NEXT_STACK_ID: AtomicU64 = const { AtomicU64::new(0) };
     static QUEUED_ERROR: Cell<Option<UnwindReason>> = const { Cell::new(None) };
 }
 
 macro_rules! print_yielder {
     ($name:expr) => {
         YIELDER.with(|yielder| {
-            if let Some((yielder, id)) = yielder.get() {
-                eprintln!("yielder: {:p} (id {})  : {}", yielder, id, $name);
+            if let Some(yielder) = yielder.get() {
+                // eprintln!("yielder: {:p}  : {}", yielder, $name);
             } else {
-                eprintln!("yielder: none                   : {}", $name);
+                // eprintln!("yielder: none                   : {}", $name);
             }
         });
     };
 }
-
 
 /// Read-only information that is used by signal handlers to handle and recover
 /// from traps.
@@ -970,7 +965,9 @@ impl<T> TrapHandlerContextInner<T> {
     }
 }
 
-enum UnwindReason {
+// TODO: Make private again
+/// AAAAAAAAAAa
+pub enum UnwindReason {
     /// A panic caused by the host
     Panic(Box<dyn Any + Send>),
     /// A custom error triggered by the user
@@ -979,10 +976,36 @@ enum UnwindReason {
     LibTrap(Trap),
     /// A trap caused by the Wasm generated code
     WasmTrap {
+        // TODO: Make private again
+        /// AAAAAAAAAAa
         backtrace: Backtrace,
+        // TODO: Make private again
+        /// AAAAAAAAAAa
         pc: usize,
+        // TODO: Make private again
+        /// AAAAAAAAAAa
         signal_trap: Option<TrapCode>,
     },
+}
+
+impl std::fmt::Debug for UnwindReason {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Self::UserTrap(data) => f
+                .debug_tuple("UnwindReason::UserTrap")
+                .field(&data.to_string())
+                .finish(),
+            Self::LibTrap(trap) => f.debug_tuple("UnwindReason::LibTrap").field(trap).finish(),
+            Self::WasmTrap {
+                pc, signal_trap, ..
+            } => f
+                .debug_struct("UnwindReason::WasmTrap")
+                .field("pc", pc)
+                .field("signal_trap", signal_trap)
+                .finish(),
+            Self::Panic(_) => f.debug_tuple("UnwindReason::Panic").finish(),
+        }
+    }
 }
 
 impl UnwindReason {
@@ -1006,28 +1029,21 @@ impl UnwindReason {
     }
 }
 
-unsafe fn unwind_with(mut reason: UnwindReason) -> () {
+unsafe fn unwind_with(reason: UnwindReason) -> () {
     unsafe {
         print_yielder!("reset in unwind_with");
-        let Some(yielder) = YIELDER
-            .with(|cell| cell.replace(None)) else {
-                QUEUED_ERROR.with(|c| {
-                    c.set(Some(reason));
-                });
-                // TODO: Handle the case where we don't want to resume
-                return;
-            }
-           ;
+        let Some(yielder) = YIELDER.with(|cell| cell.get()) else {
+            print_yielder!("no yielder in unwind_with; queueing error");
+            QUEUED_ERROR.with(|c| {
+                c.set(Some(reason));
+            });
+            // TODO: Handle the case where we don't want to resume
+            return;
+        };
 
+        // TODO: Remove this, as it is only here for the unreachable assertion below
         let is_resumable = reason.is_resumable();
-        match &mut reason {
-            UnwindReason::LibTrap(Trap::Continuation { resumable, .. }) => {
-                *resumable = Some(yielder.1);
-            },
-            _ => {}
-        }
-
-        yielder.0.as_ref().suspend(reason);
+        yielder.as_ref().suspend(reason);
 
         // on_wasm_stack will forcibly reset the coroutine stack after yielding.
         if !is_resumable {
@@ -1036,204 +1052,210 @@ unsafe fn unwind_with(mut reason: UnwindReason) -> () {
     }
 }
 
-// unsafe fn suspend(payload: u32) -> () {
-//     unsafe {
-//         let yielder = YIELDER
-//             .with(|cell| cell.replace(None))
-//             .expect("not running on Wasm stack");
-
-//         let trap = UnwindReason::LibTrap(Trap::Continuation { resumable: Some(5), next: payload });
-
-//         yielder.as_ref().suspend(trap);
-
-//     }
-// }
-
-// /// Runs the given function on a separate stack so that its stack usage can be
-// /// bounded. Stack overflows and other traps can be caught and execution
-// /// returned to the root of the stack.
-// fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
-//     stack_size: usize,
-//     trap_handler: Option<*const TrapHandlerFn<'static>>,
-//     f: F,
-// ) -> Result<T, UnwindReason> {
-//     // Allocating a new stack is pretty expensive since it involves several
-//     // system calls. We therefore keep a cache of pre-allocated stacks which
-//     // allows them to be reused multiple times.
-//     // FIXME(Amanieu): We should refactor this to avoid the lock.
-//     static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
-//         LazyLock::new(crossbeam_queue::SegQueue::new);
-
-//     let stack = STACK_POOL
-//         .pop()
-//         .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-//     let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
-
-//     // Create a coroutine with a new stack to run the function on.
-//     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
-//         // Save the yielder to TLS so that it can be used later.
-//         YIELDER.with(|cell| cell.set(Some(yielder.into())));
-
-//         Ok(f())
-//     });
-
-//     // Ensure that YIELDER is reset on exit even if the coroutine panics,
-//     defer! {
-//         YIELDER.with(|cell| cell.set(None));
-//     }
-
-//     coro.scope(|mut coro_ref| {
-//         // Set up metadata for the trap handler for the duration of the coroutine
-//         // execution. This is restored to its previous value afterwards.
-//         TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
-//             match coro_ref.resume(()) {
-//                 CoroutineResult::Yield(trap) => {
-//                     // This came from unwind_with which requires that there be only
-//                     // Wasm code on the stack.
-//                     if !trap.is_resumable() {
-//                         // If the trap is not resumable, we need to reset the coroutine
-//                         // so that it can be used again.
-//                         unsafe {
-//                             coro_ref.force_reset();
-//                         }
-//                     }
-//                     Err(trap)
-//                 }
-//                 CoroutineResult::Return(result) => result,
-//             }
-//         })
-//     })
-// }
-
-struct MyCoroutine<T: 'static> {
-    coro: Arc<Mutex<Coroutine<(), UnwindReason, Result<T, UnwindReason>>>>,
-    yielder: Arc<Mutex<Option<NonNull<Yielder<(), UnwindReason>>>>>,
-    id: u32,
+/// A reference to a continuation in ACTIVE_STACKS
+struct ContinuationRef {
+    id: u64,
 }
-impl<T: 'static> Clone for MyCoroutine<T> {
-    fn clone(&self) -> Self {
-        Self {
-            coro: self.coro.clone(),
-            yielder: self.yielder.clone(),
-            id: self.id,
-        }
+impl ContinuationRef {
+    fn new<T: 'static, F: FnOnce() -> T + 'static>(f: F, stack_size: usize) -> Self {
+        let id = NEXT_STACK_ID.with(|cell| cell.fetch_add(1, Ordering::Relaxed));
+        let boxed_coro = Continuation::new(f, stack_size);
+        ACTIVE_STACKS.with_borrow_mut(|stacks| stacks.insert(id, boxed_coro.into()));
+        Self { id }
     }
-}
-struct MyErasedCoroutine {
-    /// Owned pointer to the inner coroutine
-    inner: *mut MyCoroutine<()>,
-}
-impl Clone for MyErasedCoroutine {
-    fn clone(&self) -> Self {
-        let coro = unsafe { Box::from_raw(self.inner) };
-        let cloned = coro.clone();
-        Box::leak(coro);
-        Self {
-            inner: Box::into_raw(cloned) as *mut MyCoroutine<()>,
-        }
-    }
-}
-impl<T: 'static> From<MyCoroutine<T>> for MyErasedCoroutine {
-    fn from(coro: MyCoroutine<T>) -> Self {
-        Self {
-            inner: Box::into_raw(Box::new(coro)) as *mut MyCoroutine<()>,
-        }
-    }
-}
-
-// TODO: This from implementation is horribly unsafe
-impl<T: 'static> From<MyErasedCoroutine> for MyCoroutine<T> {
-    fn from(mut coro: MyErasedCoroutine) -> Self {
-        let boxed_coro = unsafe {
-            let boxed_coro = Box::from_raw(coro.inner as *mut MyCoroutine<T>);
-            coro.inner = ptr::null_mut();
-            boxed_coro
-        };
-        boxed_coro.as_ref().clone()
-    }
-}
-
-impl<T: 'static> MyCoroutine<T> {
-    fn new<F: FnOnce() -> T + 'static>(f: F) -> Self {
-        let future_yielder: Arc<Mutex<Option<NonNull<Yielder<(), UnwindReason>>>>> =
-            Arc::new(Mutex::new(None));
-        let future_yielder2 = future_yielder.clone();
-        let id = NEXT_STACK_ID.with(|cell| {
-            cell.fetch_add(1, Ordering::Relaxed)
-        });
-        let coro = Coroutine::new(move |yielder, ()| {
-            // Save the yielder to TLS so that it can be used later.
-            print_yielder!("Setting in new coro");
-            YIELDER.with(|cell| cell.set(Some((yielder.into(), id))));
-            future_yielder2.lock().unwrap().replace(yielder.into());
-            Ok(f())
-        });
-        MyCoroutine {
-            coro: Arc::new(Mutex::new(coro)),
-            yielder: future_yielder,
-            id
-        }
-    }
-    // fn new_internal(
-    //     coro: Coroutine<(), UnwindReason, Result<T, UnwindReason>>,
-    //     future_yielder: Arc<Mutex<Option<NonNull<Yielder<(), UnwindReason>>>>>,
-    // ) -> Self {
-    //     Self {
-    //         coro: Arc::new(Mutex::new(coro)),
-    //         yielder: future_yielder,
-    //         id
-    //     }
-    // }
-    fn lock(
-        &self,
-    ) -> std::sync::MutexGuard<'_, Coroutine<(), UnwindReason, Result<T, UnwindReason>>> {
-        self.coro.lock().unwrap()
-    }
-    fn resume(
+    fn resume<T: 'static>(
         &self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
     ) -> Result<T, UnwindReason> {
-
-        // Set global YIELDER to the current coroutine's yielder
-        let current_yielder = self.yielder.lock().unwrap().clone();
         let id = self.id;
-        print_yielder!("Setting in resume");
-        YIELDER.with(|cell| cell.set(current_yielder.map(|yielder| (yielder, id))));
+        let erased_continuation = ACTIVE_STACKS
+            .with_borrow_mut(|map| map.remove(&id))
+            .unwrap();
+        // TODO: Handle the unwrap above better
 
-        // Reset global YIELDER to None when leaving this stack
-        defer! {
-            print_yielder!("Resetting after resume");
-            YIELDER.with(|cell| cell.set(None));
+        let continuation: Continuation<T> = erased_continuation.into();
+        let (mut maybe_continuation, mut result) = continuation.resume(trap_handler);
+        if let Err(unwind_reason) = &mut result {
+            match unwind_reason {
+                UnwindReason::LibTrap(Trap::Continuation {
+                    continuation_ref, ..
+                }) => {
+                    // Store the continuation reference into the trap
+                    continuation_ref.replace(id);
+                }
+                _ => {}
+            }
         }
+        if let Some(cont) = maybe_continuation.take() {
+            // Put the continuation back into ACTIVE_STACKS
+            ACTIVE_STACKS.with_borrow_mut(|map| map.insert(id, cont.into()));
+        }
+        result
+    }
+}
 
-        let coro_trap_handler = {
-            self.coro.lock().unwrap().trap_handler()
-        };
-        let cloned_coro = self.coro.clone();
+struct StackPool {
+    pool: RwLock<BTreeMap<usize, crossbeam_queue::SegQueue<DefaultStack>>>,
+}
 
+impl StackPool {
+    fn new() -> Self {
+        Self {
+            pool: Default::default(),
+        }
+    }
+    /// Get a stack from the stack pool or create a new one if none is available
+    ///
+    /// Tries to keep the stack size as close as possible to the requested size
+    fn get_stack(&self, stack_size: usize) -> DefaultStack {
+        {
+            let pool_guard = self.pool.read().unwrap();
+            if let Some(existing_queue) = pool_guard.get(&stack_size) {
+                return existing_queue
+                    .pop()
+                    .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
+            };
+        }
+        return DefaultStack::new(stack_size).unwrap();
+    }
+    /// Return a stack to the pool
+    ///
+    /// The stack size needs to be provided, because we can not get the stack size from the stack itself
+    fn return_stack(&self, stack: DefaultStack, stack_size: usize) {
+        {
+            let pool_guard = self.pool.read().unwrap();
+            if let Some(existing_queue) = pool_guard.get(&stack_size) {
+                existing_queue.push(stack);
+                return;
+            };
+        }
+        let mut pool_guard = self.pool.write().unwrap();
+        let new_queue = crossbeam_queue::SegQueue::new();
+        new_queue.push(stack);
+        pool_guard.insert(stack_size, new_queue);
+    }
+}
 
-        TrapHandlerContext::install(
-            trap_handler,
-            coro_trap_handler,
-            || {
-                let mut coro = cloned_coro.lock().unwrap();
+struct Continuation<T: 'static> {
+    coro: Coroutine<(), UnwindReason, Result<T, UnwindReason>>,
+    /// The yielder for this coroutine. None while the coroutine is running or not yet started.
+    yielder: Option<NonNull<Yielder<(), UnwindReason>>>,
+    /// size of the associated stack. Required to return the stack to the pool.
+    stack_size: usize,
+}
+static STACK_POOL: LazyLock<StackPool> = LazyLock::new(StackPool::new);
+
+impl<T: 'static> Continuation<T> {
+    fn new<F: FnOnce() -> T + 'static>(f: F, stack_size: usize) -> Self {
+        // Allocating a new stack is pretty expensive since it involves several
+        // system calls. We therefore keep a cache of pre-allocated stacks which
+        // allows them to be reused multiple times.
+        // FIXME(Amanieu): We should refactor this to avoid the lock.
+        let stack = STACK_POOL.get_stack(stack_size);
+
+        let coro = Coroutine::with_stack(stack, move |yielder, ()| {
+            // Save the yielder to the global when resuming the function for the first time.
+            // It will be stored to the continuation when yielding.
+            YIELDER.with(|cell| cell.set(Some(yielder.into())));
+            Ok(f())
+        });
+        Continuation {
+            coro: coro,
+            yielder: None,
+            stack_size: stack_size,
+        }
+    }
+    fn resume(
+        mut self,
+        trap_handler: Option<*const TrapHandlerFn<'static>>,
+    ) -> (Option<Self>, Result<T, UnwindReason>) {
+        // Set global YIELDER to the current coroutine's yielder
+        print_yielder!("Setting in resume");
+
+        // Set the global YIELDER to the current coroutine's yielder
+        // If the coroutine is started for the first time, the yielder set here is None and it will get set during the first call to resume
+        let previous_yielder = YIELDER.with(|cell| cell.replace(self.yielder));
+        // Ensure that there is no previous YIELDER set. This would indicate that we are already on a Wasm stack.
+        assert_eq!(previous_yielder, None);
+
+        let mut own_yielder = None;
+
+        let result = {
+            defer! {
+                print_yielder!("Resetting after resume");
+                // Prevous yielder must be None here
+                own_yielder = YIELDER.with(|cell| cell.replace(previous_yielder));
+            }
+            let coro = &mut self.coro;
+            let coro_trap_handler = coro.trap_handler();
+
+            TrapHandlerContext::install(trap_handler, coro_trap_handler, || {
+                // let mut coro = cloned_coro.lock().unwrap();
                 match coro.resume(()) {
                     CoroutineResult::Yield(trap) => {
-                        // This came from unwind_with which requires that there be only
-                        // Wasm code on the stack.
-                                            if !trap.is_resumable() {
-                        // If the trap is not resumable, we need to reset the coroutine
-                        // so that it can be used again.
-                        unsafe {
-                            coro.force_reset();
-                        }
-                    }
+                        // TODO: Figure out if it is safe to only do this in self.finish()
+                        // // This came from unwind_with which requires that there be only
+                        // // Wasm code on the stack.
+                        // if !trap.is_resumable() {
+                        //     // If the trap is not resumable, we need to reset the coroutine
+                        //     // so that it can be used again.
+                        //     unsafe {
+                        //         // Cleanup
+                        //         coro.force_reset();
+                        //     }
+                        // }
                         Err(trap)
                     }
                     CoroutineResult::Return(result) => result,
                 }
-            },
-        )
+            })
+        };
+
+        let is_resumable = match &result {
+            Err(unwind_reason) => unwind_reason.is_resumable(),
+            _ => false,
+        };
+        if is_resumable {
+            // Own yielder must be set at this point
+            assert_ne!(own_yielder, None);
+            self.yielder = own_yielder;
+            return (Some(self), result);
+        }
+        // TODO: Investigate if we need to defer this
+        self.finish();
+        (None, result)
+    }
+    /// Finish the continuation, returning its stack to the pool
+    fn finish(self) -> () {
+        let mut coro = self.coro;
+        if !coro.done() {
+            unsafe {
+                // Cleanup
+                coro.force_reset();
+            }
+        }
+        let stack = coro.into_stack();
+        STACK_POOL.return_stack(stack, self.stack_size);
+    }
+}
+
+/// A type-erased continuation that can be stored in a map.
+struct ErasedContinuation {
+    /// Owned pointer to the inner coroutine
+    inner: *mut Continuation<()>,
+}
+impl<T: 'static> From<Continuation<T>> for ErasedContinuation {
+    fn from(coro: Continuation<T>) -> Self {
+        Self {
+            inner: Box::into_raw(Box::new(coro)) as *mut Continuation<()>,
+        }
+    }
+}
+// TODO: This from implementation is horribly unsafe
+impl<T: 'static> From<ErasedContinuation> for Continuation<T> {
+    fn from(coro: ErasedContinuation) -> Self {
+        let boxed_coro = unsafe { Box::from_raw(coro.inner as *mut Continuation<T>) };
+        *boxed_coro
     }
 }
 
@@ -1241,73 +1263,22 @@ impl<T: 'static> MyCoroutine<T> {
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
 fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
-    _stack_size: usize,
+    stack_size: usize,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
     f: F,
 ) -> Result<T, UnwindReason> {
-    let boxed_coro = MyCoroutine::new(f);
-
-    //  ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
-    //     // Save the yielder to TLS so that it can be used later.
-    //     YIELDER.with(|cell| cell.set(Some(yielder.into())));
-
-    //     Ok(f())
-    // });
-
-    // Ensure that YIELDER is reset on exit even if the coroutine panics,
-
-    boxed_coro.resume(trap_handler)
-
-    // let cloned_coro = coro.clone();
-    // TrapHandlerContext::install(trap_handler, coro.lock().unwrap().trap_handler(), || {
-    //     let mut coro = cloned_coro.lock().unwrap();
-
-    //         match coro.resume(()) {
-    //             CoroutineResult::Yield(trap) => {
-    //                 // This came from unwind_with which requires that there be only
-    //                 // Wasm code on the stack.
-    //                 unsafe {
-    //                     coro.force_reset();
-    //                 }
-    //                 Err(trap)
-    //             }
-    //             CoroutineResult::Return(result) => result,
-    //         }
-    //     })
-
-    // coro.scope(|mut coro_ref| {
-    //     // Set up metadata for the trap handler for the duration of the coroutine
-    //     // execution. This is restored to its previous value afterwards.
-    //     TrapHandlerContext::install(trap_handler, coro_ref.trap_handler(), || {
-    //         match coro_ref.resume(()) {
-    //             CoroutineResult::Yield(trap) => {
-    //                 // This came from unwind_with which requires that there be only
-    //                 // Wasm code on the stack.
-    //                 unsafe {
-    //                     coro_ref.force_reset();
-    //                 }
-    //                 Err(trap)
-    //             }
-    //             CoroutineResult::Return(result) => result,
-    //         }
-    //     })
-    // })
+    // TODO: Think about an optimization where we dont store and restore the continuation
+    let continuation = ContinuationRef::new(f, stack_size);
+    continuation.resume(trap_handler)
 }
 
 fn on_wasm_stack_resume<T: 'static>(
-    continuation: u32,
+    continuation: u64,
     trap_handler: Option<*const TrapHandlerFn<'static>>,
 ) -> Result<T, UnwindReason> {
-    let erased_coroutine = ACTIVE_STACKS.with(|cell| {
-        let map: &BTreeMap<u32, MyErasedCoroutine> = &cell.borrow();
-        let thing = map.get(&continuation).expect("stack function not found").clone();
-        thing
-    });
-    let coroutine: MyCoroutine<T> = erased_coroutine.into();
-    coroutine.resume(trap_handler)
+    let continuation_ref = ContinuationRef { id: continuation };
+    continuation_ref.resume(trap_handler)
 }
-
-
 
 /// When executing on the Wasm stack, temporarily switch back to the host stack
 /// to perform an operation that should not be constrainted by the Wasm stack
@@ -1327,7 +1298,7 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     // If we are already on the host stack, execute the function directly. This
     // happens if a host function is called directly from the API.
     let yielder = match yielder_ptr {
-        Some(ptr) => unsafe { ptr.0.as_ref() },
+        Some(ptr) => unsafe { ptr.as_ref() },
         None => return f(),
     };
 
@@ -1340,9 +1311,7 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     });
 
     // Restore YIELDER upon exiting normally or unwinding.
-    defer! {
-     
-    }
+    defer! {}
 
     // on_parent_stack requires the closure to be Send so that the Yielder
     // cannot be called from the parent stack. This is not a problem for us
@@ -1355,15 +1324,15 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
         (wrapped.0)()
     });
 
-       print_yielder!("Restoring on leaving host stack");
-        YIELDER.with(|cell| cell.set(yielder_ptr));
-        let error = QUEUED_ERROR.with(|cell| {
-            cell.replace(None)
-        });
-        if let Some(error) = error {
-            unsafe { unwind_with(error) }
-        }
-        result
+    // TODO: Move this to the defer above so it supports unwinding. Only do that after QUEUED ERROR is removed
+    print_yielder!("Restoring on leaving host stack");
+    YIELDER.with(|cell| cell.set(yielder_ptr));
+
+    let error = QUEUED_ERROR.with(|cell| cell.replace(None));
+    if let Some(error) = error {
+        unsafe { unwind_with(error) }
+    }
+    result
 }
 
 #[cfg(windows)]

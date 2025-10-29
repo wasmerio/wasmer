@@ -14,11 +14,14 @@ use crate::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
     },
-    syscalls::rewind_ext,
+    syscalls::{call_in_context, rewind_ext},
 };
 use tracing::*;
 use virtual_mio::InlineWaker;
-use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer::{
+    Function, Memory32, Memory64, Module, RuntimeError,
+    Store, Value,
+};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinaryPackage, BinaryPackageCommand};
@@ -299,7 +302,13 @@ fn call_module(
             return;
         };
 
-        let mut call_ret = start.call(&mut store, &[]);
+        // let mut call_ret = start.call(&mut store, &[]);
+        let mut call_ret: Result<Box<[Value]>, RuntimeError> = {
+            let mut ctx2 = ctx.env.clone().into_mut(&mut store);
+            let (env2, store) = ctx2.data_and_store_mut();
+
+            call_in_context(env2, store, &start, &[]).map(|_| [].into())
+        };
 
         loop {
             // Technically, it's an error for a vfork to return from main, but anyway...

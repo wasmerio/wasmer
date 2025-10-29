@@ -1,7 +1,7 @@
 use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
-use wasmer_types::TrapCode;
+use wasmer_types::{RawValue, TrapCode};
 
 use crate::{StoreObjects, VMExceptionRef};
 
@@ -51,11 +51,11 @@ pub enum Trap {
     /// A trap raised to indicate a resumable yield
     // TODO: Replace the entire content with a Continuation reference type
     Continuation {
+        /// Stuff 
+        continuation_ref: Option<u64>,
+        // TODO: Replace with real values as the return value of a continuation
         /// Stuff
-        resumable: Option<u32>,
-        // TODO: Replace with Vec<Value> (because that will also support the stackswitching proposal)
-        /// Stuff
-        next: u32,
+        next: u64,
     },
 }
 
