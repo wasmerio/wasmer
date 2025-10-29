@@ -96,7 +96,7 @@ fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let test: TypedFunction<(i32, i32, i32, i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "test")?;
+        instance.exports.get_typed_function(&store, "test")?;
 
     let result = test.call(&mut store, 2, 3, 4, 5, 6)?;
     let manually_computed_result = 6 * (5 * (4 * (3 * 2 * 20) * 10 * 20)) * 10;
@@ -165,7 +165,7 @@ fn holochain_typed_function() -> anyhow::Result<()> {
 
     // Execute the WASM function 'sum'
     let sum: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_function("sum")?.typed(&mut store)?;
+        instance.exports.get_function("sum")?.typed(&store)?;
     let result = sum.call(&mut store, 1, 2)?;
     assert_eq!(result, 6);
 

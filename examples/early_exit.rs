@@ -78,7 +78,7 @@ fn main() -> anyhow::Result<()> {
     // Get the `run` function which we'll use as our entrypoint.
     println!("Calling `run` function...");
     let run_func: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "run")?;
+        instance.exports.get_typed_function(&store, "run")?;
 
     // When we call a function it can either succeed or fail. We expect it to fail.
     match run_func.call(&mut store, 1, 7) {

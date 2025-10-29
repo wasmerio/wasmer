@@ -65,7 +65,7 @@ fn main() -> anyhow::Result<()> {
     //
     // Recall that the Wasm module exported a function named "run", this is getting
     // that exported function from the `Instance`.
-    let run_func: TypedFunction<(), ()> = instance.exports.get_typed_function(&mut store, "run")?;
+    let run_func: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "run")?;
 
     // Finally, we call our exported Wasm function which will call our "say_hello"
     // function and return.
