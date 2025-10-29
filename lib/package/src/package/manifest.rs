@@ -304,8 +304,8 @@ fn transform_atoms_shared(
     for (name, (kind, content, misc_annotations)) in atoms.iter() {
         // Create atom with annotations including Wasm features if available
         let mut annotations = IndexMap::new();
-        if let Some(misc_annotations) = misc_annotations {
-            if let Some(pass_params) = misc_annotations
+        if let Some(misc_annotations) = misc_annotations
+            && let Some(pass_params) = misc_annotations
                 .suggested_compiler_optimizations
                 .pass_params
             {
@@ -314,7 +314,6 @@ fn transform_atoms_shared(
                     cbor!({"pass_params" => pass_params}).unwrap(),
                 );
             }
-        }
 
         // Detect required WebAssembly features by analyzing the module binary
         let features_result = wasmer_types::Features::detect_from_wasm(content);
@@ -833,11 +832,10 @@ impl RunnerKind {
 /// Infer the package's entrypoint.
 fn entrypoint(manifest: &WasmerManifest) -> Option<String> {
     // check if manifest.package is none
-    if let Some(package) = &manifest.package {
-        if let Some(entrypoint) = &package.entrypoint {
+    if let Some(package) = &manifest.package
+        && let Some(entrypoint) = &package.entrypoint {
             return Some(entrypoint.clone());
         }
-    }
 
     if let [only_command] = manifest.commands.as_slice() {
         // For convenience (and to stay compatible with old docs), if there is

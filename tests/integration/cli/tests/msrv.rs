@@ -78,12 +78,11 @@ fn ensure_file_contents(path: impl AsRef<Path>, contents: impl AsRef<str>) {
     let path = path.as_ref();
     let contents = contents.as_ref();
 
-    if let Ok(old_contents) = std::fs::read_to_string(path) {
-        if contents == old_contents {
+    if let Ok(old_contents) = std::fs::read_to_string(path)
+        && contents == old_contents {
             // File is already up to date
             return;
         }
-    }
 
     let display_path = path.strip_prefix(project_root()).unwrap_or(path);
 

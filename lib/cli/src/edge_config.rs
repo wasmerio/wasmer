@@ -134,8 +134,8 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedEdgeConfig, any
         None
     };
 
-    if let Some(path) = path {
-        if path.is_file() {
+    if let Some(path) = path
+        && path.is_file() {
             match try_load_config(&path) {
                 Ok(config) => {
                     return Ok(LoadedEdgeConfig { config, path });
@@ -149,7 +149,6 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedEdgeConfig, any
                 }
             }
         }
-    }
 
     Ok(LoadedEdgeConfig {
         config: EdgeConfig::default(),

@@ -1026,14 +1026,14 @@ impl Linker {
 
         let stack_low = {
             let data_end = dylink_section.mem_info.memory_size as u64;
-            if data_end % 1024 != 0 {
+            if !data_end.is_multiple_of(1024) {
                 data_end + 1024 - (data_end % 1024)
             } else {
                 data_end
             }
         };
 
-        if stack_size % 1024 != 0 {
+        if !stack_size.is_multiple_of(1024) {
             panic!("Stack size must be 1024-bit aligned");
         }
 
@@ -1723,8 +1723,8 @@ impl Linker {
 
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
-        if let Ok(linker_state) = self.linker_state.try_read() {
-            if let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
+        if let Ok(linker_state) = self.linker_state.try_read()
+            && let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
                 trace!(?resolution, "Already have a resolution for this symbol");
                 match resolution {
                     SymbolResolutionResult::FunctionPointer {
@@ -1755,7 +1755,6 @@ impl Linker {
                     ),
                 }
             }
-        }
 
         write_linker_state!(linker_state, self, group_state, ctx);
 
@@ -2437,7 +2436,7 @@ impl InstanceGroupState {
             let current_size = self.indirect_function_table.size(store);
             let alignment = 2_u32.pow(table_alignment);
 
-            let offset = if current_size % alignment != 0 {
+            let offset = if !current_size.is_multiple_of(alignment) {
                 alignment - (current_size % alignment)
             } else {
                 0
@@ -2863,8 +2862,8 @@ impl InstanceGroupState {
         linker_state: &LinkerState,
     ) -> Result<(), LinkError> {
         for (key, val) in &linker_state.symbol_resolution_records {
-            if let SymbolResolutionKey::Requested { name, .. } = key {
-                if let SymbolResolutionResult::FunctionPointer {
+            if let SymbolResolutionKey::Requested { name, .. } = key
+                && let SymbolResolutionResult::FunctionPointer {
                     resolved_from,
                     function_table_index,
                 } = val
@@ -2876,7 +2875,6 @@ impl InstanceGroupState {
                         *function_table_index,
                     )?;
                 }
-            }
         }
         Ok(())
     }

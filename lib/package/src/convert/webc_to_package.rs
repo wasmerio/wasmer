@@ -152,12 +152,11 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
 
             let mut annotations = None;
 
-            if let Some(manifest_atom) = manifest.atoms.get(&atom_name) {
-                if let Some(sco) = manifest_atom
+            if let Some(manifest_atom) = manifest.atoms.get(&atom_name)
+                && let Some(sco) = manifest_atom
                     .annotations
                     .get(SuggestedCompilerOptimizations::KEY)
-                {
-                    if let Some((_, v)) = sco.as_map().and_then(|v| {
+                    && let Some((_, v)) = sco.as_map().and_then(|v| {
                         v.iter().find(|(k, _)| {
                             k.as_text().is_some_and(|v| {
                                 v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY
@@ -170,8 +169,6 @@ pub fn webc_to_package_dir(webc: &Container, target_dir: &Path) -> Result<(), Co
                             },
                         });
                     }
-                }
-            }
 
             pkg_manifest.modules.push(wasmer_config::package::Module {
                 name: atom_name,

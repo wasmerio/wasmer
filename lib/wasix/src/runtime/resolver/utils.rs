@@ -39,8 +39,8 @@ pub(crate) fn webc_headers() -> HeaderMap {
 pub(crate) fn http_error(response: &HttpResponse) -> Error {
     let status = response.status;
 
-    if status == StatusCode::SERVICE_UNAVAILABLE {
-        if let Some(retry_after) = response
+    if status == StatusCode::SERVICE_UNAVAILABLE
+        && let Some(retry_after) = response
             .headers
             .get("Retry-After")
             .and_then(|retry_after| retry_after.to_str().ok())
@@ -51,7 +51,6 @@ pub(crate) fn http_error(response: &HttpResponse) -> Error {
             );
             return anyhow::anyhow!("{status} (Retry After: {retry_after})");
         }
-    }
 
     Error::msg(status)
 }

@@ -251,8 +251,8 @@ where
         while let Some(event) = stream.next().await {
             tracing::debug!(?event, "received autobuild event");
             let event = event.map_err(|err| DeployRemoteError::Other(err.into()))?;
-            if let Some(data) = event.data {
-                if let Some(log) = data.autobuild_deployment {
+            if let Some(data) = event.data
+                && let Some(log) = data.autobuild_deployment {
                     on_progress(DeployRemoteEvent::AutobuildLog { log: log.clone() });
                     let message = log.message.clone();
                     let kind = log.kind;
@@ -273,7 +273,6 @@ where
                         _ => {}
                     }
                 }
-            }
         }
 
         if final_version.is_some() {

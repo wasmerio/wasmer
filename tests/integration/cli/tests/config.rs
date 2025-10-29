@@ -153,8 +153,7 @@ fn c_flags() {
         .output()
         .unwrap();
 
-    let pkg_config = vec![
-        format!("prefix={}", wasmer_dir.display()),
+    let pkg_config = [format!("prefix={}", wasmer_dir.display()),
         format!("exec_prefix={}", wasmer_dir.join("bin").display()),
         format!("includedir={}", wasmer_dir.join("include").display()),
         format!("libdir={}", wasmer_dir.join("lib").display()),
@@ -163,8 +162,7 @@ fn c_flags() {
         format!("Description: The Wasmer library for running WebAssembly"),
         format!("Version: {}", env!("CARGO_PKG_VERSION")),
         format!("Cflags: -I{}", wasmer_dir.join("include").display()),
-        format!("Libs: -L{} -lwasmer", wasmer_dir.join("lib").display()),
-    ]
+        format!("Libs: -L{} -lwasmer", wasmer_dir.join("lib").display())]
     .join("\n");
 
     assert!(output.status.success());

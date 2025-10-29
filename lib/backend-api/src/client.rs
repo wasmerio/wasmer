@@ -200,8 +200,8 @@ impl WasmerClient {
             }
         };
 
-        if let Some(errors) = &res.errors {
-            if !errors.is_empty() {
+        if let Some(errors) = &res.errors
+            && !errors.is_empty() {
                 tracing::warn!(
                     ?errors,
                     data=?res.data,
@@ -210,7 +210,6 @@ impl WasmerClient {
                     "GraphQL query succeeded, but returned errors",
                 );
             }
-        }
 
         Ok(res)
     }
@@ -247,12 +246,11 @@ impl WasmerClient {
     {
         let res = self.run_graphql_raw(operation).await?;
 
-        if let Some(errs) = res.errors {
-            if !errs.is_empty() {
+        if let Some(errs) = res.errors
+            && !errs.is_empty() {
                 let errs = GraphQLApiFailure { errors: errs };
                 return Err(errs).context("GraphQL query failed");
             }
-        }
 
         if let Some(data) = res.data {
             Ok(data)

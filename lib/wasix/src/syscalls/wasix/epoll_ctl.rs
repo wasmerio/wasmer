@@ -95,8 +95,8 @@ pub(crate) fn epoll_ctl_internal(
 
                 tracing::trace!(fd, "unregistering waker");
             }
-            if let EpollCtl::Add | EpollCtl::Mod = op {
-                if let Some(event) = event_ctl {
+            if let EpollCtl::Add | EpollCtl::Mod = op
+                && let Some(event) = event_ctl {
                     let epoll_fd = EpollFd {
                         events: event.events,
                         ptr: event.ptr,
@@ -129,13 +129,11 @@ pub(crate) fn epoll_ctl_internal(
 
                     // After the guards are created we need to attach them to the subscription
                     let mut guard = subscriptions.lock().unwrap();
-                    if let Some(subs) = guard.get_mut(&event.fd) {
-                        if let Some(fd_guard) = fd_guard {
+                    if let Some(subs) = guard.get_mut(&event.fd)
+                        && let Some(fd_guard) = fd_guard {
                             subs.1.push(fd_guard);
                         }
-                    }
                 }
-            }
             Ok(Ok(()))
         }
         _ => Ok(Err(Errno::Inval)),

@@ -64,13 +64,12 @@ impl Argus {
             count += pkgs.len();
 
             for pkg in pkgs {
-                if self.to_test(&pkg).await {
-                    if let Err(e) = s.send(pkg) {
+                if self.to_test(&pkg).await
+                    && let Err(e) = s.send(pkg) {
                         error!("failed to send packages: {e}");
                         p.finish_and_clear();
                         anyhow::bail!("failed to send packages: {e}")
                     };
-                }
             }
         }
 

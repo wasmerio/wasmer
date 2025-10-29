@@ -7,7 +7,6 @@ pub use crate::{
     machine::{Label, Offset},
     x64_decl::{GPR, XMM},
 };
-use dynasm::dynasm;
 use dynasmrt::{AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
 use wasmer_types::{CompileError, target::CpuFeature};
 

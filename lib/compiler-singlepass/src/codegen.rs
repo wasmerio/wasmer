@@ -447,8 +447,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut delta_stack_offset: usize = 0;
 
         for loc in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc {
-                if y == self.machine.local_pointer() {
+            if let Location::Memory(y, x) = *loc
+                && y == self.machine.local_pointer() {
                     if x >= 0 {
                         codegen_error!("Invalid memory offset {}", x);
                     }
@@ -462,7 +462,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         CompileError::Codegen("Pop on empty value stack".to_owned())
                     })?;
                 }
-            }
             // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
@@ -490,8 +489,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let locs = &self.value_stack[stack_depth..];
 
         for loc in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc {
-                if y == self.machine.local_pointer() {
+            if let Location::Memory(y, x) = *loc
+                && y == self.machine.local_pointer() {
                     if x >= 0 {
                         codegen_error!("Invalid memory offset {}", x);
                     }
@@ -502,7 +501,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     stack_offset -= 8;
                     delta_stack_offset += 8;
                 }
-            }
         }
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
@@ -916,7 +914,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine
                     .round_stack_adjust(stack_offset + stack_padding) as u32,
             )?;
-            if (stack_offset % 8) != 0 {
+            if !stack_offset.is_multiple_of(8) {
                 return Err(CompileError::Codegen(
                     "emit_call_native: Bad restoring stack alignement".to_owned(),
                 ));
@@ -1140,13 +1138,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 Operator::Else => {
                     // We are in a reachable true branch
-                    if self.unreachable_depth == 1 {
-                        if let Some(IfElseState::If(_)) =
+                    if self.unreachable_depth == 1
+                        && let Some(IfElseState::If(_)) =
                             self.control_stack.last().map(|x| x.if_else)
                         {
                             self.unreachable_depth -= 1;
                         }
-                    }
                 }
                 _ => {}
             }
@@ -3872,11 +3869,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Drop => {
                 self.pop_value_released()?;
-                if let Some(x) = self.fp_stack.last() {
-                    if x.depth == self.value_stack.len() {
+                if let Some(x) = self.fp_stack.last()
+                    && x.depth == self.value_stack.len() {
                         self.fp_stack.pop1()?;
                     }
-                }
             }
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
@@ -6217,11 +6213,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR)]) {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {
-                if let Location::GPR(src_gpr) = movs[j].0 {
-                    if src_gpr == movs[i].1 {
+                if let Location::GPR(src_gpr) = movs[j].0
+                    && src_gpr == movs[i].1 {
                         movs.swap(i, j);
                     }
-                }
             }
         }
     }

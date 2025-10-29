@@ -6,14 +6,11 @@ use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
 #[derive(Debug)]
+#[derive(Default)]
 pub enum JournalPrintingMode {
+    #[default]
     Text,
     Json,
-}
-impl Default for JournalPrintingMode {
-    fn default() -> Self {
-        Self::Text
-    }
 }
 
 /// The printing journal writes all the journal entries to the console

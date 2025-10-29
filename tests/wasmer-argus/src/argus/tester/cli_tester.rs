@@ -38,11 +38,10 @@ impl<'a> CLIRunner<'a> {
         dir_path: &Path,
         atom_id: usize,
     ) -> anyhow::Result<Result<(), String>> {
-        if let Err(e) = Command::new(cli_path).arg("-V").output() {
-            if let std::io::ErrorKind::NotFound = e.kind() {
+        if let Err(e) = Command::new(cli_path).arg("-V").output()
+            && let std::io::ErrorKind::NotFound = e.kind() {
                 anyhow::bail!("the command '{cli_path}' was not found");
             }
-        }
 
         let atom_path = dir_path.join(format!("atom_{atom_id}.wasm"));
         let output_path = dir_path.join(format!("atom_{atom_id}.wasmu"));

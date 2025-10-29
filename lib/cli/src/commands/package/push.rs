@@ -65,13 +65,11 @@ impl PackagePush {
             return Ok(owner.clone());
         }
 
-        if let Some(pkg) = &manifest.package {
-            if let Some(ns) = &pkg.name {
-                if let Some(first) = ns.split('/').next() {
+        if let Some(pkg) = &manifest.package
+            && let Some(ns) = &pkg.name
+                && let Some(first) = ns.split('/').next() {
                     return Ok(first.to_string());
                 }
-            }
-        }
 
         if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
@@ -93,13 +91,11 @@ impl PackagePush {
             return Ok(Some(name.clone()));
         }
 
-        if let Some(pkg) = &manifest.package {
-            if let Some(ns) = &pkg.name {
-                if let Some(name) = ns.split('/').nth(1) {
+        if let Some(pkg) = &manifest.package
+            && let Some(ns) = &pkg.name
+                && let Some(name) = ns.split('/').nth(1) {
                     return Ok(Some(name.to_string()));
                 }
-            }
-        }
 
         Ok(None)
     }

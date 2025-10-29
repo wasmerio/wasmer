@@ -137,8 +137,8 @@ impl WebSource {
                 )
             })?;
 
-        if let Some(etag) = etag {
-            if let Err(e) = self
+        if let Some(etag) = etag
+            && let Err(e) = self
                 .atomically_save_file(path.with_extension("etag"), etag.as_bytes())
                 .await
             {
@@ -150,7 +150,6 @@ impl WebSource {
                     "Unable to save the etag file",
                 )
             }
-        }
 
         Ok(path)
     }
@@ -344,11 +343,10 @@ fn classify_cache_using_mtime(
         CacheInfo::Miss => return Err(CacheState::Miss),
     };
 
-    if let Ok(time_since_last_modified) = last_modified.elapsed() {
-        if time_since_last_modified <= invalidation_threshold {
+    if let Ok(time_since_last_modified) = last_modified.elapsed()
+        && time_since_last_modified <= invalidation_threshold {
             return Ok(path);
         }
-    }
 
     match etag {
         Some(etag) => Err(CacheState::PossiblyDirty { etag, path }),

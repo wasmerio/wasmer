@@ -294,11 +294,10 @@ impl WebcHash {
         path_hash.set_extension("webc.sha256");
         if let Ok(mut file) = File::open(&path_hash) {
             let mut hash = Vec::new();
-            if let Ok(amt) = file.read_to_end(&mut hash) {
-                if amt == 32 {
+            if let Ok(amt) = file.read_to_end(&mut hash)
+                && amt == 32 {
                     return Ok(WebcHash::from_bytes(hash[0..32].try_into().unwrap()));
                 }
-            }
         }
 
         // compute the hash

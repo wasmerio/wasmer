@@ -559,9 +559,9 @@ impl WasiEnv {
         }
 
         // If this module exports an _initialize function, run that first.
-        if call_initialize {
-            if let Ok(initialize) = instance.exports.get_function("_initialize") {
-                if let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
+        if call_initialize
+            && let Ok(initialize) = instance.exports.get_function("_initialize")
+                && let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
                     func_env
                         .data(&store)
                         .blocking_on_exit(Some(Errno::Noexec.into()));
@@ -569,8 +569,6 @@ impl WasiEnv {
                         err,
                     ))));
                 }
-            }
-        }
 
         Ok((instance, func_env))
     }
@@ -614,12 +612,11 @@ impl WasiEnv {
         ctx: &mut FunctionEnvMut<'_, Self>,
         fast: bool,
     ) -> Result<(), WasiError> {
-        if let Some(linker) = ctx.data().inner().linker().cloned() {
-            if let Err(e) = linker.do_pending_link_operations(ctx, fast) {
+        if let Some(linker) = ctx.data().inner().linker().cloned()
+            && let Err(e) = linker.do_pending_link_operations(ctx, fast) {
                 tracing::warn!(err = ?e, "Failed to process pending link operations");
                 return Err(WasiError::Exit(Errno::Noexec.into()));
             }
-        }
         Ok(())
     }
 
@@ -1227,11 +1224,10 @@ impl WasiEnv {
                 tracing::warn!("failed to save snapshot event for thread exit - {}", err);
             }
 
-            if self.thread.is_main() {
-                if let Err(err) = JournalEffector::save_process_exit(self, process_exit_code) {
+            if self.thread.is_main()
+                && let Err(err) = JournalEffector::save_process_exit(self, process_exit_code) {
                     tracing::warn!("failed to save snapshot event for process exit - {}", err);
                 }
-            }
         }
 
         // If the process wants to exit, also close all files and terminate it

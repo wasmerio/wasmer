@@ -833,11 +833,10 @@ impl TrapHandlerContext {
             let ctx = &*ptr;
 
             // Check if this trap is handled by a custom trap handler.
-            if let Some(trap_handler) = ctx.custom_trap {
-                if call_handler(&*trap_handler) {
+            if let Some(trap_handler) = ctx.custom_trap
+                && call_handler(&*trap_handler) {
                     return true;
                 }
-            }
 
             (ctx.handle_trap)(
                 ctx.inner,

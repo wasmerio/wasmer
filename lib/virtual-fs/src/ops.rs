@@ -119,13 +119,12 @@ where
 
 /// Returns true if the path is a whiteout file
 pub fn is_white_out(path: impl AsRef<Path>) -> Option<PathBuf> {
-    if let Some(filename) = path.as_ref().file_name() {
-        if let Some(filename) = filename.to_string_lossy().strip_prefix(WHITEOUT_PREFIX) {
+    if let Some(filename) = path.as_ref().file_name()
+        && let Some(filename) = filename.to_string_lossy().strip_prefix(WHITEOUT_PREFIX) {
             let mut path = path.as_ref().to_owned();
             path.set_file_name(filename);
             return Some(path);
         }
-    }
     None
 }
 

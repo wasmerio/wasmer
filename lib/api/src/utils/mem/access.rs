@@ -118,11 +118,10 @@ where
     T: wasmer_types::ValueType,
 {
     fn drop(&mut self) {
-        if let SliceCow::Owned(buf, modified) = &self.buf {
-            if *modified {
+        if let SliceCow::Owned(buf, modified) = &self.buf
+            && *modified {
                 self.slice.write_slice(buf.as_ref()).ok();
             }
-        }
     }
 }
 
@@ -191,11 +190,10 @@ where
     T: wasmer_types::ValueType,
 {
     fn drop(&mut self) {
-        if let RefCow::Owned(val, modified) = &self.buf {
-            if *modified {
+        if let RefCow::Owned(val, modified) = &self.buf
+            && *modified {
                 self.ptr.write(*val).ok();
             }
-        }
     }
 }
 

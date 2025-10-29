@@ -88,8 +88,8 @@ where
         .or_else(|| config.owner.clone())
         .ok_or(DeployError::MissingOwner)?;
 
-    if opts.publish_package {
-        if let PackageSource::Path(ref path) = config.package {
+    if opts.publish_package
+        && let PackageSource::Path(ref path) = config.package {
             let publish_opts = PublishOptions {
                 namespace: Some(
                     opts.package_namespace
@@ -106,7 +106,6 @@ where
             .await?;
             config.package = ident.into();
         }
-    }
 
     let name = config.name.clone().ok_or(DeployError::MissingName)?;
 

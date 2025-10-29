@@ -29,11 +29,10 @@ impl From<Runtime> for RuntimeOrHandle {
 
 impl Drop for RuntimeOrHandle {
     fn drop(&mut self) {
-        if let Self::Runtime(_, runtime) = self {
-            if let Some(h) = runtime.lock().unwrap().take() {
+        if let Self::Runtime(_, runtime) = self
+            && let Some(h) = runtime.lock().unwrap().take() {
                 h.shutdown_timeout(Duration::from_secs(0))
             }
-        }
     }
 }
 

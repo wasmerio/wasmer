@@ -247,8 +247,8 @@ impl Run {
                 } => self.execute_wasm(&path, module, module_hash, runtime.clone()),
                 ExecutableTarget::Package(pkg) => {
                     // Check if we should update the engine based on the WebC package features
-                    if let Some(cmd) = pkg.get_entrypoint_command() {
-                        if let Some(features) = cmd.wasm_features() {
+                    if let Some(cmd) = pkg.get_entrypoint_command()
+                        && let Some(features) = cmd.wasm_features() {
                             // Get the right engine for these features
                             let backends = self.rt.get_available_backends()?;
                             let available_engines = backends
@@ -304,18 +304,16 @@ impl Run {
                                 }
                             }
                         }
-                    }
                     self.execute_webc(&pkg, runtime.clone())
                 }
             }
         };
 
         // restore the TTY state as the execution may have changed it
-        if let Some(state) = tty {
-            if let Some(tty) = runtime.tty() {
+        if let Some(state) = tty
+            && let Some(tty) = runtime.tty() {
                 tty.tty_set(state);
             }
-        }
 
         if let Err(e) = &result {
             self.maybe_save_coredump(e);

@@ -42,18 +42,15 @@ pub(crate) fn normalize_path(s: &str) -> String {
 
 /// Hashing algorithm to be used for the module info
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, ValueEnum)]
+#[derive(Default)]
 pub enum HashAlgorithm {
     /// Sha256
+    #[default]
     Sha256,
     /// XXHash
     XXHash,
 }
 
-impl Default for HashAlgorithm {
-    fn default() -> Self {
-        Self::Sha256
-    }
-}
 
 impl From<HashAlgorithm> for wasmer_types::HashAlgorithm {
     fn from(value: HashAlgorithm) -> Self {

@@ -226,14 +226,13 @@ impl<W: WritableJournal, R: ReadableJournal> FilteredJournal<W, R> {
 impl<W: WritableJournal> WritableJournal for FilteredJournalTx<W> {
     fn write<'a>(&'a self, entry: JournalEntry<'a>) -> anyhow::Result<LogWriteResult> {
         let event_index = self.config.event_index.fetch_add(1, Ordering::SeqCst);
-        if let Some(events) = self.config.filter_events.as_ref() {
-            if !events.contains(&event_index) {
+        if let Some(events) = self.config.filter_events.as_ref()
+            && !events.contains(&event_index) {
                 return Ok(LogWriteResult {
                     record_start: 0,
                     record_end: 0,
                 });
             }
-        }
 
         let evt = match entry {
             JournalEntry::SetClockTimeV1 { .. }

@@ -145,8 +145,8 @@ impl BinFactory {
         }
 
         // Check the filesystem for the file
-        if name.starts_with('/') {
-            if let Some(fs) = fs {
+        if name.starts_with('/')
+            && let Some(fs) = fs {
                 match load_executable_from_filesystem(fs, name.as_ref(), self.runtime()).await {
                     Ok(executable) => {
                         if let Executable::BinaryPackage(pkg) = &executable {
@@ -164,7 +164,6 @@ impl BinFactory {
                     }
                 }
             }
-        }
 
         // NAK
         cache.insert(name, None);

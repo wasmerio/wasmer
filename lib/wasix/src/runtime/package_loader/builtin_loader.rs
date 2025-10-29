@@ -165,14 +165,13 @@ impl BuiltinPackageLoader {
             return Ok(Some(cached));
         }
 
-        if let Some(cache) = self.cache.as_ref() {
-            if let Some(cached) = cache.lookup(hash).await? {
+        if let Some(cache) = self.cache.as_ref()
+            && let Some(cached) = cache.lookup(hash).await? {
                 // Note: We want to propagate it to the in-memory cache, too
                 tracing::debug!("Copying from the filesystem cache to the in-memory cache");
                 self.in_memory.save(&cached, *hash);
                 return Ok(Some(cached));
             }
-        }
 
         Ok(None)
     }
@@ -298,8 +297,8 @@ impl BuiltinPackageLoader {
         headers.insert("Accept", "application/webc".parse().unwrap());
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
-        if url.has_authority() {
-            if let Some(token) = self.tokens.get(url.authority()) {
+        if url.has_authority()
+            && let Some(token) = self.tokens.get(url.authority()) {
                 let header = format!("Bearer {token}");
                 match header.parse() {
                     Ok(header) => {
@@ -313,7 +312,6 @@ impl BuiltinPackageLoader {
                     }
                 }
             }
-        }
 
         headers
     }

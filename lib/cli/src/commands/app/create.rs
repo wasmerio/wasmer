@@ -406,12 +406,11 @@ impl CmdAppCreate {
             None => return Ok(Vec::new()),
         };
 
-        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
-            if a == b {
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first())
+            && a == b {
                 // Cached items are up to date, no need to query more.
                 return Ok(cached_items);
             }
-        }
 
         let mut items = first_page;
         while let Some(next) = stream.try_next().await? {
@@ -488,12 +487,11 @@ impl CmdAppCreate {
             None => return Ok(Vec::new()),
         };
 
-        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
-            if a == b {
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first())
+            && a == b {
                 // Cached items are up to date, no need to query more.
                 return Ok(cached_items);
             }
-        }
 
         let mut items = first_page;
         while let Some(next) = stream.try_next().await? {
@@ -672,11 +670,10 @@ impl CmdAppCreate {
 
             let path = output_path.join(path);
 
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
+            if let Some(parent) = path.parent()
+                && !parent.exists() {
                     std::fs::create_dir_all(parent)?;
                 }
-            }
 
             if !path.exists() {
                 // AsyncRead not implemented for entry..

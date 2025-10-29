@@ -158,13 +158,12 @@ impl Handler {
         // will cause the stderr pipe to be read to the end
         // before transmitting the body
         if propagate_stderr {
-            if let Some(stderr) = work_consume_stderr.await {
-                if !stderr.is_empty() {
+            if let Some(stderr) = work_consume_stderr.await
+                && !stderr.is_empty() {
                     return Ok(Response::builder()
                         .status(StatusCode::INTERNAL_SERVER_ERROR)
                         .body(body_from_data(stderr))?);
                 }
-            }
         } else {
             task_manager
                 .task_shared(Box::new(move || {

@@ -328,13 +328,11 @@ impl PackageTag {
             return Ok(Some(name.clone()));
         }
 
-        if let Some(pkg) = &manifest.and_then(|m| m.package.as_ref()) {
-            if let Some(ns) = &pkg.name {
-                if let Some(name) = ns.split('/').nth(1) {
+        if let Some(pkg) = &manifest.and_then(|m| m.package.as_ref())
+            && let Some(ns) = &pkg.name
+                && let Some(name) = ns.split('/').nth(1) {
                     return Ok(Some(name.to_string()));
                 }
-            }
-        }
 
         if allow_unnamed {
             return Ok(None);
@@ -369,13 +367,11 @@ impl PackageTag {
             return Ok(namespace.clone());
         }
 
-        if let Some(pkg) = manifest.and_then(|m| m.package.clone()) {
-            if let Some(name) = &pkg.name {
-                if let Some(ns) = name.split('/').next() {
+        if let Some(pkg) = manifest.and_then(|m| m.package.clone())
+            && let Some(name) = &pkg.name
+                && let Some(ns) = name.split('/').next() {
                     return Ok(ns.to_string());
                 }
-            }
-        }
 
         if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
