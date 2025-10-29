@@ -1,7 +1,6 @@
 //! X64 structures.
 
 #![allow(clippy::upper_case_acronyms)]
-use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
 use std::slice::Iter;
@@ -186,13 +185,6 @@ pub enum X64Register {
 }
 
 impl CombinedRegister for X64Register {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex {
-        match *self {
-            X64Register::GPR(x) => RegisterIndex(x as usize),
-            X64Register::XMM(x) => RegisterIndex(x as usize + 16),
-        }
-    }
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self {
         X64Register::GPR(GPR::from_index(x as usize).unwrap())
@@ -324,15 +316,5 @@ impl ArgumentRegisterAllocator {
         };
 
         Ok(ret)
-    }
-}
-
-/// Create a new `MachineState` with default values.
-pub fn new_machine_state() -> MachineState {
-    MachineState {
-        stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 16 + 8],
-        wasm_stack: vec![],
-        wasm_inst_offset: usize::MAX,
     }
 }
