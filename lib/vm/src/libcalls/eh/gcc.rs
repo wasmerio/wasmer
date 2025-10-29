@@ -260,7 +260,8 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
                     ctx.id(),
                     InternalStoreHandle::from_index(exnref as usize).unwrap(),
                 ));
-                crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx))
+                crate::raise_lib_trap(crate::Trap::uncaught_exception(exnref, ctx));
+                unreachable!()
             }
             _ => {
                 unreachable!()
@@ -271,8 +272,8 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
 
 pub unsafe fn delete_exception(exception: *mut c_void) {
     unsafe {
-        if exception.is_null() {
-            panic!();
+        if !exception.is_null() {
+            uw::_Unwind_DeleteException(exception as *mut uw::_Unwind_Exception);
         }
     }
 }
