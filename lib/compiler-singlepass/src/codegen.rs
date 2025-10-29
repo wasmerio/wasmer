@@ -274,8 +274,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// If the returned location is used for stack value, `release_location` needs to be called on it;
     /// Otherwise, if the returned locations is used for a local, `release_location` does not need to be called on it.
     fn acquire_location(&mut self, ty: &WpType) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
-        let mut delta_stack_offset: usize = 0;
-
         let loc = match *ty {
             WpType::F32 | WpType::F64 => self.machine.pick_simd().map(Location::SIMD),
             WpType::I32 | WpType::I64 => self.machine.pick_gpr().map(Location::GPR),
@@ -285,24 +283,35 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             _ => codegen_error!("can't acquire location for type {:?}", ty),
         };
 
-        let loc = if let Some(x) = loc {
-            x
-        } else {
-            self.stack_offset.0 += 8;
-            delta_stack_offset += 8;
-            self.machine.local_on_stack(self.stack_offset.0 as i32)
+        let Some(loc) = loc else {
+            return Ok(self.acquire_locations_on_stack(1)?[0]);
         };
         if let Location::GPR(x) = loc {
             self.machine.reserve_gpr(x);
         } else if let Location::SIMD(x) = loc {
             self.machine.reserve_simd(x);
         }
+        Ok(loc)
+    }
+
+    fn acquire_locations_on_stack(
+        &mut self,
+        n: usize,
+    ) -> Result<SmallVec<[Location<M::GPR, M::SIMD>; 1]>, CompileError> {
+        let mut delta_stack_offset = 0;
+        let locations = iter::repeat_with(|| {
+            delta_stack_offset += 8;
+            self.stack_offset.0 += 8;
+            self.machine.local_on_stack(self.stack_offset.0 as i32)
+        })
+        .take(n)
+        .collect();
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.adjust_stack(delta_stack_offset as u32)?;
         }
-        Ok(loc)
+        Ok(locations)
     }
 
     /// Releases locations used for stack value.
@@ -2489,6 +2498,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::If { blockty } => {
                 let label_end = self.machine.get_label();
                 let label_else = self.machine.get_label();
+
+                let loc = self.acquire_location(&WpType::I32)?;
+                self.machine
+                    .emit_relaxed_mov(Size::S64, self.value_stack.pop().unwrap(), loc)?;
+                self.value_stack.push(loc);
 
                 let cond = self.pop_value_released()?;
 
