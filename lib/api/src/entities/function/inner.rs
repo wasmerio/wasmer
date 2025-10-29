@@ -1,7 +1,11 @@
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    error::RuntimeError, macros::backend::{gen_rt_ty, match_rt, match_rt_sys_lol}, vm::{VMExtern, VMExternFunction, VMFuncRef}, AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut, HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
+    HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
+    error::RuntimeError,
+    macros::backend::{gen_rt_ty, match_rt, match_rt_sys_lol},
+    vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
 /// A WebAssembly `function` instance.
@@ -369,7 +373,7 @@ impl BackendFunction {
     pub fn call_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
     ) -> Result<Box<[Value]>, RuntimeError> {
         match_rt_sys_lol!(on self => f {
             f.call_resume(store, continuation)
@@ -395,7 +399,7 @@ impl BackendFunction {
     pub fn call_raw_resume(
         &self,
         store: &mut impl AsStoreMut,
-        continuation: u32,
+        continuation: u64,
     ) -> Result<Box<[Value]>, RuntimeError> {
         match_rt_sys_lol!(on self => f {
             f.call_raw_resume(store, continuation)
