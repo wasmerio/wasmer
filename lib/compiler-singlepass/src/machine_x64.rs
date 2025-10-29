@@ -35,27 +35,27 @@ pub struct AssemblerX64 {
     pub inner: Assembler,
     /// the simd instructions set on the target.
     /// Currently only supports SSE 4.2 and AVX
-    pub simd_arch: Option<CpuFeature>,
+    pub simd_arch: CpuFeature,
     /// Full Target cpu
     pub target: Option<Target>,
 }
 
 impl AssemblerX64 {
     fn new(baseaddr: usize, target: Option<Target>) -> Result<Self, CompileError> {
-        let simd_arch = if target.is_none() {
-            Some(CpuFeature::SSE42)
-        } else {
-            let target = target.as_ref().unwrap();
-            if target.cpu_features().contains(CpuFeature::AVX) {
-                Some(CpuFeature::AVX)
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                Some(CpuFeature::SSE42)
-            } else {
-                return Err(CompileError::UnsupportedTarget(
-                    "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
-                ));
-            }
-        };
+        let simd_arch = target.as_ref().map_or_else(
+            || Ok(CpuFeature::SSE42),
+            |target| {
+                if target.cpu_features().contains(CpuFeature::AVX) {
+                    Ok(CpuFeature::AVX)
+                } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                    Ok(CpuFeature::SSE42)
+                } else {
+                    Err(CompileError::UnsupportedTarget(
+                        "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
+                    ))
+                }
+            },
+        )?;
 
         Ok(Self {
             inner: Assembler::new(baseaddr),
