@@ -395,12 +395,6 @@ impl Function {
     }
 
     // warn on unused vars in this functions
-    #[warn(
-        dead_code,
-        clippy::unused_self,
-        clippy::unused_variables,
-        unused_variables
-    )]
     fn call_wasm_raw_resume(
         &self,
         store: &mut impl AsStoreMut,

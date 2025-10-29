@@ -29,7 +29,7 @@ pub struct CoroutineStack {
 
 /// ### `coroutine_delete()`
 #[instrument(level = "trace", skip(ctx), ret)]
-pub fn continuation_delete<M: MemorySize>(
+pub fn continuation_delete(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     coroutine: u32,
 ) -> Result<Errno, WasiError> {
@@ -423,66 +423,19 @@ pub fn continuation_new<M: MemorySize>(
 
 /// ### `coroutine_switch()`
 #[instrument(level = "trace", skip(ctx), ret)]
-pub fn continuation_switch<M: MemorySize>(
+pub fn continuation_switch(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     next_coroutine: u32,
-) -> Result<Errno, WasiError> {
-    WasiEnv::do_pending_operations(&mut ctx)?;
-
-    let env = ctx.data();
-    let memory = unsafe { env.memory_view(&ctx) };
-
-    // resumable will be filled in by the trap handler
-    let trap = wasmer::sys::vm::Trap::Continuation {
-        continuation_ref: None,
-        next: next_coroutine as u64,
-    };
-    unsafe {
-        // Ideally this should suspend and cause couroutine_context to start switching
-        wasmer::sys::vm::raise_lib_trap(trap);
+) -> Result<Errno, RuntimeError> {
+    match WasiEnv::do_pending_operations(&mut ctx) {
+        Ok(()) => {}
+        Err(e) => return Err(RuntimeError::user(Box::new(e))),
     }
 
-    // We expect to just continue here once we are resumed
+    let (env, store) = ctx.data_and_store_mut();
 
-    // if coroutine == 0 {
-    //     panic!("Switching to coroutine 0 (main) is not supported yet");
-    //     return Err(WasiError::Exit(Errno::Inval.into()));
-    // }
-
-    // let mut coroutines = env.coroutines.write().unwrap();
-    // let coroutine = coroutines.get_mut(&coroutine);
-    // let Some(coroutine) = coroutine else {
-    //     panic!("Switching to invalid coroutine is not supported yet");
-    //     return Err(WasiError::Exit(Errno::Inval.into()));
-    // };
-    // if matches!(
-    //     coroutine.state,
-    //     CoroutineState::Deleted | CoroutineState::Failed
-    // ) {
-    //     panic!("Switching to deleted or failed coroutine is not supported");
-    //     return Err(WasiError::Exit(Errno::Inval.into()));
-    // }
-
-    // let first_start = matches!(coroutine.state, CoroutineState::Created);
-
-    // 1. Indicate what's the next coroutine to run
-    // 2. suspend yourself
-
-    // if first_start {
-    // run_wasi_func(func, store, params)
-    // run_wasi_func_start(func, store)
-
-    //     let function = coroutine.entrypoint; // resolve function from index
-    //     let own_resumer = function.run_resumable();
-    //     let own_coroutine.resumer = Some(own_resumer);
-    // } else {
-
-    //     // resume coroutine
-    //     let Some(resumer) = &coroutine.resumer else {
-    //         panic!("Coroutine has no resumer");
-    //     };
-    //     resumer.resume();
-    // }
-
-    Ok(Errno::Success)
+    Err(RuntimeError::continuation(
+        &store.as_store_ref(),
+        next_coroutine as u64,
+    ))
 }

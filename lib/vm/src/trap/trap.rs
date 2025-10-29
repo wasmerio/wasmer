@@ -1,7 +1,7 @@
 use backtrace::Backtrace;
 use std::error::Error;
 use std::fmt;
-use wasmer_types::{RawValue, TrapCode};
+use wasmer_types::TrapCode;
 
 use crate::{StoreObjects, VMExceptionRef};
 
@@ -158,10 +158,7 @@ impl Trap {
 
     /// Returns true if the `Trap` is resumable
     pub fn is_resumable(&self) -> bool {
-        match self {
-            Self::Continuation { .. } => true,
-            _ => false,
-        }
+        matches!(self, Self::Continuation { .. })
     }
 }
 

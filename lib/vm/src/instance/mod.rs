@@ -21,7 +21,6 @@ use crate::vmcontext::{
 };
 use crate::{
     FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline,
-    wasmer_call_trampoline_resume,
 };
 use crate::{LinearMemory, NotifyLocation};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};

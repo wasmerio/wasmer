@@ -722,7 +722,7 @@ pub unsafe extern "C" fn wasmer_vm_data_drop(vmctx: *mut VMContext, data_index: 
 /// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
 /// `wasmer_call_trampoline` must have been previously called.
 #[unsafe(no_mangle)]
-pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> () {
+pub unsafe extern "C" fn wasmer_vm_raise_trap(trap_code: TrapCode) -> ! {
     unsafe {
         let trap = Trap::lib(trap_code);
         raise_lib_trap(trap);

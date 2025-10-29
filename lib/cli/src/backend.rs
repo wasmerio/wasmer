@@ -614,8 +614,7 @@ impl RuntimeOptions {
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
                 bail!(
-                    "The `{}` compiler is not included in this binary.",
-                    compiler
+                    "The `{compiler}` compiler is not included in this binary.",
                 )
             }
         };

@@ -659,7 +659,7 @@ pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
 /// have been previous called and not yet returned.
 /// Additionally no Rust destructors may be on the stack.
 /// They will be skipped and not executed.
-pub unsafe fn raise_lib_trap(trap: Trap) -> () {
+pub unsafe fn raise_lib_trap(trap: Trap) {
     let is_resumable = trap.is_resumable();
     unsafe { unwind_with(UnwindReason::LibTrap(trap)) }
     if !is_resumable {
@@ -790,19 +790,6 @@ thread_local! {
     static TRAP_HANDLER: AtomicPtr<TrapHandlerContext> = const { AtomicPtr::new(ptr::null_mut()) };
     static ACTIVE_STACKS: RefCell<BTreeMap<u64, ErasedContinuation>> = const { RefCell::new(BTreeMap::new()) };
     static NEXT_STACK_ID: AtomicU64 = const { AtomicU64::new(0) };
-    static QUEUED_ERROR: Cell<Option<UnwindReason>> = const { Cell::new(None) };
-}
-
-macro_rules! print_yielder {
-    ($name:expr) => {
-        YIELDER.with(|yielder| {
-            if let Some(yielder) = yielder.get() {
-                // eprintln!("yielder: {:p}  : {}", yielder, $name);
-            } else {
-                // eprintln!("yielder: none                   : {}", $name);
-            }
-        });
-    };
 }
 
 /// Read-only information that is used by signal handlers to handle and recover
@@ -1029,17 +1016,11 @@ impl UnwindReason {
     }
 }
 
-unsafe fn unwind_with(reason: UnwindReason) -> () {
+unsafe fn unwind_with(reason: UnwindReason) {
     unsafe {
-        print_yielder!("reset in unwind_with");
-        let Some(yielder) = YIELDER.with(|cell| cell.get()) else {
-            print_yielder!("no yielder in unwind_with; queueing error");
-            QUEUED_ERROR.with(|c| {
-                c.set(Some(reason));
-            });
-            // TODO: Handle the case where we don't want to resume
-            return;
-        };
+        let yielder = YIELDER
+            .with(|cell| cell.get())
+            .expect("Can only unwind on wasm stack");
 
         // TODO: Remove this, as it is only here for the unreachable assertion below
         let is_resumable = reason.is_resumable();
@@ -1075,16 +1056,12 @@ impl ContinuationRef {
 
         let continuation: Continuation<T> = erased_continuation.into();
         let (mut maybe_continuation, mut result) = continuation.resume(trap_handler);
-        if let Err(unwind_reason) = &mut result {
-            match unwind_reason {
-                UnwindReason::LibTrap(Trap::Continuation {
-                    continuation_ref, ..
-                }) => {
-                    // Store the continuation reference into the trap
-                    continuation_ref.replace(id);
-                }
-                _ => {}
-            }
+        if let Err(UnwindReason::LibTrap(Trap::Continuation {
+            continuation_ref, ..
+        })) = &mut result
+        {
+            // TODO: Assert that all resumable traps result in this
+            continuation_ref.replace(id);
         }
         if let Some(cont) = maybe_continuation.take() {
             // Put the continuation back into ACTIVE_STACKS
@@ -1116,7 +1093,7 @@ impl StackPool {
                     .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
             };
         }
-        return DefaultStack::new(stack_size).unwrap();
+        DefaultStack::new(stack_size).unwrap()
     }
     /// Return a stack to the pool
     ///
@@ -1159,19 +1136,16 @@ impl<T: 'static> Continuation<T> {
             YIELDER.with(|cell| cell.set(Some(yielder.into())));
             Ok(f())
         });
-        Continuation {
-            coro: coro,
+        Self {
+            coro,
             yielder: None,
-            stack_size: stack_size,
+            stack_size,
         }
     }
     fn resume(
         mut self,
         trap_handler: Option<*const TrapHandlerFn<'static>>,
     ) -> (Option<Self>, Result<T, UnwindReason>) {
-        // Set global YIELDER to the current coroutine's yielder
-        print_yielder!("Setting in resume");
-
         // Set the global YIELDER to the current coroutine's yielder
         // If the coroutine is started for the first time, the yielder set here is None and it will get set during the first call to resume
         let previous_yielder = YIELDER.with(|cell| cell.replace(self.yielder));
@@ -1182,8 +1156,8 @@ impl<T: 'static> Continuation<T> {
 
         let result = {
             defer! {
-                print_yielder!("Resetting after resume");
-                // Prevous yielder must be None here
+                // Previous yielder must be None here
+                assert_eq!(previous_yielder, None);
                 own_yielder = YIELDER.with(|cell| cell.replace(previous_yielder));
             }
             let coro = &mut self.coro;
@@ -1226,7 +1200,7 @@ impl<T: 'static> Continuation<T> {
         (None, result)
     }
     /// Finish the continuation, returning its stack to the pool
-    fn finish(self) -> () {
+    fn finish(self) {
         let mut coro = self.coro;
         if !coro.done() {
             unsafe {
@@ -1254,7 +1228,7 @@ impl<T: 'static> From<Continuation<T>> for ErasedContinuation {
 // TODO: This from implementation is horribly unsafe
 impl<T: 'static> From<ErasedContinuation> for Continuation<T> {
     fn from(coro: ErasedContinuation) -> Self {
-        let boxed_coro = unsafe { Box::from_raw(coro.inner as *mut Continuation<T>) };
+        let boxed_coro = unsafe { Box::from_raw(coro.inner as *mut Self) };
         *boxed_coro
     }
 }
@@ -1290,28 +1264,18 @@ fn on_wasm_stack_resume<T: 'static>(
 /// a memory) which would be hard to recover from.
 #[inline(always)]
 pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
-    // Reset YIEDER to None for the duration of this call to indicate that we
+    // Reset YIELDER to None for the duration of this call to indicate that we
     // are no longer on the Wasm stack.
-    print_yielder!("Resetting on entering host stack");
-    let yielder_ptr = YIELDER.with(|cell| cell.replace(None));
-
-    // If we are already on the host stack, execute the function directly. This
-    // happens if a host function is called directly from the API.
-    let yielder = match yielder_ptr {
-        Some(ptr) => unsafe { ptr.as_ref() },
-        None => return f(),
+    let Some(yielder) = YIELDER.with(|cell| cell.replace(None)) else {
+        // If we are already on the host stack, execute the function directly. This
+        // happens if a host function is called directly from the API.
+        return f();
     };
 
-    QUEUED_ERROR.with(|cell| {
-        if let Some(_) = cell.replace(None) {
-            // If there was a queued error, return it immediately without
-            // executing the closure.
-            unreachable!("tried to re-enter host stack with a queued error; should never happen");
-        }
-    });
-
     // Restore YIELDER upon exiting normally or unwinding.
-    defer! {}
+    defer! {
+        YIELDER.with(|cell| cell.set(Some(yielder)));
+    }
 
     // on_parent_stack requires the closure to be Send so that the Yielder
     // cannot be called from the parent stack. This is not a problem for us
@@ -1319,20 +1283,10 @@ pub fn on_host_stack<F: FnOnce() -> T, T>(f: F) -> T {
     struct SendWrapper<T>(T);
     unsafe impl<T> Send for SendWrapper<T> {}
     let wrapped = SendWrapper(f);
-    let result = yielder.on_parent_stack(move || {
+    unsafe { yielder.as_ref() }.on_parent_stack(move || {
         let wrapped = wrapped;
         (wrapped.0)()
-    });
-
-    // TODO: Move this to the defer above so it supports unwinding. Only do that after QUEUED ERROR is removed
-    print_yielder!("Restoring on leaving host stack");
-    YIELDER.with(|cell| cell.set(yielder_ptr));
-
-    let error = QUEUED_ERROR.with(|cell| cell.replace(None));
-    if let Some(error) = error {
-        unsafe { unwind_with(error) }
-    }
-    result
+    })
 }
 
 #[cfg(windows)]
