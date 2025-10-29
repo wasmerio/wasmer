@@ -23,8 +23,8 @@ use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicU64, AtomicUsize, Ordering};
-use std::sync::{ LazyLock, Once, RwLock};
+use std::sync::atomic::{AtomicPtr, AtomicU64, AtomicUsize, Ordering, compiler_fence};
+use std::sync::{LazyLock, Once, RwLock};
 use wasmer_types::TrapCode;
 
 /// Configuration for the runtime VM

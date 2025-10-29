@@ -18,10 +18,7 @@ use crate::{
 };
 use tracing::*;
 use virtual_mio::InlineWaker;
-use wasmer::{
-    Function, Memory32, Memory64, Module, RuntimeError,
-    Store, Value,
-};
+use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinaryPackage, BinaryPackageCommand};

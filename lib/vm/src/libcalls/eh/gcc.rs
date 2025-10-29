@@ -252,7 +252,7 @@ pub unsafe fn throw(ctx: &StoreObjects, exnref: u32) -> ! {
         let exception = Box::new(UwExceptionWrapper::new(exnref));
         let exception_ptr = Box::into_raw(exception);
 
-       match uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception) {
+        match uw::_Unwind_RaiseException(exception_ptr as *mut libunwind::_Unwind_Exception) {
             libunwind::_Unwind_Reason_Code__URC_END_OF_STACK => {
                 delete_exception(exception_ptr as *mut c_void);
 

@@ -51,7 +51,7 @@ pub enum Trap {
     /// A trap raised to indicate a resumable yield
     // TODO: Replace the entire content with a Continuation reference type
     Continuation {
-        /// Stuff 
+        /// Stuff
         continuation_ref: Option<u64>,
         // TODO: Replace with real values as the return value of a continuation
         /// Stuff

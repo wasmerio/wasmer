@@ -50,7 +50,6 @@ pub fn call_in_context(
     entrypoint: &wasmer::Function,
     params: &[wasmer::Value],
 ) -> Result<Errno, RuntimeError> {
-
     let main_continuation_id = {
         // let env = ctx.data();
         // let memory = unsafe { env.memory_view(&ctx) };
@@ -106,13 +105,14 @@ pub fn call_in_context(
         match coroutine_state {
             CoroutineState::Created => {
                 let function_id = coroutine.read().unwrap().entrypoint; // resolve function from index
-                let function =
-                     function_id.map(|function_id| env.inner()
+                let function = function_id.map(|function_id| {
+                    env.inner()
                         .indirect_function_table_lookup(&mut store, function_id)
-                        .expect("Function not found in table"));
+                        .expect("Function not found in table")
+                });
                 let function = function.as_ref().unwrap_or(entrypoint);
-                        // .map_err(Errno::from)
-                                // Start the coroutine
+                // .map_err(Errno::from)
+                // Start the coroutine
                 coroutine.write().unwrap().state = CoroutineState::Active;
                 let resumer = function.call(&mut store, &[]); // TODO: Handle params
                 // println!("Coroutine started, got resumero {:?}", resumer);
@@ -129,8 +129,8 @@ pub fn call_in_context(
                 };
                 let Some((continuation_ref, next)) = err.to_continuation_ref() else {
                     // if is_context_main {
-                        // TODO: This is stupid
-                        return Err(err);
+                    // TODO: This is stupid
+                    return Err(err);
                     // }
                     // panic!(
                     //     "Coroutine entrypoint did not return a continuation {:?}",
@@ -147,12 +147,13 @@ pub fn call_in_context(
             }
             CoroutineState::Active => {
                 let function_id = coroutine.read().unwrap().entrypoint; // resolve function from index
-                let function =
-                     function_id.map(|function_id| env.inner()
+                let function = function_id.map(|function_id| {
+                    env.inner()
                         .indirect_function_table_lookup(&mut store, function_id)
-                        .expect("Function not found in table"));
+                        .expect("Function not found in table")
+                });
                 let function = function.as_ref().unwrap_or(entrypoint);
-                
+
                 // Start the coroutine
                 let continuation = coroutine
                     .read()
@@ -173,8 +174,8 @@ pub fn call_in_context(
                 };
                 let Some((continuation_ref, next)) = err.to_continuation_ref() else {
                     // if is_context_main {
-                        // TODO: This is stupid
-                        return Err(err);
+                    // TODO: This is stupid
+                    return Err(err);
                     // }
                     // panic!(
                     //     "Coroutine entrypoint did not return a continuation {:?}",
@@ -213,7 +214,6 @@ pub fn call_in_context(
     Ok(Errno::Success)
 }
 
-
 /// ### `coroutine_context()`
 #[instrument(level = "trace", skip(ctx), ret)]
 pub fn continuation_context<M: MemorySize>(
@@ -242,7 +242,9 @@ pub fn continuation_context<M: MemorySize>(
             .next_coroutine_id
             .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         coroutines.insert(new_coroutine_id, Arc::new(RwLock::new(root_coroutine)));
-        new_coroutine_ptr.write(&memory, new_coroutine_id as u32).unwrap();
+        new_coroutine_ptr
+            .write(&memory, new_coroutine_id as u32)
+            .unwrap();
         new_coroutine_id
     };
 
@@ -412,7 +414,9 @@ pub fn continuation_new<M: MemorySize>(
 
     let mut coroutines = env.coroutines.write().unwrap();
     coroutines.insert(new_coroutine_id, Arc::new(RwLock::new(new_coroutine)));
-    new_coroutine_ptr.write(&memory, new_coroutine_id as u32).unwrap();
+    new_coroutine_ptr
+        .write(&memory, new_coroutine_id as u32)
+        .unwrap();
 
     Ok(Errno::Success)
 }
