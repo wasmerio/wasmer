@@ -651,7 +651,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_wasi_get_wasi_version_snapshot0() {
         (assert_c! {
@@ -689,7 +689,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_wasi_get_wasi_version_snapshot1() {
         (assert_c! {
@@ -727,7 +727,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_wasi_get_wasi_version_invalid() {
         (assert_c! {
