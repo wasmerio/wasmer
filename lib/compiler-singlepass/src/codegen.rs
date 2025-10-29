@@ -221,21 +221,22 @@ impl WpTypeExt for WpType {
     }
 }
 
+#[derive(Debug, Copy, Clone)]
+pub enum ControlState {
+    Function,
+    Block,
+    Loop,
+    If(Label),
+    Else,
+}
+
 #[derive(Debug, Clone)]
 pub struct ControlFrame {
+    pub state: ControlState,
     pub label: Label,
-    pub loop_like: bool,
-    pub if_else: IfElseState,
     pub returns: SmallVec<[WpType; 1]>,
     pub value_stack_depth: usize,
     pub fp_stack_depth: usize,
-}
-
-#[derive(Debug, Copy, Clone)]
-pub enum IfElseState {
-    None,
-    If(Label),
-    Else,
 }
 
 fn type_to_wp_type(ty: Type) -> WpType {
@@ -1030,9 +1031,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.machine.adjust_stack(32)?;
 
         self.control_stack.push(ControlFrame {
+            state: ControlState::Function,
             label: self.machine.get_label(),
-            loop_like: false,
-            if_else: IfElseState::None,
             returns: self
                 .signature
                 .results()
@@ -1142,8 +1142,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Operator::Else => {
                     // We are in a reachable true branch
                     if self.unreachable_depth == 1
-                        && let Some(IfElseState::If(_)) =
-                            self.control_stack.last().map(|x| x.if_else)
+                        && let Some(ControlState::If(_)) =
+                            self.control_stack.last().map(|x| x.state)
                     {
                         self.unreachable_depth -= 1;
                     }
@@ -2677,9 +2677,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let cond = self.pop_value_released()?;
 
                 let frame = ControlFrame {
+                    state: ControlState::If(label_else),
                     label: label_end,
-                    loop_like: false,
-                    if_else: IfElseState::If(label_else),
                     returns: match blockty {
                         WpTypeOrFuncType::Empty => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
@@ -2727,11 +2726,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.fp_stack.truncate(fp_depth);
                 let frame = &mut self.control_stack.last_mut().unwrap();
 
-                match frame.if_else {
-                    IfElseState::If(label) => {
+                match frame.state {
+                    ControlState::If(label) => {
                         self.machine.jmp_unconditional(frame.label)?;
                         self.machine.emit_label(label)?;
-                        frame.if_else = IfElseState::Else;
+                        frame.state = ControlState::Else;
                     }
                     _ => {
                         return Err(CompileError::Codegen(
@@ -2803,9 +2802,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Block { blockty } => {
                 let frame = ControlFrame {
+                    state: ControlState::Block,
                     label: self.machine.get_label(),
-                    loop_like: false,
-                    if_else: IfElseState::None,
                     returns: match blockty {
                         WpTypeOrFuncType::Empty => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
@@ -2825,9 +2823,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let label = self.machine.get_label();
 
                 self.control_stack.push(ControlFrame {
+                    state: ControlState::Loop,
                     label,
-                    loop_like: true,
-                    if_else: IfElseState::None,
                     returns: match blockty {
                         WpTypeOrFuncType::Empty => smallvec![],
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
@@ -3708,7 +3705,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Br { relative_depth } => {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.loop_like && !frame.returns.is_empty() {
+                if !matches!(frame.state, ControlState::Loop) && !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
                         return Err(CompileError::Codegen(
                             "Br: incorrect frame.returns".to_owned(),
@@ -3749,7 +3746,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.loop_like && !frame.returns.is_empty() {
+                if !matches!(frame.state, ControlState::Loop) && !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
                         return Err(CompileError::Codegen(
                             "BrIf: incorrect frame.returns".to_owned(),
@@ -3804,7 +3801,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    if !frame.loop_like && !frame.returns.is_empty() {
+                    if !matches!(frame.state, ControlState::Loop) && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CompileError::Codegen(format!(
                                 "BrTable: incorrect frame.returns for {target:?}",
@@ -3836,7 +3833,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    if !frame.loop_like && !frame.returns.is_empty() {
+                    if !matches!(frame.state, ControlState::Loop) && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CompileError::Codegen(
                                 "BrTable: incorrect frame.returns".to_owned(),
@@ -3914,11 +3911,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.value_stack.truncate(frame.value_stack_depth);
                     self.fp_stack.truncate(frame.fp_stack_depth);
 
-                    if !frame.loop_like {
+                    if !matches!(frame.state, ControlState::Loop) {
                         self.machine.emit_label(frame.label)?;
                     }
 
-                    if let IfElseState::If(label) = frame.if_else {
+                    if let ControlState::If(label) = frame.state {
                         self.machine.emit_label(label)?;
                     }
 
