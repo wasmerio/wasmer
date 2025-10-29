@@ -154,7 +154,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_trap_message_null_terminated() {
         (assert_c! {
@@ -191,7 +191,7 @@ mod tests {
         unexpected_cfgs,
         reason = "tools like cargo-llvm-coverage pass --cfg coverage"
     )]
-    #[cfg_attr(coverage, ignore)]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_trap_message_not_null_terminated() {
         (assert_c! {
