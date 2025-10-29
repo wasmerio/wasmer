@@ -2,7 +2,10 @@ use std::{any::Any, error::Error, fmt::Debug};
 
 #[cfg(feature = "sys")]
 use crate::BackendException;
-use crate::{Exception, RuntimeError, macros::backend::match_rt};
+use crate::{
+    Exception, RuntimeError,
+    macros::backend::{match_rt, match_rt_sys_lol},
+};
 
 /// An enumeration of all the trap kinds supported by the runtimes.
 #[derive(Debug, derive_more::From)]
@@ -126,6 +129,16 @@ impl BackendTrap {
             Self::Jsc(s) => s
                 .to_exception_ref()
                 .map(|e| Exception::from_vm_exceptionref(crate::vm::VMExceptionRef::Jsc(e))),
+        }
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    #[inline]
+    pub fn to_continuation(&self) -> Option<(Option<u64>, u64)> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(s) => s.to_continuation(),
+            _ => None,
         }
     }
 }

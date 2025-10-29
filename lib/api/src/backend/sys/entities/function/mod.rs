@@ -17,7 +17,7 @@ use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
     VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
+    on_host_stack, raise_lib_trap, raise_user_trap, resume_panic, wasmer_call_trampoline,
     wasmer_call_trampoline_resume,
 };
 
@@ -594,6 +594,7 @@ impl Function {
 enum InvocationResult<T, E> {
     Success(T),
     Exception(crate::Exception),
+    Continuation(crate::backend::sys::vm::Trap),
     Trap(Box<E>),
 }
 
@@ -608,6 +609,15 @@ where
             if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>() {
                 if let Some(exception) = runtime_error.to_exception() {
                     return InvocationResult::Exception(exception);
+                }
+                // TODO: let to_continuation return something meaningful
+                if let Some((continuation_ref, next)) = runtime_error.to_continuation() {
+                    return InvocationResult::Continuation(
+                        crate::backend::sys::vm::Trap::Continuation {
+                            continuation_ref: continuation_ref,
+                            next: next,
+                        },
+                    );
                 }
             }
             InvocationResult::Trap(Box::new(trap))
@@ -650,6 +660,7 @@ where
                 )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+            Ok(InvocationResult::Continuation(trap)) => unsafe { raise_lib_trap(trap) },
             Err(panic) => unsafe { resume_panic(panic) },
         }
     }
@@ -754,7 +765,14 @@ macro_rules! impl_host_function {
                             store.as_store_ref().objects().as_sys(),
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
-                    }
+                    },
+                    Ok(InvocationResult::Continuation(trap)) => unsafe {
+                        raise_lib_trap(trap);
+                        // TODO: When switching functions return a RuntimeError, so no success value is present
+                        // Decide if we can do something better then returning a zeroed C-struct
+                        return std::mem::zeroed::<Rets::CStruct>();
+
+                    },
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
@@ -838,7 +856,13 @@ macro_rules! impl_host_function {
                             store.as_store_ref().objects().as_sys(),
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
-                    }
+                    },
+                    Ok(InvocationResult::Continuation(trap)) => unsafe {
+                        raise_lib_trap(trap);
+                        // TODO: When switching functions return a RuntimeError, so no success value is present
+                        // Decide if we can do something better then returning a zeroed C-struct
+                        return std::mem::zeroed::<Rets::CStruct>();
+                    },
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }

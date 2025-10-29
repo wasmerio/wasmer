@@ -160,6 +160,18 @@ impl Trap {
     pub fn is_resumable(&self) -> bool {
         matches!(self, Self::Continuation { .. })
     }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_continuation(&self) -> Option<(Option<u64>, u64)> {
+        match self {
+            Self::Continuation {
+                continuation_ref,
+                next,
+                ..
+            } => Some((*continuation_ref, *next)),
+            _ => None,
+        }
+    }
 }
 
 impl std::error::Error for Trap {

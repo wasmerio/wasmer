@@ -613,9 +613,7 @@ impl RuntimeOptions {
             BackendType::V8 | BackendType::Wamr | BackendType::Wasmi => unreachable!(),
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm")))]
             compiler => {
-                bail!(
-                    "The `{compiler}` compiler is not included in this binary.",
-                )
+                bail!("The `{compiler}` compiler is not included in this binary.",)
             }
         };
 

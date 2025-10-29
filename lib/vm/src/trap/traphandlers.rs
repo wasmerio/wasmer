@@ -1056,12 +1056,14 @@ impl ContinuationRef {
 
         let continuation: Continuation<T> = erased_continuation.into();
         let (mut maybe_continuation, mut result) = continuation.resume(trap_handler);
-        if let Err(UnwindReason::LibTrap(Trap::Continuation {
-            continuation_ref, ..
-        })) = &mut result
-        {
-            // TODO: Assert that all resumable traps result in this
-            continuation_ref.replace(id);
+        if let Err(e) = &mut result {
+            if let UnwindReason::LibTrap(Trap::Continuation {
+                continuation_ref, ..
+            }) = e
+            {
+                // TODO: Assert that all resumable traps end up here
+                continuation_ref.replace(id);
+            }
         }
         if let Some(cont) = maybe_continuation.take() {
             // Put the continuation back into ACTIVE_STACKS

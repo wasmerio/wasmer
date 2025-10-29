@@ -183,7 +183,11 @@ impl RuntimeError {
         match store.inner.objects {
             #[cfg(feature = "sys")]
             crate::StoreObjects::Sys(ref store_objects) => {
-                crate::backend::sys::vm::Trap::Continuation { continuation_ref: None, next: continuation_id }.into()
+                crate::backend::sys::vm::Trap::Continuation {
+                    continuation_ref: None,
+                    next: continuation_id,
+                }
+                .into()
             }
             _ => panic!("exceptions are only supported in the `sys` backend"),
         }
@@ -254,6 +258,12 @@ impl RuntimeError {
     /// If the `RuntimeError` is an uncaught exception, returns it.
     pub fn to_exception(&self) -> Option<Exception> {
         self.inner.source.to_exception()
+    }
+
+    // TODO: Proper continuation, proper docs
+    /// TODO: Proper continuation, proper docs
+    pub fn to_continuation(&self) -> Option<(Option<u64>, u64)> {
+        self.inner.source.to_continuation()
     }
 
     /// Returns a displayable version of the `RuntimeError` that also shows exception payloads.
