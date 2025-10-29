@@ -19,7 +19,7 @@ fn build_wamr() {
         "freebsd" => "freebsd",
         "android" => "android",
         "ios" => "ios",
-        other => panic!("Unsupported CARGO_CFG_TARGET_OS: {}", other),
+        other => panic!("Unsupported CARGO_CFG_TARGET_OS: {other}"),
     };
 
     // Read target arch from cargo env
@@ -32,7 +32,7 @@ fn build_wamr() {
         "mips" => "MIPS",
         "powerpc" => "POWERPC",
         "powerpc64" => "POWERPC64",
-        other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {}", other),
+        other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {other}"),
     };
 
     // Cleanup tmp data from prior builds
