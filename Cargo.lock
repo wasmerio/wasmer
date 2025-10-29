@@ -7143,10 +7143,12 @@ dependencies = [
  "enumset",
  "gimli",
  "hashbrown 0.11.2",
+ "itertools 0.12.1",
  "more-asserts",
  "rayon",
  "smallvec",
  "target-lexicon 0.13.3",
+ "tempfile",
  "wasmer-compiler",
  "wasmer-types",
 ]
