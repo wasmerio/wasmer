@@ -142,7 +142,7 @@
 <a href=#142 id=142 data-nosnippet>142</a>        unexpected_cfgs,
 <a href=#143 id=143 data-nosnippet>143</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
 <a href=#144 id=144 data-nosnippet>144</a>    </span>)]
-<a href=#145 id=145 data-nosnippet>145</a>    #[cfg_attr(coverage, ignore)]
+<a href=#145 id=145 data-nosnippet>145</a>    #[cfg_attr(coverage_nightly, coverage(off))]
 <a href=#146 id=146 data-nosnippet>146</a>    #[test]
 <a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">fn </span>test_extern_copy() {
 <a href=#148 id=148 data-nosnippet>148</a>        (<span class="macro">assert_c!</span> {

@@ -105,7 +105,7 @@
 <a href=#105 id=105 data-nosnippet>105</a>        unexpected_cfgs,
 <a href=#106 id=106 data-nosnippet>106</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
 <a href=#107 id=107 data-nosnippet>107</a>    </span>)]
-<a href=#108 id=108 data-nosnippet>108</a>    #[cfg_attr(coverage, ignore)]
+<a href=#108 id=108 data-nosnippet>108</a>    #[cfg_attr(coverage_nightly, coverage(off))]
 <a href=#109 id=109 data-nosnippet>109</a>    #[test]
 <a href=#110 id=110 data-nosnippet>110</a>    </span><span class="kw">fn </span>test_set_host_global_immutable() {
 <a href=#111 id=111 data-nosnippet>111</a>        (<span class="macro">assert_c!</span> {
@@ -142,7 +142,7 @@
 <a href=#142 id=142 data-nosnippet>142</a>        unexpected_cfgs,
 <a href=#143 id=143 data-nosnippet>143</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
 <a href=#144 id=144 data-nosnippet>144</a>    </span>)]
-<a href=#145 id=145 data-nosnippet>145</a>    #[cfg_attr(coverage, ignore)]
+<a href=#145 id=145 data-nosnippet>145</a>    #[cfg_attr(coverage_nightly, coverage(off))]
 <a href=#146 id=146 data-nosnippet>146</a>    #[test]
 <a href=#147 id=147 data-nosnippet>147</a>    </span><span class="kw">fn </span>test_set_guest_global_immutable() {
 <a href=#148 id=148 data-nosnippet>148</a>        (<span class="macro">assert_c!</span> {

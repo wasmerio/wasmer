@@ -154,7 +154,7 @@
 <a href=#154 id=154 data-nosnippet>154</a>        unexpected_cfgs,
 <a href=#155 id=155 data-nosnippet>155</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
 <a href=#156 id=156 data-nosnippet>156</a>    </span>)]
-<a href=#157 id=157 data-nosnippet>157</a>    #[cfg_attr(coverage, ignore)]
+<a href=#157 id=157 data-nosnippet>157</a>    #[cfg_attr(coverage_nightly, coverage(off))]
 <a href=#158 id=158 data-nosnippet>158</a>    #[test]
 <a href=#159 id=159 data-nosnippet>159</a>    </span><span class="kw">fn </span>test_trap_message_null_terminated() {
 <a href=#160 id=160 data-nosnippet>160</a>        (<span class="macro">assert_c!</span> {
@@ -191,7 +191,7 @@
 <a href=#191 id=191 data-nosnippet>191</a>        unexpected_cfgs,
 <a href=#192 id=192 data-nosnippet>192</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
 <a href=#193 id=193 data-nosnippet>193</a>    </span>)]
-<a href=#194 id=194 data-nosnippet>194</a>    #[cfg_attr(coverage, ignore)]
+<a href=#194 id=194 data-nosnippet>194</a>    #[cfg_attr(coverage_nightly, coverage(off))]
 <a href=#195 id=195 data-nosnippet>195</a>    #[test]
 <a href=#196 id=196 data-nosnippet>196</a>    </span><span class="kw">fn </span>test_trap_message_not_null_terminated() {
 <a href=#197 id=197 data-nosnippet>197</a>        (<span class="macro">assert_c!</span> {
