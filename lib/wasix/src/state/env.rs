@@ -10,6 +10,7 @@ use std::{
 use futures::future::BoxFuture;
 use rand::Rng;
 use virtual_fs::{FileSystem, FsError, VirtualFile};
+use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
@@ -37,7 +38,6 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    runtime::task_manager::block_on,
     syscalls::platform_clock_time_get,
 };
 use wasmer_types::ModuleHash;
