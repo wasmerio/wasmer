@@ -103,7 +103,7 @@ impl std::error::Error for Trap {
 impl fmt::Display for Trap {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "user: {}", e),
+            InnerTrap::User(e) => write!(f, "user: {e}"),
             InnerTrap::Jsc(_value) => write!(f, "jsc: obscure"),
         }
     }

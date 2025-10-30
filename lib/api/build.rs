@@ -291,7 +291,7 @@ fn build_v8() {
     let mut archive = tar::Archive::new(tar);
 
     archive.unpack(out_dir.clone()).unwrap();
-    println!("cargo:rustc-link-search=native={}", out_dir);
+    println!("cargo:rustc-link-search=native={out_dir}");
 
     if cfg!(any(target_os = "linux",)) {
         println!("cargo:rustc-link-lib=stdc++");
