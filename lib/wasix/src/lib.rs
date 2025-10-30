@@ -71,7 +71,6 @@ use std::sync::Arc;
 use bytes::{Bytes, BytesMut};
 use os::task::control_plane::ControlPlaneError;
 use thiserror::Error;
-use tracing::error;
 // re-exports needed for OS
 pub use wasmer;
 pub use wasmer_wasix_types;

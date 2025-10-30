@@ -114,7 +114,7 @@ impl ModuleBasedSymbolRegistry {
     }
 
     // If the name starts with a problematic prefix, we prefix it with an underscore.
-    fn fixup_problematic_name(name: &str) -> Cow<str> {
+    fn fixup_problematic_name(name: &str) -> Cow<'_, str> {
         for prefix in Self::PROBLEMATIC_PREFIXES {
             if name.starts_with(prefix) {
                 return format!("_{name}").into();

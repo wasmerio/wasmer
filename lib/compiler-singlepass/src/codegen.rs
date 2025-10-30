@@ -326,6 +326,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if delta_stack_offset != 0 {
             self.machine.adjust_stack(delta_stack_offset as u32)?;
         }
+
         Ok(locations)
     }
 
@@ -448,6 +449,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.stack_offset.0 -= 8;
                     delta_stack_offset += 8;
                 }
+                let offset = (-x) as usize;
+                if offset != self.stack_offset.0 {
+                    codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
+                }
+                self.stack_offset.0 -= 8;
+                delta_stack_offset += 8;
             }
         }
 
@@ -464,18 +471,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let locs = &self.value_stack[stack_depth..];
 
         for loc in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc {
-                if y == self.machine.local_pointer() {
-                    if x >= 0 {
-                        codegen_error!("Invalid memory offset {}", x);
-                    }
-                    let offset = (-x) as usize;
-                    if offset != stack_offset {
-                        codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                    }
-                    stack_offset -= 8;
-                    delta_stack_offset += 8;
+            if let Location::Memory(y, x) = *loc
+                && y == self.machine.local_pointer()
+            {
+                if x >= 0 {
+                    codegen_error!("Invalid memory offset {}", x);
                 }
+                let offset = (-x) as usize;
+                if offset != stack_offset {
+                    codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
+                }
+                stack_offset -= 8;
+                delta_stack_offset += 8;
             }
         }
 
@@ -846,7 +853,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine
                     .round_stack_adjust(stack_offset + stack_padding) as u32,
             )?;
-            if (stack_offset % 8) != 0 {
+            if !stack_offset.is_multiple_of(8) {
                 return Err(CompileError::Codegen(
                     "emit_call_native: Bad restoring stack alignement".to_owned(),
                 ));
@@ -3700,10 +3707,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Drop => {
                 self.pop_value_released()?;
-                if let Some(x) = self.fp_stack.last() {
-                    if x.depth == self.value_stack.len() {
-                        self.fp_stack.pop1()?;
-                    }
+                if let Some(x) = self.fp_stack.last()
+                    && x.depth == self.value_stack.len()
+                {
+                    self.fp_stack.pop1()?;
                 }
             }
             Operator::End => {
@@ -6004,10 +6011,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn sort_call_movs(movs: &mut [(Location<M::GPR, M::SIMD>, M::GPR)]) {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {
-                if let Location::GPR(src_gpr) = movs[j].0 {
-                    if src_gpr == movs[i].1 {
-                        movs.swap(i, j);
-                    }
+                if let Location::GPR(src_gpr) = movs[j].0
+                    && src_gpr == movs[i].1
+                {
+                    movs.swap(i, j);
                 }
             }
         }
