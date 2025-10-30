@@ -20,10 +20,10 @@ blake3.workspace = true
 
 [dev-dependencies]
 criterion = { version = "0.5", default-features = false }
-clap = { version = "=4.4.11" }
-clap_builder = { version = "=4.4.11" }
-clap_derive = { version = "=4.4.7" }
-clap_lex = { version = "=0.6.0" }
+clap.workspace = true
+clap_builder.workspace = true
+clap_derive.workspace = true
+clap_lex.workspace = true
 tempfile.workspace = true
 rand = "0.8.3"
 wasmer = { path = "../api", version = "=6.1.0", default-features = false, features = ["sys", "cranelift"] }
