@@ -73,7 +73,7 @@ pub struct FuncGen<'a, M: Machine> {
     fp_stack: Vec<FloatValue>,
 
     /// A list of frames describing the current control stack.
-    control_stack: Vec<ControlFrame<M>>,
+    control_stack: Vec<ControlFrame>,
 
     stack_offset: MachineStackOffset,
 
@@ -230,14 +230,25 @@ pub enum ControlState {
 }
 
 #[derive(Debug, Clone)]
-pub struct ControlFrame<M: Machine> {
+struct ControlFrame {
     pub state: ControlState,
     pub label: Label,
-    pub param_count: usize,
+    pub param_types: SmallVec<[WpType; 1]>,
     pub return_types: SmallVec<[WpType; 1]>,
-    pub return_slots: SmallVec<[Location<M::GPR, M::SIMD>; 1]>,
-    pub value_stack_depth: usize,
-    pub fp_stack_depth: usize,
+    value_stack_depth: usize,
+    fp_stack_depth: usize,
+}
+
+impl ControlFrame {
+    // Get value stack depth at the end of the frame.
+    fn value_stack_depth_after(&self) -> usize {
+        self.value_stack_depth - self.param_types.len()
+    }
+
+    // Get FP stack depth at the end of the frame
+    fn fp_stack_depth_after(&self) -> usize {
+        self.fp_stack_depth - self.param_types.iter().filter(|p| p.is_float()).count()
+    }
 }
 
 fn type_to_wp_type(ty: &Type) -> WpType {
@@ -475,15 +486,38 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    fn allocate_return_slots(
-        &self,
+    // Allocate return slots (for Block, If and Loop operands) and swap them with the input params
+    // that are already present at the value stack.
+    fn allocate_return_slots_before_params(
+        &mut self,
         param_count: usize,
         return_slots: usize,
-    ) -> SmallVec<[Location<M::GPR, M::SIMD>; 1]> {
-        //assert_eq!(param_count, 0);
-        assert!(return_slots <= 1);
+    ) -> Result<(), CompileError> {
+        // TODO: document why we use memory slots only
+        let param_stack_offset = self.value_stack.len() - param_count;
+        let locs = self.acquire_locations_on_stack(return_slots)?;
+        self.value_stack.extend(locs);
 
-        smallvec![Location::GPR(self.machine.get_gpr_for_ret())]
+        // Preserve the fp stack
+        for fp in self
+            .fp_stack
+            .iter_mut()
+            .rev()
+            .take_while(|x| x.depth >= param_stack_offset)
+        {
+            fp.depth += return_slots;
+        }
+
+        // Move the params to the newly allocated slots
+        for _ in 0..param_count {
+            self.machine.emit_relaxed_mov(
+                Size::S64,
+                self.value_stack[param_stack_offset],
+                self.value_stack[param_stack_offset + return_slots],
+            )?;
+        }
+
+        Ok(())
     }
 
     #[allow(clippy::type_complexity)]
@@ -891,20 +925,26 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // simulate "red zone" if not supported by the platform
         self.machine.adjust_stack(32)?;
 
+        let return_types: SmallVec<_> = self
+            .signature
+            .results()
+            .iter()
+            .map(type_to_wp_type)
+            .collect();
+
+        if !return_types.is_empty() {
+            self.value_stack
+                .push(Location::GPR(self.machine.get_gpr_for_ret()));
+        }
+
         self.control_stack.push(ControlFrame {
             state: ControlState::Function,
             label: self.machine.get_label(),
-            param_count: self.signature.params().len(),
-            return_types: self
-                .signature
-                .results()
-                .iter()
-                .map(type_to_wp_type)
-                .collect(),
-            // TODO
-            return_slots: smallvec![Location::GPR(self.machine.get_gpr_for_ret())],
-            value_stack_depth: 0,
+            // TODO:
+            value_stack_depth: return_types.len(),
             fp_stack_depth: 0,
+            param_types: smallvec![],
+            return_types,
         });
 
         // TODO: Full preemption by explicit signal checking
@@ -977,59 +1017,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     fn emit_return_values(
         &mut self,
-        return_slots: SmallVec<[Location<M::GPR, M::SIMD>; 1]>,
-        return_types: SmallVec<[WpType; 1]>,
+        value_stack_depth_after: usize,
+        return_values: usize,
     ) -> Result<(), CompileError> {
-        assert_eq!(return_slots.len(), 1);
+        for (i, stack_value) in self
+            .value_stack
+            .iter()
+            .rev()
+            .take(return_values)
+            .enumerate()
+        {
+            self.machine.emit_relaxed_mov(
+                Size::S64,
+                *stack_value,
+                self.value_stack[value_stack_depth_after - return_values + i],
+            )?;
+        }
 
-        let _first_return = return_slots[0];
-        let loc = *self.value_stack.last().unwrap();
-        let canonicalize = if return_types[0].is_float() {
-            let fp = self.fp_stack.peek1()?;
-            self.machine.arch_supports_canonicalize_nan()
-                && self.config.enable_nan_canonicalization
-                && fp.canonicalization.is_some()
-        } else {
-            false
-        };
-        self.machine
-            .emit_function_return_value(return_types[0], canonicalize, loc)?;
-
-        // let return_locations = self
-        //     .value_stack
-        //     .iter()
-        //     .rev()
-        //     .take(returns.len())
-        //     .collect_vec();
-        // assert_eq!(return_locations.len(), returns.len());
-
-        // for (i, return_loc) in return_locations.iter().enumerate() {
-        //     let ret = returns[i];
-        //     let canonicalize = if ret.is_float() {
-        //         let fp = self.fp_stack.peek_nth(i)?;
-        //         self.machine.arch_supports_canonicalize_nan()
-        //             && self.config.enable_nan_canonicalization
-        //             && fp.canonicalization.is_some()
-        //     } else {
-        //         false
-        //     };
-
-        //     let loc = self.machine.get_call_return_value_location(i);
-        //     if canonicalize {
-        //         self.machine.canonicalize_nan(
-        //             match ret {
-        //                 WpType::F32 => Size::S32,
-        //                 WpType::F64 => Size::S64,
-        //                 _ => codegen_error!("singlepass emit_return_values unreachable"),
-        //             },
-        //             loc,
-        //             **return_loc,
-        //         )?;
-        //     } else {
-        //         self.machine
-        //             .emit_relaxed_mov(Size::S64, **return_loc, loc)?;
-        //     }
-        // }
+        // TODO: FP canonicalization
 
         Ok(())
     }
@@ -1082,13 +1087,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
         };
 
-        let param_count_for_block = |block_type: WpTypeOrFuncType| match block_type {
-            WpTypeOrFuncType::Empty => 0,
-            WpTypeOrFuncType::Type(_) => 1,
-            WpTypeOrFuncType::FuncType(sig_index) => self.module.signatures
-                [SignatureIndex::from_u32(sig_index)]
-            .params()
-            .len(),
+        let param_types_for_block = |block_type: WpTypeOrFuncType| match block_type {
+            WpTypeOrFuncType::Empty | WpTypeOrFuncType::Type(_) => smallvec![],
+            WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
+                self.module.signatures[SignatureIndex::from_u32(sig_index)]
+                    .params()
+                    .iter()
+                    .map(type_to_wp_type),
+            ),
         };
 
         match op {
@@ -2596,12 +2602,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let cond = self.pop_value_released()?;
 
                 let return_types = return_types_for_block(blockty);
-                let param_count = param_count_for_block(blockty);
+                let param_types = param_types_for_block(blockty);
+                self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
+
                 let frame = ControlFrame {
                     state: ControlState::If(label_else),
                     label: label_end,
-                    param_count,
-                    return_slots: self.allocate_return_slots(param_count, return_types.len()),
+                    param_types,
                     return_types,
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
@@ -2620,14 +2627,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 if !was_unreachable && !frame.return_types.is_empty() {
                     self.emit_return_values(
-                        frame.return_slots.clone(),
-                        frame.return_types.clone(),
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
                     )?;
                 }
 
                 let frame = &self.control_stack.last_mut().unwrap();
-                let stack_depth = frame.value_stack_depth;
-                let fp_depth = frame.fp_stack_depth;
+                let stack_depth = frame.value_stack_depth_after();
+                let fp_depth = frame.fp_stack_depth_after();
                 self.release_locations_value(stack_depth)?;
                 self.value_stack.truncate(stack_depth);
                 self.fp_stack.truncate(fp_depth);
@@ -2709,12 +2716,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::Block { blockty } => {
                 let return_types = return_types_for_block(blockty);
-                let param_count = param_count_for_block(blockty);
+                let param_types = param_types_for_block(blockty);
+                self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
+
                 let frame = ControlFrame {
                     state: ControlState::Block,
                     label: self.machine.get_label(),
-                    param_count,
-                    return_slots: self.allocate_return_slots(param_count, return_types.len()),
+                    param_types,
                     return_types,
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
@@ -2726,12 +2734,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let label = self.machine.get_label();
 
                 let return_types = return_types_for_block(blockty);
-                let param_count = param_count_for_block(blockty);
+                let param_types = param_types_for_block(blockty);
+                self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
+
                 self.control_stack.push(ControlFrame {
                     state: ControlState::Loop,
                     label,
-                    param_count,
-                    return_slots: self.allocate_return_slots(param_count, return_types.len()),
+                    param_types,
                     return_types,
                     value_stack_depth: self.value_stack.len(),
                     fp_stack_depth: self.fp_stack.len(),
@@ -3566,12 +3575,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = &self.control_stack[0];
                 if !frame.return_types.is_empty() {
                     self.emit_return_values(
-                        frame.return_slots.clone(),
-                        frame.return_types.clone(),
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
                     )?;
                 }
                 let frame = &self.control_stack[0];
-                let frame_depth = frame.value_stack_depth;
+                let frame_depth = frame.value_stack_depth_after();
                 let label = frame.label;
                 self.release_locations_keep_state(frame_depth)?;
                 self.machine.jmp_unconditional(label)?;
@@ -3582,13 +3591,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty() {
                     self.emit_return_values(
-                        frame.return_slots.clone(),
-                        frame.return_types.clone(),
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
                     )?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let frame_depth = frame.value_stack_depth;
+                let frame_depth = frame.value_stack_depth_after();
                 let label = frame.label;
 
                 self.release_locations_keep_state(frame_depth)?;
@@ -3610,13 +3619,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
                 if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty() {
                     self.emit_return_values(
-                        frame.return_slots.clone(),
-                        frame.return_types.clone(),
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
                     )?;
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let stack_depth = frame.value_stack_depth;
+                let stack_depth = frame.value_stack_depth_after();
                 let label = frame.label;
                 self.release_locations_keep_state(stack_depth)?;
                 self.machine.jmp_unconditional(label)?;
@@ -3652,13 +3661,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty()
                     {
                         self.emit_return_values(
-                            frame.return_slots.clone(),
-                            frame.return_types.clone(),
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
                         )?;
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    let stack_depth = frame.value_stack_depth;
+                    let stack_depth = frame.value_stack_depth_after();
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
@@ -3671,13 +3680,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty()
                     {
                         self.emit_return_values(
-                            frame.return_slots.clone(),
-                            frame.return_types.clone(),
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
                         )?;
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    let stack_depth = frame.value_stack_depth;
+                    let stack_depth = frame.value_stack_depth_after();
                     let label = frame.label;
                     self.release_locations_keep_state(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
@@ -3702,8 +3711,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 if !was_unreachable && !frame.return_types.is_empty() {
                     self.emit_return_values(
-                        frame.return_slots.clone(),
-                        frame.return_types.clone(),
+                        frame.value_stack_depth_after(),
+                        frame.return_types.len(),
                     )?;
                 }
 
@@ -3721,10 +3730,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                     self.machine.emit_ret()?;
                 } else {
-                    let released = &self.value_stack.clone()[frame.value_stack_depth..];
+                    let released = &self.value_stack.clone()[frame.value_stack_depth_after()..];
                     self.release_locations(released)?;
-                    self.value_stack.truncate(frame.value_stack_depth);
-                    self.fp_stack.truncate(frame.fp_stack_depth);
+                    self.value_stack.truncate(frame.value_stack_depth_after());
+                    self.fp_stack.truncate(frame.fp_stack_depth_after());
 
                     if !matches!(frame.state, ControlState::Loop) {
                         self.machine.emit_label(frame.label)?;
@@ -3734,23 +3743,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.emit_label(label)?;
                     }
 
-                    if !frame.return_types.is_empty() {
-                        if frame.return_types.len() != 1 {
-                            return Err(CompileError::Codegen(
-                                "End: incorrect frame.returns".to_owned(),
+                    // At this point the return values are properly sitting in the value_stack, fill up the FloatValue info.
+                    for (i, ty) in frame.return_types.iter().enumerate() {
+                        if ty.is_float() {
+                            self.fp_stack.push(FloatValue::new(
+                                self.value_stack.len() - (frame.return_types.len() - i - 1),
                             ));
-                        }
-                        let loc = self.acquire_location(&frame.return_types[0])?;
-                        self.machine.move_location(
-                            Size::S64,
-                            Location::GPR(self.machine.get_gpr_for_ret()),
-                            loc,
-                        )?;
-                        self.value_stack.push(loc);
-                        if frame.return_types[0].is_float() {
-                            self.fp_stack
-                                .push(FloatValue::new(self.value_stack.len() - 1));
-                            // we already canonicalized at the `Br*` instruction or here previously.
                         }
                     }
                 }
