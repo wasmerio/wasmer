@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/run/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(missing_docs, unused)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/run/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(missing_docs, unused)]
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">mod </span>capabilities;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">mod </span>wasi;
@@ -247,61 +247,61 @@
 <a href=#247 id=247 data-nosnippet>247</a>                } =&gt; <span class="self">self</span>.execute_wasm(<span class="kw-2">&amp;</span>path, module, module_hash, runtime.clone()),
 <a href=#248 id=248 data-nosnippet>248</a>                ExecutableTarget::Package(pkg) =&gt; {
 <a href=#249 id=249 data-nosnippet>249</a>                    <span class="comment">// Check if we should update the engine based on the WebC package features
-<a href=#250 id=250 data-nosnippet>250</a>                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = pkg.get_entrypoint_command() {
-<a href=#251 id=251 data-nosnippet>251</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(features) = cmd.wasm_features() {
-<a href=#252 id=252 data-nosnippet>252</a>                            <span class="comment">// Get the right engine for these features
-<a href=#253 id=253 data-nosnippet>253</a>                            </span><span class="kw">let </span>backends = <span class="self">self</span>.rt.get_available_backends()<span class="question-mark">?</span>;
-<a href=#254 id=254 data-nosnippet>254</a>                            <span class="kw">let </span>available_engines = backends
-<a href=#255 id=255 data-nosnippet>255</a>                                .iter()
-<a href=#256 id=256 data-nosnippet>256</a>                                .map(|b| b.to_string())
-<a href=#257 id=257 data-nosnippet>257</a>                                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#258 id=258 data-nosnippet>258</a>                                .join(<span class="string">", "</span>);
-<a href=#259 id=259 data-nosnippet>259</a>
-<a href=#260 id=260 data-nosnippet>260</a>                            <span class="kw">let </span>filtered_backends = RuntimeOptions::filter_backends_by_features(
-<a href=#261 id=261 data-nosnippet>261</a>                                backends.clone(),
-<a href=#262 id=262 data-nosnippet>262</a>                                <span class="kw-2">&amp;</span>features,
-<a href=#263 id=263 data-nosnippet>263</a>                                <span class="kw-2">&amp;</span>Target::default(),
-<a href=#264 id=264 data-nosnippet>264</a>                            );
-<a href=#265 id=265 data-nosnippet>265</a>
-<a href=#266 id=266 data-nosnippet>266</a>                            <span class="kw">if </span>!filtered_backends.is_empty() {
-<a href=#267 id=267 data-nosnippet>267</a>                                <span class="kw">let </span>engine_id = filtered_backends[<span class="number">0</span>].to_string();
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>                                <span class="comment">// Get a new engine that's compatible with the required features
-<a href=#270 id=270 data-nosnippet>270</a>                                </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(new_engine) = filtered_backends[<span class="number">0</span>].get_engine(
-<a href=#271 id=271 data-nosnippet>271</a>                                    <span class="kw-2">&amp;</span>Target::default(),
-<a href=#272 id=272 data-nosnippet>272</a>                                    <span class="kw-2">&amp;</span>features,
-<a href=#273 id=273 data-nosnippet>273</a>                                    <span class="kw-2">&amp;</span><span class="self">self</span>.rt,
-<a href=#274 id=274 data-nosnippet>274</a>                                ) {
-<a href=#275 id=275 data-nosnippet>275</a>                                    <span class="macro">tracing::info!</span>(
-<a href=#276 id=276 data-nosnippet>276</a>                                        <span class="string">"The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}."</span>,
-<a href=#277 id=277 data-nosnippet>277</a>                                        cmd.name(),
-<a href=#278 id=278 data-nosnippet>278</a>                                        features,
-<a href=#279 id=279 data-nosnippet>279</a>                                        available_engines,
-<a href=#280 id=280 data-nosnippet>280</a>                                        engine_id
-<a href=#281 id=281 data-nosnippet>281</a>                                    );
-<a href=#282 id=282 data-nosnippet>282</a>                                    <span class="comment">// Create a new runtime with the updated engine
-<a href=#283 id=283 data-nosnippet>283</a>                                    </span><span class="kw">let </span>capability_cache_path =
-<a href=#284 id=284 data-nosnippet>284</a>                                        capabilities::get_capability_cache_path(
-<a href=#285 id=285 data-nosnippet>285</a>                                            <span class="kw-2">&amp;</span><span class="self">self</span>.env,
-<a href=#286 id=286 data-nosnippet>286</a>                                            <span class="kw-2">&amp;</span><span class="self">self</span>.input,
-<a href=#287 id=287 data-nosnippet>287</a>                                        )<span class="question-mark">?</span>;
-<a href=#288 id=288 data-nosnippet>288</a>                                    <span class="kw">let </span>new_runtime = <span class="self">self</span>.wasi.prepare_runtime(
-<a href=#289 id=289 data-nosnippet>289</a>                                        new_engine,
-<a href=#290 id=290 data-nosnippet>290</a>                                        <span class="kw-2">&amp;</span><span class="self">self</span>.env,
-<a href=#291 id=291 data-nosnippet>291</a>                                        <span class="kw-2">&amp;</span>capability_cache_path,
-<a href=#292 id=292 data-nosnippet>292</a>                                        tokio::runtime::Builder::new_multi_thread()
-<a href=#293 id=293 data-nosnippet>293</a>                                            .enable_all()
-<a href=#294 id=294 data-nosnippet>294</a>                                            .build()<span class="question-mark">?</span>,
-<a href=#295 id=295 data-nosnippet>295</a>                                        preferred_webc_version,
-<a href=#296 id=296 data-nosnippet>296</a>                                    )<span class="question-mark">?</span>;
-<a href=#297 id=297 data-nosnippet>297</a>
-<a href=#298 id=298 data-nosnippet>298</a>                                    <span class="kw">let </span>new_runtime = Arc::new(MonitoringRuntime::new(
-<a href=#299 id=299 data-nosnippet>299</a>                                        new_runtime,
-<a href=#300 id=300 data-nosnippet>300</a>                                        pb.clone(),
-<a href=#301 id=301 data-nosnippet>301</a>                                        output.quiet,
-<a href=#302 id=302 data-nosnippet>302</a>                                    ));
-<a href=#303 id=303 data-nosnippet>303</a>                                    <span class="kw">return </span><span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>pkg, new_runtime);
-<a href=#304 id=304 data-nosnippet>304</a>                                }
+<a href=#250 id=250 data-nosnippet>250</a>                    </span><span class="kw">if let </span><span class="prelude-val">Some</span>(cmd) = pkg.get_entrypoint_command()
+<a href=#251 id=251 data-nosnippet>251</a>                        &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(features) = cmd.wasm_features()
+<a href=#252 id=252 data-nosnippet>252</a>                    {
+<a href=#253 id=253 data-nosnippet>253</a>                        <span class="comment">// Get the right engine for these features
+<a href=#254 id=254 data-nosnippet>254</a>                        </span><span class="kw">let </span>backends = <span class="self">self</span>.rt.get_available_backends()<span class="question-mark">?</span>;
+<a href=#255 id=255 data-nosnippet>255</a>                        <span class="kw">let </span>available_engines = backends
+<a href=#256 id=256 data-nosnippet>256</a>                            .iter()
+<a href=#257 id=257 data-nosnippet>257</a>                            .map(|b| b.to_string())
+<a href=#258 id=258 data-nosnippet>258</a>                            .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#259 id=259 data-nosnippet>259</a>                            .join(<span class="string">", "</span>);
+<a href=#260 id=260 data-nosnippet>260</a>
+<a href=#261 id=261 data-nosnippet>261</a>                        <span class="kw">let </span>filtered_backends = RuntimeOptions::filter_backends_by_features(
+<a href=#262 id=262 data-nosnippet>262</a>                            backends.clone(),
+<a href=#263 id=263 data-nosnippet>263</a>                            <span class="kw-2">&amp;</span>features,
+<a href=#264 id=264 data-nosnippet>264</a>                            <span class="kw-2">&amp;</span>Target::default(),
+<a href=#265 id=265 data-nosnippet>265</a>                        );
+<a href=#266 id=266 data-nosnippet>266</a>
+<a href=#267 id=267 data-nosnippet>267</a>                        <span class="kw">if </span>!filtered_backends.is_empty() {
+<a href=#268 id=268 data-nosnippet>268</a>                            <span class="kw">let </span>engine_id = filtered_backends[<span class="number">0</span>].to_string();
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>                            <span class="comment">// Get a new engine that's compatible with the required features
+<a href=#271 id=271 data-nosnippet>271</a>                            </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(new_engine) = filtered_backends[<span class="number">0</span>].get_engine(
+<a href=#272 id=272 data-nosnippet>272</a>                                <span class="kw-2">&amp;</span>Target::default(),
+<a href=#273 id=273 data-nosnippet>273</a>                                <span class="kw-2">&amp;</span>features,
+<a href=#274 id=274 data-nosnippet>274</a>                                <span class="kw-2">&amp;</span><span class="self">self</span>.rt,
+<a href=#275 id=275 data-nosnippet>275</a>                            ) {
+<a href=#276 id=276 data-nosnippet>276</a>                                <span class="macro">tracing::info!</span>(
+<a href=#277 id=277 data-nosnippet>277</a>                                    <span class="string">"The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}."</span>,
+<a href=#278 id=278 data-nosnippet>278</a>                                    cmd.name(),
+<a href=#279 id=279 data-nosnippet>279</a>                                    features,
+<a href=#280 id=280 data-nosnippet>280</a>                                    available_engines,
+<a href=#281 id=281 data-nosnippet>281</a>                                    engine_id
+<a href=#282 id=282 data-nosnippet>282</a>                                );
+<a href=#283 id=283 data-nosnippet>283</a>                                <span class="comment">// Create a new runtime with the updated engine
+<a href=#284 id=284 data-nosnippet>284</a>                                </span><span class="kw">let </span>capability_cache_path =
+<a href=#285 id=285 data-nosnippet>285</a>                                    capabilities::get_capability_cache_path(
+<a href=#286 id=286 data-nosnippet>286</a>                                        <span class="kw-2">&amp;</span><span class="self">self</span>.env,
+<a href=#287 id=287 data-nosnippet>287</a>                                        <span class="kw-2">&amp;</span><span class="self">self</span>.input,
+<a href=#288 id=288 data-nosnippet>288</a>                                    )<span class="question-mark">?</span>;
+<a href=#289 id=289 data-nosnippet>289</a>                                <span class="kw">let </span>new_runtime = <span class="self">self</span>.wasi.prepare_runtime(
+<a href=#290 id=290 data-nosnippet>290</a>                                    new_engine,
+<a href=#291 id=291 data-nosnippet>291</a>                                    <span class="kw-2">&amp;</span><span class="self">self</span>.env,
+<a href=#292 id=292 data-nosnippet>292</a>                                    <span class="kw-2">&amp;</span>capability_cache_path,
+<a href=#293 id=293 data-nosnippet>293</a>                                    tokio::runtime::Builder::new_multi_thread()
+<a href=#294 id=294 data-nosnippet>294</a>                                        .enable_all()
+<a href=#295 id=295 data-nosnippet>295</a>                                        .build()<span class="question-mark">?</span>,
+<a href=#296 id=296 data-nosnippet>296</a>                                    preferred_webc_version,
+<a href=#297 id=297 data-nosnippet>297</a>                                )<span class="question-mark">?</span>;
+<a href=#298 id=298 data-nosnippet>298</a>
+<a href=#299 id=299 data-nosnippet>299</a>                                <span class="kw">let </span>new_runtime = Arc::new(MonitoringRuntime::new(
+<a href=#300 id=300 data-nosnippet>300</a>                                    new_runtime,
+<a href=#301 id=301 data-nosnippet>301</a>                                    pb.clone(),
+<a href=#302 id=302 data-nosnippet>302</a>                                    output.quiet,
+<a href=#303 id=303 data-nosnippet>303</a>                                ));
+<a href=#304 id=304 data-nosnippet>304</a>                                <span class="kw">return </span><span class="self">self</span>.execute_webc(<span class="kw-2">&amp;</span>pkg, new_runtime);
 <a href=#305 id=305 data-nosnippet>305</a>                            }
 <a href=#306 id=306 data-nosnippet>306</a>                        }
 <a href=#307 id=307 data-nosnippet>307</a>                    }
@@ -311,10 +311,10 @@
 <a href=#311 id=311 data-nosnippet>311</a>        };
 <a href=#312 id=312 data-nosnippet>312</a>
 <a href=#313 id=313 data-nosnippet>313</a>        <span class="comment">// restore the TTY state as the execution may have changed it
-<a href=#314 id=314 data-nosnippet>314</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(state) = tty {
-<a href=#315 id=315 data-nosnippet>315</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(tty) = runtime.tty() {
-<a href=#316 id=316 data-nosnippet>316</a>                tty.tty_set(state);
-<a href=#317 id=317 data-nosnippet>317</a>            }
+<a href=#314 id=314 data-nosnippet>314</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(state) = tty
+<a href=#315 id=315 data-nosnippet>315</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(tty) = runtime.tty()
+<a href=#316 id=316 data-nosnippet>316</a>        {
+<a href=#317 id=317 data-nosnippet>317</a>            tty.tty_set(state);
 <a href=#318 id=318 data-nosnippet>318</a>        }
 <a href=#319 id=319 data-nosnippet>319</a>
 <a href=#320 id=320 data-nosnippet>320</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(e) = <span class="kw-2">&amp;</span>result {

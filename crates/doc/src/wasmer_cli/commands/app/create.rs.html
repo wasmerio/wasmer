@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/app/create.rs`."><title>create.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/app/</div>create.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Create a new Edge app.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/app/create.rs`."><title>create.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/app/</div>create.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Create a new Edge app.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span>std::{
 <a href=#4 id=4 data-nosnippet>4</a>    env,
@@ -407,11 +407,11 @@
 <a href=#407 id=407 data-nosnippet>407</a>            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
 <a href=#408 id=408 data-nosnippet>408</a>        };
 <a href=#409 id=409 data-nosnippet>409</a>
-<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (cached_items.first(), first_page.first()) {
-<a href=#411 id=411 data-nosnippet>411</a>            <span class="kw">if </span>a == b {
-<a href=#412 id=412 data-nosnippet>412</a>                <span class="comment">// Cached items are up to date, no need to query more.
-<a href=#413 id=413 data-nosnippet>413</a>                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(cached_items);
-<a href=#414 id=414 data-nosnippet>414</a>            }
+<a href=#410 id=410 data-nosnippet>410</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (cached_items.first(), first_page.first())
+<a href=#411 id=411 data-nosnippet>411</a>            &amp;&amp; a == b
+<a href=#412 id=412 data-nosnippet>412</a>        {
+<a href=#413 id=413 data-nosnippet>413</a>            <span class="comment">// Cached items are up to date, no need to query more.
+<a href=#414 id=414 data-nosnippet>414</a>            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(cached_items);
 <a href=#415 id=415 data-nosnippet>415</a>        }
 <a href=#416 id=416 data-nosnippet>416</a>
 <a href=#417 id=417 data-nosnippet>417</a>        <span class="kw">let </span><span class="kw-2">mut </span>items = first_page;
@@ -489,11 +489,11 @@
 <a href=#489 id=489 data-nosnippet>489</a>            <span class="prelude-val">None </span>=&gt; <span class="kw">return </span><span class="prelude-val">Ok</span>(Vec::new()),
 <a href=#490 id=490 data-nosnippet>490</a>        };
 <a href=#491 id=491 data-nosnippet>491</a>
-<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (cached_items.first(), first_page.first()) {
-<a href=#493 id=493 data-nosnippet>493</a>            <span class="kw">if </span>a == b {
-<a href=#494 id=494 data-nosnippet>494</a>                <span class="comment">// Cached items are up to date, no need to query more.
-<a href=#495 id=495 data-nosnippet>495</a>                </span><span class="kw">return </span><span class="prelude-val">Ok</span>(cached_items);
-<a href=#496 id=496 data-nosnippet>496</a>            }
+<a href=#492 id=492 data-nosnippet>492</a>        <span class="kw">if let </span>(<span class="prelude-val">Some</span>(a), <span class="prelude-val">Some</span>(b)) = (cached_items.first(), first_page.first())
+<a href=#493 id=493 data-nosnippet>493</a>            &amp;&amp; a == b
+<a href=#494 id=494 data-nosnippet>494</a>        {
+<a href=#495 id=495 data-nosnippet>495</a>            <span class="comment">// Cached items are up to date, no need to query more.
+<a href=#496 id=496 data-nosnippet>496</a>            </span><span class="kw">return </span><span class="prelude-val">Ok</span>(cached_items);
 <a href=#497 id=497 data-nosnippet>497</a>        }
 <a href=#498 id=498 data-nosnippet>498</a>
 <a href=#499 id=499 data-nosnippet>499</a>        <span class="kw">let </span><span class="kw-2">mut </span>items = first_page;
@@ -710,10 +710,10 @@
 <a href=#710 id=710 data-nosnippet>710</a>
 <a href=#711 id=711 data-nosnippet>711</a>            <span class="kw">let </span>path = output_path.join(path);
 <a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent() {
-<a href=#714 id=714 data-nosnippet>714</a>                <span class="kw">if </span>!parent.exists() {
-<a href=#715 id=715 data-nosnippet>715</a>                    std::fs::create_dir_all(parent)<span class="question-mark">?</span>;
-<a href=#716 id=716 data-nosnippet>716</a>                }
+<a href=#713 id=713 data-nosnippet>713</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(parent) = path.parent()
+<a href=#714 id=714 data-nosnippet>714</a>                &amp;&amp; !parent.exists()
+<a href=#715 id=715 data-nosnippet>715</a>            {
+<a href=#716 id=716 data-nosnippet>716</a>                std::fs::create_dir_all(parent)<span class="question-mark">?</span>;
 <a href=#717 id=717 data-nosnippet>717</a>            }
 <a href=#718 id=718 data-nosnippet>718</a>
 <a href=#719 id=719 data-nosnippet>719</a>            <span class="kw">if </span>!path.exists() {

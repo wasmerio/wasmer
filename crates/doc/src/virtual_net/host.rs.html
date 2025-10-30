@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-net/src/host.rs`."><title>host.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_net" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../static.files/storage-82c7156e.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">virtual_net/</div>host.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(unused_variables)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/virtual-net/src/host.rs`."><title>host.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../" data-static-root-path="../../static.files/" data-current-crate="virtual_net" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../static.files/storage-4e99c027.js"></script><script defer src="../../static.files/src-script-63605ae7.js"></script><script defer src="../../src-files.js"></script><script defer src="../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../static.files/noscript-893ab5e7.css"></noscript><link rel="alternate icon" type="image/png" href="../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">virtual_net/</div>host.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(unused_variables)]
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">use </span><span class="kw">crate</span>::ruleset::{Direction, Ruleset};
 <a href=#3 id=3 data-nosnippet>3</a><span class="attr">#[allow(unused_imports)]
 <a href=#4 id=4 data-nosnippet>4</a></span><span class="kw">use crate</span>::{
@@ -76,11 +76,11 @@
 <a href=#76 id=76 data-nosnippet>76</a>        reuse_port: bool,
 <a href=#77 id=77 data-nosnippet>77</a>        reuse_addr: bool,
 <a href=#78 id=78 data-nosnippet>78</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpListener + Sync&gt;&gt; {
-<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
-<a href=#80 id=80 data-nosnippet>80</a>            <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Inbound) {
-<a href=#81 id=81 data-nosnippet>81</a>                <span class="macro">tracing::warn!</span>(%addr, <span class="string">"listen_tcp blocked by firewall rule"</span>);
-<a href=#82 id=82 data-nosnippet>82</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
-<a href=#83 id=83 data-nosnippet>83</a>            }
+<a href=#79 id=79 data-nosnippet>79</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref()
+<a href=#80 id=80 data-nosnippet>80</a>            &amp;&amp; !ruleset.allows_socket(addr, Direction::Inbound)
+<a href=#81 id=81 data-nosnippet>81</a>        {
+<a href=#82 id=82 data-nosnippet>82</a>            <span class="macro">tracing::warn!</span>(%addr, <span class="string">"listen_tcp blocked by firewall rule"</span>);
+<a href=#83 id=83 data-nosnippet>83</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
 <a href=#84 id=84 data-nosnippet>84</a>        }
 <a href=#85 id=85 data-nosnippet>85</a>
 <a href=#86 id=86 data-nosnippet>86</a>        <span class="kw">let </span>listener = std::net::TcpListener::bind(addr)
@@ -109,11 +109,11 @@
 <a href=#109 id=109 data-nosnippet>109</a>        <span class="attr">#[cfg(not(windows))]
 <a href=#110 id=110 data-nosnippet>110</a>        </span><span class="kw">use </span>socket2::{Domain, Socket, Type};
 <a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
-<a href=#113 id=113 data-nosnippet>113</a>            <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Inbound) {
-<a href=#114 id=114 data-nosnippet>114</a>                <span class="macro">tracing::warn!</span>(%addr, <span class="string">"bind_udp blocked by firewall rule"</span>);
-<a href=#115 id=115 data-nosnippet>115</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
-<a href=#116 id=116 data-nosnippet>116</a>            }
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref()
+<a href=#113 id=113 data-nosnippet>113</a>            &amp;&amp; !ruleset.allows_socket(addr, Direction::Inbound)
+<a href=#114 id=114 data-nosnippet>114</a>        {
+<a href=#115 id=115 data-nosnippet>115</a>            <span class="macro">tracing::warn!</span>(%addr, <span class="string">"bind_udp blocked by firewall rule"</span>);
+<a href=#116 id=116 data-nosnippet>116</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
 <a href=#117 id=117 data-nosnippet>117</a>        }
 <a href=#118 id=118 data-nosnippet>118</a>
 <a href=#119 id=119 data-nosnippet>119</a>        <span class="attr">#[cfg(not(windows))]
@@ -168,11 +168,11 @@
 <a href=#168 id=168 data-nosnippet>168</a>        _addr: SocketAddr,
 <a href=#169 id=169 data-nosnippet>169</a>        <span class="kw-2">mut </span>peer: SocketAddr,
 <a href=#170 id=170 data-nosnippet>170</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;&gt; {
-<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
-<a href=#172 id=172 data-nosnippet>172</a>            <span class="kw">if </span>!ruleset.allows_socket(peer, Direction::Outbound) {
-<a href=#173 id=173 data-nosnippet>173</a>                <span class="macro">tracing::warn!</span>(%peer, <span class="string">"connect_tcp blocked by firewall rule"</span>);
-<a href=#174 id=174 data-nosnippet>174</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
-<a href=#175 id=175 data-nosnippet>175</a>            }
+<a href=#171 id=171 data-nosnippet>171</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref()
+<a href=#172 id=172 data-nosnippet>172</a>            &amp;&amp; !ruleset.allows_socket(peer, Direction::Outbound)
+<a href=#173 id=173 data-nosnippet>173</a>        {
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="macro">tracing::warn!</span>(%peer, <span class="string">"connect_tcp blocked by firewall rule"</span>);
+<a href=#175 id=175 data-nosnippet>175</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
 <a href=#176 id=176 data-nosnippet>176</a>        }
 <a href=#177 id=177 data-nosnippet>177</a>
 <a href=#178 id=178 data-nosnippet>178</a>        <span class="kw">let </span>stream = mio::net::TcpStream::connect(peer).map_err(io_err_into_net_error)<span class="question-mark">?</span>;
@@ -190,11 +190,11 @@
 <a href=#190 id=190 data-nosnippet>190</a>        port: <span class="prelude-ty">Option</span>&lt;u16&gt;,
 <a href=#191 id=191 data-nosnippet>191</a>        dns_server: <span class="prelude-ty">Option</span>&lt;IpAddr&gt;,
 <a href=#192 id=192 data-nosnippet>192</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Vec&lt;IpAddr&gt;&gt; {
-<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
-<a href=#194 id=194 data-nosnippet>194</a>            <span class="kw">if </span>!ruleset.allows_domain(host) {
-<a href=#195 id=195 data-nosnippet>195</a>                <span class="macro">tracing::warn!</span>(%host, <span class="string">"dns resolve blocked by firewall rule"</span>);
-<a href=#196 id=196 data-nosnippet>196</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
-<a href=#197 id=197 data-nosnippet>197</a>            }
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref()
+<a href=#194 id=194 data-nosnippet>194</a>            &amp;&amp; !ruleset.allows_domain(host)
+<a href=#195 id=195 data-nosnippet>195</a>        {
+<a href=#196 id=196 data-nosnippet>196</a>            <span class="macro">tracing::warn!</span>(%host, <span class="string">"dns resolve blocked by firewall rule"</span>);
+<a href=#197 id=197 data-nosnippet>197</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
 <a href=#198 id=198 data-nosnippet>198</a>        }
 <a href=#199 id=199 data-nosnippet>199</a>
 <a href=#200 id=200 data-nosnippet>200</a>        <span class="kw">let </span>host_to_lookup = <span class="kw">if </span>host.contains(<span class="string">':'</span>) {
@@ -237,11 +237,11 @@
 <a href=#237 id=237 data-nosnippet>237</a>    <span class="kw">fn </span>try_accept_internal(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(Box&lt;<span class="kw">dyn </span>VirtualTcpSocket + Sync&gt;, SocketAddr)&gt; {
 <a href=#238 id=238 data-nosnippet>238</a>        <span class="kw">match </span><span class="self">self</span>.stream.accept().map_err(io_err_into_net_error) {
 <a href=#239 id=239 data-nosnippet>239</a>            <span class="prelude-val">Ok</span>((stream, addr)) =&gt; {
-<a href=#240 id=240 data-nosnippet>240</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
-<a href=#241 id=241 data-nosnippet>241</a>                    <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Outbound) {
-<a href=#242 id=242 data-nosnippet>242</a>                        <span class="macro">tracing::warn!</span>(%addr, <span class="string">"try_accept blocked by firewall rule"</span>);
-<a href=#243 id=243 data-nosnippet>243</a>                        <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
-<a href=#244 id=244 data-nosnippet>244</a>                    }
+<a href=#240 id=240 data-nosnippet>240</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref()
+<a href=#241 id=241 data-nosnippet>241</a>                    &amp;&amp; !ruleset.allows_socket(addr, Direction::Outbound)
+<a href=#242 id=242 data-nosnippet>242</a>                {
+<a href=#243 id=243 data-nosnippet>243</a>                    <span class="macro">tracing::warn!</span>(%addr, <span class="string">"try_accept blocked by firewall rule"</span>);
+<a href=#244 id=244 data-nosnippet>244</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
 <a href=#245 id=245 data-nosnippet>245</a>                }
 <a href=#246 id=246 data-nosnippet>246</a>
 <a href=#247 id=247 data-nosnippet>247</a>                <span class="kw">let </span><span class="kw-2">mut </span>socket = LocalTcpStream::new(<span class="self">self</span>.selector.clone(), stream, addr);
@@ -854,11 +854,11 @@
 <a href=#854 id=854 data-nosnippet>854</a>
 <a href=#855 id=855 data-nosnippet>855</a><span class="kw">impl </span>VirtualConnectionlessSocket <span class="kw">for </span>LocalUdpSocket {
 <a href=#856 id=856 data-nosnippet>856</a>    <span class="kw">fn </span>try_send_to(<span class="kw-2">&amp;mut </span><span class="self">self</span>, data: <span class="kw-2">&amp;</span>[u8], addr: SocketAddr) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-<a href=#857 id=857 data-nosnippet>857</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref() {
-<a href=#858 id=858 data-nosnippet>858</a>            <span class="kw">if </span>!ruleset.allows_socket(addr, Direction::Outbound) {
-<a href=#859 id=859 data-nosnippet>859</a>                <span class="macro">tracing::warn!</span>(%addr, <span class="string">"try_send blocked by firewall rule"</span>);
-<a href=#860 id=860 data-nosnippet>860</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
-<a href=#861 id=861 data-nosnippet>861</a>            }
+<a href=#857 id=857 data-nosnippet>857</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(ruleset) = <span class="self">self</span>.ruleset.as_ref()
+<a href=#858 id=858 data-nosnippet>858</a>            &amp;&amp; !ruleset.allows_socket(addr, Direction::Outbound)
+<a href=#859 id=859 data-nosnippet>859</a>        {
+<a href=#860 id=860 data-nosnippet>860</a>            <span class="macro">tracing::warn!</span>(%addr, <span class="string">"try_send blocked by firewall rule"</span>);
+<a href=#861 id=861 data-nosnippet>861</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(NetworkError::PermissionDenied);
 <a href=#862 id=862 data-nosnippet>862</a>        }
 <a href=#863 id=863 data-nosnippet>863</a>
 <a href=#864 id=864 data-nosnippet>864</a>        <span class="kw">let </span>ret = <span class="self">self

@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_exe.rs`."><title>create_exe.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../static.files/storage-82c7156e.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/</div>create_exe.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/create_exe.rs`."><title>create_exe.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/</div>create_exe.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-4"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="doccomment">//! Create a standalone native executable for a given Wasm file.
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a></span><span class="kw">use </span><span class="self">self</span>::utils::normalize_atom_name;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span><span class="kw">super</span>::CliCommand;
@@ -1657,20 +1657,20 @@
 <a href=#1657 id=1657 data-nosnippet>1657</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;CrossCompileSetup, anyhow::Error&gt; {
 <a href=#1658 id=1658 data-nosnippet>1658</a>        <span class="kw">let </span>target = target_triple;
 <a href=#1659 id=1659 data-nosnippet>1659</a>
-<a href=#1660 id=1660 data-nosnippet>1660</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(tarball_path) = cross_subc.tarball.as_mut() {
-<a href=#1661 id=1661 data-nosnippet>1661</a>            <span class="kw">if </span>tarball_path.is_relative() {
-<a href=#1662 id=1662 data-nosnippet>1662</a>                <span class="kw-2">*</span>tarball_path = starting_cd.join(<span class="kw-2">&amp;</span>tarball_path);
-<a href=#1663 id=1663 data-nosnippet>1663</a>                <span class="kw">if </span>!tarball_path.exists() {
-<a href=#1664 id=1664 data-nosnippet>1664</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-<a href=#1665 id=1665 data-nosnippet>1665</a>                        <span class="string">"Tarball path `{}` does not exist."</span>,
-<a href=#1666 id=1666 data-nosnippet>1666</a>                        tarball_path.display()
-<a href=#1667 id=1667 data-nosnippet>1667</a>                    ));
-<a href=#1668 id=1668 data-nosnippet>1668</a>                } <span class="kw">else if </span>tarball_path.is_dir() {
-<a href=#1669 id=1669 data-nosnippet>1669</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
-<a href=#1670 id=1670 data-nosnippet>1670</a>                        <span class="string">"Tarball path `{}` is a directory."</span>,
-<a href=#1671 id=1671 data-nosnippet>1671</a>                        tarball_path.display()
-<a href=#1672 id=1672 data-nosnippet>1672</a>                    ));
-<a href=#1673 id=1673 data-nosnippet>1673</a>                }
+<a href=#1660 id=1660 data-nosnippet>1660</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(tarball_path) = cross_subc.tarball.as_mut()
+<a href=#1661 id=1661 data-nosnippet>1661</a>            &amp;&amp; tarball_path.is_relative()
+<a href=#1662 id=1662 data-nosnippet>1662</a>        {
+<a href=#1663 id=1663 data-nosnippet>1663</a>            <span class="kw-2">*</span>tarball_path = starting_cd.join(<span class="kw-2">&amp;</span>tarball_path);
+<a href=#1664 id=1664 data-nosnippet>1664</a>            <span class="kw">if </span>!tarball_path.exists() {
+<a href=#1665 id=1665 data-nosnippet>1665</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+<a href=#1666 id=1666 data-nosnippet>1666</a>                    <span class="string">"Tarball path `{}` does not exist."</span>,
+<a href=#1667 id=1667 data-nosnippet>1667</a>                    tarball_path.display()
+<a href=#1668 id=1668 data-nosnippet>1668</a>                ));
+<a href=#1669 id=1669 data-nosnippet>1669</a>            } <span class="kw">else if </span>tarball_path.is_dir() {
+<a href=#1670 id=1670 data-nosnippet>1670</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="macro">anyhow!</span>(
+<a href=#1671 id=1671 data-nosnippet>1671</a>                    <span class="string">"Tarball path `{}` is a directory."</span>,
+<a href=#1672 id=1672 data-nosnippet>1672</a>                    tarball_path.display()
+<a href=#1673 id=1673 data-nosnippet>1673</a>                ));
 <a href=#1674 id=1674 data-nosnippet>1674</a>            }
 <a href=#1675 id=1675 data-nosnippet>1675</a>        }
 <a href=#1676 id=1676 data-nosnippet>1676</a>
@@ -1777,10 +1777,10 @@
 <a href=#1777 id=1777 data-nosnippet>1777</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1778 id=1778 data-nosnippet>1778</a>        }
 <a href=#1779 id=1779 data-nosnippet>1779</a>
-<a href=#1780 id=1780 data-nosnippet>1780</a>        <span class="kw">if let </span>Architecture::Aarch64(<span class="kw">_</span>) = target.architecture {
-<a href=#1781 id=1781 data-nosnippet>1781</a>            <span class="kw">if </span>!(filename.contains(<span class="string">"aarch64"</span>) || filename.contains(<span class="string">"arm64"</span>)) {
-<a href=#1782 id=1782 data-nosnippet>1782</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1783 id=1783 data-nosnippet>1783</a>            }
+<a href=#1780 id=1780 data-nosnippet>1780</a>        <span class="kw">if let </span>Architecture::Aarch64(<span class="kw">_</span>) = target.architecture
+<a href=#1781 id=1781 data-nosnippet>1781</a>            &amp;&amp; !(filename.contains(<span class="string">"aarch64"</span>) || filename.contains(<span class="string">"arm64"</span>))
+<a href=#1782 id=1782 data-nosnippet>1782</a>        {
+<a href=#1783 id=1783 data-nosnippet>1783</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1784 id=1784 data-nosnippet>1784</a>        }
 <a href=#1785 id=1785 data-nosnippet>1785</a>
 <a href=#1786 id=1786 data-nosnippet>1786</a>        <span class="kw">if let </span>Architecture::X86_64 = target.architecture {
@@ -1793,22 +1793,22 @@
 <a href=#1793 id=1793 data-nosnippet>1793</a>            }
 <a href=#1794 id=1794 data-nosnippet>1794</a>        }
 <a href=#1795 id=1795 data-nosnippet>1795</a>
-<a href=#1796 id=1796 data-nosnippet>1796</a>        <span class="kw">if let </span>OperatingSystem::Windows = target.operating_system {
-<a href=#1797 id=1797 data-nosnippet>1797</a>            <span class="kw">if </span>!filename.contains(<span class="string">"windows"</span>) {
-<a href=#1798 id=1798 data-nosnippet>1798</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1799 id=1799 data-nosnippet>1799</a>            }
+<a href=#1796 id=1796 data-nosnippet>1796</a>        <span class="kw">if let </span>OperatingSystem::Windows = target.operating_system
+<a href=#1797 id=1797 data-nosnippet>1797</a>            &amp;&amp; !filename.contains(<span class="string">"windows"</span>)
+<a href=#1798 id=1798 data-nosnippet>1798</a>        {
+<a href=#1799 id=1799 data-nosnippet>1799</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1800 id=1800 data-nosnippet>1800</a>        }
 <a href=#1801 id=1801 data-nosnippet>1801</a>
-<a href=#1802 id=1802 data-nosnippet>1802</a>        <span class="kw">if let </span>OperatingSystem::Darwin(<span class="kw">_</span>) = target.operating_system {
-<a href=#1803 id=1803 data-nosnippet>1803</a>            <span class="kw">if </span>!(filename.contains(<span class="string">"apple"</span>) || filename.contains(<span class="string">"darwin"</span>)) {
-<a href=#1804 id=1804 data-nosnippet>1804</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1805 id=1805 data-nosnippet>1805</a>            }
+<a href=#1802 id=1802 data-nosnippet>1802</a>        <span class="kw">if let </span>OperatingSystem::Darwin(<span class="kw">_</span>) = target.operating_system
+<a href=#1803 id=1803 data-nosnippet>1803</a>            &amp;&amp; !(filename.contains(<span class="string">"apple"</span>) || filename.contains(<span class="string">"darwin"</span>))
+<a href=#1804 id=1804 data-nosnippet>1804</a>        {
+<a href=#1805 id=1805 data-nosnippet>1805</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1806 id=1806 data-nosnippet>1806</a>        }
 <a href=#1807 id=1807 data-nosnippet>1807</a>
-<a href=#1808 id=1808 data-nosnippet>1808</a>        <span class="kw">if let </span>OperatingSystem::Linux = target.operating_system {
-<a href=#1809 id=1809 data-nosnippet>1809</a>            <span class="kw">if </span>!filename.contains(<span class="string">"linux"</span>) {
-<a href=#1810 id=1810 data-nosnippet>1810</a>                <span class="kw">return </span><span class="prelude-val">None</span>;
-<a href=#1811 id=1811 data-nosnippet>1811</a>            }
+<a href=#1808 id=1808 data-nosnippet>1808</a>        <span class="kw">if let </span>OperatingSystem::Linux = target.operating_system
+<a href=#1809 id=1809 data-nosnippet>1809</a>            &amp;&amp; !filename.contains(<span class="string">"linux"</span>)
+<a href=#1810 id=1810 data-nosnippet>1810</a>        {
+<a href=#1811 id=1811 data-nosnippet>1811</a>            <span class="kw">return </span><span class="prelude-val">None</span>;
 <a href=#1812 id=1812 data-nosnippet>1812</a>        }
 <a href=#1813 id=1813 data-nosnippet>1813</a>
 <a href=#1814 id=1814 data-nosnippet>1814</a>        <span class="prelude-val">Some</span>(<span class="bool-val">true</span>)

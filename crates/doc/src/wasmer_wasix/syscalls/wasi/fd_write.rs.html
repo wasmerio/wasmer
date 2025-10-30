@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasi/fd_write.rs`."><title>fd_write.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasi/</div>fd_write.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::task::Waker;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasi/fd_write.rs`."><title>fd_write.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasi/</div>fd_write.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::task::Waker;
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#4 id=4 data-nosnippet>4</a><span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
@@ -496,58 +496,60 @@
 <a href=#496 id=496 data-nosnippet>496</a>        };
 <a href=#497 id=497 data-nosnippet>497</a>
 <a href=#498 id=498 data-nosnippet>498</a>        <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#499 id=499 data-nosnippet>499</a>        </span><span class="kw">if </span>should_snapshot &amp;&amp; can_snapshot &amp;&amp; bytes_written &gt; <span class="number">0 </span>{
-<a href=#500 id=500 data-nosnippet>500</a>            <span class="kw">if let </span>FdWriteSource::Iovs { iovs, iovs_len } = data {
-<a href=#501 id=501 data-nosnippet>501</a>                JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
-<a href=#502 id=502 data-nosnippet>502</a>                    .map_err(|err| {
-<a href=#503 id=503 data-nosnippet>503</a>                        <span class="macro">tracing::error!</span>(<span class="string">"failed to save terminal data - {}"</span>, err);
-<a href=#504 id=504 data-nosnippet>504</a>                        WasiError::Exit(ExitCode::from(Errno::Fault))
-<a href=#505 id=505 data-nosnippet>505</a>                    })<span class="question-mark">?</span>;
-<a href=#506 id=506 data-nosnippet>506</a>            }
-<a href=#507 id=507 data-nosnippet>507</a>        }
-<a href=#508 id=508 data-nosnippet>508</a>
-<a href=#509 id=509 data-nosnippet>509</a>        env = ctx.data();
-<a href=#510 id=510 data-nosnippet>510</a>        memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
-<a href=#511 id=511 data-nosnippet>511</a>
-<a href=#512 id=512 data-nosnippet>512</a>        <span class="comment">// reborrow and update the size
-<a href=#513 id=513 data-nosnippet>513</a>        </span><span class="kw">if </span>!is_stdio {
-<a href=#514 id=514 data-nosnippet>514</a>            <span class="kw">let </span>curr_offset = <span class="kw">if </span>is_file &amp;&amp; should_update_cursor {
-<a href=#515 id=515 data-nosnippet>515</a>                <span class="kw">let </span>bytes_written = bytes_written <span class="kw">as </span>u64;
-<a href=#516 id=516 data-nosnippet>516</a>                <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
-<a href=#517 id=517 data-nosnippet>517</a>                <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
-<a href=#518 id=518 data-nosnippet>518</a>                fd_entry
-<a href=#519 id=519 data-nosnippet>519</a>                    .offset
-<a href=#520 id=520 data-nosnippet>520</a>                    .fetch_add(bytes_written, Ordering::AcqRel)
-<a href=#521 id=521 data-nosnippet>521</a>                    <span class="comment">// fetch_add returns the previous value, we have to add bytes_written again here
-<a href=#522 id=522 data-nosnippet>522</a>                    </span>+ bytes_written
-<a href=#523 id=523 data-nosnippet>523</a>            } <span class="kw">else </span>{
-<a href=#524 id=524 data-nosnippet>524</a>                fd_entry.inner.offset.load(Ordering::Acquire)
-<a href=#525 id=525 data-nosnippet>525</a>            };
-<a href=#526 id=526 data-nosnippet>526</a>
-<a href=#527 id=527 data-nosnippet>527</a>            <span class="comment">// we set the size but we don't return any errors if it fails as
-<a href=#528 id=528 data-nosnippet>528</a>            // pipes and sockets will not do anything with this
-<a href=#529 id=529 data-nosnippet>529</a>            </span><span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>, inodes) =
-<a href=#530 id=530 data-nosnippet>530</a>                <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
-<a href=#531 id=531 data-nosnippet>531</a>            <span class="kw">if </span>is_file {
-<a href=#532 id=532 data-nosnippet>532</a>                <span class="kw">let </span><span class="kw-2">mut </span>stat = fd_entry.inode.stat.write().unwrap();
-<a href=#533 id=533 data-nosnippet>533</a>                <span class="kw">if </span>should_update_cursor {
-<a href=#534 id=534 data-nosnippet>534</a>                    <span class="comment">// If we wrote before the end, the current size is still correct.
-<a href=#535 id=535 data-nosnippet>535</a>                    // Otherwise, we only got as far as the current cursor. So, the
-<a href=#536 id=536 data-nosnippet>536</a>                    // max of the two is the correct new size.
-<a href=#537 id=537 data-nosnippet>537</a>                    </span>stat.st_size = stat.st_size.max(curr_offset);
-<a href=#538 id=538 data-nosnippet>538</a>                } <span class="kw">else </span>{
-<a href=#539 id=539 data-nosnippet>539</a>                    <span class="comment">// pwrite does not update the cursor of the file so to calculate the final
-<a href=#540 id=540 data-nosnippet>540</a>                    // size of the file we compute where the cursor would have been if it was updated,
-<a href=#541 id=541 data-nosnippet>541</a>                    // and get the max value between it and the current size.
-<a href=#542 id=542 data-nosnippet>542</a>                    </span>stat.st_size = stat.st_size.max(offset + bytes_written <span class="kw">as </span>u64);
-<a href=#543 id=543 data-nosnippet>543</a>                }
-<a href=#544 id=544 data-nosnippet>544</a>            } <span class="kw">else </span>{
-<a href=#545 id=545 data-nosnippet>545</a>                <span class="comment">// Cast is valid because we don't support 128 bit systems...
-<a href=#546 id=546 data-nosnippet>546</a>                </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
-<a href=#547 id=547 data-nosnippet>547</a>            }
-<a href=#548 id=548 data-nosnippet>548</a>        }
-<a href=#549 id=549 data-nosnippet>549</a>        bytes_written
-<a href=#550 id=550 data-nosnippet>550</a>    };
-<a href=#551 id=551 data-nosnippet>551</a>
-<a href=#552 id=552 data-nosnippet>552</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(bytes_written))
-<a href=#553 id=553 data-nosnippet>553</a>}</code></pre></div></section></main></body></html>
+<a href=#499 id=499 data-nosnippet>499</a>        </span><span class="kw">if </span>should_snapshot
+<a href=#500 id=500 data-nosnippet>500</a>            &amp;&amp; can_snapshot
+<a href=#501 id=501 data-nosnippet>501</a>            &amp;&amp; bytes_written &gt; <span class="number">0
+<a href=#502 id=502 data-nosnippet>502</a>            </span>&amp;&amp; <span class="kw">let </span>FdWriteSource::Iovs { iovs, iovs_len } = data
+<a href=#503 id=503 data-nosnippet>503</a>        {
+<a href=#504 id=504 data-nosnippet>504</a>            JournalEffector::save_fd_write(ctx, fd, offset, bytes_written, iovs, iovs_len)
+<a href=#505 id=505 data-nosnippet>505</a>                .map_err(|err| {
+<a href=#506 id=506 data-nosnippet>506</a>                    <span class="macro">tracing::error!</span>(<span class="string">"failed to save terminal data - {}"</span>, err);
+<a href=#507 id=507 data-nosnippet>507</a>                    WasiError::Exit(ExitCode::from(Errno::Fault))
+<a href=#508 id=508 data-nosnippet>508</a>                })<span class="question-mark">?</span>;
+<a href=#509 id=509 data-nosnippet>509</a>        }
+<a href=#510 id=510 data-nosnippet>510</a>
+<a href=#511 id=511 data-nosnippet>511</a>        env = ctx.data();
+<a href=#512 id=512 data-nosnippet>512</a>        memory = <span class="kw">unsafe </span>{ env.memory_view(<span class="kw-2">&amp;</span>ctx) };
+<a href=#513 id=513 data-nosnippet>513</a>
+<a href=#514 id=514 data-nosnippet>514</a>        <span class="comment">// reborrow and update the size
+<a href=#515 id=515 data-nosnippet>515</a>        </span><span class="kw">if </span>!is_stdio {
+<a href=#516 id=516 data-nosnippet>516</a>            <span class="kw">let </span>curr_offset = <span class="kw">if </span>is_file &amp;&amp; should_update_cursor {
+<a href=#517 id=517 data-nosnippet>517</a>                <span class="kw">let </span>bytes_written = bytes_written <span class="kw">as </span>u64;
+<a href=#518 id=518 data-nosnippet>518</a>                <span class="kw">let </span><span class="kw-2">mut </span>fd_map = state.fs.fd_map.write().unwrap();
+<a href=#519 id=519 data-nosnippet>519</a>                <span class="kw">let </span>fd_entry = <span class="macro">wasi_try_ok_ok!</span>(fd_map.get_mut(fd).ok_or(Errno::Badf));
+<a href=#520 id=520 data-nosnippet>520</a>                fd_entry
+<a href=#521 id=521 data-nosnippet>521</a>                    .offset
+<a href=#522 id=522 data-nosnippet>522</a>                    .fetch_add(bytes_written, Ordering::AcqRel)
+<a href=#523 id=523 data-nosnippet>523</a>                    <span class="comment">// fetch_add returns the previous value, we have to add bytes_written again here
+<a href=#524 id=524 data-nosnippet>524</a>                    </span>+ bytes_written
+<a href=#525 id=525 data-nosnippet>525</a>            } <span class="kw">else </span>{
+<a href=#526 id=526 data-nosnippet>526</a>                fd_entry.inner.offset.load(Ordering::Acquire)
+<a href=#527 id=527 data-nosnippet>527</a>            };
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a>            <span class="comment">// we set the size but we don't return any errors if it fails as
+<a href=#530 id=530 data-nosnippet>530</a>            // pipes and sockets will not do anything with this
+<a href=#531 id=531 data-nosnippet>531</a>            </span><span class="kw">let </span>(<span class="kw-2">mut </span>memory, <span class="kw">_</span>, inodes) =
+<a href=#532 id=532 data-nosnippet>532</a>                <span class="kw">unsafe </span>{ env.get_memory_and_wasi_state_and_inodes(<span class="kw-2">&amp;</span>ctx, <span class="number">0</span>) };
+<a href=#533 id=533 data-nosnippet>533</a>            <span class="kw">if </span>is_file {
+<a href=#534 id=534 data-nosnippet>534</a>                <span class="kw">let </span><span class="kw-2">mut </span>stat = fd_entry.inode.stat.write().unwrap();
+<a href=#535 id=535 data-nosnippet>535</a>                <span class="kw">if </span>should_update_cursor {
+<a href=#536 id=536 data-nosnippet>536</a>                    <span class="comment">// If we wrote before the end, the current size is still correct.
+<a href=#537 id=537 data-nosnippet>537</a>                    // Otherwise, we only got as far as the current cursor. So, the
+<a href=#538 id=538 data-nosnippet>538</a>                    // max of the two is the correct new size.
+<a href=#539 id=539 data-nosnippet>539</a>                    </span>stat.st_size = stat.st_size.max(curr_offset);
+<a href=#540 id=540 data-nosnippet>540</a>                } <span class="kw">else </span>{
+<a href=#541 id=541 data-nosnippet>541</a>                    <span class="comment">// pwrite does not update the cursor of the file so to calculate the final
+<a href=#542 id=542 data-nosnippet>542</a>                    // size of the file we compute where the cursor would have been if it was updated,
+<a href=#543 id=543 data-nosnippet>543</a>                    // and get the max value between it and the current size.
+<a href=#544 id=544 data-nosnippet>544</a>                    </span>stat.st_size = stat.st_size.max(offset + bytes_written <span class="kw">as </span>u64);
+<a href=#545 id=545 data-nosnippet>545</a>                }
+<a href=#546 id=546 data-nosnippet>546</a>            } <span class="kw">else </span>{
+<a href=#547 id=547 data-nosnippet>547</a>                <span class="comment">// Cast is valid because we don't support 128 bit systems...
+<a href=#548 id=548 data-nosnippet>548</a>                </span>fd_entry.inode.stat.write().unwrap().st_size += bytes_written <span class="kw">as </span>u64;
+<a href=#549 id=549 data-nosnippet>549</a>            }
+<a href=#550 id=550 data-nosnippet>550</a>        }
+<a href=#551 id=551 data-nosnippet>551</a>        bytes_written
+<a href=#552 id=552 data-nosnippet>552</a>    };
+<a href=#553 id=553 data-nosnippet>553</a>
+<a href=#554 id=554 data-nosnippet>554</a>    <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(bytes_written))
+<a href=#555 id=555 data-nosnippet>555</a>}</code></pre></div></section></main></body></html>

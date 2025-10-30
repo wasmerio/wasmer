@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/bin_factory/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../static.files/storage-82c7156e.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/bin_factory/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(clippy::result_large_err)]
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/bin_factory/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/bin_factory/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="attr">#![allow(clippy::result_large_err)]
 <a href=#2 id=2 data-nosnippet>2</a></span><span class="kw">use </span>std::{
 <a href=#3 id=3 data-nosnippet>3</a>    collections::HashMap,
 <a href=#4 id=4 data-nosnippet>4</a>    future::Future,
@@ -145,23 +145,23 @@
 <a href=#145 id=145 data-nosnippet>145</a>        }
 <a href=#146 id=146 data-nosnippet>146</a>
 <a href=#147 id=147 data-nosnippet>147</a>        <span class="comment">// Check the filesystem for the file
-<a href=#148 id=148 data-nosnippet>148</a>        </span><span class="kw">if </span>name.starts_with(<span class="string">'/'</span>) {
-<a href=#149 id=149 data-nosnippet>149</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(fs) = fs {
-<a href=#150 id=150 data-nosnippet>150</a>                <span class="kw">match </span>load_executable_from_filesystem(fs, name.as_ref(), <span class="self">self</span>.runtime()).<span class="kw">await </span>{
-<a href=#151 id=151 data-nosnippet>151</a>                    <span class="prelude-val">Ok</span>(executable) =&gt; {
-<a href=#152 id=152 data-nosnippet>152</a>                        <span class="kw">if let </span>Executable::BinaryPackage(pkg) = <span class="kw-2">&amp;</span>executable {
-<a href=#153 id=153 data-nosnippet>153</a>                            cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
-<a href=#154 id=154 data-nosnippet>154</a>                        }
-<a href=#155 id=155 data-nosnippet>155</a>
-<a href=#156 id=156 data-nosnippet>156</a>                        <span class="kw">return </span><span class="prelude-val">Some</span>(executable);
-<a href=#157 id=157 data-nosnippet>157</a>                    }
-<a href=#158 id=158 data-nosnippet>158</a>                    <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#159 id=159 data-nosnippet>159</a>                        <span class="macro">tracing::warn!</span>(
-<a href=#160 id=160 data-nosnippet>160</a>                            path = name,
-<a href=#161 id=161 data-nosnippet>161</a>                            error = <span class="kw-2">&amp;*</span>e,
-<a href=#162 id=162 data-nosnippet>162</a>                            <span class="string">"Unable to load the package from disk"
-<a href=#163 id=163 data-nosnippet>163</a>                        </span>);
-<a href=#164 id=164 data-nosnippet>164</a>                    }
+<a href=#148 id=148 data-nosnippet>148</a>        </span><span class="kw">if </span>name.starts_with(<span class="string">'/'</span>)
+<a href=#149 id=149 data-nosnippet>149</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(fs) = fs
+<a href=#150 id=150 data-nosnippet>150</a>        {
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="kw">match </span>load_executable_from_filesystem(fs, name.as_ref(), <span class="self">self</span>.runtime()).<span class="kw">await </span>{
+<a href=#152 id=152 data-nosnippet>152</a>                <span class="prelude-val">Ok</span>(executable) =&gt; {
+<a href=#153 id=153 data-nosnippet>153</a>                    <span class="kw">if let </span>Executable::BinaryPackage(pkg) = <span class="kw-2">&amp;</span>executable {
+<a href=#154 id=154 data-nosnippet>154</a>                        cache.insert(name, <span class="prelude-val">Some</span>(pkg.clone()));
+<a href=#155 id=155 data-nosnippet>155</a>                    }
+<a href=#156 id=156 data-nosnippet>156</a>
+<a href=#157 id=157 data-nosnippet>157</a>                    <span class="kw">return </span><span class="prelude-val">Some</span>(executable);
+<a href=#158 id=158 data-nosnippet>158</a>                }
+<a href=#159 id=159 data-nosnippet>159</a>                <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>                    <span class="macro">tracing::warn!</span>(
+<a href=#161 id=161 data-nosnippet>161</a>                        path = name,
+<a href=#162 id=162 data-nosnippet>162</a>                        error = <span class="kw-2">&amp;*</span>e,
+<a href=#163 id=163 data-nosnippet>163</a>                        <span class="string">"Unable to load the package from disk"
+<a href=#164 id=164 data-nosnippet>164</a>                    </span>);
 <a href=#165 id=165 data-nosnippet>165</a>                }
 <a href=#166 id=166 data-nosnippet>166</a>            }
 <a href=#167 id=167 data-nosnippet>167</a>        }

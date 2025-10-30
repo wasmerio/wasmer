@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/proc_spawn2.rs`."><title>proc_spawn2.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasix/</div>proc_spawn2.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>wasmer::FromToNativeWasmType;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/syscalls/wasix/proc_spawn2.rs`."><title>proc_spawn2.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/syscalls/wasix/</div>proc_spawn2.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>wasmer::FromToNativeWasmType;
 <a href=#2 id=2 data-nosnippet>2</a><span class="kw">use </span>wasmer_wasix_types::wasi::ProcSpawnFdOpName;
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use super</span>::<span class="kw-2">*</span>;
@@ -193,99 +193,101 @@
 <a href=#193 id=193 data-nosnippet>193</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Errno&gt; {
 <a href=#194 id=194 data-nosnippet>194</a>    <span class="kw">match </span>op.cmd {
 <a href=#195 id=195 data-nosnippet>195</a>        ProcSpawnFdOpName::Close =&gt; {
-<a href=#196 id=196 data-nosnippet>196</a>            <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = env.state.fs.get_fd(op.fd) {
-<a href=#197 id=197 data-nosnippet>197</a>                <span class="kw">if </span>!fd.is_stdio &amp;&amp; fd.inode.is_preopened {
-<a href=#198 id=198 data-nosnippet>198</a>                    <span class="macro">trace!</span>(<span class="string">"Skipping close FD action for pre-opened FD ({})"</span>, op.fd);
-<a href=#199 id=199 data-nosnippet>199</a>                    <span class="kw">return </span><span class="prelude-val">Ok</span>(());
-<a href=#200 id=200 data-nosnippet>200</a>                }
-<a href=#201 id=201 data-nosnippet>201</a>            }
-<a href=#202 id=202 data-nosnippet>202</a>            env.state.fs.close_fd(op.fd)
-<a href=#203 id=203 data-nosnippet>203</a>        }
-<a href=#204 id=204 data-nosnippet>204</a>        ProcSpawnFdOpName::Dup2 =&gt; {
-<a href=#205 id=205 data-nosnippet>205</a>            <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = env.state.fs.get_fd(op.fd) {
-<a href=#206 id=206 data-nosnippet>206</a>                <span class="kw">if </span>!fd.is_stdio &amp;&amp; fd.inode.is_preopened {
-<a href=#207 id=207 data-nosnippet>207</a>                    <span class="macro">warn!</span>(
-<a href=#208 id=208 data-nosnippet>208</a>                        <span class="string">"FD {} is a pre-open and should not be closed, \
-<a href=#209 id=209 data-nosnippet>209</a>                        but will be closed in response to a dup2 FD action. \
-<a href=#210 id=210 data-nosnippet>210</a>                        This will likely break stuff."</span>,
-<a href=#211 id=211 data-nosnippet>211</a>                        op.fd
-<a href=#212 id=212 data-nosnippet>212</a>                    );
-<a href=#213 id=213 data-nosnippet>213</a>                }
-<a href=#214 id=214 data-nosnippet>214</a>            }
-<a href=#215 id=215 data-nosnippet>215</a>            <span class="kw">if </span>env.state.fs.get_fd(op.fd).is_ok() {
-<a href=#216 id=216 data-nosnippet>216</a>                env.state.fs.close_fd(op.fd)<span class="question-mark">?</span>;
-<a href=#217 id=217 data-nosnippet>217</a>            }
-<a href=#218 id=218 data-nosnippet>218</a>
-<a href=#219 id=219 data-nosnippet>219</a>            <span class="kw">let </span><span class="kw-2">mut </span>fd_map = env.state.fs.fd_map.write().unwrap();
-<a href=#220 id=220 data-nosnippet>220</a>            <span class="kw">let </span>fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)<span class="question-mark">?</span>;
-<a href=#221 id=221 data-nosnippet>221</a>
-<a href=#222 id=222 data-nosnippet>222</a>            <span class="kw">let </span>new_fd_entry = Fd {
-<a href=#223 id=223 data-nosnippet>223</a>                <span class="comment">// TODO: verify this is correct
-<a href=#224 id=224 data-nosnippet>224</a>                </span>inner: FdInner {
-<a href=#225 id=225 data-nosnippet>225</a>                    offset: fd_entry.inner.offset.clone(),
-<a href=#226 id=226 data-nosnippet>226</a>                    rights: fd_entry.inner.rights_inheriting,
-<a href=#227 id=227 data-nosnippet>227</a>                    fd_flags: {
-<a href=#228 id=228 data-nosnippet>228</a>                        <span class="kw">let </span><span class="kw-2">mut </span>f = fd_entry.inner.fd_flags;
-<a href=#229 id=229 data-nosnippet>229</a>                        f.set(Fdflagsext::CLOEXEC, <span class="bool-val">false</span>);
-<a href=#230 id=230 data-nosnippet>230</a>                        f
-<a href=#231 id=231 data-nosnippet>231</a>                    },
-<a href=#232 id=232 data-nosnippet>232</a>                    ..fd_entry.inner
-<a href=#233 id=233 data-nosnippet>233</a>                },
-<a href=#234 id=234 data-nosnippet>234</a>                inode: fd_entry.inode.clone(),
-<a href=#235 id=235 data-nosnippet>235</a>                ..<span class="kw-2">*</span>fd_entry
-<a href=#236 id=236 data-nosnippet>236</a>            };
-<a href=#237 id=237 data-nosnippet>237</a>
-<a href=#238 id=238 data-nosnippet>238</a>            <span class="comment">// Exclusive insert because we expect `to` to be empty after closing it above
-<a href=#239 id=239 data-nosnippet>239</a>            </span>fd_map.insert(<span class="bool-val">true</span>, op.fd, new_fd_entry);
-<a href=#240 id=240 data-nosnippet>240</a>            <span class="prelude-val">Ok</span>(())
-<a href=#241 id=241 data-nosnippet>241</a>        }
-<a href=#242 id=242 data-nosnippet>242</a>        ProcSpawnFdOpName::Open =&gt; {
-<a href=#243 id=243 data-nosnippet>243</a>            <span class="kw">let </span><span class="kw-2">mut </span>name = <span class="kw">unsafe </span>{
-<a href=#244 id=244 data-nosnippet>244</a>                WasmPtr::&lt;u8, M&gt;::new(op.name)
-<a href=#245 id=245 data-nosnippet>245</a>                    .read_utf8_string(memory, op.name_len)
-<a href=#246 id=246 data-nosnippet>246</a>                    .map_err(mem_error_to_wasi)<span class="question-mark">?
-<a href=#247 id=247 data-nosnippet>247</a>            </span>};
-<a href=#248 id=248 data-nosnippet>248</a>            name = env.state.fs.relative_path_to_absolute(name.to_owned());
-<a href=#249 id=249 data-nosnippet>249</a>            <span class="kw">match </span>path_open_internal(
-<a href=#250 id=250 data-nosnippet>250</a>                env,
-<a href=#251 id=251 data-nosnippet>251</a>                VIRTUAL_ROOT_FD,
-<a href=#252 id=252 data-nosnippet>252</a>                op.dirflags,
-<a href=#253 id=253 data-nosnippet>253</a>                <span class="kw-2">&amp;</span>name,
-<a href=#254 id=254 data-nosnippet>254</a>                op.oflags,
-<a href=#255 id=255 data-nosnippet>255</a>                op.fs_rights_base,
-<a href=#256 id=256 data-nosnippet>256</a>                op.fs_rights_inheriting,
-<a href=#257 id=257 data-nosnippet>257</a>                op.fdflags,
-<a href=#258 id=258 data-nosnippet>258</a>                op.fdflagsext,
-<a href=#259 id=259 data-nosnippet>259</a>                <span class="prelude-val">Some</span>(op.fd),
-<a href=#260 id=260 data-nosnippet>260</a>            ) {
-<a href=#261 id=261 data-nosnippet>261</a>                <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#262 id=262 data-nosnippet>262</a>                    <span class="macro">tracing::warn!</span>(<span class="string">"Failed to open file for posix_spawn: {:?}"</span>, e);
-<a href=#263 id=263 data-nosnippet>263</a>                    <span class="prelude-val">Err</span>(Errno::Io)
-<a href=#264 id=264 data-nosnippet>264</a>                }
-<a href=#265 id=265 data-nosnippet>265</a>                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e),
-<a href=#266 id=266 data-nosnippet>266</a>                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(()),
-<a href=#267 id=267 data-nosnippet>267</a>            }
-<a href=#268 id=268 data-nosnippet>268</a>        }
-<a href=#269 id=269 data-nosnippet>269</a>        ProcSpawnFdOpName::Chdir =&gt; {
-<a href=#270 id=270 data-nosnippet>270</a>            <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="kw">unsafe </span>{
-<a href=#271 id=271 data-nosnippet>271</a>                WasmPtr::&lt;u8, M&gt;::new(op.name)
-<a href=#272 id=272 data-nosnippet>272</a>                    .read_utf8_string(memory, op.name_len)
-<a href=#273 id=273 data-nosnippet>273</a>                    .map_err(mem_error_to_wasi)<span class="question-mark">?
-<a href=#274 id=274 data-nosnippet>274</a>            </span>};
-<a href=#275 id=275 data-nosnippet>275</a>            path = env.state.fs.relative_path_to_absolute(path.to_owned());
-<a href=#276 id=276 data-nosnippet>276</a>            chdir_internal(env, <span class="kw-2">&amp;</span>path)
-<a href=#277 id=277 data-nosnippet>277</a>        }
-<a href=#278 id=278 data-nosnippet>278</a>        ProcSpawnFdOpName::Fchdir =&gt; {
-<a href=#279 id=279 data-nosnippet>279</a>            <span class="kw">let </span>fd = env.state.fs.get_fd(op.fd)<span class="question-mark">?</span>;
-<a href=#280 id=280 data-nosnippet>280</a>            <span class="kw">let </span>inode_kind = fd.inode.read();
-<a href=#281 id=281 data-nosnippet>281</a>            <span class="kw">match </span>inode_kind.deref() {
-<a href=#282 id=282 data-nosnippet>282</a>                Kind::Dir { path, .. } =&gt; {
-<a href=#283 id=283 data-nosnippet>283</a>                    <span class="kw">let </span>path = path.to_str().ok_or(Errno::Notsup)<span class="question-mark">?</span>;
-<a href=#284 id=284 data-nosnippet>284</a>                    env.state.fs.set_current_dir(path);
-<a href=#285 id=285 data-nosnippet>285</a>                    <span class="prelude-val">Ok</span>(())
-<a href=#286 id=286 data-nosnippet>286</a>                }
-<a href=#287 id=287 data-nosnippet>287</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notdir),
-<a href=#288 id=288 data-nosnippet>288</a>            }
-<a href=#289 id=289 data-nosnippet>289</a>        }
-<a href=#290 id=290 data-nosnippet>290</a>    }
-<a href=#291 id=291 data-nosnippet>291</a>}</code></pre></div></section></main></body></html>
+<a href=#196 id=196 data-nosnippet>196</a>            <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = env.state.fs.get_fd(op.fd)
+<a href=#197 id=197 data-nosnippet>197</a>                &amp;&amp; !fd.is_stdio
+<a href=#198 id=198 data-nosnippet>198</a>                &amp;&amp; fd.inode.is_preopened
+<a href=#199 id=199 data-nosnippet>199</a>            {
+<a href=#200 id=200 data-nosnippet>200</a>                <span class="macro">trace!</span>(<span class="string">"Skipping close FD action for pre-opened FD ({})"</span>, op.fd);
+<a href=#201 id=201 data-nosnippet>201</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(());
+<a href=#202 id=202 data-nosnippet>202</a>            }
+<a href=#203 id=203 data-nosnippet>203</a>            env.state.fs.close_fd(op.fd)
+<a href=#204 id=204 data-nosnippet>204</a>        }
+<a href=#205 id=205 data-nosnippet>205</a>        ProcSpawnFdOpName::Dup2 =&gt; {
+<a href=#206 id=206 data-nosnippet>206</a>            <span class="kw">if let </span><span class="prelude-val">Ok</span>(fd) = env.state.fs.get_fd(op.fd)
+<a href=#207 id=207 data-nosnippet>207</a>                &amp;&amp; !fd.is_stdio
+<a href=#208 id=208 data-nosnippet>208</a>                &amp;&amp; fd.inode.is_preopened
+<a href=#209 id=209 data-nosnippet>209</a>            {
+<a href=#210 id=210 data-nosnippet>210</a>                <span class="macro">warn!</span>(
+<a href=#211 id=211 data-nosnippet>211</a>                    <span class="string">"FD {} is a pre-open and should not be closed, \
+<a href=#212 id=212 data-nosnippet>212</a>                        but will be closed in response to a dup2 FD action. \
+<a href=#213 id=213 data-nosnippet>213</a>                        This will likely break stuff."</span>,
+<a href=#214 id=214 data-nosnippet>214</a>                    op.fd
+<a href=#215 id=215 data-nosnippet>215</a>                );
+<a href=#216 id=216 data-nosnippet>216</a>            }
+<a href=#217 id=217 data-nosnippet>217</a>            <span class="kw">if </span>env.state.fs.get_fd(op.fd).is_ok() {
+<a href=#218 id=218 data-nosnippet>218</a>                env.state.fs.close_fd(op.fd)<span class="question-mark">?</span>;
+<a href=#219 id=219 data-nosnippet>219</a>            }
+<a href=#220 id=220 data-nosnippet>220</a>
+<a href=#221 id=221 data-nosnippet>221</a>            <span class="kw">let </span><span class="kw-2">mut </span>fd_map = env.state.fs.fd_map.write().unwrap();
+<a href=#222 id=222 data-nosnippet>222</a>            <span class="kw">let </span>fd_entry = fd_map.get(op.src_fd).ok_or(Errno::Badf)<span class="question-mark">?</span>;
+<a href=#223 id=223 data-nosnippet>223</a>
+<a href=#224 id=224 data-nosnippet>224</a>            <span class="kw">let </span>new_fd_entry = Fd {
+<a href=#225 id=225 data-nosnippet>225</a>                <span class="comment">// TODO: verify this is correct
+<a href=#226 id=226 data-nosnippet>226</a>                </span>inner: FdInner {
+<a href=#227 id=227 data-nosnippet>227</a>                    offset: fd_entry.inner.offset.clone(),
+<a href=#228 id=228 data-nosnippet>228</a>                    rights: fd_entry.inner.rights_inheriting,
+<a href=#229 id=229 data-nosnippet>229</a>                    fd_flags: {
+<a href=#230 id=230 data-nosnippet>230</a>                        <span class="kw">let </span><span class="kw-2">mut </span>f = fd_entry.inner.fd_flags;
+<a href=#231 id=231 data-nosnippet>231</a>                        f.set(Fdflagsext::CLOEXEC, <span class="bool-val">false</span>);
+<a href=#232 id=232 data-nosnippet>232</a>                        f
+<a href=#233 id=233 data-nosnippet>233</a>                    },
+<a href=#234 id=234 data-nosnippet>234</a>                    ..fd_entry.inner
+<a href=#235 id=235 data-nosnippet>235</a>                },
+<a href=#236 id=236 data-nosnippet>236</a>                inode: fd_entry.inode.clone(),
+<a href=#237 id=237 data-nosnippet>237</a>                ..<span class="kw-2">*</span>fd_entry
+<a href=#238 id=238 data-nosnippet>238</a>            };
+<a href=#239 id=239 data-nosnippet>239</a>
+<a href=#240 id=240 data-nosnippet>240</a>            <span class="comment">// Exclusive insert because we expect `to` to be empty after closing it above
+<a href=#241 id=241 data-nosnippet>241</a>            </span>fd_map.insert(<span class="bool-val">true</span>, op.fd, new_fd_entry);
+<a href=#242 id=242 data-nosnippet>242</a>            <span class="prelude-val">Ok</span>(())
+<a href=#243 id=243 data-nosnippet>243</a>        }
+<a href=#244 id=244 data-nosnippet>244</a>        ProcSpawnFdOpName::Open =&gt; {
+<a href=#245 id=245 data-nosnippet>245</a>            <span class="kw">let </span><span class="kw-2">mut </span>name = <span class="kw">unsafe </span>{
+<a href=#246 id=246 data-nosnippet>246</a>                WasmPtr::&lt;u8, M&gt;::new(op.name)
+<a href=#247 id=247 data-nosnippet>247</a>                    .read_utf8_string(memory, op.name_len)
+<a href=#248 id=248 data-nosnippet>248</a>                    .map_err(mem_error_to_wasi)<span class="question-mark">?
+<a href=#249 id=249 data-nosnippet>249</a>            </span>};
+<a href=#250 id=250 data-nosnippet>250</a>            name = env.state.fs.relative_path_to_absolute(name.to_owned());
+<a href=#251 id=251 data-nosnippet>251</a>            <span class="kw">match </span>path_open_internal(
+<a href=#252 id=252 data-nosnippet>252</a>                env,
+<a href=#253 id=253 data-nosnippet>253</a>                VIRTUAL_ROOT_FD,
+<a href=#254 id=254 data-nosnippet>254</a>                op.dirflags,
+<a href=#255 id=255 data-nosnippet>255</a>                <span class="kw-2">&amp;</span>name,
+<a href=#256 id=256 data-nosnippet>256</a>                op.oflags,
+<a href=#257 id=257 data-nosnippet>257</a>                op.fs_rights_base,
+<a href=#258 id=258 data-nosnippet>258</a>                op.fs_rights_inheriting,
+<a href=#259 id=259 data-nosnippet>259</a>                op.fdflags,
+<a href=#260 id=260 data-nosnippet>260</a>                op.fdflagsext,
+<a href=#261 id=261 data-nosnippet>261</a>                <span class="prelude-val">Some</span>(op.fd),
+<a href=#262 id=262 data-nosnippet>262</a>            ) {
+<a href=#263 id=263 data-nosnippet>263</a>                <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#264 id=264 data-nosnippet>264</a>                    <span class="macro">tracing::warn!</span>(<span class="string">"Failed to open file for posix_spawn: {:?}"</span>, e);
+<a href=#265 id=265 data-nosnippet>265</a>                    <span class="prelude-val">Err</span>(Errno::Io)
+<a href=#266 id=266 data-nosnippet>266</a>                }
+<a href=#267 id=267 data-nosnippet>267</a>                <span class="prelude-val">Ok</span>(<span class="prelude-val">Err</span>(e)) =&gt; <span class="prelude-val">Err</span>(e),
+<a href=#268 id=268 data-nosnippet>268</a>                <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(<span class="kw">_</span>)) =&gt; <span class="prelude-val">Ok</span>(()),
+<a href=#269 id=269 data-nosnippet>269</a>            }
+<a href=#270 id=270 data-nosnippet>270</a>        }
+<a href=#271 id=271 data-nosnippet>271</a>        ProcSpawnFdOpName::Chdir =&gt; {
+<a href=#272 id=272 data-nosnippet>272</a>            <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="kw">unsafe </span>{
+<a href=#273 id=273 data-nosnippet>273</a>                WasmPtr::&lt;u8, M&gt;::new(op.name)
+<a href=#274 id=274 data-nosnippet>274</a>                    .read_utf8_string(memory, op.name_len)
+<a href=#275 id=275 data-nosnippet>275</a>                    .map_err(mem_error_to_wasi)<span class="question-mark">?
+<a href=#276 id=276 data-nosnippet>276</a>            </span>};
+<a href=#277 id=277 data-nosnippet>277</a>            path = env.state.fs.relative_path_to_absolute(path.to_owned());
+<a href=#278 id=278 data-nosnippet>278</a>            chdir_internal(env, <span class="kw-2">&amp;</span>path)
+<a href=#279 id=279 data-nosnippet>279</a>        }
+<a href=#280 id=280 data-nosnippet>280</a>        ProcSpawnFdOpName::Fchdir =&gt; {
+<a href=#281 id=281 data-nosnippet>281</a>            <span class="kw">let </span>fd = env.state.fs.get_fd(op.fd)<span class="question-mark">?</span>;
+<a href=#282 id=282 data-nosnippet>282</a>            <span class="kw">let </span>inode_kind = fd.inode.read();
+<a href=#283 id=283 data-nosnippet>283</a>            <span class="kw">match </span>inode_kind.deref() {
+<a href=#284 id=284 data-nosnippet>284</a>                Kind::Dir { path, .. } =&gt; {
+<a href=#285 id=285 data-nosnippet>285</a>                    <span class="kw">let </span>path = path.to_str().ok_or(Errno::Notsup)<span class="question-mark">?</span>;
+<a href=#286 id=286 data-nosnippet>286</a>                    env.state.fs.set_current_dir(path);
+<a href=#287 id=287 data-nosnippet>287</a>                    <span class="prelude-val">Ok</span>(())
+<a href=#288 id=288 data-nosnippet>288</a>                }
+<a href=#289 id=289 data-nosnippet>289</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(Errno::Notdir),
+<a href=#290 id=290 data-nosnippet>290</a>            }
+<a href=#291 id=291 data-nosnippet>291</a>        }
+<a href=#292 id=292 data-nosnippet>292</a>    }
+<a href=#293 id=293 data-nosnippet>293</a>}</code></pre></div></section></main></body></html>

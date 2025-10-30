@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/package_loader/builtin_loader.rs`."><title>builtin_loader.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-916cea96.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.87.0 (17067e9ac 2025-05-09)" data-channel="1.87.0" data-search-js="search-e7298875.js" data-settings-js="settings-d72f25bb.js" ><script src="../../../../static.files/storage-82c7156e.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-fb8c74a8.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/runtime/package_loader/</div>builtin_loader.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/wasix/src/runtime/package_loader/builtin_loader.rs`."><title>builtin_loader.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../../" data-static-root-path="../../../../static.files/" data-current-crate="wasmer_wasix" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../src-files.js"></script><script defer src="../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_wasix/runtime/package_loader/</div>builtin_loader.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{
 <a href=#2 id=2 data-nosnippet>2</a>    collections::HashMap,
 <a href=#3 id=3 data-nosnippet>3</a>    fmt::Write <span class="kw">as _</span>,
 <a href=#4 id=4 data-nosnippet>4</a>    io::{ErrorKind, Write <span class="kw">as _</span>},
@@ -165,13 +165,13 @@
 <a href=#165 id=165 data-nosnippet>165</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
 <a href=#166 id=166 data-nosnippet>166</a>        }
 <a href=#167 id=167 data-nosnippet>167</a>
-<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="self">self</span>.cache.as_ref() {
-<a href=#169 id=169 data-nosnippet>169</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(cached) = cache.lookup(hash).<span class="kw">await</span><span class="question-mark">? </span>{
-<a href=#170 id=170 data-nosnippet>170</a>                <span class="comment">// Note: We want to propagate it to the in-memory cache, too
-<a href=#171 id=171 data-nosnippet>171</a>                </span><span class="macro">tracing::debug!</span>(<span class="string">"Copying from the filesystem cache to the in-memory cache"</span>);
-<a href=#172 id=172 data-nosnippet>172</a>                <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>cached, <span class="kw-2">*</span>hash);
-<a href=#173 id=173 data-nosnippet>173</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
-<a href=#174 id=174 data-nosnippet>174</a>            }
+<a href=#168 id=168 data-nosnippet>168</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(cache) = <span class="self">self</span>.cache.as_ref()
+<a href=#169 id=169 data-nosnippet>169</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(cached) = cache.lookup(hash).<span class="kw">await</span><span class="question-mark">?
+<a href=#170 id=170 data-nosnippet>170</a>        </span>{
+<a href=#171 id=171 data-nosnippet>171</a>            <span class="comment">// Note: We want to propagate it to the in-memory cache, too
+<a href=#172 id=172 data-nosnippet>172</a>            </span><span class="macro">tracing::debug!</span>(<span class="string">"Copying from the filesystem cache to the in-memory cache"</span>);
+<a href=#173 id=173 data-nosnippet>173</a>            <span class="self">self</span>.in_memory.save(<span class="kw-2">&amp;</span>cached, <span class="kw-2">*</span>hash);
+<a href=#174 id=174 data-nosnippet>174</a>            <span class="kw">return </span><span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(cached));
 <a href=#175 id=175 data-nosnippet>175</a>        }
 <a href=#176 id=176 data-nosnippet>176</a>
 <a href=#177 id=177 data-nosnippet>177</a>        <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>)
@@ -298,19 +298,19 @@
 <a href=#298 id=298 data-nosnippet>298</a>        headers.insert(<span class="string">"Accept"</span>, <span class="string">"application/webc"</span>.parse().unwrap());
 <a href=#299 id=299 data-nosnippet>299</a>        headers.insert(<span class="string">"User-Agent"</span>, USER_AGENT.parse().unwrap());
 <a href=#300 id=300 data-nosnippet>300</a>
-<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">if </span>url.has_authority() {
-<a href=#302 id=302 data-nosnippet>302</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(token) = <span class="self">self</span>.tokens.get(url.authority()) {
-<a href=#303 id=303 data-nosnippet>303</a>                <span class="kw">let </span>header = <span class="macro">format!</span>(<span class="string">"Bearer {token}"</span>);
-<a href=#304 id=304 data-nosnippet>304</a>                <span class="kw">match </span>header.parse() {
-<a href=#305 id=305 data-nosnippet>305</a>                    <span class="prelude-val">Ok</span>(header) =&gt; {
-<a href=#306 id=306 data-nosnippet>306</a>                        headers.insert(http::header::AUTHORIZATION, header);
-<a href=#307 id=307 data-nosnippet>307</a>                    }
-<a href=#308 id=308 data-nosnippet>308</a>                    <span class="prelude-val">Err</span>(e) =&gt; {
-<a href=#309 id=309 data-nosnippet>309</a>                        <span class="macro">tracing::warn!</span>(
-<a href=#310 id=310 data-nosnippet>310</a>                            error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
-<a href=#311 id=311 data-nosnippet>311</a>                            <span class="string">"An error occurred while parsing the authorization header"</span>,
-<a href=#312 id=312 data-nosnippet>312</a>                        );
-<a href=#313 id=313 data-nosnippet>313</a>                    }
+<a href=#301 id=301 data-nosnippet>301</a>        <span class="kw">if </span>url.has_authority()
+<a href=#302 id=302 data-nosnippet>302</a>            &amp;&amp; <span class="kw">let </span><span class="prelude-val">Some</span>(token) = <span class="self">self</span>.tokens.get(url.authority())
+<a href=#303 id=303 data-nosnippet>303</a>        {
+<a href=#304 id=304 data-nosnippet>304</a>            <span class="kw">let </span>header = <span class="macro">format!</span>(<span class="string">"Bearer {token}"</span>);
+<a href=#305 id=305 data-nosnippet>305</a>            <span class="kw">match </span>header.parse() {
+<a href=#306 id=306 data-nosnippet>306</a>                <span class="prelude-val">Ok</span>(header) =&gt; {
+<a href=#307 id=307 data-nosnippet>307</a>                    headers.insert(http::header::AUTHORIZATION, header);
+<a href=#308 id=308 data-nosnippet>308</a>                }
+<a href=#309 id=309 data-nosnippet>309</a>                <span class="prelude-val">Err</span>(e) =&gt; {
+<a href=#310 id=310 data-nosnippet>310</a>                    <span class="macro">tracing::warn!</span>(
+<a href=#311 id=311 data-nosnippet>311</a>                        error = <span class="kw-2">&amp;</span>e <span class="kw">as </span><span class="kw-2">&amp;</span><span class="kw">dyn </span>std::error::Error,
+<a href=#312 id=312 data-nosnippet>312</a>                        <span class="string">"An error occurred while parsing the authorization header"</span>,
+<a href=#313 id=313 data-nosnippet>313</a>                    );
 <a href=#314 id=314 data-nosnippet>314</a>                }
 <a href=#315 id=315 data-nosnippet>315</a>            }
 <a href=#316 id=316 data-nosnippet>316</a>        }
