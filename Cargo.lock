@@ -7646,6 +7646,7 @@ dependencies = [
  "mach2",
  "memoffset 0.9.1",
  "more-asserts",
+ "parking_lot",
  "region",
  "rustversion",
  "scopeguard",

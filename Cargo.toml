@@ -170,6 +170,7 @@ wasm-encoder = { version = "0.235.0", default-features = false, features = [
 	"std",
 ] }
 ignore = "0.4"
+parking_lot = "0.12"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
