@@ -424,10 +424,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 self.stack_offset.0 -= 8;
                 delta_stack_offset += 8;
-                self.state
-                    .stack_values
-                    .pop()
-                    .ok_or_else(|| CompileError::Codegen("Pop on empty value stack".to_owned()))?;
             }
         }
 
