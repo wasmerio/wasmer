@@ -46,7 +46,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let load: TypedFunction<(), (WasmPtr<u8>, i32)> =
-        instance.exports.get_typed_function(&mut store, "load")?;
+        instance.exports.get_typed_function(&store, "load")?;
 
     // Here we go.
     //
@@ -86,8 +86,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // of each element.
     let new_str = b"Hello, Wasmer!";
     let values = ptr.slice(&memory_view, new_str.len() as u32).unwrap();
-    for i in 0..new_str.len() {
-        values.index(i as u64).write(new_str[i]).unwrap();
+    for (i, &str) in new_str.iter().enumerate() {
+        values.index(i as u64).write(str).unwrap();
     }
 
     // And now, let's see the result.

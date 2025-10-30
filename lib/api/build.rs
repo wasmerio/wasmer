@@ -19,7 +19,7 @@ fn build_wamr() {
         "freebsd" => "freebsd",
         "android" => "android",
         "ios" => "ios",
-        other => panic!("Unsupported CARGO_CFG_TARGET_OS: {}", other),
+        other => panic!("Unsupported CARGO_CFG_TARGET_OS: {other}"),
     };
 
     // Read target arch from cargo env
@@ -32,7 +32,7 @@ fn build_wamr() {
         "mips" => "MIPS",
         "powerpc" => "POWERPC",
         "powerpc64" => "POWERPC64",
-        other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {}", other),
+        other => panic!("Unsupported CARGO_CFG_TARGET_ARCH: {other}"),
     };
 
     // Cleanup tmp data from prior builds
@@ -291,7 +291,7 @@ fn build_v8() {
     let mut archive = tar::Archive::new(tar);
 
     archive.unpack(out_dir.clone()).unwrap();
-    println!("cargo:rustc-link-search=native={}", out_dir);
+    println!("cargo:rustc-link-search=native={out_dir}");
 
     if cfg!(any(target_os = "linux",)) {
         println!("cargo:rustc-link-lib=stdc++");

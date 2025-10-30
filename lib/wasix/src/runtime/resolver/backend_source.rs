@@ -290,14 +290,14 @@ impl Source for BackendSource {
             .await
             .map_err(|error| QueryError::new_other(error, package))?;
 
-        if let Some(cache) = &self.cache {
-            if let Err(e) = cache.update(&package_name, &response) {
-                tracing::warn!(
-                    package_name,
-                    error = &*e,
-                    "An error occurred while caching the GraphQL response",
-                );
-            }
+        if let Some(cache) = &self.cache
+            && let Err(e) = cache.update(&package_name, &response)
+        {
+            tracing::warn!(
+                package_name,
+                error = &*e,
+                "An error occurred while caching the GraphQL response",
+            );
         }
 
         matching_package_summaries(
@@ -697,16 +697,11 @@ pub struct WebQueryGetPackageVersion {
     pub v3: WebQueryGetPackageVersionDistribution,
 }
 
-#[derive(Debug, serde::Serialize, serde::Deserialize, Clone)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, Clone, Default)]
 pub enum WebCVersion {
+    #[default]
     V2,
     V3,
-}
-
-impl Default for WebCVersion {
-    fn default() -> Self {
-        Self::V2
-    }
 }
 
 impl From<WebCVersion> for webc::Version {

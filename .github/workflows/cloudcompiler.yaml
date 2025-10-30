@@ -2,7 +2,7 @@ name: Release cloudcompiler.wasm
 
 env:
   RUST_BACKTRACE: 1
-  MSRV: "1.87"
+  MSRV: "1.88"
 
 on:
   push:

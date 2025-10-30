@@ -17,7 +17,7 @@ use wasmer_types::{
 };
 
 use crate::{
-    arm64_decl::{GPR, NEON, new_machine_state},
+    arm64_decl::{GPR, NEON},
     codegen_error,
     common_decl::*,
     emitter_arm64::*,
@@ -1328,12 +1328,6 @@ impl Machine for MachineARM64 {
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
-    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: NEON) -> RegisterIndex {
-        RegisterIndex(x as usize + 32)
-    }
 
     fn get_vmctx_reg(&self) -> GPR {
         GPR::X28
@@ -2182,10 +2176,6 @@ impl Machine for MachineARM64 {
     // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
-    }
-    // Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
     }
 
     // assembler finalize

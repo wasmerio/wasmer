@@ -14,6 +14,7 @@ use dialoguer::{Confirm, Select, theme::ColorfulTheme};
 use futures::stream::TryStreamExt;
 use indexmap::IndexMap;
 use is_terminal::IsTerminal;
+use path_clean::PathClean;
 use wasmer_backend_api::{
     WasmerClient,
     types::{AppTemplate, TemplateLanguage},
@@ -406,11 +407,11 @@ impl CmdAppCreate {
             None => return Ok(Vec::new()),
         };
 
-        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
-            if a == b {
-                // Cached items are up to date, no need to query more.
-                return Ok(cached_items);
-            }
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first())
+            && a == b
+        {
+            // Cached items are up to date, no need to query more.
+            return Ok(cached_items);
         }
 
         let mut items = first_page;
@@ -488,11 +489,11 @@ impl CmdAppCreate {
             None => return Ok(Vec::new()),
         };
 
-        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first()) {
-            if a == b {
-                // Cached items are up to date, no need to query more.
-                return Ok(cached_items);
-            }
+        if let (Some(a), Some(b)) = (cached_items.first(), first_page.first())
+            && a == b
+        {
+            // Cached items are up to date, no need to query more.
+            return Ok(cached_items);
         }
 
         let mut items = first_page;
@@ -517,15 +518,20 @@ impl CmdAppCreate {
     }
 
     // A utility function used to fetch the URL of the template to use.
-    async fn get_template_url(&self, client: &WasmerClient) -> anyhow::Result<url::Url> {
-        let mut url = if let Some(template) = &self.template {
+    async fn get_template_url(
+        &self,
+        client: &WasmerClient,
+    ) -> anyhow::Result<(url::Url, Option<PathBuf>)> {
+        let (mut url, selected_template): (url::Url, Option<AppTemplate>) = if let Some(template) =
+            &self.template
+        {
             if let Ok(url) = url::Url::parse(template) {
-                url
+                (url, None)
             } else if let Some(template) =
                 wasmer_backend_api::query::fetch_app_template_from_slug(client, template.clone())
                     .await?
             {
-                url::Url::parse(&template.repo_url)?
+                (url::Url::parse(&template.repo_url)?, Some(template))
             } else {
                 anyhow::bail!("Template '{template}' not found in the registry")
             }
@@ -604,18 +610,36 @@ impl CmdAppCreate {
                 )
             }
 
-            url::Url::parse(&selected_template.repo_url)?
+            (
+                url::Url::parse(&selected_template.repo_url)?,
+                Some(selected_template.clone()),
+            )
         };
 
         let url = if url.path().contains("archive/refs/heads") || url.path().contains("/zipball/") {
             url
         } else {
             let old_path = url.path();
-            url.set_path(&format!("{old_path}/zipball/main"));
+            let branch = if let Some(ref template) = selected_template {
+                template.branch.clone().unwrap_or("main".to_string())
+            } else {
+                "main".to_string()
+            };
+            url.set_path(&format!("{old_path}/zipball/{branch}"));
             url
         };
 
-        Ok(url)
+        if let Some(ref template) = selected_template {
+            if let Some(root_dir) = &template.root_dir {
+                let mut path_root_dir = PathBuf::from(root_dir);
+                if path_root_dir.is_absolute() {
+                    path_root_dir = path_root_dir.strip_prefix("/")?.to_path_buf();
+                }
+                return Ok((url, Some(path_root_dir)));
+            }
+        }
+
+        Ok((url, None))
     }
 
     async fn create_from_template(
@@ -626,12 +650,17 @@ impl CmdAppCreate {
     ) -> anyhow::Result<bool> {
         let client = match client {
             Some(client) => client,
-            None => anyhow::bail!("Cannot"),
+            None => anyhow::bail!("Cannot create app from template in offline mode"),
         };
 
-        let url = self.get_template_url(client).await?;
-
-        tracing::info!("Downloading template from url {url}");
+        let (url, mut root_dir) = self.get_template_url(client).await?;
+        root_dir = root_dir.map(|v| v.clean());
+        let root_dir_str = if let Some(ref root_dir) = root_dir {
+            root_dir.display().to_string()
+        } else {
+            "./".to_string()
+        };
+        tracing::info!("Downloading template from url {url}, using root dir {root_dir_str}");
 
         let output_path = self.get_output_dir(app_name).await?;
         let pb = indicatif::ProgressBar::new_spinner();
@@ -643,16 +672,17 @@ impl CmdAppCreate {
                 .tick_strings(&["✶", "✸", "✹", "✺", "✹", "✷"]),
         );
 
-        pb.set_message("Downloading package..");
+        pb.set_message("Downloading template...");
 
         let response = reqwest::get(url).await?;
         let bytes = response.bytes().await?;
-        pb.set_message("Unpacking the template..");
+        pb.set_message("Unpacking the template...");
 
         let cursor = Cursor::new(bytes);
         let mut archive = zip::ZipArchive::new(cursor)?;
 
         // Extract the files to the output path
+        // If root dir is specified, extract only the files inside of the root dir
         for entry in 0..archive.len() {
             let mut entry = archive
                 .by_index(entry)
@@ -660,22 +690,30 @@ impl CmdAppCreate {
 
             let path = entry.mangled_name();
 
-            let path: PathBuf = {
+            // We skip the top-level directory, as Github archives always contain a top-level directory
+            // named after the repository name and latest commit hash.
+            let mut path: PathBuf = {
                 let mut components = path.components();
                 components.next();
                 components.collect()
             };
 
-            if path.to_str().unwrap_or_default().contains(".github") {
-                continue;
+            tracing::info!("Extracting file {path:?}");
+
+            if let Some(ref root_dir) = root_dir {
+                if !path.clean().starts_with(root_dir) {
+                    continue;
+                } else {
+                    path = path.strip_prefix(root_dir)?.to_path_buf();
+                }
             }
 
             let path = output_path.join(path);
 
-            if let Some(parent) = path.parent() {
-                if !parent.exists() {
-                    std::fs::create_dir_all(parent)?;
-                }
+            if let Some(parent) = path.parent()
+                && !parent.exists()
+            {
+                std::fs::create_dir_all(parent)?;
             }
 
             if !path.exists() {

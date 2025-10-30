@@ -470,15 +470,15 @@ impl WasiThread {
 
                 // Output debug info for the dead stack
                 let mut disown = Some(Box::new(new_stack));
-                if let Some(disown) = disown.as_ref() {
-                    if !disown.snapshots.is_empty() {
-                        tracing::trace!(
-                            "wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})",
-                            self.pid(),
-                            memory_stack_before,
-                            memory_stack_after
-                        );
-                    }
+                if let Some(disown) = disown.as_ref()
+                    && !disown.snapshots.is_empty()
+                {
+                    tracing::trace!(
+                        "wasi[{}]::stacks forgotten (memory_stack_before={}, memory_stack_after={})",
+                        self.pid(),
+                        memory_stack_before,
+                        memory_stack_after
+                    );
                 }
                 let mut total_forgotten = 0usize;
                 while let Some(disowned) = disown {

@@ -7,7 +7,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::*,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
-    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM, new_machine_state},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
 use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
@@ -35,27 +35,27 @@ pub struct AssemblerX64 {
     pub inner: Assembler,
     /// the simd instructions set on the target.
     /// Currently only supports SSE 4.2 and AVX
-    pub simd_arch: Option<CpuFeature>,
+    pub simd_arch: CpuFeature,
     /// Full Target cpu
     pub target: Option<Target>,
 }
 
 impl AssemblerX64 {
     fn new(baseaddr: usize, target: Option<Target>) -> Result<Self, CompileError> {
-        let simd_arch = if target.is_none() {
-            Some(CpuFeature::SSE42)
-        } else {
-            let target = target.as_ref().unwrap();
-            if target.cpu_features().contains(CpuFeature::AVX) {
-                Some(CpuFeature::AVX)
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                Some(CpuFeature::SSE42)
-            } else {
-                return Err(CompileError::UnsupportedTarget(
-                    "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
-                ));
-            }
-        };
+        let simd_arch = target.as_ref().map_or_else(
+            || Ok(CpuFeature::SSE42),
+            |target| {
+                if target.cpu_features().contains(CpuFeature::AVX) {
+                    Ok(CpuFeature::AVX)
+                } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                    Ok(CpuFeature::SSE42)
+                } else {
+                    Err(CompileError::UnsupportedTarget(
+                        "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
+                    ))
+                }
+            },
+        )?;
 
         Ok(Self {
             inner: Assembler::new(baseaddr),
@@ -1963,12 +1963,6 @@ impl Machine for MachineX86_64 {
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
-    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: XMM) -> RegisterIndex {
-        RegisterIndex(x as usize + 16)
-    }
 
     fn get_vmctx_reg(&self) -> GPR {
         GPR::R15
@@ -2473,10 +2467,6 @@ impl Machine for MachineX86_64 {
     // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(Size::S64, location)
-    }
-    // Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
     }
 
     // assembler finalize

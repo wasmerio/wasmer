@@ -19,7 +19,7 @@ cynic = "3.4.3"
 url.workspace = true
 futures = "0.3.30"
 tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "sync", "time", "fs"] }
-clap = {version = "4.4.11", features = ["derive", "string"]}
+clap = {workspace = true, features = ["derive", "string"]}
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 serde.workspace = true

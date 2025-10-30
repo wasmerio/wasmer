@@ -309,16 +309,14 @@ impl WasmerCmd {
                         | clap::error::ErrorKind::UnknownArgument
                 ) && !first_arg_is_subcommand;
 
-                if might_be_wasmer_run {
-                    if let Ok(run) = Run::try_parse_from(args_vec.iter()) {
-                        // Try to parse the command using the `wasmer some/package`
-                        // shorthand. Note that this has discoverability issues
-                        // because it's not shown as part of the main argument
-                        // parser's help, but that's fine.
-                        let output = crate::logging::Output::default();
-                        output.initialize_logging();
-                        run.execute(output);
-                    }
+                if might_be_wasmer_run && let Ok(run) = Run::try_parse_from(args_vec.iter()) {
+                    // Try to parse the command using the `wasmer some/package`
+                    // shorthand. Note that this has discoverability issues
+                    // because it's not shown as part of the main argument
+                    // parser's help, but that's fine.
+                    let output = crate::logging::Output::default();
+                    output.initialize_logging();
+                    run.execute(output);
                 }
 
                 e.exit();

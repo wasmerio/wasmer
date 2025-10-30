@@ -700,12 +700,11 @@ fn tempdir() -> Result<TempDir, std::io::Error> {
         // directory is immutable, so let's try to use the current exe's
         // directory as our tempdir.
         // See also: https://github.com/wasmerio/wasmer/blob/482b78890b789f6867a91be9f306385e6255b260/lib/wasix/src/syscalls/wasi/path_create_directory.rs#L30-L32
-        if let Ok(current_exe) = std::env::current_exe() {
-            if let Some(parent) = current_exe.parent() {
-                if let Ok(temp) = TempDir::new_in(parent) {
-                    return Ok(temp);
-                }
-            }
+        if let Ok(current_exe) = std::env::current_exe()
+            && let Some(parent) = current_exe.parent()
+            && let Ok(temp) = TempDir::new_in(parent)
+        {
+            return Ok(temp);
         }
 
         // Oh well, this will probably fail, but at least we tried.

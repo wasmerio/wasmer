@@ -61,7 +61,7 @@ fn main() -> anyhow::Result<()> {
     // to be passed to the function found in the table.
     let call_via_table: TypedFunction<(i32, i32, i32), i32> = instance
         .exports
-        .get_typed_function(&mut store, "call_callback")?;
+        .get_typed_function(&store, "call_callback")?;
 
     // And then call it with table index 1 and arguments 2 and 7.
     let result = call_via_table.call(&mut store, 1, 2, 7)?;
@@ -72,7 +72,7 @@ fn main() -> anyhow::Result<()> {
     // We then get the table from the instance.
     let guest_table = instance.exports.get_table("__indirect_function_table")?;
     // And demonstrate that it has the properties that we set in the Wasm.
-    assert_eq!(guest_table.size(&mut store), 3);
+    assert_eq!(guest_table.size(&store), 3);
     assert_eq!(
         guest_table.ty(&store),
         TableType {
@@ -106,7 +106,7 @@ fn main() -> anyhow::Result<()> {
     let previous_size = guest_table.grow(&mut store, 3, func.into())?;
     assert_eq!(previous_size, 3);
 
-    assert_eq!(guest_table.size(&mut store), 6);
+    assert_eq!(guest_table.size(&store), 6);
     assert_eq!(
         guest_table.ty(&store),
         TableType {

@@ -91,7 +91,7 @@ impl Function {
                 .map(|(i, param)| jsc_value_to_wasmer(&ctx, param, &args[i]))
                 .collect::<Vec<_>>();
             let results = func(env, &wasm_arguments).map_err(|e| {
-                let value = format!("{}", e);
+                let value = format!("{e}");
                 JSValue::string(&ctx, value)
             })?;
             match new_function_type.results().len() {
