@@ -12,7 +12,6 @@ use crate::{
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
-use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
 use std::{cmp, iter};
 
@@ -39,6 +38,7 @@ use wasmer_types::{
     VMBuiltinFunctionIndex, VMOffsets,
     entity::{EntityRef, PrimaryMap},
 };
+
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.
@@ -235,7 +235,9 @@ struct ControlFrame {
     pub label: Label,
     pub param_types: SmallVec<[WpType; 1]>,
     pub return_types: SmallVec<[WpType; 1]>,
+    /// Value stack depth at the beginning of the frame (including params and results).
     value_stack_depth: usize,
+    /// FP stack depth at the beginning of the frame (including params and results).
     fp_stack_depth: usize,
 }
 
@@ -309,6 +311,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(loc)
     }
 
+    #[allow(clippy::type_complexity)]
+    /// Acquire N locations that will live on the stack.
     fn acquire_locations_on_stack(
         &mut self,
         n: usize,
@@ -500,12 +504,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         param_count: usize,
         return_slots: usize,
     ) -> Result<(), CompileError> {
-        // TODO: document why we use memory slots only
         let param_stack_offset = self.value_stack.len() - param_count;
+        // TODO: we should be fine using an arbitrary location (not only stack slot)
         let locs = self.acquire_locations_on_stack(return_slots)?;
         self.value_stack.extend(locs);
 
-        // Preserve the fp stack
+        // Preserve the fp stack for the existing params.
+        // The FP stack is set-up for the retuns values in handling of the Operator::End.
         for fp in self
             .fp_stack
             .iter_mut()
@@ -515,7 +520,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             fp.depth += return_slots;
         }
 
-        // Move the params to the newly allocated slots
+        // Copy the param values to the newly allocated slots.
         for _ in 0..param_count {
             self.machine.emit_relaxed_mov(
                 Size::S64,
@@ -947,7 +952,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         self.control_stack.push(ControlFrame {
             state: ControlState::Function,
             label: self.machine.get_label(),
-            // TODO:
+            // TODO: just one return value is expected now
             value_stack_depth: return_types.len(),
             fp_stack_depth: 0,
             param_types: smallvec![],
