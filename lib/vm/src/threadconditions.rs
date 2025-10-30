@@ -273,8 +273,7 @@ mod tests {
     #[test]
     fn threadconditions_notify_nowaiters() {
         let mut conditions = ThreadConditions::new();
-        let dst = NotifyLocation { address: 0 };
-        let ret = conditions.do_notify(dst, 1);
+        let ret = conditions.do_notify(0, 1);
         assert_eq!(ret, 0);
     }
 
@@ -286,13 +285,15 @@ mod tests {
         let mut threadcond = conditions.clone();
 
         thread::spawn(move || {
-            let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst, None).unwrap();
+            let dst = NotifyLocation {
+                address: 0,
+                memory_base: std::ptr::null_mut(),
+            };
+            let ret = unsafe { threadcond.do_wait(dst, ExpectedValue::None, None) }.unwrap();
             assert_eq!(ret, 0);
         });
         thread::sleep(Duration::from_millis(10));
-        let dst = NotifyLocation { address: 0 };
-        let ret = conditions.do_notify(dst, 1);
+        let ret = conditions.do_notify(0, 1);
         assert_eq!(ret, 1);
     }
 
@@ -304,15 +305,19 @@ mod tests {
         let mut threadcond = conditions.clone();
 
         thread::spawn(move || {
-            let dst = NotifyLocation { address: 0 };
-            let ret = threadcond
-                .do_wait(dst, Some(Duration::from_millis(1)))
-                .unwrap();
+            let dst = NotifyLocation {
+                address: 0,
+                memory_base: std::ptr::null_mut(),
+            };
+            let ret = unsafe {
+                threadcond
+                    .do_wait(dst, ExpectedValue::None, Some(Duration::from_millis(1)))
+                    .unwrap()
+            };
             assert_eq!(ret, 2);
         });
         thread::sleep(Duration::from_millis(50));
-        let dst = NotifyLocation { address: 0 };
-        let ret = conditions.do_notify(dst, 1);
+        let ret = conditions.do_notify(0, 1);
         assert_eq!(ret, 0);
     }
 
@@ -324,15 +329,19 @@ mod tests {
         let mut threadcond = conditions.clone();
 
         thread::spawn(move || {
-            let dst = NotifyLocation { address: 8 };
-            let ret = threadcond
-                .do_wait(dst, Some(Duration::from_millis(10)))
-                .unwrap();
+            let dst = NotifyLocation {
+                address: 8,
+                memory_base: std::ptr::null_mut(),
+            };
+            let ret = unsafe {
+                threadcond
+                    .do_wait(dst, ExpectedValue::None, Some(Duration::from_millis(10)))
+                    .unwrap()
+            };
             assert_eq!(ret, 2);
         });
         thread::sleep(Duration::from_millis(1));
-        let dst = NotifyLocation { address: 0 };
-        let ret = conditions.do_notify(dst, 1);
+        let ret = conditions.do_notify(0, 1);
         assert_eq!(ret, 0);
         thread::sleep(Duration::from_millis(100));
     }
@@ -346,18 +355,39 @@ mod tests {
         let mut threadcond2 = conditions.clone();
 
         thread::spawn(move || {
-            let dst = NotifyLocation { address: 0 };
-            let ret = threadcond.do_wait(dst, None).unwrap();
+            let dst = NotifyLocation {
+                address: 0,
+                memory_base: std::ptr::null_mut(),
+            };
+            let ret = unsafe { threadcond.do_wait(dst, ExpectedValue::None, None).unwrap() };
             assert_eq!(ret, 0);
         });
         thread::spawn(move || {
-            let dst = NotifyLocation { address: 0 };
-            let ret = threadcond2.do_wait(dst, None).unwrap();
+            let dst = NotifyLocation {
+                address: 0,
+                memory_base: std::ptr::null_mut(),
+            };
+            let ret = unsafe { threadcond2.do_wait(dst, ExpectedValue::None, None).unwrap() };
             assert_eq!(ret, 0);
         });
         thread::sleep(Duration::from_millis(20));
-        let dst = NotifyLocation { address: 0 };
-        let ret = conditions.do_notify(dst, 5);
+        let ret = conditions.do_notify(0, 5);
         assert_eq!(ret, 2);
+    }
+
+    #[test]
+    fn threadconditions_value_mismatch() {
+        let mut conditions = ThreadConditions::new();
+        let mut data: u32 = 42;
+        let dst = NotifyLocation {
+            address: 0,
+            memory_base: (&mut data as *mut u32) as *mut u8,
+        };
+        let ret = unsafe {
+            conditions
+                .do_wait(dst, ExpectedValue::U32(85), Some(Duration::from_millis(10)))
+                .unwrap()
+        };
+        assert_eq!(ret, 1);
     }
 }
