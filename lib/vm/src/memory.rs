@@ -59,13 +59,13 @@ impl WasmMmap {
             })?;
         let prev_pages = self.size;
 
-        if let Some(maximum) = conf.maximum {
-            if new_pages > maximum {
-                return Err(MemoryError::CouldNotGrow {
-                    current: self.size,
-                    attempted_delta: delta,
-                });
-            }
+        if let Some(maximum) = conf.maximum
+            && new_pages > maximum
+        {
+            return Err(MemoryError::CouldNotGrow {
+                current: self.size,
+                attempted_delta: delta,
+            });
         }
 
         // Wasm linear memories are never allowed to grow beyond what is

@@ -40,7 +40,7 @@ impl MetadataHeader {
 
     /// Parses the header and returns the length of the metadata following it.
     pub fn parse(bytes: &[u8]) -> Result<usize, DeserializeError> {
-        if bytes.as_ptr() as usize % 8 != 0 {
+        if !(bytes.as_ptr() as usize).is_multiple_of(8) {
             return Err(DeserializeError::CorruptedBinary(
                 "misaligned metadata".to_string(),
             ));

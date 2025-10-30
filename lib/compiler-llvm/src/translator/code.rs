@@ -102,7 +102,7 @@ impl FuncTranslator {
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
-    ) -> Result<Module, CompileError> {
+    ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);

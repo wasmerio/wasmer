@@ -145,23 +145,23 @@ impl BinFactory {
         }
 
         // Check the filesystem for the file
-        if name.starts_with('/') {
-            if let Some(fs) = fs {
-                match load_executable_from_filesystem(fs, name.as_ref(), self.runtime()).await {
-                    Ok(executable) => {
-                        if let Executable::BinaryPackage(pkg) = &executable {
-                            cache.insert(name, Some(pkg.clone()));
-                        }
+        if name.starts_with('/')
+            && let Some(fs) = fs
+        {
+            match load_executable_from_filesystem(fs, name.as_ref(), self.runtime()).await {
+                Ok(executable) => {
+                    if let Executable::BinaryPackage(pkg) = &executable {
+                        cache.insert(name, Some(pkg.clone()));
+                    }
 
-                        return Some(executable);
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            path = name,
-                            error = &*e,
-                            "Unable to load the package from disk"
-                        );
-                    }
+                    return Some(executable);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        path = name,
+                        error = &*e,
+                        "Unable to load the package from disk"
+                    );
                 }
             }
         }

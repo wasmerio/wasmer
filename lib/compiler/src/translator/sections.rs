@@ -14,7 +14,6 @@
 use super::environ::ModuleEnvironment;
 use super::error::from_binaryreadererror_wasmerror;
 use super::state::ModuleTranslationState;
-use crate::wasm_unsupported;
 use std::boxed::Box;
 use std::vec::Vec;
 use wasmer_types::entity::EntityRef;

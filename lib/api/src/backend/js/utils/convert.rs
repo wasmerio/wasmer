@@ -236,7 +236,7 @@ impl AsJs for Instance {
     ) -> Result<Self, JsError> {
         let js_instance: js_sys::WebAssembly::Instance = value.clone().into();
         let (instance, exports) = JsInstance::from_module_and_instance(store, module, js_instance)
-            .map_err(|e| JsError::new(&format!("Can't get the instance: {:?}", e)))?;
+            .map_err(|e| JsError::new(&format!("Can't get the instance: {e:?}")))?;
         Ok(Self {
             _inner: crate::BackendInstance::Js(instance),
             module: module.clone(),
@@ -264,8 +264,7 @@ impl AsJs for Memory {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Memory, but received {:?}",
-                value
+                "Extern expect to be of type Memory, but received {value:?}",
             )))
         }
     }
@@ -293,8 +292,7 @@ impl AsJs for Function {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Function, but received {:?}",
-                value
+                "Extern expect to be of type Function, but received {value:?}",
             )))
         }
     }
@@ -321,8 +319,7 @@ impl AsJs for Tag {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Tag, but received {:?}",
-                value
+                "Extern expect to be of type Tag, but received {value:?}",
             )))
         }
     }
@@ -350,8 +347,7 @@ impl AsJs for Global {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Global, but received {:?}",
-                value
+                "Extern expect to be of type Global, but received {value:?}",
             )))
         }
     }
@@ -379,8 +375,7 @@ impl AsJs for Table {
             ))
         } else {
             Err(JsError::new(&format!(
-                "Extern expect to be of type Table, but received {:?}",
-                value
+                "Extern expect to be of type Table, but received {value:?}",
             )))
         }
     }

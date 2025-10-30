@@ -252,10 +252,10 @@ pub fn build(wasi_versions: &[WasiVersion], specific_tests: &[&str]) {
             Ok(path) => {
                 let test = path.to_str().unwrap();
                 if !specific_tests.is_empty() {
-                    if let Some(filename) = path.file_stem().and_then(|f| f.to_str()) {
-                        if specific_tests.contains(&filename) {
-                            compile(temp_dir.path(), test, wasi_versions);
-                        }
+                    if let Some(filename) = path.file_stem().and_then(|f| f.to_str())
+                        && specific_tests.contains(&filename)
+                    {
+                        compile(temp_dir.path(), test, wasi_versions);
                     }
                 } else {
                     compile(temp_dir.path(), test, wasi_versions);

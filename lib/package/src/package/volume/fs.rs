@@ -555,13 +555,11 @@ mod tests {
         let error = result.unwrap_err();
         assert!(
             error.to_string().contains("Unable to add"),
-            "Error message should indicate failure to add path: {}",
-            error
+            "Error message should indicate failure to add path: {error}",
         );
         assert!(
             error.to_string().contains("non_existent_dir"),
-            "Error message should include the problematic path: {}",
-            error
+            "Error message should include the problematic path: {error}",
         );
     }
 }

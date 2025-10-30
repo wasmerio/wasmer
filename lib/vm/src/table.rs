@@ -124,13 +124,13 @@ impl VMTable {
                     ));
                 }
             };
-            if let Some(max) = table.maximum {
-                if max < table.minimum {
-                    return Err(format!(
-                        "Table minimum ({}) is larger than maximum ({})!",
-                        table.minimum, max
-                    ));
-                }
+            if let Some(max) = table.maximum
+                && max < table.minimum
+            {
+                return Err(format!(
+                    "Table minimum ({}) is larger than maximum ({})!",
+                    table.minimum, max
+                ));
             }
             let table_minimum = usize::try_from(table.minimum)
                 .map_err(|_| "Table minimum is bigger than usize".to_string())?;
