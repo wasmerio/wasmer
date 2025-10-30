@@ -3747,7 +3747,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     for (i, ty) in frame.return_types.iter().enumerate() {
                         if ty.is_float() {
                             self.fp_stack.push(FloatValue::new(
-                                self.value_stack.len() - (frame.return_types.len() - i - 1),
+                                self.value_stack.len() - (frame.return_types.len() - i - 1) - 1,
                             ));
                         }
                     }
