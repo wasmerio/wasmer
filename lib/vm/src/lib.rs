@@ -14,6 +14,7 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+mod continuation;
 mod exception;
 mod export;
 mod extern_ref;
@@ -35,6 +36,7 @@ pub mod libcalls;
 
 use std::ptr::NonNull;
 
+pub use crate::continuation::{VMContinuation, VMContinuationRef};
 pub use crate::exception::{VMExceptionObj, VMExceptionRef};
 pub use crate::export::*;
 pub use crate::extern_ref::{VMExternObj, VMExternRef};
