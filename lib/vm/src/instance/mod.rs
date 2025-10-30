@@ -841,14 +841,13 @@ impl Instance {
         } else {
             Some(std::time::Duration::from_nanos(timeout as u64))
         };
-        let res = match unsafe { memory.do_wait(dst, expected, timeout) } {
+        match unsafe { memory.do_wait(dst, expected, timeout) } {
             Ok(count) => Ok(count),
             Err(_err) => {
                 // ret is None if there is more than 2^32 waiter in queue or some other error
                 Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
             }
-        };
-        res
+        }
     }
 
     /// Perform an Atomic.Wait32
