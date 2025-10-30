@@ -862,7 +862,7 @@ where
     ///
     /// # Safety
     /// the destination address must be a valid offset within this memory. It must also
-    /// must be properly aligned for the expected value type; either 4-byte aligned for
+    /// be properly aligned for the expected value type; either 4-byte aligned for
     /// `ExpectedValue::U32` or 8-byte aligned for `ExpectedValue::u64`.
     unsafe fn do_wait(
         &mut self,
