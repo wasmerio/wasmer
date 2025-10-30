@@ -81,6 +81,12 @@ impl Default for MultiRegistry {
     }
 }
 
+#[derive(Deserialize, Serialize, Debug, PartialEq, Eq, Clone)]
+pub struct Registry {
+    pub url: String,
+    pub token: Option<String>,
+}
+
 pub fn format_graphql(registry: &str) -> String {
     if let Ok(mut url) = Url::parse(registry) {
         // Looks like we've got a valid URL. Let's try to use it as-is.

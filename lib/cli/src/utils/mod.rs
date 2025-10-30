@@ -6,9 +6,14 @@ pub(crate) mod render;
 pub(crate) mod timestamp;
 pub(crate) mod unpack;
 
-use std::path::{Path, PathBuf};
+use std::{
+    path::{Path, PathBuf},
+    str::FromStr,
+};
 
 use anyhow::{Context as _, Result, bail};
+use once_cell::sync::Lazy;
+use regex::Regex;
 use wasmer_wasix::runners::MappedDirectory;
 
 fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<MappedDirectory> {
@@ -103,6 +108,78 @@ pub fn load_package_manifest(
     })?;
 
     Ok(Some((file_path, manifest)))
+}
+
+/// The identifier for an app or package in the form, `owner/package@version`,
+/// where the `owner` and `version` are optional.
+#[derive(Debug, Clone, PartialEq)]
+pub(crate) struct Identifier {
+    /// The package's name.
+    pub name: String,
+    /// The package's owner, typically a username or namespace.
+    pub owner: Option<String>,
+    /// The package's version number.
+    pub version: Option<String>,
+}
+
+impl Identifier {
+    pub fn new(name: impl Into<String>) -> Self {
+        Identifier {
+            name: name.into(),
+            owner: None,
+            version: None,
+        }
+    }
+
+    pub fn with_owner(self, owner: impl Into<String>) -> Self {
+        Identifier {
+            owner: Some(owner.into()),
+            ..self
+        }
+    }
+
+    pub fn with_version(self, version: impl Into<String>) -> Self {
+        Identifier {
+            version: Some(version.into()),
+            ..self
+        }
+    }
+}
+
+impl FromStr for Identifier {
+    type Err = anyhow::Error;
+
+    fn from_str(s: &str) -> Result<Self, Self::Err> {
+        const PATTERN: &str = r"^(?x)
+            (?:
+                (?P<owner>[a-zA-Z][\w\d_.-]*)
+                /
+            )?
+            (?P<name>[a-zA-Z][\w\d_.-]*)
+            (?:
+                @
+                (?P<version>[\w\d.]+)
+            )?
+            $
+        ";
+        static RE: Lazy<Regex> = Lazy::new(|| Regex::new(PATTERN).unwrap());
+
+        let caps = RE.captures(s).context(
+            "Invalid package identifier, expected something like namespace/package@version",
+        )?;
+
+        let mut identifier = Identifier::new(&caps["name"]);
+
+        if let Some(owner) = caps.name("owner") {
+            identifier = identifier.with_owner(owner.as_str());
+        }
+
+        if let Some(version) = caps.name("version") {
+            identifier = identifier.with_version(version.as_str());
+        }
+
+        Ok(identifier)
+    }
 }
 
 /// Merge two yaml values by recursively merging maps from b into a.
