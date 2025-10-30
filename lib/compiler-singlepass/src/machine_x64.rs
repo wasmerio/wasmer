@@ -7,7 +7,7 @@ use crate::{
     location::{Location as AbstractLocation, Reg},
     machine::*,
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
-    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM, new_machine_state},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
 use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
@@ -1963,12 +1963,6 @@ impl Machine for MachineX86_64 {
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
     }
-    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: XMM) -> RegisterIndex {
-        RegisterIndex(x as usize + 16)
-    }
 
     fn get_vmctx_reg(&self) -> GPR {
         GPR::R15
@@ -2473,10 +2467,6 @@ impl Machine for MachineX86_64 {
     // Pop a location
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(Size::S64, location)
-    }
-    // Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
     }
 
     // assembler finalize

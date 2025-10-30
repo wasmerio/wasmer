@@ -78,8 +78,6 @@ pub struct FuncGen<'a, M: Machine> {
 
     save_area_offset: Option<MachineStackOffset>,
 
-    state: MachineState,
-
     /// Low-level machine state.
     machine: M,
 
@@ -277,7 +275,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     /// Otherwise, if the returned locations is used for a local, `release_location` does not need to be called on it.
     fn acquire_location(&mut self, ty: &WpType) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
         let mut delta_stack_offset: usize = 0;
-        let machine_value = MachineValue::WasmStack(self.value_stack.len());
 
         let loc = match *ty {
             WpType::F32 | WpType::F64 => self.machine.pick_simd().map(Location::SIMD),
@@ -297,14 +294,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
         if let Location::GPR(x) = loc {
             self.machine.reserve_gpr(x);
-            self.state.register_values[self.machine.index_from_gpr(x).0] = machine_value.clone();
         } else if let Location::SIMD(x) = loc {
             self.machine.reserve_simd(x);
-            self.state.register_values[self.machine.index_from_simd(x).0] = machine_value.clone();
-        } else {
-            self.state.stack_values.push(machine_value.clone());
         }
-        self.state.wasm_stack.push(WasmAbstractValue::Runtime);
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
@@ -324,13 +316,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             match *loc {
                 Location::GPR(ref x) => {
                     self.machine.release_gpr(*x);
-                    self.state.register_values[self.machine.index_from_gpr(*x).0] =
-                        MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
                     self.machine.release_simd(*x);
-                    self.state.register_values[self.machine.index_from_simd(*x).0] =
-                        MachineValue::Undefined;
                 }
                 Location::Memory(y, x) => {
                     if y == self.machine.local_pointer() {
@@ -347,18 +335,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                         self.stack_offset.0 -= 8;
                         delta_stack_offset += 8;
-                        self.state
-                            .stack_values
-                            .pop()
-                            .ok_or_else(|| CompileError::Codegen("Empty stack_value".to_owned()))?;
                     }
                 }
                 _ => {}
             }
-            self.state
-                .wasm_stack
-                .pop()
-                .ok_or_else(|| CompileError::Codegen("Pop with wasm stack empty".to_owned()))?;
         }
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
@@ -375,13 +355,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             match *loc {
                 Location::GPR(ref x) => {
                     self.machine.release_gpr(*x);
-                    self.state.register_values[self.machine.index_from_gpr(*x).0] =
-                        MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
                     self.machine.release_simd(*x);
-                    self.state.register_values[self.machine.index_from_simd(*x).0] =
-                        MachineValue::Undefined;
                 }
                 Location::Memory(y, x) => {
                     if y == self.machine.local_pointer() {
@@ -398,17 +374,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                         self.stack_offset.0 -= 8;
                         delta_stack_offset += 8;
-                        self.state.stack_values.pop().ok_or_else(|| {
-                            CompileError::Codegen("Pop with values stack empty".to_owned())
-                        })?;
                     }
                 }
                 _ => {}
             }
-            self.state
-                .wasm_stack
-                .pop()
-                .ok_or_else(|| CompileError::Codegen("Pop with wasm stack empty".to_owned()))?;
         }
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
@@ -426,17 +395,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             match *loc {
                 Location::GPR(ref x) => {
                     self.machine.release_gpr(*x);
-                    self.state.register_values[self.machine.index_from_gpr(*x).0] =
-                        MachineValue::Undefined;
                 }
                 Location::SIMD(ref x) => {
                     self.machine.release_simd(*x);
-                    self.state.register_values[self.machine.index_from_simd(*x).0] =
-                        MachineValue::Undefined;
                 }
                 _ => {}
             }
-            // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
         Ok(())
     }
@@ -459,29 +423,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                     self.stack_offset.0 -= 8;
                     delta_stack_offset += 8;
-                    self.state.stack_values.pop().ok_or_else(|| {
-                        CompileError::Codegen("Pop on empty value stack".to_owned())
-                    })?;
                 }
             }
-            // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.pop_stack_locals(delta_stack_offset as u32)?;
         }
-        Ok(())
-    }
-
-    fn release_locations_only_osr_state(&mut self, n: usize) -> Result<(), CompileError> {
-        let new_length = self
-            .state
-            .wasm_stack
-            .len()
-            .checked_sub(n)
-            .expect("release_locations_only_osr_state: length underflow");
-        self.state.wasm_stack.truncate(new_length);
         Ok(())
     }
 
@@ -573,12 +522,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Save callee-saved registers.
         for loc in locations.iter() {
-            if let Location::GPR(x) = *loc {
+            if let Location::GPR(_) = *loc {
                 self.stack_offset.0 += 8;
                 self.machine.move_local(self.stack_offset.0 as i32, *loc)?;
-                self.state.stack_values.push(MachineValue::PreserveRegister(
-                    self.machine.index_from_gpr(x),
-                ));
             }
         }
 
@@ -588,9 +534,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.stack_offset.0 as i32,
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
-        self.state.stack_values.push(MachineValue::PreserveRegister(
-            self.machine.index_from_gpr(self.machine.get_vmctx_reg()),
-        ));
 
         // Check if need to same some CallingConvention specific regs
         let regs_to_save = self.machine.list_to_save(calling_convention);
@@ -601,20 +544,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Save the offset of register save area.
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
-
-        // Save location information for locals.
-        for (i, loc) in locations.iter().enumerate() {
-            match *loc {
-                Location::GPR(x) => {
-                    self.state.register_values[self.machine.index_from_gpr(x).0] =
-                        MachineValue::WasmLocal(i);
-                }
-                Location::Memory(_, _) => {
-                    self.state.stack_values.push(MachineValue::WasmLocal(i));
-                }
-                _ => codegen_error!("singlpass init_local unreachable"),
-            }
-        }
 
         // Load in-register parameters into the allocated locations.
         // Locals are allocated on the stack from higher address to lower address,
@@ -741,9 +670,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         params_type: J,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
-        // Values pushed in this function are above the shadow region.
-        self.state.stack_values.push(MachineValue::ExplicitShadow);
-
         let params: Vec<_> = params.collect();
         let params_size: Vec<_> = params_type
             .map(|x| match x {
@@ -756,31 +682,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
         let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
-        for r in used_gprs.iter() {
-            let content = self.state.register_values[self.machine.index_from_gpr(*r).0].clone();
-            if content == MachineValue::Undefined {
-                return Err(CompileError::Codegen(
-                    "emit_call_native: Undefined used_gprs content".to_owned(),
-                ));
-            }
-            self.state.stack_values.push(content);
-        }
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
         if !used_simds.is_empty() {
             used_stack += self.machine.push_used_simd(&used_simds)?;
-
-            for r in used_simds.iter().rev() {
-                let content =
-                    self.state.register_values[self.machine.index_from_simd(*r).0].clone();
-                if content == MachineValue::Undefined {
-                    return Err(CompileError::Codegen(
-                        "emit_call_native: Undefined used_simds content".to_owned(),
-                    ));
-                }
-                self.state.stack_values.push(content);
-            }
         }
         // mark the GPR used for Call as used
         self.machine
@@ -795,7 +701,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let mut stack_offset: usize = 0;
         let mut args: Vec<Location<M::GPR, M::SIMD>> = vec![];
-        let mut pushed_args: usize = 0;
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
             args.push(self.machine.get_param_location(
@@ -828,40 +733,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     call_movs.push((*param, x));
                 }
                 Location::Memory(_, _) => {
-                    pushed_args += 1;
-                    match *param {
-                        Location::GPR(x) => {
-                            let content = self.state.register_values
-                                [self.machine.index_from_gpr(x).0]
-                                .clone();
-                            // FIXME: There might be some corner cases (release -> emit_call_native -> acquire?) that cause this assertion to fail.
-                            // Hopefully nothing would be incorrect at runtime.
-
-                            //assert!(content != MachineValue::Undefined);
-                            self.state.stack_values.push(content);
-                        }
-                        Location::SIMD(x) => {
-                            let content = self.state.register_values
-                                [self.machine.index_from_simd(x).0]
-                                .clone();
-                            //assert!(content != MachineValue::Undefined);
-                            self.state.stack_values.push(content);
-                        }
-                        Location::Memory(reg, offset) => {
-                            if reg != self.machine.local_pointer() {
-                                return Err(CompileError::Codegen(
-                                    "emit_call_native loc param: unreachable code".to_owned(),
-                                ));
-                            }
-                            self.state
-                                .stack_values
-                                .push(MachineValue::CopyStackBPRelative(offset));
-                            // TODO: Read value at this offset
-                        }
-                        _ => {
-                            self.state.stack_values.push(MachineValue::Undefined);
-                        }
-                    }
                     self.machine
                         .move_location_for_native(params_size[i], *param, loc)?;
                 }
@@ -922,45 +793,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     "emit_call_native: Bad restoring stack alignement".to_owned(),
                 ));
             }
-            for _ in 0..pushed_args {
-                self.state
-                    .stack_values
-                    .pop()
-                    .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
-            }
         }
 
         // Restore SIMDs.
         if !used_simds.is_empty() {
             self.machine.pop_used_simd(&used_simds)?;
-            for _ in 0..used_simds.len() {
-                self.state
-                    .stack_values
-                    .pop()
-                    .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
-            }
         }
 
         // Restore GPRs.
         self.machine.pop_used_gpr(&used_gprs)?;
-        for _ in used_gprs.iter().rev() {
-            self.state
-                .stack_values
-                .pop()
-                .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?;
-        }
 
-        if self
-            .state
-            .stack_values
-            .pop()
-            .ok_or_else(|| CompileError::Codegen("Pop an empty value stack".to_owned()))?
-            != MachineValue::ExplicitShadow
-        {
-            return Err(CompileError::Codegen(
-                "emit_call_native: Popped value is not ExplicitShadow".to_owned(),
-            ));
-        }
         Ok(())
     }
 
@@ -1022,10 +864,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.calling_convention,
         )?;
 
-        // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
-        self.state.register_values[self.machine.index_from_gpr(self.machine.get_vmctx_reg()).0] =
-            MachineValue::Vmctx;
-
         // simulate "red zone" if not supported by the platform
         self.machine.adjust_stack(32)?;
 
@@ -1048,11 +886,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
 
-        if self.state.wasm_inst_offset != usize::MAX {
-            return Err(CompileError::Codegen(
-                "emit_head: wasm_inst_offset not usize::MAX".to_owned(),
-            ));
-        }
         Ok(())
     }
 
@@ -1104,7 +937,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             control_stack: vec![],
             stack_offset: MachineStackOffset(0),
             save_area_offset: None,
-            state: machine.new_machine_state(),
             machine,
             unreachable_depth: 0,
             local_func_index,
@@ -1122,8 +954,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         assert!(self.fp_stack.len() <= self.value_stack.len());
-
-        self.state.wasm_inst_offset = self.state.wasm_inst_offset.wrapping_add(1);
 
         //println!("{:?} {}", op, self.value_stack.len());
         let was_unreachable;
@@ -1316,9 +1146,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             }
             Operator::I32Const { value } => {
                 self.value_stack.push(Location::Imm32(value as u32));
-                self.state
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value as u32 as u64));
             }
             Operator::I32Add => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I32)?;
@@ -1468,7 +1295,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::I64Const { value } => {
                 let value = value as u64;
                 self.value_stack.push(Location::Imm64(value));
-                self.state.wasm_stack.push(WasmAbstractValue::Const(value));
             }
             Operator::I64Add => {
                 let I2O1 { loc_a, loc_b, ret } = self.i2o1_prepare(WpType::I64)?;
@@ -1689,9 +1515,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.value_stack.push(Location::Imm32(value.bits()));
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
-                self.state
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value.bits() as u64));
             }
             Operator::F32Add => {
                 self.fp_stack.pop2()?;
@@ -1877,9 +1700,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.value_stack.push(Location::Imm64(value.bits()));
                 self.fp_stack
                     .push(FloatValue::new(self.value_stack.len() - 1));
-                self.state
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value.bits()));
             }
             Operator::F64Add => {
                 self.fp_stack.pop2()?;
@@ -2373,8 +2193,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .collect();
                 self.release_locations_only_regs(&params)?;
 
-                self.release_locations_only_osr_state(params.len())?;
-
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
                 // Canonicalization state will be lost across function calls, so early canonicalization
@@ -2602,8 +2420,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::GPR(gpr_for_call),
                     )?;
                 }
-
-                self.release_locations_only_osr_state(params.len())?;
 
                 let vmcaller_checked_anyfunc_func_ptr =
                     self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize;
@@ -2893,9 +2709,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
-
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -2977,9 +2790,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
-
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -3030,9 +2840,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
-
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -3069,8 +2876,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ),
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
-
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
@@ -5570,7 +5375,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
             Operator::RefNull { .. } => {
                 self.value_stack.push(Location::Imm64(0));
-                self.state.wasm_stack.push(WasmAbstractValue::Const(0));
             }
             Operator::RefFunc { function_index } => {
                 self.machine.move_location(
@@ -5584,8 +5388,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: unclear if we need this? check other new insts with no stack ops
-                //.machine.release_locations_only_osr_state(1);
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5636,8 +5438,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 2?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5674,7 +5474,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5758,8 +5557,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 2?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5807,8 +5604,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5856,8 +5651,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5890,8 +5683,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5933,8 +5724,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: do we need this?
-                //.machine.release_locations_only_osr_state(1);
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -5974,9 +5763,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ),
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
@@ -6035,9 +5821,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
 
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
-
                 self.emit_call_native(
                     |this| {
                         this.machine
@@ -6093,9 +5876,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     ),
                     Location::GPR(self.machine.get_grp_for_call()),
                 )?;
-
-                // TODO: should this be 3?
-                self.release_locations_only_osr_state(1)?;
 
                 self.emit_call_native(
                     |this| {
