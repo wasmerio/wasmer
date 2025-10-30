@@ -240,7 +240,7 @@ pub struct ControlFrame<M: Machine> {
     pub fp_stack_depth: usize,
 }
 
-fn type_to_wp_type(ty: Type) -> WpType {
+fn type_to_wp_type(ty: &Type) -> WpType {
     match ty {
         Type::I32 => WpType::I32,
         Type::I64 => WpType::I64,
@@ -899,7 +899,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .signature
                 .results()
                 .iter()
-                .map(|&x| type_to_wp_type(x))
+                .map(type_to_wp_type)
                 .collect(),
             // TODO
             return_slots: smallvec![Location::GPR(self.machine.get_gpr_for_ret())],
@@ -932,11 +932,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let sig_index = module.functions[func_index];
         let signature = module.signatures[sig_index].clone();
 
-        let mut local_types: Vec<_> = signature
-            .params()
-            .iter()
-            .map(|&x| type_to_wp_type(x))
-            .collect();
+        let mut local_types: Vec<_> = signature.params().iter().map(type_to_wp_type).collect();
         local_types.extend_from_slice(local_types_excluding_arguments);
 
         let mut machine = machine;
@@ -1081,7 +1077,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.module.signatures[SignatureIndex::from_u32(sig_index)]
                         .results()
                         .iter()
-                        .map(|&ty| type_to_wp_type(ty)),
+                        .map(type_to_wp_type),
                 ),
             }
         };
@@ -1099,7 +1095,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::GlobalGet { global_index } => {
                 let global_index = GlobalIndex::from_u32(global_index);
 
-                let ty = type_to_wp_type(self.module.globals[global_index].ty);
+                let ty = type_to_wp_type(&self.module.globals[global_index].ty);
                 if ty.is_float() {
                     self.fp_stack.push(FloatValue::new(self.value_stack.len()));
                 }
@@ -1160,7 +1156,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     )?;
                     Location::Memory(tmp, 0)
                 };
-                let ty = type_to_wp_type(self.module.globals[global_index].ty);
+                let ty = type_to_wp_type(&self.module.globals[global_index].ty);
                 let loc = self.pop_value_released()?;
                 if ty.is_float() {
                     let fp = self.fp_stack.pop1()?;
@@ -2291,9 +2287,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .unwrap();
                 let sig = self.module.signatures.get(sig_index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
-                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                    sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
-                    sig.results().iter().cloned().map(type_to_wp_type).collect();
+                    sig.results().iter().map(type_to_wp_type).collect();
 
                 let params: SmallVec<[_; 8]> = self
                     .value_stack
@@ -2381,9 +2377,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let index = SignatureIndex::new(type_index as usize);
                 let sig = self.module.signatures.get(index).unwrap();
                 let param_types: SmallVec<[WpType; 8]> =
-                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                    sig.params().iter().map(type_to_wp_type).collect();
                 let return_types: SmallVec<[WpType; 1]> =
-                    sig.results().iter().cloned().map(type_to_wp_type).collect();
+                    sig.results().iter().map(type_to_wp_type).collect();
 
                 let func_index = self.pop_value_released()?;
 
