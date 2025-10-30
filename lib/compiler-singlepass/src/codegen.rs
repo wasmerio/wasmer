@@ -1037,7 +1037,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.emit_relaxed_mov(
                 Size::S64,
                 *stack_value,
-                self.value_stack[value_stack_depth_after - return_values + i],
+                self.value_stack[value_stack_depth_after - i - 1],
             )?;
         }
 
