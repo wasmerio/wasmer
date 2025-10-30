@@ -203,15 +203,15 @@ pub(crate) fn poll_fd_guard(
 ///
 /// Inputs:
 /// - `const __wasi_subscription_t *in`
-///     The events to subscribe to
+///   The events to subscribe to
 /// - `__wasi_event_t *out`
-///     The events that have occured
+///   The events that have occured
 /// - `u32 nsubscriptions`
-///     The number of subscriptions and the number of events
+///   The number of subscriptions and the number of events
 ///
 /// Output:
 /// - `u32 nevents`
-///     The number of events seen
+///   The number of events seen
 pub(crate) fn poll_oneoff_internal<'a, M: MemorySize, After>(
     mut ctx: FunctionEnvMut<'a, WasiEnv>,
     mut subs: Vec<(Option<WasiFd>, PollEventSet, Subscription)>,
