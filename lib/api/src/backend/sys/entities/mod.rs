@@ -1,3 +1,4 @@
+pub mod continuation;
 pub mod engine;
 pub mod exception;
 pub mod external;

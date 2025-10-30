@@ -445,3 +445,5 @@ define_vm_like!(Table, Debug);
 define_vm_like!(ExceptionRef);
 define_vm_like!(ExternRef);
 define_vm_like!(FuncRef);
+
+define_vm_like!(ContinuationRef);
