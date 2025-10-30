@@ -22,8 +22,7 @@ pub struct WasmerEnv {
     #[clap(long, env = "WASMER_CACHE_DIR", default_value = super::DEFAULT_WASMER_CACHE_DIR.as_os_str())]
     pub(crate) cache_dir: PathBuf,
 
-    /// The registry to fetch packages from (inferred from the environment by
-    /// default)
+    /// Change the current registry
     #[clap(long, env = "WASMER_REGISTRY")]
     pub(crate) registry: Option<UserRegistry>,
 
