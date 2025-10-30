@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["GPR","X64Register","XMM"],"fn":["new_machine_state"],"struct":["ArgumentRegisterAllocator"]};
+window.SIDEBAR_ITEMS = {"enum":["GPR","X64Register","XMM"],"struct":["ArgumentRegisterAllocator"]};

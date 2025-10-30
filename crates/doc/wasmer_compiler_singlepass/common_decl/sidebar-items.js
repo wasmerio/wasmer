@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["MachineValue","Size","WasmAbstractValue"],"struct":["MachineState","RegisterIndex"]};
+window.SIDEBAR_ITEMS = {"enum":["Size"]};
