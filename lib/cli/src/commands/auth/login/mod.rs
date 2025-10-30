@@ -356,7 +356,8 @@ mod tests {
             .get_opts()
             .filter(|arg| arg.get_id() != "token")
             .collect();
-        let login_opts: Vec<_> = login.get_opts().collect();
+        // the login opts, skipping the first positional argument (no-browser)
+        let login_opts: Vec<_> = login.get_opts().skip(1).collect();
 
         assert_eq!(wasmer_env_opts, login_opts);
 

@@ -170,6 +170,10 @@ wasm-encoder = { version = "0.235.0", default-features = false, features = [
 	"std",
 ] }
 ignore = "0.4"
+clap = { version = "=4.5.50" }
+clap_builder = { version = "=4.5.50" }
+clap_derive = { version = "=4.5.49" }
+clap_lex = { version = "=0.7.6" }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -185,11 +189,11 @@ wasmer = { version = "=6.1.0", path = "lib/api", features = [
 	"sys",
 ] }
 anyhow = "1.0"
+clap.workspace = true
+clap_builder.workspace = true
+clap_derive.workspace = true
+clap_lex.workspace = true
 criterion = { version = "0.5", features = ["csv_output"] }
-clap = { version = "=4.4.11" }
-clap_builder = { version = "=4.4.11" }
-clap_derive = { version = "=4.4.7" }
-clap_lex = { version = "=0.6.0" }
 serial_test = { version = "2.0", default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile = "3.6.0"
