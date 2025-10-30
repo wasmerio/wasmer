@@ -1069,9 +1069,10 @@ impl VirtualTcpListener for RemoteSocket {
         // receiving a child connection.
         let mut rx_recv = None;
         if let Some((rx_socket, existing_rx_recv)) = self.pending_accept.take()
-            && accepted.socket == rx_socket {
-                rx_recv.replace(existing_rx_recv);
-            }
+            && accepted.socket == rx_socket
+        {
+            rx_recv.replace(existing_rx_recv);
+        }
         let rx_recv = match rx_recv {
             Some(rx_recv) => rx_recv,
             None => {

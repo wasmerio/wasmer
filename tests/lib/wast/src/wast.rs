@@ -147,10 +147,11 @@ impl Wast {
             }
 
             if let Value::V128(bits) = v
-                && let wast::WastRet::Core(WastRetCore::V128(pattern)) = e {
-                    let formatted = v128_format(*bits, pattern);
-                    bail!("expected {e:?}, got {formatted:?} (v128 bits: {bits})");
-                }
+                && let wast::WastRet::Core(WastRetCore::V128(pattern)) = e
+            {
+                let formatted = v128_format(*bits, pattern);
+                bail!("expected {e:?}, got {formatted:?} (v128 bits: {bits})");
+            }
             if let Some(f) = v.f64() {
                 if let wast::WastRet::Core(WastRetCore::F64(wast::core::NanPattern::Value(f1))) = e
                 {

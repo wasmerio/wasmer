@@ -864,12 +864,13 @@ impl Manifest {
 
         if let Some(package) = &self.package
             && let Some(entrypoint) = package.entrypoint.as_deref()
-                && !commands.contains_key(entrypoint) {
-                    return Err(ValidationError::InvalidEntrypoint {
-                        entrypoint: entrypoint.to_string(),
-                        available_commands: commands.keys().map(ToString::to_string).collect(),
-                    });
-                }
+            && !commands.contains_key(entrypoint)
+        {
+            return Err(ValidationError::InvalidEntrypoint {
+                entrypoint: entrypoint.to_string(),
+                available_commands: commands.keys().map(ToString::to_string).collect(),
+            });
+        }
 
         Ok(())
     }

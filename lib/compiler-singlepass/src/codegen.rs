@@ -448,20 +448,22 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for loc in locs.iter().rev() {
             if let Location::Memory(y, x) = *loc
-                && y == self.machine.local_pointer() {
-                    if x >= 0 {
-                        codegen_error!("Invalid memory offset {}", x);
-                    }
-                    let offset = (-x) as usize;
-                    if offset != self.stack_offset.0 {
-                        codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                    }
-                    self.stack_offset.0 -= 8;
-                    delta_stack_offset += 8;
-                    self.state.stack_values.pop().ok_or_else(|| {
-                        CompileError::Codegen("Pop on empty value stack".to_owned())
-                    })?;
+                && y == self.machine.local_pointer()
+            {
+                if x >= 0 {
+                    codegen_error!("Invalid memory offset {}", x);
                 }
+                let offset = (-x) as usize;
+                if offset != self.stack_offset.0 {
+                    codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
+                }
+                self.stack_offset.0 -= 8;
+                delta_stack_offset += 8;
+                self.state
+                    .stack_values
+                    .pop()
+                    .ok_or_else(|| CompileError::Codegen("Pop on empty value stack".to_owned()))?;
+            }
             // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
 
@@ -490,17 +492,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for loc in locs.iter().rev() {
             if let Location::Memory(y, x) = *loc
-                && y == self.machine.local_pointer() {
-                    if x >= 0 {
-                        codegen_error!("Invalid memory offset {}", x);
-                    }
-                    let offset = (-x) as usize;
-                    if offset != stack_offset {
-                        codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                    }
-                    stack_offset -= 8;
-                    delta_stack_offset += 8;
+                && y == self.machine.local_pointer()
+            {
+                if x >= 0 {
+                    codegen_error!("Invalid memory offset {}", x);
                 }
+                let offset = (-x) as usize;
+                if offset != stack_offset {
+                    codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
+                }
+                stack_offset -= 8;
+                delta_stack_offset += 8;
+            }
         }
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
@@ -1141,9 +1144,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     if self.unreachable_depth == 1
                         && let Some(IfElseState::If(_)) =
                             self.control_stack.last().map(|x| x.if_else)
-                        {
-                            self.unreachable_depth -= 1;
-                        }
+                    {
+                        self.unreachable_depth -= 1;
+                    }
                 }
                 _ => {}
             }
@@ -3870,9 +3873,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Drop => {
                 self.pop_value_released()?;
                 if let Some(x) = self.fp_stack.last()
-                    && x.depth == self.value_stack.len() {
-                        self.fp_stack.pop1()?;
-                    }
+                    && x.depth == self.value_stack.len()
+                {
+                    self.fp_stack.pop1()?;
+                }
             }
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
@@ -6214,9 +6218,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         for i in 0..movs.len() {
             for j in (i + 1)..movs.len() {
                 if let Location::GPR(src_gpr) = movs[j].0
-                    && src_gpr == movs[i].1 {
-                        movs.swap(i, j);
-                    }
+                    && src_gpr == movs[i].1
+                {
+                    movs.swap(i, j);
+                }
             }
         }
     }

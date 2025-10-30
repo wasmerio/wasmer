@@ -185,10 +185,12 @@ impl Tty {
                         let now = platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000)
                             .unwrap() as u128;
                         if let Some((what, when)) = self.last.as_ref()
-                            && what.as_str() == data && now - *when < TTY_MOBILE_PAUSE {
-                                self.last = None;
-                                return self;
-                            }
+                            && what.as_str() == data
+                            && now - *when < TTY_MOBILE_PAUSE
+                        {
+                            self.last = None;
+                            return self;
+                        }
                         self.last = Some((data.clone(), now))
                     }
 

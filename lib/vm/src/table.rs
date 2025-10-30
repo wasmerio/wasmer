@@ -125,12 +125,13 @@ impl VMTable {
                 }
             };
             if let Some(max) = table.maximum
-                && max < table.minimum {
-                    return Err(format!(
-                        "Table minimum ({}) is larger than maximum ({})!",
-                        table.minimum, max
-                    ));
-                }
+                && max < table.minimum
+            {
+                return Err(format!(
+                    "Table minimum ({}) is larger than maximum ({})!",
+                    table.minimum, max
+                ));
+            }
             let table_minimum = usize::try_from(table.minimum)
                 .map_err(|_| "Table minimum is bigger than usize".to_string())?;
             let mut vec = vec![RawTableElement::default(); table_minimum];

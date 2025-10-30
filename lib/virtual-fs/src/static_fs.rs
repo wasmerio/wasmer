@@ -211,9 +211,10 @@ fn get_volume_name_opt<P: AsRef<Path>>(path: P) -> Option<String> {
     use std::path::Component::Normal;
     if let Some(Normal(n)) = path.as_ref().components().next()
         && let Some(s) = n.to_str()
-            && s.ends_with(':') {
-                return Some(s.replace(':', ""));
-            }
+        && s.ends_with(':')
+    {
+        return Some(s.replace(':', ""));
+    }
     None
 }
 

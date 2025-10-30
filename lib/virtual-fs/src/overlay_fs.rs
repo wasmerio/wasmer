@@ -211,9 +211,10 @@ where
         // scenario where the secondaries has a parent structure that is not yet in the
         // primary and the primary needs it to create a sub-directory
         if let Some(parent) = path.parent()
-            && self.read_dir(parent).is_ok() {
-                ops::create_dir_all(&self.primary, parent).ok();
-            }
+            && self.read_dir(parent).is_ok()
+        {
+            ops::create_dir_all(&self.primary, parent).ok();
+        }
 
         // Create the directory in the primary
         match self.primary.create_dir(path) {
@@ -526,9 +527,10 @@ where
         if conf.create {
             // Create the parent structure and remove any whiteouts
             if let Some(parent) = path.parent()
-                && ops::exists(self, parent) {
-                    ops::create_dir_all(&self.primary, parent)?;
-                }
+                && ops::exists(self, parent)
+            {
+                ops::create_dir_all(&self.primary, parent)?;
+            }
             ops::remove_white_out(&self.primary, path);
 
             // Create the file in the primary

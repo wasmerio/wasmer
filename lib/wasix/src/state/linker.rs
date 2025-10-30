@@ -1724,37 +1724,38 @@ impl Linker {
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
         if let Ok(linker_state) = self.linker_state.try_read()
-            && let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
-                trace!(?resolution, "Already have a resolution for this symbol");
-                match resolution {
-                    SymbolResolutionResult::FunctionPointer {
-                        function_table_index: addr,
-                        ..
-                    } => {
-                        return Ok(ResolvedExport::Function {
-                            func_ptr: *addr as u64,
-                        });
-                    }
-                    SymbolResolutionResult::Memory(addr) => {
-                        return Ok(ResolvedExport::Global { data_ptr: *addr });
-                    }
-                    SymbolResolutionResult::Tls {
-                        resolved_from,
-                        offset,
-                    } => {
-                        let Some(tls_base) = group_state.tls_base(*resolved_from) else {
-                            return Err(ResolveError::TlsSymbolWithoutTls);
-                        };
-                        return Ok(ResolvedExport::Global {
-                            data_ptr: tls_base + offset,
-                        });
-                    }
-                    r => panic!(
-                        "Internal error: unexpected symbol resolution \
-                        {r:?} for requested symbol {symbol}"
-                    ),
+            && let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key)
+        {
+            trace!(?resolution, "Already have a resolution for this symbol");
+            match resolution {
+                SymbolResolutionResult::FunctionPointer {
+                    function_table_index: addr,
+                    ..
+                } => {
+                    return Ok(ResolvedExport::Function {
+                        func_ptr: *addr as u64,
+                    });
                 }
+                SymbolResolutionResult::Memory(addr) => {
+                    return Ok(ResolvedExport::Global { data_ptr: *addr });
+                }
+                SymbolResolutionResult::Tls {
+                    resolved_from,
+                    offset,
+                } => {
+                    let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+                        return Err(ResolveError::TlsSymbolWithoutTls);
+                    };
+                    return Ok(ResolvedExport::Global {
+                        data_ptr: tls_base + offset,
+                    });
+                }
+                r => panic!(
+                    "Internal error: unexpected symbol resolution \
+                        {r:?} for requested symbol {symbol}"
+                ),
             }
+        }
 
         write_linker_state!(linker_state, self, group_state, ctx);
 
@@ -2867,14 +2868,9 @@ impl InstanceGroupState {
                     resolved_from,
                     function_table_index,
                 } = val
-                {
-                    self.apply_resolved_function(
-                        store,
-                        name,
-                        *resolved_from,
-                        *function_table_index,
-                    )?;
-                }
+            {
+                self.apply_resolved_function(store, name, *resolved_from, *function_table_index)?;
+            }
         }
         Ok(())
     }

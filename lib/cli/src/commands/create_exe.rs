@@ -1658,20 +1658,21 @@ pub(super) mod utils {
         let target = target_triple;
 
         if let Some(tarball_path) = cross_subc.tarball.as_mut()
-            && tarball_path.is_relative() {
-                *tarball_path = starting_cd.join(&tarball_path);
-                if !tarball_path.exists() {
-                    return Err(anyhow!(
-                        "Tarball path `{}` does not exist.",
-                        tarball_path.display()
-                    ));
-                } else if tarball_path.is_dir() {
-                    return Err(anyhow!(
-                        "Tarball path `{}` is a directory.",
-                        tarball_path.display()
-                    ));
-                }
+            && tarball_path.is_relative()
+        {
+            *tarball_path = starting_cd.join(&tarball_path);
+            if !tarball_path.exists() {
+                return Err(anyhow!(
+                    "Tarball path `{}` does not exist.",
+                    tarball_path.display()
+                ));
+            } else if tarball_path.is_dir() {
+                return Err(anyhow!(
+                    "Tarball path `{}` is a directory.",
+                    tarball_path.display()
+                ));
             }
+        }
 
         let zig_binary_path = if !cross_subc.use_system_linker {
             find_zig_binary(cross_subc.zig_binary_path.as_ref().and_then(|p| {
@@ -1777,9 +1778,10 @@ pub(super) mod utils {
         }
 
         if let Architecture::Aarch64(_) = target.architecture
-            && !(filename.contains("aarch64") || filename.contains("arm64")) {
-                return None;
-            }
+            && !(filename.contains("aarch64") || filename.contains("arm64"))
+        {
+            return None;
+        }
 
         if let Architecture::X86_64 = target.architecture {
             if target.operating_system == OperatingSystem::Windows {
@@ -1792,19 +1794,22 @@ pub(super) mod utils {
         }
 
         if let OperatingSystem::Windows = target.operating_system
-            && !filename.contains("windows") {
-                return None;
-            }
+            && !filename.contains("windows")
+        {
+            return None;
+        }
 
         if let OperatingSystem::Darwin(_) = target.operating_system
-            && !(filename.contains("apple") || filename.contains("darwin")) {
-                return None;
-            }
+            && !(filename.contains("apple") || filename.contains("darwin"))
+        {
+            return None;
+        }
 
         if let OperatingSystem::Linux = target.operating_system
-            && !filename.contains("linux") {
-                return None;
-            }
+            && !filename.contains("linux")
+        {
+            return None;
+        }
 
         Some(true)
     }

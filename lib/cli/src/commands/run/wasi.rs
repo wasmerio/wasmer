@@ -819,15 +819,17 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
 
     for credentials in config.registry.tokens {
         if let Ok(url) = Url::parse(&credentials.registry)
-            && url.has_authority() {
-                tokens.insert(url.authority().to_string(), credentials.token);
-            }
+            && url.has_authority()
+        {
+            tokens.insert(url.authority().to_string(), credentials.token);
+        }
     }
 
     if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token())
-        && current_registry.has_authority() {
-            tokens.insert(current_registry.authority().to_string(), token);
-        }
+        && current_registry.has_authority()
+    {
+        tokens.insert(current_registry.authority().to_string(), token);
+    }
 
     // Note: The global wasmer.toml config file stores URLs for the GraphQL
     // endpoint, however that's often on the backend (i.e.
@@ -844,9 +846,10 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
     let mut frontend_tokens = HashMap::new();
     for (hostname, token) in &tokens {
         if let Some(frontend_url) = hostname.strip_prefix("registry.")
-            && !tokens.contains_key(frontend_url) {
-                frontend_tokens.insert(frontend_url.to_string(), token.clone());
-            }
+            && !tokens.contains_key(frontend_url)
+        {
+            frontend_tokens.insert(frontend_url.to_string(), token.clone());
+        }
     }
     tokens.extend(frontend_tokens);
 

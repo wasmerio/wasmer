@@ -120,10 +120,11 @@ impl WasiControlPlane {
     pub(crate) fn register_task(&self) -> Result<TaskCountGuard, ControlPlaneError> {
         let count = self.state.task_count.fetch_add(1, Ordering::SeqCst);
         if let Some(max) = self.state.config.max_task_count
-            && count > max {
-                self.state.task_count.fetch_sub(1, Ordering::SeqCst);
-                return Err(ControlPlaneError::TaskLimitReached { max: count });
-            }
+            && count > max
+        {
+            self.state.task_count.fetch_sub(1, Ordering::SeqCst);
+            return Err(ControlPlaneError::TaskLimitReached { max: count });
+        }
         Ok(TaskCountGuard(self.state.task_count.clone()))
     }
 
@@ -132,11 +133,12 @@ impl WasiControlPlane {
     // Currently they just accumulate.
     pub fn new_process(&self, module_hash: ModuleHash) -> Result<WasiProcess, ControlPlaneError> {
         if let Some(max) = self.state.config.max_task_count
-            && self.active_task_count() >= max {
-                // NOTE: task count is not incremented here, only when new threads are spawned.
-                // A process will always have a main thread.
-                return Err(ControlPlaneError::TaskLimitReached { max });
-            }
+            && self.active_task_count() >= max
+        {
+            // NOTE: task count is not incremented here, only when new threads are spawned.
+            // A process will always have a main thread.
+            return Err(ControlPlaneError::TaskLimitReached { max });
+        }
 
         // Create the process first to do all the allocations before locking.
         let mut proc = WasiProcess::new(WasiProcessId::from(0), module_hash, self.handle());

@@ -119,9 +119,10 @@ where
 {
     fn drop(&mut self) {
         if let SliceCow::Owned(buf, modified) = &self.buf
-            && *modified {
-                self.slice.write_slice(buf.as_ref()).ok();
-            }
+            && *modified
+        {
+            self.slice.write_slice(buf.as_ref()).ok();
+        }
     }
 }
 
@@ -191,9 +192,10 @@ where
 {
     fn drop(&mut self) {
         if let RefCow::Owned(val, modified) = &self.buf
-            && *modified {
-                self.ptr.write(*val).ok();
-            }
+            && *modified
+        {
+            self.ptr.write(*val).ok();
+        }
     }
 }
 

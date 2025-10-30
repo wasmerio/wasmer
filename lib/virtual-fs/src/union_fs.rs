@@ -148,9 +148,10 @@ impl FileSystem for UnionFileSystem {
                     let result = fs.create_dir(&path);
 
                     if let Err(e) = result
-                        && e == FsError::AlreadyExists {
-                            return Ok(());
-                        }
+                        && e == FsError::AlreadyExists
+                    {
+                        return Ok(());
+                    }
 
                     result
                 }

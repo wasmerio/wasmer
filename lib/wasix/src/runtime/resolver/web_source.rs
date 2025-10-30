@@ -141,15 +141,15 @@ impl WebSource {
             && let Err(e) = self
                 .atomically_save_file(path.with_extension("etag"), etag.as_bytes())
                 .await
-            {
-                tracing::warn!(
-                    error=&*e,
-                    %etag,
-                    %url,
-                    path=%path.display(),
-                    "Unable to save the etag file",
-                )
-            }
+        {
+            tracing::warn!(
+                error=&*e,
+                %etag,
+                %url,
+                path=%path.display(),
+                "Unable to save the etag file",
+            )
+        }
 
         Ok(path)
     }
@@ -344,9 +344,10 @@ fn classify_cache_using_mtime(
     };
 
     if let Ok(time_since_last_modified) = last_modified.elapsed()
-        && time_since_last_modified <= invalidation_threshold {
-            return Ok(path);
-        }
+        && time_since_last_modified <= invalidation_threshold
+    {
+        return Ok(path);
+    }
 
     match etag {
         Some(etag) => Err(CacheState::PossiblyDirty { etag, path }),

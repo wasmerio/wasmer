@@ -65,11 +65,12 @@ impl Argus {
 
             for pkg in pkgs {
                 if self.to_test(&pkg).await
-                    && let Err(e) = s.send(pkg) {
-                        error!("failed to send packages: {e}");
-                        p.finish_and_clear();
-                        anyhow::bail!("failed to send packages: {e}")
-                    };
+                    && let Err(e) = s.send(pkg)
+                {
+                    error!("failed to send packages: {e}");
+                    p.finish_and_clear();
+                    anyhow::bail!("failed to send packages: {e}")
+                };
             }
         }
 

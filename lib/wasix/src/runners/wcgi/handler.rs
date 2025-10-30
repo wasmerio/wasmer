@@ -159,11 +159,12 @@ impl Handler {
         // before transmitting the body
         if propagate_stderr {
             if let Some(stderr) = work_consume_stderr.await
-                && !stderr.is_empty() {
-                    return Ok(Response::builder()
-                        .status(StatusCode::INTERNAL_SERVER_ERROR)
-                        .body(body_from_data(stderr))?);
-                }
+                && !stderr.is_empty()
+            {
+                return Ok(Response::builder()
+                    .status(StatusCode::INTERNAL_SERVER_ERROR)
+                    .body(body_from_data(stderr))?);
+            }
         } else {
             task_manager
                 .task_shared(Box::new(move || {

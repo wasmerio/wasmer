@@ -399,9 +399,10 @@ impl Rule {
     /// Returns allowed ports for the specified `domain` if this rule is a DNS rule
     pub fn port_spec_of_domain(&mut self, domain: impl AsRef<str>) -> Option<PortSpec> {
         if let Rule::DNS(rule) = self
-            && rule.allows(domain) {
-                return Some(rule.allowed_ports());
-            }
+            && rule.allows(domain)
+        {
+            return Some(rule.allowed_ports());
+        }
 
         None
     }

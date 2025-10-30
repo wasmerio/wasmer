@@ -702,9 +702,10 @@ fn tempdir() -> Result<TempDir, std::io::Error> {
         // See also: https://github.com/wasmerio/wasmer/blob/482b78890b789f6867a91be9f306385e6255b260/lib/wasix/src/syscalls/wasi/path_create_directory.rs#L30-L32
         if let Ok(current_exe) = std::env::current_exe()
             && let Some(parent) = current_exe.parent()
-                && let Ok(temp) = TempDir::new_in(parent) {
-                    return Ok(temp);
-                }
+            && let Ok(temp) = TempDir::new_in(parent)
+        {
+            return Ok(temp);
+        }
 
         // Oh well, this will probably fail, but at least we tried.
         std::fs::create_dir_all(&temp_dir)?;

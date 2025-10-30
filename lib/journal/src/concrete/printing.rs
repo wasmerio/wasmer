@@ -5,8 +5,7 @@ use lz4_flex::block::uncompressed_size;
 use wasmer_wasix_types::wasi;
 
 /// Type of printing mode to use
-#[derive(Debug)]
-#[derive(Default)]
+#[derive(Debug, Default)]
 pub enum JournalPrintingMode {
     #[default]
     Text,

@@ -135,20 +135,21 @@ pub fn load_config(custom_path: Option<PathBuf>) -> Result<LoadedEdgeConfig, any
     };
 
     if let Some(path) = path
-        && path.is_file() {
-            match try_load_config(&path) {
-                Ok(config) => {
-                    return Ok(LoadedEdgeConfig { config, path });
-                }
-                Err(err) => {
-                    eprintln!(
-                        "WARNING: failed to load config file at '{}': {}",
-                        path.display(),
-                        err
-                    );
-                }
+        && path.is_file()
+    {
+        match try_load_config(&path) {
+            Ok(config) => {
+                return Ok(LoadedEdgeConfig { config, path });
+            }
+            Err(err) => {
+                eprintln!(
+                    "WARNING: failed to load config file at '{}': {}",
+                    path.display(),
+                    err
+                );
             }
         }
+    }
 
     Ok(LoadedEdgeConfig {
         config: EdgeConfig::default(),

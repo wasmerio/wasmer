@@ -561,14 +561,15 @@ impl WasiEnv {
         // If this module exports an _initialize function, run that first.
         if call_initialize
             && let Ok(initialize) = instance.exports.get_function("_initialize")
-                && let Err(err) = crate::run_wasi_func_start(initialize, &mut store) {
-                    func_env
-                        .data(&store)
-                        .blocking_on_exit(Some(Errno::Noexec.into()));
-                    return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
-                        err,
-                    ))));
-                }
+            && let Err(err) = crate::run_wasi_func_start(initialize, &mut store)
+        {
+            func_env
+                .data(&store)
+                .blocking_on_exit(Some(Errno::Noexec.into()));
+            return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
+                err,
+            ))));
+        }
 
         Ok((instance, func_env))
     }
@@ -613,10 +614,11 @@ impl WasiEnv {
         fast: bool,
     ) -> Result<(), WasiError> {
         if let Some(linker) = ctx.data().inner().linker().cloned()
-            && let Err(e) = linker.do_pending_link_operations(ctx, fast) {
-                tracing::warn!(err = ?e, "Failed to process pending link operations");
-                return Err(WasiError::Exit(Errno::Noexec.into()));
-            }
+            && let Err(e) = linker.do_pending_link_operations(ctx, fast)
+        {
+            tracing::warn!(err = ?e, "Failed to process pending link operations");
+            return Err(WasiError::Exit(Errno::Noexec.into()));
+        }
         Ok(())
     }
 
@@ -1225,9 +1227,10 @@ impl WasiEnv {
             }
 
             if self.thread.is_main()
-                && let Err(err) = JournalEffector::save_process_exit(self, process_exit_code) {
-                    tracing::warn!("failed to save snapshot event for process exit - {}", err);
-                }
+                && let Err(err) = JournalEffector::save_process_exit(self, process_exit_code)
+            {
+                tracing::warn!("failed to save snapshot event for process exit - {}", err);
+            }
         }
 
         // If the process wants to exit, also close all files and terminate it

@@ -308,12 +308,12 @@ fn transform_atoms_shared(
             && let Some(pass_params) = misc_annotations
                 .suggested_compiler_optimizations
                 .pass_params
-            {
-                annotations.insert(
-                    SuggestedCompilerOptimizations::KEY.to_string(),
-                    cbor!({"pass_params" => pass_params}).unwrap(),
-                );
-            }
+        {
+            annotations.insert(
+                SuggestedCompilerOptimizations::KEY.to_string(),
+                cbor!({"pass_params" => pass_params}).unwrap(),
+            );
+        }
 
         // Detect required WebAssembly features by analyzing the module binary
         let features_result = wasmer_types::Features::detect_from_wasm(content);
@@ -833,9 +833,10 @@ impl RunnerKind {
 fn entrypoint(manifest: &WasmerManifest) -> Option<String> {
     // check if manifest.package is none
     if let Some(package) = &manifest.package
-        && let Some(entrypoint) = &package.entrypoint {
-            return Some(entrypoint.clone());
-        }
+        && let Some(entrypoint) = &package.entrypoint
+    {
+        return Some(entrypoint.clone());
+    }
 
     if let [only_command] = manifest.commands.as_slice() {
         // For convenience (and to stay compatible with old docs), if there is

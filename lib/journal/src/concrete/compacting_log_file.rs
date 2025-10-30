@@ -180,10 +180,9 @@ impl CompactingLogFileJournalTx {
 impl Drop for CompactingLogFileJournalTx {
     fn drop(&mut self) {
         let triggered = self.state.lock().unwrap().on_drop;
-        if triggered
-            && let Err(err) = self.compact_now() {
-                tracing::error!("failed to compact log - {}", err);
-            }
+        if triggered && let Err(err) = self.compact_now() {
+            tracing::error!("failed to compact log - {}", err);
+        }
     }
 }
 
@@ -210,13 +209,15 @@ impl WritableJournal for CompactingLogFileJournalTx {
 
             let mut triggered = false;
             if let Some(on) = state.on_n_records.as_ref()
-                && state.cnt_records >= *on {
-                    triggered = true;
-                }
+                && state.cnt_records >= *on
+            {
+                triggered = true;
+            }
             if let Some(on) = state.on_n_size.as_ref()
-                && state.cnt_size >= *on {
-                    triggered = true;
-                }
+                && state.cnt_size >= *on
+            {
+                triggered = true;
+            }
 
             if let Some(factor) = state.on_factor_size.as_ref() {
                 let next_ref = (*factor * state.ref_size as f32) as u64;

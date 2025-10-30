@@ -166,12 +166,13 @@ impl BuiltinPackageLoader {
         }
 
         if let Some(cache) = self.cache.as_ref()
-            && let Some(cached) = cache.lookup(hash).await? {
-                // Note: We want to propagate it to the in-memory cache, too
-                tracing::debug!("Copying from the filesystem cache to the in-memory cache");
-                self.in_memory.save(&cached, *hash);
-                return Ok(Some(cached));
-            }
+            && let Some(cached) = cache.lookup(hash).await?
+        {
+            // Note: We want to propagate it to the in-memory cache, too
+            tracing::debug!("Copying from the filesystem cache to the in-memory cache");
+            self.in_memory.save(&cached, *hash);
+            return Ok(Some(cached));
+        }
 
         Ok(None)
     }
@@ -298,20 +299,21 @@ impl BuiltinPackageLoader {
         headers.insert("User-Agent", USER_AGENT.parse().unwrap());
 
         if url.has_authority()
-            && let Some(token) = self.tokens.get(url.authority()) {
-                let header = format!("Bearer {token}");
-                match header.parse() {
-                    Ok(header) => {
-                        headers.insert(http::header::AUTHORIZATION, header);
-                    }
-                    Err(e) => {
-                        tracing::warn!(
-                            error = &e as &dyn std::error::Error,
-                            "An error occurred while parsing the authorization header",
-                        );
-                    }
+            && let Some(token) = self.tokens.get(url.authority())
+        {
+            let header = format!("Bearer {token}");
+            match header.parse() {
+                Ok(header) => {
+                    headers.insert(http::header::AUTHORIZATION, header);
+                }
+                Err(e) => {
+                    tracing::warn!(
+                        error = &e as &dyn std::error::Error,
+                        "An error occurred while parsing the authorization header",
+                    );
                 }
             }
+        }
 
         headers
     }

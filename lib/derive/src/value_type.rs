@@ -10,9 +10,10 @@ fn check_repr(input: &DeriveInput) {
         .iter()
         .filter_map(|attr| {
             if let Meta::List(MetaList { path, nested, .. }) = attr.parse_meta().unwrap()
-                && path.is_ident("repr") {
-                    return Some(nested.into_iter().collect::<Vec<_>>());
-                }
+                && path.is_ident("repr")
+            {
+                return Some(nested.into_iter().collect::<Vec<_>>());
+            }
             None
         })
         .flatten();
@@ -21,9 +22,10 @@ fn check_repr(input: &DeriveInput) {
     // source code order.
     for meta in reprs {
         if let NestedMeta::Meta(Meta::Path(path)) = meta
-            && (path.is_ident("C") || path.is_ident("transparent")) {
-                return;
-            }
+            && (path.is_ident("C") || path.is_ident("transparent"))
+        {
+            return;
+        }
     }
 
     abort!(

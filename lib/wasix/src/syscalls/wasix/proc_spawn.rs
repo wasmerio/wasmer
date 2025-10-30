@@ -126,15 +126,16 @@ pub fn proc_spawn_internal(
 
     // Preopen
     if let Some(preopen) = preopen
-        && !preopen.is_empty() {
-            for preopen in preopen {
-                warn!(
-                    "preopens are not yet supported for spawned processes [{}]",
-                    preopen
-                );
-            }
-            return Ok(Err(Errno::Notsup));
+        && !preopen.is_empty()
+    {
+        for preopen in preopen {
+            warn!(
+                "preopens are not yet supported for spawned processes [{}]",
+                preopen
+            );
         }
+        return Ok(Err(Errno::Notsup));
+    }
 
     // Change the current directory
     if let Some(working_dir) = working_dir {

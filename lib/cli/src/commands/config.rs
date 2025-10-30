@@ -275,11 +275,11 @@ impl GetOrSet {
                         if let Ok(client) = env.client()
                             && let Some(u) =
                                 wasmer_backend_api::query::current_user(&client).await?
-                            {
-                                println!(
-                                    "Successfully logged into registry {current_registry:?} as user {u:?}"
-                                );
-                            }
+                        {
+                            println!(
+                                "Successfully logged into registry {current_registry:?} as user {u:?}"
+                            );
+                        }
                     }
                     StorableConfigField::RegistryToken(t) => {
                         config.registry.set_login_token_for_registry(

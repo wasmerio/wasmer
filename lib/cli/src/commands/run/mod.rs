@@ -248,62 +248,63 @@ impl Run {
                 ExecutableTarget::Package(pkg) => {
                     // Check if we should update the engine based on the WebC package features
                     if let Some(cmd) = pkg.get_entrypoint_command()
-                        && let Some(features) = cmd.wasm_features() {
-                            // Get the right engine for these features
-                            let backends = self.rt.get_available_backends()?;
-                            let available_engines = backends
-                                .iter()
-                                .map(|b| b.to_string())
-                                .collect::<Vec<_>>()
-                                .join(", ");
+                        && let Some(features) = cmd.wasm_features()
+                    {
+                        // Get the right engine for these features
+                        let backends = self.rt.get_available_backends()?;
+                        let available_engines = backends
+                            .iter()
+                            .map(|b| b.to_string())
+                            .collect::<Vec<_>>()
+                            .join(", ");
 
-                            let filtered_backends = RuntimeOptions::filter_backends_by_features(
-                                backends.clone(),
-                                &features,
+                        let filtered_backends = RuntimeOptions::filter_backends_by_features(
+                            backends.clone(),
+                            &features,
+                            &Target::default(),
+                        );
+
+                        if !filtered_backends.is_empty() {
+                            let engine_id = filtered_backends[0].to_string();
+
+                            // Get a new engine that's compatible with the required features
+                            if let Ok(new_engine) = filtered_backends[0].get_engine(
                                 &Target::default(),
-                            );
-
-                            if !filtered_backends.is_empty() {
-                                let engine_id = filtered_backends[0].to_string();
-
-                                // Get a new engine that's compatible with the required features
-                                if let Ok(new_engine) = filtered_backends[0].get_engine(
-                                    &Target::default(),
-                                    &features,
-                                    &self.rt,
-                                ) {
-                                    tracing::info!(
-                                        "The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}.",
-                                        cmd.name(),
-                                        features,
-                                        available_engines,
-                                        engine_id
-                                    );
-                                    // Create a new runtime with the updated engine
-                                    let capability_cache_path =
-                                        capabilities::get_capability_cache_path(
-                                            &self.env,
-                                            &self.input,
-                                        )?;
-                                    let new_runtime = self.wasi.prepare_runtime(
-                                        new_engine,
+                                &features,
+                                &self.rt,
+                            ) {
+                                tracing::info!(
+                                    "The command '{}' requires to run the Wasm module with the features {:?}. The backends available are {}. Choosing {}.",
+                                    cmd.name(),
+                                    features,
+                                    available_engines,
+                                    engine_id
+                                );
+                                // Create a new runtime with the updated engine
+                                let capability_cache_path =
+                                    capabilities::get_capability_cache_path(
                                         &self.env,
-                                        &capability_cache_path,
-                                        tokio::runtime::Builder::new_multi_thread()
-                                            .enable_all()
-                                            .build()?,
-                                        preferred_webc_version,
+                                        &self.input,
                                     )?;
+                                let new_runtime = self.wasi.prepare_runtime(
+                                    new_engine,
+                                    &self.env,
+                                    &capability_cache_path,
+                                    tokio::runtime::Builder::new_multi_thread()
+                                        .enable_all()
+                                        .build()?,
+                                    preferred_webc_version,
+                                )?;
 
-                                    let new_runtime = Arc::new(MonitoringRuntime::new(
-                                        new_runtime,
-                                        pb.clone(),
-                                        output.quiet,
-                                    ));
-                                    return self.execute_webc(&pkg, new_runtime);
-                                }
+                                let new_runtime = Arc::new(MonitoringRuntime::new(
+                                    new_runtime,
+                                    pb.clone(),
+                                    output.quiet,
+                                ));
+                                return self.execute_webc(&pkg, new_runtime);
                             }
                         }
+                    }
                     self.execute_webc(&pkg, runtime.clone())
                 }
             }
@@ -311,9 +312,10 @@ impl Run {
 
         // restore the TTY state as the execution may have changed it
         if let Some(state) = tty
-            && let Some(tty) = runtime.tty() {
-                tty.tty_set(state);
-            }
+            && let Some(tty) = runtime.tty()
+        {
+            tty.tty_set(state);
+        }
 
         if let Err(e) = &result {
             self.maybe_save_coredump(e);

@@ -67,9 +67,10 @@ impl PackagePush {
 
         if let Some(pkg) = &manifest.package
             && let Some(ns) = &pkg.name
-                && let Some(first) = ns.split('/').next() {
-                    return Ok(first.to_string());
-                }
+            && let Some(first) = ns.split('/').next()
+        {
+            return Ok(first.to_string());
+        }
 
         if self.non_interactive {
             // if not interactive we can't prompt the user to choose the owner of the app.
@@ -93,9 +94,10 @@ impl PackagePush {
 
         if let Some(pkg) = &manifest.package
             && let Some(ns) = &pkg.name
-                && let Some(name) = ns.split('/').nth(1) {
-                    return Ok(Some(name.to_string()));
-                }
+            && let Some(name) = ns.split('/').nth(1)
+        {
+            return Ok(Some(name.to_string()));
+        }
 
         Ok(None)
     }

@@ -240,9 +240,10 @@ fn extract_suggested_compiler_opts_from_atom_metadata(
                 k.as_text()
                     .is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY)
             })
-        }) {
-            ret.pass_params = v.as_bool()
-        }
+        })
+    {
+        ret.pass_params = v.as_bool()
+    }
 
     ret
 }

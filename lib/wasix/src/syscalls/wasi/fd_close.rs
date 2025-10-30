@@ -23,10 +23,12 @@ pub fn fd_close(mut ctx: FunctionEnvMut<'_, WasiEnv>, fd: WasiFd) -> Result<Errn
     // to be able to close pre-opens, as that breaks wasix-libc in rather
     // spectacular fashion.
     if let Ok(pfd) = state.fs.get_fd(fd)
-        && !pfd.is_stdio && pfd.inode.is_preopened {
-            trace!("Skipping fd_close for pre-opened FD ({})", fd);
-            return Ok(Errno::Success);
-        }
+        && !pfd.is_stdio
+        && pfd.inode.is_preopened
+    {
+        trace!("Skipping fd_close for pre-opened FD ({})", fd);
+        return Ok(Errno::Success);
+    }
     // HACK: we use tokio files to back WASI file handles. Since tokio
     // does writes in the background, it may miss writes if the file is
     // closed without flushing first. Hence, we flush once here.

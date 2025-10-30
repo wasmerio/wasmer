@@ -451,9 +451,10 @@ where
         Err(trap) => {
             let dyn_err_ref = &trap as &dyn Error;
             if let Some(runtime_error) = dyn_err_ref.downcast_ref::<RuntimeError>()
-                && let Some(exception) = runtime_error.to_exception() {
-                    return InvocationResult::Exception(exception);
-                }
+                && let Some(exception) = runtime_error.to_exception()
+            {
+                return InvocationResult::Exception(exception);
+            }
             InvocationResult::Trap(Box::new(trap))
         }
     }
