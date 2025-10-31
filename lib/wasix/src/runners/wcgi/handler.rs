@@ -8,7 +8,7 @@ use http_body_util::BodyExt;
 use hyper::body::Frame;
 use tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 use tracing::Instrument;
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::Module;
 use wasmer_wasix_types::wasi::ExitCode;
 use wcgi_host::CgiDialect;
@@ -91,7 +91,7 @@ impl Handler {
         let recycle = {
             let callbacks = callbacks.clone();
             move |props: TaskWasmRecycleProperties| {
-                InlineWaker::block_on(callbacks.recycle_env(RecycleEnvConfig {
+                block_on(callbacks.recycle_env(RecycleEnvConfig {
                     env: props.env,
                     store: props.store,
                     memory: props.memory,

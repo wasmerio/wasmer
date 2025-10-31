@@ -5,11 +5,15 @@
 //!
 //! `Memory` is to WebAssembly linear memories what `Table` is to WebAssembly tables.
 
-use crate::mmap::MmapType;
 use crate::threadconditions::ThreadConditions;
 pub use crate::threadconditions::{NotifyLocation, WaiterError};
 use crate::trap::Trap;
-use crate::{mmap::Mmap, store::MaybeInstanceOwned, vmcontext::VMMemoryDefinition};
+use crate::{
+    mmap::{Mmap, MmapType},
+    store::MaybeInstanceOwned,
+    threadconditions::ExpectedValue,
+    vmcontext::VMMemoryDefinition,
+};
 use more_asserts::assert_ge;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
@@ -593,16 +597,21 @@ impl LinearMemory for VMSharedMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(
+    unsafe fn do_wait(
         &mut self,
-        dst: NotifyLocation,
+        dst: u32,
+        expected: ExpectedValue,
         timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
-        self.conditions.do_wait(dst, timeout)
+        let dst = NotifyLocation {
+            address: dst,
+            memory_base: self.mmap.read().unwrap().alloc.as_ptr() as *mut _,
+        };
+        unsafe { self.conditions.do_wait(dst, expected, timeout) }
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
-    fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
+    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
     }
 
@@ -690,16 +699,17 @@ impl LinearMemory for VMMemory {
     }
 
     // Add current thread to waiter list
-    fn do_wait(
+    unsafe fn do_wait(
         &mut self,
-        dst: NotifyLocation,
+        dst: u32,
+        expected: ExpectedValue,
         timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
-        self.0.do_wait(dst, timeout)
+        unsafe { self.0.do_wait(dst, expected, timeout) }
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
-    fn do_notify(&mut self, dst: NotifyLocation, count: u32) -> u32 {
+    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
         self.0.do_notify(dst, count)
     }
 
@@ -846,18 +856,25 @@ where
     /// Copies this memory to a new memory
     fn copy(&mut self) -> Result<Box<dyn LinearMemory + 'static>, MemoryError>;
 
-    /// Add current thread to the waiter hash, and wait until notified or timout.
-    /// Return 0 if the waiter has been notified, 2 if the timeout occured, or None if en error happened
-    fn do_wait(
+    /// Add current thread to the waiter hash, and wait until notified or timeout.
+    /// Return 0 if the waiter has been notified, 1 if there was a value mismatch,
+    /// or 2 if the timeout occurred.
+    ///
+    /// # Safety
+    /// the destination address must be a valid offset within this memory. It must also
+    /// be properly aligned for the expected value type; either 4-byte aligned for
+    /// `ExpectedValue::U32` or 8-byte aligned for `ExpectedValue::u64`.
+    unsafe fn do_wait(
         &mut self,
-        _dst: NotifyLocation,
+        _dst: u32,
+        _expected: ExpectedValue,
         _timeout: Option<Duration>,
     ) -> Result<u32, WaiterError> {
         Err(WaiterError::Unimplemented)
     }
 
     /// Notify waiters from the wait list. Return the number of waiters notified
-    fn do_notify(&mut self, _dst: NotifyLocation, _count: u32) -> u32 {
+    fn do_notify(&mut self, _dst: u32, _count: u32) -> u32 {
         0
     }
 

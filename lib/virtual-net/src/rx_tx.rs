@@ -15,7 +15,6 @@ use tokio::sync::{
     mpsc::{self, error::TrySendError},
     oneshot,
 };
-use virtual_mio::InlineWaker;
 
 use crate::{NetworkError, io_err_into_net_error};
 
@@ -339,8 +338,7 @@ where
                     }
                 };
 
-                let inline_waker = InlineWaker::new();
-                let waker = inline_waker.as_waker();
+                let waker = NoopWaker::new_waker();
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
@@ -394,8 +392,7 @@ where
                     }
                 };
 
-                let inline_waker = InlineWaker::new();
-                let waker = inline_waker.as_waker();
+                let waker = NoopWaker::new_waker();
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
@@ -452,8 +449,7 @@ where
                     }
                 };
 
-                let inline_waker = InlineWaker::new();
-                let waker = inline_waker.as_waker();
+                let waker = NoopWaker::new_waker();
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
@@ -596,4 +592,16 @@ where
             };
         }
     }
+}
+
+struct NoopWaker;
+
+impl NoopWaker {
+    fn new_waker() -> Waker {
+        Waker::from(Arc::new(Self))
+    }
+}
+
+impl std::task::Wake for NoopWaker {
+    fn wake(self: Arc<Self>) {}
 }

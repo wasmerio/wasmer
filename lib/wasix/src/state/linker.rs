@@ -275,7 +275,7 @@ use derive_more::Debug;
 use shared_buffer::OwnedBuffer;
 use tracing::trace;
 use virtual_fs::{AsyncReadExt, FileSystem, FsError};
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::{
     AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
     FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
@@ -2293,7 +2293,7 @@ impl LinkerState {
                 module_spec,
                 ld_library_path,
             } => {
-                let (full_path, bytes) = InlineWaker::block_on(locate_module(
+                let (full_path, bytes) = block_on(locate_module(
                     module_spec,
                     ld_library_path,
                     runtime_path,

@@ -38,6 +38,15 @@ pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>)
     }
 }
 
+/// Captures the current Wasm stack trace. Only useful when
+/// there are active Wasm frames on the stack, such as in
+/// libcalls or imported functions.
+pub fn wasm_trace_from_current_stack() -> Vec<FrameInfo> {
+    let info = FRAME_INFO.read().unwrap();
+    let backtrace = Backtrace::new_unresolved();
+    wasm_trace(&info, None, &backtrace)
+}
+
 fn wasm_trace(
     info: &GlobalFrameInfo,
     trap_pc: Option<usize>,
