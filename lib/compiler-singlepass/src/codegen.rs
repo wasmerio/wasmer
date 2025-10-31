@@ -458,7 +458,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .take(return_slots)
                 .map(|loc| (**loc, CanonicalizeType::None)),
         );
-        all_memory_slots.truncate(all_memory_slots.len() - return_slots);
 
         // Then map all memory params to a new location (in reverse order)
         let mut new_params_reversed = Vec::new();
