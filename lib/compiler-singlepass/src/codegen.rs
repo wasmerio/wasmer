@@ -167,7 +167,7 @@ pub enum ControlState {
 struct ControlFrame {
     pub state: ControlState,
     pub label: Label,
-    pub param_types: SmallVec<[WpType; 1]>,
+    pub param_types: SmallVec<[WpType; 8]>,
     pub return_types: SmallVec<[WpType; 1]>,
     /// Value stack depth at the beginning of the frame (including params and results).
     value_stack_depth: usize,
@@ -690,7 +690,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         params_type: J,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
-        let params: Vec<_> = params.collect();
+        let params: Vec<_> = params.collect_vec();
         let params_size: Vec<_> = params_type
             .map(|x| match x {
                 WpType::F32 | WpType::I32 => Size::S32,
@@ -1005,6 +1005,31 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn return_types_for_block(&self, block_type: WpTypeOrFuncType) -> SmallVec<[WpType; 1]> {
+        match block_type {
+            WpTypeOrFuncType::Empty => smallvec![],
+            WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
+            WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
+                self.module.signatures[SignatureIndex::from_u32(sig_index)]
+                    .results()
+                    .iter()
+                    .map(type_to_wp_type),
+            ),
+        }
+    }
+
+    fn param_types_for_block(&self, block_type: WpTypeOrFuncType) -> SmallVec<[WpType; 8]> {
+        match block_type {
+            WpTypeOrFuncType::Empty | WpTypeOrFuncType::Type(_) => smallvec![],
+            WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
+                self.module.signatures[SignatureIndex::from_u32(sig_index)]
+                    .params()
+                    .iter()
+                    .map(type_to_wp_type),
+            ),
+        }
+    }
+
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
         let was_unreachable;
 
@@ -1036,29 +1061,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         } else {
             was_unreachable = false;
         }
-
-        let return_types_for_block = |block_type: WpTypeOrFuncType| -> SmallVec<[_; 1]> {
-            match block_type {
-                WpTypeOrFuncType::Empty => smallvec![],
-                WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
-                WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
-                    self.module.signatures[SignatureIndex::from_u32(sig_index)]
-                        .results()
-                        .iter()
-                        .map(type_to_wp_type),
-                ),
-            }
-        };
-
-        let param_types_for_block = |block_type: WpTypeOrFuncType| match block_type {
-            WpTypeOrFuncType::Empty | WpTypeOrFuncType::Type(_) => smallvec![],
-            WpTypeOrFuncType::FuncType(sig_index) => SmallVec::from_iter(
-                self.module.signatures[SignatureIndex::from_u32(sig_index)]
-                    .params()
-                    .iter()
-                    .map(type_to_wp_type),
-            ),
-        };
 
         match op {
             Operator::GlobalGet { global_index } => {
@@ -2454,8 +2456,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let label_else = self.machine.get_label();
                 let cond = self.pop_value_released()?.0;
 
-                let return_types = return_types_for_block(blockty);
-                let param_types = param_types_for_block(blockty);
+                let return_types = self.return_types_for_block(blockty);
+                let param_types = self.param_types_for_block(blockty);
                 self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
 
                 let frame = ControlFrame {
@@ -2543,8 +2545,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.emit_label(end_label)?;
             }
             Operator::Block { blockty } => {
-                let return_types = return_types_for_block(blockty);
-                let param_types = param_types_for_block(blockty);
+                let return_types = self.return_types_for_block(blockty);
+                let param_types = self.param_types_for_block(blockty);
                 self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
 
                 let frame = ControlFrame {
@@ -2560,8 +2562,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.align_for_loop()?;
                 let label = self.machine.get_label();
 
-                let return_types = return_types_for_block(blockty);
-                let param_types = param_types_for_block(blockty);
+                let return_types = self.return_types_for_block(blockty);
+                let param_types = self.param_types_for_block(blockty);
                 self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
 
                 self.control_stack.push(ControlFrame {
