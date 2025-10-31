@@ -990,14 +990,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .take(return_values)
             .enumerate()
         {
-            self.machine.emit_relaxed_mov(
-                Size::S64,
-                *stack_value,
-                self.value_stack[value_stack_depth_after - i - 1].0,
-            )?;
+            let dst = self.value_stack[value_stack_depth_after - i - 1].0;
+            if let Some(canonicalize_size) = canonicalize.to_size()
+                && self.machine.arch_supports_canonicalize_nan()
+                && self.config.enable_nan_canonicalization
+            {
+                self.machine
+                    .canonicalize_nan(canonicalize_size, *stack_value, dst)?;
+            } else {
+                self.machine
+                    .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+            }
         }
-
-        // TODO: FP canonicalization
 
         Ok(())
     }
@@ -3559,15 +3563,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.emit_label(label)?;
                     }
 
-                    // At this point the return values are properly sitting in the value_stack, fill up the FloatValue info.
-                    // TODO
-                    // for (i, ty) in frame.return_types.iter().enumerate() {
-                    //     if ty.is_float() {
-                    //         self.fp_stack.push(FloatValue::new(
-                    //             self.value_stack.len() - (frame.return_types.len() - i - 1) - 1,
-                    //         ));
-                    //     }
-                    // }
+                    // At this point the return values are properly sitting in the value_stack and are properly canonicalized.
                 }
             }
             Operator::AtomicFence => {
