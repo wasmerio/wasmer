@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CanonicalizeType","ControlState","NativeCallType"],"fn":["type_to_wp_type"],"struct":["ControlFrame","FloatValue","FuncGen","I2O1","SpecialLabelSet"],"trait":["PopMany","WpTypeExt"]};
+window.SIDEBAR_ITEMS = {"enum":["CanonicalizeType","ControlState","NativeCallType"],"fn":["type_to_wp_type"],"struct":["ControlFrame","FuncGen","I2O1","SpecialLabelSet"],"trait":["WpTypeExt"],"type":["LocationWithCanonicalization"]};
