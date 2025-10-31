@@ -1045,12 +1045,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 Operator::Else => {
                     // We are in a reachable true branch
-                    if self.unreachable_depth == 1 {
-                        if let Some(ControlState::If(_)) =
+                    if self.unreachable_depth == 1
+                        && let Some(ControlState::If(_)) =
                             self.control_stack.last().map(|x| x.state)
-                        {
-                            self.unreachable_depth -= 1;
-                        }
+                    {
+                        self.unreachable_depth -= 1;
                     }
                 }
                 _ => {}
