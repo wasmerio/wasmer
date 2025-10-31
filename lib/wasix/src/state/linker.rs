@@ -1212,17 +1212,26 @@ impl Linker {
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
 
-        // The main module isn't added to the link state's list of new modules, so we need to
-        // call its initialization functions separately
-        trace!("Calling data relocator function for main module");
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
-
         {
-            let group_guard = linker.instance_group_state.lock().unwrap();
+            trace!(?link_state, "Finalizing linking of main module");
+
+            let mut group_guard = linker.instance_group_state.lock().unwrap();
             let mut linker_state = linker.linker_state.write().unwrap();
-            trace!("Finalizing linking of main module");
-            linker.finalize_link_operation(group_guard, &mut linker_state, store, link_state)?;
+
+            let group_state = group_guard.as_mut().unwrap();
+            group_state.finalize_pending_globals(
+                &mut linker_state,
+                store,
+                &link_state.unresolved_globals,
+            )?;
+
+            // The main module isn't added to the link state's list of new modules, so we need to
+            // call its initialization functions separately
+            trace!("Calling data relocator function for main module");
+            call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
+
+            linker.initialize_new_modules(group_guard, store, link_state)?;
         }
 
         trace!("Calling main module's _initialize function");
@@ -1671,6 +1680,18 @@ impl Linker {
             store,
             &link_state.unresolved_globals,
         )?;
+
+        self.initialize_new_modules(group_state_guard, store, link_state)
+    }
+
+    fn initialize_new_modules(
+        &self,
+        // Take ownership of the guard and drop it ourselves to ensure no deadlock can happen
+        mut group_state_guard: MutexGuard<'_, Option<InstanceGroupState>>,
+        store: &mut impl AsStoreMut,
+        link_state: InProgressLinkState,
+    ) -> Result<(), LinkError> {
+        let group_state = group_state_guard.as_mut().unwrap();
 
         let new_instances = link_state
             .new_modules
