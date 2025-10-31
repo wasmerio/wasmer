@@ -19,6 +19,7 @@ mio = { workspace = true, features = ["os-poll"], optional = true }
 socket2 = { workspace = true, optional = true }
 futures = { version = "0.3" }
 serde = { workspace = true, default-features = false, features = ["derive"] }
+parking = "2.2"
 
 [dev-dependencies]
 mio = { workspace = true, features = ["os-poll", "os-ext"] }

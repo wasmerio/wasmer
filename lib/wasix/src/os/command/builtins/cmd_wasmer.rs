@@ -4,10 +4,11 @@ use crate::{
     SpawnError,
     bin_factory::spawn_exec_wasm,
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    runtime::{module_cache::HashedModuleData, task_manager::InlineWaker},
+    runtime::module_cache::HashedModuleData,
 };
 use shared_buffer::OwnedBuffer;
 use virtual_fs::{AsyncReadExt, FileSystem};
+use virtual_mio::block_on;
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
@@ -218,6 +219,6 @@ impl VirtualCommand for CmdWasmer {
             }
         };
 
-        InlineWaker::block_on(fut)
+        block_on(fut)
     }
 }

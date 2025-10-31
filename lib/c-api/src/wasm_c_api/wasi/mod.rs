@@ -21,7 +21,7 @@ use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
     Pipe, PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
     default_fs_backing, get_wasi_version,
-    runtime::task_manager::{InlineWaker, tokio::TokioTaskManager},
+    runtime::task_manager::{block_on, tokio::TokioTaskManager},
     virtual_fs::AsyncReadExt,
     virtual_fs::VirtualFile,
 };
@@ -452,7 +452,7 @@ fn read_inner(
     wasi_file: &mut Box<dyn VirtualFile + Send + Sync + 'static>,
     inner_buffer: &mut [u8],
 ) -> isize {
-    InlineWaker::block_on(async {
+    block_on(async {
         match wasi_file.read(inner_buffer).await {
             Ok(a) => a as isize,
             Err(err) => {

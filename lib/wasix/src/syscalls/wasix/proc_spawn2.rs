@@ -166,7 +166,7 @@ pub fn proc_spawn2<M: MemorySize>(
             let env = builder.take().unwrap();
 
             // Spawn a new process with this current execution environment
-            InlineWaker::block_on(bin_factory.spawn(name, env))
+            block_on(bin_factory.spawn(name, env))
         }
     };
 
