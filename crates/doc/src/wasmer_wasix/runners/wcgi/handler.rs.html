@@ -8,7 +8,7 @@
 <a href=#8 id=8 data-nosnippet>8</a><span class="kw">use </span>hyper::body::Frame;
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>tokio::io::{AsyncBufReadExt, AsyncRead, AsyncWrite, AsyncWriteExt};
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>tracing::Instrument;
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>virtual_mio::InlineWaker;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>virtual_mio::block_on;
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>wasmer::Module;
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>wasmer_wasix_types::wasi::ExitCode;
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>wcgi_host::CgiDialect;
@@ -91,7 +91,7 @@
 <a href=#91 id=91 data-nosnippet>91</a>        <span class="kw">let </span>recycle = {
 <a href=#92 id=92 data-nosnippet>92</a>            <span class="kw">let </span>callbacks = callbacks.clone();
 <a href=#93 id=93 data-nosnippet>93</a>            <span class="kw">move </span>|props: TaskWasmRecycleProperties| {
-<a href=#94 id=94 data-nosnippet>94</a>                InlineWaker::block_on(callbacks.recycle_env(RecycleEnvConfig {
+<a href=#94 id=94 data-nosnippet>94</a>                block_on(callbacks.recycle_env(RecycleEnvConfig {
 <a href=#95 id=95 data-nosnippet>95</a>                    env: props.env,
 <a href=#96 id=96 data-nosnippet>96</a>                    store: props.store,
 <a href=#97 id=97 data-nosnippet>97</a>                    memory: props.memory,

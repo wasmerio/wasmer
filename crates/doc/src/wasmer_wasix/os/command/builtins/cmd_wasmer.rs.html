@@ -4,220 +4,221 @@
 <a href=#4 id=4 data-nosnippet>4</a>    SpawnError,
 <a href=#5 id=5 data-nosnippet>5</a>    bin_factory::spawn_exec_wasm,
 <a href=#6 id=6 data-nosnippet>6</a>    os::task::{OwnedTaskStatus, TaskJoinHandle},
-<a href=#7 id=7 data-nosnippet>7</a>    runtime::{module_cache::HashedModuleData, task_manager::InlineWaker},
+<a href=#7 id=7 data-nosnippet>7</a>    runtime::module_cache::HashedModuleData,
 <a href=#8 id=8 data-nosnippet>8</a>};
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span>shared_buffer::OwnedBuffer;
 <a href=#10 id=10 data-nosnippet>10</a><span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem};
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>wasmer::FunctionEnvMut;
-<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>wasmer_package::utils::from_bytes;
-<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
-<a href=#14 id=14 data-nosnippet>14</a>
-<a href=#15 id=15 data-nosnippet>15</a><span class="kw">use crate</span>::{
-<a href=#16 id=16 data-nosnippet>16</a>    Runtime, WasiEnv,
-<a href=#17 id=17 data-nosnippet>17</a>    bin_factory::{BinaryPackage, spawn_exec},
-<a href=#18 id=18 data-nosnippet>18</a>    syscalls::stderr_write,
-<a href=#19 id=19 data-nosnippet>19</a>};
-<a href=#20 id=20 data-nosnippet>20</a>
-<a href=#21 id=21 data-nosnippet>21</a><span class="kw">const </span>HELP: <span class="kw-2">&amp;</span>str = <span class="string">r#"USAGE:
-<a href=#22 id=22 data-nosnippet>22</a>    wasmer &lt;SUBCOMMAND&gt;
-<a href=#23 id=23 data-nosnippet>23</a>
-<a href=#24 id=24 data-nosnippet>24</a>OPTIONS:
-<a href=#25 id=25 data-nosnippet>25</a>    -h, --help       Print help information
-<a href=#26 id=26 data-nosnippet>26</a>
-<a href=#27 id=27 data-nosnippet>27</a>SUBCOMMANDS:
-<a href=#28 id=28 data-nosnippet>28</a>    run            Run a WebAssembly file. Formats accepted: wasm, wat
-<a href=#29 id=29 data-nosnippet>29</a>"#</span>;
-<a href=#30 id=30 data-nosnippet>30</a>
-<a href=#31 id=31 data-nosnippet>31</a><span class="kw">const </span>HELP_RUN: <span class="kw-2">&amp;</span>str = <span class="string">r#"USAGE:
-<a href=#32 id=32 data-nosnippet>32</a>    wasmer run &lt;FILE&gt; [ARGS]...
-<a href=#33 id=33 data-nosnippet>33</a>
-<a href=#34 id=34 data-nosnippet>34</a>ARGS:
-<a href=#35 id=35 data-nosnippet>35</a>    &lt;FILE&gt;       File to run
-<a href=#36 id=36 data-nosnippet>36</a>    &lt;ARGS&gt;...    Application arguments
-<a href=#37 id=37 data-nosnippet>37</a>"#</span>;
-<a href=#38 id=38 data-nosnippet>38</a>
-<a href=#39 id=39 data-nosnippet>39</a><span class="kw">use </span><span class="kw">crate</span>::os::command::VirtualCommand;
-<a href=#40 id=40 data-nosnippet>40</a>
-<a href=#41 id=41 data-nosnippet>41</a><span class="attr">#[derive(Debug, Clone)]
-<a href=#42 id=42 data-nosnippet>42</a></span><span class="kw">pub struct </span>CmdWasmer {
-<a href=#43 id=43 data-nosnippet>43</a>    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
-<a href=#44 id=44 data-nosnippet>44</a>}
-<a href=#45 id=45 data-nosnippet>45</a>
-<a href=#46 id=46 data-nosnippet>46</a><span class="kw">impl </span>CmdWasmer {
-<a href=#47 id=47 data-nosnippet>47</a>    <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"wasmer"</span>;
-<a href=#48 id=48 data-nosnippet>48</a>
-<a href=#49 id=49 data-nosnippet>49</a>    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
-<a href=#50 id=50 data-nosnippet>50</a>        <span class="self">Self </span>{ runtime }
-<a href=#51 id=51 data-nosnippet>51</a>    }
-<a href=#52 id=52 data-nosnippet>52</a>}
-<a href=#53 id=53 data-nosnippet>53</a>
-<a href=#54 id=54 data-nosnippet>54</a><span class="attr">#[derive(Debug, Clone)]
-<a href=#55 id=55 data-nosnippet>55</a></span><span class="kw">enum </span>Executable {
-<a href=#56 id=56 data-nosnippet>56</a>    Wasm(OwnedBuffer),
-<a href=#57 id=57 data-nosnippet>57</a>    BinaryPackage(Box&lt;BinaryPackage&gt;),
-<a href=#58 id=58 data-nosnippet>58</a>}
-<a href=#59 id=59 data-nosnippet>59</a>
-<a href=#60 id=60 data-nosnippet>60</a><span class="kw">impl </span>CmdWasmer {
-<a href=#61 id=61 data-nosnippet>61</a>    <span class="kw">async fn </span>run(
-<a href=#62 id=62 data-nosnippet>62</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#63 id=63 data-nosnippet>63</a>        parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-<a href=#64 id=64 data-nosnippet>64</a>        name: <span class="kw-2">&amp;</span>str,
-<a href=#65 id=65 data-nosnippet>65</a>        config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
-<a href=#66 id=66 data-nosnippet>66</a>        what: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#67 id=67 data-nosnippet>67</a>        <span class="kw-2">mut </span>args: Vec&lt;String&gt;,
-<a href=#68 id=68 data-nosnippet>68</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
-<a href=#69 id=69 data-nosnippet>69</a>        <span class="comment">// If the first argument is a '--' then skip it
-<a href=#70 id=70 data-nosnippet>70</a>        </span><span class="kw">if </span>args.first().map(|a| a.as_str()) == <span class="prelude-val">Some</span>(<span class="string">"--"</span>) {
-<a href=#71 id=71 data-nosnippet>71</a>            args = args.into_iter().skip(<span class="number">1</span>).collect();
-<a href=#72 id=72 data-nosnippet>72</a>        }
-<a href=#73 id=73 data-nosnippet>73</a>
-<a href=#74 id=74 data-nosnippet>74</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(what) = what {
-<a href=#75 id=75 data-nosnippet>75</a>            <span class="kw">let </span><span class="kw-2">mut </span>env = config.take().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
-<a href=#76 id=76 data-nosnippet>76</a>
-<a href=#77 id=77 data-nosnippet>77</a>            <span class="comment">// Set the arguments of the environment by replacing the state
-<a href=#78 id=78 data-nosnippet>78</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>state = env.state.fork();
-<a href=#79 id=79 data-nosnippet>79</a>            args.insert(<span class="number">0</span>, what.clone());
-<a href=#80 id=80 data-nosnippet>80</a>            state.args = std::sync::Mutex::new(args);
-<a href=#81 id=81 data-nosnippet>81</a>            env.state = Arc::new(state);
-<a href=#82 id=82 data-nosnippet>82</a>
-<a href=#83 id=83 data-nosnippet>83</a>            <span class="kw">let </span>file_path = <span class="kw">if </span>what.starts_with(<span class="string">'/'</span>) {
-<a href=#84 id=84 data-nosnippet>84</a>                PathBuf::from(<span class="kw-2">&amp;</span>what)
-<a href=#85 id=85 data-nosnippet>85</a>            } <span class="kw">else </span>{
-<a href=#86 id=86 data-nosnippet>86</a>                <span class="comment">// convert relative path to absolute path
-<a href=#87 id=87 data-nosnippet>87</a>                </span><span class="kw">let </span>cwd = env.state.fs.current_dir.lock().unwrap().clone();
-<a href=#88 id=88 data-nosnippet>88</a>
-<a href=#89 id=89 data-nosnippet>89</a>                PathBuf::from(cwd).join(<span class="kw-2">&amp;</span>what)
-<a href=#90 id=90 data-nosnippet>90</a>            };
-<a href=#91 id=91 data-nosnippet>91</a>
-<a href=#92 id=92 data-nosnippet>92</a>            <span class="kw">let </span>fs = env.fs_root();
-<a href=#93 id=93 data-nosnippet>93</a>            <span class="kw">let </span>f = fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="kw-2">&amp;</span>file_path);
-<a href=#94 id=94 data-nosnippet>94</a>            <span class="kw">let </span>executable = <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>file) = f {
-<a href=#95 id=95 data-nosnippet>95</a>                <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(file.size() <span class="kw">as </span>usize);
-<a href=#96 id=96 data-nosnippet>96</a>                file.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.unwrap();
-<a href=#97 id=97 data-nosnippet>97</a>
-<a href=#98 id=98 data-nosnippet>98</a>                <span class="kw">let </span>bytes: bytes::Bytes = data.into();
-<a href=#99 id=99 data-nosnippet>99</a>
-<a href=#100 id=100 data-nosnippet>100</a>                <span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = from_bytes(bytes.clone()) {
-<a href=#101 id=101 data-nosnippet>101</a>                    <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;*</span><span class="self">self</span>.runtime)
-<a href=#102 id=102 data-nosnippet>102</a>                        .<span class="kw">await
-<a href=#103 id=103 data-nosnippet>103</a>                        </span>.unwrap();
-<a href=#104 id=104 data-nosnippet>104</a>
-<a href=#105 id=105 data-nosnippet>105</a>                    Executable::BinaryPackage(Box::new(pkg))
-<a href=#106 id=106 data-nosnippet>106</a>                } <span class="kw">else </span>{
-<a href=#107 id=107 data-nosnippet>107</a>                    Executable::Wasm(OwnedBuffer::from_bytes(bytes))
-<a href=#108 id=108 data-nosnippet>108</a>                }
-<a href=#109 id=109 data-nosnippet>109</a>            } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(pkg) = <span class="self">self</span>.get_package(<span class="kw-2">&amp;</span>what).<span class="kw">await </span>{
-<a href=#110 id=110 data-nosnippet>110</a>                Executable::BinaryPackage(Box::new(pkg))
-<a href=#111 id=111 data-nosnippet>111</a>            } <span class="kw">else </span>{
-<a href=#112 id=112 data-nosnippet>112</a>                <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.<span class="kw">await</span>;
-<a href=#113 id=113 data-nosnippet>113</a>                <span class="kw">let </span>handle =
-<a href=#114 id=114 data-nosnippet>114</a>                    OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
-<a href=#115 id=115 data-nosnippet>115</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(handle);
-<a href=#116 id=116 data-nosnippet>116</a>            };
-<a href=#117 id=117 data-nosnippet>117</a>
-<a href=#118 id=118 data-nosnippet>118</a>            <span class="kw">match </span>executable {
-<a href=#119 id=119 data-nosnippet>119</a>                Executable::BinaryPackage(binary) =&gt; {
-<a href=#120 id=120 data-nosnippet>120</a>                    <span class="comment">// Infer the command that is going to be executed
-<a href=#121 id=121 data-nosnippet>121</a>                    </span><span class="kw">let </span>cmd_name: <span class="kw-2">&amp;</span>str =
-<a href=#122 id=122 data-nosnippet>122</a>                        binary
-<a href=#123 id=123 data-nosnippet>123</a>                            .infer_entrypoint()
-<a href=#124 id=124 data-nosnippet>124</a>                            .map_err(|<span class="kw">_</span>| SpawnError::MissingEntrypoint {
-<a href=#125 id=125 data-nosnippet>125</a>                                package_id: binary.id.clone(),
-<a href=#126 id=126 data-nosnippet>126</a>                            })<span class="question-mark">?</span>;
-<a href=#127 id=127 data-nosnippet>127</a>
-<a href=#128 id=128 data-nosnippet>128</a>                    {
-<a href=#129 id=129 data-nosnippet>129</a>                        <span class="kw">let </span>cmd =
-<a href=#130 id=130 data-nosnippet>130</a>                            binary
-<a href=#131 id=131 data-nosnippet>131</a>                                .get_command(cmd_name)
-<a href=#132 id=132 data-nosnippet>132</a>                                .ok_or_else(|| SpawnError::NotFound {
-<a href=#133 id=133 data-nosnippet>133</a>                                    message: <span class="macro">format!</span>(
-<a href=#134 id=134 data-nosnippet>134</a>                                        <span class="string">"{cmd_name} command in package: {}"</span>,
-<a href=#135 id=135 data-nosnippet>135</a>                                        binary.id
-<a href=#136 id=136 data-nosnippet>136</a>                                    ),
-<a href=#137 id=137 data-nosnippet>137</a>                                })<span class="question-mark">?</span>;
-<a href=#138 id=138 data-nosnippet>138</a>                        env.prepare_spawn(cmd);
-<a href=#139 id=139 data-nosnippet>139</a>                    }
-<a href=#140 id=140 data-nosnippet>140</a>
-<a href=#141 id=141 data-nosnippet>141</a>                    env.use_package_async(<span class="kw-2">&amp;</span>binary).<span class="kw">await</span>.unwrap();
-<a href=#142 id=142 data-nosnippet>142</a>
-<a href=#143 id=143 data-nosnippet>143</a>                    <span class="comment">// Now run the module
-<a href=#144 id=144 data-nosnippet>144</a>                    </span>spawn_exec(<span class="kw-2">*</span>binary, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
-<a href=#145 id=145 data-nosnippet>145</a>                </span>}
-<a href=#146 id=146 data-nosnippet>146</a>                Executable::Wasm(bytes) =&gt; {
-<a href=#147 id=147 data-nosnippet>147</a>                    <span class="kw">let </span>data = HashedModuleData::new(bytes);
-<a href=#148 id=148 data-nosnippet>148</a>                    spawn_exec_wasm(data, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
-<a href=#149 id=149 data-nosnippet>149</a>                </span>}
-<a href=#150 id=150 data-nosnippet>150</a>            }
-<a href=#151 id=151 data-nosnippet>151</a>        } <span class="kw">else </span>{
-<a href=#152 id=152 data-nosnippet>152</a>            <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.<span class="kw">await</span>;
-<a href=#153 id=153 data-nosnippet>153</a>            <span class="kw">let </span>handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
-<a href=#154 id=154 data-nosnippet>154</a>            <span class="prelude-val">Ok</span>(handle)
-<a href=#155 id=155 data-nosnippet>155</a>        }
-<a href=#156 id=156 data-nosnippet>156</a>    }
-<a href=#157 id=157 data-nosnippet>157</a>
-<a href=#158 id=158 data-nosnippet>158</a>    <span class="kw">pub async fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
-<a href=#159 id=159 data-nosnippet>159</a>        <span class="comment">// Need to make sure this task runs on the main runtime.
-<a href=#160 id=160 data-nosnippet>160</a>        </span><span class="kw">let </span>(tx, rx) = tokio::sync::oneshot::channel();
-<a href=#161 id=161 data-nosnippet>161</a>        <span class="kw">let </span>specifier = name.parse()<span class="question-mark">?</span>;
-<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>rt = <span class="self">self</span>.runtime.clone();
-<a href=#163 id=163 data-nosnippet>163</a>        <span class="self">self</span>.runtime.task_manager().task_shared(Box::new(|| {
-<a href=#164 id=164 data-nosnippet>164</a>            Box::pin(<span class="kw">async move </span>{
-<a href=#165 id=165 data-nosnippet>165</a>                <span class="kw">let </span>res = BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, rt.as_ref()).<span class="kw">await</span>;
-<a href=#166 id=166 data-nosnippet>166</a>                tx.send(res)
-<a href=#167 id=167 data-nosnippet>167</a>                    .expect(<span class="string">"could not send response to output channel"</span>);
-<a href=#168 id=168 data-nosnippet>168</a>            })
-<a href=#169 id=169 data-nosnippet>169</a>        }))<span class="question-mark">?</span>;
-<a href=#170 id=170 data-nosnippet>170</a>        rx.<span class="kw">await
-<a href=#171 id=171 data-nosnippet>171</a>            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">"package retrieval response channel died"</span>))<span class="question-mark">?
-<a href=#172 id=172 data-nosnippet>172</a>    </span>}
-<a href=#173 id=173 data-nosnippet>173</a>}
-<a href=#174 id=174 data-nosnippet>174</a>
-<a href=#175 id=175 data-nosnippet>175</a><span class="kw">impl </span>VirtualCommand <span class="kw">for </span>CmdWasmer {
-<a href=#176 id=176 data-nosnippet>176</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
-<a href=#177 id=177 data-nosnippet>177</a>        <span class="self">Self</span>::NAME
-<a href=#178 id=178 data-nosnippet>178</a>    }
-<a href=#179 id=179 data-nosnippet>179</a>
-<a href=#180 id=180 data-nosnippet>180</a>    <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Any {
-<a href=#181 id=181 data-nosnippet>181</a>        <span class="self">self
-<a href=#182 id=182 data-nosnippet>182</a>    </span>}
-<a href=#183 id=183 data-nosnippet>183</a>
-<a href=#184 id=184 data-nosnippet>184</a>    <span class="kw">fn </span>exec(
-<a href=#185 id=185 data-nosnippet>185</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#186 id=186 data-nosnippet>186</a>        parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
-<a href=#187 id=187 data-nosnippet>187</a>        name: <span class="kw-2">&amp;</span>str,
-<a href=#188 id=188 data-nosnippet>188</a>        env: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
-<a href=#189 id=189 data-nosnippet>189</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
-<a href=#190 id=190 data-nosnippet>190</a>        <span class="comment">// Read the command we want to run
-<a href=#191 id=191 data-nosnippet>191</a>        </span><span class="kw">let </span>env_inner = env.as_ref().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
-<a href=#192 id=192 data-nosnippet>192</a>        <span class="kw">let </span>args = env_inner.state.args.lock().unwrap().clone();
-<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span><span class="kw-2">mut </span>args = args.iter().map(|s| s.as_str());
-<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span>_alias = args.next();
-<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>cmd = args.next();
-<a href=#196 id=196 data-nosnippet>196</a>
-<a href=#197 id=197 data-nosnippet>197</a>        <span class="comment">// Check the command
-<a href=#198 id=198 data-nosnippet>198</a>        </span><span class="kw">let </span>fut = <span class="kw">async </span>{
-<a href=#199 id=199 data-nosnippet>199</a>            <span class="kw">match </span>cmd {
-<a href=#200 id=200 data-nosnippet>200</a>                <span class="prelude-val">Some</span>(<span class="string">"run"</span>) =&gt; {
-<a href=#201 id=201 data-nosnippet>201</a>                    <span class="kw">let </span>what = args.next().map(|a| a.to_string());
-<a href=#202 id=202 data-nosnippet>202</a>                    <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
-<a href=#203 id=203 data-nosnippet>203</a>                    <span class="self">self</span>.run(parent_ctx, name, env, what, args).<span class="kw">await
-<a href=#204 id=204 data-nosnippet>204</a>                </span>}
-<a href=#205 id=205 data-nosnippet>205</a>                <span class="prelude-val">Some</span>(<span class="string">"--help"</span>) | <span class="prelude-val">None </span>=&gt; {
-<a href=#206 id=206 data-nosnippet>206</a>                    <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP.as_bytes()) }
-<a href=#207 id=207 data-nosnippet>207</a>                        .<span class="kw">await
-<a href=#208 id=208 data-nosnippet>208</a>                        </span>.ok();
-<a href=#209 id=209 data-nosnippet>209</a>                    <span class="kw">let </span>handle =
-<a href=#210 id=210 data-nosnippet>210</a>                        OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
-<a href=#211 id=211 data-nosnippet>211</a>                    <span class="prelude-val">Ok</span>(handle)
-<a href=#212 id=212 data-nosnippet>212</a>                }
-<a href=#213 id=213 data-nosnippet>213</a>                <span class="prelude-val">Some</span>(what) =&gt; {
-<a href=#214 id=214 data-nosnippet>214</a>                    <span class="kw">let </span>what = <span class="prelude-val">Some</span>(what.to_string());
-<a href=#215 id=215 data-nosnippet>215</a>                    <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
-<a href=#216 id=216 data-nosnippet>216</a>                    <span class="self">self</span>.run(parent_ctx, name, env, what, args).<span class="kw">await
-<a href=#217 id=217 data-nosnippet>217</a>                </span>}
-<a href=#218 id=218 data-nosnippet>218</a>            }
-<a href=#219 id=219 data-nosnippet>219</a>        };
-<a href=#220 id=220 data-nosnippet>220</a>
-<a href=#221 id=221 data-nosnippet>221</a>        InlineWaker::block_on(fut)
-<a href=#222 id=222 data-nosnippet>222</a>    }
-<a href=#223 id=223 data-nosnippet>223</a>}</code></pre></div></section></main></body></html>
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span>virtual_mio::block_on;
+<a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span>wasmer::FunctionEnvMut;
+<a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span>wasmer_package::utils::from_bytes;
+<a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
+<a href=#15 id=15 data-nosnippet>15</a>
+<a href=#16 id=16 data-nosnippet>16</a><span class="kw">use crate</span>::{
+<a href=#17 id=17 data-nosnippet>17</a>    Runtime, WasiEnv,
+<a href=#18 id=18 data-nosnippet>18</a>    bin_factory::{BinaryPackage, spawn_exec},
+<a href=#19 id=19 data-nosnippet>19</a>    syscalls::stderr_write,
+<a href=#20 id=20 data-nosnippet>20</a>};
+<a href=#21 id=21 data-nosnippet>21</a>
+<a href=#22 id=22 data-nosnippet>22</a><span class="kw">const </span>HELP: <span class="kw-2">&amp;</span>str = <span class="string">r#"USAGE:
+<a href=#23 id=23 data-nosnippet>23</a>    wasmer &lt;SUBCOMMAND&gt;
+<a href=#24 id=24 data-nosnippet>24</a>
+<a href=#25 id=25 data-nosnippet>25</a>OPTIONS:
+<a href=#26 id=26 data-nosnippet>26</a>    -h, --help       Print help information
+<a href=#27 id=27 data-nosnippet>27</a>
+<a href=#28 id=28 data-nosnippet>28</a>SUBCOMMANDS:
+<a href=#29 id=29 data-nosnippet>29</a>    run            Run a WebAssembly file. Formats accepted: wasm, wat
+<a href=#30 id=30 data-nosnippet>30</a>"#</span>;
+<a href=#31 id=31 data-nosnippet>31</a>
+<a href=#32 id=32 data-nosnippet>32</a><span class="kw">const </span>HELP_RUN: <span class="kw-2">&amp;</span>str = <span class="string">r#"USAGE:
+<a href=#33 id=33 data-nosnippet>33</a>    wasmer run &lt;FILE&gt; [ARGS]...
+<a href=#34 id=34 data-nosnippet>34</a>
+<a href=#35 id=35 data-nosnippet>35</a>ARGS:
+<a href=#36 id=36 data-nosnippet>36</a>    &lt;FILE&gt;       File to run
+<a href=#37 id=37 data-nosnippet>37</a>    &lt;ARGS&gt;...    Application arguments
+<a href=#38 id=38 data-nosnippet>38</a>"#</span>;
+<a href=#39 id=39 data-nosnippet>39</a>
+<a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span><span class="kw">crate</span>::os::command::VirtualCommand;
+<a href=#41 id=41 data-nosnippet>41</a>
+<a href=#42 id=42 data-nosnippet>42</a><span class="attr">#[derive(Debug, Clone)]
+<a href=#43 id=43 data-nosnippet>43</a></span><span class="kw">pub struct </span>CmdWasmer {
+<a href=#44 id=44 data-nosnippet>44</a>    runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;,
+<a href=#45 id=45 data-nosnippet>45</a>}
+<a href=#46 id=46 data-nosnippet>46</a>
+<a href=#47 id=47 data-nosnippet>47</a><span class="kw">impl </span>CmdWasmer {
+<a href=#48 id=48 data-nosnippet>48</a>    <span class="kw">const </span>NAME: <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str = <span class="string">"wasmer"</span>;
+<a href=#49 id=49 data-nosnippet>49</a>
+<a href=#50 id=50 data-nosnippet>50</a>    <span class="kw">pub fn </span>new(runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync + <span class="lifetime">'static</span>&gt;) -&gt; <span class="self">Self </span>{
+<a href=#51 id=51 data-nosnippet>51</a>        <span class="self">Self </span>{ runtime }
+<a href=#52 id=52 data-nosnippet>52</a>    }
+<a href=#53 id=53 data-nosnippet>53</a>}
+<a href=#54 id=54 data-nosnippet>54</a>
+<a href=#55 id=55 data-nosnippet>55</a><span class="attr">#[derive(Debug, Clone)]
+<a href=#56 id=56 data-nosnippet>56</a></span><span class="kw">enum </span>Executable {
+<a href=#57 id=57 data-nosnippet>57</a>    Wasm(OwnedBuffer),
+<a href=#58 id=58 data-nosnippet>58</a>    BinaryPackage(Box&lt;BinaryPackage&gt;),
+<a href=#59 id=59 data-nosnippet>59</a>}
+<a href=#60 id=60 data-nosnippet>60</a>
+<a href=#61 id=61 data-nosnippet>61</a><span class="kw">impl </span>CmdWasmer {
+<a href=#62 id=62 data-nosnippet>62</a>    <span class="kw">async fn </span>run(
+<a href=#63 id=63 data-nosnippet>63</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#64 id=64 data-nosnippet>64</a>        parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#65 id=65 data-nosnippet>65</a>        name: <span class="kw-2">&amp;</span>str,
+<a href=#66 id=66 data-nosnippet>66</a>        config: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
+<a href=#67 id=67 data-nosnippet>67</a>        what: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#68 id=68 data-nosnippet>68</a>        <span class="kw-2">mut </span>args: Vec&lt;String&gt;,
+<a href=#69 id=69 data-nosnippet>69</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
+<a href=#70 id=70 data-nosnippet>70</a>        <span class="comment">// If the first argument is a '--' then skip it
+<a href=#71 id=71 data-nosnippet>71</a>        </span><span class="kw">if </span>args.first().map(|a| a.as_str()) == <span class="prelude-val">Some</span>(<span class="string">"--"</span>) {
+<a href=#72 id=72 data-nosnippet>72</a>            args = args.into_iter().skip(<span class="number">1</span>).collect();
+<a href=#73 id=73 data-nosnippet>73</a>        }
+<a href=#74 id=74 data-nosnippet>74</a>
+<a href=#75 id=75 data-nosnippet>75</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(what) = what {
+<a href=#76 id=76 data-nosnippet>76</a>            <span class="kw">let </span><span class="kw-2">mut </span>env = config.take().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
+<a href=#77 id=77 data-nosnippet>77</a>
+<a href=#78 id=78 data-nosnippet>78</a>            <span class="comment">// Set the arguments of the environment by replacing the state
+<a href=#79 id=79 data-nosnippet>79</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>state = env.state.fork();
+<a href=#80 id=80 data-nosnippet>80</a>            args.insert(<span class="number">0</span>, what.clone());
+<a href=#81 id=81 data-nosnippet>81</a>            state.args = std::sync::Mutex::new(args);
+<a href=#82 id=82 data-nosnippet>82</a>            env.state = Arc::new(state);
+<a href=#83 id=83 data-nosnippet>83</a>
+<a href=#84 id=84 data-nosnippet>84</a>            <span class="kw">let </span>file_path = <span class="kw">if </span>what.starts_with(<span class="string">'/'</span>) {
+<a href=#85 id=85 data-nosnippet>85</a>                PathBuf::from(<span class="kw-2">&amp;</span>what)
+<a href=#86 id=86 data-nosnippet>86</a>            } <span class="kw">else </span>{
+<a href=#87 id=87 data-nosnippet>87</a>                <span class="comment">// convert relative path to absolute path
+<a href=#88 id=88 data-nosnippet>88</a>                </span><span class="kw">let </span>cwd = env.state.fs.current_dir.lock().unwrap().clone();
+<a href=#89 id=89 data-nosnippet>89</a>
+<a href=#90 id=90 data-nosnippet>90</a>                PathBuf::from(cwd).join(<span class="kw-2">&amp;</span>what)
+<a href=#91 id=91 data-nosnippet>91</a>            };
+<a href=#92 id=92 data-nosnippet>92</a>
+<a href=#93 id=93 data-nosnippet>93</a>            <span class="kw">let </span>fs = env.fs_root();
+<a href=#94 id=94 data-nosnippet>94</a>            <span class="kw">let </span>f = fs.new_open_options().read(<span class="bool-val">true</span>).open(<span class="kw-2">&amp;</span>file_path);
+<a href=#95 id=95 data-nosnippet>95</a>            <span class="kw">let </span>executable = <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>file) = f {
+<a href=#96 id=96 data-nosnippet>96</a>                <span class="kw">let </span><span class="kw-2">mut </span>data = Vec::with_capacity(file.size() <span class="kw">as </span>usize);
+<a href=#97 id=97 data-nosnippet>97</a>                file.read_to_end(<span class="kw-2">&amp;mut </span>data).<span class="kw">await</span>.unwrap();
+<a href=#98 id=98 data-nosnippet>98</a>
+<a href=#99 id=99 data-nosnippet>99</a>                <span class="kw">let </span>bytes: bytes::Bytes = data.into();
+<a href=#100 id=100 data-nosnippet>100</a>
+<a href=#101 id=101 data-nosnippet>101</a>                <span class="kw">if let </span><span class="prelude-val">Ok</span>(container) = from_bytes(bytes.clone()) {
+<a href=#102 id=102 data-nosnippet>102</a>                    <span class="kw">let </span>pkg = BinaryPackage::from_webc(<span class="kw-2">&amp;</span>container, <span class="kw-2">&amp;*</span><span class="self">self</span>.runtime)
+<a href=#103 id=103 data-nosnippet>103</a>                        .<span class="kw">await
+<a href=#104 id=104 data-nosnippet>104</a>                        </span>.unwrap();
+<a href=#105 id=105 data-nosnippet>105</a>
+<a href=#106 id=106 data-nosnippet>106</a>                    Executable::BinaryPackage(Box::new(pkg))
+<a href=#107 id=107 data-nosnippet>107</a>                } <span class="kw">else </span>{
+<a href=#108 id=108 data-nosnippet>108</a>                    Executable::Wasm(OwnedBuffer::from_bytes(bytes))
+<a href=#109 id=109 data-nosnippet>109</a>                }
+<a href=#110 id=110 data-nosnippet>110</a>            } <span class="kw">else if let </span><span class="prelude-val">Ok</span>(pkg) = <span class="self">self</span>.get_package(<span class="kw-2">&amp;</span>what).<span class="kw">await </span>{
+<a href=#111 id=111 data-nosnippet>111</a>                Executable::BinaryPackage(Box::new(pkg))
+<a href=#112 id=112 data-nosnippet>112</a>            } <span class="kw">else </span>{
+<a href=#113 id=113 data-nosnippet>113</a>                <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.<span class="kw">await</span>;
+<a href=#114 id=114 data-nosnippet>114</a>                <span class="kw">let </span>handle =
+<a href=#115 id=115 data-nosnippet>115</a>                    OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+<a href=#116 id=116 data-nosnippet>116</a>                <span class="kw">return </span><span class="prelude-val">Ok</span>(handle);
+<a href=#117 id=117 data-nosnippet>117</a>            };
+<a href=#118 id=118 data-nosnippet>118</a>
+<a href=#119 id=119 data-nosnippet>119</a>            <span class="kw">match </span>executable {
+<a href=#120 id=120 data-nosnippet>120</a>                Executable::BinaryPackage(binary) =&gt; {
+<a href=#121 id=121 data-nosnippet>121</a>                    <span class="comment">// Infer the command that is going to be executed
+<a href=#122 id=122 data-nosnippet>122</a>                    </span><span class="kw">let </span>cmd_name: <span class="kw-2">&amp;</span>str =
+<a href=#123 id=123 data-nosnippet>123</a>                        binary
+<a href=#124 id=124 data-nosnippet>124</a>                            .infer_entrypoint()
+<a href=#125 id=125 data-nosnippet>125</a>                            .map_err(|<span class="kw">_</span>| SpawnError::MissingEntrypoint {
+<a href=#126 id=126 data-nosnippet>126</a>                                package_id: binary.id.clone(),
+<a href=#127 id=127 data-nosnippet>127</a>                            })<span class="question-mark">?</span>;
+<a href=#128 id=128 data-nosnippet>128</a>
+<a href=#129 id=129 data-nosnippet>129</a>                    {
+<a href=#130 id=130 data-nosnippet>130</a>                        <span class="kw">let </span>cmd =
+<a href=#131 id=131 data-nosnippet>131</a>                            binary
+<a href=#132 id=132 data-nosnippet>132</a>                                .get_command(cmd_name)
+<a href=#133 id=133 data-nosnippet>133</a>                                .ok_or_else(|| SpawnError::NotFound {
+<a href=#134 id=134 data-nosnippet>134</a>                                    message: <span class="macro">format!</span>(
+<a href=#135 id=135 data-nosnippet>135</a>                                        <span class="string">"{cmd_name} command in package: {}"</span>,
+<a href=#136 id=136 data-nosnippet>136</a>                                        binary.id
+<a href=#137 id=137 data-nosnippet>137</a>                                    ),
+<a href=#138 id=138 data-nosnippet>138</a>                                })<span class="question-mark">?</span>;
+<a href=#139 id=139 data-nosnippet>139</a>                        env.prepare_spawn(cmd);
+<a href=#140 id=140 data-nosnippet>140</a>                    }
+<a href=#141 id=141 data-nosnippet>141</a>
+<a href=#142 id=142 data-nosnippet>142</a>                    env.use_package_async(<span class="kw-2">&amp;</span>binary).<span class="kw">await</span>.unwrap();
+<a href=#143 id=143 data-nosnippet>143</a>
+<a href=#144 id=144 data-nosnippet>144</a>                    <span class="comment">// Now run the module
+<a href=#145 id=145 data-nosnippet>145</a>                    </span>spawn_exec(<span class="kw-2">*</span>binary, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+<a href=#146 id=146 data-nosnippet>146</a>                </span>}
+<a href=#147 id=147 data-nosnippet>147</a>                Executable::Wasm(bytes) =&gt; {
+<a href=#148 id=148 data-nosnippet>148</a>                    <span class="kw">let </span>data = HashedModuleData::new(bytes);
+<a href=#149 id=149 data-nosnippet>149</a>                    spawn_exec_wasm(data, name, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime).<span class="kw">await
+<a href=#150 id=150 data-nosnippet>150</a>                </span>}
+<a href=#151 id=151 data-nosnippet>151</a>            }
+<a href=#152 id=152 data-nosnippet>152</a>        } <span class="kw">else </span>{
+<a href=#153 id=153 data-nosnippet>153</a>            <span class="kw">let _ </span>= <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.<span class="kw">await</span>;
+<a href=#154 id=154 data-nosnippet>154</a>            <span class="kw">let </span>handle = OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+<a href=#155 id=155 data-nosnippet>155</a>            <span class="prelude-val">Ok</span>(handle)
+<a href=#156 id=156 data-nosnippet>156</a>        }
+<a href=#157 id=157 data-nosnippet>157</a>    }
+<a href=#158 id=158 data-nosnippet>158</a>
+<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">pub async fn </span>get_package(<span class="kw-2">&amp;</span><span class="self">self</span>, name: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;BinaryPackage, anyhow::Error&gt; {
+<a href=#160 id=160 data-nosnippet>160</a>        <span class="comment">// Need to make sure this task runs on the main runtime.
+<a href=#161 id=161 data-nosnippet>161</a>        </span><span class="kw">let </span>(tx, rx) = tokio::sync::oneshot::channel();
+<a href=#162 id=162 data-nosnippet>162</a>        <span class="kw">let </span>specifier = name.parse()<span class="question-mark">?</span>;
+<a href=#163 id=163 data-nosnippet>163</a>        <span class="kw">let </span>rt = <span class="self">self</span>.runtime.clone();
+<a href=#164 id=164 data-nosnippet>164</a>        <span class="self">self</span>.runtime.task_manager().task_shared(Box::new(|| {
+<a href=#165 id=165 data-nosnippet>165</a>            Box::pin(<span class="kw">async move </span>{
+<a href=#166 id=166 data-nosnippet>166</a>                <span class="kw">let </span>res = BinaryPackage::from_registry(<span class="kw-2">&amp;</span>specifier, rt.as_ref()).<span class="kw">await</span>;
+<a href=#167 id=167 data-nosnippet>167</a>                tx.send(res)
+<a href=#168 id=168 data-nosnippet>168</a>                    .expect(<span class="string">"could not send response to output channel"</span>);
+<a href=#169 id=169 data-nosnippet>169</a>            })
+<a href=#170 id=170 data-nosnippet>170</a>        }))<span class="question-mark">?</span>;
+<a href=#171 id=171 data-nosnippet>171</a>        rx.<span class="kw">await
+<a href=#172 id=172 data-nosnippet>172</a>            </span>.map_err(|<span class="kw">_</span>| <span class="macro">anyhow::anyhow!</span>(<span class="string">"package retrieval response channel died"</span>))<span class="question-mark">?
+<a href=#173 id=173 data-nosnippet>173</a>    </span>}
+<a href=#174 id=174 data-nosnippet>174</a>}
+<a href=#175 id=175 data-nosnippet>175</a>
+<a href=#176 id=176 data-nosnippet>176</a><span class="kw">impl </span>VirtualCommand <span class="kw">for </span>CmdWasmer {
+<a href=#177 id=177 data-nosnippet>177</a>    <span class="kw">fn </span>name(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>str {
+<a href=#178 id=178 data-nosnippet>178</a>        <span class="self">Self</span>::NAME
+<a href=#179 id=179 data-nosnippet>179</a>    }
+<a href=#180 id=180 data-nosnippet>180</a>
+<a href=#181 id=181 data-nosnippet>181</a>    <span class="kw">fn </span>as_any(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span><span class="kw">dyn </span>Any {
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="self">self
+<a href=#183 id=183 data-nosnippet>183</a>    </span>}
+<a href=#184 id=184 data-nosnippet>184</a>
+<a href=#185 id=185 data-nosnippet>185</a>    <span class="kw">fn </span>exec(
+<a href=#186 id=186 data-nosnippet>186</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#187 id=187 data-nosnippet>187</a>        parent_ctx: <span class="kw-2">&amp;</span>FunctionEnvMut&lt;<span class="lifetime">'_</span>, WasiEnv&gt;,
+<a href=#188 id=188 data-nosnippet>188</a>        name: <span class="kw-2">&amp;</span>str,
+<a href=#189 id=189 data-nosnippet>189</a>        env: <span class="kw-2">&amp;mut </span><span class="prelude-ty">Option</span>&lt;WasiEnv&gt;,
+<a href=#190 id=190 data-nosnippet>190</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;TaskJoinHandle, SpawnError&gt; {
+<a href=#191 id=191 data-nosnippet>191</a>        <span class="comment">// Read the command we want to run
+<a href=#192 id=192 data-nosnippet>192</a>        </span><span class="kw">let </span>env_inner = env.as_ref().ok_or(SpawnError::UnknownError)<span class="question-mark">?</span>;
+<a href=#193 id=193 data-nosnippet>193</a>        <span class="kw">let </span>args = env_inner.state.args.lock().unwrap().clone();
+<a href=#194 id=194 data-nosnippet>194</a>        <span class="kw">let </span><span class="kw-2">mut </span>args = args.iter().map(|s| s.as_str());
+<a href=#195 id=195 data-nosnippet>195</a>        <span class="kw">let </span>_alias = args.next();
+<a href=#196 id=196 data-nosnippet>196</a>        <span class="kw">let </span>cmd = args.next();
+<a href=#197 id=197 data-nosnippet>197</a>
+<a href=#198 id=198 data-nosnippet>198</a>        <span class="comment">// Check the command
+<a href=#199 id=199 data-nosnippet>199</a>        </span><span class="kw">let </span>fut = <span class="kw">async </span>{
+<a href=#200 id=200 data-nosnippet>200</a>            <span class="kw">match </span>cmd {
+<a href=#201 id=201 data-nosnippet>201</a>                <span class="prelude-val">Some</span>(<span class="string">"run"</span>) =&gt; {
+<a href=#202 id=202 data-nosnippet>202</a>                    <span class="kw">let </span>what = args.next().map(|a| a.to_string());
+<a href=#203 id=203 data-nosnippet>203</a>                    <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
+<a href=#204 id=204 data-nosnippet>204</a>                    <span class="self">self</span>.run(parent_ctx, name, env, what, args).<span class="kw">await
+<a href=#205 id=205 data-nosnippet>205</a>                </span>}
+<a href=#206 id=206 data-nosnippet>206</a>                <span class="prelude-val">Some</span>(<span class="string">"--help"</span>) | <span class="prelude-val">None </span>=&gt; {
+<a href=#207 id=207 data-nosnippet>207</a>                    <span class="kw">unsafe </span>{ stderr_write(parent_ctx, HELP.as_bytes()) }
+<a href=#208 id=208 data-nosnippet>208</a>                        .<span class="kw">await
+<a href=#209 id=209 data-nosnippet>209</a>                        </span>.ok();
+<a href=#210 id=210 data-nosnippet>210</a>                    <span class="kw">let </span>handle =
+<a href=#211 id=211 data-nosnippet>211</a>                        OwnedTaskStatus::new_finished_with_code(Errno::Success.into()).handle();
+<a href=#212 id=212 data-nosnippet>212</a>                    <span class="prelude-val">Ok</span>(handle)
+<a href=#213 id=213 data-nosnippet>213</a>                }
+<a href=#214 id=214 data-nosnippet>214</a>                <span class="prelude-val">Some</span>(what) =&gt; {
+<a href=#215 id=215 data-nosnippet>215</a>                    <span class="kw">let </span>what = <span class="prelude-val">Some</span>(what.to_string());
+<a href=#216 id=216 data-nosnippet>216</a>                    <span class="kw">let </span>args = args.map(|a| a.to_string()).collect();
+<a href=#217 id=217 data-nosnippet>217</a>                    <span class="self">self</span>.run(parent_ctx, name, env, what, args).<span class="kw">await
+<a href=#218 id=218 data-nosnippet>218</a>                </span>}
+<a href=#219 id=219 data-nosnippet>219</a>            }
+<a href=#220 id=220 data-nosnippet>220</a>        };
+<a href=#221 id=221 data-nosnippet>221</a>
+<a href=#222 id=222 data-nosnippet>222</a>        block_on(fut)
+<a href=#223 id=223 data-nosnippet>223</a>    }
+<a href=#224 id=224 data-nosnippet>224</a>}</code></pre></div></section></main></body></html>

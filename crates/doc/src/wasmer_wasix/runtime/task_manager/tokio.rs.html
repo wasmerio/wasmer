@@ -3,7 +3,7 @@
 <a href=#3 id=3 data-nosnippet>3</a>
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>futures::{Future, future::BoxFuture};
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>tokio::runtime::{Handle, Runtime};
-<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>virtual_mio::InlineWaker;
+<a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>virtual_mio::block_on;
 <a href=#7 id=7 data-nosnippet>7</a><span class="kw">use </span>wasmer::AsStoreMut;
 <a href=#8 id=8 data-nosnippet>8</a>
 <a href=#9 id=9 data-nosnippet>9</a><span class="kw">use </span><span class="kw">crate</span>::runtime::SpawnType;
@@ -293,7 +293,7 @@
 <a href=#293 id=293 data-nosnippet>293</a>                };
 <a href=#294 id=294 data-nosnippet>294</a>
 <a href=#295 id=295 data-nosnippet>295</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(pre_run) = pre_run {
-<a href=#296 id=296 data-nosnippet>296</a>                    InlineWaker::block_on(pre_run(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>store));
+<a href=#296 id=296 data-nosnippet>296</a>                    block_on(pre_run(<span class="kw-2">&amp;mut </span>ctx, <span class="kw-2">&amp;mut </span>store));
 <a href=#297 id=297 data-nosnippet>297</a>                }
 <a href=#298 id=298 data-nosnippet>298</a>
 <a href=#299 id=299 data-nosnippet>299</a>                <span class="comment">// Invoke the callback

@@ -8,7 +8,7 @@
 <a href=#8 id=8 data-nosnippet>8</a>
 <a href=#9 id=9 data-nosnippet>9</a></span><span class="kw">mod </span>allocator;
 <a href=#10 id=10 data-nosnippet>10</a>
-<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::export::VMExtern;
+<a href=#11 id=11 data-nosnippet>11</a><span class="kw">use </span><span class="kw">crate</span>::LinearMemory;
 <a href=#12 id=12 data-nosnippet>12</a><span class="kw">use </span><span class="kw">crate</span>::imports::Imports;
 <a href=#13 id=13 data-nosnippet>13</a><span class="kw">use </span><span class="kw">crate</span>::store::{InternalStoreHandle, StoreObjects};
 <a href=#14 id=14 data-nosnippet>14</a><span class="kw">use </span><span class="kw">crate</span>::table::TableElement;
@@ -20,8 +20,8 @@
 <a href=#20 id=20 data-nosnippet>20</a>    VMTrampoline, memory_copy, memory_fill, memory32_atomic_check32, memory32_atomic_check64,
 <a href=#21 id=21 data-nosnippet>21</a>};
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use crate</span>::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
-<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use crate</span>::{LinearMemory, NotifyLocation};
-<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use crate</span>::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
+<a href=#23 id=23 data-nosnippet>23</a><span class="kw">use crate</span>::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use crate</span>::{export::VMExtern, threadconditions::ExpectedValue};
 <a href=#25 id=25 data-nosnippet>25</a><span class="kw">pub use </span>allocator::InstanceAllocator;
 <a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>memoffset::offset_of;
 <a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>more_asserts::assert_lt;
@@ -828,766 +828,777 @@
 <a href=#828 id=828 data-nosnippet>828</a>        }
 <a href=#829 id=829 data-nosnippet>829</a>    }
 <a href=#830 id=830 data-nosnippet>830</a>
-<a href=#831 id=831 data-nosnippet>831</a>    <span class="kw">fn </span>memory_wait(memory: <span class="kw-2">&amp;mut </span>VMMemory, dst: u32, timeout: i64) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#832 id=832 data-nosnippet>832</a>        <span class="kw">let </span>location = NotifyLocation { address: dst };
-<a href=#833 id=833 data-nosnippet>833</a>        <span class="kw">let </span>timeout = <span class="kw">if </span>timeout &lt; <span class="number">0 </span>{
-<a href=#834 id=834 data-nosnippet>834</a>            <span class="prelude-val">None
-<a href=#835 id=835 data-nosnippet>835</a>        </span>} <span class="kw">else </span>{
-<a href=#836 id=836 data-nosnippet>836</a>            <span class="prelude-val">Some</span>(std::time::Duration::from_nanos(timeout <span class="kw">as </span>u64))
-<a href=#837 id=837 data-nosnippet>837</a>        };
-<a href=#838 id=838 data-nosnippet>838</a>        <span class="kw">match </span>memory.do_wait(location, timeout) {
-<a href=#839 id=839 data-nosnippet>839</a>            <span class="prelude-val">Ok</span>(count) =&gt; <span class="prelude-val">Ok</span>(count),
-<a href=#840 id=840 data-nosnippet>840</a>            <span class="prelude-val">Err</span>(_err) =&gt; {
-<a href=#841 id=841 data-nosnippet>841</a>                <span class="comment">// ret is None if there is more than 2^32 waiter in queue or some other error
-<a href=#842 id=842 data-nosnippet>842</a>                </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds))
-<a href=#843 id=843 data-nosnippet>843</a>            }
-<a href=#844 id=844 data-nosnippet>844</a>        }
-<a href=#845 id=845 data-nosnippet>845</a>    }
-<a href=#846 id=846 data-nosnippet>846</a>
-<a href=#847 id=847 data-nosnippet>847</a>    <span class="doccomment">/// Perform an Atomic.Wait32
-<a href=#848 id=848 data-nosnippet>848</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>local_memory_wait32(
-<a href=#849 id=849 data-nosnippet>849</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#850 id=850 data-nosnippet>850</a>        memory_index: LocalMemoryIndex,
-<a href=#851 id=851 data-nosnippet>851</a>        dst: u32,
-<a href=#852 id=852 data-nosnippet>852</a>        val: u32,
-<a href=#853 id=853 data-nosnippet>853</a>        timeout: i64,
-<a href=#854 id=854 data-nosnippet>854</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#855 id=855 data-nosnippet>855</a>        <span class="kw">let </span>memory = <span class="self">self</span>.memory(memory_index);
-<a href=#856 id=856 data-nosnippet>856</a>        <span class="comment">//if ! memory.shared {
-<a href=#857 id=857 data-nosnippet>857</a>        // We should trap according to spec, but official test rely on not trapping...
-<a href=#858 id=858 data-nosnippet>858</a>        //}
-<a href=#859 id=859 data-nosnippet>859</a>
-<a href=#860 id=860 data-nosnippet>860</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check32(<span class="kw-2">&amp;</span>memory, dst, val) };
-<a href=#861 id=861 data-nosnippet>861</a>
-<a href=#862 id=862 data-nosnippet>862</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
-<a href=#863 id=863 data-nosnippet>863</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
-<a href=#864 id=864 data-nosnippet>864</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
-<a href=#865 id=865 data-nosnippet>865</a>                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
-<a href=#866 id=866 data-nosnippet>866</a>            }
-<a href=#867 id=867 data-nosnippet>867</a>            <span class="prelude-val">Ok</span>(ret)
-<a href=#868 id=868 data-nosnippet>868</a>        } <span class="kw">else </span>{
-<a href=#869 id=869 data-nosnippet>869</a>            ret
-<a href=#870 id=870 data-nosnippet>870</a>        }
-<a href=#871 id=871 data-nosnippet>871</a>    }
-<a href=#872 id=872 data-nosnippet>872</a>
-<a href=#873 id=873 data-nosnippet>873</a>    <span class="doccomment">/// Perform an Atomic.Wait32
-<a href=#874 id=874 data-nosnippet>874</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imported_memory_wait32(
-<a href=#875 id=875 data-nosnippet>875</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#876 id=876 data-nosnippet>876</a>        memory_index: MemoryIndex,
-<a href=#877 id=877 data-nosnippet>877</a>        dst: u32,
-<a href=#878 id=878 data-nosnippet>878</a>        val: u32,
-<a href=#879 id=879 data-nosnippet>879</a>        timeout: i64,
-<a href=#880 id=880 data-nosnippet>880</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#881 id=881 data-nosnippet>881</a>        <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(memory_index);
-<a href=#882 id=882 data-nosnippet>882</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ import.definition.as_ref() };
-<a href=#883 id=883 data-nosnippet>883</a>        <span class="comment">//if ! memory.shared {
-<a href=#884 id=884 data-nosnippet>884</a>        // We should trap according to spec, but official test rely on not trapping...
-<a href=#885 id=885 data-nosnippet>885</a>        //}
-<a href=#886 id=886 data-nosnippet>886</a>
-<a href=#887 id=887 data-nosnippet>887</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check32(memory, dst, val) };
-<a href=#888 id=888 data-nosnippet>888</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
-<a href=#889 id=889 data-nosnippet>889</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
-<a href=#890 id=890 data-nosnippet>890</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
-<a href=#891 id=891 data-nosnippet>891</a>                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
-<a href=#892 id=892 data-nosnippet>892</a>            }
-<a href=#893 id=893 data-nosnippet>893</a>            <span class="prelude-val">Ok</span>(ret)
-<a href=#894 id=894 data-nosnippet>894</a>        } <span class="kw">else </span>{
-<a href=#895 id=895 data-nosnippet>895</a>            ret
-<a href=#896 id=896 data-nosnippet>896</a>        }
-<a href=#897 id=897 data-nosnippet>897</a>    }
-<a href=#898 id=898 data-nosnippet>898</a>
-<a href=#899 id=899 data-nosnippet>899</a>    <span class="doccomment">/// Perform an Atomic.Wait64
-<a href=#900 id=900 data-nosnippet>900</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>local_memory_wait64(
-<a href=#901 id=901 data-nosnippet>901</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#902 id=902 data-nosnippet>902</a>        memory_index: LocalMemoryIndex,
-<a href=#903 id=903 data-nosnippet>903</a>        dst: u32,
-<a href=#904 id=904 data-nosnippet>904</a>        val: u64,
-<a href=#905 id=905 data-nosnippet>905</a>        timeout: i64,
-<a href=#906 id=906 data-nosnippet>906</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#907 id=907 data-nosnippet>907</a>        <span class="kw">let </span>memory = <span class="self">self</span>.memory(memory_index);
-<a href=#908 id=908 data-nosnippet>908</a>        <span class="comment">//if ! memory.shared {
-<a href=#909 id=909 data-nosnippet>909</a>        // We should trap according to spec, but official test rely on not trapping...
-<a href=#910 id=910 data-nosnippet>910</a>        //}
-<a href=#911 id=911 data-nosnippet>911</a>
-<a href=#912 id=912 data-nosnippet>912</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check64(<span class="kw-2">&amp;</span>memory, dst, val) };
-<a href=#913 id=913 data-nosnippet>913</a>
-<a href=#914 id=914 data-nosnippet>914</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
-<a href=#915 id=915 data-nosnippet>915</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
-<a href=#916 id=916 data-nosnippet>916</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
-<a href=#917 id=917 data-nosnippet>917</a>                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
-<a href=#918 id=918 data-nosnippet>918</a>            }
-<a href=#919 id=919 data-nosnippet>919</a>            <span class="prelude-val">Ok</span>(ret)
-<a href=#920 id=920 data-nosnippet>920</a>        } <span class="kw">else </span>{
-<a href=#921 id=921 data-nosnippet>921</a>            ret
-<a href=#922 id=922 data-nosnippet>922</a>        }
-<a href=#923 id=923 data-nosnippet>923</a>    }
-<a href=#924 id=924 data-nosnippet>924</a>
-<a href=#925 id=925 data-nosnippet>925</a>    <span class="doccomment">/// Perform an Atomic.Wait64
-<a href=#926 id=926 data-nosnippet>926</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imported_memory_wait64(
-<a href=#927 id=927 data-nosnippet>927</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#928 id=928 data-nosnippet>928</a>        memory_index: MemoryIndex,
-<a href=#929 id=929 data-nosnippet>929</a>        dst: u32,
-<a href=#930 id=930 data-nosnippet>930</a>        val: u64,
-<a href=#931 id=931 data-nosnippet>931</a>        timeout: i64,
-<a href=#932 id=932 data-nosnippet>932</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#933 id=933 data-nosnippet>933</a>        <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(memory_index);
-<a href=#934 id=934 data-nosnippet>934</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ import.definition.as_ref() };
-<a href=#935 id=935 data-nosnippet>935</a>        <span class="comment">//if ! memory.shared {
-<a href=#936 id=936 data-nosnippet>936</a>        // We should trap according to spec, but official test rely on not trapping...
-<a href=#937 id=937 data-nosnippet>937</a>        //}
-<a href=#938 id=938 data-nosnippet>938</a>
-<a href=#939 id=939 data-nosnippet>939</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check64(memory, dst, val) };
-<a href=#940 id=940 data-nosnippet>940</a>
-<a href=#941 id=941 data-nosnippet>941</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
-<a href=#942 id=942 data-nosnippet>942</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
-<a href=#943 id=943 data-nosnippet>943</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
-<a href=#944 id=944 data-nosnippet>944</a>                ret = <span class="self">Self</span>::memory_wait(memory, dst, timeout)<span class="question-mark">?</span>;
-<a href=#945 id=945 data-nosnippet>945</a>            }
-<a href=#946 id=946 data-nosnippet>946</a>            <span class="prelude-val">Ok</span>(ret)
-<a href=#947 id=947 data-nosnippet>947</a>        } <span class="kw">else </span>{
-<a href=#948 id=948 data-nosnippet>948</a>            ret
-<a href=#949 id=949 data-nosnippet>949</a>        }
-<a href=#950 id=950 data-nosnippet>950</a>    }
+<a href=#831 id=831 data-nosnippet>831</a>    <span class="doccomment">/// # Safety
+<a href=#832 id=832 data-nosnippet>832</a>    /// See [`LinearMemory::do_wait`].
+<a href=#833 id=833 data-nosnippet>833</a>    </span><span class="kw">unsafe fn </span>memory_wait(
+<a href=#834 id=834 data-nosnippet>834</a>        memory: <span class="kw-2">&amp;mut </span>VMMemory,
+<a href=#835 id=835 data-nosnippet>835</a>        dst: u32,
+<a href=#836 id=836 data-nosnippet>836</a>        expected: ExpectedValue,
+<a href=#837 id=837 data-nosnippet>837</a>        timeout: i64,
+<a href=#838 id=838 data-nosnippet>838</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#839 id=839 data-nosnippet>839</a>        <span class="kw">let </span>timeout = <span class="kw">if </span>timeout &lt; <span class="number">0 </span>{
+<a href=#840 id=840 data-nosnippet>840</a>            <span class="prelude-val">None
+<a href=#841 id=841 data-nosnippet>841</a>        </span>} <span class="kw">else </span>{
+<a href=#842 id=842 data-nosnippet>842</a>            <span class="prelude-val">Some</span>(std::time::Duration::from_nanos(timeout <span class="kw">as </span>u64))
+<a href=#843 id=843 data-nosnippet>843</a>        };
+<a href=#844 id=844 data-nosnippet>844</a>        <span class="kw">match unsafe </span>{ memory.do_wait(dst, expected, timeout) } {
+<a href=#845 id=845 data-nosnippet>845</a>            <span class="prelude-val">Ok</span>(count) =&gt; <span class="prelude-val">Ok</span>(count),
+<a href=#846 id=846 data-nosnippet>846</a>            <span class="prelude-val">Err</span>(_err) =&gt; {
+<a href=#847 id=847 data-nosnippet>847</a>                <span class="comment">// ret is None if there is more than 2^32 waiter in queue or some other error
+<a href=#848 id=848 data-nosnippet>848</a>                </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds))
+<a href=#849 id=849 data-nosnippet>849</a>            }
+<a href=#850 id=850 data-nosnippet>850</a>        }
+<a href=#851 id=851 data-nosnippet>851</a>    }
+<a href=#852 id=852 data-nosnippet>852</a>
+<a href=#853 id=853 data-nosnippet>853</a>    <span class="doccomment">/// Perform an Atomic.Wait32
+<a href=#854 id=854 data-nosnippet>854</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>local_memory_wait32(
+<a href=#855 id=855 data-nosnippet>855</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#856 id=856 data-nosnippet>856</a>        memory_index: LocalMemoryIndex,
+<a href=#857 id=857 data-nosnippet>857</a>        dst: u32,
+<a href=#858 id=858 data-nosnippet>858</a>        val: u32,
+<a href=#859 id=859 data-nosnippet>859</a>        timeout: i64,
+<a href=#860 id=860 data-nosnippet>860</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#861 id=861 data-nosnippet>861</a>        <span class="kw">let </span>memory = <span class="self">self</span>.memory(memory_index);
+<a href=#862 id=862 data-nosnippet>862</a>        <span class="comment">//if ! memory.shared {
+<a href=#863 id=863 data-nosnippet>863</a>        // We should trap according to spec, but official test rely on not trapping...
+<a href=#864 id=864 data-nosnippet>864</a>        //}
+<a href=#865 id=865 data-nosnippet>865</a>
+<a href=#866 id=866 data-nosnippet>866</a>        // Do a fast-path check of the expected value, and also ensure proper alignment
+<a href=#867 id=867 data-nosnippet>867</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check32(<span class="kw-2">&amp;</span>memory, dst, val) };
+<a href=#868 id=868 data-nosnippet>868</a>
+<a href=#869 id=869 data-nosnippet>869</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
+<a href=#870 id=870 data-nosnippet>870</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
+<a href=#871 id=871 data-nosnippet>871</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
+<a href=#872 id=872 data-nosnippet>872</a>                <span class="comment">// Safety: we have already checked alignment and bounds in memory32_atomic_check32
+<a href=#873 id=873 data-nosnippet>873</a>                </span>ret = <span class="kw">unsafe </span>{ <span class="self">Self</span>::memory_wait(memory, dst, ExpectedValue::U32(val), timeout)<span class="question-mark">? </span>};
+<a href=#874 id=874 data-nosnippet>874</a>            }
+<a href=#875 id=875 data-nosnippet>875</a>            <span class="prelude-val">Ok</span>(ret)
+<a href=#876 id=876 data-nosnippet>876</a>        } <span class="kw">else </span>{
+<a href=#877 id=877 data-nosnippet>877</a>            ret
+<a href=#878 id=878 data-nosnippet>878</a>        }
+<a href=#879 id=879 data-nosnippet>879</a>    }
+<a href=#880 id=880 data-nosnippet>880</a>
+<a href=#881 id=881 data-nosnippet>881</a>    <span class="doccomment">/// Perform an Atomic.Wait32
+<a href=#882 id=882 data-nosnippet>882</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imported_memory_wait32(
+<a href=#883 id=883 data-nosnippet>883</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#884 id=884 data-nosnippet>884</a>        memory_index: MemoryIndex,
+<a href=#885 id=885 data-nosnippet>885</a>        dst: u32,
+<a href=#886 id=886 data-nosnippet>886</a>        val: u32,
+<a href=#887 id=887 data-nosnippet>887</a>        timeout: i64,
+<a href=#888 id=888 data-nosnippet>888</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#889 id=889 data-nosnippet>889</a>        <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(memory_index);
+<a href=#890 id=890 data-nosnippet>890</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ import.definition.as_ref() };
+<a href=#891 id=891 data-nosnippet>891</a>        <span class="comment">//if ! memory.shared {
+<a href=#892 id=892 data-nosnippet>892</a>        // We should trap according to spec, but official test rely on not trapping...
+<a href=#893 id=893 data-nosnippet>893</a>        //}
+<a href=#894 id=894 data-nosnippet>894</a>
+<a href=#895 id=895 data-nosnippet>895</a>        // Do a fast-path check of the expected value, and also ensure proper alignment
+<a href=#896 id=896 data-nosnippet>896</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check32(memory, dst, val) };
+<a href=#897 id=897 data-nosnippet>897</a>
+<a href=#898 id=898 data-nosnippet>898</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
+<a href=#899 id=899 data-nosnippet>899</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
+<a href=#900 id=900 data-nosnippet>900</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
+<a href=#901 id=901 data-nosnippet>901</a>                <span class="comment">// Safety: we have already checked alignment and bounds in memory32_atomic_check32
+<a href=#902 id=902 data-nosnippet>902</a>                </span>ret = <span class="kw">unsafe </span>{ <span class="self">Self</span>::memory_wait(memory, dst, ExpectedValue::U32(val), timeout)<span class="question-mark">? </span>};
+<a href=#903 id=903 data-nosnippet>903</a>            }
+<a href=#904 id=904 data-nosnippet>904</a>            <span class="prelude-val">Ok</span>(ret)
+<a href=#905 id=905 data-nosnippet>905</a>        } <span class="kw">else </span>{
+<a href=#906 id=906 data-nosnippet>906</a>            ret
+<a href=#907 id=907 data-nosnippet>907</a>        }
+<a href=#908 id=908 data-nosnippet>908</a>    }
+<a href=#909 id=909 data-nosnippet>909</a>
+<a href=#910 id=910 data-nosnippet>910</a>    <span class="doccomment">/// Perform an Atomic.Wait64
+<a href=#911 id=911 data-nosnippet>911</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>local_memory_wait64(
+<a href=#912 id=912 data-nosnippet>912</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#913 id=913 data-nosnippet>913</a>        memory_index: LocalMemoryIndex,
+<a href=#914 id=914 data-nosnippet>914</a>        dst: u32,
+<a href=#915 id=915 data-nosnippet>915</a>        val: u64,
+<a href=#916 id=916 data-nosnippet>916</a>        timeout: i64,
+<a href=#917 id=917 data-nosnippet>917</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#918 id=918 data-nosnippet>918</a>        <span class="kw">let </span>memory = <span class="self">self</span>.memory(memory_index);
+<a href=#919 id=919 data-nosnippet>919</a>        <span class="comment">//if ! memory.shared {
+<a href=#920 id=920 data-nosnippet>920</a>        // We should trap according to spec, but official test rely on not trapping...
+<a href=#921 id=921 data-nosnippet>921</a>        //}
+<a href=#922 id=922 data-nosnippet>922</a>
+<a href=#923 id=923 data-nosnippet>923</a>        // Do a fast-path check of the expected value, and also ensure proper alignment
+<a href=#924 id=924 data-nosnippet>924</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check64(<span class="kw-2">&amp;</span>memory, dst, val) };
+<a href=#925 id=925 data-nosnippet>925</a>
+<a href=#926 id=926 data-nosnippet>926</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
+<a href=#927 id=927 data-nosnippet>927</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
+<a href=#928 id=928 data-nosnippet>928</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
+<a href=#929 id=929 data-nosnippet>929</a>                <span class="comment">// Safety: we have already checked alignment and bounds in memory32_atomic_check64
+<a href=#930 id=930 data-nosnippet>930</a>                </span>ret = <span class="kw">unsafe </span>{ <span class="self">Self</span>::memory_wait(memory, dst, ExpectedValue::U64(val), timeout)<span class="question-mark">? </span>};
+<a href=#931 id=931 data-nosnippet>931</a>            }
+<a href=#932 id=932 data-nosnippet>932</a>            <span class="prelude-val">Ok</span>(ret)
+<a href=#933 id=933 data-nosnippet>933</a>        } <span class="kw">else </span>{
+<a href=#934 id=934 data-nosnippet>934</a>            ret
+<a href=#935 id=935 data-nosnippet>935</a>        }
+<a href=#936 id=936 data-nosnippet>936</a>    }
+<a href=#937 id=937 data-nosnippet>937</a>
+<a href=#938 id=938 data-nosnippet>938</a>    <span class="doccomment">/// Perform an Atomic.Wait64
+<a href=#939 id=939 data-nosnippet>939</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imported_memory_wait64(
+<a href=#940 id=940 data-nosnippet>940</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#941 id=941 data-nosnippet>941</a>        memory_index: MemoryIndex,
+<a href=#942 id=942 data-nosnippet>942</a>        dst: u32,
+<a href=#943 id=943 data-nosnippet>943</a>        val: u64,
+<a href=#944 id=944 data-nosnippet>944</a>        timeout: i64,
+<a href=#945 id=945 data-nosnippet>945</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#946 id=946 data-nosnippet>946</a>        <span class="kw">let </span>import = <span class="self">self</span>.imported_memory(memory_index);
+<a href=#947 id=947 data-nosnippet>947</a>        <span class="kw">let </span>memory = <span class="kw">unsafe </span>{ import.definition.as_ref() };
+<a href=#948 id=948 data-nosnippet>948</a>        <span class="comment">//if ! memory.shared {
+<a href=#949 id=949 data-nosnippet>949</a>        // We should trap according to spec, but official test rely on not trapping...
+<a href=#950 id=950 data-nosnippet>950</a>        //}
 <a href=#951 id=951 data-nosnippet>951</a>
-<a href=#952 id=952 data-nosnippet>952</a>    <span class="doccomment">/// Perform an Atomic.Notify
-<a href=#953 id=953 data-nosnippet>953</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>local_memory_notify(
-<a href=#954 id=954 data-nosnippet>954</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#955 id=955 data-nosnippet>955</a>        memory_index: LocalMemoryIndex,
-<a href=#956 id=956 data-nosnippet>956</a>        dst: u32,
-<a href=#957 id=957 data-nosnippet>957</a>        count: u32,
-<a href=#958 id=958 data-nosnippet>958</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#959 id=959 data-nosnippet>959</a>        <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
-<a href=#960 id=960 data-nosnippet>960</a>        <span class="comment">// fetch the notifier
-<a href=#961 id=961 data-nosnippet>961</a>        </span><span class="kw">let </span>location = NotifyLocation { address: dst };
-<a href=#962 id=962 data-nosnippet>962</a>        <span class="prelude-val">Ok</span>(memory.do_notify(location, count))
-<a href=#963 id=963 data-nosnippet>963</a>    }
-<a href=#964 id=964 data-nosnippet>964</a>
-<a href=#965 id=965 data-nosnippet>965</a>    <span class="doccomment">/// Perform an Atomic.Notify
-<a href=#966 id=966 data-nosnippet>966</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imported_memory_notify(
-<a href=#967 id=967 data-nosnippet>967</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#968 id=968 data-nosnippet>968</a>        memory_index: MemoryIndex,
-<a href=#969 id=969 data-nosnippet>969</a>        dst: u32,
-<a href=#970 id=970 data-nosnippet>970</a>        count: u32,
-<a href=#971 id=971 data-nosnippet>971</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
-<a href=#972 id=972 data-nosnippet>972</a>        <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
-<a href=#973 id=973 data-nosnippet>973</a>        <span class="comment">// fetch the notifier
-<a href=#974 id=974 data-nosnippet>974</a>        </span><span class="kw">let </span>location = NotifyLocation { address: dst };
-<a href=#975 id=975 data-nosnippet>975</a>        <span class="prelude-val">Ok</span>(memory.do_notify(location, count))
+<a href=#952 id=952 data-nosnippet>952</a>        // Do a fast-path check of the expected value, and also ensure proper alignment
+<a href=#953 id=953 data-nosnippet>953</a>        </span><span class="kw">let </span>ret = <span class="kw">unsafe </span>{ memory32_atomic_check64(memory, dst, val) };
+<a href=#954 id=954 data-nosnippet>954</a>
+<a href=#955 id=955 data-nosnippet>955</a>        <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>ret) = ret {
+<a href=#956 id=956 data-nosnippet>956</a>            <span class="kw">if </span>ret == <span class="number">0 </span>{
+<a href=#957 id=957 data-nosnippet>957</a>                <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
+<a href=#958 id=958 data-nosnippet>958</a>                <span class="comment">// Safety: we have already checked alignment and bounds in memory32_atomic_check64
+<a href=#959 id=959 data-nosnippet>959</a>                </span>ret = <span class="kw">unsafe </span>{ <span class="self">Self</span>::memory_wait(memory, dst, ExpectedValue::U64(val), timeout)<span class="question-mark">? </span>};
+<a href=#960 id=960 data-nosnippet>960</a>            }
+<a href=#961 id=961 data-nosnippet>961</a>            <span class="prelude-val">Ok</span>(ret)
+<a href=#962 id=962 data-nosnippet>962</a>        } <span class="kw">else </span>{
+<a href=#963 id=963 data-nosnippet>963</a>            ret
+<a href=#964 id=964 data-nosnippet>964</a>        }
+<a href=#965 id=965 data-nosnippet>965</a>    }
+<a href=#966 id=966 data-nosnippet>966</a>
+<a href=#967 id=967 data-nosnippet>967</a>    <span class="doccomment">/// Perform an Atomic.Notify
+<a href=#968 id=968 data-nosnippet>968</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>local_memory_notify(
+<a href=#969 id=969 data-nosnippet>969</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#970 id=970 data-nosnippet>970</a>        memory_index: LocalMemoryIndex,
+<a href=#971 id=971 data-nosnippet>971</a>        dst: u32,
+<a href=#972 id=972 data-nosnippet>972</a>        count: u32,
+<a href=#973 id=973 data-nosnippet>973</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#974 id=974 data-nosnippet>974</a>        <span class="kw">let </span>memory = <span class="self">self</span>.get_local_vmmemory_mut(memory_index);
+<a href=#975 id=975 data-nosnippet>975</a>        <span class="prelude-val">Ok</span>(memory.do_notify(dst, count))
 <a href=#976 id=976 data-nosnippet>976</a>    }
-<a href=#977 id=977 data-nosnippet>977</a>}
-<a href=#978 id=978 data-nosnippet>978</a>
-<a href=#979 id=979 data-nosnippet>979</a><span class="doccomment">/// A handle holding an `Instance` of a WebAssembly module.
-<a href=#980 id=980 data-nosnippet>980</a>///
-<a href=#981 id=981 data-nosnippet>981</a>/// This is more or less a public facade of the private `Instance`,
-<a href=#982 id=982 data-nosnippet>982</a>/// providing useful higher-level API.
-<a href=#983 id=983 data-nosnippet>983</a></span><span class="attr">#[derive(Debug, Eq, PartialEq)]
-<a href=#984 id=984 data-nosnippet>984</a></span><span class="kw">pub struct </span>VMInstance {
-<a href=#985 id=985 data-nosnippet>985</a>    <span class="doccomment">/// The layout of `Instance` (which can vary).
-<a href=#986 id=986 data-nosnippet>986</a>    </span>instance_layout: Layout,
-<a href=#987 id=987 data-nosnippet>987</a>
-<a href=#988 id=988 data-nosnippet>988</a>    <span class="doccomment">/// The `Instance` itself.
-<a href=#989 id=989 data-nosnippet>989</a>    ///
-<a href=#990 id=990 data-nosnippet>990</a>    /// `Instance` must not be dropped manually by Rust, because it's
-<a href=#991 id=991 data-nosnippet>991</a>    /// allocated manually with `alloc` and a specific layout (Rust
-<a href=#992 id=992 data-nosnippet>992</a>    /// would be able to drop `Instance` itself but it will imply a
-<a href=#993 id=993 data-nosnippet>993</a>    /// memory leak because of `alloc`).
-<a href=#994 id=994 data-nosnippet>994</a>    ///
-<a href=#995 id=995 data-nosnippet>995</a>    /// No one in the code has a copy of the `Instance`'s
-<a href=#996 id=996 data-nosnippet>996</a>    /// pointer. `Self` is the only one.
-<a href=#997 id=997 data-nosnippet>997</a>    </span>instance: NonNull&lt;Instance&gt;,
-<a href=#998 id=998 data-nosnippet>998</a>}
-<a href=#999 id=999 data-nosnippet>999</a>
-<a href=#1000 id=1000 data-nosnippet>1000</a><span class="doccomment">/// VMInstance are created with an InstanceAllocator
-<a href=#1001 id=1001 data-nosnippet>1001</a>/// and it will "consume" the memory
-<a href=#1002 id=1002 data-nosnippet>1002</a>/// So the Drop here actualy free it (else it would be leaked)
-<a href=#1003 id=1003 data-nosnippet>1003</a></span><span class="kw">impl </span>Drop <span class="kw">for </span>VMInstance {
-<a href=#1004 id=1004 data-nosnippet>1004</a>    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#1005 id=1005 data-nosnippet>1005</a>        <span class="kw">let </span>instance_ptr = <span class="self">self</span>.instance.as_ptr();
-<a href=#1006 id=1006 data-nosnippet>1006</a>
-<a href=#1007 id=1007 data-nosnippet>1007</a>        <span class="kw">unsafe </span>{
-<a href=#1008 id=1008 data-nosnippet>1008</a>            <span class="comment">// Need to drop all the actual Instance members
-<a href=#1009 id=1009 data-nosnippet>1009</a>            </span>instance_ptr.drop_in_place();
-<a href=#1010 id=1010 data-nosnippet>1010</a>            <span class="comment">// And then free the memory allocated for the Instance itself
-<a href=#1011 id=1011 data-nosnippet>1011</a>            </span>std::alloc::dealloc(instance_ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, <span class="self">self</span>.instance_layout);
-<a href=#1012 id=1012 data-nosnippet>1012</a>        }
-<a href=#1013 id=1013 data-nosnippet>1013</a>    }
-<a href=#1014 id=1014 data-nosnippet>1014</a>}
-<a href=#1015 id=1015 data-nosnippet>1015</a>
-<a href=#1016 id=1016 data-nosnippet>1016</a><span class="kw">impl </span>VMInstance {
-<a href=#1017 id=1017 data-nosnippet>1017</a>    <span class="doccomment">/// Create a new `VMInstance` pointing at freshly allocated instance data.
-<a href=#1018 id=1018 data-nosnippet>1018</a>    ///
-<a href=#1019 id=1019 data-nosnippet>1019</a>    /// # Safety
-<a href=#1020 id=1020 data-nosnippet>1020</a>    ///
-<a href=#1021 id=1021 data-nosnippet>1021</a>    /// This method is not necessarily inherently unsafe to call, but in general
-<a href=#1022 id=1022 data-nosnippet>1022</a>    /// the APIs of an `Instance` are quite unsafe and have not been really
-<a href=#1023 id=1023 data-nosnippet>1023</a>    /// audited for safety that much. As a result the unsafety here on this
-<a href=#1024 id=1024 data-nosnippet>1024</a>    /// method is a low-overhead way of saying “this is an extremely unsafe type
-<a href=#1025 id=1025 data-nosnippet>1025</a>    /// to work with”.
-<a href=#1026 id=1026 data-nosnippet>1026</a>    ///
-<a href=#1027 id=1027 data-nosnippet>1027</a>    /// Extreme care must be taken when working with `VMInstance` and it's
-<a href=#1028 id=1028 data-nosnippet>1028</a>    /// recommended to have relatively intimate knowledge of how it works
-<a href=#1029 id=1029 data-nosnippet>1029</a>    /// internally if you'd like to do so. If possible it's recommended to use
-<a href=#1030 id=1030 data-nosnippet>1030</a>    /// the `wasmer` crate API rather than this type since that is vetted for
-<a href=#1031 id=1031 data-nosnippet>1031</a>    /// safety.
-<a href=#1032 id=1032 data-nosnippet>1032</a>    ///
-<a href=#1033 id=1033 data-nosnippet>1033</a>    /// However the following must be taken care of before calling this function:
-<a href=#1034 id=1034 data-nosnippet>1034</a>    /// - The memory at `instance.tables_ptr()` must be initialized with data for
-<a href=#1035 id=1035 data-nosnippet>1035</a>    ///   all the local tables.
-<a href=#1036 id=1036 data-nosnippet>1036</a>    /// - The memory at `instance.memories_ptr()` must be initialized with data for
-<a href=#1037 id=1037 data-nosnippet>1037</a>    ///   all the local memories.
-<a href=#1038 id=1038 data-nosnippet>1038</a>    </span><span class="attr">#[allow(clippy::too_many_arguments)]
-<a href=#1039 id=1039 data-nosnippet>1039</a>    </span><span class="kw">pub unsafe fn </span>new(
-<a href=#1040 id=1040 data-nosnippet>1040</a>        allocator: InstanceAllocator,
-<a href=#1041 id=1041 data-nosnippet>1041</a>        module: Arc&lt;ModuleInfo&gt;,
-<a href=#1042 id=1042 data-nosnippet>1042</a>        context: <span class="kw-2">&amp;mut </span>StoreObjects,
-<a href=#1043 id=1043 data-nosnippet>1043</a>        finished_functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
-<a href=#1044 id=1044 data-nosnippet>1044</a>        finished_function_call_trampolines: BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
-<a href=#1045 id=1045 data-nosnippet>1045</a>        finished_memories: BoxedSlice&lt;LocalMemoryIndex, InternalStoreHandle&lt;VMMemory&gt;&gt;,
-<a href=#1046 id=1046 data-nosnippet>1046</a>        finished_tables: BoxedSlice&lt;LocalTableIndex, InternalStoreHandle&lt;VMTable&gt;&gt;,
-<a href=#1047 id=1047 data-nosnippet>1047</a>        finished_globals: BoxedSlice&lt;LocalGlobalIndex, InternalStoreHandle&lt;VMGlobal&gt;&gt;,
-<a href=#1048 id=1048 data-nosnippet>1048</a>        tags: BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;,
-<a href=#1049 id=1049 data-nosnippet>1049</a>        imports: Imports,
-<a href=#1050 id=1050 data-nosnippet>1050</a>        vmshared_signatures: BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
-<a href=#1051 id=1051 data-nosnippet>1051</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Trap&gt; {
-<a href=#1052 id=1052 data-nosnippet>1052</a>        <span class="kw">unsafe </span>{
-<a href=#1053 id=1053 data-nosnippet>1053</a>            <span class="kw">let </span>vmctx_tags = tags
-<a href=#1054 id=1054 data-nosnippet>1054</a>                .values()
-<a href=#1055 id=1055 data-nosnippet>1055</a>                .map(|m: <span class="kw-2">&amp;</span>InternalStoreHandle&lt;VMTag&gt;| VMSharedTagIndex::new(m.index() <span class="kw">as </span>u32))
-<a href=#1056 id=1056 data-nosnippet>1056</a>                .collect::&lt;PrimaryMap&lt;TagIndex, VMSharedTagIndex&gt;&gt;()
-<a href=#1057 id=1057 data-nosnippet>1057</a>                .into_boxed_slice();
-<a href=#1058 id=1058 data-nosnippet>1058</a>            <span class="kw">let </span>vmctx_globals = finished_globals
-<a href=#1059 id=1059 data-nosnippet>1059</a>                .values()
-<a href=#1060 id=1060 data-nosnippet>1060</a>                .map(|m: <span class="kw-2">&amp;</span>InternalStoreHandle&lt;VMGlobal&gt;| m.get(context).vmglobal())
-<a href=#1061 id=1061 data-nosnippet>1061</a>                .collect::&lt;PrimaryMap&lt;LocalGlobalIndex, NonNull&lt;VMGlobalDefinition&gt;&gt;&gt;()
-<a href=#1062 id=1062 data-nosnippet>1062</a>                .into_boxed_slice();
-<a href=#1063 id=1063 data-nosnippet>1063</a>            <span class="kw">let </span>passive_data = RefCell::new(
-<a href=#1064 id=1064 data-nosnippet>1064</a>                module
-<a href=#1065 id=1065 data-nosnippet>1065</a>                    .passive_data
-<a href=#1066 id=1066 data-nosnippet>1066</a>                    .clone()
-<a href=#1067 id=1067 data-nosnippet>1067</a>                    .into_iter()
-<a href=#1068 id=1068 data-nosnippet>1068</a>                    .map(|(idx, bytes)| (idx, Arc::from(bytes)))
-<a href=#1069 id=1069 data-nosnippet>1069</a>                    .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
-<a href=#1070 id=1070 data-nosnippet>1070</a>            );
-<a href=#1071 id=1071 data-nosnippet>1071</a>
-<a href=#1072 id=1072 data-nosnippet>1072</a>            <span class="kw">let </span>handle = {
-<a href=#1073 id=1073 data-nosnippet>1073</a>                <span class="kw">let </span>offsets = allocator.offsets().clone();
-<a href=#1074 id=1074 data-nosnippet>1074</a>                <span class="comment">// use dummy value to create an instance so we can get the vmctx pointer
-<a href=#1075 id=1075 data-nosnippet>1075</a>                </span><span class="kw">let </span>funcrefs = PrimaryMap::new().into_boxed_slice();
-<a href=#1076 id=1076 data-nosnippet>1076</a>                <span class="kw">let </span>imported_funcrefs = PrimaryMap::new().into_boxed_slice();
-<a href=#1077 id=1077 data-nosnippet>1077</a>                <span class="comment">// Create the `Instance`. The unique, the One.
-<a href=#1078 id=1078 data-nosnippet>1078</a>                </span><span class="kw">let </span>instance = Instance {
-<a href=#1079 id=1079 data-nosnippet>1079</a>                    module,
-<a href=#1080 id=1080 data-nosnippet>1080</a>                    context,
-<a href=#1081 id=1081 data-nosnippet>1081</a>                    offsets,
-<a href=#1082 id=1082 data-nosnippet>1082</a>                    memories: finished_memories,
-<a href=#1083 id=1083 data-nosnippet>1083</a>                    tables: finished_tables,
-<a href=#1084 id=1084 data-nosnippet>1084</a>                    tags,
-<a href=#1085 id=1085 data-nosnippet>1085</a>                    globals: finished_globals,
-<a href=#1086 id=1086 data-nosnippet>1086</a>                    functions: finished_functions,
-<a href=#1087 id=1087 data-nosnippet>1087</a>                    function_call_trampolines: finished_function_call_trampolines,
-<a href=#1088 id=1088 data-nosnippet>1088</a>                    passive_elements: Default::default(),
-<a href=#1089 id=1089 data-nosnippet>1089</a>                    passive_data,
-<a href=#1090 id=1090 data-nosnippet>1090</a>                    funcrefs,
-<a href=#1091 id=1091 data-nosnippet>1091</a>                    imported_funcrefs,
-<a href=#1092 id=1092 data-nosnippet>1092</a>                    vmctx: VMContext {},
-<a href=#1093 id=1093 data-nosnippet>1093</a>                };
-<a href=#1094 id=1094 data-nosnippet>1094</a>
-<a href=#1095 id=1095 data-nosnippet>1095</a>                <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = allocator.into_vminstance(instance);
-<a href=#1096 id=1096 data-nosnippet>1096</a>
-<a href=#1097 id=1097 data-nosnippet>1097</a>                <span class="comment">// Set the funcrefs after we've built the instance
-<a href=#1098 id=1098 data-nosnippet>1098</a>                </span>{
-<a href=#1099 id=1099 data-nosnippet>1099</a>                    <span class="kw">let </span>instance = instance_handle.instance_mut();
-<a href=#1100 id=1100 data-nosnippet>1100</a>                    <span class="kw">let </span>vmctx_ptr = instance.vmctx_ptr();
-<a href=#1101 id=1101 data-nosnippet>1101</a>                    (instance.funcrefs, instance.imported_funcrefs) = build_funcrefs(
-<a href=#1102 id=1102 data-nosnippet>1102</a>                        <span class="kw-2">&amp;</span>instance.module,
-<a href=#1103 id=1103 data-nosnippet>1103</a>                        context,
-<a href=#1104 id=1104 data-nosnippet>1104</a>                        <span class="kw-2">&amp;</span>imports,
-<a href=#1105 id=1105 data-nosnippet>1105</a>                        <span class="kw-2">&amp;</span>instance.functions,
-<a href=#1106 id=1106 data-nosnippet>1106</a>                        <span class="kw-2">&amp;</span>vmshared_signatures,
-<a href=#1107 id=1107 data-nosnippet>1107</a>                        <span class="kw-2">&amp;</span>instance.function_call_trampolines,
-<a href=#1108 id=1108 data-nosnippet>1108</a>                        vmctx_ptr,
-<a href=#1109 id=1109 data-nosnippet>1109</a>                    );
-<a href=#1110 id=1110 data-nosnippet>1110</a>                }
-<a href=#1111 id=1111 data-nosnippet>1111</a>
-<a href=#1112 id=1112 data-nosnippet>1112</a>                instance_handle
-<a href=#1113 id=1113 data-nosnippet>1113</a>            };
-<a href=#1114 id=1114 data-nosnippet>1114</a>            <span class="kw">let </span>instance = handle.instance();
-<a href=#1115 id=1115 data-nosnippet>1115</a>
-<a href=#1116 id=1116 data-nosnippet>1116</a>            ptr::copy(
-<a href=#1117 id=1117 data-nosnippet>1117</a>                vmctx_tags.values().as_slice().as_ptr(),
-<a href=#1118 id=1118 data-nosnippet>1118</a>                instance.shared_tags_ptr(),
-<a href=#1119 id=1119 data-nosnippet>1119</a>                vmctx_tags.len(),
-<a href=#1120 id=1120 data-nosnippet>1120</a>            );
-<a href=#1121 id=1121 data-nosnippet>1121</a>            ptr::copy(
-<a href=#1122 id=1122 data-nosnippet>1122</a>                vmshared_signatures.values().as_slice().as_ptr(),
-<a href=#1123 id=1123 data-nosnippet>1123</a>                instance.signature_ids_ptr(),
-<a href=#1124 id=1124 data-nosnippet>1124</a>                vmshared_signatures.len(),
-<a href=#1125 id=1125 data-nosnippet>1125</a>            );
-<a href=#1126 id=1126 data-nosnippet>1126</a>            ptr::copy(
-<a href=#1127 id=1127 data-nosnippet>1127</a>                imports.functions.values().as_slice().as_ptr(),
-<a href=#1128 id=1128 data-nosnippet>1128</a>                instance.imported_functions_ptr(),
-<a href=#1129 id=1129 data-nosnippet>1129</a>                imports.functions.len(),
-<a href=#1130 id=1130 data-nosnippet>1130</a>            );
-<a href=#1131 id=1131 data-nosnippet>1131</a>            ptr::copy(
-<a href=#1132 id=1132 data-nosnippet>1132</a>                imports.tables.values().as_slice().as_ptr(),
-<a href=#1133 id=1133 data-nosnippet>1133</a>                instance.imported_tables_ptr(),
-<a href=#1134 id=1134 data-nosnippet>1134</a>                imports.tables.len(),
-<a href=#1135 id=1135 data-nosnippet>1135</a>            );
-<a href=#1136 id=1136 data-nosnippet>1136</a>            ptr::copy(
-<a href=#1137 id=1137 data-nosnippet>1137</a>                imports.memories.values().as_slice().as_ptr(),
-<a href=#1138 id=1138 data-nosnippet>1138</a>                instance.imported_memories_ptr(),
-<a href=#1139 id=1139 data-nosnippet>1139</a>                imports.memories.len(),
-<a href=#1140 id=1140 data-nosnippet>1140</a>            );
-<a href=#1141 id=1141 data-nosnippet>1141</a>            ptr::copy(
-<a href=#1142 id=1142 data-nosnippet>1142</a>                imports.globals.values().as_slice().as_ptr(),
-<a href=#1143 id=1143 data-nosnippet>1143</a>                instance.imported_globals_ptr(),
-<a href=#1144 id=1144 data-nosnippet>1144</a>                imports.globals.len(),
-<a href=#1145 id=1145 data-nosnippet>1145</a>            );
-<a href=#1146 id=1146 data-nosnippet>1146</a>            <span class="comment">// these should already be set, add asserts here? for:
-<a href=#1147 id=1147 data-nosnippet>1147</a>            // - instance.tables_ptr() as *mut VMTableDefinition
-<a href=#1148 id=1148 data-nosnippet>1148</a>            // - instance.memories_ptr() as *mut VMMemoryDefinition
-<a href=#1149 id=1149 data-nosnippet>1149</a>            </span>ptr::copy(
-<a href=#1150 id=1150 data-nosnippet>1150</a>                vmctx_globals.values().as_slice().as_ptr(),
-<a href=#1151 id=1151 data-nosnippet>1151</a>                instance.globals_ptr() <span class="kw">as </span><span class="kw-2">*mut </span>NonNull&lt;VMGlobalDefinition&gt;,
-<a href=#1152 id=1152 data-nosnippet>1152</a>                vmctx_globals.len(),
-<a href=#1153 id=1153 data-nosnippet>1153</a>            );
-<a href=#1154 id=1154 data-nosnippet>1154</a>            ptr::write(
-<a href=#1155 id=1155 data-nosnippet>1155</a>                instance.builtin_functions_ptr(),
-<a href=#1156 id=1156 data-nosnippet>1156</a>                VMBuiltinFunctionsArray::initialized(),
-<a href=#1157 id=1157 data-nosnippet>1157</a>            );
-<a href=#1158 id=1158 data-nosnippet>1158</a>
-<a href=#1159 id=1159 data-nosnippet>1159</a>            <span class="comment">// Perform infallible initialization in this constructor, while fallible
-<a href=#1160 id=1160 data-nosnippet>1160</a>            // initialization is deferred to the `initialize` method.
-<a href=#1161 id=1161 data-nosnippet>1161</a>            </span>initialize_passive_elements(instance);
-<a href=#1162 id=1162 data-nosnippet>1162</a>            initialize_globals(instance);
-<a href=#1163 id=1163 data-nosnippet>1163</a>
-<a href=#1164 id=1164 data-nosnippet>1164</a>            <span class="prelude-val">Ok</span>(handle)
-<a href=#1165 id=1165 data-nosnippet>1165</a>        }
-<a href=#1166 id=1166 data-nosnippet>1166</a>    }
-<a href=#1167 id=1167 data-nosnippet>1167</a>
-<a href=#1168 id=1168 data-nosnippet>1168</a>    <span class="doccomment">/// Return a reference to the contained `Instance`.
-<a href=#1169 id=1169 data-nosnippet>1169</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Instance {
-<a href=#1170 id=1170 data-nosnippet>1170</a>        <span class="kw">unsafe </span>{ <span class="self">self</span>.instance.as_ref() }
-<a href=#1171 id=1171 data-nosnippet>1171</a>    }
-<a href=#1172 id=1172 data-nosnippet>1172</a>
-<a href=#1173 id=1173 data-nosnippet>1173</a>    <span class="doccomment">/// Return a mutable reference to the contained `Instance`.
-<a href=#1174 id=1174 data-nosnippet>1174</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>instance_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Instance {
-<a href=#1175 id=1175 data-nosnippet>1175</a>        <span class="kw">unsafe </span>{ <span class="self">self</span>.instance.as_mut() }
-<a href=#1176 id=1176 data-nosnippet>1176</a>    }
-<a href=#1177 id=1177 data-nosnippet>1177</a>
-<a href=#1178 id=1178 data-nosnippet>1178</a>    <span class="doccomment">/// Finishes the instantiation process started by `Instance::new`.
-<a href=#1179 id=1179 data-nosnippet>1179</a>    ///
-<a href=#1180 id=1180 data-nosnippet>1180</a>    /// # Safety
-<a href=#1181 id=1181 data-nosnippet>1181</a>    ///
-<a href=#1182 id=1182 data-nosnippet>1182</a>    /// Only safe to call immediately after instantiation.
-<a href=#1183 id=1183 data-nosnippet>1183</a>    </span><span class="kw">pub unsafe fn </span>finish_instantiation(
-<a href=#1184 id=1184 data-nosnippet>1184</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1185 id=1185 data-nosnippet>1185</a>        config: <span class="kw-2">&amp;</span>VMConfig,
-<a href=#1186 id=1186 data-nosnippet>1186</a>        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
-<a href=#1187 id=1187 data-nosnippet>1187</a>        data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">'_</span>&gt;],
-<a href=#1188 id=1188 data-nosnippet>1188</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
-<a href=#1189 id=1189 data-nosnippet>1189</a>        <span class="kw">let </span>instance = <span class="self">self</span>.instance_mut();
-<a href=#1190 id=1190 data-nosnippet>1190</a>
-<a href=#1191 id=1191 data-nosnippet>1191</a>        <span class="comment">// Apply the initializers.
-<a href=#1192 id=1192 data-nosnippet>1192</a>        </span>initialize_tables(instance)<span class="question-mark">?</span>;
-<a href=#1193 id=1193 data-nosnippet>1193</a>        initialize_memories(instance, data_initializers)<span class="question-mark">?</span>;
-<a href=#1194 id=1194 data-nosnippet>1194</a>
-<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="comment">// The WebAssembly spec specifies that the start function is
-<a href=#1196 id=1196 data-nosnippet>1196</a>        // invoked automatically at instantiation time.
-<a href=#1197 id=1197 data-nosnippet>1197</a>        </span>instance.invoke_start_function(config, trap_handler)<span class="question-mark">?</span>;
-<a href=#1198 id=1198 data-nosnippet>1198</a>        <span class="prelude-val">Ok</span>(())
-<a href=#1199 id=1199 data-nosnippet>1199</a>    }
-<a href=#1200 id=1200 data-nosnippet>1200</a>
-<a href=#1201 id=1201 data-nosnippet>1201</a>    <span class="doccomment">/// Return a reference to the vmctx used by compiled wasm code.
-<a href=#1202 id=1202 data-nosnippet>1202</a>    </span><span class="kw">pub fn </span>vmctx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMContext {
-<a href=#1203 id=1203 data-nosnippet>1203</a>        <span class="self">self</span>.instance().vmctx()
-<a href=#1204 id=1204 data-nosnippet>1204</a>    }
+<a href=#977 id=977 data-nosnippet>977</a>
+<a href=#978 id=978 data-nosnippet>978</a>    <span class="doccomment">/// Perform an Atomic.Notify
+<a href=#979 id=979 data-nosnippet>979</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imported_memory_notify(
+<a href=#980 id=980 data-nosnippet>980</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#981 id=981 data-nosnippet>981</a>        memory_index: MemoryIndex,
+<a href=#982 id=982 data-nosnippet>982</a>        dst: u32,
+<a href=#983 id=983 data-nosnippet>983</a>        count: u32,
+<a href=#984 id=984 data-nosnippet>984</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, Trap&gt; {
+<a href=#985 id=985 data-nosnippet>985</a>        <span class="kw">let </span>memory = <span class="self">self</span>.get_vmmemory_mut(memory_index);
+<a href=#986 id=986 data-nosnippet>986</a>        <span class="prelude-val">Ok</span>(memory.do_notify(dst, count))
+<a href=#987 id=987 data-nosnippet>987</a>    }
+<a href=#988 id=988 data-nosnippet>988</a>}
+<a href=#989 id=989 data-nosnippet>989</a>
+<a href=#990 id=990 data-nosnippet>990</a><span class="doccomment">/// A handle holding an `Instance` of a WebAssembly module.
+<a href=#991 id=991 data-nosnippet>991</a>///
+<a href=#992 id=992 data-nosnippet>992</a>/// This is more or less a public facade of the private `Instance`,
+<a href=#993 id=993 data-nosnippet>993</a>/// providing useful higher-level API.
+<a href=#994 id=994 data-nosnippet>994</a></span><span class="attr">#[derive(Debug, Eq, PartialEq)]
+<a href=#995 id=995 data-nosnippet>995</a></span><span class="kw">pub struct </span>VMInstance {
+<a href=#996 id=996 data-nosnippet>996</a>    <span class="doccomment">/// The layout of `Instance` (which can vary).
+<a href=#997 id=997 data-nosnippet>997</a>    </span>instance_layout: Layout,
+<a href=#998 id=998 data-nosnippet>998</a>
+<a href=#999 id=999 data-nosnippet>999</a>    <span class="doccomment">/// The `Instance` itself.
+<a href=#1000 id=1000 data-nosnippet>1000</a>    ///
+<a href=#1001 id=1001 data-nosnippet>1001</a>    /// `Instance` must not be dropped manually by Rust, because it's
+<a href=#1002 id=1002 data-nosnippet>1002</a>    /// allocated manually with `alloc` and a specific layout (Rust
+<a href=#1003 id=1003 data-nosnippet>1003</a>    /// would be able to drop `Instance` itself but it will imply a
+<a href=#1004 id=1004 data-nosnippet>1004</a>    /// memory leak because of `alloc`).
+<a href=#1005 id=1005 data-nosnippet>1005</a>    ///
+<a href=#1006 id=1006 data-nosnippet>1006</a>    /// No one in the code has a copy of the `Instance`'s
+<a href=#1007 id=1007 data-nosnippet>1007</a>    /// pointer. `Self` is the only one.
+<a href=#1008 id=1008 data-nosnippet>1008</a>    </span>instance: NonNull&lt;Instance&gt;,
+<a href=#1009 id=1009 data-nosnippet>1009</a>}
+<a href=#1010 id=1010 data-nosnippet>1010</a>
+<a href=#1011 id=1011 data-nosnippet>1011</a><span class="doccomment">/// VMInstance are created with an InstanceAllocator
+<a href=#1012 id=1012 data-nosnippet>1012</a>/// and it will "consume" the memory
+<a href=#1013 id=1013 data-nosnippet>1013</a>/// So the Drop here actualy free it (else it would be leaked)
+<a href=#1014 id=1014 data-nosnippet>1014</a></span><span class="kw">impl </span>Drop <span class="kw">for </span>VMInstance {
+<a href=#1015 id=1015 data-nosnippet>1015</a>    <span class="kw">fn </span>drop(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#1016 id=1016 data-nosnippet>1016</a>        <span class="kw">let </span>instance_ptr = <span class="self">self</span>.instance.as_ptr();
+<a href=#1017 id=1017 data-nosnippet>1017</a>
+<a href=#1018 id=1018 data-nosnippet>1018</a>        <span class="kw">unsafe </span>{
+<a href=#1019 id=1019 data-nosnippet>1019</a>            <span class="comment">// Need to drop all the actual Instance members
+<a href=#1020 id=1020 data-nosnippet>1020</a>            </span>instance_ptr.drop_in_place();
+<a href=#1021 id=1021 data-nosnippet>1021</a>            <span class="comment">// And then free the memory allocated for the Instance itself
+<a href=#1022 id=1022 data-nosnippet>1022</a>            </span>std::alloc::dealloc(instance_ptr <span class="kw">as </span><span class="kw-2">*mut </span>u8, <span class="self">self</span>.instance_layout);
+<a href=#1023 id=1023 data-nosnippet>1023</a>        }
+<a href=#1024 id=1024 data-nosnippet>1024</a>    }
+<a href=#1025 id=1025 data-nosnippet>1025</a>}
+<a href=#1026 id=1026 data-nosnippet>1026</a>
+<a href=#1027 id=1027 data-nosnippet>1027</a><span class="kw">impl </span>VMInstance {
+<a href=#1028 id=1028 data-nosnippet>1028</a>    <span class="doccomment">/// Create a new `VMInstance` pointing at freshly allocated instance data.
+<a href=#1029 id=1029 data-nosnippet>1029</a>    ///
+<a href=#1030 id=1030 data-nosnippet>1030</a>    /// # Safety
+<a href=#1031 id=1031 data-nosnippet>1031</a>    ///
+<a href=#1032 id=1032 data-nosnippet>1032</a>    /// This method is not necessarily inherently unsafe to call, but in general
+<a href=#1033 id=1033 data-nosnippet>1033</a>    /// the APIs of an `Instance` are quite unsafe and have not been really
+<a href=#1034 id=1034 data-nosnippet>1034</a>    /// audited for safety that much. As a result the unsafety here on this
+<a href=#1035 id=1035 data-nosnippet>1035</a>    /// method is a low-overhead way of saying “this is an extremely unsafe type
+<a href=#1036 id=1036 data-nosnippet>1036</a>    /// to work with”.
+<a href=#1037 id=1037 data-nosnippet>1037</a>    ///
+<a href=#1038 id=1038 data-nosnippet>1038</a>    /// Extreme care must be taken when working with `VMInstance` and it's
+<a href=#1039 id=1039 data-nosnippet>1039</a>    /// recommended to have relatively intimate knowledge of how it works
+<a href=#1040 id=1040 data-nosnippet>1040</a>    /// internally if you'd like to do so. If possible it's recommended to use
+<a href=#1041 id=1041 data-nosnippet>1041</a>    /// the `wasmer` crate API rather than this type since that is vetted for
+<a href=#1042 id=1042 data-nosnippet>1042</a>    /// safety.
+<a href=#1043 id=1043 data-nosnippet>1043</a>    ///
+<a href=#1044 id=1044 data-nosnippet>1044</a>    /// However the following must be taken care of before calling this function:
+<a href=#1045 id=1045 data-nosnippet>1045</a>    /// - The memory at `instance.tables_ptr()` must be initialized with data for
+<a href=#1046 id=1046 data-nosnippet>1046</a>    ///   all the local tables.
+<a href=#1047 id=1047 data-nosnippet>1047</a>    /// - The memory at `instance.memories_ptr()` must be initialized with data for
+<a href=#1048 id=1048 data-nosnippet>1048</a>    ///   all the local memories.
+<a href=#1049 id=1049 data-nosnippet>1049</a>    </span><span class="attr">#[allow(clippy::too_many_arguments)]
+<a href=#1050 id=1050 data-nosnippet>1050</a>    </span><span class="kw">pub unsafe fn </span>new(
+<a href=#1051 id=1051 data-nosnippet>1051</a>        allocator: InstanceAllocator,
+<a href=#1052 id=1052 data-nosnippet>1052</a>        module: Arc&lt;ModuleInfo&gt;,
+<a href=#1053 id=1053 data-nosnippet>1053</a>        context: <span class="kw-2">&amp;mut </span>StoreObjects,
+<a href=#1054 id=1054 data-nosnippet>1054</a>        finished_functions: BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
+<a href=#1055 id=1055 data-nosnippet>1055</a>        finished_function_call_trampolines: BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
+<a href=#1056 id=1056 data-nosnippet>1056</a>        finished_memories: BoxedSlice&lt;LocalMemoryIndex, InternalStoreHandle&lt;VMMemory&gt;&gt;,
+<a href=#1057 id=1057 data-nosnippet>1057</a>        finished_tables: BoxedSlice&lt;LocalTableIndex, InternalStoreHandle&lt;VMTable&gt;&gt;,
+<a href=#1058 id=1058 data-nosnippet>1058</a>        finished_globals: BoxedSlice&lt;LocalGlobalIndex, InternalStoreHandle&lt;VMGlobal&gt;&gt;,
+<a href=#1059 id=1059 data-nosnippet>1059</a>        tags: BoxedSlice&lt;TagIndex, InternalStoreHandle&lt;VMTag&gt;&gt;,
+<a href=#1060 id=1060 data-nosnippet>1060</a>        imports: Imports,
+<a href=#1061 id=1061 data-nosnippet>1061</a>        vmshared_signatures: BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
+<a href=#1062 id=1062 data-nosnippet>1062</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, Trap&gt; {
+<a href=#1063 id=1063 data-nosnippet>1063</a>        <span class="kw">unsafe </span>{
+<a href=#1064 id=1064 data-nosnippet>1064</a>            <span class="kw">let </span>vmctx_tags = tags
+<a href=#1065 id=1065 data-nosnippet>1065</a>                .values()
+<a href=#1066 id=1066 data-nosnippet>1066</a>                .map(|m: <span class="kw-2">&amp;</span>InternalStoreHandle&lt;VMTag&gt;| VMSharedTagIndex::new(m.index() <span class="kw">as </span>u32))
+<a href=#1067 id=1067 data-nosnippet>1067</a>                .collect::&lt;PrimaryMap&lt;TagIndex, VMSharedTagIndex&gt;&gt;()
+<a href=#1068 id=1068 data-nosnippet>1068</a>                .into_boxed_slice();
+<a href=#1069 id=1069 data-nosnippet>1069</a>            <span class="kw">let </span>vmctx_globals = finished_globals
+<a href=#1070 id=1070 data-nosnippet>1070</a>                .values()
+<a href=#1071 id=1071 data-nosnippet>1071</a>                .map(|m: <span class="kw-2">&amp;</span>InternalStoreHandle&lt;VMGlobal&gt;| m.get(context).vmglobal())
+<a href=#1072 id=1072 data-nosnippet>1072</a>                .collect::&lt;PrimaryMap&lt;LocalGlobalIndex, NonNull&lt;VMGlobalDefinition&gt;&gt;&gt;()
+<a href=#1073 id=1073 data-nosnippet>1073</a>                .into_boxed_slice();
+<a href=#1074 id=1074 data-nosnippet>1074</a>            <span class="kw">let </span>passive_data = RefCell::new(
+<a href=#1075 id=1075 data-nosnippet>1075</a>                module
+<a href=#1076 id=1076 data-nosnippet>1076</a>                    .passive_data
+<a href=#1077 id=1077 data-nosnippet>1077</a>                    .clone()
+<a href=#1078 id=1078 data-nosnippet>1078</a>                    .into_iter()
+<a href=#1079 id=1079 data-nosnippet>1079</a>                    .map(|(idx, bytes)| (idx, Arc::from(bytes)))
+<a href=#1080 id=1080 data-nosnippet>1080</a>                    .collect::&lt;HashMap&lt;<span class="kw">_</span>, <span class="kw">_</span>&gt;&gt;(),
+<a href=#1081 id=1081 data-nosnippet>1081</a>            );
+<a href=#1082 id=1082 data-nosnippet>1082</a>
+<a href=#1083 id=1083 data-nosnippet>1083</a>            <span class="kw">let </span>handle = {
+<a href=#1084 id=1084 data-nosnippet>1084</a>                <span class="kw">let </span>offsets = allocator.offsets().clone();
+<a href=#1085 id=1085 data-nosnippet>1085</a>                <span class="comment">// use dummy value to create an instance so we can get the vmctx pointer
+<a href=#1086 id=1086 data-nosnippet>1086</a>                </span><span class="kw">let </span>funcrefs = PrimaryMap::new().into_boxed_slice();
+<a href=#1087 id=1087 data-nosnippet>1087</a>                <span class="kw">let </span>imported_funcrefs = PrimaryMap::new().into_boxed_slice();
+<a href=#1088 id=1088 data-nosnippet>1088</a>                <span class="comment">// Create the `Instance`. The unique, the One.
+<a href=#1089 id=1089 data-nosnippet>1089</a>                </span><span class="kw">let </span>instance = Instance {
+<a href=#1090 id=1090 data-nosnippet>1090</a>                    module,
+<a href=#1091 id=1091 data-nosnippet>1091</a>                    context,
+<a href=#1092 id=1092 data-nosnippet>1092</a>                    offsets,
+<a href=#1093 id=1093 data-nosnippet>1093</a>                    memories: finished_memories,
+<a href=#1094 id=1094 data-nosnippet>1094</a>                    tables: finished_tables,
+<a href=#1095 id=1095 data-nosnippet>1095</a>                    tags,
+<a href=#1096 id=1096 data-nosnippet>1096</a>                    globals: finished_globals,
+<a href=#1097 id=1097 data-nosnippet>1097</a>                    functions: finished_functions,
+<a href=#1098 id=1098 data-nosnippet>1098</a>                    function_call_trampolines: finished_function_call_trampolines,
+<a href=#1099 id=1099 data-nosnippet>1099</a>                    passive_elements: Default::default(),
+<a href=#1100 id=1100 data-nosnippet>1100</a>                    passive_data,
+<a href=#1101 id=1101 data-nosnippet>1101</a>                    funcrefs,
+<a href=#1102 id=1102 data-nosnippet>1102</a>                    imported_funcrefs,
+<a href=#1103 id=1103 data-nosnippet>1103</a>                    vmctx: VMContext {},
+<a href=#1104 id=1104 data-nosnippet>1104</a>                };
+<a href=#1105 id=1105 data-nosnippet>1105</a>
+<a href=#1106 id=1106 data-nosnippet>1106</a>                <span class="kw">let </span><span class="kw-2">mut </span>instance_handle = allocator.into_vminstance(instance);
+<a href=#1107 id=1107 data-nosnippet>1107</a>
+<a href=#1108 id=1108 data-nosnippet>1108</a>                <span class="comment">// Set the funcrefs after we've built the instance
+<a href=#1109 id=1109 data-nosnippet>1109</a>                </span>{
+<a href=#1110 id=1110 data-nosnippet>1110</a>                    <span class="kw">let </span>instance = instance_handle.instance_mut();
+<a href=#1111 id=1111 data-nosnippet>1111</a>                    <span class="kw">let </span>vmctx_ptr = instance.vmctx_ptr();
+<a href=#1112 id=1112 data-nosnippet>1112</a>                    (instance.funcrefs, instance.imported_funcrefs) = build_funcrefs(
+<a href=#1113 id=1113 data-nosnippet>1113</a>                        <span class="kw-2">&amp;</span>instance.module,
+<a href=#1114 id=1114 data-nosnippet>1114</a>                        context,
+<a href=#1115 id=1115 data-nosnippet>1115</a>                        <span class="kw-2">&amp;</span>imports,
+<a href=#1116 id=1116 data-nosnippet>1116</a>                        <span class="kw-2">&amp;</span>instance.functions,
+<a href=#1117 id=1117 data-nosnippet>1117</a>                        <span class="kw-2">&amp;</span>vmshared_signatures,
+<a href=#1118 id=1118 data-nosnippet>1118</a>                        <span class="kw-2">&amp;</span>instance.function_call_trampolines,
+<a href=#1119 id=1119 data-nosnippet>1119</a>                        vmctx_ptr,
+<a href=#1120 id=1120 data-nosnippet>1120</a>                    );
+<a href=#1121 id=1121 data-nosnippet>1121</a>                }
+<a href=#1122 id=1122 data-nosnippet>1122</a>
+<a href=#1123 id=1123 data-nosnippet>1123</a>                instance_handle
+<a href=#1124 id=1124 data-nosnippet>1124</a>            };
+<a href=#1125 id=1125 data-nosnippet>1125</a>            <span class="kw">let </span>instance = handle.instance();
+<a href=#1126 id=1126 data-nosnippet>1126</a>
+<a href=#1127 id=1127 data-nosnippet>1127</a>            ptr::copy(
+<a href=#1128 id=1128 data-nosnippet>1128</a>                vmctx_tags.values().as_slice().as_ptr(),
+<a href=#1129 id=1129 data-nosnippet>1129</a>                instance.shared_tags_ptr(),
+<a href=#1130 id=1130 data-nosnippet>1130</a>                vmctx_tags.len(),
+<a href=#1131 id=1131 data-nosnippet>1131</a>            );
+<a href=#1132 id=1132 data-nosnippet>1132</a>            ptr::copy(
+<a href=#1133 id=1133 data-nosnippet>1133</a>                vmshared_signatures.values().as_slice().as_ptr(),
+<a href=#1134 id=1134 data-nosnippet>1134</a>                instance.signature_ids_ptr(),
+<a href=#1135 id=1135 data-nosnippet>1135</a>                vmshared_signatures.len(),
+<a href=#1136 id=1136 data-nosnippet>1136</a>            );
+<a href=#1137 id=1137 data-nosnippet>1137</a>            ptr::copy(
+<a href=#1138 id=1138 data-nosnippet>1138</a>                imports.functions.values().as_slice().as_ptr(),
+<a href=#1139 id=1139 data-nosnippet>1139</a>                instance.imported_functions_ptr(),
+<a href=#1140 id=1140 data-nosnippet>1140</a>                imports.functions.len(),
+<a href=#1141 id=1141 data-nosnippet>1141</a>            );
+<a href=#1142 id=1142 data-nosnippet>1142</a>            ptr::copy(
+<a href=#1143 id=1143 data-nosnippet>1143</a>                imports.tables.values().as_slice().as_ptr(),
+<a href=#1144 id=1144 data-nosnippet>1144</a>                instance.imported_tables_ptr(),
+<a href=#1145 id=1145 data-nosnippet>1145</a>                imports.tables.len(),
+<a href=#1146 id=1146 data-nosnippet>1146</a>            );
+<a href=#1147 id=1147 data-nosnippet>1147</a>            ptr::copy(
+<a href=#1148 id=1148 data-nosnippet>1148</a>                imports.memories.values().as_slice().as_ptr(),
+<a href=#1149 id=1149 data-nosnippet>1149</a>                instance.imported_memories_ptr(),
+<a href=#1150 id=1150 data-nosnippet>1150</a>                imports.memories.len(),
+<a href=#1151 id=1151 data-nosnippet>1151</a>            );
+<a href=#1152 id=1152 data-nosnippet>1152</a>            ptr::copy(
+<a href=#1153 id=1153 data-nosnippet>1153</a>                imports.globals.values().as_slice().as_ptr(),
+<a href=#1154 id=1154 data-nosnippet>1154</a>                instance.imported_globals_ptr(),
+<a href=#1155 id=1155 data-nosnippet>1155</a>                imports.globals.len(),
+<a href=#1156 id=1156 data-nosnippet>1156</a>            );
+<a href=#1157 id=1157 data-nosnippet>1157</a>            <span class="comment">// these should already be set, add asserts here? for:
+<a href=#1158 id=1158 data-nosnippet>1158</a>            // - instance.tables_ptr() as *mut VMTableDefinition
+<a href=#1159 id=1159 data-nosnippet>1159</a>            // - instance.memories_ptr() as *mut VMMemoryDefinition
+<a href=#1160 id=1160 data-nosnippet>1160</a>            </span>ptr::copy(
+<a href=#1161 id=1161 data-nosnippet>1161</a>                vmctx_globals.values().as_slice().as_ptr(),
+<a href=#1162 id=1162 data-nosnippet>1162</a>                instance.globals_ptr() <span class="kw">as </span><span class="kw-2">*mut </span>NonNull&lt;VMGlobalDefinition&gt;,
+<a href=#1163 id=1163 data-nosnippet>1163</a>                vmctx_globals.len(),
+<a href=#1164 id=1164 data-nosnippet>1164</a>            );
+<a href=#1165 id=1165 data-nosnippet>1165</a>            ptr::write(
+<a href=#1166 id=1166 data-nosnippet>1166</a>                instance.builtin_functions_ptr(),
+<a href=#1167 id=1167 data-nosnippet>1167</a>                VMBuiltinFunctionsArray::initialized(),
+<a href=#1168 id=1168 data-nosnippet>1168</a>            );
+<a href=#1169 id=1169 data-nosnippet>1169</a>
+<a href=#1170 id=1170 data-nosnippet>1170</a>            <span class="comment">// Perform infallible initialization in this constructor, while fallible
+<a href=#1171 id=1171 data-nosnippet>1171</a>            // initialization is deferred to the `initialize` method.
+<a href=#1172 id=1172 data-nosnippet>1172</a>            </span>initialize_passive_elements(instance);
+<a href=#1173 id=1173 data-nosnippet>1173</a>            initialize_globals(instance);
+<a href=#1174 id=1174 data-nosnippet>1174</a>
+<a href=#1175 id=1175 data-nosnippet>1175</a>            <span class="prelude-val">Ok</span>(handle)
+<a href=#1176 id=1176 data-nosnippet>1176</a>        }
+<a href=#1177 id=1177 data-nosnippet>1177</a>    }
+<a href=#1178 id=1178 data-nosnippet>1178</a>
+<a href=#1179 id=1179 data-nosnippet>1179</a>    <span class="doccomment">/// Return a reference to the contained `Instance`.
+<a href=#1180 id=1180 data-nosnippet>1180</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>instance(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Instance {
+<a href=#1181 id=1181 data-nosnippet>1181</a>        <span class="kw">unsafe </span>{ <span class="self">self</span>.instance.as_ref() }
+<a href=#1182 id=1182 data-nosnippet>1182</a>    }
+<a href=#1183 id=1183 data-nosnippet>1183</a>
+<a href=#1184 id=1184 data-nosnippet>1184</a>    <span class="doccomment">/// Return a mutable reference to the contained `Instance`.
+<a href=#1185 id=1185 data-nosnippet>1185</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>instance_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Instance {
+<a href=#1186 id=1186 data-nosnippet>1186</a>        <span class="kw">unsafe </span>{ <span class="self">self</span>.instance.as_mut() }
+<a href=#1187 id=1187 data-nosnippet>1187</a>    }
+<a href=#1188 id=1188 data-nosnippet>1188</a>
+<a href=#1189 id=1189 data-nosnippet>1189</a>    <span class="doccomment">/// Finishes the instantiation process started by `Instance::new`.
+<a href=#1190 id=1190 data-nosnippet>1190</a>    ///
+<a href=#1191 id=1191 data-nosnippet>1191</a>    /// # Safety
+<a href=#1192 id=1192 data-nosnippet>1192</a>    ///
+<a href=#1193 id=1193 data-nosnippet>1193</a>    /// Only safe to call immediately after instantiation.
+<a href=#1194 id=1194 data-nosnippet>1194</a>    </span><span class="kw">pub unsafe fn </span>finish_instantiation(
+<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1196 id=1196 data-nosnippet>1196</a>        config: <span class="kw-2">&amp;</span>VMConfig,
+<a href=#1197 id=1197 data-nosnippet>1197</a>        trap_handler: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">*const </span>TrapHandlerFn&lt;<span class="lifetime">'static</span>&gt;&gt;,
+<a href=#1198 id=1198 data-nosnippet>1198</a>        data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">'_</span>&gt;],
+<a href=#1199 id=1199 data-nosnippet>1199</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+<a href=#1200 id=1200 data-nosnippet>1200</a>        <span class="kw">let </span>instance = <span class="self">self</span>.instance_mut();
+<a href=#1201 id=1201 data-nosnippet>1201</a>
+<a href=#1202 id=1202 data-nosnippet>1202</a>        <span class="comment">// Apply the initializers.
+<a href=#1203 id=1203 data-nosnippet>1203</a>        </span>initialize_tables(instance)<span class="question-mark">?</span>;
+<a href=#1204 id=1204 data-nosnippet>1204</a>        initialize_memories(instance, data_initializers)<span class="question-mark">?</span>;
 <a href=#1205 id=1205 data-nosnippet>1205</a>
-<a href=#1206 id=1206 data-nosnippet>1206</a>    <span class="doccomment">/// Return a raw pointer to the vmctx used by compiled wasm code.
-<a href=#1207 id=1207 data-nosnippet>1207</a>    </span><span class="kw">pub fn </span>vmctx_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>VMContext {
-<a href=#1208 id=1208 data-nosnippet>1208</a>        <span class="self">self</span>.instance().vmctx_ptr()
-<a href=#1209 id=1209 data-nosnippet>1209</a>    }
-<a href=#1210 id=1210 data-nosnippet>1210</a>
-<a href=#1211 id=1211 data-nosnippet>1211</a>    <span class="doccomment">/// Return a reference to the `VMOffsets` to get offsets in the
-<a href=#1212 id=1212 data-nosnippet>1212</a>    /// `Self::vmctx_ptr` region. Be careful when doing pointer
-<a href=#1213 id=1213 data-nosnippet>1213</a>    /// arithmetic!
-<a href=#1214 id=1214 data-nosnippet>1214</a>    </span><span class="kw">pub fn </span>vmoffsets(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMOffsets {
-<a href=#1215 id=1215 data-nosnippet>1215</a>        <span class="self">self</span>.instance().offsets()
-<a href=#1216 id=1216 data-nosnippet>1216</a>    }
-<a href=#1217 id=1217 data-nosnippet>1217</a>
-<a href=#1218 id=1218 data-nosnippet>1218</a>    <span class="doccomment">/// Return a reference-counting pointer to a module.
-<a href=#1219 id=1219 data-nosnippet>1219</a>    </span><span class="kw">pub fn </span>module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;ModuleInfo&gt; {
-<a href=#1220 id=1220 data-nosnippet>1220</a>        <span class="self">self</span>.instance().module()
-<a href=#1221 id=1221 data-nosnippet>1221</a>    }
-<a href=#1222 id=1222 data-nosnippet>1222</a>
-<a href=#1223 id=1223 data-nosnippet>1223</a>    <span class="doccomment">/// Return a reference to a module.
-<a href=#1224 id=1224 data-nosnippet>1224</a>    </span><span class="kw">pub fn </span>module_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
-<a href=#1225 id=1225 data-nosnippet>1225</a>        <span class="self">self</span>.instance().module_ref()
-<a href=#1226 id=1226 data-nosnippet>1226</a>    }
-<a href=#1227 id=1227 data-nosnippet>1227</a>
-<a href=#1228 id=1228 data-nosnippet>1228</a>    <span class="doccomment">/// Lookup an export with the given name.
-<a href=#1229 id=1229 data-nosnippet>1229</a>    </span><span class="kw">pub fn </span>lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;VMExtern&gt; {
-<a href=#1230 id=1230 data-nosnippet>1230</a>        <span class="kw">let </span>export = <span class="kw-2">*</span><span class="self">self</span>.module_ref().exports.get(field)<span class="question-mark">?</span>;
-<a href=#1231 id=1231 data-nosnippet>1231</a>
-<a href=#1232 id=1232 data-nosnippet>1232</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.lookup_by_declaration(export))
-<a href=#1233 id=1233 data-nosnippet>1233</a>    }
-<a href=#1234 id=1234 data-nosnippet>1234</a>
-<a href=#1235 id=1235 data-nosnippet>1235</a>    <span class="doccomment">/// Lookup an export with the given export declaration.
-<a href=#1236 id=1236 data-nosnippet>1236</a>    </span><span class="kw">pub fn </span>lookup_by_declaration(<span class="kw-2">&amp;mut </span><span class="self">self</span>, export: ExportIndex) -&gt; VMExtern {
-<a href=#1237 id=1237 data-nosnippet>1237</a>        <span class="kw">let </span>instance = <span class="self">self</span>.instance();
+<a href=#1206 id=1206 data-nosnippet>1206</a>        <span class="comment">// The WebAssembly spec specifies that the start function is
+<a href=#1207 id=1207 data-nosnippet>1207</a>        // invoked automatically at instantiation time.
+<a href=#1208 id=1208 data-nosnippet>1208</a>        </span>instance.invoke_start_function(config, trap_handler)<span class="question-mark">?</span>;
+<a href=#1209 id=1209 data-nosnippet>1209</a>        <span class="prelude-val">Ok</span>(())
+<a href=#1210 id=1210 data-nosnippet>1210</a>    }
+<a href=#1211 id=1211 data-nosnippet>1211</a>
+<a href=#1212 id=1212 data-nosnippet>1212</a>    <span class="doccomment">/// Return a reference to the vmctx used by compiled wasm code.
+<a href=#1213 id=1213 data-nosnippet>1213</a>    </span><span class="kw">pub fn </span>vmctx(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMContext {
+<a href=#1214 id=1214 data-nosnippet>1214</a>        <span class="self">self</span>.instance().vmctx()
+<a href=#1215 id=1215 data-nosnippet>1215</a>    }
+<a href=#1216 id=1216 data-nosnippet>1216</a>
+<a href=#1217 id=1217 data-nosnippet>1217</a>    <span class="doccomment">/// Return a raw pointer to the vmctx used by compiled wasm code.
+<a href=#1218 id=1218 data-nosnippet>1218</a>    </span><span class="kw">pub fn </span>vmctx_ptr(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">*mut </span>VMContext {
+<a href=#1219 id=1219 data-nosnippet>1219</a>        <span class="self">self</span>.instance().vmctx_ptr()
+<a href=#1220 id=1220 data-nosnippet>1220</a>    }
+<a href=#1221 id=1221 data-nosnippet>1221</a>
+<a href=#1222 id=1222 data-nosnippet>1222</a>    <span class="doccomment">/// Return a reference to the `VMOffsets` to get offsets in the
+<a href=#1223 id=1223 data-nosnippet>1223</a>    /// `Self::vmctx_ptr` region. Be careful when doing pointer
+<a href=#1224 id=1224 data-nosnippet>1224</a>    /// arithmetic!
+<a href=#1225 id=1225 data-nosnippet>1225</a>    </span><span class="kw">pub fn </span>vmoffsets(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>VMOffsets {
+<a href=#1226 id=1226 data-nosnippet>1226</a>        <span class="self">self</span>.instance().offsets()
+<a href=#1227 id=1227 data-nosnippet>1227</a>    }
+<a href=#1228 id=1228 data-nosnippet>1228</a>
+<a href=#1229 id=1229 data-nosnippet>1229</a>    <span class="doccomment">/// Return a reference-counting pointer to a module.
+<a href=#1230 id=1230 data-nosnippet>1230</a>    </span><span class="kw">pub fn </span>module(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Arc&lt;ModuleInfo&gt; {
+<a href=#1231 id=1231 data-nosnippet>1231</a>        <span class="self">self</span>.instance().module()
+<a href=#1232 id=1232 data-nosnippet>1232</a>    }
+<a href=#1233 id=1233 data-nosnippet>1233</a>
+<a href=#1234 id=1234 data-nosnippet>1234</a>    <span class="doccomment">/// Return a reference to a module.
+<a href=#1235 id=1235 data-nosnippet>1235</a>    </span><span class="kw">pub fn </span>module_ref(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>ModuleInfo {
+<a href=#1236 id=1236 data-nosnippet>1236</a>        <span class="self">self</span>.instance().module_ref()
+<a href=#1237 id=1237 data-nosnippet>1237</a>    }
 <a href=#1238 id=1238 data-nosnippet>1238</a>
-<a href=#1239 id=1239 data-nosnippet>1239</a>        <span class="kw">match </span>export {
-<a href=#1240 id=1240 data-nosnippet>1240</a>            ExportIndex::Function(index) =&gt; {
-<a href=#1241 id=1241 data-nosnippet>1241</a>                <span class="kw">let </span>sig_index = <span class="kw-2">&amp;</span>instance.module.functions[index];
-<a href=#1242 id=1242 data-nosnippet>1242</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_func_index(index) {
-<a href=#1243 id=1243 data-nosnippet>1243</a>                    <span class="comment">// A VMFunction is lazily created only for functions that are
-<a href=#1244 id=1244 data-nosnippet>1244</a>                    // exported.
-<a href=#1245 id=1245 data-nosnippet>1245</a>                    </span><span class="kw">let </span>signature = instance.module.signatures[<span class="kw-2">*</span>sig_index].clone();
-<a href=#1246 id=1246 data-nosnippet>1246</a>                    <span class="kw">let </span>vm_function = VMFunction {
-<a href=#1247 id=1247 data-nosnippet>1247</a>                        anyfunc: MaybeInstanceOwned::Instance(NonNull::from(
-<a href=#1248 id=1248 data-nosnippet>1248</a>                            <span class="kw-2">&amp;</span>instance.funcrefs[def_index],
-<a href=#1249 id=1249 data-nosnippet>1249</a>                        )),
-<a href=#1250 id=1250 data-nosnippet>1250</a>                        signature,
-<a href=#1251 id=1251 data-nosnippet>1251</a>                        <span class="comment">// Any function received is already static at this point as:
-<a href=#1252 id=1252 data-nosnippet>1252</a>                        // 1. All locally defined functions in the Wasm have a static signature.
-<a href=#1253 id=1253 data-nosnippet>1253</a>                        // 2. All the imported functions are already static (because
-<a href=#1254 id=1254 data-nosnippet>1254</a>                        //    they point to the trampolines rather than the dynamic addresses).
-<a href=#1255 id=1255 data-nosnippet>1255</a>                        </span>kind: VMFunctionKind::Static,
-<a href=#1256 id=1256 data-nosnippet>1256</a>                        host_data: Box::new(()),
-<a href=#1257 id=1257 data-nosnippet>1257</a>                    };
-<a href=#1258 id=1258 data-nosnippet>1258</a>                    InternalStoreHandle::new(<span class="self">self</span>.instance_mut().context_mut(), vm_function)
-<a href=#1259 id=1259 data-nosnippet>1259</a>                } <span class="kw">else </span>{
-<a href=#1260 id=1260 data-nosnippet>1260</a>                    <span class="kw">let </span>import = instance.imported_function(index);
-<a href=#1261 id=1261 data-nosnippet>1261</a>                    import.handle
-<a href=#1262 id=1262 data-nosnippet>1262</a>                };
-<a href=#1263 id=1263 data-nosnippet>1263</a>
-<a href=#1264 id=1264 data-nosnippet>1264</a>                VMExtern::Function(handle)
-<a href=#1265 id=1265 data-nosnippet>1265</a>            }
-<a href=#1266 id=1266 data-nosnippet>1266</a>            ExportIndex::Table(index) =&gt; {
-<a href=#1267 id=1267 data-nosnippet>1267</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_table_index(index) {
-<a href=#1268 id=1268 data-nosnippet>1268</a>                    instance.tables[def_index]
-<a href=#1269 id=1269 data-nosnippet>1269</a>                } <span class="kw">else </span>{
-<a href=#1270 id=1270 data-nosnippet>1270</a>                    <span class="kw">let </span>import = instance.imported_table(index);
-<a href=#1271 id=1271 data-nosnippet>1271</a>                    import.handle
-<a href=#1272 id=1272 data-nosnippet>1272</a>                };
-<a href=#1273 id=1273 data-nosnippet>1273</a>                VMExtern::Table(handle)
-<a href=#1274 id=1274 data-nosnippet>1274</a>            }
-<a href=#1275 id=1275 data-nosnippet>1275</a>            ExportIndex::Memory(index) =&gt; {
-<a href=#1276 id=1276 data-nosnippet>1276</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_memory_index(index) {
-<a href=#1277 id=1277 data-nosnippet>1277</a>                    instance.memories[def_index]
-<a href=#1278 id=1278 data-nosnippet>1278</a>                } <span class="kw">else </span>{
-<a href=#1279 id=1279 data-nosnippet>1279</a>                    <span class="kw">let </span>import = instance.imported_memory(index);
-<a href=#1280 id=1280 data-nosnippet>1280</a>                    import.handle
-<a href=#1281 id=1281 data-nosnippet>1281</a>                };
-<a href=#1282 id=1282 data-nosnippet>1282</a>                VMExtern::Memory(handle)
-<a href=#1283 id=1283 data-nosnippet>1283</a>            }
-<a href=#1284 id=1284 data-nosnippet>1284</a>            ExportIndex::Global(index) =&gt; {
-<a href=#1285 id=1285 data-nosnippet>1285</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_global_index(index) {
-<a href=#1286 id=1286 data-nosnippet>1286</a>                    instance.globals[def_index]
-<a href=#1287 id=1287 data-nosnippet>1287</a>                } <span class="kw">else </span>{
-<a href=#1288 id=1288 data-nosnippet>1288</a>                    <span class="kw">let </span>import = instance.imported_global(index);
-<a href=#1289 id=1289 data-nosnippet>1289</a>                    import.handle
-<a href=#1290 id=1290 data-nosnippet>1290</a>                };
-<a href=#1291 id=1291 data-nosnippet>1291</a>                VMExtern::Global(handle)
-<a href=#1292 id=1292 data-nosnippet>1292</a>            }
-<a href=#1293 id=1293 data-nosnippet>1293</a>
-<a href=#1294 id=1294 data-nosnippet>1294</a>            ExportIndex::Tag(index) =&gt; {
-<a href=#1295 id=1295 data-nosnippet>1295</a>                <span class="kw">let </span>handle = instance.tags[index];
-<a href=#1296 id=1296 data-nosnippet>1296</a>                VMExtern::Tag(handle)
-<a href=#1297 id=1297 data-nosnippet>1297</a>            }
-<a href=#1298 id=1298 data-nosnippet>1298</a>        }
-<a href=#1299 id=1299 data-nosnippet>1299</a>    }
-<a href=#1300 id=1300 data-nosnippet>1300</a>
-<a href=#1301 id=1301 data-nosnippet>1301</a>    <span class="doccomment">/// Return an iterator over the exports of this instance.
-<a href=#1302 id=1302 data-nosnippet>1302</a>    ///
-<a href=#1303 id=1303 data-nosnippet>1303</a>    /// Specifically, it provides access to the key-value pairs, where the keys
-<a href=#1304 id=1304 data-nosnippet>1304</a>    /// are export names, and the values are export declarations which can be
-<a href=#1305 id=1305 data-nosnippet>1305</a>    /// resolved `lookup_by_declaration`.
-<a href=#1306 id=1306 data-nosnippet>1306</a>    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; indexmap::map::Iter&lt;<span class="lifetime">'_</span>, String, ExportIndex&gt; {
-<a href=#1307 id=1307 data-nosnippet>1307</a>        <span class="self">self</span>.module().exports.iter()
-<a href=#1308 id=1308 data-nosnippet>1308</a>    }
-<a href=#1309 id=1309 data-nosnippet>1309</a>
-<a href=#1310 id=1310 data-nosnippet>1310</a>    <span class="doccomment">/// Return the memory index for the given `VMMemoryDefinition` in this instance.
-<a href=#1311 id=1311 data-nosnippet>1311</a>    </span><span class="kw">pub fn </span>memory_index(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>VMMemoryDefinition) -&gt; LocalMemoryIndex {
-<a href=#1312 id=1312 data-nosnippet>1312</a>        <span class="self">self</span>.instance().memory_index(memory)
-<a href=#1313 id=1313 data-nosnippet>1313</a>    }
-<a href=#1314 id=1314 data-nosnippet>1314</a>
-<a href=#1315 id=1315 data-nosnippet>1315</a>    <span class="doccomment">/// Grow memory in this instance by the specified amount of pages.
-<a href=#1316 id=1316 data-nosnippet>1316</a>    ///
-<a href=#1317 id=1317 data-nosnippet>1317</a>    /// Returns `None` if memory can't be grown by the specified amount
-<a href=#1318 id=1318 data-nosnippet>1318</a>    /// of pages.
-<a href=#1319 id=1319 data-nosnippet>1319</a>    </span><span class="kw">pub fn </span>memory_grow&lt;IntoPages&gt;(
-<a href=#1320 id=1320 data-nosnippet>1320</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1321 id=1321 data-nosnippet>1321</a>        memory_index: LocalMemoryIndex,
-<a href=#1322 id=1322 data-nosnippet>1322</a>        delta: IntoPages,
-<a href=#1323 id=1323 data-nosnippet>1323</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt;
-<a href=#1324 id=1324 data-nosnippet>1324</a>    <span class="kw">where
-<a href=#1325 id=1325 data-nosnippet>1325</a>        </span>IntoPages: Into&lt;Pages&gt;,
-<a href=#1326 id=1326 data-nosnippet>1326</a>    {
-<a href=#1327 id=1327 data-nosnippet>1327</a>        <span class="self">self</span>.instance_mut().memory_grow(memory_index, delta)
-<a href=#1328 id=1328 data-nosnippet>1328</a>    }
-<a href=#1329 id=1329 data-nosnippet>1329</a>
-<a href=#1330 id=1330 data-nosnippet>1330</a>    <span class="doccomment">/// Return the table index for the given `VMTableDefinition` in this instance.
-<a href=#1331 id=1331 data-nosnippet>1331</a>    </span><span class="kw">pub fn </span>table_index(<span class="kw-2">&amp;</span><span class="self">self</span>, table: <span class="kw-2">&amp;</span>VMTableDefinition) -&gt; LocalTableIndex {
-<a href=#1332 id=1332 data-nosnippet>1332</a>        <span class="self">self</span>.instance().table_index(table)
-<a href=#1333 id=1333 data-nosnippet>1333</a>    }
-<a href=#1334 id=1334 data-nosnippet>1334</a>
-<a href=#1335 id=1335 data-nosnippet>1335</a>    <span class="doccomment">/// Grow table in this instance by the specified amount of pages.
-<a href=#1336 id=1336 data-nosnippet>1336</a>    ///
-<a href=#1337 id=1337 data-nosnippet>1337</a>    /// Returns `None` if memory can't be grown by the specified amount
-<a href=#1338 id=1338 data-nosnippet>1338</a>    /// of pages.
-<a href=#1339 id=1339 data-nosnippet>1339</a>    </span><span class="kw">pub fn </span>table_grow(
-<a href=#1340 id=1340 data-nosnippet>1340</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1341 id=1341 data-nosnippet>1341</a>        table_index: LocalTableIndex,
-<a href=#1342 id=1342 data-nosnippet>1342</a>        delta: u32,
-<a href=#1343 id=1343 data-nosnippet>1343</a>        init_value: TableElement,
-<a href=#1344 id=1344 data-nosnippet>1344</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
-<a href=#1345 id=1345 data-nosnippet>1345</a>        <span class="self">self</span>.instance_mut()
-<a href=#1346 id=1346 data-nosnippet>1346</a>            .table_grow(table_index, delta, init_value)
-<a href=#1347 id=1347 data-nosnippet>1347</a>    }
-<a href=#1348 id=1348 data-nosnippet>1348</a>
-<a href=#1349 id=1349 data-nosnippet>1349</a>    <span class="doccomment">/// Get table element reference.
-<a href=#1350 id=1350 data-nosnippet>1350</a>    ///
-<a href=#1351 id=1351 data-nosnippet>1351</a>    /// Returns `None` if index is out of bounds.
-<a href=#1352 id=1352 data-nosnippet>1352</a>    </span><span class="kw">pub fn </span>table_get(<span class="kw-2">&amp;</span><span class="self">self</span>, table_index: LocalTableIndex, index: u32) -&gt; <span class="prelude-ty">Option</span>&lt;TableElement&gt; {
-<a href=#1353 id=1353 data-nosnippet>1353</a>        <span class="self">self</span>.instance().table_get(table_index, index)
-<a href=#1354 id=1354 data-nosnippet>1354</a>    }
-<a href=#1355 id=1355 data-nosnippet>1355</a>
-<a href=#1356 id=1356 data-nosnippet>1356</a>    <span class="doccomment">/// Set table element reference.
-<a href=#1357 id=1357 data-nosnippet>1357</a>    ///
-<a href=#1358 id=1358 data-nosnippet>1358</a>    /// Returns an error if the index is out of bounds
-<a href=#1359 id=1359 data-nosnippet>1359</a>    </span><span class="kw">pub fn </span>table_set(
-<a href=#1360 id=1360 data-nosnippet>1360</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
-<a href=#1361 id=1361 data-nosnippet>1361</a>        table_index: LocalTableIndex,
-<a href=#1362 id=1362 data-nosnippet>1362</a>        index: u32,
-<a href=#1363 id=1363 data-nosnippet>1363</a>        val: TableElement,
-<a href=#1364 id=1364 data-nosnippet>1364</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
-<a href=#1365 id=1365 data-nosnippet>1365</a>        <span class="self">self</span>.instance_mut().table_set(table_index, index, val)
-<a href=#1366 id=1366 data-nosnippet>1366</a>    }
-<a href=#1367 id=1367 data-nosnippet>1367</a>
-<a href=#1368 id=1368 data-nosnippet>1368</a>    <span class="doccomment">/// Get a table defined locally within this module.
-<a href=#1369 id=1369 data-nosnippet>1369</a>    </span><span class="kw">pub fn </span>get_local_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: LocalTableIndex) -&gt; <span class="kw-2">&amp;mut </span>VMTable {
-<a href=#1370 id=1370 data-nosnippet>1370</a>        <span class="self">self</span>.instance_mut().get_local_table(index)
-<a href=#1371 id=1371 data-nosnippet>1371</a>    }
-<a href=#1372 id=1372 data-nosnippet>1372</a>}
-<a href=#1373 id=1373 data-nosnippet>1373</a>
-<a href=#1374 id=1374 data-nosnippet>1374</a><span class="doccomment">/// Compute the offset for a memory data initializer.
-<a href=#1375 id=1375 data-nosnippet>1375</a></span><span class="kw">fn </span>get_memory_init_start(init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">'_</span>&gt;, instance: <span class="kw-2">&amp;</span>Instance) -&gt; usize {
-<a href=#1376 id=1376 data-nosnippet>1376</a>    <span class="kw">let </span><span class="kw-2">mut </span>start = init.location.offset;
-<a href=#1377 id=1377 data-nosnippet>1377</a>
-<a href=#1378 id=1378 data-nosnippet>1378</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(base) = init.location.base {
-<a href=#1379 id=1379 data-nosnippet>1379</a>        <span class="kw">let </span>val = <span class="kw">unsafe </span>{
-<a href=#1380 id=1380 data-nosnippet>1380</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_global_index(base) {
-<a href=#1381 id=1381 data-nosnippet>1381</a>                instance.global(def_index).val.u32
-<a href=#1382 id=1382 data-nosnippet>1382</a>            } <span class="kw">else </span>{
-<a href=#1383 id=1383 data-nosnippet>1383</a>                instance.imported_global(base).definition.as_ref().val.u32
-<a href=#1384 id=1384 data-nosnippet>1384</a>            }
-<a href=#1385 id=1385 data-nosnippet>1385</a>        };
-<a href=#1386 id=1386 data-nosnippet>1386</a>        start += usize::try_from(val).unwrap();
-<a href=#1387 id=1387 data-nosnippet>1387</a>    }
+<a href=#1239 id=1239 data-nosnippet>1239</a>    <span class="doccomment">/// Lookup an export with the given name.
+<a href=#1240 id=1240 data-nosnippet>1240</a>    </span><span class="kw">pub fn </span>lookup(<span class="kw-2">&amp;mut </span><span class="self">self</span>, field: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Option</span>&lt;VMExtern&gt; {
+<a href=#1241 id=1241 data-nosnippet>1241</a>        <span class="kw">let </span>export = <span class="kw-2">*</span><span class="self">self</span>.module_ref().exports.get(field)<span class="question-mark">?</span>;
+<a href=#1242 id=1242 data-nosnippet>1242</a>
+<a href=#1243 id=1243 data-nosnippet>1243</a>        <span class="prelude-val">Some</span>(<span class="self">self</span>.lookup_by_declaration(export))
+<a href=#1244 id=1244 data-nosnippet>1244</a>    }
+<a href=#1245 id=1245 data-nosnippet>1245</a>
+<a href=#1246 id=1246 data-nosnippet>1246</a>    <span class="doccomment">/// Lookup an export with the given export declaration.
+<a href=#1247 id=1247 data-nosnippet>1247</a>    </span><span class="kw">pub fn </span>lookup_by_declaration(<span class="kw-2">&amp;mut </span><span class="self">self</span>, export: ExportIndex) -&gt; VMExtern {
+<a href=#1248 id=1248 data-nosnippet>1248</a>        <span class="kw">let </span>instance = <span class="self">self</span>.instance();
+<a href=#1249 id=1249 data-nosnippet>1249</a>
+<a href=#1250 id=1250 data-nosnippet>1250</a>        <span class="kw">match </span>export {
+<a href=#1251 id=1251 data-nosnippet>1251</a>            ExportIndex::Function(index) =&gt; {
+<a href=#1252 id=1252 data-nosnippet>1252</a>                <span class="kw">let </span>sig_index = <span class="kw-2">&amp;</span>instance.module.functions[index];
+<a href=#1253 id=1253 data-nosnippet>1253</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_func_index(index) {
+<a href=#1254 id=1254 data-nosnippet>1254</a>                    <span class="comment">// A VMFunction is lazily created only for functions that are
+<a href=#1255 id=1255 data-nosnippet>1255</a>                    // exported.
+<a href=#1256 id=1256 data-nosnippet>1256</a>                    </span><span class="kw">let </span>signature = instance.module.signatures[<span class="kw-2">*</span>sig_index].clone();
+<a href=#1257 id=1257 data-nosnippet>1257</a>                    <span class="kw">let </span>vm_function = VMFunction {
+<a href=#1258 id=1258 data-nosnippet>1258</a>                        anyfunc: MaybeInstanceOwned::Instance(NonNull::from(
+<a href=#1259 id=1259 data-nosnippet>1259</a>                            <span class="kw-2">&amp;</span>instance.funcrefs[def_index],
+<a href=#1260 id=1260 data-nosnippet>1260</a>                        )),
+<a href=#1261 id=1261 data-nosnippet>1261</a>                        signature,
+<a href=#1262 id=1262 data-nosnippet>1262</a>                        <span class="comment">// Any function received is already static at this point as:
+<a href=#1263 id=1263 data-nosnippet>1263</a>                        // 1. All locally defined functions in the Wasm have a static signature.
+<a href=#1264 id=1264 data-nosnippet>1264</a>                        // 2. All the imported functions are already static (because
+<a href=#1265 id=1265 data-nosnippet>1265</a>                        //    they point to the trampolines rather than the dynamic addresses).
+<a href=#1266 id=1266 data-nosnippet>1266</a>                        </span>kind: VMFunctionKind::Static,
+<a href=#1267 id=1267 data-nosnippet>1267</a>                        host_data: Box::new(()),
+<a href=#1268 id=1268 data-nosnippet>1268</a>                    };
+<a href=#1269 id=1269 data-nosnippet>1269</a>                    InternalStoreHandle::new(<span class="self">self</span>.instance_mut().context_mut(), vm_function)
+<a href=#1270 id=1270 data-nosnippet>1270</a>                } <span class="kw">else </span>{
+<a href=#1271 id=1271 data-nosnippet>1271</a>                    <span class="kw">let </span>import = instance.imported_function(index);
+<a href=#1272 id=1272 data-nosnippet>1272</a>                    import.handle
+<a href=#1273 id=1273 data-nosnippet>1273</a>                };
+<a href=#1274 id=1274 data-nosnippet>1274</a>
+<a href=#1275 id=1275 data-nosnippet>1275</a>                VMExtern::Function(handle)
+<a href=#1276 id=1276 data-nosnippet>1276</a>            }
+<a href=#1277 id=1277 data-nosnippet>1277</a>            ExportIndex::Table(index) =&gt; {
+<a href=#1278 id=1278 data-nosnippet>1278</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_table_index(index) {
+<a href=#1279 id=1279 data-nosnippet>1279</a>                    instance.tables[def_index]
+<a href=#1280 id=1280 data-nosnippet>1280</a>                } <span class="kw">else </span>{
+<a href=#1281 id=1281 data-nosnippet>1281</a>                    <span class="kw">let </span>import = instance.imported_table(index);
+<a href=#1282 id=1282 data-nosnippet>1282</a>                    import.handle
+<a href=#1283 id=1283 data-nosnippet>1283</a>                };
+<a href=#1284 id=1284 data-nosnippet>1284</a>                VMExtern::Table(handle)
+<a href=#1285 id=1285 data-nosnippet>1285</a>            }
+<a href=#1286 id=1286 data-nosnippet>1286</a>            ExportIndex::Memory(index) =&gt; {
+<a href=#1287 id=1287 data-nosnippet>1287</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_memory_index(index) {
+<a href=#1288 id=1288 data-nosnippet>1288</a>                    instance.memories[def_index]
+<a href=#1289 id=1289 data-nosnippet>1289</a>                } <span class="kw">else </span>{
+<a href=#1290 id=1290 data-nosnippet>1290</a>                    <span class="kw">let </span>import = instance.imported_memory(index);
+<a href=#1291 id=1291 data-nosnippet>1291</a>                    import.handle
+<a href=#1292 id=1292 data-nosnippet>1292</a>                };
+<a href=#1293 id=1293 data-nosnippet>1293</a>                VMExtern::Memory(handle)
+<a href=#1294 id=1294 data-nosnippet>1294</a>            }
+<a href=#1295 id=1295 data-nosnippet>1295</a>            ExportIndex::Global(index) =&gt; {
+<a href=#1296 id=1296 data-nosnippet>1296</a>                <span class="kw">let </span>handle = <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_global_index(index) {
+<a href=#1297 id=1297 data-nosnippet>1297</a>                    instance.globals[def_index]
+<a href=#1298 id=1298 data-nosnippet>1298</a>                } <span class="kw">else </span>{
+<a href=#1299 id=1299 data-nosnippet>1299</a>                    <span class="kw">let </span>import = instance.imported_global(index);
+<a href=#1300 id=1300 data-nosnippet>1300</a>                    import.handle
+<a href=#1301 id=1301 data-nosnippet>1301</a>                };
+<a href=#1302 id=1302 data-nosnippet>1302</a>                VMExtern::Global(handle)
+<a href=#1303 id=1303 data-nosnippet>1303</a>            }
+<a href=#1304 id=1304 data-nosnippet>1304</a>
+<a href=#1305 id=1305 data-nosnippet>1305</a>            ExportIndex::Tag(index) =&gt; {
+<a href=#1306 id=1306 data-nosnippet>1306</a>                <span class="kw">let </span>handle = instance.tags[index];
+<a href=#1307 id=1307 data-nosnippet>1307</a>                VMExtern::Tag(handle)
+<a href=#1308 id=1308 data-nosnippet>1308</a>            }
+<a href=#1309 id=1309 data-nosnippet>1309</a>        }
+<a href=#1310 id=1310 data-nosnippet>1310</a>    }
+<a href=#1311 id=1311 data-nosnippet>1311</a>
+<a href=#1312 id=1312 data-nosnippet>1312</a>    <span class="doccomment">/// Return an iterator over the exports of this instance.
+<a href=#1313 id=1313 data-nosnippet>1313</a>    ///
+<a href=#1314 id=1314 data-nosnippet>1314</a>    /// Specifically, it provides access to the key-value pairs, where the keys
+<a href=#1315 id=1315 data-nosnippet>1315</a>    /// are export names, and the values are export declarations which can be
+<a href=#1316 id=1316 data-nosnippet>1316</a>    /// resolved `lookup_by_declaration`.
+<a href=#1317 id=1317 data-nosnippet>1317</a>    </span><span class="kw">pub fn </span>exports(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; indexmap::map::Iter&lt;<span class="lifetime">'_</span>, String, ExportIndex&gt; {
+<a href=#1318 id=1318 data-nosnippet>1318</a>        <span class="self">self</span>.module().exports.iter()
+<a href=#1319 id=1319 data-nosnippet>1319</a>    }
+<a href=#1320 id=1320 data-nosnippet>1320</a>
+<a href=#1321 id=1321 data-nosnippet>1321</a>    <span class="doccomment">/// Return the memory index for the given `VMMemoryDefinition` in this instance.
+<a href=#1322 id=1322 data-nosnippet>1322</a>    </span><span class="kw">pub fn </span>memory_index(<span class="kw-2">&amp;</span><span class="self">self</span>, memory: <span class="kw-2">&amp;</span>VMMemoryDefinition) -&gt; LocalMemoryIndex {
+<a href=#1323 id=1323 data-nosnippet>1323</a>        <span class="self">self</span>.instance().memory_index(memory)
+<a href=#1324 id=1324 data-nosnippet>1324</a>    }
+<a href=#1325 id=1325 data-nosnippet>1325</a>
+<a href=#1326 id=1326 data-nosnippet>1326</a>    <span class="doccomment">/// Grow memory in this instance by the specified amount of pages.
+<a href=#1327 id=1327 data-nosnippet>1327</a>    ///
+<a href=#1328 id=1328 data-nosnippet>1328</a>    /// Returns `None` if memory can't be grown by the specified amount
+<a href=#1329 id=1329 data-nosnippet>1329</a>    /// of pages.
+<a href=#1330 id=1330 data-nosnippet>1330</a>    </span><span class="kw">pub fn </span>memory_grow&lt;IntoPages&gt;(
+<a href=#1331 id=1331 data-nosnippet>1331</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1332 id=1332 data-nosnippet>1332</a>        memory_index: LocalMemoryIndex,
+<a href=#1333 id=1333 data-nosnippet>1333</a>        delta: IntoPages,
+<a href=#1334 id=1334 data-nosnippet>1334</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;Pages, MemoryError&gt;
+<a href=#1335 id=1335 data-nosnippet>1335</a>    <span class="kw">where
+<a href=#1336 id=1336 data-nosnippet>1336</a>        </span>IntoPages: Into&lt;Pages&gt;,
+<a href=#1337 id=1337 data-nosnippet>1337</a>    {
+<a href=#1338 id=1338 data-nosnippet>1338</a>        <span class="self">self</span>.instance_mut().memory_grow(memory_index, delta)
+<a href=#1339 id=1339 data-nosnippet>1339</a>    }
+<a href=#1340 id=1340 data-nosnippet>1340</a>
+<a href=#1341 id=1341 data-nosnippet>1341</a>    <span class="doccomment">/// Return the table index for the given `VMTableDefinition` in this instance.
+<a href=#1342 id=1342 data-nosnippet>1342</a>    </span><span class="kw">pub fn </span>table_index(<span class="kw-2">&amp;</span><span class="self">self</span>, table: <span class="kw-2">&amp;</span>VMTableDefinition) -&gt; LocalTableIndex {
+<a href=#1343 id=1343 data-nosnippet>1343</a>        <span class="self">self</span>.instance().table_index(table)
+<a href=#1344 id=1344 data-nosnippet>1344</a>    }
+<a href=#1345 id=1345 data-nosnippet>1345</a>
+<a href=#1346 id=1346 data-nosnippet>1346</a>    <span class="doccomment">/// Grow table in this instance by the specified amount of pages.
+<a href=#1347 id=1347 data-nosnippet>1347</a>    ///
+<a href=#1348 id=1348 data-nosnippet>1348</a>    /// Returns `None` if memory can't be grown by the specified amount
+<a href=#1349 id=1349 data-nosnippet>1349</a>    /// of pages.
+<a href=#1350 id=1350 data-nosnippet>1350</a>    </span><span class="kw">pub fn </span>table_grow(
+<a href=#1351 id=1351 data-nosnippet>1351</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1352 id=1352 data-nosnippet>1352</a>        table_index: LocalTableIndex,
+<a href=#1353 id=1353 data-nosnippet>1353</a>        delta: u32,
+<a href=#1354 id=1354 data-nosnippet>1354</a>        init_value: TableElement,
+<a href=#1355 id=1355 data-nosnippet>1355</a>    ) -&gt; <span class="prelude-ty">Option</span>&lt;u32&gt; {
+<a href=#1356 id=1356 data-nosnippet>1356</a>        <span class="self">self</span>.instance_mut()
+<a href=#1357 id=1357 data-nosnippet>1357</a>            .table_grow(table_index, delta, init_value)
+<a href=#1358 id=1358 data-nosnippet>1358</a>    }
+<a href=#1359 id=1359 data-nosnippet>1359</a>
+<a href=#1360 id=1360 data-nosnippet>1360</a>    <span class="doccomment">/// Get table element reference.
+<a href=#1361 id=1361 data-nosnippet>1361</a>    ///
+<a href=#1362 id=1362 data-nosnippet>1362</a>    /// Returns `None` if index is out of bounds.
+<a href=#1363 id=1363 data-nosnippet>1363</a>    </span><span class="kw">pub fn </span>table_get(<span class="kw-2">&amp;</span><span class="self">self</span>, table_index: LocalTableIndex, index: u32) -&gt; <span class="prelude-ty">Option</span>&lt;TableElement&gt; {
+<a href=#1364 id=1364 data-nosnippet>1364</a>        <span class="self">self</span>.instance().table_get(table_index, index)
+<a href=#1365 id=1365 data-nosnippet>1365</a>    }
+<a href=#1366 id=1366 data-nosnippet>1366</a>
+<a href=#1367 id=1367 data-nosnippet>1367</a>    <span class="doccomment">/// Set table element reference.
+<a href=#1368 id=1368 data-nosnippet>1368</a>    ///
+<a href=#1369 id=1369 data-nosnippet>1369</a>    /// Returns an error if the index is out of bounds
+<a href=#1370 id=1370 data-nosnippet>1370</a>    </span><span class="kw">pub fn </span>table_set(
+<a href=#1371 id=1371 data-nosnippet>1371</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>,
+<a href=#1372 id=1372 data-nosnippet>1372</a>        table_index: LocalTableIndex,
+<a href=#1373 id=1373 data-nosnippet>1373</a>        index: u32,
+<a href=#1374 id=1374 data-nosnippet>1374</a>        val: TableElement,
+<a href=#1375 id=1375 data-nosnippet>1375</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+<a href=#1376 id=1376 data-nosnippet>1376</a>        <span class="self">self</span>.instance_mut().table_set(table_index, index, val)
+<a href=#1377 id=1377 data-nosnippet>1377</a>    }
+<a href=#1378 id=1378 data-nosnippet>1378</a>
+<a href=#1379 id=1379 data-nosnippet>1379</a>    <span class="doccomment">/// Get a table defined locally within this module.
+<a href=#1380 id=1380 data-nosnippet>1380</a>    </span><span class="kw">pub fn </span>get_local_table(<span class="kw-2">&amp;mut </span><span class="self">self</span>, index: LocalTableIndex) -&gt; <span class="kw-2">&amp;mut </span>VMTable {
+<a href=#1381 id=1381 data-nosnippet>1381</a>        <span class="self">self</span>.instance_mut().get_local_table(index)
+<a href=#1382 id=1382 data-nosnippet>1382</a>    }
+<a href=#1383 id=1383 data-nosnippet>1383</a>}
+<a href=#1384 id=1384 data-nosnippet>1384</a>
+<a href=#1385 id=1385 data-nosnippet>1385</a><span class="doccomment">/// Compute the offset for a memory data initializer.
+<a href=#1386 id=1386 data-nosnippet>1386</a></span><span class="kw">fn </span>get_memory_init_start(init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">'_</span>&gt;, instance: <span class="kw-2">&amp;</span>Instance) -&gt; usize {
+<a href=#1387 id=1387 data-nosnippet>1387</a>    <span class="kw">let </span><span class="kw-2">mut </span>start = init.location.offset;
 <a href=#1388 id=1388 data-nosnippet>1388</a>
-<a href=#1389 id=1389 data-nosnippet>1389</a>    start
-<a href=#1390 id=1390 data-nosnippet>1390</a>}
-<a href=#1391 id=1391 data-nosnippet>1391</a>
-<a href=#1392 id=1392 data-nosnippet>1392</a><span class="attr">#[allow(clippy::mut_from_ref)]
-<a href=#1393 id=1393 data-nosnippet>1393</a>#[allow(dead_code)]
-<a href=#1394 id=1394 data-nosnippet>1394</a></span><span class="doccomment">/// Return a byte-slice view of a memory's data.
-<a href=#1395 id=1395 data-nosnippet>1395</a></span><span class="kw">unsafe fn </span>get_memory_slice&lt;<span class="lifetime">'instance</span>&gt;(
-<a href=#1396 id=1396 data-nosnippet>1396</a>    init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">'_</span>&gt;,
-<a href=#1397 id=1397 data-nosnippet>1397</a>    instance: <span class="kw-2">&amp;</span><span class="lifetime">'instance </span>Instance,
-<a href=#1398 id=1398 data-nosnippet>1398</a>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'instance </span><span class="kw-2">mut </span>[u8] {
-<a href=#1399 id=1399 data-nosnippet>1399</a>    <span class="kw">unsafe </span>{
-<a href=#1400 id=1400 data-nosnippet>1400</a>        <span class="kw">let </span>memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) = instance
-<a href=#1401 id=1401 data-nosnippet>1401</a>            .module
-<a href=#1402 id=1402 data-nosnippet>1402</a>            .local_memory_index(init.location.memory_index)
-<a href=#1403 id=1403 data-nosnippet>1403</a>        {
-<a href=#1404 id=1404 data-nosnippet>1404</a>            instance.memory(local_memory_index)
-<a href=#1405 id=1405 data-nosnippet>1405</a>        } <span class="kw">else </span>{
-<a href=#1406 id=1406 data-nosnippet>1406</a>            <span class="kw">let </span>import = instance.imported_memory(init.location.memory_index);
-<a href=#1407 id=1407 data-nosnippet>1407</a>            <span class="kw-2">*</span>import.definition.as_ref()
-<a href=#1408 id=1408 data-nosnippet>1408</a>        };
-<a href=#1409 id=1409 data-nosnippet>1409</a>        slice::from_raw_parts_mut(memory.base, memory.current_length)
-<a href=#1410 id=1410 data-nosnippet>1410</a>    }
-<a href=#1411 id=1411 data-nosnippet>1411</a>}
-<a href=#1412 id=1412 data-nosnippet>1412</a>
-<a href=#1413 id=1413 data-nosnippet>1413</a><span class="doccomment">/// Compute the offset for a table element initializer.
-<a href=#1414 id=1414 data-nosnippet>1414</a></span><span class="kw">fn </span>get_table_init_start(init: <span class="kw-2">&amp;</span>TableInitializer, instance: <span class="kw-2">&amp;</span>Instance) -&gt; usize {
-<a href=#1415 id=1415 data-nosnippet>1415</a>    <span class="kw">let </span><span class="kw-2">mut </span>start = init.offset;
-<a href=#1416 id=1416 data-nosnippet>1416</a>
-<a href=#1417 id=1417 data-nosnippet>1417</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(base) = init.base {
-<a href=#1418 id=1418 data-nosnippet>1418</a>        <span class="kw">let </span>val = <span class="kw">unsafe </span>{
-<a href=#1419 id=1419 data-nosnippet>1419</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_global_index(base) {
-<a href=#1420 id=1420 data-nosnippet>1420</a>                instance.global(def_index).val.u32
-<a href=#1421 id=1421 data-nosnippet>1421</a>            } <span class="kw">else </span>{
-<a href=#1422 id=1422 data-nosnippet>1422</a>                instance.imported_global(base).definition.as_ref().val.u32
-<a href=#1423 id=1423 data-nosnippet>1423</a>            }
-<a href=#1424 id=1424 data-nosnippet>1424</a>        };
-<a href=#1425 id=1425 data-nosnippet>1425</a>        start += usize::try_from(val).unwrap();
-<a href=#1426 id=1426 data-nosnippet>1426</a>    }
+<a href=#1389 id=1389 data-nosnippet>1389</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(base) = init.location.base {
+<a href=#1390 id=1390 data-nosnippet>1390</a>        <span class="kw">let </span>val = <span class="kw">unsafe </span>{
+<a href=#1391 id=1391 data-nosnippet>1391</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_global_index(base) {
+<a href=#1392 id=1392 data-nosnippet>1392</a>                instance.global(def_index).val.u32
+<a href=#1393 id=1393 data-nosnippet>1393</a>            } <span class="kw">else </span>{
+<a href=#1394 id=1394 data-nosnippet>1394</a>                instance.imported_global(base).definition.as_ref().val.u32
+<a href=#1395 id=1395 data-nosnippet>1395</a>            }
+<a href=#1396 id=1396 data-nosnippet>1396</a>        };
+<a href=#1397 id=1397 data-nosnippet>1397</a>        start += usize::try_from(val).unwrap();
+<a href=#1398 id=1398 data-nosnippet>1398</a>    }
+<a href=#1399 id=1399 data-nosnippet>1399</a>
+<a href=#1400 id=1400 data-nosnippet>1400</a>    start
+<a href=#1401 id=1401 data-nosnippet>1401</a>}
+<a href=#1402 id=1402 data-nosnippet>1402</a>
+<a href=#1403 id=1403 data-nosnippet>1403</a><span class="attr">#[allow(clippy::mut_from_ref)]
+<a href=#1404 id=1404 data-nosnippet>1404</a>#[allow(dead_code)]
+<a href=#1405 id=1405 data-nosnippet>1405</a></span><span class="doccomment">/// Return a byte-slice view of a memory's data.
+<a href=#1406 id=1406 data-nosnippet>1406</a></span><span class="kw">unsafe fn </span>get_memory_slice&lt;<span class="lifetime">'instance</span>&gt;(
+<a href=#1407 id=1407 data-nosnippet>1407</a>    init: <span class="kw-2">&amp;</span>DataInitializer&lt;<span class="lifetime">'_</span>&gt;,
+<a href=#1408 id=1408 data-nosnippet>1408</a>    instance: <span class="kw-2">&amp;</span><span class="lifetime">'instance </span>Instance,
+<a href=#1409 id=1409 data-nosnippet>1409</a>) -&gt; <span class="kw-2">&amp;</span><span class="lifetime">'instance </span><span class="kw-2">mut </span>[u8] {
+<a href=#1410 id=1410 data-nosnippet>1410</a>    <span class="kw">unsafe </span>{
+<a href=#1411 id=1411 data-nosnippet>1411</a>        <span class="kw">let </span>memory = <span class="kw">if let </span><span class="prelude-val">Some</span>(local_memory_index) = instance
+<a href=#1412 id=1412 data-nosnippet>1412</a>            .module
+<a href=#1413 id=1413 data-nosnippet>1413</a>            .local_memory_index(init.location.memory_index)
+<a href=#1414 id=1414 data-nosnippet>1414</a>        {
+<a href=#1415 id=1415 data-nosnippet>1415</a>            instance.memory(local_memory_index)
+<a href=#1416 id=1416 data-nosnippet>1416</a>        } <span class="kw">else </span>{
+<a href=#1417 id=1417 data-nosnippet>1417</a>            <span class="kw">let </span>import = instance.imported_memory(init.location.memory_index);
+<a href=#1418 id=1418 data-nosnippet>1418</a>            <span class="kw-2">*</span>import.definition.as_ref()
+<a href=#1419 id=1419 data-nosnippet>1419</a>        };
+<a href=#1420 id=1420 data-nosnippet>1420</a>        slice::from_raw_parts_mut(memory.base, memory.current_length)
+<a href=#1421 id=1421 data-nosnippet>1421</a>    }
+<a href=#1422 id=1422 data-nosnippet>1422</a>}
+<a href=#1423 id=1423 data-nosnippet>1423</a>
+<a href=#1424 id=1424 data-nosnippet>1424</a><span class="doccomment">/// Compute the offset for a table element initializer.
+<a href=#1425 id=1425 data-nosnippet>1425</a></span><span class="kw">fn </span>get_table_init_start(init: <span class="kw-2">&amp;</span>TableInitializer, instance: <span class="kw-2">&amp;</span>Instance) -&gt; usize {
+<a href=#1426 id=1426 data-nosnippet>1426</a>    <span class="kw">let </span><span class="kw-2">mut </span>start = init.offset;
 <a href=#1427 id=1427 data-nosnippet>1427</a>
-<a href=#1428 id=1428 data-nosnippet>1428</a>    start
-<a href=#1429 id=1429 data-nosnippet>1429</a>}
-<a href=#1430 id=1430 data-nosnippet>1430</a>
-<a href=#1431 id=1431 data-nosnippet>1431</a><span class="doccomment">/// Initialize the table memory from the provided initializers.
-<a href=#1432 id=1432 data-nosnippet>1432</a></span><span class="kw">fn </span>initialize_tables(instance: <span class="kw-2">&amp;mut </span>Instance) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
-<a href=#1433 id=1433 data-nosnippet>1433</a>    <span class="kw">let </span>module = Arc::clone(<span class="kw-2">&amp;</span>instance.module);
-<a href=#1434 id=1434 data-nosnippet>1434</a>    <span class="kw">for </span>init <span class="kw">in </span><span class="kw-2">&amp;</span>module.table_initializers {
-<a href=#1435 id=1435 data-nosnippet>1435</a>        <span class="kw">let </span>start = get_table_init_start(init, instance);
-<a href=#1436 id=1436 data-nosnippet>1436</a>        <span class="kw">let </span>table = instance.get_table_handle(init.table_index);
-<a href=#1437 id=1437 data-nosnippet>1437</a>        <span class="kw">let </span>table = <span class="kw">unsafe </span>{ table.get_mut(<span class="kw-2">&amp;mut *</span>instance.context) };
+<a href=#1428 id=1428 data-nosnippet>1428</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(base) = init.base {
+<a href=#1429 id=1429 data-nosnippet>1429</a>        <span class="kw">let </span>val = <span class="kw">unsafe </span>{
+<a href=#1430 id=1430 data-nosnippet>1430</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(def_index) = instance.module.local_global_index(base) {
+<a href=#1431 id=1431 data-nosnippet>1431</a>                instance.global(def_index).val.u32
+<a href=#1432 id=1432 data-nosnippet>1432</a>            } <span class="kw">else </span>{
+<a href=#1433 id=1433 data-nosnippet>1433</a>                instance.imported_global(base).definition.as_ref().val.u32
+<a href=#1434 id=1434 data-nosnippet>1434</a>            }
+<a href=#1435 id=1435 data-nosnippet>1435</a>        };
+<a href=#1436 id=1436 data-nosnippet>1436</a>        start += usize::try_from(val).unwrap();
+<a href=#1437 id=1437 data-nosnippet>1437</a>    }
 <a href=#1438 id=1438 data-nosnippet>1438</a>
-<a href=#1439 id=1439 data-nosnippet>1439</a>        <span class="kw">if </span>start
-<a href=#1440 id=1440 data-nosnippet>1440</a>            .checked_add(init.elements.len())
-<a href=#1441 id=1441 data-nosnippet>1441</a>            .is_none_or(|end| end &gt; table.size() <span class="kw">as </span>usize)
-<a href=#1442 id=1442 data-nosnippet>1442</a>        {
-<a href=#1443 id=1443 data-nosnippet>1443</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
-<a href=#1444 id=1444 data-nosnippet>1444</a>        }
-<a href=#1445 id=1445 data-nosnippet>1445</a>
-<a href=#1446 id=1446 data-nosnippet>1446</a>        <span class="kw">if let </span>wasmer_types::Type::FuncRef = table.ty().ty {
-<a href=#1447 id=1447 data-nosnippet>1447</a>            <span class="kw">for </span>(i, func_idx) <span class="kw">in </span>init.elements.iter().enumerate() {
-<a href=#1448 id=1448 data-nosnippet>1448</a>                <span class="kw">let </span>anyfunc = instance.func_ref(<span class="kw-2">*</span>func_idx);
-<a href=#1449 id=1449 data-nosnippet>1449</a>                table
-<a href=#1450 id=1450 data-nosnippet>1450</a>                    .set(
-<a href=#1451 id=1451 data-nosnippet>1451</a>                        u32::try_from(start + i).unwrap(),
-<a href=#1452 id=1452 data-nosnippet>1452</a>                        TableElement::FuncRef(anyfunc),
-<a href=#1453 id=1453 data-nosnippet>1453</a>                    )
-<a href=#1454 id=1454 data-nosnippet>1454</a>                    .unwrap();
-<a href=#1455 id=1455 data-nosnippet>1455</a>            }
-<a href=#1456 id=1456 data-nosnippet>1456</a>        } <span class="kw">else </span>{
-<a href=#1457 id=1457 data-nosnippet>1457</a>            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..init.elements.len() {
-<a href=#1458 id=1458 data-nosnippet>1458</a>                table
-<a href=#1459 id=1459 data-nosnippet>1459</a>                    .set(
-<a href=#1460 id=1460 data-nosnippet>1460</a>                        u32::try_from(start + i).unwrap(),
-<a href=#1461 id=1461 data-nosnippet>1461</a>                        TableElement::ExternRef(<span class="prelude-val">None</span>),
-<a href=#1462 id=1462 data-nosnippet>1462</a>                    )
-<a href=#1463 id=1463 data-nosnippet>1463</a>                    .unwrap();
-<a href=#1464 id=1464 data-nosnippet>1464</a>            }
-<a href=#1465 id=1465 data-nosnippet>1465</a>        }
-<a href=#1466 id=1466 data-nosnippet>1466</a>    }
-<a href=#1467 id=1467 data-nosnippet>1467</a>
-<a href=#1468 id=1468 data-nosnippet>1468</a>    <span class="prelude-val">Ok</span>(())
-<a href=#1469 id=1469 data-nosnippet>1469</a>}
-<a href=#1470 id=1470 data-nosnippet>1470</a>
-<a href=#1471 id=1471 data-nosnippet>1471</a><span class="doccomment">/// Initialize the `Instance::passive_elements` map by resolving the
-<a href=#1472 id=1472 data-nosnippet>1472</a>/// `ModuleInfo::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
-<a href=#1473 id=1473 data-nosnippet>1473</a>/// this instance.
-<a href=#1474 id=1474 data-nosnippet>1474</a></span><span class="kw">fn </span>initialize_passive_elements(instance: <span class="kw-2">&amp;</span>Instance) {
-<a href=#1475 id=1475 data-nosnippet>1475</a>    <span class="kw">let </span><span class="kw-2">mut </span>passive_elements = instance.passive_elements.borrow_mut();
-<a href=#1476 id=1476 data-nosnippet>1476</a>    <span class="macro">debug_assert!</span>(
-<a href=#1477 id=1477 data-nosnippet>1477</a>        passive_elements.is_empty(),
-<a href=#1478 id=1478 data-nosnippet>1478</a>        <span class="string">"should only be called once, at initialization time"
-<a href=#1479 id=1479 data-nosnippet>1479</a>    </span>);
-<a href=#1480 id=1480 data-nosnippet>1480</a>
-<a href=#1481 id=1481 data-nosnippet>1481</a>    passive_elements.extend(instance.module.passive_elements.iter().filter_map(
-<a href=#1482 id=1482 data-nosnippet>1482</a>        |(<span class="kw-2">&amp;</span>idx, segments)| -&gt; <span class="prelude-ty">Option</span>&lt;(ElemIndex, Box&lt;[<span class="prelude-ty">Option</span>&lt;VMFuncRef&gt;]&gt;)&gt; {
-<a href=#1483 id=1483 data-nosnippet>1483</a>            <span class="kw">if </span>segments.is_empty() {
-<a href=#1484 id=1484 data-nosnippet>1484</a>                <span class="prelude-val">None
-<a href=#1485 id=1485 data-nosnippet>1485</a>            </span>} <span class="kw">else </span>{
-<a href=#1486 id=1486 data-nosnippet>1486</a>                <span class="prelude-val">Some</span>((
-<a href=#1487 id=1487 data-nosnippet>1487</a>                    idx,
-<a href=#1488 id=1488 data-nosnippet>1488</a>                    segments
-<a href=#1489 id=1489 data-nosnippet>1489</a>                        .iter()
-<a href=#1490 id=1490 data-nosnippet>1490</a>                        .map(|s| instance.func_ref(<span class="kw-2">*</span>s))
-<a href=#1491 id=1491 data-nosnippet>1491</a>                        .collect::&lt;Box&lt;[<span class="prelude-ty">Option</span>&lt;VMFuncRef&gt;]&gt;&gt;(),
-<a href=#1492 id=1492 data-nosnippet>1492</a>                ))
-<a href=#1493 id=1493 data-nosnippet>1493</a>            }
-<a href=#1494 id=1494 data-nosnippet>1494</a>        },
-<a href=#1495 id=1495 data-nosnippet>1495</a>    ));
-<a href=#1496 id=1496 data-nosnippet>1496</a>}
-<a href=#1497 id=1497 data-nosnippet>1497</a>
-<a href=#1498 id=1498 data-nosnippet>1498</a><span class="doccomment">/// Initialize the table memory from the provided initializers.
-<a href=#1499 id=1499 data-nosnippet>1499</a></span><span class="kw">fn </span>initialize_memories(
-<a href=#1500 id=1500 data-nosnippet>1500</a>    instance: <span class="kw-2">&amp;mut </span>Instance,
-<a href=#1501 id=1501 data-nosnippet>1501</a>    data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">'_</span>&gt;],
-<a href=#1502 id=1502 data-nosnippet>1502</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
-<a href=#1503 id=1503 data-nosnippet>1503</a>    <span class="kw">for </span>init <span class="kw">in </span>data_initializers {
-<a href=#1504 id=1504 data-nosnippet>1504</a>        <span class="kw">let </span>memory = instance.get_vmmemory(init.location.memory_index);
-<a href=#1505 id=1505 data-nosnippet>1505</a>
-<a href=#1506 id=1506 data-nosnippet>1506</a>        <span class="kw">let </span>start = get_memory_init_start(init, instance);
-<a href=#1507 id=1507 data-nosnippet>1507</a>        <span class="kw">unsafe </span>{
-<a href=#1508 id=1508 data-nosnippet>1508</a>            <span class="kw">let </span>current_length = memory.vmmemory().as_ref().current_length;
-<a href=#1509 id=1509 data-nosnippet>1509</a>            <span class="kw">if </span>start
-<a href=#1510 id=1510 data-nosnippet>1510</a>                .checked_add(init.data.len())
-<a href=#1511 id=1511 data-nosnippet>1511</a>                .is_none_or(|end| end &gt; current_length)
-<a href=#1512 id=1512 data-nosnippet>1512</a>            {
-<a href=#1513 id=1513 data-nosnippet>1513</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::HeapAccessOutOfBounds));
-<a href=#1514 id=1514 data-nosnippet>1514</a>            }
-<a href=#1515 id=1515 data-nosnippet>1515</a>            memory.initialize_with_data(start, init.data)<span class="question-mark">?</span>;
-<a href=#1516 id=1516 data-nosnippet>1516</a>        }
-<a href=#1517 id=1517 data-nosnippet>1517</a>    }
-<a href=#1518 id=1518 data-nosnippet>1518</a>
-<a href=#1519 id=1519 data-nosnippet>1519</a>    <span class="prelude-val">Ok</span>(())
-<a href=#1520 id=1520 data-nosnippet>1520</a>}
-<a href=#1521 id=1521 data-nosnippet>1521</a>
-<a href=#1522 id=1522 data-nosnippet>1522</a><span class="kw">fn </span>initialize_globals(instance: <span class="kw-2">&amp;</span>Instance) {
-<a href=#1523 id=1523 data-nosnippet>1523</a>    <span class="kw">let </span>module = Arc::clone(<span class="kw-2">&amp;</span>instance.module);
-<a href=#1524 id=1524 data-nosnippet>1524</a>    <span class="kw">for </span>(index, initializer) <span class="kw">in </span>module.global_initializers.iter() {
-<a href=#1525 id=1525 data-nosnippet>1525</a>        <span class="kw">unsafe </span>{
-<a href=#1526 id=1526 data-nosnippet>1526</a>            <span class="kw">let </span>to = instance.global_ptr(index).as_ptr();
-<a href=#1527 id=1527 data-nosnippet>1527</a>            <span class="kw">match </span>initializer {
-<a href=#1528 id=1528 data-nosnippet>1528</a>                GlobalInit::I32Const(x) =&gt; (<span class="kw-2">*</span>to).val.i32 = <span class="kw-2">*</span>x,
-<a href=#1529 id=1529 data-nosnippet>1529</a>                GlobalInit::I64Const(x) =&gt; (<span class="kw-2">*</span>to).val.i64 = <span class="kw-2">*</span>x,
-<a href=#1530 id=1530 data-nosnippet>1530</a>                GlobalInit::F32Const(x) =&gt; (<span class="kw-2">*</span>to).val.f32 = <span class="kw-2">*</span>x,
-<a href=#1531 id=1531 data-nosnippet>1531</a>                GlobalInit::F64Const(x) =&gt; (<span class="kw-2">*</span>to).val.f64 = <span class="kw-2">*</span>x,
-<a href=#1532 id=1532 data-nosnippet>1532</a>                GlobalInit::V128Const(x) =&gt; (<span class="kw-2">*</span>to).val.bytes = <span class="kw-2">*</span>x.bytes(),
-<a href=#1533 id=1533 data-nosnippet>1533</a>                GlobalInit::GetGlobal(x) =&gt; {
-<a href=#1534 id=1534 data-nosnippet>1534</a>                    <span class="kw">let </span>from: VMGlobalDefinition =
-<a href=#1535 id=1535 data-nosnippet>1535</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(def_x) = module.local_global_index(<span class="kw-2">*</span>x) {
-<a href=#1536 id=1536 data-nosnippet>1536</a>                            instance.global(def_x)
-<a href=#1537 id=1537 data-nosnippet>1537</a>                        } <span class="kw">else </span>{
-<a href=#1538 id=1538 data-nosnippet>1538</a>                            instance.imported_global(<span class="kw-2">*</span>x).definition.as_ref().clone()
-<a href=#1539 id=1539 data-nosnippet>1539</a>                        };
-<a href=#1540 id=1540 data-nosnippet>1540</a>                    <span class="kw-2">*</span>to = from;
-<a href=#1541 id=1541 data-nosnippet>1541</a>                }
-<a href=#1542 id=1542 data-nosnippet>1542</a>                GlobalInit::RefNullConst =&gt; (<span class="kw-2">*</span>to).val.funcref = <span class="number">0</span>,
-<a href=#1543 id=1543 data-nosnippet>1543</a>                GlobalInit::RefFunc(func_idx) =&gt; {
-<a href=#1544 id=1544 data-nosnippet>1544</a>                    <span class="kw">let </span>funcref = instance.func_ref(<span class="kw-2">*</span>func_idx).unwrap();
-<a href=#1545 id=1545 data-nosnippet>1545</a>                    (<span class="kw-2">*</span>to).val = funcref.into_raw();
-<a href=#1546 id=1546 data-nosnippet>1546</a>                }
-<a href=#1547 id=1547 data-nosnippet>1547</a>            }
-<a href=#1548 id=1548 data-nosnippet>1548</a>        }
-<a href=#1549 id=1549 data-nosnippet>1549</a>    }
-<a href=#1550 id=1550 data-nosnippet>1550</a>}
-<a href=#1551 id=1551 data-nosnippet>1551</a>
-<a href=#1552 id=1552 data-nosnippet>1552</a><span class="doccomment">/// Eagerly builds all the `VMFuncRef`s for imported and local functions so that all
-<a href=#1553 id=1553 data-nosnippet>1553</a>/// future funcref operations are just looking up this data.
-<a href=#1554 id=1554 data-nosnippet>1554</a></span><span class="kw">fn </span>build_funcrefs(
-<a href=#1555 id=1555 data-nosnippet>1555</a>    module_info: <span class="kw-2">&amp;</span>ModuleInfo,
-<a href=#1556 id=1556 data-nosnippet>1556</a>    ctx: <span class="kw-2">&amp;</span>StoreObjects,
-<a href=#1557 id=1557 data-nosnippet>1557</a>    imports: <span class="kw-2">&amp;</span>Imports,
-<a href=#1558 id=1558 data-nosnippet>1558</a>    finished_functions: <span class="kw-2">&amp;</span>BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
-<a href=#1559 id=1559 data-nosnippet>1559</a>    vmshared_signatures: <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
-<a href=#1560 id=1560 data-nosnippet>1560</a>    function_call_trampolines: <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
-<a href=#1561 id=1561 data-nosnippet>1561</a>    vmctx_ptr: <span class="kw-2">*mut </span>VMContext,
-<a href=#1562 id=1562 data-nosnippet>1562</a>) -&gt; (
-<a href=#1563 id=1563 data-nosnippet>1563</a>    BoxedSlice&lt;LocalFunctionIndex, VMCallerCheckedAnyfunc&gt;,
-<a href=#1564 id=1564 data-nosnippet>1564</a>    BoxedSlice&lt;FunctionIndex, NonNull&lt;VMCallerCheckedAnyfunc&gt;&gt;,
-<a href=#1565 id=1565 data-nosnippet>1565</a>) {
-<a href=#1566 id=1566 data-nosnippet>1566</a>    <span class="kw">let </span><span class="kw-2">mut </span>func_refs =
-<a href=#1567 id=1567 data-nosnippet>1567</a>        PrimaryMap::with_capacity(module_info.functions.len() - module_info.num_imported_functions);
-<a href=#1568 id=1568 data-nosnippet>1568</a>    <span class="kw">let </span><span class="kw-2">mut </span>imported_func_refs = PrimaryMap::with_capacity(module_info.num_imported_functions);
-<a href=#1569 id=1569 data-nosnippet>1569</a>
-<a href=#1570 id=1570 data-nosnippet>1570</a>    <span class="comment">// do imported functions
-<a href=#1571 id=1571 data-nosnippet>1571</a>    </span><span class="kw">for </span>import <span class="kw">in </span>imports.functions.values() {
-<a href=#1572 id=1572 data-nosnippet>1572</a>        imported_func_refs.push(import.handle.get(ctx).anyfunc.as_ptr());
-<a href=#1573 id=1573 data-nosnippet>1573</a>    }
-<a href=#1574 id=1574 data-nosnippet>1574</a>
-<a href=#1575 id=1575 data-nosnippet>1575</a>    <span class="comment">// do local functions
-<a href=#1576 id=1576 data-nosnippet>1576</a>    </span><span class="kw">for </span>(local_index, func_ptr) <span class="kw">in </span>finished_functions.iter() {
-<a href=#1577 id=1577 data-nosnippet>1577</a>        <span class="kw">let </span>index = module_info.func_index(local_index);
-<a href=#1578 id=1578 data-nosnippet>1578</a>        <span class="kw">let </span>sig_index = module_info.functions[index];
-<a href=#1579 id=1579 data-nosnippet>1579</a>        <span class="kw">let </span>type_index = vmshared_signatures[sig_index];
-<a href=#1580 id=1580 data-nosnippet>1580</a>        <span class="kw">let </span>call_trampoline = function_call_trampolines[sig_index];
-<a href=#1581 id=1581 data-nosnippet>1581</a>        <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
-<a href=#1582 id=1582 data-nosnippet>1582</a>            func_ptr: func_ptr.<span class="number">0</span>,
-<a href=#1583 id=1583 data-nosnippet>1583</a>            type_index,
-<a href=#1584 id=1584 data-nosnippet>1584</a>            vmctx: VMFunctionContext { vmctx: vmctx_ptr },
-<a href=#1585 id=1585 data-nosnippet>1585</a>            call_trampoline,
-<a href=#1586 id=1586 data-nosnippet>1586</a>        };
-<a href=#1587 id=1587 data-nosnippet>1587</a>        func_refs.push(anyfunc);
-<a href=#1588 id=1588 data-nosnippet>1588</a>    }
-<a href=#1589 id=1589 data-nosnippet>1589</a>    (
-<a href=#1590 id=1590 data-nosnippet>1590</a>        func_refs.into_boxed_slice(),
-<a href=#1591 id=1591 data-nosnippet>1591</a>        imported_func_refs.into_boxed_slice(),
-<a href=#1592 id=1592 data-nosnippet>1592</a>    )
-<a href=#1593 id=1593 data-nosnippet>1593</a>}</code></pre></div></section></main></body></html>
+<a href=#1439 id=1439 data-nosnippet>1439</a>    start
+<a href=#1440 id=1440 data-nosnippet>1440</a>}
+<a href=#1441 id=1441 data-nosnippet>1441</a>
+<a href=#1442 id=1442 data-nosnippet>1442</a><span class="doccomment">/// Initialize the table memory from the provided initializers.
+<a href=#1443 id=1443 data-nosnippet>1443</a></span><span class="kw">fn </span>initialize_tables(instance: <span class="kw-2">&amp;mut </span>Instance) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+<a href=#1444 id=1444 data-nosnippet>1444</a>    <span class="kw">let </span>module = Arc::clone(<span class="kw-2">&amp;</span>instance.module);
+<a href=#1445 id=1445 data-nosnippet>1445</a>    <span class="kw">for </span>init <span class="kw">in </span><span class="kw-2">&amp;</span>module.table_initializers {
+<a href=#1446 id=1446 data-nosnippet>1446</a>        <span class="kw">let </span>start = get_table_init_start(init, instance);
+<a href=#1447 id=1447 data-nosnippet>1447</a>        <span class="kw">let </span>table = instance.get_table_handle(init.table_index);
+<a href=#1448 id=1448 data-nosnippet>1448</a>        <span class="kw">let </span>table = <span class="kw">unsafe </span>{ table.get_mut(<span class="kw-2">&amp;mut *</span>instance.context) };
+<a href=#1449 id=1449 data-nosnippet>1449</a>
+<a href=#1450 id=1450 data-nosnippet>1450</a>        <span class="kw">if </span>start
+<a href=#1451 id=1451 data-nosnippet>1451</a>            .checked_add(init.elements.len())
+<a href=#1452 id=1452 data-nosnippet>1452</a>            .is_none_or(|end| end &gt; table.size() <span class="kw">as </span>usize)
+<a href=#1453 id=1453 data-nosnippet>1453</a>        {
+<a href=#1454 id=1454 data-nosnippet>1454</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::TableAccessOutOfBounds));
+<a href=#1455 id=1455 data-nosnippet>1455</a>        }
+<a href=#1456 id=1456 data-nosnippet>1456</a>
+<a href=#1457 id=1457 data-nosnippet>1457</a>        <span class="kw">if let </span>wasmer_types::Type::FuncRef = table.ty().ty {
+<a href=#1458 id=1458 data-nosnippet>1458</a>            <span class="kw">for </span>(i, func_idx) <span class="kw">in </span>init.elements.iter().enumerate() {
+<a href=#1459 id=1459 data-nosnippet>1459</a>                <span class="kw">let </span>anyfunc = instance.func_ref(<span class="kw-2">*</span>func_idx);
+<a href=#1460 id=1460 data-nosnippet>1460</a>                table
+<a href=#1461 id=1461 data-nosnippet>1461</a>                    .set(
+<a href=#1462 id=1462 data-nosnippet>1462</a>                        u32::try_from(start + i).unwrap(),
+<a href=#1463 id=1463 data-nosnippet>1463</a>                        TableElement::FuncRef(anyfunc),
+<a href=#1464 id=1464 data-nosnippet>1464</a>                    )
+<a href=#1465 id=1465 data-nosnippet>1465</a>                    .unwrap();
+<a href=#1466 id=1466 data-nosnippet>1466</a>            }
+<a href=#1467 id=1467 data-nosnippet>1467</a>        } <span class="kw">else </span>{
+<a href=#1468 id=1468 data-nosnippet>1468</a>            <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..init.elements.len() {
+<a href=#1469 id=1469 data-nosnippet>1469</a>                table
+<a href=#1470 id=1470 data-nosnippet>1470</a>                    .set(
+<a href=#1471 id=1471 data-nosnippet>1471</a>                        u32::try_from(start + i).unwrap(),
+<a href=#1472 id=1472 data-nosnippet>1472</a>                        TableElement::ExternRef(<span class="prelude-val">None</span>),
+<a href=#1473 id=1473 data-nosnippet>1473</a>                    )
+<a href=#1474 id=1474 data-nosnippet>1474</a>                    .unwrap();
+<a href=#1475 id=1475 data-nosnippet>1475</a>            }
+<a href=#1476 id=1476 data-nosnippet>1476</a>        }
+<a href=#1477 id=1477 data-nosnippet>1477</a>    }
+<a href=#1478 id=1478 data-nosnippet>1478</a>
+<a href=#1479 id=1479 data-nosnippet>1479</a>    <span class="prelude-val">Ok</span>(())
+<a href=#1480 id=1480 data-nosnippet>1480</a>}
+<a href=#1481 id=1481 data-nosnippet>1481</a>
+<a href=#1482 id=1482 data-nosnippet>1482</a><span class="doccomment">/// Initialize the `Instance::passive_elements` map by resolving the
+<a href=#1483 id=1483 data-nosnippet>1483</a>/// `ModuleInfo::passive_elements`'s `FunctionIndex`s into `VMCallerCheckedAnyfunc`s for
+<a href=#1484 id=1484 data-nosnippet>1484</a>/// this instance.
+<a href=#1485 id=1485 data-nosnippet>1485</a></span><span class="kw">fn </span>initialize_passive_elements(instance: <span class="kw-2">&amp;</span>Instance) {
+<a href=#1486 id=1486 data-nosnippet>1486</a>    <span class="kw">let </span><span class="kw-2">mut </span>passive_elements = instance.passive_elements.borrow_mut();
+<a href=#1487 id=1487 data-nosnippet>1487</a>    <span class="macro">debug_assert!</span>(
+<a href=#1488 id=1488 data-nosnippet>1488</a>        passive_elements.is_empty(),
+<a href=#1489 id=1489 data-nosnippet>1489</a>        <span class="string">"should only be called once, at initialization time"
+<a href=#1490 id=1490 data-nosnippet>1490</a>    </span>);
+<a href=#1491 id=1491 data-nosnippet>1491</a>
+<a href=#1492 id=1492 data-nosnippet>1492</a>    passive_elements.extend(instance.module.passive_elements.iter().filter_map(
+<a href=#1493 id=1493 data-nosnippet>1493</a>        |(<span class="kw-2">&amp;</span>idx, segments)| -&gt; <span class="prelude-ty">Option</span>&lt;(ElemIndex, Box&lt;[<span class="prelude-ty">Option</span>&lt;VMFuncRef&gt;]&gt;)&gt; {
+<a href=#1494 id=1494 data-nosnippet>1494</a>            <span class="kw">if </span>segments.is_empty() {
+<a href=#1495 id=1495 data-nosnippet>1495</a>                <span class="prelude-val">None
+<a href=#1496 id=1496 data-nosnippet>1496</a>            </span>} <span class="kw">else </span>{
+<a href=#1497 id=1497 data-nosnippet>1497</a>                <span class="prelude-val">Some</span>((
+<a href=#1498 id=1498 data-nosnippet>1498</a>                    idx,
+<a href=#1499 id=1499 data-nosnippet>1499</a>                    segments
+<a href=#1500 id=1500 data-nosnippet>1500</a>                        .iter()
+<a href=#1501 id=1501 data-nosnippet>1501</a>                        .map(|s| instance.func_ref(<span class="kw-2">*</span>s))
+<a href=#1502 id=1502 data-nosnippet>1502</a>                        .collect::&lt;Box&lt;[<span class="prelude-ty">Option</span>&lt;VMFuncRef&gt;]&gt;&gt;(),
+<a href=#1503 id=1503 data-nosnippet>1503</a>                ))
+<a href=#1504 id=1504 data-nosnippet>1504</a>            }
+<a href=#1505 id=1505 data-nosnippet>1505</a>        },
+<a href=#1506 id=1506 data-nosnippet>1506</a>    ));
+<a href=#1507 id=1507 data-nosnippet>1507</a>}
+<a href=#1508 id=1508 data-nosnippet>1508</a>
+<a href=#1509 id=1509 data-nosnippet>1509</a><span class="doccomment">/// Initialize the table memory from the provided initializers.
+<a href=#1510 id=1510 data-nosnippet>1510</a></span><span class="kw">fn </span>initialize_memories(
+<a href=#1511 id=1511 data-nosnippet>1511</a>    instance: <span class="kw-2">&amp;mut </span>Instance,
+<a href=#1512 id=1512 data-nosnippet>1512</a>    data_initializers: <span class="kw-2">&amp;</span>[DataInitializer&lt;<span class="lifetime">'_</span>&gt;],
+<a href=#1513 id=1513 data-nosnippet>1513</a>) -&gt; <span class="prelude-ty">Result</span>&lt;(), Trap&gt; {
+<a href=#1514 id=1514 data-nosnippet>1514</a>    <span class="kw">for </span>init <span class="kw">in </span>data_initializers {
+<a href=#1515 id=1515 data-nosnippet>1515</a>        <span class="kw">let </span>memory = instance.get_vmmemory(init.location.memory_index);
+<a href=#1516 id=1516 data-nosnippet>1516</a>
+<a href=#1517 id=1517 data-nosnippet>1517</a>        <span class="kw">let </span>start = get_memory_init_start(init, instance);
+<a href=#1518 id=1518 data-nosnippet>1518</a>        <span class="kw">unsafe </span>{
+<a href=#1519 id=1519 data-nosnippet>1519</a>            <span class="kw">let </span>current_length = memory.vmmemory().as_ref().current_length;
+<a href=#1520 id=1520 data-nosnippet>1520</a>            <span class="kw">if </span>start
+<a href=#1521 id=1521 data-nosnippet>1521</a>                .checked_add(init.data.len())
+<a href=#1522 id=1522 data-nosnippet>1522</a>                .is_none_or(|end| end &gt; current_length)
+<a href=#1523 id=1523 data-nosnippet>1523</a>            {
+<a href=#1524 id=1524 data-nosnippet>1524</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(Trap::lib(TrapCode::HeapAccessOutOfBounds));
+<a href=#1525 id=1525 data-nosnippet>1525</a>            }
+<a href=#1526 id=1526 data-nosnippet>1526</a>            memory.initialize_with_data(start, init.data)<span class="question-mark">?</span>;
+<a href=#1527 id=1527 data-nosnippet>1527</a>        }
+<a href=#1528 id=1528 data-nosnippet>1528</a>    }
+<a href=#1529 id=1529 data-nosnippet>1529</a>
+<a href=#1530 id=1530 data-nosnippet>1530</a>    <span class="prelude-val">Ok</span>(())
+<a href=#1531 id=1531 data-nosnippet>1531</a>}
+<a href=#1532 id=1532 data-nosnippet>1532</a>
+<a href=#1533 id=1533 data-nosnippet>1533</a><span class="kw">fn </span>initialize_globals(instance: <span class="kw-2">&amp;</span>Instance) {
+<a href=#1534 id=1534 data-nosnippet>1534</a>    <span class="kw">let </span>module = Arc::clone(<span class="kw-2">&amp;</span>instance.module);
+<a href=#1535 id=1535 data-nosnippet>1535</a>    <span class="kw">for </span>(index, initializer) <span class="kw">in </span>module.global_initializers.iter() {
+<a href=#1536 id=1536 data-nosnippet>1536</a>        <span class="kw">unsafe </span>{
+<a href=#1537 id=1537 data-nosnippet>1537</a>            <span class="kw">let </span>to = instance.global_ptr(index).as_ptr();
+<a href=#1538 id=1538 data-nosnippet>1538</a>            <span class="kw">match </span>initializer {
+<a href=#1539 id=1539 data-nosnippet>1539</a>                GlobalInit::I32Const(x) =&gt; (<span class="kw-2">*</span>to).val.i32 = <span class="kw-2">*</span>x,
+<a href=#1540 id=1540 data-nosnippet>1540</a>                GlobalInit::I64Const(x) =&gt; (<span class="kw-2">*</span>to).val.i64 = <span class="kw-2">*</span>x,
+<a href=#1541 id=1541 data-nosnippet>1541</a>                GlobalInit::F32Const(x) =&gt; (<span class="kw-2">*</span>to).val.f32 = <span class="kw-2">*</span>x,
+<a href=#1542 id=1542 data-nosnippet>1542</a>                GlobalInit::F64Const(x) =&gt; (<span class="kw-2">*</span>to).val.f64 = <span class="kw-2">*</span>x,
+<a href=#1543 id=1543 data-nosnippet>1543</a>                GlobalInit::V128Const(x) =&gt; (<span class="kw-2">*</span>to).val.bytes = <span class="kw-2">*</span>x.bytes(),
+<a href=#1544 id=1544 data-nosnippet>1544</a>                GlobalInit::GetGlobal(x) =&gt; {
+<a href=#1545 id=1545 data-nosnippet>1545</a>                    <span class="kw">let </span>from: VMGlobalDefinition =
+<a href=#1546 id=1546 data-nosnippet>1546</a>                        <span class="kw">if let </span><span class="prelude-val">Some</span>(def_x) = module.local_global_index(<span class="kw-2">*</span>x) {
+<a href=#1547 id=1547 data-nosnippet>1547</a>                            instance.global(def_x)
+<a href=#1548 id=1548 data-nosnippet>1548</a>                        } <span class="kw">else </span>{
+<a href=#1549 id=1549 data-nosnippet>1549</a>                            instance.imported_global(<span class="kw-2">*</span>x).definition.as_ref().clone()
+<a href=#1550 id=1550 data-nosnippet>1550</a>                        };
+<a href=#1551 id=1551 data-nosnippet>1551</a>                    <span class="kw-2">*</span>to = from;
+<a href=#1552 id=1552 data-nosnippet>1552</a>                }
+<a href=#1553 id=1553 data-nosnippet>1553</a>                GlobalInit::RefNullConst =&gt; (<span class="kw-2">*</span>to).val.funcref = <span class="number">0</span>,
+<a href=#1554 id=1554 data-nosnippet>1554</a>                GlobalInit::RefFunc(func_idx) =&gt; {
+<a href=#1555 id=1555 data-nosnippet>1555</a>                    <span class="kw">let </span>funcref = instance.func_ref(<span class="kw-2">*</span>func_idx).unwrap();
+<a href=#1556 id=1556 data-nosnippet>1556</a>                    (<span class="kw-2">*</span>to).val = funcref.into_raw();
+<a href=#1557 id=1557 data-nosnippet>1557</a>                }
+<a href=#1558 id=1558 data-nosnippet>1558</a>            }
+<a href=#1559 id=1559 data-nosnippet>1559</a>        }
+<a href=#1560 id=1560 data-nosnippet>1560</a>    }
+<a href=#1561 id=1561 data-nosnippet>1561</a>}
+<a href=#1562 id=1562 data-nosnippet>1562</a>
+<a href=#1563 id=1563 data-nosnippet>1563</a><span class="doccomment">/// Eagerly builds all the `VMFuncRef`s for imported and local functions so that all
+<a href=#1564 id=1564 data-nosnippet>1564</a>/// future funcref operations are just looking up this data.
+<a href=#1565 id=1565 data-nosnippet>1565</a></span><span class="kw">fn </span>build_funcrefs(
+<a href=#1566 id=1566 data-nosnippet>1566</a>    module_info: <span class="kw-2">&amp;</span>ModuleInfo,
+<a href=#1567 id=1567 data-nosnippet>1567</a>    ctx: <span class="kw-2">&amp;</span>StoreObjects,
+<a href=#1568 id=1568 data-nosnippet>1568</a>    imports: <span class="kw-2">&amp;</span>Imports,
+<a href=#1569 id=1569 data-nosnippet>1569</a>    finished_functions: <span class="kw-2">&amp;</span>BoxedSlice&lt;LocalFunctionIndex, FunctionBodyPtr&gt;,
+<a href=#1570 id=1570 data-nosnippet>1570</a>    vmshared_signatures: <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMSharedSignatureIndex&gt;,
+<a href=#1571 id=1571 data-nosnippet>1571</a>    function_call_trampolines: <span class="kw-2">&amp;</span>BoxedSlice&lt;SignatureIndex, VMTrampoline&gt;,
+<a href=#1572 id=1572 data-nosnippet>1572</a>    vmctx_ptr: <span class="kw-2">*mut </span>VMContext,
+<a href=#1573 id=1573 data-nosnippet>1573</a>) -&gt; (
+<a href=#1574 id=1574 data-nosnippet>1574</a>    BoxedSlice&lt;LocalFunctionIndex, VMCallerCheckedAnyfunc&gt;,
+<a href=#1575 id=1575 data-nosnippet>1575</a>    BoxedSlice&lt;FunctionIndex, NonNull&lt;VMCallerCheckedAnyfunc&gt;&gt;,
+<a href=#1576 id=1576 data-nosnippet>1576</a>) {
+<a href=#1577 id=1577 data-nosnippet>1577</a>    <span class="kw">let </span><span class="kw-2">mut </span>func_refs =
+<a href=#1578 id=1578 data-nosnippet>1578</a>        PrimaryMap::with_capacity(module_info.functions.len() - module_info.num_imported_functions);
+<a href=#1579 id=1579 data-nosnippet>1579</a>    <span class="kw">let </span><span class="kw-2">mut </span>imported_func_refs = PrimaryMap::with_capacity(module_info.num_imported_functions);
+<a href=#1580 id=1580 data-nosnippet>1580</a>
+<a href=#1581 id=1581 data-nosnippet>1581</a>    <span class="comment">// do imported functions
+<a href=#1582 id=1582 data-nosnippet>1582</a>    </span><span class="kw">for </span>import <span class="kw">in </span>imports.functions.values() {
+<a href=#1583 id=1583 data-nosnippet>1583</a>        imported_func_refs.push(import.handle.get(ctx).anyfunc.as_ptr());
+<a href=#1584 id=1584 data-nosnippet>1584</a>    }
+<a href=#1585 id=1585 data-nosnippet>1585</a>
+<a href=#1586 id=1586 data-nosnippet>1586</a>    <span class="comment">// do local functions
+<a href=#1587 id=1587 data-nosnippet>1587</a>    </span><span class="kw">for </span>(local_index, func_ptr) <span class="kw">in </span>finished_functions.iter() {
+<a href=#1588 id=1588 data-nosnippet>1588</a>        <span class="kw">let </span>index = module_info.func_index(local_index);
+<a href=#1589 id=1589 data-nosnippet>1589</a>        <span class="kw">let </span>sig_index = module_info.functions[index];
+<a href=#1590 id=1590 data-nosnippet>1590</a>        <span class="kw">let </span>type_index = vmshared_signatures[sig_index];
+<a href=#1591 id=1591 data-nosnippet>1591</a>        <span class="kw">let </span>call_trampoline = function_call_trampolines[sig_index];
+<a href=#1592 id=1592 data-nosnippet>1592</a>        <span class="kw">let </span>anyfunc = VMCallerCheckedAnyfunc {
+<a href=#1593 id=1593 data-nosnippet>1593</a>            func_ptr: func_ptr.<span class="number">0</span>,
+<a href=#1594 id=1594 data-nosnippet>1594</a>            type_index,
+<a href=#1595 id=1595 data-nosnippet>1595</a>            vmctx: VMFunctionContext { vmctx: vmctx_ptr },
+<a href=#1596 id=1596 data-nosnippet>1596</a>            call_trampoline,
+<a href=#1597 id=1597 data-nosnippet>1597</a>        };
+<a href=#1598 id=1598 data-nosnippet>1598</a>        func_refs.push(anyfunc);
+<a href=#1599 id=1599 data-nosnippet>1599</a>    }
+<a href=#1600 id=1600 data-nosnippet>1600</a>    (
+<a href=#1601 id=1601 data-nosnippet>1601</a>        func_refs.into_boxed_slice(),
+<a href=#1602 id=1602 data-nosnippet>1602</a>        imported_func_refs.into_boxed_slice(),
+<a href=#1603 id=1603 data-nosnippet>1603</a>    )
+<a href=#1604 id=1604 data-nosnippet>1604</a>}</code></pre></div></section></main></body></html>

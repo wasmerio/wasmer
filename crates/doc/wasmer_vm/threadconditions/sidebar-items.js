@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["WaiterError"],"struct":["NotifyLocation","NotifyMap","NotifyWaiter","ThreadConditions","ThreadConditionsHandle"]};
+window.SIDEBAR_ITEMS = {"enum":["ExpectedValue","WaiterError"],"struct":["NotifyLocation","NotifyMap","ThreadConditions","ThreadConditionsHandle"]};

@@ -17,7 +17,7 @@
 <a href=#17 id=17 data-nosnippet>17</a>    syscalls::rewind_ext,
 <a href=#18 id=18 data-nosnippet>18</a>};
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>tracing::<span class="kw-2">*</span>;
-<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>virtual_mio::InlineWaker;
+<a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>virtual_mio::block_on;
 <a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 <a href=#22 id=22 data-nosnippet>22</a><span class="kw">use </span>wasmer_wasix_types::wasi::Errno;
 <a href=#23 id=23 data-nosnippet>23</a>
@@ -422,7 +422,7 @@
 <a href=#422 id=422 data-nosnippet>422</a>            <span class="macro">eprintln!</span>(<span class="string">"{err}"</span>);
 <a href=#423 id=423 data-nosnippet>423</a>        }
 <a href=#424 id=424 data-nosnippet>424</a>
-<a href=#425 id=425 data-nosnippet>425</a>        InlineWaker::block_on(
+<a href=#425 id=425 data-nosnippet>425</a>        block_on(
 <a href=#426 id=426 data-nosnippet>426</a>            <span class="kw">unsafe </span>{ ctx.data(store).get_memory_and_wasi_state(store, <span class="number">0</span>) }
 <a href=#427 id=427 data-nosnippet>427</a>                .<span class="number">1
 <a href=#428 id=428 data-nosnippet>428</a>                </span>.fs

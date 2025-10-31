@@ -15,7 +15,7 @@
 <a href=#15 id=15 data-nosnippet>15</a>};
 <a href=#16 id=16 data-nosnippet>16</a><span class="kw">use </span>wasmer::{FunctionEnv, Imports, Module, Store};
 <a href=#17 id=17 data-nosnippet>17</a><span class="kw">use </span>wasmer_types::ModuleHash;
-<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>wasmer_wasix::runtime::task_manager::{InlineWaker, tokio::TokioTaskManager};
+<a href=#18 id=18 data-nosnippet>18</a><span class="kw">use </span>wasmer_wasix::runtime::task_manager::{block_on, tokio::TokioTaskManager};
 <a href=#19 id=19 data-nosnippet>19</a><span class="kw">use </span>wasmer_wasix::types::wasi::{Filesize, Timestamp};
 <a href=#20 id=20 data-nosnippet>20</a><span class="kw">use </span>wasmer_wasix::{
 <a href=#21 id=21 data-nosnippet>21</a>    FsError, PluggableRuntime, VirtualFile, WasiEnv, WasiEnvBuilder, WasiVersion,
@@ -124,7 +124,7 @@
 <a href=#124 id=124 data-nosnippet>124</a>
 <a href=#125 id=125 data-nosnippet>125</a>        <span class="kw">let </span>module = Module::new(store, wasm_bytes)<span class="question-mark">?</span>;
 <a href=#126 id=126 data-nosnippet>126</a>        <span class="kw">let </span>(builder, _tempdirs, <span class="kw-2">mut </span>stdin_tx, stdout_rx, stderr_rx) =
-<a href=#127 id=127 data-nosnippet>127</a>            { InlineWaker::block_on(<span class="kw">async </span>{ <span class="self">self</span>.create_wasi_env(filesystem_kind).<span class="kw">await </span>}) }<span class="question-mark">?</span>;
+<a href=#127 id=127 data-nosnippet>127</a>            { block_on(<span class="kw">async </span>{ <span class="self">self</span>.create_wasi_env(filesystem_kind).<span class="kw">await </span>}) }<span class="question-mark">?</span>;
 <a href=#128 id=128 data-nosnippet>128</a>
 <a href=#129 id=129 data-nosnippet>129</a>        <span class="kw">let </span>(instance, _wasi_env) =
 <a href=#130 id=130 data-nosnippet>130</a>            builder
@@ -137,7 +137,7 @@
 <a href=#137 id=137 data-nosnippet>137</a>            <span class="comment">// let mut wasi_stdin = { wasi_env.data(store).stdin().unwrap().unwrap() };
 <a href=#138 id=138 data-nosnippet>138</a>            // Then we can write to it!
 <a href=#139 id=139 data-nosnippet>139</a>            </span><span class="kw">let </span>data = stdin.stream.to_string();
-<a href=#140 id=140 data-nosnippet>140</a>            InlineWaker::block_on(<span class="kw">async move </span>{
+<a href=#140 id=140 data-nosnippet>140</a>            block_on(<span class="kw">async move </span>{
 <a href=#141 id=141 data-nosnippet>141</a>                stdin_tx.write_all(data.as_bytes()).<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#142 id=142 data-nosnippet>142</a>                stdin_tx.shutdown().<span class="kw">await</span><span class="question-mark">?</span>;
 <a href=#143 id=143 data-nosnippet>143</a>

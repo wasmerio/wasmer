@@ -21,19 +21,19 @@
 <a href=#21 id=21 data-nosnippet>21</a>    ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
 <a href=#22 id=22 data-nosnippet>22</a>    PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 <a href=#23 id=23 data-nosnippet>23</a>};
-<a href=#24 id=24 data-nosnippet>24</a><span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
-<a href=#25 id=25 data-nosnippet>25</a></span><span class="kw">use </span>wasmer::Engine;
-<a href=#26 id=26 data-nosnippet>26</a><span class="kw">use </span>wasmer_config::package::PackageSource;
-<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
-<a href=#28 id=28 data-nosnippet>28</a>
-<a href=#29 id=29 data-nosnippet>29</a><span class="kw">use super</span>::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
-<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use crate</span>::{
-<a href=#31 id=31 data-nosnippet>31</a>    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
-<a href=#32 id=32 data-nosnippet>32</a>    bin_factory::{BinFactory, BinaryPackage, spawn_exec},
-<a href=#33 id=33 data-nosnippet>33</a>    capabilities::Capabilities,
-<a href=#34 id=34 data-nosnippet>34</a>    os::task::{control_plane::WasiControlPlane, process::WasiProcess},
-<a href=#35 id=35 data-nosnippet>35</a>    runners::wasi::{PackageOrHash, RuntimeOrEngine},
-<a href=#36 id=36 data-nosnippet>36</a>    runtime::task_manager::InlineWaker,
+<a href=#24 id=24 data-nosnippet>24</a><span class="kw">use </span>virtual_mio::block_on;
+<a href=#25 id=25 data-nosnippet>25</a><span class="attr">#[cfg(feature = <span class="string">"sys"</span>)]
+<a href=#26 id=26 data-nosnippet>26</a></span><span class="kw">use </span>wasmer::Engine;
+<a href=#27 id=27 data-nosnippet>27</a><span class="kw">use </span>wasmer_config::package::PackageSource;
+<a href=#28 id=28 data-nosnippet>28</a><span class="kw">use </span>wasmer_wasix_types::{types::__WASI_STDIN_FILENO, wasi::Errno};
+<a href=#29 id=29 data-nosnippet>29</a>
+<a href=#30 id=30 data-nosnippet>30</a><span class="kw">use super</span>::{cconst::ConsoleConst, common::<span class="kw-2">*</span>, task::TaskJoinHandle};
+<a href=#31 id=31 data-nosnippet>31</a><span class="kw">use crate</span>::{
+<a href=#32 id=32 data-nosnippet>32</a>    Runtime, SpawnError, WasiEnv, WasiEnvBuilder, WasiRuntimeError,
+<a href=#33 id=33 data-nosnippet>33</a>    bin_factory::{BinFactory, BinaryPackage, spawn_exec},
+<a href=#34 id=34 data-nosnippet>34</a>    capabilities::Capabilities,
+<a href=#35 id=35 data-nosnippet>35</a>    os::task::{control_plane::WasiControlPlane, process::WasiProcess},
+<a href=#36 id=36 data-nosnippet>36</a>    runners::wasi::{PackageOrHash, RuntimeOrEngine},
 <a href=#37 id=37 data-nosnippet>37</a>};
 <a href=#38 id=38 data-nosnippet>38</a>
 <a href=#39 id=39 data-nosnippet>39</a><span class="attr">#[derive(Debug)]
@@ -179,7 +179,7 @@
 <a href=#179 id=179 data-nosnippet>179</a>            }
 <a href=#180 id=180 data-nosnippet>180</a>        };
 <a href=#181 id=181 data-nosnippet>181</a>
-<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw">let </span>resolved_package = InlineWaker::block_on(BinaryPackage::from_registry(
+<a href=#182 id=182 data-nosnippet>182</a>        <span class="kw">let </span>resolved_package = block_on(BinaryPackage::from_registry(
 <a href=#183 id=183 data-nosnippet>183</a>            <span class="kw-2">&amp;</span>webc_ident,
 <a href=#184 id=184 data-nosnippet>184</a>            <span class="self">self</span>.runtime.as_ref(),
 <a href=#185 id=185 data-nosnippet>185</a>        ));
@@ -188,7 +188,7 @@
 <a href=#188 id=188 data-nosnippet>188</a>            <span class="prelude-val">Ok</span>(pkg) =&gt; pkg,
 <a href=#189 id=189 data-nosnippet>189</a>            <span class="prelude-val">Err</span>(e) =&gt; {
 <a href=#190 id=190 data-nosnippet>190</a>                <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
-<a href=#191 id=191 data-nosnippet>191</a>                InlineWaker::block_on(<span class="kw">async </span>{
+<a href=#191 id=191 data-nosnippet>191</a>                block_on(<span class="kw">async </span>{
 <a href=#192 id=192 data-nosnippet>192</a>                    <span class="kw">let </span><span class="kw-2">mut </span>buffer = Vec::new();
 <a href=#193 id=193 data-nosnippet>193</a>                    <span class="macro">writeln!</span>(buffer, <span class="string">"Error: {e}"</span>).ok();
 <a href=#194 id=194 data-nosnippet>194</a>                    <span class="kw">let </span><span class="kw-2">mut </span>source = e.source();
@@ -242,14 +242,14 @@
 <a href=#242 id=242 data-nosnippet>242</a>
 <a href=#243 id=243 data-nosnippet>243</a>        <span class="comment">// Display the welcome message
 <a href=#244 id=244 data-nosnippet>244</a>        </span><span class="kw">if </span>!<span class="self">self</span>.whitelabel &amp;&amp; !<span class="self">self</span>.no_welcome {
-<a href=#245 id=245 data-nosnippet>245</a>            InlineWaker::block_on(<span class="self">self</span>.draw_welcome());
+<a href=#245 id=245 data-nosnippet>245</a>            block_on(<span class="self">self</span>.draw_welcome());
 <a href=#246 id=246 data-nosnippet>246</a>        }
 <a href=#247 id=247 data-nosnippet>247</a>
 <a href=#248 id=248 data-nosnippet>248</a>        <span class="kw">let </span>wasi_process = env.process.clone();
 <a href=#249 id=249 data-nosnippet>249</a>
 <a href=#250 id=250 data-nosnippet>250</a>        <span class="kw">if let </span><span class="prelude-val">Err</span>(err) = env.uses(<span class="self">self</span>.uses.clone()) {
 <a href=#251 id=251 data-nosnippet>251</a>            <span class="kw">let </span><span class="kw-2">mut </span>stderr = <span class="self">self</span>.stderr.clone();
-<a href=#252 id=252 data-nosnippet>252</a>            InlineWaker::block_on(<span class="kw">async </span>{
+<a href=#252 id=252 data-nosnippet>252</a>            block_on(<span class="kw">async </span>{
 <a href=#253 id=253 data-nosnippet>253</a>                virtual_fs::AsyncWriteExt::write_all(<span class="kw-2">&amp;mut </span>stderr, <span class="macro">format!</span>(<span class="string">"{err}\r\n"</span>).as_bytes())
 <a href=#254 id=254 data-nosnippet>254</a>                    .<span class="kw">await
 <a href=#255 id=255 data-nosnippet>255</a>                    </span>.ok();
@@ -271,13 +271,13 @@
 <a href=#271 id=271 data-nosnippet>271</a>                .write(<span class="bool-val">true</span>)
 <a href=#272 id=272 data-nosnippet>272</a>                .open(<span class="kw-2">&amp;</span>path)
 <a href=#273 id=273 data-nosnippet>273</a>                .map_err(|err| SpawnError::Other(err.into()))<span class="question-mark">?</span>;
-<a href=#274 id=274 data-nosnippet>274</a>            InlineWaker::block_on(file.copy_reference(Box::new(StaticFile::new(data))))
+<a href=#274 id=274 data-nosnippet>274</a>            block_on(file.copy_reference(Box::new(StaticFile::new(data))))
 <a href=#275 id=275 data-nosnippet>275</a>                .map_err(|err| SpawnError::Other(err.into()))<span class="question-mark">?</span>;
 <a href=#276 id=276 data-nosnippet>276</a>        }
 <a href=#277 id=277 data-nosnippet>277</a>
 <a href=#278 id=278 data-nosnippet>278</a>        <span class="comment">// Build the config
 <a href=#279 id=279 data-nosnippet>279</a>        // Run the binary
-<a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span>process = InlineWaker::block_on(spawn_exec(pkg, prog, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
+<a href=#280 id=280 data-nosnippet>280</a>        </span><span class="kw">let </span>process = block_on(spawn_exec(pkg, prog, env, <span class="kw-2">&amp;</span><span class="self">self</span>.runtime))<span class="question-mark">?</span>;
 <a href=#281 id=281 data-nosnippet>281</a>
 <a href=#282 id=282 data-nosnippet>282</a>        <span class="comment">// Return the process
 <a href=#283 id=283 data-nosnippet>283</a>        </span><span class="prelude-val">Ok</span>((process, wasi_process))

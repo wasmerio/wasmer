@@ -40,8 +40,8 @@
 <a href=#40 id=40 data-nosnippet>40</a><span class="kw">use </span>tokio_util::codec::FramedRead;
 <a href=#41 id=41 data-nosnippet>41</a><span class="kw">use </span>tokio_util::codec::FramedWrite;
 <a href=#42 id=42 data-nosnippet>42</a><span class="kw">use </span>tokio_util::codec::LengthDelimitedCodec;
-<a href=#43 id=43 data-nosnippet>43</a><span class="kw">use </span>virtual_mio::InlineWaker;
-<a href=#44 id=44 data-nosnippet>44</a><span class="kw">use </span>virtual_mio::InterestType;
+<a href=#43 id=43 data-nosnippet>43</a><span class="kw">use </span>virtual_mio::InterestType;
+<a href=#44 id=44 data-nosnippet>44</a><span class="kw">use </span>virtual_mio::block_on;
 <a href=#45 id=45 data-nosnippet>45</a>
 <a href=#46 id=46 data-nosnippet>46</a><span class="kw">use </span><span class="kw">crate</span>::IpCidr;
 <a href=#47 id=47 data-nosnippet>47</a><span class="kw">use </span><span class="kw">crate</span>::IpRoute;
@@ -1006,7 +1006,7 @@
 <a href=#1006 id=1006 data-nosnippet>1006</a>    }
 <a href=#1007 id=1007 data-nosnippet>1007</a>
 <a href=#1008 id=1008 data-nosnippet>1008</a>    <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
-<a href=#1009 id=1009 data-nosnippet>1009</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetTtl)) {
+<a href=#1009 id=1009 data-nosnippet>1009</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetTtl)) {
 <a href=#1010 id=1010 data-nosnippet>1010</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1011 id=1011 data-nosnippet>1011</a>            ResponseType::Ttl(ttl) =&gt; <span class="prelude-val">Ok</span>(ttl),
 <a href=#1012 id=1012 data-nosnippet>1012</a>            res =&gt; {
@@ -1017,7 +1017,7 @@
 <a href=#1017 id=1017 data-nosnippet>1017</a>    }
 <a href=#1018 id=1018 data-nosnippet>1018</a>
 <a href=#1019 id=1019 data-nosnippet>1019</a>    <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
-<a href=#1020 id=1020 data-nosnippet>1020</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrLocal)) {
+<a href=#1020 id=1020 data-nosnippet>1020</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrLocal)) {
 <a href=#1021 id=1021 data-nosnippet>1021</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1022 id=1022 data-nosnippet>1022</a>            ResponseType::SocketAddr(addr) =&gt; <span class="prelude-val">Ok</span>(addr),
 <a href=#1023 id=1023 data-nosnippet>1023</a>            res =&gt; {
@@ -1028,7 +1028,7 @@
 <a href=#1028 id=1028 data-nosnippet>1028</a>    }
 <a href=#1029 id=1029 data-nosnippet>1029</a>
 <a href=#1030 id=1030 data-nosnippet>1030</a>    <span class="kw">fn </span>status(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="kw">crate</span>::SocketStatus&gt; {
-<a href=#1031 id=1031 data-nosnippet>1031</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetStatus)) {
+<a href=#1031 id=1031 data-nosnippet>1031</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetStatus)) {
 <a href=#1032 id=1032 data-nosnippet>1032</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1033 id=1033 data-nosnippet>1033</a>            ResponseType::Status(status) =&gt; <span class="prelude-val">Ok</span>(status),
 <a href=#1034 id=1034 data-nosnippet>1034</a>            res =&gt; {
@@ -1133,7 +1133,7 @@
 <a href=#1133 id=1133 data-nosnippet>1133</a>    }
 <a href=#1134 id=1134 data-nosnippet>1134</a>
 <a href=#1135 id=1135 data-nosnippet>1135</a>    <span class="kw">fn </span>addr_local(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
-<a href=#1136 id=1136 data-nosnippet>1136</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrLocal)) {
+<a href=#1136 id=1136 data-nosnippet>1136</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrLocal)) {
 <a href=#1137 id=1137 data-nosnippet>1137</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1138 id=1138 data-nosnippet>1138</a>            ResponseType::SocketAddr(addr) =&gt; <span class="prelude-val">Ok</span>(addr),
 <a href=#1139 id=1139 data-nosnippet>1139</a>            res =&gt; {
@@ -1148,7 +1148,7 @@
 <a href=#1148 id=1148 data-nosnippet>1148</a>    }
 <a href=#1149 id=1149 data-nosnippet>1149</a>
 <a href=#1150 id=1150 data-nosnippet>1150</a>    <span class="kw">fn </span>ttl(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u8&gt; {
-<a href=#1151 id=1151 data-nosnippet>1151</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetTtl)) {
+<a href=#1151 id=1151 data-nosnippet>1151</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetTtl)) {
 <a href=#1152 id=1152 data-nosnippet>1152</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1153 id=1153 data-nosnippet>1153</a>            ResponseType::Ttl(val) =&gt; <span class="prelude-val">Ok</span>(val.try_into().map_err(|<span class="kw">_</span>| NetworkError::InvalidData)<span class="question-mark">?</span>),
 <a href=#1154 id=1154 data-nosnippet>1154</a>            res =&gt; {
@@ -1222,7 +1222,7 @@
 <a href=#1222 id=1222 data-nosnippet>1222</a>    }
 <a href=#1223 id=1223 data-nosnippet>1223</a>
 <a href=#1224 id=1224 data-nosnippet>1224</a>    <span class="kw">fn </span>promiscuous(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1225 id=1225 data-nosnippet>1225</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetPromiscuous)) {
+<a href=#1225 id=1225 data-nosnippet>1225</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetPromiscuous)) {
 <a href=#1226 id=1226 data-nosnippet>1226</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1227 id=1227 data-nosnippet>1227</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1228 id=1228 data-nosnippet>1228</a>            res =&gt; {
@@ -1286,7 +1286,7 @@
 <a href=#1286 id=1286 data-nosnippet>1286</a>    }
 <a href=#1287 id=1287 data-nosnippet>1287</a>
 <a href=#1288 id=1288 data-nosnippet>1288</a>    <span class="kw">fn </span>broadcast(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1289 id=1289 data-nosnippet>1289</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetBroadcast)) {
+<a href=#1289 id=1289 data-nosnippet>1289</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetBroadcast)) {
 <a href=#1290 id=1290 data-nosnippet>1290</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1291 id=1291 data-nosnippet>1291</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1292 id=1292 data-nosnippet>1292</a>            res =&gt; {
@@ -1301,7 +1301,7 @@
 <a href=#1301 id=1301 data-nosnippet>1301</a>    }
 <a href=#1302 id=1302 data-nosnippet>1302</a>
 <a href=#1303 id=1303 data-nosnippet>1303</a>    <span class="kw">fn </span>multicast_loop_v4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1304 id=1304 data-nosnippet>1304</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetMulticastLoopV4)) {
+<a href=#1304 id=1304 data-nosnippet>1304</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetMulticastLoopV4)) {
 <a href=#1305 id=1305 data-nosnippet>1305</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1306 id=1306 data-nosnippet>1306</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1307 id=1307 data-nosnippet>1307</a>            res =&gt; {
@@ -1316,7 +1316,7 @@
 <a href=#1316 id=1316 data-nosnippet>1316</a>    }
 <a href=#1317 id=1317 data-nosnippet>1317</a>
 <a href=#1318 id=1318 data-nosnippet>1318</a>    <span class="kw">fn </span>multicast_loop_v6(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1319 id=1319 data-nosnippet>1319</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetMulticastLoopV6)) {
+<a href=#1319 id=1319 data-nosnippet>1319</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetMulticastLoopV6)) {
 <a href=#1320 id=1320 data-nosnippet>1320</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1321 id=1321 data-nosnippet>1321</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1322 id=1322 data-nosnippet>1322</a>            res =&gt; {
@@ -1331,7 +1331,7 @@
 <a href=#1331 id=1331 data-nosnippet>1331</a>    }
 <a href=#1332 id=1332 data-nosnippet>1332</a>
 <a href=#1333 id=1333 data-nosnippet>1333</a>    <span class="kw">fn </span>multicast_ttl_v4(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;u32&gt; {
-<a href=#1334 id=1334 data-nosnippet>1334</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetMulticastTtlV4)) {
+<a href=#1334 id=1334 data-nosnippet>1334</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetMulticastTtlV4)) {
 <a href=#1335 id=1335 data-nosnippet>1335</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1336 id=1336 data-nosnippet>1336</a>            ResponseType::Ttl(ttl) =&gt; <span class="prelude-val">Ok</span>(ttl),
 <a href=#1337 id=1337 data-nosnippet>1337</a>            res =&gt; {
@@ -1366,7 +1366,7 @@
 <a href=#1366 id=1366 data-nosnippet>1366</a>    }
 <a href=#1367 id=1367 data-nosnippet>1367</a>
 <a href=#1368 id=1368 data-nosnippet>1368</a>    <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;SocketAddr&gt;&gt; {
-<a href=#1369 id=1369 data-nosnippet>1369</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrPeer)) {
+<a href=#1369 id=1369 data-nosnippet>1369</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrPeer)) {
 <a href=#1370 id=1370 data-nosnippet>1370</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1371 id=1371 data-nosnippet>1371</a>            ResponseType::None =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 <a href=#1372 id=1372 data-nosnippet>1372</a>            ResponseType::SocketAddr(addr) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(addr)),
@@ -1386,7 +1386,7 @@
 <a href=#1386 id=1386 data-nosnippet>1386</a>    }
 <a href=#1387 id=1387 data-nosnippet>1387</a>
 <a href=#1388 id=1388 data-nosnippet>1388</a>    <span class="kw">fn </span>linger(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="prelude-ty">Option</span>&lt;Duration&gt;&gt; {
-<a href=#1389 id=1389 data-nosnippet>1389</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetLinger)) {
+<a href=#1389 id=1389 data-nosnippet>1389</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetLinger)) {
 <a href=#1390 id=1390 data-nosnippet>1390</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1391 id=1391 data-nosnippet>1391</a>            ResponseType::None =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">None</span>),
 <a href=#1392 id=1392 data-nosnippet>1392</a>            ResponseType::Duration(val) =&gt; <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(val)),
@@ -1460,7 +1460,7 @@
 <a href=#1460 id=1460 data-nosnippet>1460</a>    }
 <a href=#1461 id=1461 data-nosnippet>1461</a>
 <a href=#1462 id=1462 data-nosnippet>1462</a>    <span class="kw">fn </span>recv_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-<a href=#1463 id=1463 data-nosnippet>1463</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetRecvBufSize)) {
+<a href=#1463 id=1463 data-nosnippet>1463</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetRecvBufSize)) {
 <a href=#1464 id=1464 data-nosnippet>1464</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1465 id=1465 data-nosnippet>1465</a>            ResponseType::Amount(amt) =&gt; <span class="prelude-val">Ok</span>(amt.try_into().map_err(|<span class="kw">_</span>| NetworkError::IOError)<span class="question-mark">?</span>),
 <a href=#1466 id=1466 data-nosnippet>1466</a>            res =&gt; {
@@ -1475,7 +1475,7 @@
 <a href=#1475 id=1475 data-nosnippet>1475</a>    }
 <a href=#1476 id=1476 data-nosnippet>1476</a>
 <a href=#1477 id=1477 data-nosnippet>1477</a>    <span class="kw">fn </span>send_buf_size(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;usize&gt; {
-<a href=#1478 id=1478 data-nosnippet>1478</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetSendBufSize)) {
+<a href=#1478 id=1478 data-nosnippet>1478</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetSendBufSize)) {
 <a href=#1479 id=1479 data-nosnippet>1479</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1480 id=1480 data-nosnippet>1480</a>            ResponseType::Amount(val) =&gt; <span class="prelude-val">Ok</span>(val.try_into().map_err(|<span class="kw">_</span>| NetworkError::IOError)<span class="question-mark">?</span>),
 <a href=#1481 id=1481 data-nosnippet>1481</a>            res =&gt; {
@@ -1490,7 +1490,7 @@
 <a href=#1490 id=1490 data-nosnippet>1490</a>    }
 <a href=#1491 id=1491 data-nosnippet>1491</a>
 <a href=#1492 id=1492 data-nosnippet>1492</a>    <span class="kw">fn </span>nodelay(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1493 id=1493 data-nosnippet>1493</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetNoDelay)) {
+<a href=#1493 id=1493 data-nosnippet>1493</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetNoDelay)) {
 <a href=#1494 id=1494 data-nosnippet>1494</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1495 id=1495 data-nosnippet>1495</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1496 id=1496 data-nosnippet>1496</a>            res =&gt; {
@@ -1505,7 +1505,7 @@
 <a href=#1505 id=1505 data-nosnippet>1505</a>    }
 <a href=#1506 id=1506 data-nosnippet>1506</a>
 <a href=#1507 id=1507 data-nosnippet>1507</a>    <span class="kw">fn </span>keepalive(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1508 id=1508 data-nosnippet>1508</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetKeepAlive)) {
+<a href=#1508 id=1508 data-nosnippet>1508</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetKeepAlive)) {
 <a href=#1509 id=1509 data-nosnippet>1509</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1510 id=1510 data-nosnippet>1510</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1511 id=1511 data-nosnippet>1511</a>            res =&gt; {
@@ -1520,7 +1520,7 @@
 <a href=#1520 id=1520 data-nosnippet>1520</a>    }
 <a href=#1521 id=1521 data-nosnippet>1521</a>
 <a href=#1522 id=1522 data-nosnippet>1522</a>    <span class="kw">fn </span>dontroute(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;bool&gt; {
-<a href=#1523 id=1523 data-nosnippet>1523</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetDontRoute)) {
+<a href=#1523 id=1523 data-nosnippet>1523</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetDontRoute)) {
 <a href=#1524 id=1524 data-nosnippet>1524</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1525 id=1525 data-nosnippet>1525</a>            ResponseType::Flag(val) =&gt; <span class="prelude-val">Ok</span>(val),
 <a href=#1526 id=1526 data-nosnippet>1526</a>            res =&gt; {
@@ -1531,7 +1531,7 @@
 <a href=#1531 id=1531 data-nosnippet>1531</a>    }
 <a href=#1532 id=1532 data-nosnippet>1532</a>
 <a href=#1533 id=1533 data-nosnippet>1533</a>    <span class="kw">fn </span>addr_peer(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;SocketAddr&gt; {
-<a href=#1534 id=1534 data-nosnippet>1534</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrPeer)) {
+<a href=#1534 id=1534 data-nosnippet>1534</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::GetAddrPeer)) {
 <a href=#1535 id=1535 data-nosnippet>1535</a>            ResponseType::Err(err) =&gt; <span class="prelude-val">Err</span>(err),
 <a href=#1536 id=1536 data-nosnippet>1536</a>            ResponseType::SocketAddr(addr) =&gt; <span class="prelude-val">Ok</span>(addr),
 <a href=#1537 id=1537 data-nosnippet>1537</a>            res =&gt; {
@@ -1551,7 +1551,7 @@
 <a href=#1551 id=1551 data-nosnippet>1551</a>    }
 <a href=#1552 id=1552 data-nosnippet>1552</a>
 <a href=#1553 id=1553 data-nosnippet>1553</a>    <span class="kw">fn </span>is_closed(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#1554 id=1554 data-nosnippet>1554</a>        <span class="kw">match </span>InlineWaker::block_on(<span class="self">self</span>.io_socket(RequestType::IsClosed)) {
+<a href=#1554 id=1554 data-nosnippet>1554</a>        <span class="kw">match </span>block_on(<span class="self">self</span>.io_socket(RequestType::IsClosed)) {
 <a href=#1555 id=1555 data-nosnippet>1555</a>            ResponseType::Flag(val) =&gt; val,
 <a href=#1556 id=1556 data-nosnippet>1556</a>            <span class="kw">_ </span>=&gt; <span class="bool-val">false</span>,
 <a href=#1557 id=1557 data-nosnippet>1557</a>        }

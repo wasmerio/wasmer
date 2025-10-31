@@ -166,7 +166,7 @@
 <a href=#166 id=166 data-nosnippet>166</a>            <span class="kw">let </span>env = builder.take().unwrap();
 <a href=#167 id=167 data-nosnippet>167</a>
 <a href=#168 id=168 data-nosnippet>168</a>            <span class="comment">// Spawn a new process with this current execution environment
-<a href=#169 id=169 data-nosnippet>169</a>            </span>InlineWaker::block_on(bin_factory.spawn(name, env))
+<a href=#169 id=169 data-nosnippet>169</a>            </span>block_on(bin_factory.spawn(name, env))
 <a href=#170 id=170 data-nosnippet>170</a>        }
 <a href=#171 id=171 data-nosnippet>171</a>    };
 <a href=#172 id=172 data-nosnippet>172</a>

@@ -275,7 +275,7 @@
 <a href=#275 id=275 data-nosnippet>275</a><span class="kw">use </span>shared_buffer::OwnedBuffer;
 <a href=#276 id=276 data-nosnippet>276</a><span class="kw">use </span>tracing::trace;
 <a href=#277 id=277 data-nosnippet>277</a><span class="kw">use </span>virtual_fs::{AsyncReadExt, FileSystem, FsError};
-<a href=#278 id=278 data-nosnippet>278</a><span class="kw">use </span>virtual_mio::InlineWaker;
+<a href=#278 id=278 data-nosnippet>278</a><span class="kw">use </span>virtual_mio::block_on;
 <a href=#279 id=279 data-nosnippet>279</a><span class="kw">use </span>wasmer::{
 <a href=#280 id=280 data-nosnippet>280</a>    AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
 <a href=#281 id=281 data-nosnippet>281</a>    FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
@@ -2293,7 +2293,7 @@
 <a href=#2293 id=2293 data-nosnippet>2293</a>                module_spec,
 <a href=#2294 id=2294 data-nosnippet>2294</a>                ld_library_path,
 <a href=#2295 id=2295 data-nosnippet>2295</a>            } =&gt; {
-<a href=#2296 id=2296 data-nosnippet>2296</a>                <span class="kw">let </span>(full_path, bytes) = InlineWaker::block_on(locate_module(
+<a href=#2296 id=2296 data-nosnippet>2296</a>                <span class="kw">let </span>(full_path, bytes) = block_on(locate_module(
 <a href=#2297 id=2297 data-nosnippet>2297</a>                    module_spec,
 <a href=#2298 id=2298 data-nosnippet>2298</a>                    ld_library_path,
 <a href=#2299 id=2299 data-nosnippet>2299</a>                    runtime_path,

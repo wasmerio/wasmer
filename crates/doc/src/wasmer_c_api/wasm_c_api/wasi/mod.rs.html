@@ -21,7 +21,7 @@
 <a href=#21 id=21 data-nosnippet>21</a><span class="kw">use </span>wasmer_wasix::{
 <a href=#22 id=22 data-nosnippet>22</a>    Pipe, PluggableRuntime, WasiEnv, WasiEnvBuilder, WasiFunctionEnv, WasiVersion,
 <a href=#23 id=23 data-nosnippet>23</a>    default_fs_backing, get_wasi_version,
-<a href=#24 id=24 data-nosnippet>24</a>    runtime::task_manager::{InlineWaker, tokio::TokioTaskManager},
+<a href=#24 id=24 data-nosnippet>24</a>    runtime::task_manager::{block_on, tokio::TokioTaskManager},
 <a href=#25 id=25 data-nosnippet>25</a>    virtual_fs::AsyncReadExt,
 <a href=#26 id=26 data-nosnippet>26</a>    virtual_fs::VirtualFile,
 <a href=#27 id=27 data-nosnippet>27</a>};
@@ -452,7 +452,7 @@
 <a href=#452 id=452 data-nosnippet>452</a>    wasi_file: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
 <a href=#453 id=453 data-nosnippet>453</a>    inner_buffer: <span class="kw-2">&amp;mut </span>[u8],
 <a href=#454 id=454 data-nosnippet>454</a>) -&gt; isize {
-<a href=#455 id=455 data-nosnippet>455</a>    InlineWaker::block_on(<span class="kw">async </span>{
+<a href=#455 id=455 data-nosnippet>455</a>    block_on(<span class="kw">async </span>{
 <a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">match </span>wasi_file.read(inner_buffer).<span class="kw">await </span>{
 <a href=#457 id=457 data-nosnippet>457</a>            <span class="prelude-val">Ok</span>(a) =&gt; a <span class="kw">as </span>isize,
 <a href=#458 id=458 data-nosnippet>458</a>            <span class="prelude-val">Err</span>(err) =&gt; {

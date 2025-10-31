@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["get_trace_and_trapcode","wasm_trace"]};
+window.SIDEBAR_ITEMS = {"fn":["get_trace_and_trapcode","wasm_trace","wasm_trace_from_current_stack"]};

@@ -147,34 +147,34 @@
 <a href=#147 id=147 data-nosnippet>147</a>        <span class="kw">let </span>count = <span class="self">self
 <a href=#148 id=148 data-nosnippet>148</a>            </span>.upgrade()
 <a href=#149 id=149 data-nosnippet>149</a>            .ok_or(<span class="kw">crate</span>::AtomicsError::Unimplemented)<span class="question-mark">?
-<a href=#150 id=150 data-nosnippet>150</a>            </span>.do_notify(
-<a href=#151 id=151 data-nosnippet>151</a>                wasmer_vm::NotifyLocation {
-<a href=#152 id=152 data-nosnippet>152</a>                    address: dst.address,
-<a href=#153 id=153 data-nosnippet>153</a>                },
-<a href=#154 id=154 data-nosnippet>154</a>                count,
-<a href=#155 id=155 data-nosnippet>155</a>            );
-<a href=#156 id=156 data-nosnippet>156</a>        <span class="prelude-val">Ok</span>(count)
-<a href=#157 id=157 data-nosnippet>157</a>    }
-<a href=#158 id=158 data-nosnippet>158</a>
-<a href=#159 id=159 data-nosnippet>159</a>    <span class="kw">fn </span>wait(
-<a href=#160 id=160 data-nosnippet>160</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
-<a href=#161 id=161 data-nosnippet>161</a>        dst: MemoryLocation,
-<a href=#162 id=162 data-nosnippet>162</a>        timeout: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
-<a href=#163 id=163 data-nosnippet>163</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, <span class="kw">crate</span>::AtomicsError&gt; {
-<a href=#164 id=164 data-nosnippet>164</a>        <span class="self">self</span>.upgrade()
-<a href=#165 id=165 data-nosnippet>165</a>            .ok_or(<span class="kw">crate</span>::AtomicsError::Unimplemented)<span class="question-mark">?
-<a href=#166 id=166 data-nosnippet>166</a>            </span>.do_wait(
-<a href=#167 id=167 data-nosnippet>167</a>                wasmer_vm::NotifyLocation {
-<a href=#168 id=168 data-nosnippet>168</a>                    address: dst.address,
-<a href=#169 id=169 data-nosnippet>169</a>                },
-<a href=#170 id=170 data-nosnippet>170</a>                timeout,
-<a href=#171 id=171 data-nosnippet>171</a>            )
-<a href=#172 id=172 data-nosnippet>172</a>            .map_err(|e| <span class="kw">match </span>e {
-<a href=#173 id=173 data-nosnippet>173</a>                wasmer_vm::WaiterError::Unimplemented =&gt; <span class="kw">crate</span>::AtomicsError::Unimplemented,
-<a href=#174 id=174 data-nosnippet>174</a>                wasmer_vm::WaiterError::TooManyWaiters =&gt; <span class="kw">crate</span>::AtomicsError::TooManyWaiters,
-<a href=#175 id=175 data-nosnippet>175</a>                wasmer_vm::WaiterError::AtomicsDisabled =&gt; <span class="kw">crate</span>::AtomicsError::AtomicsDisabled,
-<a href=#176 id=176 data-nosnippet>176</a>                <span class="kw">_ </span>=&gt; <span class="kw">crate</span>::AtomicsError::Unimplemented,
-<a href=#177 id=177 data-nosnippet>177</a>            })
+<a href=#150 id=150 data-nosnippet>150</a>            </span>.do_notify(dst.address, count);
+<a href=#151 id=151 data-nosnippet>151</a>        <span class="prelude-val">Ok</span>(count)
+<a href=#152 id=152 data-nosnippet>152</a>    }
+<a href=#153 id=153 data-nosnippet>153</a>
+<a href=#154 id=154 data-nosnippet>154</a>    <span class="kw">fn </span>wait(
+<a href=#155 id=155 data-nosnippet>155</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
+<a href=#156 id=156 data-nosnippet>156</a>        dst: MemoryLocation,
+<a href=#157 id=157 data-nosnippet>157</a>        timeout: <span class="prelude-ty">Option</span>&lt;std::time::Duration&gt;,
+<a href=#158 id=158 data-nosnippet>158</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;u32, <span class="kw">crate</span>::AtomicsError&gt; {
+<a href=#159 id=159 data-nosnippet>159</a>        <span class="comment">// Safety: `ExpectedValue::None` has no safety requirements.
+<a href=#160 id=160 data-nosnippet>160</a>        </span><span class="kw">unsafe </span>{
+<a href=#161 id=161 data-nosnippet>161</a>            <span class="self">self</span>.upgrade()
+<a href=#162 id=162 data-nosnippet>162</a>                .ok_or(<span class="kw">crate</span>::AtomicsError::Unimplemented)<span class="question-mark">?
+<a href=#163 id=163 data-nosnippet>163</a>                </span>.do_wait(
+<a href=#164 id=164 data-nosnippet>164</a>                    wasmer_vm::NotifyLocation {
+<a href=#165 id=165 data-nosnippet>165</a>                        memory_base: std::ptr::null_mut(),
+<a href=#166 id=166 data-nosnippet>166</a>                        address: dst.address,
+<a href=#167 id=167 data-nosnippet>167</a>                    },
+<a href=#168 id=168 data-nosnippet>168</a>                    wasmer_vm::ExpectedValue::None,
+<a href=#169 id=169 data-nosnippet>169</a>                    timeout,
+<a href=#170 id=170 data-nosnippet>170</a>                )
+<a href=#171 id=171 data-nosnippet>171</a>                .map_err(|e| <span class="kw">match </span>e {
+<a href=#172 id=172 data-nosnippet>172</a>                    wasmer_vm::WaiterError::Unimplemented =&gt; <span class="kw">crate</span>::AtomicsError::Unimplemented,
+<a href=#173 id=173 data-nosnippet>173</a>                    wasmer_vm::WaiterError::TooManyWaiters =&gt; <span class="kw">crate</span>::AtomicsError::TooManyWaiters,
+<a href=#174 id=174 data-nosnippet>174</a>                    wasmer_vm::WaiterError::AtomicsDisabled =&gt; <span class="kw">crate</span>::AtomicsError::AtomicsDisabled,
+<a href=#175 id=175 data-nosnippet>175</a>                    <span class="kw">_ </span>=&gt; <span class="kw">crate</span>::AtomicsError::Unimplemented,
+<a href=#176 id=176 data-nosnippet>176</a>                })
+<a href=#177 id=177 data-nosnippet>177</a>        }
 <a href=#178 id=178 data-nosnippet>178</a>    }
 <a href=#179 id=179 data-nosnippet>179</a>
 <a href=#180 id=180 data-nosnippet>180</a>    <span class="kw">fn </span>disable_atomics(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;(), MemoryError&gt; {
