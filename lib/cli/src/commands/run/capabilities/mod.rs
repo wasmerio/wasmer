@@ -1,6 +1,6 @@
 use crate::config::WasmerEnv;
 
-use super::PackageSource;
+use super::CliPackageSource;
 use anyhow::anyhow;
 use sha2::{Digest, Sha256};
 use std::{
@@ -25,7 +25,7 @@ pub(crate) struct PkgCapabilityCache {
 
 pub(crate) fn get_capability_cache_path(
     env: &WasmerEnv,
-    input: &PackageSource,
+    input: &CliPackageSource,
 ) -> anyhow::Result<PathBuf> {
     let registry_name = env
         .registry_public_url()?
@@ -36,7 +36,7 @@ pub(crate) fn get_capability_cache_path(
     // We don't have the bytes of the module yet, but we still want to have the
     // package-capabilities cache be as close to an actual identifier as possible.
     let package_cache_path = match &input {
-        PackageSource::File(f) => {
+        CliPackageSource::File(f) => {
             let full_path = f.canonicalize()?.to_path_buf();
             let metadata = full_path
                 .parent()
@@ -61,7 +61,7 @@ pub(crate) fn get_capability_cache_path(
 
             format!("path_{}.json", hex::encode(hash.finalize()))
         }
-        PackageSource::Dir(f) => {
+        CliPackageSource::Dir(f) => {
             let full_path = f.canonicalize()?.to_path_buf();
             let metadata = full_path.metadata()?.modified()?;
 
@@ -82,7 +82,7 @@ pub(crate) fn get_capability_cache_path(
 
             format!("path_{}.json", hex::encode(hash.finalize()))
         }
-        PackageSource::Package(p) => match p {
+        CliPackageSource::Package(p) => match p {
             PackageSpecifier::Ident(id) => match id {
                 wasmer_config::package::PackageIdent::Named(n) => format!(
                     "ident_{}_{}",

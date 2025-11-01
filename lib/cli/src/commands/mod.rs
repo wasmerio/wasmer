@@ -32,6 +32,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 use std::ffi::OsString;
+use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
@@ -75,7 +76,7 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
         &self,
         done: tokio::sync::oneshot::Receiver<()>,
     ) -> Option<JoinHandle<anyhow::Result<()>>> {
-        if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
+        if std::io::stdin().is_terminal() {
             return Some(tokio::task::spawn(async move {
                 tokio::select! {
                     _ = done => {}

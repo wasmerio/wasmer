@@ -51,7 +51,7 @@ use crate::{
 };
 
 use super::{
-    ExecutableTarget, PackageSource,
+    CliPackageSource, ExecutableTarget,
     capabilities::{self, PkgCapabilityCache},
 };
 
