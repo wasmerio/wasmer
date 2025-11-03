@@ -20,7 +20,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
@@ -2315,12 +2315,36 @@ impl Machine for MachineX86_64 {
     // Get call param location
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         _sz: Size,
         _stack_location: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        self.get_simple_param_location(idx, calling_convention)
+        let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(self.get_return_value_registers().len());
+        match calling_convention {
+            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (32 + 16 + return_values_memory_size + (idx - register_params.len()) * 8)
+                            as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (16 + return_values_memory_size + (idx - register_params.len()) * 8) as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+        }
     }
     // Get simple param location
     fn get_simple_param_location(
@@ -2345,6 +2369,38 @@ impl Machine for MachineX86_64 {
             ),
         }
     }
+
+    /// Get registers for first N function return values.
+    /// NOTE: The register set must be disjoint from pick_gpr registers!
+    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
+        &[GPR::RAX, GPR::RDX]
+    }
+
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(&self, idx: usize, stack_location: &mut usize) -> Location {
+        self.get_return_value_registers().get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(&self, idx: usize) -> Location {
+        self.get_return_value_registers().get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::RBP,
+                    (16 + (idx - self.get_return_value_registers().len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
     // move a location to another
     fn move_location(
         &mut self,
@@ -2495,27 +2551,6 @@ impl Machine for MachineX86_64 {
     fn emit_function_epilog(&mut self) -> Result<(), CompileError> {
         self.move_location(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP))?;
         self.emit_pop(Size::S64, Location::GPR(GPR::RBP))
-    }
-
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => codegen_error!("singlepass emit_function_return_value unreachable"),
-                },
-                loc,
-                Location::GPR(GPR::RAX),
-            )
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::RAX))
-        }
     }
 
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
