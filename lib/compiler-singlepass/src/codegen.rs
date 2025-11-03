@@ -747,9 +747,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let mut stack_offset: usize = 0;
-        let mut args = Vec::with_capacity(params.len());
+
+        // Allocate space for return values relative to SP (the allocation happens in reverse order, thus start with return slots).
         let mut return_args = Vec::with_capacity(return_value_sizes.len());
-        // Calculate stack offset.
+        for i in 0..return_value_sizes.len() {
+            return_args.push(self.machine.get_return_value_location(i, &mut stack_offset));
+        }
+
+        // Allocate space for arguments relative to SP.
+        let mut args = Vec::with_capacity(params.len());
         for (i, param_size) in params_size.iter().enumerate() {
             args.push(self.machine.get_param_location(
                 match call_type {
@@ -760,11 +766,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 &mut stack_offset,
                 calling_convention,
             ));
-        }
-
-        // Allocate space for return values after the arguments.
-        for i in 0..return_value_sizes.len() {
-            return_args.push(self.machine.get_return_value_location(i, &mut stack_offset));
         }
 
         // Align stack to 16 bytes.
