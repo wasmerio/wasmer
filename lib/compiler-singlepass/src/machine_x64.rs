@@ -7758,15 +7758,20 @@ impl Machine for MachineX86_64 {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
 
-        // Calculate stack offset.
-        let mut stack_offset: u32 = 0;
-        for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) =
-                self.get_simple_param_location(1 + i, calling_convention)
-            {
-                stack_offset += 8;
-            }
-        }
+        // Calculate stack offset (+1 for the vmctx argument we are going to pass).
+        let stack_params = (0..sig.params().len() + 1)
+            .filter(|&i| {
+                self.get_param_registers(calling_convention)
+                    .get(i)
+                    .is_none()
+            })
+            .count();
+        let stack_return_slots = (0..sig.results().len())
+            .filter(|&i| self.get_return_value_registers().get(i).is_none())
+            .count();
+
+        // Stack slots are not shared in between function params and return values.
+        let mut stack_offset = 8 * (stack_params + stack_return_slots) as u32;
         let stack_padding: u32 = match calling_convention {
             CallingConvention::WindowsFastcall => 32,
             _ => 0,
@@ -7803,16 +7808,16 @@ impl Machine for MachineX86_64 {
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
         {
-            let mut n_stack_args: usize = 0;
+            let mut n_stack_args = 0u32;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_simple_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_param_registers(calling_convention).get(1 + i);
 
                 match dst_loc {
-                    Location::GPR(_) => {
-                        a.emit_mov(Size::S64, src_loc, dst_loc)?;
+                    Some(&gpr) => {
+                        a.emit_mov(Size::S64, src_loc, Location::GPR(gpr))?;
                     }
-                    Location::Memory(_, _) => {
+                    None => {
                         // This location is for reading arguments but we are writing arguments here.
                         // So recalculate it.
                         a.emit_mov(Size::S64, src_loc, Location::GPR(GPR::RAX))?;
@@ -7821,12 +7826,12 @@ impl Machine for MachineX86_64 {
                             Location::GPR(GPR::RAX),
                             Location::Memory(
                                 GPR::RSP,
-                                (stack_padding as usize + n_stack_args * 8) as _,
+                                (stack_padding + (n_stack_args + stack_return_slots as u32) * 8)
+                                    as _,
                             ),
                         )?;
                         n_stack_args += 1;
                     }
-                    _ => codegen_error!("singlepass gen_std_trampoline unreachable"),
                 }
             }
         }
@@ -7834,21 +7839,33 @@ impl Machine for MachineX86_64 {
         // Call.
         a.emit_call_location(Location::GPR(GPR::R15))?;
 
+        // Write return values.
+        let mut n_stack_return_slots: usize = 0;
+        for i in 0..sig.results().len() {
+            let src = if let Some(&reg) = self.get_return_value_registers().get(i) {
+                Location::GPR(reg)
+            } else {
+                let loc = Location::GPR(GPR::R15);
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        GPR::RSP,
+                        (stack_padding + (n_stack_return_slots as u32 * 8)) as _,
+                    ),
+                    loc,
+                )?;
+                n_stack_return_slots += 1;
+                loc
+            };
+            a.emit_mov(Size::S64, src, Location::Memory(GPR::R14, (i * 16) as _))?;
+        }
+
         // Restore stack.
         a.emit_add(
             Size::S64,
             Location::Imm32(stack_offset + stack_padding),
             Location::GPR(GPR::RSP),
         )?;
-
-        // Write return value.
-        if !sig.results().is_empty() {
-            a.emit_mov(
-                Size::S64,
-                Location::GPR(GPR::RAX),
-                Location::Memory(GPR::R14, 0),
-            )?;
-        }
 
         // Restore callee-saved registers.
         a.emit_pop(Size::S64, Location::GPR(GPR::R14))?;
@@ -7858,6 +7875,8 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
+        save_assembly_to_file("-module-trampoline.o", &body);
+
         Ok(FunctionBody {
             body,
             unwind_info: None,
