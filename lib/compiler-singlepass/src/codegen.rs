@@ -713,22 +713,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let return_types = return_types.collect_vec();
         let return_value_sizes = return_types.iter().map(|&rt| get_size(rt)).collect_vec();
 
-        let return_values = stack_params
+        let mut return_values = stack_params
             .iter()
             .take(return_value_sizes.len())
             .copied()
-            .chain(
-                self.acquire_locations_on_stack(
-                    return_value_sizes.len().saturating_sub(stack_params.len()),
-                )?
-                .into_iter()
-                .map(|loc| (loc, CanonicalizeType::None)),
-            )
             .collect_vec();
+        let extra_return_values = self
+            .acquire_locations_on_stack(
+                return_value_sizes.len().saturating_sub(stack_params.len()),
+            )?
+            .into_iter()
+            .map(|loc| (loc, CanonicalizeType::None))
+            .collect_vec();
+        let mut used_stack = extra_return_values.len() * 8;
+        return_values.extend(extra_return_values);
 
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
-        let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
+        used_stack += self.machine.push_used_gpr(&used_gprs)?;
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
