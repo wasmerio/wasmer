@@ -74,7 +74,7 @@ pub struct FuncGen<'a, M: Machine> {
     value_stack: Vec<LocationWithCanonicalization<M>>,
 
     /// A list of frames describing the current control stack.
-    control_stack: Vec<ControlFrame>,
+    control_stack: Vec<ControlFrame<M>>,
 
     stack_offset: MachineStackOffset,
 
@@ -112,7 +112,7 @@ struct SpecialLabelSet {
 /// Type of a pending canonicalization floating point value.
 /// Sometimes we don't have the type information elsewhere and therefore we need to track it here.
 #[derive(Copy, Clone, Debug)]
-enum CanonicalizeType {
+pub(crate) enum CanonicalizeType {
     None,
     F32,
     F64,
@@ -154,18 +154,21 @@ impl WpTypeExt for WpType {
     }
 }
 
-#[derive(Debug, Copy, Clone)]
-pub enum ControlState {
+#[derive(Clone)]
+pub enum ControlState<M: Machine> {
     Function,
     Block,
     Loop,
-    If(Label),
+    If {
+        label_else: Label,
+        inputs: SmallVec<[(Location<M::GPR, M::SIMD>, CanonicalizeType); 1]>,
+    },
     Else,
 }
 
-#[derive(Debug, Clone)]
-struct ControlFrame {
-    pub state: ControlState,
+#[derive(Clone)]
+struct ControlFrame<M: Machine> {
+    pub state: ControlState<M>,
     pub label: Label,
     pub param_types: SmallVec<[WpType; 8]>,
     pub return_types: SmallVec<[WpType; 1]>,
@@ -173,7 +176,7 @@ struct ControlFrame {
     value_stack_depth: usize,
 }
 
-impl ControlFrame {
+impl<M: Machine> ControlFrame<M> {
     // Get value stack depth at the end of the frame.
     fn value_stack_depth_after(&self) -> usize {
         self.value_stack_depth - self.param_types.len()
@@ -1046,8 +1049,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Operator::Else => {
                     // We are in a reachable true branch
                     if self.unreachable_depth == 1
-                        && let Some(ControlState::If(_)) =
-                            self.control_stack.last().map(|x| x.state)
+                        && self
+                            .control_stack
+                            .last()
+                            .is_some_and(|frame| matches!(frame.state, ControlState::If { .. }))
                     {
                         self.unreachable_depth -= 1;
                     }
@@ -2460,7 +2465,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
 
                 let frame = ControlFrame {
-                    state: ControlState::If(label_else),
+                    state: ControlState::If {
+                        label_else,
+                        inputs: SmallVec::from_iter(
+                            self.value_stack
+                                .iter()
+                                .rev()
+                                .take(param_types.len())
+                                .rev()
+                                .copied(),
+                        ),
+                    },
                     label: label_end,
                     param_types,
                     return_types,
@@ -2486,23 +2501,38 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
 
                 let frame = &self.control_stack.last_mut().unwrap();
-                let stack_depth = frame.value_stack_depth;
+                let stack_depth = frame.value_stack_depth_after();
                 self.release_locations_value(stack_depth)?;
                 self.value_stack.truncate(stack_depth);
                 let frame = &mut self.control_stack.last_mut().unwrap();
 
-                match frame.state {
-                    ControlState::If(label) => {
-                        self.machine.jmp_unconditional(frame.label)?;
-                        self.machine.emit_label(label)?;
-                        frame.state = ControlState::Else;
-                    }
-                    _ => {
-                        return Err(CompileError::Codegen(
-                            "Else: frame.if_else unreachable code".to_owned(),
-                        ));
+                // The Else block must be provided the very same inputs as the previous If block had,
+                // and so we need to copy the potentially consumed inputs.
+                let ControlState::If {
+                    label_else,
+                    ref inputs,
+                } = frame.state
+                else {
+                    return Err(CompileError::Codegen(
+                        "Else: frame.if_else unreachable code".to_owned(),
+                    ));
+                };
+                for (input, _) in inputs {
+                    match input {
+                        Location::GPR(x) => {
+                            self.machine.reserve_gpr(*x);
+                        }
+                        Location::SIMD(x) => {
+                            self.machine.reserve_simd(*x);
+                        }
+                        _ => {}
                     }
                 }
+                self.value_stack.extend(inputs);
+
+                self.machine.jmp_unconditional(frame.label)?;
+                self.machine.emit_label(label_else)?;
+                frame.state = ControlState::Else;
             }
             // `TypedSelect` must be used for extern refs so ref counting should
             // be done with TypedSelect. But otherwise they're the same.
@@ -3559,8 +3589,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.emit_label(frame.label)?;
                     }
 
-                    if let ControlState::If(label) = frame.state {
-                        self.machine.emit_label(label)?;
+                    if let ControlState::If { label_else, .. } = frame.state {
+                        self.machine.emit_label(label_else)?;
                     }
 
                     // At this point the return values are properly sitting in the value_stack and are properly canonicalized.
