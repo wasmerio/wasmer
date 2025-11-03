@@ -924,17 +924,17 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .map(type_to_wp_type)
             .collect();
 
-        if !return_types.is_empty() {
-            self.value_stack.push((
-                Location::GPR(self.machine.get_gpr_for_ret()),
+        // Push return value slots for the function return on the stack.
+        self.value_stack.extend((0..return_types.len()).map(|i| {
+            (
+                self.machine.get_call_return_value_location(i),
                 CanonicalizeType::None,
-            ));
-        }
+            )
+        }));
 
         self.control_stack.push(ControlFrame {
             state: ControlState::Function,
             label: self.machine.get_label(),
-            // TODO: just one return value is expected now
             value_stack_depth: return_types.len(),
             param_types: smallvec![],
             return_types,
