@@ -238,49 +238,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(loc)
     }
 
-    /// Releases locations used for stack value.
+    /// Releases locations used for stack values.
     fn release_locations(
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-
-        for (loc, _) in locs.iter().rev() {
-            match *loc {
-                Location::GPR(ref x) => {
-                    self.machine.release_gpr(*x);
-                }
-                Location::SIMD(ref x) => {
-                    self.machine.release_simd(*x);
-                }
-                Location::Memory(y, x) => {
-                    if y == self.machine.local_pointer() {
-                        if x >= 0 {
-                            codegen_error!("Invalid memory offset {}", x);
-                        }
-                        let offset = (-x) as usize;
-                        if offset != self.stack_offset.0 {
-                            codegen_error!(
-                                "Invalid memory offset {}!={}",
-                                offset,
-                                self.stack_offset.0
-                            );
-                        }
-                        self.stack_offset.0 -= 8;
-                        delta_stack_offset += 8;
-                    }
-                }
-                _ => {}
-            }
-        }
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.truncate_stack(delta_stack_offset as u32)?;
-        }
-        Ok(())
+        self.release_stack_locations(locs)?;
+        self.release_reg_locations(locs)
     }
 
-    fn release_locations_only_regs(
+    fn release_reg_locations(
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
@@ -298,7 +265,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    fn release_locations_only_stack(
+    fn release_stack_locations(
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
@@ -327,7 +294,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    fn release_locations_keep_state(&mut self, stack_depth: usize) -> Result<(), CompileError> {
+    fn release_stack_locations_keep_stack_offset(
+        &mut self,
+        stack_depth: usize,
+    ) -> Result<(), CompileError> {
         let mut delta_stack_offset: usize = 0;
         let mut stack_offset = self.stack_offset.0;
         let locs = &self.value_stack[stack_depth..];
@@ -1991,7 +1961,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                self.release_locations_only_regs(&params)?;
+                self.release_reg_locations(&params)?;
 
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
@@ -2034,7 +2004,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&params)?;
+                self.release_stack_locations(&params)?;
 
                 if !return_types.is_empty() {
                     let ret = self.acquire_location(&return_types[0])?;
@@ -2074,7 +2044,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                self.release_locations_only_regs(&params)?;
+                self.release_reg_locations(&params)?;
 
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
@@ -2248,7 +2218,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&params)?;
+                self.release_stack_locations(&params)?;
 
                 if !return_types.is_empty() {
                     let ret = self.acquire_location(&return_types[0])?;
@@ -2445,7 +2415,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src, dst])?;
+                self.release_reg_locations(&[len, src, dst])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -2484,7 +2454,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .cloned(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, src, len])?;
+                self.release_stack_locations(&[dst, src, len])?;
             }
             Operator::DataDrop { data_index } => {
                 self.machine.move_location(
@@ -2514,7 +2484,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src_pos, dst_pos])?;
+                self.release_reg_locations(&[len, src_pos, dst_pos])?;
 
                 let memory_index = MemoryIndex::new(src_mem as usize);
                 let (memory_copy_index, memory_index) =
@@ -2558,13 +2528,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .cloned(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst_pos, src_pos, len])?;
+                self.release_stack_locations(&[dst_pos, src_pos, len])?;
             }
             Operator::MemoryFill { mem } => {
                 let len = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, val, dst])?;
+                self.release_reg_locations(&[len, val, dst])?;
 
                 let memory_index = MemoryIndex::new(mem as usize);
                 let (memory_fill_index, memory_index) =
@@ -2608,13 +2578,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .cloned(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, val, len])?;
+                self.release_stack_locations(&[dst, val, len])?;
             }
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
 
-                self.release_locations_only_regs(&[param_pages])?;
+                self.release_reg_locations(&[param_pages])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -2643,7 +2613,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[param_pages])?;
+                self.release_stack_locations(&[param_pages])?;
 
                 let ret = self.acquire_location(&WpType::I64)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
@@ -3246,7 +3216,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = &self.control_stack[0];
                 let frame_depth = frame.value_stack_depth;
                 let label = frame.label;
-                self.release_locations_keep_state(frame_depth)?;
+                self.release_stack_locations_keep_stack_offset(frame_depth)?;
                 self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
@@ -3272,7 +3242,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame_depth = frame.value_stack_depth;
                 let label = frame.label;
 
-                self.release_locations_keep_state(frame_depth)?;
+                self.release_stack_locations_keep_stack_offset(frame_depth)?;
                 self.machine.jmp_unconditional(label)?;
                 self.unreachable_depth = 1;
             }
@@ -3308,7 +3278,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
                 let stack_depth = frame.value_stack_depth;
                 let label = frame.label;
-                self.release_locations_keep_state(stack_depth)?;
+                self.release_stack_locations_keep_stack_offset(stack_depth)?;
                 self.machine.jmp_unconditional(label)?;
 
                 self.machine.emit_label(after)?;
@@ -3358,7 +3328,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
                     let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
-                    self.release_locations_keep_state(stack_depth)?;
+                    self.release_stack_locations_keep_stack_offset(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
                 }
                 self.machine.emit_label(default_br)?;
@@ -3385,7 +3355,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         [self.control_stack.len() - 1 - (default_target as usize)];
                     let stack_depth = frame.value_stack_depth;
                     let label = frame.label;
-                    self.release_locations_keep_state(stack_depth)?;
+                    self.release_stack_locations_keep_stack_offset(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
                 }
 
@@ -5130,7 +5100,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let index = self.value_stack.pop().unwrap();
 
                 // double check this does what I think it does
-                self.release_locations_only_regs(&[value, index])?;
+                self.release_reg_locations(&[value, index])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5164,13 +5134,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[index, value])?;
+                self.release_stack_locations(&[index, value])?;
             }
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let index = self.value_stack.pop().unwrap();
 
-                self.release_locations_only_regs(&[index])?;
+                self.release_reg_locations(&[index])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5200,7 +5170,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[index])?;
+                self.release_stack_locations(&[index])?;
 
                 let ret = self.acquire_location(&WpType::Ref(
                     WpRefType::new(true, WpHeapType::FUNC).unwrap(),
@@ -5253,7 +5223,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(index as _);
                 let delta = self.value_stack.pop().unwrap();
                 let init_value = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[delta, init_value])?;
+                self.release_reg_locations(&[delta, init_value])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5287,7 +5257,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[init_value, delta])?;
+                self.release_stack_locations(&[init_value, delta])?;
 
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
@@ -5304,7 +5274,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src, dest])?;
+                self.release_reg_locations(&[len, src, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5344,14 +5314,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[dest, src, len])?;
+                self.release_stack_locations(&[dest, src, len])?;
             }
 
             Operator::TableFill { table } => {
                 let len = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, val, dest])?;
+                self.release_reg_locations(&[len, val, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5379,13 +5349,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[dest, val, len])?;
+                self.release_stack_locations(&[dest, val, len])?;
             }
             Operator::TableInit { elem_index, table } => {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[len, src, dest])?;
+                self.release_reg_locations(&[len, src, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5425,7 +5395,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
 
-                self.release_locations_only_stack(&[dest, src, len])?;
+                self.release_stack_locations(&[dest, src, len])?;
             }
             Operator::ElemDrop { elem_index } => {
                 self.machine.move_location(
@@ -5454,7 +5424,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[timeout, val, dst])?;
+                self.release_reg_locations(&[timeout, val, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait32, memory_index) =
@@ -5498,7 +5468,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .cloned(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, val, timeout])?;
+                self.release_stack_locations(&[dst, val, timeout])?;
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.move_location(
@@ -5511,7 +5481,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[timeout, val, dst])?;
+                self.release_reg_locations(&[timeout, val, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait64, memory_index) =
@@ -5555,7 +5525,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .cloned(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, val, timeout])?;
+                self.release_stack_locations(&[dst, val, timeout])?;
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.move_location(
@@ -5567,7 +5537,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::MemoryAtomicNotify { ref memarg } => {
                 let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_locations_only_regs(&[cnt, dst])?;
+                self.release_reg_locations(&[cnt, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_notify, memory_index) =
@@ -5604,7 +5574,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     [WpType::I32, WpType::I32].iter().cloned(),
                     NativeCallType::IncludeVMCtxArgument,
                 )?;
-                self.release_locations_only_stack(&[dst, cnt])?;
+                self.release_stack_locations(&[dst, cnt])?;
                 let ret = self.acquire_location(&WpType::I32)?;
                 self.value_stack.push((ret, CanonicalizeType::None));
                 self.machine.move_location(
