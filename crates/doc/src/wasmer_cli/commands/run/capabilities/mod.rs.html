@@ -1,6 +1,6 @@
 <!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/cli/src/commands/run/capabilities/mod.rs`."><title>mod.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../../../static.files/rustdoc-1a91846b.css"><meta name="rustdoc-vars" data-root-path="../../../../../" data-static-root-path="../../../../../static.files/" data-current-crate="wasmer_cli" data-themes="" data-resource-suffix="" data-rustdoc-version="1.88.0 (6b00bc388 2025-06-23)" data-channel="1.88.0" data-search-js="search-f7877310.js" data-settings-js="settings-5514c975.js" ><script src="../../../../../static.files/storage-4e99c027.js"></script><script defer src="../../../../../static.files/src-script-63605ae7.js"></script><script defer src="../../../../../src-files.js"></script><script defer src="../../../../../static.files/main-7ef8a74a.js"></script><noscript><link rel="stylesheet" href="../../../../../static.files/noscript-893ab5e7.css"></noscript><link rel="icon" href="https://wasmer.io/images/icons/favicon-32x32.png"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_cli/commands/run/capabilities/</div>mod.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span><span class="kw">crate</span>::config::WasmerEnv;
 <a href=#2 id=2 data-nosnippet>2</a>
-<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">super</span>::PackageSource;
+<a href=#3 id=3 data-nosnippet>3</a><span class="kw">use </span><span class="kw">super</span>::CliPackageSource;
 <a href=#4 id=4 data-nosnippet>4</a><span class="kw">use </span>anyhow::anyhow;
 <a href=#5 id=5 data-nosnippet>5</a><span class="kw">use </span>sha2::{Digest, Sha256};
 <a href=#6 id=6 data-nosnippet>6</a><span class="kw">use </span>std::{
@@ -25,7 +25,7 @@
 <a href=#25 id=25 data-nosnippet>25</a>
 <a href=#26 id=26 data-nosnippet>26</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>get_capability_cache_path(
 <a href=#27 id=27 data-nosnippet>27</a>    env: <span class="kw-2">&amp;</span>WasmerEnv,
-<a href=#28 id=28 data-nosnippet>28</a>    input: <span class="kw-2">&amp;</span>PackageSource,
+<a href=#28 id=28 data-nosnippet>28</a>    input: <span class="kw-2">&amp;</span>CliPackageSource,
 <a href=#29 id=29 data-nosnippet>29</a>) -&gt; anyhow::Result&lt;PathBuf&gt; {
 <a href=#30 id=30 data-nosnippet>30</a>    <span class="kw">let </span>registry_name = env
 <a href=#31 id=31 data-nosnippet>31</a>        .registry_public_url()<span class="question-mark">?
@@ -36,7 +36,7 @@
 <a href=#36 id=36 data-nosnippet>36</a>    <span class="comment">// We don't have the bytes of the module yet, but we still want to have the
 <a href=#37 id=37 data-nosnippet>37</a>    // package-capabilities cache be as close to an actual identifier as possible.
 <a href=#38 id=38 data-nosnippet>38</a>    </span><span class="kw">let </span>package_cache_path = <span class="kw">match </span><span class="kw-2">&amp;</span>input {
-<a href=#39 id=39 data-nosnippet>39</a>        PackageSource::File(f) =&gt; {
+<a href=#39 id=39 data-nosnippet>39</a>        CliPackageSource::File(f) =&gt; {
 <a href=#40 id=40 data-nosnippet>40</a>            <span class="kw">let </span>full_path = f.canonicalize()<span class="question-mark">?</span>.to_path_buf();
 <a href=#41 id=41 data-nosnippet>41</a>            <span class="kw">let </span>metadata = full_path
 <a href=#42 id=42 data-nosnippet>42</a>                .parent()
@@ -61,7 +61,7 @@
 <a href=#61 id=61 data-nosnippet>61</a>
 <a href=#62 id=62 data-nosnippet>62</a>            <span class="macro">format!</span>(<span class="string">"path_{}.json"</span>, hex::encode(hash.finalize()))
 <a href=#63 id=63 data-nosnippet>63</a>        }
-<a href=#64 id=64 data-nosnippet>64</a>        PackageSource::Dir(f) =&gt; {
+<a href=#64 id=64 data-nosnippet>64</a>        CliPackageSource::Dir(f) =&gt; {
 <a href=#65 id=65 data-nosnippet>65</a>            <span class="kw">let </span>full_path = f.canonicalize()<span class="question-mark">?</span>.to_path_buf();
 <a href=#66 id=66 data-nosnippet>66</a>            <span class="kw">let </span>metadata = full_path.metadata()<span class="question-mark">?</span>.modified()<span class="question-mark">?</span>;
 <a href=#67 id=67 data-nosnippet>67</a>
@@ -82,7 +82,7 @@
 <a href=#82 id=82 data-nosnippet>82</a>
 <a href=#83 id=83 data-nosnippet>83</a>            <span class="macro">format!</span>(<span class="string">"path_{}.json"</span>, hex::encode(hash.finalize()))
 <a href=#84 id=84 data-nosnippet>84</a>        }
-<a href=#85 id=85 data-nosnippet>85</a>        PackageSource::Package(p) =&gt; <span class="kw">match </span>p {
+<a href=#85 id=85 data-nosnippet>85</a>        CliPackageSource::Package(p) =&gt; <span class="kw">match </span>p {
 <a href=#86 id=86 data-nosnippet>86</a>            PackageSpecifier::Ident(id) =&gt; <span class="kw">match </span>id {
 <a href=#87 id=87 data-nosnippet>87</a>                wasmer_config::package::PackageIdent::Named(n) =&gt; <span class="macro">format!</span>(
 <a href=#88 id=88 data-nosnippet>88</a>                    <span class="string">"ident_{}_{}"</span>,
