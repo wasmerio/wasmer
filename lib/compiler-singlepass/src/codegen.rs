@@ -279,46 +279,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
         Ok(())
     }
-    /// Releases locations used for stack value.
-    fn release_locations_value(&mut self, stack_depth: usize) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-        let locs = &self.value_stack[stack_depth..];
-
-        for (loc, _) in locs.iter().rev() {
-            match *loc {
-                Location::GPR(ref x) => {
-                    self.machine.release_gpr(*x);
-                }
-                Location::SIMD(ref x) => {
-                    self.machine.release_simd(*x);
-                }
-                Location::Memory(y, x) => {
-                    if y == self.machine.local_pointer() {
-                        if x >= 0 {
-                            codegen_error!("Invalid memory offset {}", x);
-                        }
-                        let offset = (-x) as usize;
-                        if offset != self.stack_offset.0 {
-                            codegen_error!(
-                                "Invalid memory offset {}!={}",
-                                offset,
-                                self.stack_offset.0
-                            );
-                        }
-                        self.stack_offset.0 -= 8;
-                        delta_stack_offset += 8;
-                    }
-                }
-                _ => {}
-            }
-        }
-
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.truncate_stack(delta_stack_offset as u32)?;
-        }
-        Ok(())
-    }
 
     fn release_locations_only_regs(
         &mut self,
@@ -2352,7 +2312,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let frame = &self.control_stack.last_mut().unwrap();
                 let stack_depth = frame.value_stack_depth;
-                self.release_locations_value(stack_depth)?;
+                self.release_locations_keep_state(stack_depth)?;
                 self.value_stack.truncate(stack_depth);
                 let frame = &mut self.control_stack.last_mut().unwrap();
 
