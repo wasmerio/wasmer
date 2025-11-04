@@ -315,7 +315,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
-            self.machine.extend_stack(delta_stack_offset as u32)?;
+            self.machine.truncate_stack(delta_stack_offset as u32)?;
         }
         Ok(())
     }
