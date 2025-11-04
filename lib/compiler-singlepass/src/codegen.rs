@@ -2311,9 +2311,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
 
                 let frame = &self.control_stack.last_mut().unwrap();
-                let stack_depth = frame.value_stack_depth;
-                self.release_locations_keep_state(stack_depth)?;
-                self.value_stack.truncate(stack_depth);
+                let release: Vec<_> = self.value_stack.drain(frame.value_stack_depth..).collect();
+                self.release_locations(&release)?;
                 let frame = &mut self.control_stack.last_mut().unwrap();
 
                 match frame.state {
