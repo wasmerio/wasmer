@@ -13,7 +13,7 @@ use crate::{
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use smallvec::{SmallVec, smallvec};
-use std::{cmp, iter};
+use std::{cmp, iter, ops::Neg};
 
 use wasmer_compiler::{
     FunctionBodyData,
@@ -265,6 +265,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn check_location_on_stack(
+        &self,
+        loc: &Location<M::GPR, M::SIMD>,
+        expected_stack_offset: usize,
+    ) -> Result<(), CompileError> {
+        let Location::Memory(reg, offset) = loc else {
+            codegen_error!("Expected stack memory location");
+        };
+        if reg != &self.machine.local_pointer() {
+            codegen_error!("Expected location pointer for value on stack");
+        }
+        if *offset >= 0 {
+            codegen_error!("Invalid memory offset {offset}");
+        }
+        let offset = offset.neg() as usize;
+        if offset != expected_stack_offset {
+            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset.0);
+        }
+        Ok(())
+    }
+
     fn release_stack_locations(
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
@@ -272,16 +293,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let mut delta_stack_offset: usize = 0;
 
         for (loc, _) in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc
-                && y == self.machine.local_pointer()
-            {
-                if x >= 0 {
-                    codegen_error!("Invalid memory offset {}", x);
-                }
-                let offset = (-x) as usize;
-                if offset != self.stack_offset.0 {
-                    codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                }
+            if let Location::Memory(..) = *loc {
+                self.check_location_on_stack(loc, self.stack_offset.0)?;
                 self.stack_offset.0 -= 8;
                 delta_stack_offset += 8;
             }
@@ -303,16 +316,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let locs = &self.value_stack[stack_depth..];
 
         for (loc, _) in locs.iter().rev() {
-            if let Location::Memory(y, x) = *loc
-                && y == self.machine.local_pointer()
-            {
-                if x >= 0 {
-                    codegen_error!("Invalid memory offset {}", x);
-                }
-                let offset = (-x) as usize;
-                if offset != stack_offset {
-                    codegen_error!("Invalid memory offset {}!={}", offset, self.stack_offset.0);
-                }
+            if let Location::Memory(..) = *loc {
+                self.check_location_on_stack(loc, stack_offset)?;
                 stack_offset -= 8;
                 delta_stack_offset += 8;
             }
