@@ -198,10 +198,6 @@ enum NativeCallType {
 }
 
 impl<'a, M: Machine> FuncGen<'a, M> {
-    fn get_stack_offset(&self) -> usize {
-        self.stack_offset.0
-    }
-
     /// Acquires location from the machine state.
     ///
     /// If the returned location is used for stack value, `release_location` needs to be called on it;
@@ -589,8 +585,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Align stack to 16 bytes.
         let stack_unaligned =
-            (self.machine.round_stack_adjust(self.get_stack_offset()) + used_stack + stack_offset)
-                % 16;
+            (self.machine.round_stack_adjust(self.stack_offset.0) + used_stack + stack_offset) % 16;
         if stack_unaligned != 0 {
             stack_offset += 16 - stack_unaligned;
         }
