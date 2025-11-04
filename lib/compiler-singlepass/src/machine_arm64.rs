@@ -1459,7 +1459,7 @@ impl Machine for MachineARM64 {
         } else {
             (used_neons.len() * 8) as u32
         };
-        self.adjust_stack(stack_adjust)?;
+        self.extend_stack(stack_adjust)?;
 
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_str(
@@ -1553,11 +1553,7 @@ impl Machine for MachineARM64 {
 
     // Return a rounded stack adjustement value (must be multiple of 16bytes on ARM64 for example)
     fn round_stack_adjust(&self, value: usize) -> usize {
-        if value & 0xf != 0 {
-            ((value >> 4) + 1) << 4
-        } else {
-            value
-        }
+        value.next_multiple_of(16)
     }
 
     // Memory location for a local on the stack
@@ -1565,8 +1561,7 @@ impl Machine for MachineARM64 {
         Location::Memory(GPR::X29, -stack_offset)
     }
 
-    // Adjust stack for locals
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if self.compatible_imm(delta_stack_offset as _, ImmType::Bits12) {
             Location::Imm32(delta_stack_offset as _)
         } else {
@@ -1582,8 +1577,8 @@ impl Machine for MachineARM64 {
             Location::GPR(GPR::XzrSp),
         )
     }
-    // restore stack
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if self.compatible_imm(delta_stack_offset as _, ImmType::Bits12) {
             Location::Imm32(delta_stack_offset as _)
         } else {
@@ -1599,27 +1594,7 @@ impl Machine for MachineARM64 {
             Location::GPR(GPR::XzrSp),
         )
     }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        let real_delta = if delta_stack_offset & 15 != 0 {
-            delta_stack_offset + 8
-        } else {
-            delta_stack_offset
-        };
-        let delta = if self.compatible_imm(real_delta as i64, ImmType::Bits12) {
-            Location::Imm32(real_delta as _)
-        } else {
-            let tmp = GPR::X17;
-            self.assembler
-                .emit_mov_imm(Location::GPR(tmp), real_delta as u64)?;
-            Location::GPR(tmp)
-        };
-        self.assembler.emit_add(
-            Size::S64,
-            Location::GPR(GPR::XzrSp),
-            delta,
-            Location::GPR(GPR::XzrSp),
-        )
-    }
+
     // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,

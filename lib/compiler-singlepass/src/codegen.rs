@@ -233,7 +233,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
-            self.machine.adjust_stack(delta_stack_offset as u32)?;
+            self.machine.extend_stack(delta_stack_offset as u32)?;
         }
         Ok(loc)
     }
@@ -275,7 +275,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
-            self.machine.restore_stack(delta_stack_offset as u32)?;
+            self.machine.truncate_stack(delta_stack_offset as u32)?;
         }
         Ok(())
     }
@@ -315,7 +315,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
-            self.machine.adjust_stack(delta_stack_offset as u32)?;
+            self.machine.extend_stack(delta_stack_offset as u32)?;
         }
         Ok(())
     }
@@ -362,7 +362,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
-            self.machine.pop_stack_locals(delta_stack_offset as u32)?;
+            self.machine.truncate_stack(delta_stack_offset as u32)?;
         }
         Ok(())
     }
@@ -390,7 +390,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
-            self.machine.pop_stack_locals(delta_stack_offset as u32)?;
+            self.machine.truncate_stack(delta_stack_offset as u32)?;
         }
         Ok(())
     }
@@ -451,7 +451,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.zero_location(Size::S64, locations[i])?;
         }
 
-        self.machine.adjust_stack(static_area_size as _)?;
+        self.machine.extend_stack(static_area_size as _)?;
 
         // Save callee-saved registers.
         for loc in locations.iter() {
@@ -659,7 +659,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         if stack_unaligned != 0 {
             stack_offset += 16 - stack_unaligned;
         }
-        self.machine.adjust_stack(stack_offset as u32)?;
+        self.machine.extend_stack(stack_offset as u32)?;
 
         #[allow(clippy::type_complexity)]
         let mut call_movs: Vec<(Location<M::GPR, M::SIMD>, M::GPR)> = vec![];
@@ -704,7 +704,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         if stack_padding > 0 {
-            self.machine.adjust_stack(stack_padding as u32)?;
+            self.machine.extend_stack(stack_padding as u32)?;
         }
         // release the GPR used for call
         self.machine.release_gpr(self.machine.get_grp_for_call());
@@ -722,7 +722,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
-            self.machine.restore_stack(
+            self.machine.truncate_stack(
                 self.machine
                     .round_stack_adjust(stack_offset + stack_padding) as u32,
             )?;
@@ -803,7 +803,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         )?;
 
         // simulate "red zone" if not supported by the platform
-        self.machine.adjust_stack(32)?;
+        self.machine.extend_stack(32)?;
 
         self.control_stack.push(ControlFrame {
             state: ControlState::Function,
