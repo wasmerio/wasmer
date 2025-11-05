@@ -34,7 +34,7 @@ fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileErro
         .skip(1)
         .filter(|line| line.trim() != "...")
         .map(|line| -> Result<DecodedInsn<'_>, CompileError> {
-            let (offset, insn_part) = line.split_once(":").ok_or(CompileError::Codegen(
+            let (offset, insn_part) = line.split_once(':').ok_or(CompileError::Codegen(
                 format!("cannot parse objdump line: '{line}'"),
             ))?;
             // instruction content can be empty
