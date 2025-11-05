@@ -66,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // Let's build the target.
     let target = Target::new(triple, cpu_feature);
-    println!("Chosen target: {:?}", target);
+    println!("Chosen target: {target:?}");
 
     // Define the engine that will drive everything.
     //

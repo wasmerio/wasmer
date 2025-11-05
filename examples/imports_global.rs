@@ -68,9 +68,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let some_result = get_some.call(&mut store)?;
     let other_result = get_other.call(&mut store)?;
 
-    println!("some value (via `get_some`): {:?}", some_result);
+    println!("some value (via `get_some`): {some_result:?}");
     println!("some value (via Global API): {:?}", some.get(&mut store));
-    println!("other value (via `get_other`): {:?}", other_result);
+    println!("other value (via `get_other`): {other_result:?}");
     println!("other value (via Global API): {:?}", other.get(&mut store));
 
     assert_eq!(some_result, some.get(&mut store).f32().unwrap());
@@ -84,7 +84,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     other.set(&mut store, Value::F32(21.0))?;
     let other_result = other.get(&mut store);
-    println!("other value after `set`: {:?}", other_result);
+    println!("other value after `set`: {other_result:?}");
     assert_eq!(other_result, Value::F32(21.0));
 
     println!("Altering global values through exported functions...");

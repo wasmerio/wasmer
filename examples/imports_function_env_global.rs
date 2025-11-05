@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .typed(&store)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
-    println!("Initial ounter value: {:?}", counter_value);
+    println!("Initial ounter value: {counter_value:?}");
 
     println!("Calling `increment_counter_loop` function...");
     // Let's call the `increment_counter_loop` exported function.
@@ -134,14 +134,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let result = increment_counter_loop.call(&mut store, 5)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
-    println!("New counter value (host): {:?}", counter_value);
+    println!("New counter value (host): {counter_value:?}");
     assert_eq!(counter_value, 5);
 
-    println!("New counter value (guest): {:?}", result);
+    println!("New counter value (guest): {result:?}");
     assert_eq!(result, 5);
 
     let global_counter = g_counter.get(&mut store);
-    println!("New global counter value: {:?}", global_counter);
+    println!("New global counter value: {global_counter:?}");
     assert_eq!(global_counter.unwrap_i32(), 10);
 
     Ok(())

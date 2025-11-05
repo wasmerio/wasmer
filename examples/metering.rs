@@ -108,8 +108,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     println!(
-        "Remaining points after the first call: {:?}",
-        remaining_points_after_first_call
+        "Remaining points after the first call: {remaining_points_after_first_call:?}"
     );
 
     println!("Calling `add_one` function twice...");
@@ -124,8 +123,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     println!(
-        "Remaining points after the second call: {:?}",
-        remaining_points_after_second_call
+        "Remaining points after the second call: {remaining_points_after_second_call:?}"
     );
 
     // Because calling our `add_one` function consumes 4 points,
@@ -159,7 +157,7 @@ fn main() -> anyhow::Result<()> {
     let remaining_points = get_remaining_points(&mut store, &instance);
     assert_eq!(remaining_points, MeteringPoints::Remaining(new_limit));
 
-    println!("Remaining points: {:?}", remaining_points);
+    println!("Remaining points: {remaining_points:?}");
 
     Ok(())
 }

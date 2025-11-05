@@ -40,7 +40,7 @@ fn main() -> anyhow::Result<()> {
     );
 
     let result = memory.grow(&mut store, 1);
-    println!("Attempt to exceed max: {:?}", result);
+    println!("Attempt to exceed max: {result:?}");
 
     Ok(())
 }
