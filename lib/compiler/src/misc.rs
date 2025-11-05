@@ -2,8 +2,8 @@
 
 use wasmer_types::Type;
 
-/// Converts a kind into a filename, that we will use to dump
-/// the contents of the IR object file to.
+/// Converts a slice of WebAssembly types into a compact signature string (e.g., "iI" for [i32, i64]).
+/// This signature string can be used as part of a filename or for other identification purposes.
 pub fn types_to_signature(types: &[Type]) -> String {
     types
         .iter()
