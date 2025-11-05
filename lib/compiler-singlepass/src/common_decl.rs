@@ -40,7 +40,7 @@ fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileErro
             // instruction content can be empty
             let insn = insn_part
                 .trim()
-                .split_once("\t")
+                .split_once('\t')
                 .map_or("", |(_data, insn)| insn)
                 .trim();
             Ok(DecodedInsn {
