@@ -568,10 +568,7 @@ impl RuntimeOptions {
                         let mem_buf_slice = memory_buffer.as_slice();
                         let mut file = File::create(path)
                             .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
+                        file.write_all(mem_buf_slice).unwrap();
                     }
                     fn asm_memory_buffer(
                         &self,
@@ -583,10 +580,7 @@ impl RuntimeOptions {
                         let mem_buf_slice = asm_memory_buffer.as_slice();
                         let mut file = File::create(path)
                             .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
+                        file.write_all(mem_buf_slice).unwrap();
                     }
                 }
 
@@ -796,10 +790,7 @@ impl BackendType {
                         let mem_buf_slice = memory_buffer.as_slice();
                         let mut file = File::create(path)
                             .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
+                        file.write_all(mem_buf_slice).unwrap();
                     }
                     fn asm_memory_buffer(
                         &self,
@@ -811,10 +802,7 @@ impl BackendType {
                         let mem_buf_slice = asm_memory_buffer.as_slice();
                         let mut file = File::create(path)
                             .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
+                        file.write_all(mem_buf_slice).unwrap();
                     }
                 }
 
