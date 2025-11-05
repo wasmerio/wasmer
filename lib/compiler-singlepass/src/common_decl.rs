@@ -76,7 +76,7 @@ pub(crate) fn save_assembly_to_file(
     let objdump_arch = "riscv:rv64";
 
     if which("objdump").is_err() {
-        codegen_error!("objdump not installed");
+        codegen_error!("objdump not found in PATH. Please install binutils to use assembly debugging features.");
     }
 
     let command = Command::new("objdump")
