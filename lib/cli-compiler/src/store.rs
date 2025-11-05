@@ -4,7 +4,6 @@
 use crate::common::WasmFeatures;
 use anyhow::Result;
 use clap::Parser;
-#[cfg(doc)]
 use std::path::PathBuf;
 #[allow(unused_imports)]
 use std::sync::Arc;
@@ -118,12 +117,12 @@ pub struct CompilerOptions {
     /// LLVM debug directory, where IR and object files will be written to.
     #[allow(unused)]
     #[cfg(feature = "llvm")]
-    #[cfg_attr(feature = "llvm", clap(long, parse(from_os_str)))]
+    #[cfg_attr(feature = "llvm", clap(long))]
     llvm_debug_dir: Option<PathBuf>,
 
     #[allow(unused)]
     #[cfg(feature = "singlepass")]
-    #[cfg_attr(feature = "singlepass", clap(long, parse(from_os_str)))]
+    #[cfg_attr(feature = "singlepass", clap(long))]
     singlepass_debug_dir: Option<PathBuf>,
 
     #[clap(flatten)]
