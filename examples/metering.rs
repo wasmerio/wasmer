@@ -107,9 +107,7 @@ fn main() -> anyhow::Result<()> {
         MeteringPoints::Remaining(6)
     );
 
-    println!(
-        "Remaining points after the first call: {remaining_points_after_first_call:?}"
-    );
+    println!("Remaining points after the first call: {remaining_points_after_first_call:?}");
 
     println!("Calling `add_one` function twice...");
     add_one.call(&mut store, 1)?;
@@ -122,9 +120,7 @@ fn main() -> anyhow::Result<()> {
         MeteringPoints::Remaining(2)
     );
 
-    println!(
-        "Remaining points after the second call: {remaining_points_after_second_call:?}"
-    );
+    println!("Remaining points after the second call: {remaining_points_after_second_call:?}");
 
     // Because calling our `add_one` function consumes 4 points,
     // calling it a third time will fail: we already consume 8
