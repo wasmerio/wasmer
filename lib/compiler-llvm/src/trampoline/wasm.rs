@@ -71,7 +71,7 @@ impl FuncTrampoline {
         config: &LLVM,
         name: &str,
         compile_info: &CompileModuleInfo,
-    ) -> Result<Module, CompileError> {
+    ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -247,7 +247,7 @@ impl FuncTrampoline {
         ty: &FuncType,
         config: &LLVM,
         name: &str,
-    ) -> Result<Module, CompileError> {
+    ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");

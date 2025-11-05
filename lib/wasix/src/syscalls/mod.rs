@@ -31,6 +31,7 @@ use futures::{
     future::{BoxFuture, LocalBoxFuture},
 };
 use tracing::instrument;
+use virtual_mio::block_on;
 pub use wasi::*;
 pub use wasix::*;
 use wasmer_journal::SnapshotTrigger;
@@ -120,7 +121,6 @@ use crate::{
         process::{MaybeCheckpointResult, WasiProcessCheckpoint},
         thread::{RewindResult, RewindResultType},
     },
-    runtime::task_manager::block_on,
     utils::store::StoreSnapshot,
 };
 pub(crate) use crate::{

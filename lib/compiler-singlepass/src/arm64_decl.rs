@@ -1,9 +1,6 @@
 //! ARM64 structures.
 
-use crate::{
-    common_decl::{MachineState, MachineValue, RegisterIndex},
-    location::{CombinedRegister, Reg as AbstractReg},
-};
+use crate::location::{CombinedRegister, Reg as AbstractReg};
 use std::slice::Iter;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::{CompileError, Type};
@@ -328,13 +325,6 @@ pub enum ARM64Register {
 }
 
 impl CombinedRegister for ARM64Register {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex {
-        match *self {
-            ARM64Register::GPR(x) => RegisterIndex(x as usize),
-            ARM64Register::NEON(x) => RegisterIndex(x as usize + 64),
-        }
-    }
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self {
         ARM64Register::GPR(GPR::from_index(x as usize).unwrap())
@@ -415,15 +405,5 @@ impl ArgumentRegisterAllocator {
         };
 
         Ok(ret)
-    }
-}
-
-/// Create a new `MachineState` with default values.
-pub fn new_machine_state() -> MachineState {
-    MachineState {
-        stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 32 + 32],
-        wasm_stack: vec![],
-        wasm_inst_offset: usize::MAX,
     }
 }

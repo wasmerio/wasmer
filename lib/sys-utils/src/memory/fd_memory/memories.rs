@@ -63,13 +63,13 @@ impl WasmMmap {
             })?;
         let prev_pages = self.size;
 
-        if let Some(maximum) = conf.maximum {
-            if new_pages > maximum {
-                return Err(MemoryError::CouldNotGrow {
-                    current: self.size,
-                    attempted_delta: delta,
-                });
-            }
+        if let Some(maximum) = conf.maximum
+            && new_pages > maximum
+        {
+            return Err(MemoryError::CouldNotGrow {
+                current: self.size,
+                attempted_delta: delta,
+            });
         }
 
         // Wasm linear memories are never allowed to grow beyond what is
@@ -488,15 +488,29 @@ impl LinearMemory for VMSharedMemory {
         Ok(Box::new(forked))
     }
 
-    fn do_wait(
+    unsafe fn do_wait(
         &mut self,
-        dst: wasmer_vm::NotifyLocation,
+        dst: u32,
+        expected: wasmer_vm::ExpectedValue,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, WaiterError> {
-        self.conditions.do_wait(dst, timeout)
+        unsafe {
+            let dst = wasmer_vm::NotifyLocation {
+                address: dst,
+                memory_base: self
+                    .mmap
+                    .read()
+                    .unwrap()
+                    .vm_memory_definition
+                    .as_ptr()
+                    .as_ref()
+                    .base,
+            };
+            self.conditions.do_wait(dst, expected, timeout)
+        }
     }
 
-    fn do_notify(&mut self, dst: wasmer_vm::NotifyLocation, count: u32) -> u32 {
+    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
     }
 }

@@ -53,7 +53,7 @@ where
         //   `AllBytesValid` supertrait of `Endian`.
         unsafe {
             assert_eq!(mem::align_of::<Le<T>>(), 1);
-            assert!(bytes.len() % mem::size_of::<Le<T>>() == 0);
+            assert!(bytes.len().is_multiple_of(mem::size_of::<Le<T>>()));
             fn all_bytes_valid<T: AllBytesValid>() {}
             all_bytes_valid::<Le<T>>();
 
@@ -71,7 +71,7 @@ where
         // maintain the guarantee of uniqueness.
         unsafe {
             assert_eq!(mem::align_of::<Le<T>>(), 1);
-            assert!(bytes.len() % mem::size_of::<Le<T>>() == 0);
+            assert!(bytes.len().is_multiple_of(mem::size_of::<Le<T>>()));
             slice::from_raw_parts_mut(
                 bytes.as_mut_ptr().cast::<Le<T>>(),
                 bytes.len() / mem::size_of::<Le<T>>(),

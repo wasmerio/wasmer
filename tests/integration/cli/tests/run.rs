@@ -1259,7 +1259,7 @@ fn read_line(reader: &mut dyn Read) -> Result<String, std::io::Error> {
         }
     }
 
-    let line = String::from_utf8(line).map_err(|e| std::io::Error::new(ErrorKind::Other, e))?;
+    let line = String::from_utf8(line).map_err(std::io::Error::other)?;
     Ok(line)
 }
 

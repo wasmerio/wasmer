@@ -8,7 +8,7 @@
 
 mod allocator;
 
-use crate::export::VMExtern;
+use crate::LinearMemory;
 use crate::imports::Imports;
 use crate::store::{InternalStoreHandle, StoreObjects};
 use crate::table::TableElement;
@@ -20,8 +20,8 @@ use crate::vmcontext::{
     VMTrampoline, memory_copy, memory_fill, memory32_atomic_check32, memory32_atomic_check64,
 };
 use crate::{FunctionBodyPtr, MaybeInstanceOwned, TrapHandlerFn, VMTag, wasmer_call_trampoline};
-use crate::{LinearMemory, NotifyLocation};
 use crate::{VMConfig, VMFuncRef, VMFunction, VMGlobal, VMMemory, VMTable};
+use crate::{export::VMExtern, threadconditions::ExpectedValue};
 pub use allocator::InstanceAllocator;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
@@ -828,23 +828,26 @@ impl Instance {
         }
     }
 
-    fn memory_wait(memory: &mut VMMemory, dst: u32, timeout: i64) -> Result<u32, Trap> {
-        eprintln!("memory_wait called with dst={} timeout={}", dst, timeout);
-        let location = NotifyLocation { address: dst };
+    /// # Safety
+    /// See [`LinearMemory::do_wait`].
+    unsafe fn memory_wait(
+        memory: &mut VMMemory,
+        dst: u32,
+        expected: ExpectedValue,
+        timeout: i64,
+    ) -> Result<u32, Trap> {
         let timeout = if timeout < 0 {
             None
         } else {
             Some(std::time::Duration::from_nanos(timeout as u64))
         };
-        let res = match memory.do_wait(location, timeout) {
+        match unsafe { memory.do_wait(dst, expected, timeout) } {
             Ok(count) => Ok(count),
             Err(_err) => {
                 // ret is None if there is more than 2^32 waiter in queue or some other error
                 Err(Trap::lib(TrapCode::TableAccessOutOfBounds))
             }
-        };
-        eprintln!("memory_wait returning {:?}", res);
-        res
+        }
     }
 
     /// Perform an Atomic.Wait32
@@ -860,12 +863,14 @@ impl Instance {
         // We should trap according to spec, but official test rely on not trapping...
         //}
 
+        // Do a fast-path check of the expected value, and also ensure proper alignment
         let ret = unsafe { memory32_atomic_check32(&memory, dst, val) };
 
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = Self::memory_wait(memory, dst, timeout)?;
+                // Safety: we have already checked alignment and bounds in memory32_atomic_check32
+                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U32(val), timeout)? };
             }
             Ok(ret)
         } else {
@@ -887,11 +892,14 @@ impl Instance {
         // We should trap according to spec, but official test rely on not trapping...
         //}
 
+        // Do a fast-path check of the expected value, and also ensure proper alignment
         let ret = unsafe { memory32_atomic_check32(memory, dst, val) };
+
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = Self::memory_wait(memory, dst, timeout)?;
+                // Safety: we have already checked alignment and bounds in memory32_atomic_check32
+                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U32(val), timeout)? };
             }
             Ok(ret)
         } else {
@@ -912,12 +920,14 @@ impl Instance {
         // We should trap according to spec, but official test rely on not trapping...
         //}
 
+        // Do a fast-path check of the expected value, and also ensure proper alignment
         let ret = unsafe { memory32_atomic_check64(&memory, dst, val) };
 
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_local_vmmemory_mut(memory_index);
-                ret = Self::memory_wait(memory, dst, timeout)?;
+                // Safety: we have already checked alignment and bounds in memory32_atomic_check64
+                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U64(val), timeout)? };
             }
             Ok(ret)
         } else {
@@ -939,12 +949,14 @@ impl Instance {
         // We should trap according to spec, but official test rely on not trapping...
         //}
 
+        // Do a fast-path check of the expected value, and also ensure proper alignment
         let ret = unsafe { memory32_atomic_check64(memory, dst, val) };
 
         if let Ok(mut ret) = ret {
             if ret == 0 {
                 let memory = self.get_vmmemory_mut(memory_index);
-                ret = Self::memory_wait(memory, dst, timeout)?;
+                // Safety: we have already checked alignment and bounds in memory32_atomic_check64
+                ret = unsafe { Self::memory_wait(memory, dst, ExpectedValue::U64(val), timeout)? };
             }
             Ok(ret)
         } else {
@@ -960,15 +972,7 @@ impl Instance {
         count: u32,
     ) -> Result<u32, Trap> {
         let memory = self.get_local_vmmemory_mut(memory_index);
-        // fetch the notifier
-        let location = NotifyLocation { address: dst };
-        eprintln!(
-            "local_memory_notify called with memory_index={} dst={} count={}",
-            memory_index.index(),
-            dst,
-            count
-        );
-        Ok(memory.do_notify(location, count))
+        Ok(memory.do_notify(dst, count))
     }
 
     /// Perform an Atomic.Notify
@@ -979,15 +983,7 @@ impl Instance {
         count: u32,
     ) -> Result<u32, Trap> {
         let memory = self.get_vmmemory_mut(memory_index);
-        // fetch the notifier
-        let location = NotifyLocation { address: dst };
-        eprintln!(
-            "imported_memory_notify called with memory_index={} dst={} count={}",
-            memory_index.index(),
-            dst,
-            count
-        );
-        Ok(memory.do_notify(location, count))
+        Ok(memory.do_notify(dst, count))
     }
 }
 

@@ -32,6 +32,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 use std::ffi::OsString;
+use std::io::IsTerminal as _;
 use tokio::task::JoinHandle;
 
 #[cfg(target_os = "linux")]
@@ -75,7 +76,7 @@ pub(crate) trait AsyncCliCommand: Send + Sync {
         &self,
         done: tokio::sync::oneshot::Receiver<()>,
     ) -> Option<JoinHandle<anyhow::Result<()>>> {
-        if is_terminal::IsTerminal::is_terminal(&std::io::stdin()) {
+        if std::io::stdin().is_terminal() {
             return Some(tokio::task::spawn(async move {
                 tokio::select! {
                     _ = done => {}
@@ -309,16 +310,14 @@ impl WasmerCmd {
                         | clap::error::ErrorKind::UnknownArgument
                 ) && !first_arg_is_subcommand;
 
-                if might_be_wasmer_run {
-                    if let Ok(run) = Run::try_parse_from(args_vec.iter()) {
-                        // Try to parse the command using the `wasmer some/package`
-                        // shorthand. Note that this has discoverability issues
-                        // because it's not shown as part of the main argument
-                        // parser's help, but that's fine.
-                        let output = crate::logging::Output::default();
-                        output.initialize_logging();
-                        run.execute(output);
-                    }
+                if might_be_wasmer_run && let Ok(run) = Run::try_parse_from(args_vec.iter()) {
+                    // Try to parse the command using the `wasmer some/package`
+                    // shorthand. Note that this has discoverability issues
+                    // because it's not shown as part of the main argument
+                    // parser's help, but that's fine.
+                    let output = crate::logging::Output::default();
+                    output.initialize_logging();
+                    run.execute(output);
                 }
 
                 e.exit();

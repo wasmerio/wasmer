@@ -14,7 +14,7 @@ use bytesize::ByteSize;
 use colored::Colorize;
 use dialoguer::{Confirm, theme::ColorfulTheme};
 use indexmap::IndexMap;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::io::Write;
 use std::{path::Path, path::PathBuf, str::FromStr, time::Duration};
 use wasmer_backend_api::{

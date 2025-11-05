@@ -3,8 +3,8 @@ pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
 
+use self::module_cache::CacheError;
 pub use self::task_manager::{SpawnType, VirtualTaskManager};
-use self::{module_cache::CacheError, task_manager::block_on};
 use module_cache::HashedModuleData;
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations;
@@ -16,6 +16,7 @@ use std::{
 };
 
 use futures::future::BoxFuture;
+use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::{CompileError, Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;

@@ -21,6 +21,7 @@ use virtual_fs::{
     ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
     PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 };
+use virtual_mio::block_on;
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_config::package::PackageSource;
@@ -33,7 +34,6 @@ use crate::{
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runners::wasi::{PackageOrHash, RuntimeOrEngine},
-    runtime::task_manager::block_on,
 };
 
 #[derive(Debug)]

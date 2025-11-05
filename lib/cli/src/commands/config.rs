@@ -272,14 +272,13 @@ impl GetOrSet {
                     StorableConfigField::RegistryUrl(s) => {
                         config.registry.set_current_registry(&s.url).await;
                         let current_registry = config.registry.get_current_registry();
-                        if let Ok(client) = env.client() {
-                            if let Some(u) =
+                        if let Ok(client) = env.client()
+                            && let Some(u) =
                                 wasmer_backend_api::query::current_user(&client).await?
-                            {
-                                println!(
-                                    "Successfully logged into registry {current_registry:?} as user {u:?}"
-                                );
-                            }
+                        {
+                            println!(
+                                "Successfully logged into registry {current_registry:?} as user {u:?}"
+                            );
                         }
                     }
                     StorableConfigField::RegistryToken(t) => {

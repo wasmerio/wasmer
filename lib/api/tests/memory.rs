@@ -3,8 +3,6 @@ use std::sync::{
     atomic::{AtomicBool, Ordering},
 };
 use wasmer::{Instance, Memory, MemoryLocation, MemoryType, Module, Store, imports};
-#[cfg(feature = "sys")]
-use wasmer::{MemoryAccessError, WasmSlice};
 
 #[test]
 #[cfg_attr(feature = "wamr", ignore = "wamr ignores import memories")]

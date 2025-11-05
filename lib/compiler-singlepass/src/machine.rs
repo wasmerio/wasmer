@@ -74,10 +74,6 @@ pub trait Machine {
     type SIMD: Copy + Eq + Debug + Reg;
     /// Get current assembler offset
     fn assembler_get_offset(&self) -> Offset;
-    /// Convert from a GPR register to index register
-    fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex;
-    /// Convert from an SIMD register
-    fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex;
     /// Get the GPR that hold vmctx
     fn get_vmctx_reg(&self) -> Self::GPR;
     /// Picks an unused general purpose register for local/stack/argument use.
@@ -241,8 +237,6 @@ pub trait Machine {
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState;
 
     /// Finalize the assembler
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError>;

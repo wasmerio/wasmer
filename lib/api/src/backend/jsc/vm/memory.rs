@@ -50,7 +50,7 @@ impl VMMemory {
         let dst_size = dst.data_size() as usize;
 
         src.copy_to_memory(amount as u64, &dst).map_err(|err| {
-            wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
+            wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {err}"))
         })?;
 
         trace!("memory copy finished (size={})", dst.size().bytes().0);

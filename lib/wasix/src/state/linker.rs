@@ -1026,14 +1026,14 @@ impl Linker {
 
         let stack_low = {
             let data_end = dylink_section.mem_info.memory_size as u64;
-            if data_end % 1024 != 0 {
+            if !data_end.is_multiple_of(1024) {
                 data_end + 1024 - (data_end % 1024)
             } else {
                 data_end
             }
         };
 
-        if stack_size % 1024 != 0 {
+        if !stack_size.is_multiple_of(1024) {
             panic!("Stack size must be 1024-bit aligned");
         }
 
@@ -1212,17 +1212,26 @@ impl Linker {
             )
             .map_err(LinkError::MainModuleHandleInitFailed)?;
 
-        // The main module isn't added to the link state's list of new modules, so we need to
-        // call its initialization functions separately
-        trace!("Calling data relocator function for main module");
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
-        call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
-
         {
-            let group_guard = linker.instance_group_state.lock().unwrap();
+            trace!(?link_state, "Finalizing linking of main module");
+
+            let mut group_guard = linker.instance_group_state.lock().unwrap();
             let mut linker_state = linker.linker_state.write().unwrap();
-            trace!("Finalizing linking of main module");
-            linker.finalize_link_operation(group_guard, &mut linker_state, store, link_state)?;
+
+            let group_state = group_guard.as_mut().unwrap();
+            group_state.finalize_pending_globals(
+                &mut linker_state,
+                store,
+                &link_state.unresolved_globals,
+            )?;
+
+            // The main module isn't added to the link state's list of new modules, so we need to
+            // call its initialization functions separately
+            trace!("Calling data relocator function for main module");
+            call_initialization_function::<()>(&main_instance, store, "__wasm_apply_data_relocs")?;
+            call_initialization_function::<()>(&main_instance, store, "__wasm_apply_tls_relocs")?;
+
+            linker.initialize_new_modules(group_guard, store, link_state)?;
         }
 
         trace!("Calling main module's _initialize function");
@@ -1672,6 +1681,18 @@ impl Linker {
             &link_state.unresolved_globals,
         )?;
 
+        self.initialize_new_modules(group_state_guard, store, link_state)
+    }
+
+    fn initialize_new_modules(
+        &self,
+        // Take ownership of the guard and drop it ourselves to ensure no deadlock can happen
+        mut group_state_guard: MutexGuard<'_, Option<InstanceGroupState>>,
+        store: &mut impl AsStoreMut,
+        link_state: InProgressLinkState,
+    ) -> Result<(), LinkError> {
+        let group_state = group_state_guard.as_mut().unwrap();
+
         let new_instances = link_state
             .new_modules
             .iter()
@@ -1723,37 +1744,37 @@ impl Linker {
 
         lock_instance_group_state!(guard, group_state, self, ResolveError::InstanceGroupIsDead);
 
-        if let Ok(linker_state) = self.linker_state.try_read() {
-            if let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key) {
-                trace!(?resolution, "Already have a resolution for this symbol");
-                match resolution {
-                    SymbolResolutionResult::FunctionPointer {
-                        function_table_index: addr,
-                        ..
-                    } => {
-                        return Ok(ResolvedExport::Function {
-                            func_ptr: *addr as u64,
-                        });
-                    }
-                    SymbolResolutionResult::Memory(addr) => {
-                        return Ok(ResolvedExport::Global { data_ptr: *addr });
-                    }
-                    SymbolResolutionResult::Tls {
-                        resolved_from,
-                        offset,
-                    } => {
-                        let Some(tls_base) = group_state.tls_base(*resolved_from) else {
-                            return Err(ResolveError::TlsSymbolWithoutTls);
-                        };
-                        return Ok(ResolvedExport::Global {
-                            data_ptr: tls_base + offset,
-                        });
-                    }
-                    r => panic!(
-                        "Internal error: unexpected symbol resolution \
-                        {r:?} for requested symbol {symbol}"
-                    ),
+        if let Ok(linker_state) = self.linker_state.try_read()
+            && let Some(resolution) = linker_state.symbol_resolution_records.get(&resolution_key)
+        {
+            trace!(?resolution, "Already have a resolution for this symbol");
+            match resolution {
+                SymbolResolutionResult::FunctionPointer {
+                    function_table_index: addr,
+                    ..
+                } => {
+                    return Ok(ResolvedExport::Function {
+                        func_ptr: *addr as u64,
+                    });
                 }
+                SymbolResolutionResult::Memory(addr) => {
+                    return Ok(ResolvedExport::Global { data_ptr: *addr });
+                }
+                SymbolResolutionResult::Tls {
+                    resolved_from,
+                    offset,
+                } => {
+                    let Some(tls_base) = group_state.tls_base(*resolved_from) else {
+                        return Err(ResolveError::TlsSymbolWithoutTls);
+                    };
+                    return Ok(ResolvedExport::Global {
+                        data_ptr: tls_base + offset,
+                    });
+                }
+                r => panic!(
+                    "Internal error: unexpected symbol resolution \
+                        {r:?} for requested symbol {symbol}"
+                ),
             }
         }
 
@@ -2437,7 +2458,7 @@ impl InstanceGroupState {
             let current_size = self.indirect_function_table.size(store);
             let alignment = 2_u32.pow(table_alignment);
 
-            let offset = if current_size % alignment != 0 {
+            let offset = if !current_size.is_multiple_of(alignment) {
                 alignment - (current_size % alignment)
             } else {
                 0
@@ -2863,19 +2884,13 @@ impl InstanceGroupState {
         linker_state: &LinkerState,
     ) -> Result<(), LinkError> {
         for (key, val) in &linker_state.symbol_resolution_records {
-            if let SymbolResolutionKey::Requested { name, .. } = key {
-                if let SymbolResolutionResult::FunctionPointer {
+            if let SymbolResolutionKey::Requested { name, .. } = key
+                && let SymbolResolutionResult::FunctionPointer {
                     resolved_from,
                     function_table_index,
                 } = val
-                {
-                    self.apply_resolved_function(
-                        store,
-                        name,
-                        *resolved_from,
-                        *function_table_index,
-                    )?;
-                }
+            {
+                self.apply_resolved_function(store, name, *resolved_from, *function_table_index)?;
             }
         }
         Ok(())

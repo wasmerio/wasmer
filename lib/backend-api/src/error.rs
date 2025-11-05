@@ -11,11 +11,11 @@ impl GraphQLApiFailure {
         errors: Option<Vec<cynic::GraphQlError>>,
     ) -> anyhow::Error {
         let msg = msg.into();
-        if let Some(errs) = errors {
-            if !errs.is_empty() {
-                let err = GraphQLApiFailure { errors: errs };
-                return anyhow::Error::new(err).context(msg);
-            }
+        if let Some(errs) = errors
+            && !errs.is_empty()
+        {
+            let err = GraphQLApiFailure { errors: errs };
+            return anyhow::Error::new(err).context(msg);
         }
         anyhow::anyhow!("{msg} - query did not return any data")
     }

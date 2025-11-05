@@ -2,12 +2,11 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
+use virtual_mio::block_on;
 use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
 
-use crate::{
-    Runtime, SpawnError, WasiEnv, runtime::task_manager::block_on, syscalls::stderr_write,
-};
+use crate::{Runtime, SpawnError, WasiEnv, syscalls::stderr_write};
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 

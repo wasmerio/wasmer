@@ -4,7 +4,6 @@ pub use crate::{
     machine::{Label, Offset},
 };
 use crate::{codegen_error, common_decl::Size, location::Location as AbstractLocation};
-use dynasm::dynasm;
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
     AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
@@ -2840,9 +2839,9 @@ pub fn gen_std_trampoline_arm64(
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
     let mut stack_offset = stack_args as u32 * 8;
     if stack_args > 0 {
-        if stack_offset % 16 != 0 {
+        if !stack_offset.is_multiple_of(16) {
             stack_offset += 8;
-            assert!(stack_offset % 16 == 0);
+            assert!(stack_offset.is_multiple_of(16));
         }
         if stack_offset < 0x1000 {
             dynasm!(a ; sub sp, sp, stack_offset);
