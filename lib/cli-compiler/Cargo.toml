@@ -24,7 +24,6 @@ wasmer-compiler = { version = "=6.1.0", path = "../compiler", features = [
 	"compiler",
 ] }
 wasmer-types = { version = "=6.1.0", path = "../types", features = ["detect-wasm-features"] }
-is-terminal = "0.4.7"
 colored = "2.0"
 anyhow.workspace = true
 # For the function names autosuggestion

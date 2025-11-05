@@ -1,6 +1,6 @@
 //! Logging functions for the debug feature.
 
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use tracing::level_filters::LevelFilter;
 use tracing_subscriber::{EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
@@ -30,6 +30,11 @@ impl Output {
     /// Has the `--verbose` flag been set?
     pub fn is_verbose(&self) -> bool {
         self.verbose > 0
+    }
+
+    /// Returns true if either the `--quiet` flag is set or stderr is not a TTY.
+    pub fn is_quiet_or_no_tty(&self) -> bool {
+        self.quiet || !std::io::stderr().is_terminal()
     }
 
     /// Initialize logging based on the `$RUST_LOG` environment variable and

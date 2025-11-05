@@ -161,7 +161,6 @@ time01 = { package = "time", version = "0.1.45", optional = true }
 # Third-party dependencies.
 
 http.workspace = true
-is-terminal = "0.4.7"
 colored = "2.0"
 anyhow.workspace = true
 bytesize.workspace = true

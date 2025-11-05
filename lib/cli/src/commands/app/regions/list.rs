@@ -1,5 +1,5 @@
 use crate::{commands::AsyncCliCommand, config::WasmerEnv, opts::ListFormatOpts};
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 
 /// List available Edge regions.
 #[derive(clap::Parser, Debug)]
