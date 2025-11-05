@@ -3,7 +3,8 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::codegen::FuncGen;
-use crate::config::Singlepass;
+use crate::common_decl::save_assembly_to_file;
+use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 use crate::machine::Machine;
@@ -19,7 +20,9 @@ use enumset::EnumSet;
 use gimli::write::{EhFrame, FrameTable, Writer};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use std::collections::HashMap;
 use std::sync::Arc;
+use wasmer_compiler::misc::types_to_signature;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -33,7 +36,7 @@ use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    TableIndex, TrapCode, TrapInformation, VMOffsets,
+    TableIndex, TrapCode, TrapInformation, Type, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
@@ -222,7 +225,23 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .map(|func_type| -> Result<FunctionBody, CompileError> {
+                let body = gen_std_trampoline(func_type, target, calling_convention)?;
+                if let Some(debug_dir) = self.config.debug_dir.as_ref() {
+                    let function_name = format!(
+                        "trampoline_call_{}_{}",
+                        types_to_signature(func_type.params()),
+                        types_to_signature(func_type.results())
+                    );
+                    save_assembly_to_file(
+                        debug_dir.clone(),
+                        &function_name,
+                        &body.body,
+                        HashMap::new(),
+                    )?;
+                }
+                Ok(body)
+            })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -231,13 +250,27 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| {
-                gen_std_dynamic_import_trampoline(
+            .map(|func_type| -> Result<FunctionBody, CompileError> {
+                let body = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
                     target,
                     calling_convention,
-                )
+                )?;
+                if let Some(debug_dir) = self.config.debug_dir.as_ref() {
+                    let function_name = format!(
+                        "trampoline_dynamic_{}_{}",
+                        types_to_signature(func_type.params()),
+                        types_to_signature(func_type.results())
+                    );
+                    save_assembly_to_file(
+                        debug_dir.clone(),
+                        &function_name,
+                        &body.body,
+                        HashMap::new(),
+                    )?;
+                }
+                Ok(body)
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()

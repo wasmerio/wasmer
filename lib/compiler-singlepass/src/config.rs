@@ -2,7 +2,7 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
-use std::sync::Arc;
+use std::{path::PathBuf, sync::Arc};
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{
     Features,
@@ -12,8 +12,12 @@ use wasmer_types::{
 #[derive(Debug, Clone)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
+
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+
+    /// Debug directory
+    pub debug_dir: Option<PathBuf>,
 }
 
 impl Singlepass {
@@ -23,6 +27,7 @@ impl Singlepass {
         Self {
             enable_nan_canonicalization: true,
             middlewares: vec![],
+            debug_dir: None,
         }
     }
 

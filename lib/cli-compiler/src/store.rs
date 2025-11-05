@@ -121,6 +121,11 @@ pub struct CompilerOptions {
     #[cfg_attr(feature = "llvm", clap(long, parse(from_os_str)))]
     llvm_debug_dir: Option<PathBuf>,
 
+    #[allow(unused)]
+    #[cfg(feature = "singlepass")]
+    #[cfg_attr(feature = "singlepass", clap(long, parse(from_os_str)))]
+    singlepass_debug_dir: Option<PathBuf>,
+
     #[clap(flatten)]
     features: WasmFeatures,
 }
@@ -196,6 +201,9 @@ impl CompilerOptions {
                 if self.enable_verifier {
                     config.enable_verifier();
                 }
+                if let Some(ref singlepass_debug_dir) = self.singlepass_debug_dir {
+                    config.debug_dir = Some(singlepass_debug_dir.clone());
+                }
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
@@ -228,24 +236,9 @@ impl CompilerOptions {
                 }
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
-                fn types_to_signature(types: &[Type]) -> String {
-                    types
-                        .iter()
-                        .map(|ty| match ty {
-                            Type::I32 => "i".to_string(),
-                            Type::I64 => "I".to_string(),
-                            Type::F32 => "f".to_string(),
-                            Type::F64 => "F".to_string(),
-                            Type::V128 => "v".to_string(),
-                            Type::ExternRef => "e".to_string(),
-                            Type::FuncRef => "r".to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join("")
-                }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
                 fn function_kind_to_filename(kind: &CompiledKind) -> String {
+                    use wasmer_compiler::misc::types_to_signature;
+
                     match kind {
                         CompiledKind::Local(local_index) => {
                             format!("function_{}", local_index.index())

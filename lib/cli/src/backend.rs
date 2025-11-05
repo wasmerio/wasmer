@@ -213,6 +213,13 @@ pub struct RuntimeOptions {
     #[clap(long)]
     llvm_num_threads: Option<NonZero<usize>>,
 
+    /// Singlepass debug directory, where object files will be written to.
+    ///
+    /// Only available for the singlepass compiler.
+    #[cfg(feature = "singlepass")]
+    #[clap(long)]
+    singlepass_debug_dir: Option<PathBuf>,
+
     #[clap(flatten)]
     features: WasmFeatures,
 }
@@ -461,6 +468,9 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(ref singlepass_debug_dir) = self.singlepass_debug_dir {
+                    config.debug_dir = Some(singlepass_debug_dir.clone());
+                }
 
                 Box::new(config)
             }
@@ -505,27 +515,12 @@ impl RuntimeOptions {
                         Ok(Self { debug_dir })
                     }
                 }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
-                fn types_to_signature(types: &[Type]) -> String {
-                    types
-                        .iter()
-                        .map(|ty| match ty {
-                            Type::I32 => "i".to_string(),
-                            Type::I64 => "I".to_string(),
-                            Type::F32 => "f".to_string(),
-                            Type::F64 => "F".to_string(),
-                            Type::V128 => "v".to_string(),
-                            Type::ExternRef => "e".to_string(),
-                            Type::FuncRef => "r".to_string(),
-                            Type::ExceptionRef => "x".to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join("")
-                }
+
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
                 fn function_kind_to_filename(kind: &CompiledKind) -> String {
+                    use wasmer_compiler::misc::types_to_signature;
+
                     match kind {
                         CompiledKind::Local(local_index) => {
                             format!("function_{}", local_index.index())
@@ -681,6 +676,9 @@ impl BackendType {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(ref singlepass_debug_dir) = runtime_opts.singlepass_debug_dir {
+                    config.debug_dir = Some(singlepass_debug_dir.clone());
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))
                     .set_target(Some(target.clone()))
@@ -729,25 +727,9 @@ impl BackendType {
                 }
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
-                fn types_to_signature(types: &[Type]) -> String {
-                    types
-                        .iter()
-                        .map(|ty| match ty {
-                            Type::I32 => "i".to_string(),
-                            Type::I64 => "I".to_string(),
-                            Type::F32 => "f".to_string(),
-                            Type::F64 => "F".to_string(),
-                            Type::V128 => "v".to_string(),
-                            Type::ExternRef => "e".to_string(),
-                            Type::FuncRef => "r".to_string(),
-                            Type::ExceptionRef => "x".to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join("")
-                }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
                 fn function_kind_to_filename(kind: &CompiledKind) -> String {
+                    use wasmer_compiler::misc::types_to_signature;
+
                     match kind {
                         CompiledKind::Local(local_index) => {
                             format!("function_{}", local_index.index())
