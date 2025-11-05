@@ -81,7 +81,8 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        match target.triple().architecture {
+        let arch = target.triple().architecture;
+        match arch {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
             _ => {
@@ -89,7 +90,7 @@ impl Compiler for SinglepassCompiler {
                     target.triple().architecture.to_string(),
                 ));
             }
-        }
+        };
 
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
@@ -170,7 +171,7 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
-                match target.triple().architecture {
+                match arch {
                     Architecture::X86_64 => {
                         let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
@@ -190,7 +191,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input)
+                        generator.finalize(input, arch)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -211,7 +212,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input)
+                        generator.finalize(input, arch)
                     }
                     _ => unimplemented!(),
                 }
@@ -234,6 +235,7 @@ impl Compiler for SinglepassCompiler {
                         types_to_signature(func_type.results())
                     );
                     save_assembly_to_file(
+                        arch,
                         debug_dir.clone(),
                         &function_name,
                         &body.body,
@@ -264,6 +266,7 @@ impl Compiler for SinglepassCompiler {
                         types_to_signature(func_type.results())
                     );
                     save_assembly_to_file(
+                        arch,
                         debug_dir.clone(),
                         &function_name,
                         &body.body,

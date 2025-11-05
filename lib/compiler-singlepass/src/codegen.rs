@@ -17,6 +17,7 @@ use crate::{
 use gimli::write::Address;
 use smallvec::{SmallVec, smallvec};
 use std::{cmp, iter, ops::Neg};
+use target_lexicon::Architecture;
 
 use wasmer_compiler::{
     FunctionBodyData,
@@ -5616,6 +5617,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     pub fn finalize(
         mut self,
         data: &FunctionBodyData,
+        arch: Architecture,
     ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
         self.machine
             .add_assembly_comment(AssemblyComment::TrapHandlersTable);
@@ -5691,6 +5693,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         if let Some(debug_dir) = self.config.debug_dir.as_ref() {
             save_assembly_to_file(
+                arch,
                 debug_dir.clone(),
                 &self.function_name,
                 &body,

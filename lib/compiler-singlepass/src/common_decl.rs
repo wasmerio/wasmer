@@ -6,6 +6,7 @@ use std::{
     process::{Command, Stdio},
 };
 
+use target_lexicon::Architecture;
 use tempfile::NamedTempFile;
 use wasmer_types::CompileError;
 use which::which;
@@ -53,6 +54,7 @@ fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileErro
 }
 
 pub(crate) fn save_assembly_to_file(
+    arch: Architecture,
     debug_dir: PathBuf,
     function_name: &str,
     body: &[u8],
@@ -68,22 +70,15 @@ pub(crate) fn save_assembly_to_file(
         .flush()
         .map_err(|err| CompileError::Codegen(format!("flush failed: {err}")))?;
 
-    #[cfg(target_arch = "x86_64")]
-    let objdump_arch = "i386:x86-64";
-    #[cfg(target_arch = "aarch64")]
-    let objdump_arch = "aarch64";
-    #[cfg(target_arch = "riscv64")]
-    let objdump_arch = "riscv:rv64";
-    #[cfg(not(any(
-        target_arch = "x86_64",
-        target_arch = "aarch64",
-        target_arch = "riscv64"
-    )))]
-    {
-        return Err(CompileError::Codegen(
-            "Assembly dumping is not supported for this architecture".to_string(),
-        ));
-    }
+    let objdump_arch = match arch {
+        Architecture::X86_64 => "i386:x86-64",
+        Architecture::Aarch64(..) => "aarch64",
+        _ => {
+            return Err(CompileError::Codegen(
+                "Assembly dumping is not supported for this architecture".to_string(),
+            ));
+        }
+    };
 
     if which("objdump").is_err() {
         codegen_error!(
