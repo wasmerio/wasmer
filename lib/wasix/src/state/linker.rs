@@ -2636,8 +2636,9 @@ impl InstanceGroupState {
         let dl_instance = DlInstance {
             instance: instance.clone(),
             instance_handles,
-            // The TLS area of a side module's main instance is at the beginning
-            // of its memory
+            // The TLS base of a side module's main instance is read from the module's
+            // `__tls_base` export via `get_tls_base_export`, and is not necessarily at the
+            // beginning of its memory.
             tls_base,
         };
 
