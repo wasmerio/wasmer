@@ -261,27 +261,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    fn check_location_on_stack(
-        &self,
-        loc: &Location<M::GPR, M::SIMD>,
-        expected_stack_offset: usize,
-    ) -> Result<(), CompileError> {
-        let Location::Memory(reg, offset) = loc else {
-            codegen_error!("Expected stack memory location");
-        };
-        if reg != &self.machine.local_pointer() {
-            codegen_error!("Expected location pointer for value on stack");
-        }
-        if *offset >= 0 {
-            codegen_error!("Invalid memory offset {offset}");
-        }
-        let offset = offset.neg() as usize;
-        if offset != expected_stack_offset {
-            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset.0);
-        }
-        Ok(())
-    }
-
     fn release_stack_locations(
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
@@ -322,6 +301,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
         if delta_stack_offset != 0 {
             self.machine.truncate_stack(delta_stack_offset as u32)?;
+        }
+        Ok(())
+    }
+
+    fn check_location_on_stack(
+        &self,
+        loc: &Location<M::GPR, M::SIMD>,
+        expected_stack_offset: usize,
+    ) -> Result<(), CompileError> {
+        let Location::Memory(reg, offset) = loc else {
+            codegen_error!("Expected stack memory location");
+        };
+        if reg != &self.machine.local_pointer() {
+            codegen_error!("Expected location pointer for value on stack");
+        }
+        if *offset >= 0 {
+            codegen_error!("Invalid memory offset {offset}");
+        }
+        let offset = offset.neg() as usize;
+        if offset != expected_stack_offset {
+            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset.0);
         }
         Ok(())
     }
