@@ -1074,8 +1074,8 @@ impl Linker {
 
         let mut instance_group = InstanceGroupState {
             main_instance: None,
-            // Every main instance's TLS area is at the start of its memory,
-            // which is 0 for the main module's main instance
+            // The TLS base for the main instance is determined by reading the
+            // `__tls_base` global export from the instance after instantiation.
             main_instance_tls_base: None,
             side_instances: HashMap::new(),
             stack_pointer,
