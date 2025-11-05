@@ -37,8 +37,8 @@ pub fn run_wast(mut config: crate::Config, wast_path: &str) -> anyhow::Result<()
     if is_exception_handling {
         features.exceptions(true);
     }
-    if config.compiler == crate::Compiler::Singlepass {
-        features.multi_value(false);
+    if config.compiler != crate::Compiler::Singlepass {
+        features.multi_value(true);
     }
     config.set_features(features);
     config.set_nan_canonicalization(try_nan_canonicalization);
