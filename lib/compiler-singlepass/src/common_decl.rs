@@ -74,7 +74,11 @@ pub(crate) fn save_assembly_to_file(
     let objdump_arch = "aarch64";
     #[cfg(target_arch = "riscv64")]
     let objdump_arch = "riscv:rv64";
-    #[cfg(not(any(target_arch = "x86_64", target_arch = "aarch64", target_arch = "riscv64")))]
+    #[cfg(not(any(
+        target_arch = "x86_64",
+        target_arch = "aarch64",
+        target_arch = "riscv64"
+    )))]
     {
         return Err(CompileError::Codegen(
             "Assembly dumping is not supported for this architecture".to_string(),
@@ -82,7 +86,9 @@ pub(crate) fn save_assembly_to_file(
     }
 
     if which("objdump").is_err() {
-        codegen_error!("objdump not found in PATH. Please install binutils to use assembly debugging features.");
+        codegen_error!(
+            "objdump not found in PATH. Please install binutils to use assembly debugging features."
+        );
     }
 
     let command = Command::new("objdump")
