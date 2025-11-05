@@ -17,7 +17,5 @@ pub fn types_to_signature(types: &[Type]) -> String {
             Type::FuncRef => "r",
             Type::ExceptionRef => "x",
         })
-        .map(|t| t.to_string())
-        .collect::<Vec<_>>()
-        .join("")
+        .collect::<String>()
 }
