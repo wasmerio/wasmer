@@ -125,7 +125,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .typed(&store)?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
-    println!("Initial ounter value: {counter_value:?}");
+    println!("Initial counter value: {counter_value:?}");
 
     println!("Calling `increment_counter_loop` function...");
     // Let's call the `increment_counter_loop` exported function.
