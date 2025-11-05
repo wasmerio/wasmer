@@ -100,7 +100,7 @@ pub struct FuncGen<'a, M: Machine> {
     /// Calling convention to use.
     calling_convention: CallingConvention,
 
-    /// Name of the function
+    /// Name of the function.
     function_name: String,
 }
 
