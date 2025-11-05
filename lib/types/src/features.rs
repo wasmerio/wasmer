@@ -51,8 +51,7 @@ impl Features {
             simd: true,
             // Bulk Memory should be on by default
             bulk_memory: true,
-            // Multivalue should be on by default
-            multi_value: true,
+            multi_value: false,
             tail_call: false,
             module_linking: false,
             multi_memory: false,
