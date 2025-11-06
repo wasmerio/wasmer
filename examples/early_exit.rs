@@ -90,7 +90,7 @@ fn main() -> anyhow::Result<()> {
         Err(e) => match e.downcast::<ExitCode>() {
             // We found the exit code used to terminate execution.
             Ok(exit_code) => {
-                println!("Exited early with exit code: {}", exit_code);
+                println!("Exited early with exit code: {exit_code}");
 
                 Ok(())
             }

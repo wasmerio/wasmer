@@ -69,7 +69,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // which will tell us the offset and length of the string.
     let (ptr, length) = load.call(&mut store)?;
     println!("String offset: {:?}", ptr.offset());
-    println!("String length: {:?}", length);
+    println!("String length: {length:?}");
 
     // We now know where to find our string, let's read it.
     //
@@ -77,7 +77,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // decode them into a string.
     let memory_view = memory.view(&store);
     let str = ptr.read_utf8_string(&memory_view, length as u32).unwrap();
-    println!("Memory contents: {:?}", str);
+    println!("Memory contents: {str:?}");
 
     // What about changing the contents of the memory with a more
     // appropriate string?
@@ -100,7 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let str = ptr
         .read_utf8_string(&memory_view, new_str.len() as u32)
         .unwrap();
-    println!("New memory contents: {:?}", str);
+    println!("New memory contents: {str:?}");
 
     // Much better, don't you think?
 
