@@ -242,7 +242,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
         self.stack_offset.0 += 8;
         let loc = self.machine.local_on_stack(self.stack_offset.0 as i32);
-
         self.machine
             .extend_stack(self.machine.round_stack_adjust(8) as u32)?;
 
@@ -284,7 +283,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
-                self.check_location_on_stack(loc, self.stack_offset.0)?;
+                self.check_location_on_stack(loc, self.stack_offset.0)
+                    .unwrap();
                 self.stack_offset.0 -= 8;
                 delta_stack_offset += 8;
             }
@@ -307,7 +307,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
-                self.check_location_on_stack(loc, stack_offset)?;
+                self.check_location_on_stack(loc, stack_offset).unwrap();
                 stack_offset -= 8;
                 delta_stack_offset += 8;
             }
@@ -640,22 +640,30 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let return_types = return_types.collect_vec();
         let return_value_sizes = return_types.iter().map(|&rt| get_size(rt)).collect_vec();
 
-        let mut return_values = stack_params
+        dbg!((
+            self.stack_offset.0,
+            &self.value_stack,
+            &params,
+            return_types.len()
+        ));
+
+        let used_stack_params = stack_params
             .iter()
             .take(return_value_sizes.len())
             .copied()
             .collect_vec();
+        let mut return_values = used_stack_params.clone();
         let extra_return_values = (0..return_value_sizes.len().saturating_sub(stack_params.len()))
             .map(|_| -> Result<_, CompileError> {
                 Ok((self.acquire_location_on_stack()?, CanonicalizeType::None))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        let mut used_stack = extra_return_values.len() * 8;
+        dbg!(&extra_return_values);
         return_values.extend(extra_return_values);
 
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
-        used_stack += self.machine.push_used_gpr(&used_gprs)?;
+        let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
 
         // Save used SIMD registers.
         let used_simds = self.machine.get_used_simd();
@@ -674,7 +682,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let mut stack_offset: usize = 0;
-
         // Allocate space for return values relative to SP (the allocation happens in reverse order, thus start with return slots).
         let mut return_args = Vec::with_capacity(return_value_sizes.len());
         for i in 0..return_value_sizes.len() {
@@ -773,15 +780,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Restore stack.
         if stack_offset + stack_padding > 0 {
-            self.machine.truncate_stack(
-                self.machine
-                    .round_stack_adjust(stack_offset + stack_padding) as u32,
-            )?;
-            if !stack_offset.is_multiple_of(8) {
-                return Err(CompileError::Codegen(
-                    "emit_call_native: Bad restoring stack alignement".to_owned(),
-                ));
-            }
+            self.machine
+                .truncate_stack((stack_offset + stack_padding) as u32)?;
         }
 
         // Restore SIMDs.
@@ -795,9 +795,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
         let params_to_release = &params[cmp::min(params.len(), return_types.len())..];
-        self.release_stack_locations(params_to_release)?;
+        self.release_stack_locations(dbg!(params_to_release))?;
 
+        //dbg!(&return_values);
         self.value_stack.extend(return_values);
+
+        dbg!((&self.stack_offset.0, &self.value_stack));
 
         Ok(())
     }
@@ -840,6 +843,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.signature.clone(),
             self.calling_convention,
         )?;
+        dbg!((&self.locals, self.stack_offset.0));
 
         // simulate "red zone" if not supported by the platform
         self.machine.extend_stack(32)?;
@@ -988,6 +992,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
+        dbg!((&self.value_stack, &self.stack_offset.0, &op));
+
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
@@ -2443,10 +2449,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::SIMD(x) => {
                             self.machine.reserve_simd(*x);
                         }
+                        Location::Memory(..) => {
+                            // TODO: add assert about FP
+                            self.stack_offset.0 += 8;
+                        }
                         _ => {}
                     }
                 }
                 self.value_stack.extend(inputs);
+                dbg!(&self.value_stack);
 
                 self.machine.jmp_unconditional(frame.label)?;
                 self.machine.emit_label(label_else)?;
