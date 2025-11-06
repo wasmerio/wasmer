@@ -8,6 +8,8 @@ use std::{
     task::{Context, Poll},
 };
 
+use fs_extra::{dir, dir::copy};
+use tempfile::TempDir;
 use tokio::runtime::Handle;
 use virtual_fs::{
     AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, FileSystem, Pipe, ReadBuf,
@@ -200,24 +202,33 @@ impl<'a> WasiTest<'a> {
 
         match filesystem_kind {
             WasiFileSystemKind::Host => {
-                let fs = host_fs::FileSystem::new(Handle::current(), PathBuf::from(BASE_TEST_DIR))
-                    .unwrap();
+                // Use a temporary folder, otherwise other file systems will spot the artifacts of this FS.
+                let mut source = PathBuf::from(BASE_TEST_DIR);
+                source.push("test_fs");
+
+                let root_dir = TempDir::new().expect("cannot create temporary directory");
+                copy(source.as_path(), root_dir.path(), &dir::CopyOptions::new())
+                    .expect("copying to temporary folder failed");
+                let base_dir = root_dir.path().to_path_buf();
+                host_temp_dirs_to_not_drop.push(root_dir);
+
+                let fs = host_fs::FileSystem::new(Handle::current(), base_dir.clone()).unwrap();
 
                 for (alias, real_dir) in &self.mapped_dirs {
-                    let mut dir = PathBuf::from(BASE_TEST_DIR);
+                    let mut dir = base_dir.clone();
                     dir.push(real_dir);
                     builder.add_map_dir(alias, dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
-                    let mut new_dir = PathBuf::from(BASE_TEST_DIR);
+                    let mut new_dir = base_dir.clone();
                     new_dir.push(dir);
                     builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
-                    let temp_dir = tempfile::tempdir_in(PathBuf::from(BASE_TEST_DIR))?;
+                    let temp_dir = tempfile::tempdir_in(&base_dir)?;
                     builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }

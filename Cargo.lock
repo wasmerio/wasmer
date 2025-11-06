@@ -7734,6 +7734,7 @@ name = "wasmer-wast"
 version = "6.1.0"
 dependencies = [
  "anyhow",
+ "fs_extra",
  "futures",
  "serde",
  "tempfile",
