@@ -171,7 +171,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     assert_eq!(memories.len(), 1);
 
     let first_memory = memories.pop().unwrap();
-    println!("Memory of this instance: {:?}", first_memory);
+    println!("Memory of this instance: {first_memory:?}");
     assert_eq!(first_memory.ty(&store).maximum.unwrap(), Pages(24));
 
     Ok(())

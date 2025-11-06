@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = [Value::I32(1), Value::I32(2)];
     let result = sum.call(&mut store, &args)?;
 
-    println!("Results: {:?}", result);
+    println!("Results: {result:?}");
     assert_eq!(result.to_vec(), vec![Value::I32(3)]);
 
     // That was fun. But what if we can get rid of the `Value`s? Well,
@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // result, in this case particular case, in a unit of type `i32`.
     let result = sum_typed.call(&mut store, 3, 4)?;
 
-    println!("Results: {:?}", result);
+    println!("Results: {result:?}");
     assert_eq!(result, 7);
 
     // Much nicer, isn't it?
