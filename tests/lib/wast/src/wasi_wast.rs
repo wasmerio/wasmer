@@ -8,6 +8,7 @@ use std::{
     task::{Context, Poll},
 };
 
+use anyhow::{Context as _, anyhow};
 use fs_extra::dir::{self, copy};
 use tempfile::TempDir;
 use tokio::runtime::Handle;
@@ -206,8 +207,10 @@ impl<'a> WasiTest<'a> {
                 let mut source = PathBuf::from(BASE_TEST_DIR);
                 source.push("test_fs");
 
-                let root_dir = TempDir::new()?;
-                copy(source.as_path(), root_dir.path(), &dir::CopyOptions::new())?;
+                let root_dir =
+                    TempDir::new().with_context(|| anyhow!("cannot create temporary directory"))?;
+                copy(source.as_path(), root_dir.path(), &dir::CopyOptions::new())
+                    .with_context(|| anyhow!("cannot copy to the temporary directory"))?;
                 let base_dir = root_dir.path().to_path_buf();
                 host_temp_dirs_to_not_drop.push(root_dir);
 
