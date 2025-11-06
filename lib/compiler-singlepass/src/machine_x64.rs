@@ -2083,7 +2083,7 @@ impl Machine for MachineX86_64 {
     }
 
     fn push_used_simd(&mut self, used_xmms: &[XMM]) -> Result<usize, CompileError> {
-        self.adjust_stack((used_xmms.len() * 8) as u32)?;
+        self.extend_stack((used_xmms.len() * 8) as u32)?;
 
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
@@ -2180,29 +2180,22 @@ impl Machine for MachineX86_64 {
         value
     }
 
-    // Adjust stack for locals
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    // restore stack
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_add(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        self.assembler.emit_add(
-            Size::S64,
-            Location::Imm32(delta_stack_offset),
-            Location::GPR(GPR::RSP),
-        )
-    }
+
     // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,

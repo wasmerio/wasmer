@@ -140,15 +140,10 @@ pub trait Machine {
     /// Memory location for a local on the stack
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<Self::GPR, Self::SIMD>;
-    /// Adjust stack for locals
-    /// Like assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
-    /// restore stack
-    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
-    /// Pop stack of locals
-    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
+    /// Allocate an extra space on the stack.
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
+    /// Truncate stack space by the `delta_stack_offset`.
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
     /// Zero a location taht is 32bits
     fn zero_location(
         &mut self,
