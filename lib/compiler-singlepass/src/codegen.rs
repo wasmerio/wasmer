@@ -794,7 +794,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
-        let params_to_release = &params[cmp::min(params.len(), return_types.len())..];
+        let params_to_release = &stack_params[cmp::min(stack_params.len(), return_types.len())..];
         self.release_stack_locations(dbg!(params_to_release))?;
 
         //dbg!(&return_values);
