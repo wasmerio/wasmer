@@ -179,7 +179,14 @@ struct ControlFrame<M: Machine> {
 impl<M: Machine> ControlFrame<M> {
     // Get value stack depth at the end of the frame.
     fn value_stack_depth_after(&self) -> usize {
-        self.value_stack_depth - self.param_types.len()
+        let mut depth: usize = self.value_stack_depth - self.param_types.len();
+
+        // For Loop, we have to use another slot for params that's implement the PHI operation.
+        if matches!(self.state, ControlState::Loop) {
+            depth -= self.param_types.len();
+        }
+
+        depth
     }
 }
 
@@ -226,7 +233,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         };
 
         let Some(loc) = loc else {
-            return Ok(self.acquire_location_on_stack()?);
+            return self.acquire_location_on_stack();
         };
 
         if let Location::GPR(x) = loc {
@@ -640,13 +647,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let return_types = return_types.collect_vec();
         let return_value_sizes = return_types.iter().map(|&rt| get_size(rt)).collect_vec();
 
-        dbg!((
-            self.stack_offset.0,
-            &self.value_stack,
-            &params,
-            return_types.len()
-        ));
-
         let used_stack_params = stack_params
             .iter()
             .take(return_value_sizes.len())
@@ -658,7 +658,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 Ok((self.acquire_location_on_stack()?, CanonicalizeType::None))
             })
             .collect::<Result<Vec<_>, _>>()?;
-        dbg!(&extra_return_values);
         return_values.extend(extra_return_values);
 
         // Save used GPRs. Preserve correct stack alignment
@@ -795,12 +794,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
         let params_to_release = &stack_params[cmp::min(stack_params.len(), return_types.len())..];
-        self.release_stack_locations(dbg!(params_to_release))?;
+        self.release_stack_locations(params_to_release)?;
 
-        //dbg!(&return_values);
         self.value_stack.extend(return_values);
-
-        dbg!((&self.stack_offset.0, &self.value_stack));
 
         Ok(())
     }
@@ -843,7 +839,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.signature.clone(),
             self.calling_convention,
         )?;
-        dbg!((&self.locals, self.stack_offset.0));
 
         // simulate "red zone" if not supported by the platform
         self.machine.extend_stack(32)?;
@@ -966,6 +961,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn emit_loop_params_store(
+        &mut self,
+        value_stack_depth_after: usize,
+        param_count: usize,
+    ) -> Result<(), CompileError> {
+        for (i, (stack_value, _)) in self.value_stack.iter().rev().take(param_count).enumerate() {
+            let dst = self.value_stack[value_stack_depth_after + i].0;
+            self.machine
+                .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
+        }
+
+        Ok(())
+    }
+
     fn return_types_for_block(&self, block_type: WpTypeOrFuncType) -> SmallVec<[WpType; 1]> {
         match block_type {
             WpTypeOrFuncType::Empty => smallvec![],
@@ -992,7 +1001,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
-        dbg!((&self.value_stack, &self.stack_offset.0, &op));
+        // dbg!((&self.value_stack, &self.stack_offset.0, &op));
 
         let was_unreachable;
 
@@ -2457,7 +2466,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                 }
                 self.value_stack.extend(inputs);
-                dbg!(&self.value_stack);
 
                 self.machine.jmp_unconditional(frame.label)?;
                 self.machine.emit_label(label_else)?;
@@ -2522,16 +2530,48 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let return_types = self.return_types_for_block(blockty);
                 let param_types = self.param_types_for_block(blockty);
-                self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
+                let params_count = param_types.len();
+                // We need extra space for params as we need to implement the PHI operation.
+                self.allocate_return_slots_before_params(
+                    param_types.len(),
+                    param_types.len() + return_types.len(),
+                )?;
 
                 self.control_stack.push(ControlFrame {
                     state: ControlState::Loop,
                     label,
-                    param_types,
-                    return_types,
+                    param_types: param_types.clone(),
+                    return_types: return_types.clone(),
                     value_stack_depth: self.value_stack.len(),
                 });
+
+                // For proper PHI implementation, we must copy pre-loop params to PHI params.
+                let params = self
+                    .value_stack
+                    .drain((self.value_stack.len() - params_count)..)
+                    .collect_vec();
+                for (param, phi_param) in params.iter().rev().zip(self.value_stack.iter().rev()) {
+                    self.machine
+                        .emit_relaxed_mov(Size::S64, param.0, phi_param.0)?;
+                }
+                self.release_locations(&params)?;
+
                 self.machine.emit_label(label)?;
+
+                // Put on the stack PHI inputs for further use.
+                let phi_params = self
+                    .value_stack
+                    .iter()
+                    .rev()
+                    .take(params_count)
+                    .rev()
+                    .copied()
+                    .collect_vec();
+                for (i, phi_param) in phi_params.into_iter().enumerate() {
+                    let loc = self.acquire_location(&param_types[i])?;
+                    self.machine.emit_relaxed_mov(Size::S64, phi_param.0, loc)?;
+                    self.value_stack.push((loc, phi_param.1));
+                }
 
                 // TODO: Re-enable interrupt signal check without branching
             }
@@ -3380,11 +3420,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Br { relative_depth } => {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty() {
-                    self.emit_return_values(
-                        frame.value_stack_depth_after(),
-                        frame.return_types.len(),
-                    )?;
+                if !frame.return_types.is_empty() {
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
+                    } else {
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
+                    }
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3408,11 +3456,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty() {
-                    self.emit_return_values(
-                        frame.value_stack_depth_after(),
-                        frame.return_types.len(),
-                    )?;
+                if !frame.return_types.is_empty() {
+                    if matches!(frame.state, ControlState::Loop) {
+                        // Store into the PHI params of the loop, not to the return values.
+                        self.emit_loop_params_store(
+                            frame.value_stack_depth_after(),
+                            frame.param_types.len(),
+                        )?;
+                    } else {
+                        self.emit_return_values(
+                            frame.value_stack_depth_after(),
+                            frame.return_types.len(),
+                        )?;
+                    }
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
@@ -3449,12 +3505,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty()
-                    {
-                        self.emit_return_values(
-                            frame.value_stack_depth_after(),
-                            frame.return_types.len(),
-                        )?;
+                    if !frame.return_types.is_empty() {
+                        if matches!(frame.state, ControlState::Loop) {
+                            // Store into the PHI params of the loop, not to the return values.
+                            self.emit_loop_params_store(
+                                frame.value_stack_depth_after(),
+                                frame.param_types.len(),
+                            )?;
+                        } else {
+                            self.emit_return_values(
+                                frame.value_stack_depth_after(),
+                                frame.return_types.len(),
+                            )?;
+                        }
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
@@ -3468,12 +3531,19 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    if !matches!(frame.state, ControlState::Loop) && !frame.return_types.is_empty()
-                    {
-                        self.emit_return_values(
-                            frame.value_stack_depth_after(),
-                            frame.return_types.len(),
-                        )?;
+                    if !frame.return_types.is_empty() {
+                        if matches!(frame.state, ControlState::Loop) {
+                            // Store into the PHI params of the loop, not to the return values.
+                            self.emit_loop_params_store(
+                                frame.value_stack_depth_after(),
+                                frame.param_types.len(),
+                            )?;
+                        } else {
+                            self.emit_return_values(
+                                frame.value_stack_depth_after(),
+                                frame.return_types.len(),
+                            )?;
+                        }
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
