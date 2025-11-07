@@ -2389,11 +2389,33 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::If { blockty } => {
                 let label_end = self.machine.get_label();
                 let label_else = self.machine.get_label();
-                let cond = self.pop_value_released()?.0;
 
                 let return_types = self.return_types_for_block(blockty);
                 let param_types = self.param_types_for_block(blockty);
-                self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
+                self.allocate_return_slots_before_params(
+                    param_types.len() + 1,
+                    return_types.len(),
+                )?;
+
+                let cond = self.pop_value_released()?.0;
+
+                /* We might hit a situation where an Operator::If is missing an Operator::Else. In such a situation,
+                the result value just fallthrough from the If block inputs! However, we don't know the information upfront. */
+                if param_types.len() == return_types.len() {
+                    for (input, return_value) in self
+                        .value_stack
+                        .iter()
+                        .rev()
+                        .take(param_types.len())
+                        .zip(self.value_stack.iter().rev().skip(param_types.len()))
+                    {
+                        self.machine.emit_relaxed_mov(
+                            Size::S64,
+                            dbg!(input.0),
+                            dbg!(return_value.0),
+                        )?;
+                    }
+                }
 
                 let frame = ControlFrame {
                     state: ControlState::If {
