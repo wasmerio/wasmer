@@ -525,6 +525,19 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
     println!("host: {}", target_lexicon::HOST);
 
+    let cpu_features = {
+        let feats = wasmer_types::target::CpuFeature::for_host();
+        let all = wasmer_types::target::CpuFeature::all();
+        all.iter()
+            .map(|f| {
+                let available = feats.contains(f);
+                format!("{}={}", f, if available { "true" } else { "false" })
+            })
+            .collect::<Vec<_>>()
+            .join(",")
+    };
+    println!("cpu: {}", cpu_features);
+
     let mut runtimes = Vec::<&'static str>::new();
     if cfg!(feature = "singlepass") {
         runtimes.push("singlepass");
