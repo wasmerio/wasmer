@@ -126,116 +126,121 @@
 <a href=#126 id=126 data-nosnippet>126</a>        <span class="comment">// We default to an empty hash set
 <a href=#127 id=127 data-nosnippet>127</a>        </span>EnumSet::new()
 <a href=#128 id=128 data-nosnippet>128</a>    }
-<a href=#129 id=129 data-nosnippet>129</a>}
-<a href=#130 id=130 data-nosnippet>130</a>
-<a href=#131 id=131 data-nosnippet>131</a><span class="comment">// This options should map exactly the GCC options indicated
-<a href=#132 id=132 data-nosnippet>132</a>// here by architectures:
-<a href=#133 id=133 data-nosnippet>133</a>//
-<a href=#134 id=134 data-nosnippet>134</a>// X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
-<a href=#135 id=135 data-nosnippet>135</a>// ARM: https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html
-<a href=#136 id=136 data-nosnippet>136</a>// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
-<a href=#137 id=137 data-nosnippet>137</a></span><span class="kw">impl </span>FromStr <span class="kw">for </span>CpuFeature {
-<a href=#138 id=138 data-nosnippet>138</a>    <span class="kw">type </span><span class="prelude-val">Err </span>= ParseCpuFeatureError;
-<a href=#139 id=139 data-nosnippet>139</a>
-<a href=#140 id=140 data-nosnippet>140</a>    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
-<a href=#141 id=141 data-nosnippet>141</a>        <span class="kw">match </span>s {
-<a href=#142 id=142 data-nosnippet>142</a>            <span class="string">"sse2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE2),
-<a href=#143 id=143 data-nosnippet>143</a>            <span class="string">"sse3" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE3),
-<a href=#144 id=144 data-nosnippet>144</a>            <span class="string">"ssse3" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSSE3),
-<a href=#145 id=145 data-nosnippet>145</a>            <span class="string">"sse4.1" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE41),
-<a href=#146 id=146 data-nosnippet>146</a>            <span class="string">"sse4.2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE42),
-<a href=#147 id=147 data-nosnippet>147</a>            <span class="string">"popcnt" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::POPCNT),
-<a href=#148 id=148 data-nosnippet>148</a>            <span class="string">"avx" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX),
-<a href=#149 id=149 data-nosnippet>149</a>            <span class="string">"bmi" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BMI1),
-<a href=#150 id=150 data-nosnippet>150</a>            <span class="string">"bmi2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BMI2),
-<a href=#151 id=151 data-nosnippet>151</a>            <span class="string">"avx2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX2),
-<a href=#152 id=152 data-nosnippet>152</a>            <span class="string">"avx512dq" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512DQ),
-<a href=#153 id=153 data-nosnippet>153</a>            <span class="string">"avx512vl" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512VL),
-<a href=#154 id=154 data-nosnippet>154</a>            <span class="string">"avx512f" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512F),
-<a href=#155 id=155 data-nosnippet>155</a>            <span class="string">"lzcnt" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::LZCNT),
-<a href=#156 id=156 data-nosnippet>156</a>            <span class="string">"neon" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NEON),
-<a href=#157 id=157 data-nosnippet>157</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ParseCpuFeatureError::Missing(s.to_string())),
-<a href=#158 id=158 data-nosnippet>158</a>        }
-<a href=#159 id=159 data-nosnippet>159</a>    }
-<a href=#160 id=160 data-nosnippet>160</a>}
-<a href=#161 id=161 data-nosnippet>161</a>
-<a href=#162 id=162 data-nosnippet>162</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>CpuFeature {
-<a href=#163 id=163 data-nosnippet>163</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
-<a href=#164 id=164 data-nosnippet>164</a>        <span class="macro">write!</span>(
-<a href=#165 id=165 data-nosnippet>165</a>            f,
-<a href=#166 id=166 data-nosnippet>166</a>            <span class="string">"{}"</span>,
-<a href=#167 id=167 data-nosnippet>167</a>            <span class="kw">match </span><span class="self">self </span>{
-<a href=#168 id=168 data-nosnippet>168</a>                <span class="self">Self</span>::SSE2 =&gt; <span class="string">"sse2"</span>,
-<a href=#169 id=169 data-nosnippet>169</a>                <span class="self">Self</span>::SSE3 =&gt; <span class="string">"sse3"</span>,
-<a href=#170 id=170 data-nosnippet>170</a>                <span class="self">Self</span>::SSSE3 =&gt; <span class="string">"ssse3"</span>,
-<a href=#171 id=171 data-nosnippet>171</a>                <span class="self">Self</span>::SSE41 =&gt; <span class="string">"sse4.1"</span>,
-<a href=#172 id=172 data-nosnippet>172</a>                <span class="self">Self</span>::SSE42 =&gt; <span class="string">"sse4.2"</span>,
-<a href=#173 id=173 data-nosnippet>173</a>                <span class="self">Self</span>::POPCNT =&gt; <span class="string">"popcnt"</span>,
-<a href=#174 id=174 data-nosnippet>174</a>                <span class="self">Self</span>::AVX =&gt; <span class="string">"avx"</span>,
-<a href=#175 id=175 data-nosnippet>175</a>                <span class="self">Self</span>::BMI1 =&gt; <span class="string">"bmi"</span>,
-<a href=#176 id=176 data-nosnippet>176</a>                <span class="self">Self</span>::BMI2 =&gt; <span class="string">"bmi2"</span>,
-<a href=#177 id=177 data-nosnippet>177</a>                <span class="self">Self</span>::AVX2 =&gt; <span class="string">"avx2"</span>,
-<a href=#178 id=178 data-nosnippet>178</a>                <span class="self">Self</span>::AVX512DQ =&gt; <span class="string">"avx512dq"</span>,
-<a href=#179 id=179 data-nosnippet>179</a>                <span class="self">Self</span>::AVX512VL =&gt; <span class="string">"avx512vl"</span>,
-<a href=#180 id=180 data-nosnippet>180</a>                <span class="self">Self</span>::AVX512F =&gt; <span class="string">"avx512f"</span>,
-<a href=#181 id=181 data-nosnippet>181</a>                <span class="self">Self</span>::LZCNT =&gt; <span class="string">"lzcnt"</span>,
-<a href=#182 id=182 data-nosnippet>182</a>                <span class="self">Self</span>::NEON =&gt; <span class="string">"neon"</span>,
-<a href=#183 id=183 data-nosnippet>183</a>            }
-<a href=#184 id=184 data-nosnippet>184</a>        )
-<a href=#185 id=185 data-nosnippet>185</a>    }
-<a href=#186 id=186 data-nosnippet>186</a>}
-<a href=#187 id=187 data-nosnippet>187</a>
-<a href=#188 id=188 data-nosnippet>188</a><span class="doccomment">/// This is the target that we will use for compiling
-<a href=#189 id=189 data-nosnippet>189</a>/// the WebAssembly ModuleInfo, and then run it.
-<a href=#190 id=190 data-nosnippet>190</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash)]
-<a href=#191 id=191 data-nosnippet>191</a></span><span class="kw">pub struct </span>Target {
-<a href=#192 id=192 data-nosnippet>192</a>    triple: Triple,
-<a href=#193 id=193 data-nosnippet>193</a>    cpu_features: EnumSet&lt;CpuFeature&gt;,
-<a href=#194 id=194 data-nosnippet>194</a>}
-<a href=#195 id=195 data-nosnippet>195</a>
-<a href=#196 id=196 data-nosnippet>196</a><span class="kw">impl </span>Target {
-<a href=#197 id=197 data-nosnippet>197</a>    <span class="doccomment">/// Creates a new target given a triple
-<a href=#198 id=198 data-nosnippet>198</a>    </span><span class="kw">pub fn </span>new(triple: Triple, cpu_features: EnumSet&lt;CpuFeature&gt;) -&gt; <span class="self">Self </span>{
-<a href=#199 id=199 data-nosnippet>199</a>        <span class="self">Self </span>{
-<a href=#200 id=200 data-nosnippet>200</a>            triple,
-<a href=#201 id=201 data-nosnippet>201</a>            cpu_features,
-<a href=#202 id=202 data-nosnippet>202</a>        }
-<a href=#203 id=203 data-nosnippet>203</a>    }
-<a href=#204 id=204 data-nosnippet>204</a>
-<a href=#205 id=205 data-nosnippet>205</a>    <span class="doccomment">/// The triple associated for the target.
-<a href=#206 id=206 data-nosnippet>206</a>    </span><span class="kw">pub fn </span>triple(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Triple {
-<a href=#207 id=207 data-nosnippet>207</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.triple
+<a href=#129 id=129 data-nosnippet>129</a>
+<a href=#130 id=130 data-nosnippet>130</a>    <span class="doccomment">/// Build a set of all available `CpuFeature`s.
+<a href=#131 id=131 data-nosnippet>131</a>    </span><span class="kw">pub fn </span>all() -&gt; EnumSet&lt;<span class="self">Self</span>&gt; {
+<a href=#132 id=132 data-nosnippet>132</a>        EnumSet::all()
+<a href=#133 id=133 data-nosnippet>133</a>    }
+<a href=#134 id=134 data-nosnippet>134</a>}
+<a href=#135 id=135 data-nosnippet>135</a>
+<a href=#136 id=136 data-nosnippet>136</a><span class="comment">// This options should map exactly the GCC options indicated
+<a href=#137 id=137 data-nosnippet>137</a>// here by architectures:
+<a href=#138 id=138 data-nosnippet>138</a>//
+<a href=#139 id=139 data-nosnippet>139</a>// X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
+<a href=#140 id=140 data-nosnippet>140</a>// ARM: https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html
+<a href=#141 id=141 data-nosnippet>141</a>// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
+<a href=#142 id=142 data-nosnippet>142</a></span><span class="kw">impl </span>FromStr <span class="kw">for </span>CpuFeature {
+<a href=#143 id=143 data-nosnippet>143</a>    <span class="kw">type </span><span class="prelude-val">Err </span>= ParseCpuFeatureError;
+<a href=#144 id=144 data-nosnippet>144</a>
+<a href=#145 id=145 data-nosnippet>145</a>    <span class="kw">fn </span>from_str(s: <span class="kw-2">&amp;</span>str) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Err&gt; {
+<a href=#146 id=146 data-nosnippet>146</a>        <span class="kw">match </span>s {
+<a href=#147 id=147 data-nosnippet>147</a>            <span class="string">"sse2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE2),
+<a href=#148 id=148 data-nosnippet>148</a>            <span class="string">"sse3" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE3),
+<a href=#149 id=149 data-nosnippet>149</a>            <span class="string">"ssse3" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSSE3),
+<a href=#150 id=150 data-nosnippet>150</a>            <span class="string">"sse4.1" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE41),
+<a href=#151 id=151 data-nosnippet>151</a>            <span class="string">"sse4.2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::SSE42),
+<a href=#152 id=152 data-nosnippet>152</a>            <span class="string">"popcnt" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::POPCNT),
+<a href=#153 id=153 data-nosnippet>153</a>            <span class="string">"avx" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX),
+<a href=#154 id=154 data-nosnippet>154</a>            <span class="string">"bmi" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BMI1),
+<a href=#155 id=155 data-nosnippet>155</a>            <span class="string">"bmi2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::BMI2),
+<a href=#156 id=156 data-nosnippet>156</a>            <span class="string">"avx2" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX2),
+<a href=#157 id=157 data-nosnippet>157</a>            <span class="string">"avx512dq" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512DQ),
+<a href=#158 id=158 data-nosnippet>158</a>            <span class="string">"avx512vl" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512VL),
+<a href=#159 id=159 data-nosnippet>159</a>            <span class="string">"avx512f" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::AVX512F),
+<a href=#160 id=160 data-nosnippet>160</a>            <span class="string">"lzcnt" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::LZCNT),
+<a href=#161 id=161 data-nosnippet>161</a>            <span class="string">"neon" </span>=&gt; <span class="prelude-val">Ok</span>(<span class="self">Self</span>::NEON),
+<a href=#162 id=162 data-nosnippet>162</a>            <span class="kw">_ </span>=&gt; <span class="prelude-val">Err</span>(ParseCpuFeatureError::Missing(s.to_string())),
+<a href=#163 id=163 data-nosnippet>163</a>        }
+<a href=#164 id=164 data-nosnippet>164</a>    }
+<a href=#165 id=165 data-nosnippet>165</a>}
+<a href=#166 id=166 data-nosnippet>166</a>
+<a href=#167 id=167 data-nosnippet>167</a><span class="kw">impl </span>std::fmt::Display <span class="kw">for </span>CpuFeature {
+<a href=#168 id=168 data-nosnippet>168</a>    <span class="kw">fn </span>fmt(<span class="kw-2">&amp;</span><span class="self">self</span>, f: <span class="kw-2">&amp;mut </span>core::fmt::Formatter&lt;<span class="lifetime">'_</span>&gt;) -&gt; core::fmt::Result {
+<a href=#169 id=169 data-nosnippet>169</a>        <span class="macro">write!</span>(
+<a href=#170 id=170 data-nosnippet>170</a>            f,
+<a href=#171 id=171 data-nosnippet>171</a>            <span class="string">"{}"</span>,
+<a href=#172 id=172 data-nosnippet>172</a>            <span class="kw">match </span><span class="self">self </span>{
+<a href=#173 id=173 data-nosnippet>173</a>                <span class="self">Self</span>::SSE2 =&gt; <span class="string">"sse2"</span>,
+<a href=#174 id=174 data-nosnippet>174</a>                <span class="self">Self</span>::SSE3 =&gt; <span class="string">"sse3"</span>,
+<a href=#175 id=175 data-nosnippet>175</a>                <span class="self">Self</span>::SSSE3 =&gt; <span class="string">"ssse3"</span>,
+<a href=#176 id=176 data-nosnippet>176</a>                <span class="self">Self</span>::SSE41 =&gt; <span class="string">"sse4.1"</span>,
+<a href=#177 id=177 data-nosnippet>177</a>                <span class="self">Self</span>::SSE42 =&gt; <span class="string">"sse4.2"</span>,
+<a href=#178 id=178 data-nosnippet>178</a>                <span class="self">Self</span>::POPCNT =&gt; <span class="string">"popcnt"</span>,
+<a href=#179 id=179 data-nosnippet>179</a>                <span class="self">Self</span>::AVX =&gt; <span class="string">"avx"</span>,
+<a href=#180 id=180 data-nosnippet>180</a>                <span class="self">Self</span>::BMI1 =&gt; <span class="string">"bmi"</span>,
+<a href=#181 id=181 data-nosnippet>181</a>                <span class="self">Self</span>::BMI2 =&gt; <span class="string">"bmi2"</span>,
+<a href=#182 id=182 data-nosnippet>182</a>                <span class="self">Self</span>::AVX2 =&gt; <span class="string">"avx2"</span>,
+<a href=#183 id=183 data-nosnippet>183</a>                <span class="self">Self</span>::AVX512DQ =&gt; <span class="string">"avx512dq"</span>,
+<a href=#184 id=184 data-nosnippet>184</a>                <span class="self">Self</span>::AVX512VL =&gt; <span class="string">"avx512vl"</span>,
+<a href=#185 id=185 data-nosnippet>185</a>                <span class="self">Self</span>::AVX512F =&gt; <span class="string">"avx512f"</span>,
+<a href=#186 id=186 data-nosnippet>186</a>                <span class="self">Self</span>::LZCNT =&gt; <span class="string">"lzcnt"</span>,
+<a href=#187 id=187 data-nosnippet>187</a>                <span class="self">Self</span>::NEON =&gt; <span class="string">"neon"</span>,
+<a href=#188 id=188 data-nosnippet>188</a>            }
+<a href=#189 id=189 data-nosnippet>189</a>        )
+<a href=#190 id=190 data-nosnippet>190</a>    }
+<a href=#191 id=191 data-nosnippet>191</a>}
+<a href=#192 id=192 data-nosnippet>192</a>
+<a href=#193 id=193 data-nosnippet>193</a><span class="doccomment">/// This is the target that we will use for compiling
+<a href=#194 id=194 data-nosnippet>194</a>/// the WebAssembly ModuleInfo, and then run it.
+<a href=#195 id=195 data-nosnippet>195</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash)]
+<a href=#196 id=196 data-nosnippet>196</a></span><span class="kw">pub struct </span>Target {
+<a href=#197 id=197 data-nosnippet>197</a>    triple: Triple,
+<a href=#198 id=198 data-nosnippet>198</a>    cpu_features: EnumSet&lt;CpuFeature&gt;,
+<a href=#199 id=199 data-nosnippet>199</a>}
+<a href=#200 id=200 data-nosnippet>200</a>
+<a href=#201 id=201 data-nosnippet>201</a><span class="kw">impl </span>Target {
+<a href=#202 id=202 data-nosnippet>202</a>    <span class="doccomment">/// Creates a new target given a triple
+<a href=#203 id=203 data-nosnippet>203</a>    </span><span class="kw">pub fn </span>new(triple: Triple, cpu_features: EnumSet&lt;CpuFeature&gt;) -&gt; <span class="self">Self </span>{
+<a href=#204 id=204 data-nosnippet>204</a>        <span class="self">Self </span>{
+<a href=#205 id=205 data-nosnippet>205</a>            triple,
+<a href=#206 id=206 data-nosnippet>206</a>            cpu_features,
+<a href=#207 id=207 data-nosnippet>207</a>        }
 <a href=#208 id=208 data-nosnippet>208</a>    }
 <a href=#209 id=209 data-nosnippet>209</a>
 <a href=#210 id=210 data-nosnippet>210</a>    <span class="doccomment">/// The triple associated for the target.
-<a href=#211 id=211 data-nosnippet>211</a>    </span><span class="kw">pub fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt; {
-<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features
+<a href=#211 id=211 data-nosnippet>211</a>    </span><span class="kw">pub fn </span>triple(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>Triple {
+<a href=#212 id=212 data-nosnippet>212</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.triple
 <a href=#213 id=213 data-nosnippet>213</a>    }
 <a href=#214 id=214 data-nosnippet>214</a>
-<a href=#215 id=215 data-nosnippet>215</a>    <span class="doccomment">/// Check if target is a native (eq to host) or not
-<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">pub fn </span>is_native(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
-<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw">let </span>host = Triple::host();
-<a href=#218 id=218 data-nosnippet>218</a>        host.operating_system == <span class="self">self</span>.triple.operating_system
-<a href=#219 id=219 data-nosnippet>219</a>            &amp;&amp; host.architecture == <span class="self">self</span>.triple.architecture
-<a href=#220 id=220 data-nosnippet>220</a>    }
-<a href=#221 id=221 data-nosnippet>221</a>}
-<a href=#222 id=222 data-nosnippet>222</a>
-<a href=#223 id=223 data-nosnippet>223</a><span class="doccomment">/// The default for the Target will use the HOST as the triple
-<a href=#224 id=224 data-nosnippet>224</a></span><span class="kw">impl </span>Default <span class="kw">for </span>Target {
-<a href=#225 id=225 data-nosnippet>225</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
-<a href=#226 id=226 data-nosnippet>226</a>        <span class="self">Self </span>{
-<a href=#227 id=227 data-nosnippet>227</a>            triple: Triple::host(),
-<a href=#228 id=228 data-nosnippet>228</a>            cpu_features: CpuFeature::for_host(),
-<a href=#229 id=229 data-nosnippet>229</a>        }
-<a href=#230 id=230 data-nosnippet>230</a>    }
-<a href=#231 id=231 data-nosnippet>231</a>}
-<a href=#232 id=232 data-nosnippet>232</a>
-<a href=#233 id=233 data-nosnippet>233</a><span class="doccomment">/// User-suggested optimization that might be operated on the module when (and if) compiled.
-<a href=#234 id=234 data-nosnippet>234</a>///
-<a href=#235 id=235 data-nosnippet>235</a></span><span class="comment">// Note: This type is a copy of `wasmer_config::package::SuggestedCompilerOptimizations`, so to
-<a href=#236 id=236 data-nosnippet>236</a>// avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
-<a href=#237 id=237 data-nosnippet>237</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
-<a href=#238 id=238 data-nosnippet>238</a></span><span class="kw">pub struct </span>UserCompilerOptimizations {
-<a href=#239 id=239 data-nosnippet>239</a>    <span class="doccomment">/// Suggest the `pass_params` (also known as g0m0) optimization pass.
-<a href=#240 id=240 data-nosnippet>240</a>    </span><span class="kw">pub </span>pass_params: <span class="prelude-ty">Option</span>&lt;bool&gt;,
-<a href=#241 id=241 data-nosnippet>241</a>}</code></pre></div></section></main></body></html>
+<a href=#215 id=215 data-nosnippet>215</a>    <span class="doccomment">/// The triple associated for the target.
+<a href=#216 id=216 data-nosnippet>216</a>    </span><span class="kw">pub fn </span>cpu_features(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;</span>EnumSet&lt;CpuFeature&gt; {
+<a href=#217 id=217 data-nosnippet>217</a>        <span class="kw-2">&amp;</span><span class="self">self</span>.cpu_features
+<a href=#218 id=218 data-nosnippet>218</a>    }
+<a href=#219 id=219 data-nosnippet>219</a>
+<a href=#220 id=220 data-nosnippet>220</a>    <span class="doccomment">/// Check if target is a native (eq to host) or not
+<a href=#221 id=221 data-nosnippet>221</a>    </span><span class="kw">pub fn </span>is_native(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; bool {
+<a href=#222 id=222 data-nosnippet>222</a>        <span class="kw">let </span>host = Triple::host();
+<a href=#223 id=223 data-nosnippet>223</a>        host.operating_system == <span class="self">self</span>.triple.operating_system
+<a href=#224 id=224 data-nosnippet>224</a>            &amp;&amp; host.architecture == <span class="self">self</span>.triple.architecture
+<a href=#225 id=225 data-nosnippet>225</a>    }
+<a href=#226 id=226 data-nosnippet>226</a>}
+<a href=#227 id=227 data-nosnippet>227</a>
+<a href=#228 id=228 data-nosnippet>228</a><span class="doccomment">/// The default for the Target will use the HOST as the triple
+<a href=#229 id=229 data-nosnippet>229</a></span><span class="kw">impl </span>Default <span class="kw">for </span>Target {
+<a href=#230 id=230 data-nosnippet>230</a>    <span class="kw">fn </span>default() -&gt; <span class="self">Self </span>{
+<a href=#231 id=231 data-nosnippet>231</a>        <span class="self">Self </span>{
+<a href=#232 id=232 data-nosnippet>232</a>            triple: Triple::host(),
+<a href=#233 id=233 data-nosnippet>233</a>            cpu_features: CpuFeature::for_host(),
+<a href=#234 id=234 data-nosnippet>234</a>        }
+<a href=#235 id=235 data-nosnippet>235</a>    }
+<a href=#236 id=236 data-nosnippet>236</a>}
+<a href=#237 id=237 data-nosnippet>237</a>
+<a href=#238 id=238 data-nosnippet>238</a><span class="doccomment">/// User-suggested optimization that might be operated on the module when (and if) compiled.
+<a href=#239 id=239 data-nosnippet>239</a>///
+<a href=#240 id=240 data-nosnippet>240</a></span><span class="comment">// Note: This type is a copy of `wasmer_config::package::SuggestedCompilerOptimizations`, so to
+<a href=#241 id=241 data-nosnippet>241</a>// avoid dependencies on `wasmer_config` for crates that already depend on `wasmer_types`.
+<a href=#242 id=242 data-nosnippet>242</a></span><span class="attr">#[derive(Clone, Debug, PartialEq, Eq, Hash, Default)]
+<a href=#243 id=243 data-nosnippet>243</a></span><span class="kw">pub struct </span>UserCompilerOptimizations {
+<a href=#244 id=244 data-nosnippet>244</a>    <span class="doccomment">/// Suggest the `pass_params` (also known as g0m0) optimization pass.
+<a href=#245 id=245 data-nosnippet>245</a>    </span><span class="kw">pub </span>pass_params: <span class="prelude-ty">Option</span>&lt;bool&gt;,
+<a href=#246 id=246 data-nosnippet>246</a>}</code></pre></div></section></main></body></html>
