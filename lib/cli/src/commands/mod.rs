@@ -536,7 +536,7 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
             .collect::<Vec<_>>()
             .join(",")
     };
-    println!("cpu: {}", cpu_features);
+    println!("cpu: {cpu_features}");
 
     let mut runtimes = Vec::<&'static str>::new();
     if cfg!(feature = "singlepass") {
