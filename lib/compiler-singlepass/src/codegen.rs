@@ -188,6 +188,12 @@ impl<M: Machine> ControlFrame<M> {
 
         depth
     }
+
+    /// Returns the value stack depth at which resources should be deallocated.
+    /// For loops, this preserves PHI arguments by excluding them from deallocation.
+    fn value_stack_depth_for_release(&self) -> usize {
+        self.value_stack_depth - self.param_types.len()
+    }
 }
 
 fn type_to_wp_type(ty: &Type) -> WpType {
@@ -966,7 +972,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         value_stack_depth_after: usize,
         param_count: usize,
     ) -> Result<(), CompileError> {
-        for (i, (stack_value, _)) in self.value_stack.iter().rev().take(param_count).enumerate() {
+        for (i, (stack_value, _)) in self
+            .value_stack
+            .iter()
+            .rev()
+            .take(param_count)
+            .rev()
+            .enumerate()
+        {
             let dst = self.value_stack[value_stack_depth_after + i].0;
             self.machine
                 .emit_relaxed_mov(Size::S64, *stack_value, dst)?;
@@ -1001,8 +1014,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CompileError> {
-        // dbg!((&self.value_stack, &self.stack_offset.0, &op));
-
         let was_unreachable;
 
         if self.unreachable_depth > 0 {
@@ -2409,11 +2420,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         .take(param_types.len())
                         .zip(self.value_stack.iter().rev().skip(param_types.len()))
                     {
-                        self.machine.emit_relaxed_mov(
-                            Size::S64,
-                            dbg!(input.0),
-                            dbg!(return_value.0),
-                        )?;
+                        self.machine
+                            .emit_relaxed_mov(Size::S64, input.0, return_value.0)?;
                     }
                 }
 
@@ -3433,7 +3441,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     )?;
                 }
                 let frame = &self.control_stack[0];
-                let frame_depth = frame.value_stack_depth_after();
+                let frame_depth = frame.value_stack_depth_for_release();
                 let label = frame.label;
                 self.release_stack_locations_keep_stack_offset(frame_depth)?;
                 self.machine.jmp_unconditional(label)?;
@@ -3458,7 +3466,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let frame_depth = frame.value_stack_depth_after();
+                let frame_depth = frame.value_stack_depth_for_release();
                 let label = frame.label;
 
                 self.release_stack_locations_keep_stack_offset(frame_depth)?;
@@ -3494,7 +3502,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 let stack_len = self.control_stack.len();
                 let frame = &mut self.control_stack[stack_len - 1 - (relative_depth as usize)];
-                let stack_depth = frame.value_stack_depth_after();
+                let stack_depth = frame.value_stack_depth_for_release();
                 let label = frame.label;
                 self.release_stack_locations_keep_stack_offset(stack_depth)?;
                 self.machine.jmp_unconditional(label)?;
@@ -3543,7 +3551,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    let stack_depth = frame.value_stack_depth_after();
+                    let stack_depth = frame.value_stack_depth_for_release();
                     let label = frame.label;
                     self.release_stack_locations_keep_stack_offset(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
@@ -3569,7 +3577,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     }
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    let stack_depth = frame.value_stack_depth_after();
+                    let stack_depth = frame.value_stack_depth_for_release();
                     let label = frame.label;
                     self.release_stack_locations_keep_stack_offset(stack_depth)?;
                     self.machine.jmp_unconditional(label)?;
