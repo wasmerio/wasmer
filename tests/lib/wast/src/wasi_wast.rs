@@ -207,8 +207,8 @@ impl<'a> WasiTest<'a> {
                 let mut source = PathBuf::from(BASE_TEST_DIR);
                 source.push("test_fs");
 
-                let root_dir =
-                    TempDir::new().with_context(|| anyhow!("cannot create temporary directory"))?;
+                let root_dir = TempDir::with_prefix("host_fs_copy-")
+                    .with_context(|| anyhow!("cannot create temporary directory"))?;
                 copy(source.as_path(), root_dir.path(), &dir::CopyOptions::new())
                     .with_context(|| anyhow!("cannot copy to the temporary directory"))?;
                 let base_dir = root_dir.path().to_path_buf();
