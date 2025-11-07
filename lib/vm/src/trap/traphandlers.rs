@@ -6,6 +6,7 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
+use stackpool::StackPool;
 use crate::vmcontext::{VMFunctionContext, VMTrampoline};
 use crate::{Trap, VMContext, VMFunctionBody};
 use backtrace::Backtrace;
@@ -25,6 +26,8 @@ use std::ptr::{self, NonNull};
 use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
+
+mod stackpool;
 
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
@@ -948,6 +951,9 @@ unsafe fn unwind_with(reason: UnwindReason) -> ! {
     }
 }
 
+    static STACK_POOL: LazyLock<StackPool> =
+        LazyLock::new(Default::default);
+
 /// Runs the given function on a separate stack so that its stack usage can be
 /// bounded. Stack overflows and other traps can be caught and execution
 /// returned to the root of the stack.
@@ -960,13 +966,11 @@ fn on_wasm_stack<F: FnOnce() -> T + 'static, T: 'static>(
     // system calls. We therefore keep a cache of pre-allocated stacks which
     // allows them to be reused multiple times.
     // FIXME(Amanieu): We should refactor this to avoid the lock.
-    static STACK_POOL: LazyLock<crossbeam_queue::SegQueue<DefaultStack>> =
-        LazyLock::new(crossbeam_queue::SegQueue::new);
+
 
     let stack = STACK_POOL
-        .pop()
-        .unwrap_or_else(|| DefaultStack::new(stack_size).unwrap());
-    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.push(stack));
+        .get_stack(stack_size);
+    let mut stack = scopeguard::guard(stack, |stack| STACK_POOL.return_stack(stack, stack_size));
 
     // Create a coroutine with a new stack to run the function on.
     let coro = ScopedCoroutine::with_stack(&mut *stack, move |yielder, ()| {
