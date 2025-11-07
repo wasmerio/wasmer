@@ -427,7 +427,7 @@ HAMLET
     Alas, poor Yorick! I knew him, Horatio: a fellow
     of infinite jest, of most excellent fancy: he hath
     borne me on his back a thousand times; and now, how
-    abhorred in my imagination it is! my gorge rims at
+    abhorred in my imagination it is! my gorge rises at
     it. Here hung those lips that I have kissed I know
     not how oft. Where be your gibes now? your
     gambols? your songs? your flashes of merriment,
