@@ -7,6 +7,7 @@ use crate::{
     HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
+    utils::IntoResult,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
@@ -291,6 +292,69 @@ impl BackendFunction {
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_with_env_async(
                     store, env, ty, func,
+                ),
+            ),
+            #[cfg(feature = "wamr")]
+            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+            #[cfg(feature = "wasmi")]
+            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+            #[cfg(feature = "v8")]
+            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            #[cfg(feature = "jsc")]
+            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+        }
+    }
+
+    #[inline]
+    pub fn new_typed_async<F, Fut, Args, Rets, RetsAsResult>(
+        store: &mut impl AsStoreMut,
+        func: F,
+    ) -> Self
+    where
+        F: Fn(Args) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = RetsAsResult> + 'static + Send,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        RetsAsResult: IntoResult<Rets>,
+    {
+        match &store.as_store_mut().inner.store {
+            #[cfg(feature = "sys")]
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_typed_async(store, func),
+            ),
+            #[cfg(feature = "wamr")]
+            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+            #[cfg(feature = "wasmi")]
+            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+            #[cfg(feature = "v8")]
+            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            #[cfg(feature = "jsc")]
+            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+        }
+    }
+
+    #[inline]
+    pub fn new_typed_with_env_async<T: Send + 'static, F, Fut, Args, Rets, RetsAsResult>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = RetsAsResult> + 'static + Send,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        RetsAsResult: IntoResult<Rets>,
+    {
+        match &store.as_store_mut().inner.store {
+            #[cfg(feature = "sys")]
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_typed_with_env_async(
+                    store, env, func,
                 ),
             ),
             #[cfg(feature = "wamr")]
