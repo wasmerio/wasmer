@@ -18,6 +18,7 @@ use crate::{
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction,
     Value, WasmTypeList,
     error::RuntimeError,
+    utils::IntoResult,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
@@ -184,36 +185,37 @@ impl Function {
     }
 
     /// Creates a new async host `Function` from a native typed function.
-    #[allow(unused_variables)]
-    pub fn new_typed_async<F, Fut, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    ///
+    /// The future can return either the raw result tuple or any type that implements
+    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E>`).
+    pub fn new_typed_async<F, Fut, Args, Rets, RetsAsResult>(
+        store: &mut impl AsStoreMut,
+        func: F,
+    ) -> Self
     where
         F: Fn(Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Rets> + 'static + Send,
+        Fut: Future<Output = RetsAsResult> + 'static + Send,
         Args: WasmTypeList,
         Rets: WasmTypeList,
+        RetsAsResult: IntoResult<Rets>,
     {
-        let _ = store.as_store_ref();
-        let _ = &func;
-        unimplemented!("Function::new_typed_async is not implemented yet")
+        Self(BackendFunction::new_typed_async(store, func))
     }
 
     /// Creates a new async host `Function` with an environment from a typed function.
-    #[allow(unused_variables)]
-    pub fn new_typed_with_env_async<T: Send + 'static, F, Fut, Args, Rets>(
+    pub fn new_typed_with_env_async<T: Send + 'static, F, Fut, Args, Rets, RetsAsResult>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
         F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Rets> + 'static + Send,
+        Fut: Future<Output = RetsAsResult> + 'static + Send,
         Args: WasmTypeList,
         Rets: WasmTypeList,
+        RetsAsResult: IntoResult<Rets>,
     {
-        let _ = store.as_store_ref();
-        let _ = env;
-        let _ = &func;
-        unimplemented!("Function::new_typed_with_env_async is not implemented yet")
+        Self(BackendFunction::new_typed_with_env_async(store, env, func))
     }
 
     /// Returns the [`FunctionType`] of the `Function`.

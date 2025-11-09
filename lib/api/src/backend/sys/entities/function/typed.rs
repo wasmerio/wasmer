@@ -1,7 +1,10 @@
 use crate::backend::sys::engine::NativeEngineExt;
 use crate::store::{AsStoreMut, AsStoreRef};
-use crate::{FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, TypedFunction, WasmTypeList};
-use wasmer_types::RawValue;
+use crate::{
+    FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, TypedFunction, Value, WasmTypeList,
+};
+use std::future::Future;
+use wasmer_types::{FunctionType, RawValue, Type};
 
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
@@ -97,6 +100,36 @@ macro_rules! impl_native_traits {
                 //     }).map_err(RuntimeError::from_trap)?
                 // };
                 // Ok(Rets::from_c_struct(results))
+            }
+
+            /// Call the typed func asynchronously.
+            #[allow(unused_mut)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_async_sys<'a>(
+                &'a self,
+                store: &'a mut (impl AsStoreMut + 'static),
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            where
+                $( $x: FromToNativeWasmType, )*
+            {
+                let func = self.func.clone();
+                let func_ty = func.ty(store);
+                let mut params_raw = [ $( $x.to_native().into_raw(store) ),* ];
+                let mut params_values = Vec::with_capacity(params_raw.len());
+                {
+                    let mut tmp_store = store.as_store_mut();
+                    for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
+                        unsafe {
+                            params_values.push(Value::from_raw(&mut tmp_store, *ty, *raw));
+                        }
+                    }
+                }
+
+                async move {
+                    let results = func.call_async(store, &params_values).await?;
+                    convert_results::<Rets>(store, func_ty, results)
+                }
             }
 
             #[doc(hidden)]
@@ -218,3 +251,27 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
+
+fn convert_results<Rets>(
+    store: &mut impl AsStoreMut,
+    ty: FunctionType,
+    results: Box<[Value]>,
+) -> Result<Rets, RuntimeError>
+where
+    Rets: WasmTypeList,
+{
+    if results.len() != ty.results().len() {
+        return Err(RuntimeError::new("result arity mismatch"));
+    }
+    let mut raw_array = Rets::empty_array();
+    for ((slot, value_ty), value) in raw_array
+        .as_mut()
+        .iter_mut()
+        .zip(ty.results().iter())
+        .zip(results.iter())
+    {
+        debug_assert_eq!(value.ty(), *value_ty);
+        *slot = value.as_raw(store);
+    }
+    unsafe { Ok(Rets::from_array(store, raw_array)) }
+}

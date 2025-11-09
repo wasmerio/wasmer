@@ -12,7 +12,9 @@ use crate::{
     vm::{VMExtern, VMExternFunction},
 };
 use std::panic::{self, AssertUnwindSafe};
-use std::{cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, pin::Pin};
+use std::{
+    cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, pin::Pin, sync::Arc,
+};
 use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
@@ -251,6 +253,66 @@ impl Function {
         Self {
             handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
         }
+    }
+
+    pub(crate) fn new_typed_async<F, Fut, Args, Rets, RetsAsResult>(
+        store: &mut impl AsStoreMut,
+        func: F,
+    ) -> Self
+    where
+        F: Fn(Args) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = RetsAsResult> + 'static + Send,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        RetsAsResult: IntoResult<Rets>,
+    {
+        let env = FunctionEnv::new(store, ());
+        let func = Arc::new(func);
+        Self::new_typed_with_env_async(store, &env, move |_env, args| {
+            let func = func.clone();
+            func(args)
+        })
+    }
+
+    pub(crate) fn new_typed_with_env_async<T, F, Fut, Args, Rets, RetsAsResult>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        T: Send + 'static,
+        F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = RetsAsResult> + 'static + Send,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        RetsAsResult: IntoResult<Rets>,
+    {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(store, env, signature, move |mut env_mut, values| -> Pin<
+            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
+        > {
+            let raw_store = RawStorePtr {
+                ptr: env_mut.as_store_mut().as_raw(),
+            };
+            let args_sig = args_sig.clone();
+            let results_sig = results_sig.clone();
+            let func = func.clone();
+            let args = match typed_args_from_values::<Args>(raw_store, args_sig.as_ref(), values) {
+                Ok(args) => args,
+                Err(err) => return Box::pin(async { Err(err) }),
+            };
+            let future = (*func)(env_mut, args);
+            Box::pin(async move {
+                let typed_result = future
+                    .await
+                    .into_result()
+                    .map_err(|err| RuntimeError::user(Box::new(err)))?;
+                typed_results_to_values::<Rets>(raw_store, results_sig.as_ref(), typed_result)
+            })
+        })
     }
 
     pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
@@ -584,6 +646,64 @@ fn finalize_dynamic_call(
         Ok(values) => write_dynamic_results(raw_store, &func_ty, values, values_vec),
         Err(err) => Err(err),
     }
+}
+
+#[derive(Clone, Copy)]
+struct RawStorePtr {
+    ptr: *mut StoreInner,
+}
+
+unsafe impl Send for RawStorePtr {}
+unsafe impl Sync for RawStorePtr {}
+
+fn typed_args_from_values<Args>(
+    raw_store: RawStorePtr,
+    func_ty: &FunctionType,
+    values: &[Value],
+) -> Result<Args, RuntimeError>
+where
+    Args: WasmTypeList,
+{
+    if values.len() != func_ty.params().len() {
+        return Err(RuntimeError::new(
+            "typed host function received wrong number of parameters",
+        ));
+    }
+    let mut store = unsafe { StoreMut::from_raw(raw_store.ptr) };
+    let mut raw_array = Args::empty_array();
+    for ((slot, value), expected_ty) in raw_array
+        .as_mut()
+        .iter_mut()
+        .zip(values.iter())
+        .zip(func_ty.params().iter())
+    {
+        debug_assert_eq!(
+            value.ty(),
+            *expected_ty,
+            "wasm should only call host functions with matching signatures"
+        );
+        *slot = value.as_raw(&store);
+    }
+    unsafe { Ok(Args::from_array(&mut store, raw_array)) }
+}
+
+fn typed_results_to_values<Rets>(
+    raw_store: RawStorePtr,
+    func_ty: &FunctionType,
+    rets: Rets,
+) -> Result<Vec<Value>, RuntimeError>
+where
+    Rets: WasmTypeList,
+{
+    let mut store = unsafe { StoreMut::from_raw(raw_store.ptr) };
+    let mut raw_array = unsafe { rets.into_array(&mut store) };
+    let mut values = Vec::with_capacity(func_ty.results().len());
+    for (raw, ty) in raw_array.as_mut().iter().zip(func_ty.results().iter()) {
+        unsafe {
+            values.push(Value::from_raw(&mut store, *ty, *raw));
+        }
+    }
+    Ok(values)
 }
 
 pub(crate) enum HostCallOutcome {

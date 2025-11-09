@@ -84,16 +84,32 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call_async<'a>(
                 &'a self,
-                store: &'a mut impl AsStoreMut,
+                store: &'a mut (impl AsStoreMut + 'static),
                 $( $x: $x, )*
             ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
             where
                 $( $x: FromToNativeWasmType, )*
             {
+                $(
+                    let [<p_ $x>] = $x;
+                )*
                 async move {
-                    let _ = store.as_store_ref();
-                    let _ = ($($x,)*);
-                    unimplemented!("TypedFunction::call_async is not implemented yet")
+                    match store.as_store_mut().inner.store {
+                        #[cfg(feature = "sys")]
+                        BackendStore::Sys(_) => {
+                            self.call_async_sys(store, $([<p_ $x>]),*).await
+                        }
+                        #[cfg(feature = "wamr")]
+                        BackendStore::Wamr(_) => async_backend_error(),
+                        #[cfg(feature = "wasmi")]
+                        BackendStore::Wasmi(_) => async_backend_error(),
+                        #[cfg(feature = "v8")]
+                        BackendStore::V8(_) => async_backend_error(),
+                        #[cfg(feature = "js")]
+                        BackendStore::Js(_) => async_backend_error(),
+                        #[cfg(feature = "jsc")]
+                        BackendStore::Jsc(_) => async_backend_error(),
+                    }
                 }
             }
 
@@ -155,3 +171,9 @@ impl_native_traits!(
 impl_native_traits!(
     A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
 );
+
+fn async_backend_error<Rets>() -> Result<Rets, RuntimeError> {
+    Err(RuntimeError::new(
+        "async calls are only supported with the `sys` backend",
+    ))
+}
