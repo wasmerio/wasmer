@@ -4,7 +4,7 @@ use std::{
     marker::PhantomData,
     pin::Pin,
     ptr,
-    task::{Context, Poll},
+    task::{Context, Poll, RawWaker, RawWakerVTable, Waker},
 };
 
 use corosensei::{Coroutine, CoroutineResult, Yielder};
@@ -96,9 +96,7 @@ where
     CURRENT_CONTEXT.with(|cell| {
         let ptr = cell.get();
         if ptr.is_null() {
-            Err(RuntimeError::new(
-                "async host functions can only be used inside `call_async`",
-            ))
+            run_immediate(future)
         } else {
             unsafe { (&*ptr).block_on_future(Box::pin(future)) }
         }
@@ -161,5 +159,28 @@ impl Drop for AsyncContextGuard {
         CURRENT_CONTEXT.with(|cell| {
             cell.set(self.previous);
         });
+    }
+}
+
+fn run_immediate(
+    future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static,
+) -> Result<Vec<Value>, RuntimeError> {
+    fn noop_raw_waker() -> RawWaker {
+        fn no_op(_: *const ()) {}
+        fn clone(_: *const ()) -> RawWaker {
+            noop_raw_waker()
+        }
+        let vtable = &RawWakerVTable::new(clone, no_op, no_op, no_op);
+        RawWaker::new(ptr::null(), vtable)
+    }
+
+    let mut future = Box::pin(future);
+    let waker = unsafe { Waker::from_raw(noop_raw_waker()) };
+    let mut cx = Context::from_waker(&waker);
+    match future.as_mut().poll(&mut cx) {
+        Poll::Ready(result) => result,
+        Poll::Pending => Err(RuntimeError::new(
+            "async host functions can only yield inside `call_async`",
+        )),
     }
 }

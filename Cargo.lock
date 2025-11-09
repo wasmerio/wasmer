@@ -6963,6 +6963,7 @@ dependencies = [
  "cmake",
  "corosensei",
  "derive_more 2.0.1",
+ "futures",
  "hashbrown 0.11.2",
  "indexmap 2.12.0",
  "js-sys",
