@@ -80,6 +80,7 @@ wat = "1.0"
 tempfile.workspace = true
 anyhow.workspace = true
 macro-wasmer-universal-test = { version = "6.1.0", path = "./macro-wasmer-universal-test" }
+futures = "0.3"
 
 # Dependencies and Develoment Dependencies for `js`.
 [target.'cfg(target_arch = "wasm32")'.dependencies]
