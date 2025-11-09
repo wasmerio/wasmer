@@ -10,6 +10,8 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
+use std::future::Future;
+
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -147,6 +149,77 @@ impl Function {
         Self(BackendFunction::new_typed_with_env(store, env, func))
     }
 
+    /// Creates a new async host `Function` (dynamic) with the provided signature.
+    ///
+    /// This API is a placeholder for JSPI support. It will be wired to the
+    /// runtime implementation in a follow-up change.
+    #[allow(unused_variables)]
+    pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        let _ = store.as_store_ref();
+        let _ = ty.into();
+        let _ = &func;
+        unimplemented!("Function::new_async is not implemented yet")
+    }
+
+    /// Creates a new async host `Function` (dynamic) with the provided signature
+    /// and environment.
+    #[allow(unused_variables)]
+    pub fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        let _ = store.as_store_ref();
+        let _ = env;
+        let _ = ty.into();
+        let _ = &func;
+        unimplemented!("Function::new_with_env_async is not implemented yet")
+    }
+
+    /// Creates a new async host `Function` from a native typed function.
+    #[allow(unused_variables)]
+    pub fn new_typed_async<F, Fut, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        F: Fn(Args) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Rets> + 'static + Send,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        let _ = store.as_store_ref();
+        let _ = &func;
+        unimplemented!("Function::new_typed_async is not implemented yet")
+    }
+
+    /// Creates a new async host `Function` with an environment from a typed function.
+    #[allow(unused_variables)]
+    pub fn new_typed_with_env_async<T: Send + 'static, F, Fut, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Rets> + 'static + Send,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        let _ = store.as_store_ref();
+        let _ = env;
+        let _ = &func;
+        unimplemented!("Function::new_typed_with_env_async is not implemented yet")
+    }
+
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -248,6 +321,22 @@ impl Function {
         params: &[Value],
     ) -> Result<Box<[Value]>, RuntimeError> {
         self.0.call(store, params)
+    }
+
+    /// Calls the function asynchronously.
+    ///
+    /// This is a placeholder that will panic when awaited until JSPI support
+    /// is fully implemented.
+    pub fn call_async<'a>(
+        &'a self,
+        store: &'a mut impl AsStoreMut,
+        params: &'a [Value],
+    ) -> impl Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a {
+        async move {
+            let _ = store.as_store_ref();
+            let _ = params;
+            unimplemented!("Function::call_async is not implemented yet")
+        }
     }
 
     #[doc(hidden)]

@@ -11,6 +11,7 @@ use crate::{
     AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError,
     WasmTypeList, store::AsStoreRef,
 };
+use std::future::Future;
 use std::marker::PhantomData;
 use wasmer_types::RawValue;
 
@@ -75,6 +76,24 @@ macro_rules! impl_native_traits {
                     #[cfg(feature = "jsc")]
                     BackendStore::Jsc(_) => self.call_jsc(store, $([<p_ $x>]),*),
 
+                }
+            }
+
+            /// Call the typed func asynchronously.
+            #[allow(unused_mut)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_async<'a>(
+                &'a self,
+                store: &'a mut impl AsStoreMut,
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            where
+                $( $x: FromToNativeWasmType, )*
+            {
+                async move {
+                    let _ = store.as_store_ref();
+                    let _ = ($($x,)*);
+                    unimplemented!("TypedFunction::call_async is not implemented yet")
                 }
             }
 
