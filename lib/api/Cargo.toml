@@ -60,6 +60,7 @@ wasmer-compiler = { path = "../compiler", version = "=6.1.0", optional = true }
 wasmer-derive = { path = "../derive", version = "=6.1.0" }
 wasmer-types = { path = "../types", version = "=6.1.0" }
 target-lexicon = { workspace = true, default-features = false }
+corosensei = { workspace = true, optional = true }
 # - Optional dependencies for `sys`.
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.1.0", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=6.1.0", optional = true }
@@ -125,7 +126,7 @@ artifact-size = [
 ]
 
 # Features for `sys`.
-sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
+sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler", "dep:corosensei"]
 sys-default = ["sys", "wat", "cranelift"]
 
 # - Compilers.

@@ -10,7 +10,7 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
-use std::future::Future;
+use std::{future::Future, pin::Pin};
 
 use wasmer_types::{FunctionType, RawValue};
 
@@ -20,6 +20,9 @@ use crate::{
     error::RuntimeError,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
+
+#[cfg(feature = "sys")]
+use crate::backend::sys::async_runtime::{block_on_host_future, call_function_async};
 
 /// A WebAssembly `function` instance.
 ///
@@ -151,24 +154,21 @@ impl Function {
 
     /// Creates a new async host `Function` (dynamic) with the provided signature.
     ///
-    /// This API is a placeholder for JSPI support. It will be wired to the
-    /// runtime implementation in a follow-up change.
-    #[allow(unused_variables)]
+    /// The provided closure returns a future that resolves to the function results.
+    /// When invoked synchronously (via [`Function::call`]) the future will run to
+    /// completion immediately. When invoked through [`Function::call_async`], the
+    /// future may suspend and resume according to JSPI semantics.
     pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
     {
-        let _ = store.as_store_ref();
-        let _ = ty.into();
-        let _ = &func;
-        unimplemented!("Function::new_async is not implemented yet")
+        Self(BackendFunction::new_async(store, ty, func))
     }
 
     /// Creates a new async host `Function` (dynamic) with the provided signature
     /// and environment.
-    #[allow(unused_variables)]
     pub fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -180,11 +180,7 @@ impl Function {
         F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
     {
-        let _ = store.as_store_ref();
-        let _ = env;
-        let _ = ty.into();
-        let _ = &func;
-        unimplemented!("Function::new_with_env_async is not implemented yet")
+        Self(BackendFunction::new_with_env_async(store, env, ty, func))
     }
 
     /// Creates a new async host `Function` from a native typed function.
@@ -325,18 +321,17 @@ impl Function {
 
     /// Calls the function asynchronously.
     ///
-    /// This is a placeholder that will panic when awaited until JSPI support
-    /// is fully implemented.
+    /// The returned future drives execution of the WebAssembly function on a
+    /// coroutine stack. Host functions created with [`Function::new_async`] may
+    /// suspend execution by awaiting futures, and their completion will resume
+    /// the Wasm instance according to the JSPI proposal.
     pub fn call_async<'a>(
         &'a self,
-        store: &'a mut impl AsStoreMut,
+        store: &'a mut (impl AsStoreMut + 'static),
         params: &'a [Value],
     ) -> impl Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a {
-        async move {
-            let _ = store.as_store_ref();
-            let _ = params;
-            unimplemented!("Function::call_async is not implemented yet")
-        }
+        let params_vec = params.to_vec();
+        self.0.call_async(store, params_vec)
     }
 
     #[doc(hidden)]

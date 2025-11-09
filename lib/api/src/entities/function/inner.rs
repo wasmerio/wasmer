@@ -1,3 +1,5 @@
+use std::{future::Future, pin::Pin};
+
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
@@ -247,6 +249,63 @@ impl BackendFunction {
         }
     }
 
+    #[inline]
+    pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        match &store.as_store_mut().inner.store {
+            #[cfg(feature = "sys")]
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_async(store, ty, func),
+            ),
+            #[cfg(feature = "wamr")]
+            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+            #[cfg(feature = "wasmi")]
+            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+            #[cfg(feature = "v8")]
+            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            #[cfg(feature = "jsc")]
+            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+        }
+    }
+
+    #[inline]
+    pub fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        match &store.as_store_mut().inner.store {
+            #[cfg(feature = "sys")]
+            crate::BackendStore::Sys(_) => Self::Sys(
+                crate::backend::sys::entities::function::Function::new_with_env_async(
+                    store, env, ty, func,
+                ),
+            ),
+            #[cfg(feature = "wamr")]
+            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+            #[cfg(feature = "wasmi")]
+            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+            #[cfg(feature = "v8")]
+            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+            #[cfg(feature = "js")]
+            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+            #[cfg(feature = "jsc")]
+            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+        }
+    }
+
     /// Returns the [`FunctionType`] of the `Function`.
     ///
     /// # Example
@@ -369,6 +428,27 @@ impl BackendFunction {
         match_rt!(on self => f {
             f.call_raw(store, params)
         })
+    }
+
+    pub fn call_async<'a>(
+        &'a self,
+        store: &'a mut (impl AsStoreMut + 'static),
+        params: Vec<Value>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.call_async(store, params),
+            #[cfg(feature = "wamr")]
+            Self::Wamr(_) => unsupported_async_future(),
+            #[cfg(feature = "wasmi")]
+            Self::Wasmi(_) => unsupported_async_future(),
+            #[cfg(feature = "v8")]
+            Self::V8(_) => unsupported_async_future(),
+            #[cfg(feature = "js")]
+            Self::Js(_) => unsupported_async_future(),
+            #[cfg(feature = "jsc")]
+            Self::Jsc(_) => unsupported_async_future(),
+        }
     }
 
     #[inline]
@@ -603,6 +683,22 @@ impl BackendFunction {
             f.to_vm_extern()
         })
     }
+}
+
+#[cold]
+fn unsupported_async_backend(backend: &str) -> ! {
+    panic!(
+        "async host functions are only supported with the `sys` backend (attempted on {backend})"
+    )
+}
+
+fn unsupported_async_future<'a>()
+-> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
+    Box::pin(async {
+        Err(RuntimeError::new(
+            "async calls are only supported with the `sys` backend",
+        ))
+    })
 }
 
 impl<'a> Exportable<'a> for BackendFunction {
