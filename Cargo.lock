@@ -6961,6 +6961,7 @@ dependencies = [
  "bytes",
  "cfg-if",
  "cmake",
+ "corosensei",
  "derive_more 2.0.1",
  "hashbrown 0.11.2",
  "indexmap 2.12.0",

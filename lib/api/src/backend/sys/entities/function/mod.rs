@@ -13,12 +13,15 @@ use crate::{
 };
 use std::panic::{self, AssertUnwindSafe};
 use std::{cell::UnsafeCell, cmp::max, error::Error, ffi::c_void};
+use std::{future::Future, pin::Pin};
 use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
     MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
     VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
     on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
 };
+
+use crate::backend::sys::async_runtime::{block_on_host_future, call_function_async};
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,6 +128,33 @@ impl Function {
         Self {
             handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), vm_function),
         }
+    }
+
+    pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        let env = FunctionEnv::new(&mut store.as_store_mut(), ());
+        let wrapped = move |_env: FunctionEnvMut<()>, values: &[Value]| func(values);
+        Self::new_with_env_async(store, &env, ty, wrapped)
+    }
+
+    pub(crate) fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        Self::new_with_env(store, env, ty, move |env_mut, values| {
+            block_on_host_future(func(env_mut, values))
+        })
     }
 
     /// Creates a new host `Function` from a native function.
@@ -357,6 +387,15 @@ impl Function {
         let mut results = vec![Value::null(); self.result_arity(store)];
         self.call_wasm(store, trampoline, params, &mut results)?;
         Ok(results.into_boxed_slice())
+    }
+
+    pub(crate) fn call_async<'a>(
+        &self,
+        store: &'a mut (impl AsStoreMut + 'static),
+        params: Vec<Value>,
+    ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
+        let function = self.clone();
+        Box::pin(call_function_async(function, store, params))
     }
 
     #[doc(hidden)]
