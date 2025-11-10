@@ -1,7 +1,7 @@
 use std::sync::OnceLock;
 
 use anyhow::Result;
-use futures::{executor::block_on, future};
+use futures::future;
 use wasmer::{
     Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, Store, Type, Value,
     imports,
@@ -37,6 +37,12 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
         &mut store,
         FunctionType::new(vec![], vec![Type::F64]),
         |_values| async move {
+            // Note: future::ready doesn't actually suspend. It's important
+            // to note that, while we're in an async context here, it's
+            // impossible to suspend during module instantiation, which is
+            // where this import is called.
+            // To see this in action, uncomment the following line:
+            // tokio::task::yield_now().await;
             future::ready(()).await;
             Ok(vec![Value::F64(1.0)])
         },
@@ -56,7 +62,9 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
         |mut env: FunctionEnvMut<DeltaState>, _values| {
             let delta = env.data_mut().next();
             async move {
-                future::ready(()).await;
+                // We can, however, actually suspend whenever
+                // `Function::call_async` is used to call WASM functions.
+                tokio::time::sleep(std::time::Duration::from_millis(10)).await;
                 Ok(vec![Value::F64(delta)])
             }
         },
@@ -83,7 +91,11 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
     assert_eq!(as_f64(&get_state.call(&mut store, &[])?), 1.0);
 
     let step = |store: &mut Store, func: &wasmer::Function| -> Result<f64> {
-        let result = block_on(func.call_async(store, &[]))?;
+        let result = tokio::runtime::Builder::new_current_thread()
+            .enable_all()
+            .build()
+            .unwrap()
+            .block_on(func.call_async(store, &[]))?;
         Ok(as_f64(&result))
     };
 
