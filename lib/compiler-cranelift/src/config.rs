@@ -131,11 +131,11 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        builder.finish(self.flags(target))
+        builder.finish(self.flags())
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self, target: &Target) -> settings::Flags {
+    pub fn flags(&self) -> settings::Flags {
         let mut flags = settings::builder();
 
         // Enable probestack
@@ -143,12 +143,10 @@ impl Cranelift {
             .enable("enable_probestack")
             .expect("should be valid flag");
 
-        // Only inline probestack is supported on AArch64
-        if matches!(target.triple().architecture, Architecture::Aarch64(_)) {
-            flags
-                .set("probestack_strategy", "inline")
-                .expect("should be valid flag");
-        }
+        // Always use inline stack probes (otherwise the call to Probestack needs to be relocated).
+        flags
+            .set("probestack_strategy", "inline")
+            .expect("should be valid flag");
 
         if self.enable_pic {
             flags.enable("is_pic").expect("should be a valid flag");
