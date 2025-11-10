@@ -28,13 +28,14 @@ use target_lexicon::BinaryFormat;
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
-    config::{CompiledKind, LLVM},
+    config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
     FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, from_binaryreadererror_wasmerror,
+    misc::CompiledKind,
     types::{
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
