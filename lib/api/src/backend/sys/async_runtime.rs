@@ -12,6 +12,13 @@ use corosensei::{Coroutine, CoroutineResult, Yielder};
 use super::entities::function::Function as SysFunction;
 use crate::{AsStoreMut, RuntimeError, Value};
 
+const ASYNC_STACK_CORRUPTED: &str = "\
+Async runtime state is corrupted. This is usually caused \
+by making a Function::call_async call within an imported \
+async function, but not awaiting the resulting future \
+before the imported function returns. This scenario \
+is currently not supported.";
+
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static>>;
 
 pub(crate) struct AsyncCallFuture<'a, S: AsStoreMut + 'static> {
@@ -98,7 +105,14 @@ where
         if ptr.is_null() {
             run_immediate(future)
         } else {
-            unsafe { (&*ptr).block_on_future(Box::pin(future)) }
+            let result = unsafe { (&*ptr).block_on_future(Box::pin(future)) };
+            if cell.get() != ptr {
+                // If a `Function::call_async` was made inside the future,
+                // but not awaited properly, the pointer in the cell will
+                // have changed; catch it here.
+                panic!("{ASYNC_STACK_CORRUPTED}");
+            }
+            result
         }
     })
 }
@@ -157,7 +171,12 @@ struct AsyncContextGuard {
 impl Drop for AsyncContextGuard {
     fn drop(&mut self) {
         CURRENT_CONTEXT.with(|cell| {
-            cell.set(self.previous);
+            let existing = cell.replace(self.previous);
+            if existing != self as *mut _ as *const _ {
+                // This can happen if an outer coroutine completes
+                // before an inner one
+                panic!("{ASYNC_STACK_CORRUPTED}");
+            }
         });
     }
 }
