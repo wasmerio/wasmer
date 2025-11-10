@@ -1,5 +1,4 @@
 use crate::compiler::LLVMCompiler;
-use anyhow::Result;
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
@@ -7,7 +6,7 @@ use inkwell::targets::{
 };
 use itertools::Itertools;
 use std::fs::File;
-use std::io::Write;
+use std::io::{self, Write};
 use std::path::PathBuf;
 use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
@@ -32,7 +31,7 @@ pub struct LLVMCallbacks {
 }
 
 impl LLVMCallbacks {
-    pub fn new(debug_dir: PathBuf) -> Result<Self> {
+    pub fn new(debug_dir: PathBuf) -> Result<Self, io::Error> {
         // Create the debug dir in case it doesn't exist
         std::fs::create_dir_all(&debug_dir)?;
         Ok(Self { debug_dir })
