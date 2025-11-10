@@ -1,5 +1,5 @@
 use std::{
-    fs::{File, OpenOptions, ReadDir, read_dir},
+    fs::{self, File, OpenOptions, ReadDir, read_dir},
     future::Future,
     io::{self, Read, SeekFrom},
     path::{Path, PathBuf},
@@ -207,6 +207,9 @@ impl<'a> WasiTest<'a> {
                 // Use a temporary folder, otherwise other file systems will spot the artifacts of this FS.
                 let mut source = PathBuf::from(BASE_TEST_DIR);
                 source.push("test_fs");
+
+                fs::create_dir_all(TEMP_ROOT)
+                    .with_context(|| anyhow!("cannot create root tmp folder for WASI tests"))?;
 
                 let root_dir = TempDir::with_prefix_in("host_fs_copy-", TEMP_ROOT)
                     .with_context(|| anyhow!("cannot create temporary directory"))?;
