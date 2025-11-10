@@ -21,7 +21,7 @@ serde = { workspace = true, optional = true }
 thiserror.workspace = true
 serde_bytes = { workspace = true, optional = true }
 smallvec.workspace = true
-xxhash-rust = { version = "0.8.10", features = ["xxh64"] }
+xxhash-rust = { workspace = true, features = ["xxh64"] }
 loupe = { workspace = true, optional = true, features = [
 	"indexmap",
 	"enable-indexmap",
@@ -32,11 +32,11 @@ memmap2.workspace = true
 more-asserts.workspace = true
 
 cfg-if.workspace = true
-leb128 = "0.2"
+leb128.workspace = true
 enum-iterator.workspace = true
 
 bytes.workspace = true
-self_cell = "1.0"
+self_cell.workspace = true
 rkyv.workspace = true
 shared-buffer.workspace = true
 libc.workspace = true
@@ -48,12 +48,12 @@ wasmer-vm = { path = "../vm", version = "=6.1.0" }
 region.workspace = true
 
 [target.'cfg(target_os = "windows")'.dependencies]
-windows-sys = { version = "0.59", features = [
+windows-sys = { workspace = true, features = [
 	"Win32_System_Diagnostics_Debug",
 ] }
 
 [target.'cfg(all(target_os = "macos", target_arch = "aarch64"))'.dependencies]
-macho-unwind-info = "0.5.0"
+macho-unwind-info.workspace = true
 
 [features]
 default = ["std"]
