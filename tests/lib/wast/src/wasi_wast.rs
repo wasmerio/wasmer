@@ -64,6 +64,7 @@ pub struct WasiTest<'a> {
 }
 
 // TODO: add `test_fs` here to sandbox better
+const TEMP_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tmp/");
 const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-wast/wasi/");
 
 fn get_stdio_output(rx: &mpsc::Receiver<Vec<u8>>) -> anyhow::Result<String> {
@@ -207,7 +208,7 @@ impl<'a> WasiTest<'a> {
                 let mut source = PathBuf::from(BASE_TEST_DIR);
                 source.push("test_fs");
 
-                let root_dir = TempDir::with_prefix("host_fs_copy-")
+                let root_dir = TempDir::with_prefix_in("host_fs_copy-", TEMP_ROOT)
                     .with_context(|| anyhow!("cannot create temporary directory"))?;
                 copy(source.as_path(), root_dir.path(), &dir::CopyOptions::new())
                     .with_context(|| anyhow!("cannot copy to the temporary directory"))?;
