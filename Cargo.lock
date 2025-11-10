@@ -7307,6 +7307,7 @@ dependencies = [
 name = "wasmer-compiler-llvm"
 version = "6.1.0"
 dependencies = [
+ "anyhow",
  "byteorder",
  "cc",
  "inkwell",
