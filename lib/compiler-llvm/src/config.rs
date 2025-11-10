@@ -45,8 +45,8 @@ pub struct LLVMCallbacks {
     debug_dir: PathBuf,
 }
 
-// Converts a kind into a filename, that we will use to dump
-// the contents of the IR object file to.
+/// Converts a slice of `Type` into a string signature, mapping each type to a specific character.
+/// Used to represent function signatures in a compact string form.
 fn types_to_signature(types: &[Type]) -> String {
     types
         .iter()
@@ -58,7 +58,7 @@ fn types_to_signature(types: &[Type]) -> String {
             Type::V128 => "v".to_string(),
             Type::ExternRef => "e".to_string(),
             Type::FuncRef => "r".to_string(),
-            Type::ExceptionRef => todo!("unexpected type"),
+            Type::ExceptionRef => "x".to_string(),
         })
         .collect::<Vec<_>>()
         .join("")
@@ -119,7 +119,7 @@ impl LLVMCallbacks {
         path.push(format!("{}.s", function_kind_to_filename(kind)));
         let mem_buf_slice = asm_memory_buffer.as_slice();
         let mut file =
-            File::create(path).expect("Error while creating debug object file from LLVM IR");
+            File::create(path).expect("Error while creating debug assembly file from LLVM IR");
         file.write_all(mem_buf_slice).unwrap();
     }
 }
