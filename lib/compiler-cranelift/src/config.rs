@@ -215,9 +215,6 @@ impl Cranelift {
         flags
             .set("enable_verifier", enable_verifier)
             .expect("should be valid flag");
-        flags
-            .set("enable_safepoints", "true")
-            .expect("should be valid flag");
 
         flags
             .set(
