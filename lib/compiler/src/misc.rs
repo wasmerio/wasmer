@@ -1,5 +1,6 @@
 //! A common functionality used among various compilers.
 
+use itertools::Itertools;
 use wasmer_types::{FunctionType, LocalFunctionIndex, Type, entity::EntityRef};
 
 /// The compiled function kind, used for debugging in the `LLVMCallbacks`.
@@ -21,16 +22,17 @@ pub fn types_to_signature(types: &[Type]) -> String {
     types
         .iter()
         .map(|ty| match ty {
-            Type::I32 => "i".to_string(),
-            Type::I64 => "I".to_string(),
-            Type::F32 => "f".to_string(),
-            Type::F64 => "F".to_string(),
-            Type::V128 => "v".to_string(),
-            Type::ExternRef => "e".to_string(),
-            Type::FuncRef => "r".to_string(),
-            Type::ExceptionRef => "x".to_string(),
+            Type::I32 => "i",
+            Type::I64 => "I",
+            Type::F32 => "f",
+            Type::F64 => "F",
+            Type::V128 => "v",
+            Type::ExternRef => "e",
+            Type::FuncRef => "r",
+            Type::ExceptionRef => "x",
         })
-        .collect::<Vec<_>>()
+        .to_owned()
+        .collect_vec()
         .join("")
 }
 /// Converts a kind into a filename, that we will use to dump
