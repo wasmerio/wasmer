@@ -7734,6 +7734,7 @@ dependencies = [
  "glob",
  "itertools 0.12.1",
  "reqwest",
+ "rustc_version 0.4.1",
  "serial_test",
  "tempfile",
  "test-generator",
