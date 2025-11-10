@@ -479,8 +479,6 @@ impl RuntimeOptions {
             }
             #[cfg(feature = "llvm")]
             BackendType::LLVM => {
-                use std::{fmt, fs::File, io::Write};
-
                 use wasmer_compiler_llvm::{
                     InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
                 };
@@ -613,8 +611,6 @@ impl BackendType {
             }
             #[cfg(feature = "llvm")]
             Self::LLVM => {
-                use std::{fmt, fs::File, io::Write};
-
                 use wasmer_compiler_llvm::{
                     InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
                 };
