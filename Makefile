@@ -173,7 +173,7 @@ endif
 
 # If findstring is not empty, then it have found the value
 
-exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli --exclude wasmer-compiler-cli
+exclude_tests := --exclude wasmer-c-api --exclude wasmer-cli
 # We run integration tests separately (it requires building the c-api)
 exclude_tests += --exclude wasmer-integration-tests-cli
 exclude_tests += --exclude wasmer-integration-tests-ios
