@@ -7,6 +7,7 @@ use crate::{
     BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
     StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     sys::async_runtime::AsyncRuntimeError,
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
@@ -14,7 +15,8 @@ use crate::{
 };
 use std::panic::{self, AssertUnwindSafe};
 use std::{
-    cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, pin::Pin, sync::Arc,
+    cell::UnsafeCell, cmp::max, error::Error, ffi::c_void, future::Future, marker::PhantomData,
+    pin::Pin, sync::Arc,
 };
 use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
@@ -257,37 +259,51 @@ impl Function {
         }
     }
 
-    pub(crate) fn new_typed_async<F, Fut, Args, Rets, RetsAsResult>(
-        store: &mut impl AsStoreMut,
-        func: F,
-    ) -> Self
+    pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
-        F: Fn(Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = RetsAsResult> + 'static + Send,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        RetsAsResult: IntoResult<Rets>,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
     {
         let env = FunctionEnv::new(store, ());
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
-        Self::new_typed_with_env_async(store, &env, move |_env, args| {
+        Self::new_with_env_async(store, &env, signature, move |mut env_mut, values| -> Pin<
+            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
+        > {
+            let raw_store = RawStorePtr {
+                ptr: env_mut.as_store_mut().as_raw(),
+            };
+            let args_sig = args_sig.clone();
+            let results_sig = results_sig.clone();
             let func = func.clone();
-            func(args)
+            let args =
+                match typed_args_from_values::<Args>(raw_store, args_sig.as_ref(), values) {
+                Ok(args) => args,
+                Err(err) => return Box::pin(async { Err(err) }),
+            };
+            let future = func
+                .as_ref()
+                .call_async(AsyncFunctionEnv::new(), args);
+            Box::pin(async move {
+                let typed_result = future.await?;
+                typed_results_to_values::<Rets>(raw_store, results_sig.as_ref(), typed_result)
+            })
         })
     }
 
-    pub(crate) fn new_typed_with_env_async<T, F, Fut, Args, Rets, RetsAsResult>(
+    pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
         T: Send + 'static,
-        F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = RetsAsResult> + 'static + Send,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        RetsAsResult: IntoResult<Rets>,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         let args_sig = Arc::new(signature.clone());
@@ -302,16 +318,16 @@ impl Function {
             let args_sig = args_sig.clone();
             let results_sig = results_sig.clone();
             let func = func.clone();
-            let args = match typed_args_from_values::<Args>(raw_store, args_sig.as_ref(), values) {
+            let args =
+                match typed_args_from_values::<Args>(raw_store, args_sig.as_ref(), values) {
                 Ok(args) => args,
                 Err(err) => return Box::pin(async { Err(err) }),
             };
-            let future = (*func)(env_mut, args);
+            let future = func
+                .as_ref()
+                .call_async(AsyncFunctionEnv::with_env(env_mut), args);
             Box::pin(async move {
-                let typed_result = future
-                    .await
-                    .into_result()
-                    .map_err(|err| RuntimeError::user(Box::new(err)))?;
+                let typed_result = future.await?;
                 typed_results_to_values::<Rets>(raw_store, results_sig.as_ref(), typed_result)
             })
         })

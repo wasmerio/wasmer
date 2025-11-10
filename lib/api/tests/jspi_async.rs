@@ -9,7 +9,7 @@ use anyhow::Result;
 use futures::{FutureExt, future};
 use wasmer::{
     AsStoreMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
-    RuntimeError, Store, StoreMut, Type, Value, imports,
+    RuntimeError, Store, StoreMut, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -108,6 +108,67 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
     assert_eq!(step(&mut store, update_state)?, 1.5);
     assert_eq!(step(&mut store, update_state)?, 0.5);
     assert_eq!(step(&mut store, update_state)?, 3.0);
+
+    Ok(())
+}
+
+#[test]
+fn typed_async_host_and_calls_work() -> Result<()> {
+    let wasm = wat::parse_str(
+        r#"
+        (module
+          (import "host" "async_add" (func $async_add (param i32 i32) (result i32)))
+          (import "host" "async_double" (func $async_double (param i32) (result i32)))
+          (func (export "compute") (param i32) (result i32)
+            local.get 0
+            i32.const 10
+            call $async_add
+            local.get 0
+            call $async_double
+            i32.add))
+        "#,
+    )?;
+
+    #[derive(Clone, Copy)]
+    struct AddBias {
+        bias: i32,
+    }
+
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+
+    let add_env = FunctionEnv::new(&mut store, AddBias { bias: 5 });
+    let async_add = Function::new_typed_with_env_async(
+        &mut store,
+        &add_env,
+        async move |mut env: FunctionEnvMut<AddBias>, a: i32, b: i32| {
+            let bias = env.data().bias;
+            future::ready(()).await;
+            Ok(a + b + bias)
+        },
+    );
+    let async_double = Function::new_typed_async(&mut store, async move |value: i32| {
+        future::ready(()).await;
+        Ok(value * 2)
+    });
+
+    let import_object = imports! {
+        "host" => {
+            "async_add" => async_add,
+            "async_double" => async_double,
+        }
+    };
+
+    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let compute: TypedFunction<i32, i32> =
+        instance.exports.get_typed_function(&mut store, "compute")?;
+
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(compute.call_async(&mut store, 4))?;
+    assert_eq!(result, 27);
 
     Ok(())
 }
