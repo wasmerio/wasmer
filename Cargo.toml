@@ -202,6 +202,7 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps.workspace = true
 anyhow.workspace = true
 glob.workspace = true
+rustc_version.workspace = true
 
 [dev-dependencies]
 wasmer = { version = "=6.1.0", path = "lib/api", features = [
