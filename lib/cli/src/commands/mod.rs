@@ -54,6 +54,7 @@ pub use self::{
     publish::*, run::Run, self_update::*, validate::*,
 };
 use crate::error::PrettyError;
+use git_version::git_version;
 
 /// An executable CLI command.
 pub(crate) trait CliCommand {
@@ -517,11 +518,25 @@ fn print_version(verbose: bool) -> Result<(), anyhow::Error> {
     println!(
         "wasmer {} ({} {})",
         env!("CARGO_PKG_VERSION"),
-        env!("WASMER_BUILD_GIT_HASH_SHORT"),
+        git_version!(
+            args = ["--abbrev=8", "--always", "--dirty=-modified", "--exclude=*"],
+            fallback = ""
+        ),
         env!("WASMER_BUILD_DATE")
     );
     println!("binary: {}", env!("CARGO_PKG_NAME"));
-    println!("commit-hash: {}", env!("WASMER_BUILD_GIT_HASH"));
+    println!(
+        "commit-hash: {}",
+        git_version!(
+            args = [
+                "--abbrev=40",
+                "--always",
+                "--dirty=-modified",
+                "--exclude=*"
+            ],
+            fallback = "",
+        ),
+    );
     println!("commit-date: {}", env!("WASMER_BUILD_DATE"));
     println!("host: {}", target_lexicon::HOST);
 
