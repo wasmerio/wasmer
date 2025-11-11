@@ -45,16 +45,22 @@ pub fn types_to_signature(types: &[Type]) -> String {
         })
         .join("")
 }
-/// Converts a kind into a filename, that we will use to dump
-/// the contents of the IR object file to.
 
 /// Sanitizes a string so it can be safely used as a filename.
 fn sanitize_filename(name: &str) -> String {
     name.chars()
-        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .map(|c| {
+            if c.is_alphanumeric() || c == '_' || c == '-' {
+                c
+            } else {
+                '_'
+            }
+        })
         .collect()
 }
 
+/// Converts a kind into a filename, that we will use to dump
+/// the contents of the IR object file to.
 pub fn function_kind_to_filename(kind: &CompiledKind) -> String {
     match kind {
         CompiledKind::Local(name) => sanitize_filename(name),

@@ -483,9 +483,7 @@ impl RuntimeOptions {
             }
             #[cfg(feature = "llvm")]
             BackendType::LLVM => {
-                use wasmer_compiler_llvm::{
-                    InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
-                };
+                use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
 
@@ -620,9 +618,7 @@ impl BackendType {
             }
             #[cfg(feature = "llvm")]
             Self::LLVM => {
-                use wasmer_compiler_llvm::{
-                    InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
-                };
+                use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
