@@ -4,10 +4,42 @@ use cranelift_codegen::{
     isa::{TargetIsa, lookup},
     settings::{self, Configurable},
 };
-use std::num::NonZero;
-use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use std::{
+    fs::File,
+    io::{self, Write},
+    sync::Arc,
+};
+use std::{num::NonZero, path::PathBuf};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    misc::{CompiledKind, function_kind_to_filename},
+};
 use wasmer_types::target::{Architecture, CpuFeature, Target};
+
+/// Callbacks to the different Cranelift compilation phases.
+#[derive(Debug, Clone)]
+pub struct CraneliftCallbacks {
+    debug_dir: PathBuf,
+}
+
+impl CraneliftCallbacks {
+    /// Creates a new instance of `CraneliftCallbacks` with the specified debug directory.
+    pub fn new(mut debug_dir: PathBuf) -> Result<Self, io::Error> {
+        // Create the debug dir in case it doesn't exist
+        debug_dir.push("cranelift");
+        std::fs::create_dir_all(&debug_dir)?;
+        Ok(Self { debug_dir })
+    }
+
+    /// Writes the pre-optimization intermediate representation to a debug file.
+    pub fn preopt_ir(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+        let mut path = self.debug_dir.clone();
+        path.push(format!("{}.preopt.clif", function_kind_to_filename(kind)));
+        let mut file =
+            File::create(path).expect("Error while creating debug file from Cranelift IR");
+        file.write_all(mem_buffer).unwrap();
+    }
+}
 
 // Runtime Environment
 
@@ -41,6 +73,7 @@ pub struct Cranelift {
     pub num_threads: NonZero<usize>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+    pub(crate) callbacks: Option<CraneliftCallbacks>,
 }
 
 impl Cranelift {
@@ -55,6 +88,7 @@ impl Cranelift {
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
+            callbacks: None,
         }
     }
 
@@ -198,6 +232,13 @@ impl Cranelift {
             .expect("should be valid flag");
 
         settings::Flags::new(flags)
+    }
+
+    /// Callbacks that will triggered in the different compilation
+    /// phases in Cranelift.
+    pub fn callbacks(&mut self, callbacks: Option<CraneliftCallbacks>) -> &mut Self {
+        self.callbacks = callbacks;
+        self
     }
 }
 

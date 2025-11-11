@@ -286,6 +286,15 @@ impl CraneliftCompiler {
                     *i,
                 )?;
 
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    use wasmer_compiler::misc::CompiledKind;
+
+                    callbacks.preopt_ir(
+                        &CompiledKind::Local(*i),
+                        context.func.display().to_string().as_bytes(),
+                    );
+                }
+
                 let mut code_buf: Vec<u8> = Vec::new();
                 let mut ctrl_plane = Default::default();
                 let result = context

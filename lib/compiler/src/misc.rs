@@ -19,7 +19,7 @@ pub enum CompiledKind {
 /// Converts a slice of `Type` into a string signature, mapping each type to a specific character.
 /// Used to represent function signatures in a compact string form.
 pub fn types_to_signature(types: &[Type]) -> String {
-    types
+    let tokens = types
         .iter()
         .map(|ty| match ty {
             Type::I32 => "i",
@@ -31,8 +31,17 @@ pub fn types_to_signature(types: &[Type]) -> String {
             Type::FuncRef => "r",
             Type::ExceptionRef => "x",
         })
-        .to_owned()
-        .collect_vec()
+        .collect_vec();
+    // Apparently, LLVM has issues if the filename is too long, thus we compact it.
+    tokens
+        .chunk_by(|a, b| a == b)
+        .map(|chunk| {
+            if chunk.len() >= 8 {
+                format!("{}x{}", chunk.len(), chunk[0])
+            } else {
+                chunk.to_owned().join("")
+            }
+        })
         .join("")
 }
 /// Converts a kind into a filename, that we will use to dump

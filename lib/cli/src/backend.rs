@@ -188,18 +188,17 @@ pub struct RuntimeOptions {
     #[clap(long)]
     enable_verifier: bool,
 
+    /// Debug directory, where IR and object files will be written to.
+    ///
+    /// Available for cranelift, LLVM and singlepass.
+    #[clap(long, alias = "llvm-debug-dir")]
+    debug_dir: Option<PathBuf>,
+
     /// Enable a profiler.
     ///
     /// Available for cranelift, LLVM and singlepass.
     #[clap(long, value_enum)]
     profiler: Option<Profiler>,
-
-    /// LLVM debug directory, where IR and object files will be written to.
-    ///
-    /// Only available for the LLVM compiler.
-    #[cfg(feature = "llvm")]
-    #[clap(long)]
-    llvm_debug_dir: Option<PathBuf>,
 
     /// Only available for the LLVM compiler. Enable the "pass-params" optimization, where the first (#0)
     /// global and the first (#0) memory passed between guest functions as explicit parameters.
@@ -475,6 +474,11 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(ref debug_dir) = self.debug_dir {
+                    use wasmer_compiler_cranelift::CraneliftCallbacks;
+
+                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir.clone())?));
+                }
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -493,8 +497,8 @@ impl RuntimeOptions {
                     config.num_threads(num_threads);
                 }
 
-                if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
-                    config.callbacks(Some(LLVMCallbacks::new(llvm_debug_dir.clone())?));
+                if let Some(ref debug_dir) = self.debug_dir {
+                    config.callbacks(Some(LLVMCallbacks::new(debug_dir.clone())?));
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -602,6 +606,11 @@ impl BackendType {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(debug_dir) = &runtime_opts.debug_dir {
+                    use wasmer_compiler_cranelift::CraneliftCallbacks;
+
+                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir.clone())?));
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))
                     .set_target(Some(target.clone()))
@@ -618,8 +627,8 @@ impl BackendType {
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
 
-                if let Some(ref llvm_debug_dir) = runtime_opts.llvm_debug_dir {
-                    config.callbacks(Some(LLVMCallbacks::new(llvm_debug_dir.clone())?));
+                if let Some(ref debug_dir) = runtime_opts.debug_dir {
+                    config.callbacks(Some(LLVMCallbacks::new(debug_dir.clone())?));
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();
