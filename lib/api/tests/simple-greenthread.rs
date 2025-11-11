@@ -1,74 +1,44 @@
 use std::collections::BTreeMap;
 use std::sync::atomic::AtomicU32;
-use std::sync::{Arc, Once, OnceLock, RwLock};
-use std::vec;
-use std::{cell::RefCell, collections::HashMap};
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
-use futures::{FutureExt, channel::oneshot, executor::block_on};
+use futures::{FutureExt, channel::oneshot};
 use wasmer::{
     AsStoreMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory, Module,
     Store, StoreMut, Type, Value, imports,
 };
 
-fn greenthread_module() -> &'static [u8] {
-    static BYTES: OnceLock<Vec<u8>> = OnceLock::new();
-    const WAT: &str = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/../../tests/examples/simple-greenthread.wat"
-    );
-    BYTES.get_or_init(|| wat::parse_file(WAT).expect("valid greenthread example module"))
-}
-
-struct Continuation {
-    fn_id: i32,
-    initialized: bool,
-    // When this continuation is paused, we store a sender to resume it.
-    resume_sender: Option<oneshot::Sender<()>>,
-}
+const GREENTHREAD_WAT: &[u8] = include_bytes!(concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../tests/examples/simple-greenthread.wat"
+));
 
 struct GreenEnv {
-    continuations: HashMap<u32, Continuation>,
-    current_id: u32,
-    next_free_id: u32,
     logs: Vec<String>,
     memory: Option<Memory>,
+    coroutines: Arc<RwLock<BTreeMap<u32, CoroutineStack>>>,
+    current_coroutine_id: Arc<RwLock<u32>>,
+    next_free_id: AtomicU32,
     entrypoint: Option<Function>,
 }
 
 impl GreenEnv {
     fn new() -> Self {
         Self {
-            continuations: HashMap::from([(
-                0,
-                Continuation {
-                    fn_id: -1,
-                    initialized: true,
-                    resume_sender: None,
-                },
-            )]),
-            current_id: 0,
-            next_free_id: 1,
             logs: Vec::new(),
             memory: None,
+            coroutines: Arc::new(RwLock::new(BTreeMap::new())),
+            current_coroutine_id: Arc::new(RwLock::new(0)),
+            next_free_id: AtomicU32::new(1),
             entrypoint: None,
         }
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-pub enum CoroutineState {
-    Created,
-    Active,
-    Deleted,
-    Failed,
-}
-
 struct CoroutineStack {
     entrypoint: Option<u32>,
-    state: CoroutineState,
-    resumer: Option<futures::channel::oneshot::Sender<()>>, // Placeholder for resumer lock
-                                                            // pub resumer: Option<futures::lock::MutexGuard<'static, ()>>,
+    resumer: Option<oneshot::Sender<()>>,
 }
 
 impl Clone for CoroutineStack {
@@ -78,18 +48,10 @@ impl Clone for CoroutineStack {
         }
         Self {
             entrypoint: self.entrypoint,
-            state: self.state,
-            resumer: None, // Cannot clone the resumer
+            resumer: None,
         }
     }
 }
-
-thread_local! {
-    static CURRENT_COROUTINE_ID: std::cell::RefCell<u32> = std::cell::RefCell::new(0);
-    static COROUTINES: RefCell<BTreeMap<u64, Arc<RwLock<CoroutineStack>>>> = Default::default();
-    static ENTRYPOINT: OnceLock<Function> = OnceLock::new();
-}
-static FREE_COROUTINE_ID: AtomicU32 = AtomicU32::new(1);
 
 pub struct SendWrapper<T>(pub T);
 unsafe impl<T> Send for SendWrapper<T> {}
@@ -97,9 +59,8 @@ unsafe impl<T> Sync for SendWrapper<T> {}
 
 #[test]
 fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
-    let wasm = greenthread_module();
     let mut store = Store::default();
-    let module = Module::new(&store, wasm)?;
+    let module = Module::new(&store, GREENTHREAD_WAT)?;
 
     let env = FunctionEnv::new(&mut store, GreenEnv::new());
 
@@ -119,7 +80,6 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
                 bytes.push(view.read_u8(i as u64).expect("in bounds"));
             }
             let s = String::from_utf8_lossy(&bytes).to_string();
-            eprintln!("Log: {}", s);
             data.logs.push(s);
             Ok(vec![])
         },
@@ -131,61 +91,32 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
         &env,
         FunctionType::new(vec![Type::I32], vec![Type::I32]),
         |mut env: FunctionEnvMut<GreenEnv>, params: &[Value]| {
-            eprintln!("Creating new continuation ");
-
-            // let (env, mut store) = ctx.data_and_store_mut();
-            // let function = env
-            //     .inner()
-            //     .indirect_function_table_lookup(&mut store, entrypoint)
-            //     .expect("Function not found in table");
             let (data, mut store) = env.data_and_store_mut();
-
             let new_coroutine_id =
-                FREE_COROUTINE_ID.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+                data.next_free_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-            // TODO: Support unstarted continuation references
-
-            let function = ENTRYPOINT.with(|f| f.get().expect("entrypoint set").clone());
+            let function = data.entrypoint.clone().expect("entrypoint set");
             let (sender, receiver) = oneshot::channel::<()>();
 
             let entrypoint_data = params[0].unwrap_i32() as u32;
             let new_coroutine = CoroutineStack {
-                entrypoint: Some(entrypoint_data as u32),
-                state: CoroutineState::Created,
-                // resumer: Some(static_lifetime_lock),
+                entrypoint: Some(entrypoint_data),
                 resumer: Some(sender),
             };
 
-            COROUTINES.with_borrow_mut(|map| {
-                map.insert(
-                    new_coroutine_id as u64,
-                    Arc::new(RwLock::new(new_coroutine)),
-                )
-            });
+            data.coroutines.write().unwrap().insert(new_coroutine_id, new_coroutine);
 
             let store_ref: StoreMut<'_> = store.as_store_mut();
-            let fuckit = SendWrapper(store_ref.as_raw());
+            let store_raw = SendWrapper(store_ref.as_raw());
 
             tokio::task::spawn_local(async move {
-                let fuckit = fuckit.0;
-                let mut store = unsafe { StoreMut::<'static>::from_raw(fuckit) };
+                let mut store = unsafe { StoreMut::<'static>::from_raw(store_raw.0) };
                 receiver.await.unwrap();
-                // Now run the function
-                let resumer = function.call_async(&mut store, &[Value::I32(entrypoint_data as i32)]).await; // TODO: Handle params
+                let resumer = function
+                    .call_async(&mut store, &[Value::I32(entrypoint_data as i32)])
+                    .await;
                 panic!("Coroutine function returned {:?}", resumer);
             });
-            //   let function_id = coroutine.read().unwrap().entrypoint; // resolve function from index
-
-            // function.call_async(store, params);
-
-            // let env = ctx.data();
-            // let memory = unsafe { env.memory_view(&ctx) };
-
-            // let mut coroutines = env.coroutines.write().unwrap();
-            // coroutines.insert(new_coroutine_id, Arc::new(RwLock::new(new_coroutine)));
-            // new_coroutine_ptr
-            //     .write(&memory, new_coroutine_id as u32)
-            //     .unwrap();
 
             Ok(vec![Value::I32(new_coroutine_id as i32)])
         },
@@ -198,92 +129,50 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
         FunctionType::new(vec![Type::I32], Vec::<Type>::new()),
         |mut env: FunctionEnvMut<GreenEnv>, params: &[Value]| {
             let next_continuation_id = params[0].unwrap_i32() as u32;
-            eprintln!("Switching to continuation {}", next_continuation_id);
-            // let to_id = params[0].unwrap_i32() as u32;
-            // let (data, mut storemut) = env.data_and_store_mut();
-            // let from_id = data.current_id;
-            // // Removed: guard that panics if already paused to allow nested switching
-            // // if data.continuations.get(&from_id).and_then(|c| c.resume_sender.as_ref()).is_some() {
-            // //     panic!("Current continuation already paused");
-            // // }
-            // // Prepare pause for current continuation
-            // let (tx_pause, rx_pause) = oneshot::channel::<()>();
-            // let (env, mut store) = ctx.data_and_store_mut();
 
-            let current_coroutine_id =
-                CURRENT_COROUTINE_ID.with(|c| c.replace(next_continuation_id));
+            let (data, _store) = env.data_and_store_mut();
+            let current_coroutine_id = {
+                let mut current = data.current_coroutine_id.write().unwrap();
+                let old = *current;
+                *current = next_continuation_id;
+                old
+            };
+
             if current_coroutine_id == next_continuation_id {
-                panic!("Switching to self is not allowed for now");
-                // Switching to self could be a no-op
-
-                // return Box::pin(async move { Ok(Errno::Success) });
-                // return  Box::pin(async move {Ok(vec![Value::I32(0)])});
+                panic!("Switching to self is not allowed");
             }
 
-            // Prepare a mutex to block on
-            let (sender, receiver) = futures::channel::oneshot::channel::<()>();
+            let (sender, receiver) = oneshot::channel::<()>();
 
-            // Move the mutex guard to our own continuation
-            // {
-            //     .get_mut(&(current_coroutine_id as u64)).unwrap();
-            //     let mut this_continuation = this_continuation.write().unwrap();
-            //     if this_continuation.resumer.is_some() {
-            //         panic!("Switching from a coroutine that is already switched out");
-            //     }
-            //     // this_continuation.resumer = Some(static_lifetime_lock);
-            //     this_continuation.resumer = Some(());
-            // }
-            let this_continuation = COROUTINES.with_borrow_mut(|coroutines| {
-                let mut this_one = coroutines
-                    .get_mut(&(current_coroutine_id as u64))
-                    .unwrap();
-                let mut this_one = this_one
-                    .write()
-                    .unwrap();
+            {
+                let mut coroutines = data.coroutines.write().unwrap();
+                let this_one = coroutines.get_mut(&current_coroutine_id).unwrap();
                 if this_one.resumer.is_some() {
                     panic!("Switching from a coroutine that is already switched out");
                 }
-                // this_continuation.resumer = Some(static_lifetime_lock);
                 this_one.resumer = Some(sender);
-            });
+            }
 
-            let next_continuation = COROUTINES.with_borrow_mut(|coroutines| {
-                let next_one = coroutines.get_mut(&(next_continuation_id as u64)).unwrap();
-                let Some(next_one) = next_one.write().unwrap().resumer.take() else {
+            {
+                let mut coroutines = data.coroutines.write().unwrap();
+                let next_one = coroutines.get_mut(&next_continuation_id).unwrap();
+                let Some(resumer) = next_one.resumer.take() else {
                     panic!("Switching to coroutine that has no resumer");
                 };
-                // this_continuation.resumer = Some(static_lifetime_lock);
-                next_one.send(()).unwrap();
-            });
+                resumer.send(()).unwrap();
+            }
 
-            // Unlock the mutex from the next continuation
-            // let next_continuation = coroutines
-            //     .get_mut(&(next_continuation_id as u64))
-            //     .expect("Switching to invalid coroutine is an error");
-            // let Some(next_continuation_guard) = next_continuation.write().unwrap().resumer.take() else {
-            //     panic!("Switching to coroutine that has no resumer");
-            // };
-            // drop(next_continuation_guard);
+            let current_id_arc = data.current_coroutine_id.clone();
 
             async move {
-                // Block until our own mutex is unlocked
                 let _ = receiver.map(|_| ()).await;
 
-                CURRENT_COROUTINE_ID.with(|c| {
-                    *c.borrow_mut() = current_coroutine_id;
-                });
+                *current_id_arc.write().unwrap() = current_coroutine_id;
 
                 Ok(vec![])
             }
         },
     );
-    // Ok(Errno::Success);
-    //         async move {
-    //             let _ = rx_pause.map(|_| ()).await;
-    //             Ok(vec![])
-    //         }
-    //     },
-    // );
 
     let import_object = imports! {
         "test" => {
@@ -295,30 +184,20 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let entrypoint = instance.exports.get_function("entrypoint").unwrap().clone();
-    ENTRYPOINT.with(move |a| a.set(entrypoint).unwrap());
+    let entrypoint = instance.exports.get_function("entrypoint")?.clone();
+    env.as_mut(&mut store).entrypoint = Some(entrypoint);
 
-    // Set memory and entrypoint in env
     let memory = instance.exports.get_memory("memory")?.clone();
     env.as_mut(&mut store).memory = Some(memory);
-    // let entrypoint = instance.exports.get_function("entrypoint")?.clone();
-    // env.as_mut(&mut store).entrypoint = Some(entrypoint);
 
     let main_fn = instance.exports.get_function("_main")?;
 
-      let new_coroutine = CoroutineStack {
-                entrypoint: None,
-                state: CoroutineState::Created,
-                // resumer: Some(static_lifetime_lock),
-                resumer: None,
-            };
+    let main_coroutine = CoroutineStack {
+        entrypoint: None,
+        resumer: None,
+    };
 
-            COROUTINES.with_borrow_mut(|map| {
-                map.insert(
-                    0 as u64,
-                    Arc::new(RwLock::new(new_coroutine)),
-                )
-            });
+    env.as_mut(&mut store).coroutines.write().unwrap().insert(0, main_coroutine);
 
     // Run main asynchronously
     let tokio_runtime = tokio::runtime::Builder::new_current_thread()
@@ -327,8 +206,10 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
         .unwrap();
     tokio_runtime.block_on(async {
         let local_set = tokio::task::LocalSet::new();
-        local_set.run_until(
-        main_fn.call_async(&mut store, &[])).await.unwrap();
+        local_set
+            .run_until(main_fn.call_async(&mut store, &[]))
+            .await
+            .unwrap();
     });
 
     // Expected log order
