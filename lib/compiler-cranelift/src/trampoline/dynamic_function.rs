@@ -3,7 +3,10 @@
 
 //! A trampoline generator for calling dynamic host functions from Wasm.
 
-use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
+use crate::{
+    CraneliftCallbacks,
+    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
+};
 use cranelift_codegen::{
     Context,
     ir::{self, Function, InstBuilder, MemFlags, StackSlotData, StackSlotKind, UserFuncName},
@@ -11,11 +14,12 @@ use cranelift_codegen::{
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::{cmp, mem};
-use wasmer_compiler::types::function::FunctionBody;
+use wasmer_compiler::{misc::CompiledKind, types::function::FunctionBody};
 use wasmer_types::{CompileError, FunctionType, VMOffsets};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_dynamic_function(
+    callbacks: &Option<CraneliftCallbacks>,
     isa: &dyn TargetIsa,
     offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
@@ -100,6 +104,13 @@ pub fn make_trampoline_dynamic_function(
         }
         builder.ins().return_(&results);
         builder.finalize()
+    }
+
+    if let Some(callbacks) = callbacks.as_ref() {
+        callbacks.preopt_ir(
+            &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+            context.func.display().to_string().as_bytes(),
+        );
     }
 
     let mut code_buf = Vec::new();

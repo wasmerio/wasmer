@@ -8,7 +8,10 @@
 //! let my_func = instance.exports.get("func");
 //! my_func.call([1, 2])
 //! ```
-use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
+use crate::{
+    CraneliftCallbacks,
+    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
+};
 use cranelift_codegen::{
     Context,
     ir::{self, InstBuilder},
@@ -16,11 +19,12 @@ use cranelift_codegen::{
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
-use wasmer_compiler::types::function::FunctionBody;
+use wasmer_compiler::{misc::CompiledKind, types::function::FunctionBody};
 use wasmer_types::{CompileError, FunctionType};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_function_call(
+    callbacks: &Option<CraneliftCallbacks>,
     isa: &dyn TargetIsa,
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FunctionType,
@@ -100,6 +104,13 @@ pub fn make_trampoline_function_call(
 
         builder.ins().return_(&[]);
         builder.finalize()
+    }
+
+    if let Some(callbacks) = callbacks.as_ref() {
+        callbacks.preopt_ir(
+            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            context.func.display().to_string().as_bytes(),
+        );
     }
 
     let mut code_buf = Vec::new();
