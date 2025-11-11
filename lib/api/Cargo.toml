@@ -40,6 +40,11 @@ tracing.workspace = true
 wat = { version = "1.216.0", optional = true }
 rustc-demangle = "0.1"
 shared-buffer.workspace = true
+tokio = { workspace = true, features = [
+	"sync",
+	"macros",
+	"rt",
+], default-features = false }
 
 wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl", optional = true, features = [
 	"prefix-symbols",

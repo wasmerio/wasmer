@@ -6980,6 +6980,7 @@ dependencies = [
  "target-lexicon 0.13.3",
  "tempfile",
  "thiserror 1.0.69",
+ "tokio",
  "tracing",
  "ureq",
  "wasm-bindgen",
