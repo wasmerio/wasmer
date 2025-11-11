@@ -474,10 +474,11 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
-                if let Some(ref debug_dir) = self.debug_dir {
+                if let Some(mut debug_dir) = self.debug_dir.clone() {
                     use wasmer_compiler_cranelift::CraneliftCallbacks;
 
-                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir.clone())?));
+                    debug_dir.push("cranelift");
+                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
                 }
                 Box::new(config)
             }
@@ -495,8 +496,9 @@ impl RuntimeOptions {
                     config.num_threads(num_threads);
                 }
 
-                if let Some(ref debug_dir) = self.debug_dir {
-                    config.callbacks(Some(LLVMCallbacks::new(debug_dir.clone())?));
+                if let Some(mut debug_dir) = self.debug_dir.clone() {
+                    debug_dir.push("llvm");
+                    config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -604,10 +606,11 @@ impl BackendType {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
-                if let Some(debug_dir) = &runtime_opts.debug_dir {
+                if let Some(mut debug_dir) = runtime_opts.debug_dir.clone() {
                     use wasmer_compiler_cranelift::CraneliftCallbacks;
 
-                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir.clone())?));
+                    debug_dir.push("cranelift");
+                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))
@@ -623,8 +626,9 @@ impl BackendType {
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
 
-                if let Some(ref debug_dir) = runtime_opts.debug_dir {
-                    config.callbacks(Some(LLVMCallbacks::new(debug_dir.clone())?));
+                if let Some(mut debug_dir) = runtime_opts.debug_dir.clone() {
+                    debug_dir.push("llvm");
+                    config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();

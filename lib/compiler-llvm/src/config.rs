@@ -31,9 +31,8 @@ pub struct LLVMCallbacks {
 }
 
 impl LLVMCallbacks {
-    pub fn new(mut debug_dir: PathBuf) -> Result<Self, io::Error> {
+    pub fn new(debug_dir: PathBuf) -> Result<Self, io::Error> {
         // Create the debug dir in case it doesn't exist
-        debug_dir.push("llvm");
         std::fs::create_dir_all(&debug_dir)?;
         Ok(Self { debug_dir })
     }
