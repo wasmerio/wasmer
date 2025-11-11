@@ -3,7 +3,8 @@
 use itertools::Itertools;
 use wasmer_types::{FunctionType, Type};
 
-/// The compiled function kind, used for debugging in the `LLVMCallbacks`.
+/// Represents the kind of compiled function or module, used for debugging and identification
+/// purposes across multiple compiler backends (e.g., LLVM, Cranelift).
 #[derive(Debug, Clone)]
 pub enum CompiledKind {
     /// A locally-defined function in the Wasm file.
@@ -46,9 +47,17 @@ pub fn types_to_signature(types: &[Type]) -> String {
 }
 /// Converts a kind into a filename, that we will use to dump
 /// the contents of the IR object file to.
+
+/// Sanitizes a string so it can be safely used as a filename.
+fn sanitize_filename(name: &str) -> String {
+    name.chars()
+        .map(|c| if c.is_alphanumeric() || c == '_' || c == '-' { c } else { '_' })
+        .collect()
+}
+
 pub fn function_kind_to_filename(kind: &CompiledKind) -> String {
     match kind {
-        CompiledKind::Local(name) => name.clone(),
+        CompiledKind::Local(name) => sanitize_filename(name),
         CompiledKind::FunctionCallTrampoline(func_type) => format!(
             "trampoline_call_{}_{}",
             types_to_signature(func_type.params()),

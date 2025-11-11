@@ -29,7 +29,7 @@ itertools.workspace = true
 rayon.workspace = true
 phf = { version = "0.11.2", features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
-anyhow.workspace = true
+
 
 [dependencies.inkwell]
 package = "inkwell"
