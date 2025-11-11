@@ -1,1 +1,0 @@
-window.SIDEBAR_ITEMS = {"mod":["compile","config","validate"],"struct":["Compile","Config","Validate"]};
