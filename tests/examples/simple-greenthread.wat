@@ -1,7 +1,7 @@
 (module
   (import "test" "log" (func $log (param i32 i32)))
-  (import "test" "continuation_new" (func $continuation_new (param i32) (result i32)))
-  (import "test" "continuation_switch" (func $continuation_switch (param i32)))
+  (import "test" "greenthread_new" (func $greenthread_new (param i32) (result i32)))
+  (import "test" "greenthread_switch" (func $greenthread_switch (param i32)))
   
   
   (memory (export "memory") 1)
@@ -18,14 +18,14 @@
   (func (export "_main")
     i32.const 0  
     global.set $main
-    (call $continuation_new (i32.const 0))
+    (call $greenthread_new (i32.const 0))
     global.set $gr1
-    (call $continuation_new (i32.const 1))
+    (call $greenthread_new (i32.const 1))
     global.set $gr2
 
     ;; Switch to gr1
     global.get $gr1
-    (call $continuation_switch)
+    (call $greenthread_switch)
 
     ;; Print [main] main <- test1
     i32.const 300  
@@ -40,7 +40,7 @@
 
     ;; Switch to gr2
     global.get $gr2
-    call $continuation_switch
+    call $greenthread_switch
 
     ;; Print [gr1] test1 <- test2
     i32.const 100
@@ -49,7 +49,7 @@
 
     ;; Switch to gr2
     global.get $gr2
-    call $continuation_switch
+    call $greenthread_switch
 
     ;; Print [gr1] test1 <- test2
     i32.const 100
@@ -58,7 +58,7 @@
 
     ;; Switch back to main
     global.get $main
-    call $continuation_switch
+    call $greenthread_switch
     unreachable
   )
   (func $gr2 
@@ -69,7 +69,7 @@
 
     ;; Switch to gr1
     global.get $gr1
-    call $continuation_switch
+    call $greenthread_switch
 
     ;; Print [gr2] test1 -> test2
     i32.const 200  
@@ -78,7 +78,7 @@
 
     ;; Switch to gr1
     global.get $gr1
-    call $continuation_switch
+    call $greenthread_switch
 
     unreachable
   )

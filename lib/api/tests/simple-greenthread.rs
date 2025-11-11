@@ -17,8 +17,8 @@ const GREENTHREAD_WAT: &[u8] = include_bytes!(concat!(
 struct GreenEnv {
     logs: Vec<String>,
     memory: Option<Memory>,
-    coroutines: Arc<RwLock<BTreeMap<u32, CoroutineStack>>>,
-    current_coroutine_id: Arc<RwLock<u32>>,
+    greenthreads: Arc<RwLock<BTreeMap<u32, Greenthread>>>,
+    current_greenthread_id: Arc<RwLock<u32>>,
     next_free_id: AtomicU32,
     entrypoint: Option<Function>,
 }
@@ -28,23 +28,23 @@ impl GreenEnv {
         Self {
             logs: Vec::new(),
             memory: None,
-            coroutines: Arc::new(RwLock::new(BTreeMap::new())),
-            current_coroutine_id: Arc::new(RwLock::new(0)),
+            greenthreads: Arc::new(RwLock::new(BTreeMap::new())),
+            current_greenthread_id: Arc::new(RwLock::new(0)),
             next_free_id: AtomicU32::new(1),
             entrypoint: None,
         }
     }
 }
 
-struct CoroutineStack {
+struct Greenthread {
     entrypoint: Option<u32>,
     resumer: Option<oneshot::Sender<()>>,
 }
 
-impl Clone for CoroutineStack {
+impl Clone for Greenthread {
     fn clone(&self) -> Self {
         if self.resumer.is_some() {
-            panic!("Cannot clone a coroutine with a resumer");
+            panic!("Cannot clone a greenthread with a resumer");
         }
         Self {
             entrypoint: self.entrypoint,
@@ -85,26 +85,26 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
         },
     );
 
-    // continuation_new(fn_id) -> id
-    let continuation_new = Function::new_with_env(
+    // greenthread_new(fn_id) -> id
+    let greenthread_new = Function::new_with_env(
         &mut store,
         &env,
         FunctionType::new(vec![Type::I32], vec![Type::I32]),
         |mut env: FunctionEnvMut<GreenEnv>, params: &[Value]| {
             let (data, mut store) = env.data_and_store_mut();
-            let new_coroutine_id =
+            let new_greenthread_id =
                 data.next_free_id.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
             let function = data.entrypoint.clone().expect("entrypoint set");
             let (sender, receiver) = oneshot::channel::<()>();
 
             let entrypoint_data = params[0].unwrap_i32() as u32;
-            let new_coroutine = CoroutineStack {
+            let new_greenthread = Greenthread {
                 entrypoint: Some(entrypoint_data),
                 resumer: Some(sender),
             };
 
-            data.coroutines.write().unwrap().insert(new_coroutine_id, new_coroutine);
+            data.greenthreads.write().unwrap().insert(new_greenthread_id, new_greenthread);
 
             let store_ref: StoreMut<'_> = store.as_store_mut();
             let store_raw = SendWrapper(store_ref.as_raw());
@@ -115,59 +115,59 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
                 let resumer = function
                     .call_async(&mut store, &[Value::I32(entrypoint_data as i32)])
                     .await;
-                panic!("Coroutine function returned {:?}", resumer);
+                panic!("Greenthread function returned {:?}", resumer);
             });
 
-            Ok(vec![Value::I32(new_coroutine_id as i32)])
+            Ok(vec![Value::I32(new_greenthread_id as i32)])
         },
     );
 
-    // continuation_switch(to_id) -> (suspends current continuation until resumed)
-    let continuation_switch = Function::new_with_env_async(
+    // greenthread_switch(to_id) -> (suspends current greenthread until resumed)
+    let greenthread_switch = Function::new_with_env_async(
         &mut store,
         &env,
         FunctionType::new(vec![Type::I32], Vec::<Type>::new()),
         |mut env: FunctionEnvMut<GreenEnv>, params: &[Value]| {
-            let next_continuation_id = params[0].unwrap_i32() as u32;
+            let next_greenthread_id = params[0].unwrap_i32() as u32;
 
             let (data, _store) = env.data_and_store_mut();
-            let current_coroutine_id = {
-                let mut current = data.current_coroutine_id.write().unwrap();
+            let current_greenthread_id = {
+                let mut current = data.current_greenthread_id.write().unwrap();
                 let old = *current;
-                *current = next_continuation_id;
+                *current = next_greenthread_id;
                 old
             };
 
-            if current_coroutine_id == next_continuation_id {
+            if current_greenthread_id == next_greenthread_id {
                 panic!("Switching to self is not allowed");
             }
 
             let (sender, receiver) = oneshot::channel::<()>();
 
             {
-                let mut coroutines = data.coroutines.write().unwrap();
-                let this_one = coroutines.get_mut(&current_coroutine_id).unwrap();
+                let mut greenthreads = data.greenthreads.write().unwrap();
+                let this_one = greenthreads.get_mut(&current_greenthread_id).unwrap();
                 if this_one.resumer.is_some() {
-                    panic!("Switching from a coroutine that is already switched out");
+                    panic!("Switching from a greenthread that is already switched out");
                 }
                 this_one.resumer = Some(sender);
             }
 
             {
-                let mut coroutines = data.coroutines.write().unwrap();
-                let next_one = coroutines.get_mut(&next_continuation_id).unwrap();
+                let mut greenthreads = data.greenthreads.write().unwrap();
+                let next_one = greenthreads.get_mut(&next_greenthread_id).unwrap();
                 let Some(resumer) = next_one.resumer.take() else {
-                    panic!("Switching to coroutine that has no resumer");
+                    panic!("Switching to greenthread that has no resumer");
                 };
                 resumer.send(()).unwrap();
             }
 
-            let current_id_arc = data.current_coroutine_id.clone();
+            let current_id_arc = data.current_greenthread_id.clone();
 
             async move {
                 let _ = receiver.map(|_| ()).await;
 
-                *current_id_arc.write().unwrap() = current_coroutine_id;
+                *current_id_arc.write().unwrap() = current_greenthread_id;
 
                 Ok(vec![])
             }
@@ -177,8 +177,8 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
     let import_object = imports! {
         "test" => {
             "log" => log_fn,
-            "continuation_new" => continuation_new,
-            "continuation_switch" => continuation_switch,
+            "greenthread_new" => greenthread_new,
+            "greenthread_switch" => greenthread_switch,
         }
     };
 
@@ -192,12 +192,12 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
 
     let main_fn = instance.exports.get_function("_main")?;
 
-    let main_coroutine = CoroutineStack {
+    let main_greenthread = Greenthread {
         entrypoint: None,
         resumer: None,
     };
 
-    env.as_mut(&mut store).coroutines.write().unwrap().insert(0, main_coroutine);
+    env.as_mut(&mut store).greenthreads.write().unwrap().insert(0, main_greenthread);
 
     // Run main asynchronously
     let tokio_runtime = tokio::runtime::Builder::new_current_thread()
