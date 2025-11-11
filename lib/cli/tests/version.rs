@@ -1,4 +1,5 @@
 use assert_cmd::Command;
+use git_version::git_version;
 
 const WASMER_VERSION: &str = env!("CARGO_PKG_VERSION");
 
@@ -26,7 +27,10 @@ fn long_version_string() {
     let long_version_number = format!(
         "wasmer {} ({} {})",
         env!("CARGO_PKG_VERSION"),
-        env!("WASMER_BUILD_GIT_HASH_SHORT"),
+        git_version!(
+            args = ["--abbrev=8", "--always", "--dirty=-modified", "--exclude=*"],
+            fallback = ""
+        ),
         env!("WASMER_BUILD_DATE")
     );
 
