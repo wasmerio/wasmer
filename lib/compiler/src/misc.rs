@@ -1,13 +1,13 @@
 //! A common functionality used among various compilers.
 
 use itertools::Itertools;
-use wasmer_types::{FunctionType, LocalFunctionIndex, Type, entity::EntityRef};
+use wasmer_types::{FunctionType, Type};
 
 /// The compiled function kind, used for debugging in the `LLVMCallbacks`.
 #[derive(Debug, Clone)]
 pub enum CompiledKind {
     /// A locally-defined function in the Wasm file.
-    Local(LocalFunctionIndex),
+    Local(String),
     /// A function call trampoline for a given signature.
     FunctionCallTrampoline(FunctionType),
     /// A dynamic function trampoline for a given signature.
@@ -48,9 +48,7 @@ pub fn types_to_signature(types: &[Type]) -> String {
 /// the contents of the IR object file to.
 pub fn function_kind_to_filename(kind: &CompiledKind) -> String {
     match kind {
-        CompiledKind::Local(local_index) => {
-            format!("function_{}", local_index.index())
-        }
+        CompiledKind::Local(name) => name.clone(),
         CompiledKind::FunctionCallTrampoline(func_type) => format!(
             "trampoline_call_{}_{}",
             types_to_signature(func_type.params()),
