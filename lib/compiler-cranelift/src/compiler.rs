@@ -139,7 +139,7 @@ impl CraneliftCompiler {
                     &memory_styles,
                     table_styles,
                 );
-                context.func.name = match get_function_name(func_index) {
+                context.func.name = match get_function_name(&mut context.func, func_index) {
                     ExternalName::User(nameref) => {
                         if context.func.params.user_named_funcs().is_valid(nameref) {
                             let name = &context.func.params.user_named_funcs()[nameref];
