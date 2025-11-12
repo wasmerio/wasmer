@@ -13,7 +13,8 @@ use wasmer_vm::TrapHandlerFn;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-pub(crate) struct StoreInner {
+// TODO: make this private again
+pub struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
     pub(crate) on_called: Option<OnCalledHandler>,

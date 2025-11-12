@@ -56,13 +56,16 @@ impl StoreMut<'_> {
         StoreObjects::same(&a.inner.objects, &b.inner.objects)
     }
 
-    #[allow(unused)]
-    pub(crate) fn as_raw(&self) -> *mut StoreInner {
+    /// TODO: temporarily public, make private again
+    pub fn as_raw(&self) -> *mut StoreInner {
         self.inner as *const StoreInner as *mut StoreInner
     }
 
-    #[allow(unused)]
-    pub(crate) unsafe fn from_raw(raw: *mut StoreInner) -> Self {
+    /// TODO: temporarily public, make private again
+    ///
+    /// # Safety
+    /// Don't use it XD
+    pub unsafe fn from_raw(raw: *mut StoreInner) -> Self {
         Self {
             inner: unsafe { &mut *raw },
         }
