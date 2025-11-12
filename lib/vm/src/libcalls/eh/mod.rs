@@ -6,23 +6,23 @@ mod dwarf;
 
 cfg_if::cfg_if! {
     if #[cfg(any(target_env = "msvc", target_family = "wasm"))] {
-        pub fn wasmer_eh_personality() {
+        pub unsafe fn wasmer_eh_personality() {
             panic!()
         }
 
-        pub fn wasmer_eh_personality2() {
+        pub unsafe fn wasmer_eh_personality2() {
             panic!()
         }
 
-        pub fn read_exnref(_exception: *mut std::ffi::c_void) -> u32 {
+        pub unsafe fn read_exnref(_exception: *mut std::ffi::c_void) -> u32 {
             panic!()
         }
 
-        pub fn throw(_ctx: &crate::StoreObjects, _exnref: u32) -> ! {
+        pub unsafe fn throw(_ctx: &crate::StoreObjects, _exnref: u32) -> ! {
             panic!()
         }
 
-        pub fn delete_exception(_exception: *mut std::ffi::c_void) {
+        pub unsafe fn delete_exception(_exception: *mut std::ffi::c_void) {
             panic!()
         }
     } else if #[cfg(any(
