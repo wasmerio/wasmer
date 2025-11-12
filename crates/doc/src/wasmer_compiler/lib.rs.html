@@ -49,38 +49,39 @@
 <a href=#49 id=49 data-nosnippet>49</a><span class="kw">mod </span>engine;
 <a href=#50 id=50 data-nosnippet>50</a><span class="kw">mod </span>traits;
 <a href=#51 id=51 data-nosnippet>51</a>
-<a href=#52 id=52 data-nosnippet>52</a><span class="kw">pub mod </span>object;
-<a href=#53 id=53 data-nosnippet>53</a><span class="kw">pub mod </span>serialize;
-<a href=#54 id=54 data-nosnippet>54</a><span class="kw">pub mod </span>types;
-<a href=#55 id=55 data-nosnippet>55</a>
-<a href=#56 id=56 data-nosnippet>56</a><span class="kw">pub use </span><span class="kw">crate</span>::engine::<span class="kw-2">*</span>;
-<a href=#57 id=57 data-nosnippet>57</a><span class="kw">pub use </span><span class="kw">crate</span>::traits::<span class="kw-2">*</span>;
-<a href=#58 id=58 data-nosnippet>58</a>
-<a href=#59 id=59 data-nosnippet>59</a><span class="kw">mod </span>artifact_builders;
-<a href=#60 id=60 data-nosnippet>60</a>
-<a href=#61 id=61 data-nosnippet>61</a><span class="kw">pub use </span><span class="self">self</span>::artifact_builders::<span class="kw-2">*</span>;
-<a href=#62 id=62 data-nosnippet>62</a>
-<a href=#63 id=63 data-nosnippet>63</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#64 id=64 data-nosnippet>64</a></span><span class="kw">mod </span>compiler;
-<a href=#65 id=65 data-nosnippet>65</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
-<a href=#66 id=66 data-nosnippet>66</a></span><span class="kw">pub use </span><span class="kw">crate</span>::compiler::{Compiler, CompilerConfig};
-<a href=#67 id=67 data-nosnippet>67</a>
-<a href=#68 id=68 data-nosnippet>68</a><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
-<a href=#69 id=69 data-nosnippet>69</a>#[macro_use]
-<a href=#70 id=70 data-nosnippet>70</a></span><span class="kw">mod </span>translator;
-<a href=#71 id=71 data-nosnippet>71</a><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
-<a href=#72 id=72 data-nosnippet>72</a></span><span class="kw">pub use </span><span class="kw">crate</span>::translator::{
-<a href=#73 id=73 data-nosnippet>73</a>    FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
-<a href=#74 id=74 data-nosnippet>74</a>    MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
-<a href=#75 id=75 data-nosnippet>75</a>    ModuleTranslationState, from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type,
-<a href=#76 id=76 data-nosnippet>76</a>    wptype_to_type,
-<a href=#77 id=77 data-nosnippet>77</a>};
-<a href=#78 id=78 data-nosnippet>78</a>
-<a href=#79 id=79 data-nosnippet>79</a><span class="kw">pub use </span>wasmer_types::{Addend, CodeOffset, Features};
-<a href=#80 id=80 data-nosnippet>80</a>
-<a href=#81 id=81 data-nosnippet>81</a><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
-<a href=#82 id=82 data-nosnippet>82</a></span><span class="doccomment">/// wasmparser is exported as a module to slim compiler dependencies
-<a href=#83 id=83 data-nosnippet>83</a></span><span class="kw">pub use </span>wasmparser;
-<a href=#84 id=84 data-nosnippet>84</a>
-<a href=#85 id=85 data-nosnippet>85</a><span class="doccomment">/// Version number of this crate.
-<a href=#86 id=86 data-nosnippet>86</a></span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);</code></pre></div></section></main></body></html>
+<a href=#52 id=52 data-nosnippet>52</a><span class="kw">pub mod </span>misc;
+<a href=#53 id=53 data-nosnippet>53</a><span class="kw">pub mod </span>object;
+<a href=#54 id=54 data-nosnippet>54</a><span class="kw">pub mod </span>serialize;
+<a href=#55 id=55 data-nosnippet>55</a><span class="kw">pub mod </span>types;
+<a href=#56 id=56 data-nosnippet>56</a>
+<a href=#57 id=57 data-nosnippet>57</a><span class="kw">pub use </span><span class="kw">crate</span>::engine::<span class="kw-2">*</span>;
+<a href=#58 id=58 data-nosnippet>58</a><span class="kw">pub use </span><span class="kw">crate</span>::traits::<span class="kw-2">*</span>;
+<a href=#59 id=59 data-nosnippet>59</a>
+<a href=#60 id=60 data-nosnippet>60</a><span class="kw">mod </span>artifact_builders;
+<a href=#61 id=61 data-nosnippet>61</a>
+<a href=#62 id=62 data-nosnippet>62</a><span class="kw">pub use </span><span class="self">self</span>::artifact_builders::<span class="kw-2">*</span>;
+<a href=#63 id=63 data-nosnippet>63</a>
+<a href=#64 id=64 data-nosnippet>64</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#65 id=65 data-nosnippet>65</a></span><span class="kw">mod </span>compiler;
+<a href=#66 id=66 data-nosnippet>66</a><span class="attr">#[cfg(feature = <span class="string">"compiler"</span>)]
+<a href=#67 id=67 data-nosnippet>67</a></span><span class="kw">pub use </span><span class="kw">crate</span>::compiler::{Compiler, CompilerConfig};
+<a href=#68 id=68 data-nosnippet>68</a>
+<a href=#69 id=69 data-nosnippet>69</a><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
+<a href=#70 id=70 data-nosnippet>70</a>#[macro_use]
+<a href=#71 id=71 data-nosnippet>71</a></span><span class="kw">mod </span>translator;
+<a href=#72 id=72 data-nosnippet>72</a><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
+<a href=#73 id=73 data-nosnippet>73</a></span><span class="kw">pub use </span><span class="kw">crate</span>::translator::{
+<a href=#74 id=74 data-nosnippet>74</a>    FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
+<a href=#75 id=75 data-nosnippet>75</a>    MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
+<a href=#76 id=76 data-nosnippet>76</a>    ModuleTranslationState, from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type,
+<a href=#77 id=77 data-nosnippet>77</a>    wptype_to_type,
+<a href=#78 id=78 data-nosnippet>78</a>};
+<a href=#79 id=79 data-nosnippet>79</a>
+<a href=#80 id=80 data-nosnippet>80</a><span class="kw">pub use </span>wasmer_types::{Addend, CodeOffset, Features};
+<a href=#81 id=81 data-nosnippet>81</a>
+<a href=#82 id=82 data-nosnippet>82</a><span class="attr">#[cfg(feature = <span class="string">"translator"</span>)]
+<a href=#83 id=83 data-nosnippet>83</a></span><span class="doccomment">/// wasmparser is exported as a module to slim compiler dependencies
+<a href=#84 id=84 data-nosnippet>84</a></span><span class="kw">pub use </span>wasmparser;
+<a href=#85 id=85 data-nosnippet>85</a>
+<a href=#86 id=86 data-nosnippet>86</a><span class="doccomment">/// Version number of this crate.
+<a href=#87 id=87 data-nosnippet>87</a></span><span class="kw">pub const </span>VERSION: <span class="kw-2">&amp;</span>str = <span class="macro">env!</span>(<span class="string">"CARGO_PKG_VERSION"</span>);</code></pre></div></section></main></body></html>

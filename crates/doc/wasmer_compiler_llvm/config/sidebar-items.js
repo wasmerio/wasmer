@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CompiledKind","LLVMOptLevel"],"struct":["LLVM"],"trait":["LLVMCallbacks"],"type":["InkwellMemoryBuffer","InkwellModule"]};
+window.SIDEBAR_ITEMS = {"enum":["LLVMOptLevel"],"struct":["LLVM","LLVMCallbacks"],"type":["InkwellMemoryBuffer","InkwellModule"]};
