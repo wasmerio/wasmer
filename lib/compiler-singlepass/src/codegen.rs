@@ -670,6 +670,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .collect::<Result<Vec<_>, _>>()?;
         return_values.extend(extra_return_values);
 
+        // Release the parameter slots that live in registers.
+        self.release_reg_locations(&params)?;
+
         // Save used GPRs. Preserve correct stack alignment
         let used_gprs = self.machine.get_used_gprs();
         let mut used_stack = self.machine.push_used_gpr(&used_gprs)?;
@@ -2170,7 +2173,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                self.release_reg_locations(&params)?;
 
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
@@ -2234,7 +2236,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     .value_stack
                     .drain(self.value_stack.len() - param_types.len()..)
                     .collect();
-                self.release_reg_locations(&params)?;
 
                 // Pop arguments off the FP stack and canonicalize them if needed.
                 //
@@ -2648,7 +2649,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[len, src, dst])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -2718,7 +2718,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src_pos = self.value_stack.pop().unwrap();
                 let dst_pos = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[len, src_pos, dst_pos])?;
 
                 let memory_index = MemoryIndex::new(src_mem as usize);
                 let (memory_copy_index, memory_index) =
@@ -2771,7 +2770,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[len, val, dst])?;
 
                 let memory_index = MemoryIndex::new(mem as usize);
                 let (memory_fill_index, memory_index) =
@@ -2823,8 +2821,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::MemoryGrow { mem } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
-
-                self.release_reg_locations(&[param_pages])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5307,9 +5303,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let value = self.value_stack.pop().unwrap();
                 let index = self.value_stack.pop().unwrap();
 
-                // double check this does what I think it does
-                self.release_reg_locations(&[value, index])?;
-
                 self.machine.move_location(
                     Size::S64,
                     Location::Memory(
@@ -5349,8 +5342,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::TableGet { table: index } => {
                 let table_index = TableIndex::new(index as _);
                 let index = self.value_stack.pop().unwrap();
-
-                self.release_reg_locations(&[index])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5424,7 +5415,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let table_index = TableIndex::new(index as _);
                 let delta = self.value_stack.pop().unwrap();
                 let init_value = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[delta, init_value])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5469,7 +5459,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[len, src, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5515,7 +5504,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[len, val, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5553,7 +5541,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let len = self.value_stack.pop().unwrap();
                 let src = self.value_stack.pop().unwrap();
                 let dest = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[len, src, dest])?;
 
                 self.machine.move_location(
                     Size::S64,
@@ -5622,7 +5609,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[timeout, val, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait32, memory_index) =
@@ -5675,7 +5661,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let timeout = self.value_stack.pop().unwrap();
                 let val = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[timeout, val, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_wait64, memory_index) =
@@ -5727,7 +5712,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::MemoryAtomicNotify { ref memarg } => {
                 let cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
-                self.release_reg_locations(&[cnt, dst])?;
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
                 let (memory_atomic_notify, memory_index) =
