@@ -7757,9 +7757,10 @@ impl Machine for MachineX86_64 {
                     .is_none()
             })
             .count();
-        let stack_return_slots = (0..sig.results().len())
-            .filter(|&i| X86_64_RETURN_VALUE_REGISTERS.get(i).is_none())
-            .count();
+        let stack_return_slots = sig
+            .results()
+            .len()
+            .saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
 
         // Stack slots are not shared in between function params and return values.
         let mut stack_offset = 8 * (stack_params + stack_return_slots) as u32;

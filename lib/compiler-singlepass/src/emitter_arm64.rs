@@ -2840,9 +2840,10 @@ pub fn gen_std_trampoline_arm64(
     );
 
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
-    let stack_return_slots = (0..sig.results().len())
-        .filter(|&i| ARM64_RETURN_VALUE_REGISTERS.get(i).is_none())
-        .count();
+    let stack_return_slots = sig
+        .results()
+        .len()
+        .saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len());
     let mut stack_offset = (stack_args + stack_return_slots) as u32 * 8;
     if stack_args > 0 {
         if !stack_offset.is_multiple_of(16) {
