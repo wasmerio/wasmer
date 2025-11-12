@@ -302,6 +302,15 @@ impl CraneliftCompiler {
                     .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
                 code_buf.extend_from_slice(result.code_buffer());
 
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    use wasmer_compiler::misc::CompiledKind;
+
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
+                        &code_buf,
+                    );
+                }
+
                 let func_relocs = result
                     .buffer
                     .relocs()

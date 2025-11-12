@@ -38,6 +38,15 @@ impl CraneliftCallbacks {
             File::create(path).expect("Error while creating debug file from Cranelift IR");
         file.write_all(mem_buffer).unwrap();
     }
+
+    /// Writes the object file memory buffer to a debug file.
+    pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+        let mut path = self.debug_dir.clone();
+        path.push(format!("{}.o", function_kind_to_filename(kind)));
+        let mut file =
+            File::create(path).expect("Error while creating debug file from Cranelift object");
+        file.write_all(mem_buffer).unwrap();
+    }
 }
 
 // Runtime Environment

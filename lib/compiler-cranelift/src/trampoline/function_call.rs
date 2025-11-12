@@ -120,6 +120,13 @@ pub fn make_trampoline_function_call(
         .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
     code_buf.extend_from_slice(compiled.code_buffer());
 
+    if let Some(callbacks) = callbacks.as_ref() {
+        callbacks.obj_memory_buffer(
+            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            &code_buf,
+        );
+    }
+
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 
     Ok(FunctionBody {
