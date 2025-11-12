@@ -10,6 +10,9 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
+pub(crate) mod async_host;
+pub use async_host::{AsyncFunctionEnv, AsyncHostFunction};
+
 use std::{future::Future, pin::Pin};
 
 use wasmer_types::{FunctionType, RawValue};
@@ -18,7 +21,6 @@ use crate::{
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction,
     Value, WasmTypeList,
     error::RuntimeError,
-    utils::IntoResult,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
@@ -116,8 +118,8 @@ impl Function {
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         Self(BackendFunction::new_typed(store, func))
     }
@@ -147,8 +149,8 @@ impl Function {
     ) -> Self
     where
         F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         Self(BackendFunction::new_typed_with_env(store, env, func))
     }
@@ -187,33 +189,26 @@ impl Function {
     /// Creates a new async host `Function` from a native typed function.
     ///
     /// The future can return either the raw result tuple or any type that implements
-    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E>`).
-    pub fn new_typed_async<F, Fut, Args, Rets, RetsAsResult>(
-        store: &mut impl AsStoreMut,
-        func: F,
-    ) -> Self
+    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E)`).
+    pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
-        F: Fn(Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = RetsAsResult> + 'static + Send,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        RetsAsResult: IntoResult<Rets>,
+        Rets: WasmTypeList + 'static,
+        Args: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
     {
         Self(BackendFunction::new_typed_async(store, func))
     }
 
     /// Creates a new async host `Function` with an environment from a typed function.
-    pub fn new_typed_with_env_async<T: Send + 'static, F, Fut, Args, Rets, RetsAsResult>(
+    pub fn new_typed_with_env_async<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = RetsAsResult> + 'static + Send,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        RetsAsResult: IntoResult<Rets>,
+        Rets: WasmTypeList + 'static,
+        Args: WasmTypeList + 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
     {
         Self(BackendFunction::new_typed_with_env_async(store, env, func))
     }

@@ -1,13 +1,13 @@
-use std::{future::Future, pin::Pin};
+use std::pin::Pin;
 
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
     AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, FunctionEnv, FunctionEnvMut,
     HostFunction, StoreMut, StoreRef, TypedFunction, Value, WasmTypeList, WithEnv, WithoutEnv,
+    entities::function::async_host::AsyncHostFunction,
     error::RuntimeError,
     macros::backend::{gen_rt_ty, match_rt},
-    utils::IntoResult,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
@@ -147,8 +147,8 @@ impl BackendFunction {
     pub fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         F: HostFunction<(), Args, Rets, WithoutEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -206,8 +206,8 @@ impl BackendFunction {
     ) -> Self
     where
         F: HostFunction<T, Args, Rets, WithEnv> + 'static + Send + Sync,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -308,16 +308,11 @@ impl BackendFunction {
     }
 
     #[inline]
-    pub fn new_typed_async<F, Fut, Args, Rets, RetsAsResult>(
-        store: &mut impl AsStoreMut,
-        func: F,
-    ) -> Self
+    pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
-        F: Fn(Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = RetsAsResult> + 'static + Send,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        RetsAsResult: IntoResult<Rets>,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
@@ -338,17 +333,15 @@ impl BackendFunction {
     }
 
     #[inline]
-    pub fn new_typed_with_env_async<T: Send + 'static, F, Fut, Args, Rets, RetsAsResult>(
+    pub fn new_typed_with_env_async<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        F: Fn(FunctionEnvMut<T>, Args) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = RetsAsResult> + 'static + Send,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        RetsAsResult: IntoResult<Rets>,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + 'static,
     {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
