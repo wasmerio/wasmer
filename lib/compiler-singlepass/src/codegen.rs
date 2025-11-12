@@ -250,7 +250,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(loc)
     }
 
-    #[allow(clippy::type_complexity)]
     /// Acquire location that will live on the stack.
     fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
         self.stack_offset.0 += 8;
@@ -354,11 +353,16 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
-    // Allocate return slots (for Block, If and Loop operands) and swap them with the input params
-    // that are already present at the value stack.
-    fn allocate_return_slots_before_params(
+    /// Allocate return slots for block operands (Block, If, Loop) and swap them with
+    /// the corresponding input parameters on the value stack.
+    ///
+    /// This method reserves memory slots that can accommodate both integer and
+    /// floating-point types, then swaps these slots with the last `stack_slots`
+    /// values on the stack to position them correctly for the block's return values.
+    /// that are already present at the value stack.
+    fn allocate_return_slots_and_swap(
         &mut self,
-        param_count: usize,
+        stack_slots: usize,
         return_slots: usize,
     ) -> Result<(), CompileError> {
         // No shuffling needed.
@@ -366,18 +370,18 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             return Ok(());
         }
 
-        /* In order to allocate N return slots, we allocate extra N stack slots and "shift" the param
-        stack slots so that we end up with [value stack before frame, ret0, ret1, ret2, ..., retN, arg0, arg1, arg1, ..., argN],
-        where some of the argN values live in a register and some of the memory on stack. */
-        let params = self
+        /* To allocate N return slots, we first allocate N additional stack (memory) slots and then "shift" the
+        existing stack slots. This results in the layout: [value stack before frame, ret0, ret1, ret2, ..., retN, arg0, arg1, ..., argN],
+        where some of the argN values may reside in registers and others in memory on the stack. */
+        let latest_slots = self
             .value_stack
-            .drain(self.value_stack.len() - param_count..)
+            .drain(self.value_stack.len() - stack_slots..)
             .collect_vec();
         let extra_slots = (0..return_slots)
             .map(|_| self.acquire_location_on_stack())
             .collect::<Result<Vec<_>, _>>()?;
 
-        let mut all_memory_slots = params
+        let mut all_memory_slots = latest_slots
             .iter()
             .filter_map(|(loc, _)| {
                 if let Location::Memory(..) = loc {
@@ -389,7 +393,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             .chain(extra_slots.iter())
             .collect_vec();
 
-        // First put return values to the value stack.
+        // First put the newly allocated return values to the value stack.
         self.value_stack.extend(
             all_memory_slots
                 .iter()
@@ -397,9 +401,9 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 .map(|loc| (**loc, CanonicalizeType::None)),
         );
 
-        // Then map all memory params to a new location (in reverse order)
+        // Then map all memory stack slots to a new location (in reverse order).
         let mut new_params_reversed = Vec::new();
-        for (loc, canonicalize) in params.iter().rev() {
+        for (loc, canonicalize) in latest_slots.iter().rev() {
             let mapped_loc = if matches!(loc, Location::Memory(..)) {
                 let dest = all_memory_slots.pop().unwrap();
                 self.machine.emit_relaxed_mov(Size::S64, *loc, *dest)?;
@@ -631,14 +635,14 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         return_types: K,
         call_type: NativeCallType,
     ) -> Result<(), CompileError> {
-        // TODO: properly detect stack memory slots!
         let params = params.collect_vec();
         let stack_params = params
             .iter()
             .copied()
             .filter(|(param, _)| {
                 if let Location::Memory(reg, _) = param {
-                    reg == &self.machine.local_pointer()
+                    debug_assert_eq!(reg, &self.machine.local_pointer());
+                    true
                 } else {
                     false
                 }
@@ -649,10 +653,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             WpType::V128 => unimplemented!(),
             _ => Size::S64,
         };
-        let params_size = params_type.map(get_size).collect_vec();
-        let return_types = return_types.collect_vec();
-        let return_value_sizes = return_types.iter().map(|&rt| get_size(rt)).collect_vec();
+        let param_sizes = params_type.map(get_size).collect_vec();
+        let return_value_sizes = return_types.map(get_size).collect_vec();
 
+        /* We're going to reuse the memory param locations for the return values. Any extra needed slots will be allocated on stack. */
         let used_stack_params = stack_params
             .iter()
             .take(return_value_sizes.len())
@@ -695,7 +699,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Allocate space for arguments relative to SP.
         let mut args = Vec::with_capacity(params.len());
-        for (i, param_size) in params_size.iter().enumerate() {
+        for (i, param_size) in param_sizes.iter().enumerate() {
             args.push(self.machine.get_param_location(
                 match call_type {
                     NativeCallType::IncludeVMCtxArgument => 1,
@@ -726,7 +730,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 }
                 Location::Memory(_, _) => {
                     self.machine
-                        .move_location_for_native(params_size[i], *param, loc)?;
+                        .move_location_for_native(param_sizes[i], *param, loc)?;
                 }
                 _ => {
                     return Err(CompileError::Codegen(
@@ -799,7 +803,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // We are re-using the params for the return values, thus release just the chunk
         // we're not planning to use!
-        let params_to_release = &stack_params[cmp::min(stack_params.len(), return_types.len())..];
+        let params_to_release =
+            &stack_params[cmp::min(stack_params.len(), return_value_sizes.len())..];
         self.release_stack_locations(params_to_release)?;
 
         self.value_stack.extend(return_values);
@@ -939,6 +944,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         !self.control_stack.is_empty()
     }
 
+    /// Moves the top `return_values` items from the value stack into the
+    /// preallocated return slots starting at `value_stack_depth_after`.
+    ///
+    /// Used when completing Block/If/Loop constructs or returning from the
+    /// function. Applies NaN canonicalization when enabled and supported.
     fn emit_return_values(
         &mut self,
         value_stack_depth_after: usize,
@@ -967,6 +977,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    /// Similar to `emit_return_values`, except it stores the `return_values` items into the slots
+    /// preallocated for parameters of a loop.
     fn emit_loop_params_store(
         &mut self,
         value_stack_depth_after: usize,
@@ -2403,10 +2415,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
                 let return_types = self.return_types_for_block(blockty);
                 let param_types = self.param_types_for_block(blockty);
-                self.allocate_return_slots_before_params(
-                    param_types.len() + 1,
-                    return_types.len(),
-                )?;
+                self.allocate_return_slots_and_swap(param_types.len() + 1, return_types.len())?;
 
                 let cond = self.pop_value_released()?.0;
 
@@ -2543,7 +2552,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             Operator::Block { blockty } => {
                 let return_types = self.return_types_for_block(blockty);
                 let param_types = self.param_types_for_block(blockty);
-                self.allocate_return_slots_before_params(param_types.len(), return_types.len())?;
+                self.allocate_return_slots_and_swap(param_types.len(), return_types.len())?;
 
                 let frame = ControlFrame {
                     state: ControlState::Block,
@@ -2562,7 +2571,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let param_types = self.param_types_for_block(blockty);
                 let params_count = param_types.len();
                 // We need extra space for params as we need to implement the PHI operation.
-                self.allocate_return_slots_before_params(
+                self.allocate_return_slots_and_swap(
                     param_types.len(),
                     param_types.len() + return_types.len(),
                 )?;
