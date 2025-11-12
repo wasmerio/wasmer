@@ -209,9 +209,14 @@ pub trait Machine {
         &self,
         idx: usize,
         stack_location: &mut usize,
+        calling_convention: CallingConvention,
     ) -> Location<Self::GPR, Self::SIMD>;
     /// Get return value location (from a call, using FP for stack return values).
-    fn get_call_return_value_location(&self, idx: usize) -> Location<Self::GPR, Self::SIMD>;
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
     /// move a location to another
     fn move_location(
         &mut self,

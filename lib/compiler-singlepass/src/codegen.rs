@@ -698,7 +698,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Allocate space for return values relative to SP (the allocation happens in reverse order, thus start with return slots).
         let mut return_args = Vec::with_capacity(return_value_sizes.len());
         for i in 0..return_value_sizes.len() {
-            return_args.push(self.machine.get_return_value_location(i, &mut stack_offset));
+            return_args.push(self.machine.get_return_value_location(
+                i,
+                &mut stack_offset,
+                self.calling_convention,
+            ));
         }
 
         // Allocate space for arguments relative to SP.
@@ -868,7 +872,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Push return value slots for the function return on the stack.
         self.value_stack.extend((0..return_types.len()).map(|i| {
             (
-                self.machine.get_call_return_value_location(i),
+                self.machine
+                    .get_call_return_value_location(i, self.calling_convention),
                 CanonicalizeType::None,
             )
         }));

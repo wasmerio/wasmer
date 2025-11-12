@@ -2368,10 +2368,19 @@ impl Machine for MachineX86_64 {
     }
 
     /// Get return value location (to build a call, using SP for stack return values).
-    fn get_return_value_location(&self, idx: usize, stack_location: &mut usize) -> Location {
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
         X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
-                let loc = Location::Memory(GPR::RSP, *stack_location as i32);
+                let stack_padding = match calling_convention {
+                    CallingConvention::WindowsFastcall => 32,
+                    _ => 0,
+                };
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32 + stack_padding);
                 *stack_location += 8;
                 loc
             },
@@ -2380,12 +2389,20 @@ impl Machine for MachineX86_64 {
     }
 
     /// Get return value location (from a call, using FP for stack return values).
-    fn get_call_return_value_location(&self, idx: usize) -> Location {
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
         X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
+                let stack_padding = match calling_convention {
+                    CallingConvention::WindowsFastcall => 32,
+                    _ => 0,
+                };
                 Location::Memory(
                     GPR::RBP,
-                    (16 + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                    (16 + stack_padding + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
                 )
             },
             |reg| Location::GPR(*reg),

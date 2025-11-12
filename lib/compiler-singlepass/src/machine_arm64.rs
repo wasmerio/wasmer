@@ -1830,6 +1830,7 @@ impl Machine for MachineARM64 {
         &self,
         idx: usize,
         stack_location: &mut usize,
+        _calling_convention: CallingConvention,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
         ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
@@ -1844,6 +1845,7 @@ impl Machine for MachineARM64 {
     fn get_call_return_value_location(
         &self,
         idx: usize,
+        _calling_convention: CallingConvention,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
         ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
