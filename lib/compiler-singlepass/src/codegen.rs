@@ -161,6 +161,8 @@ pub enum ControlState<M: Machine> {
     Loop,
     If {
         label_else: Label,
+        // Store the input parameters for the If block, as they'll need to be
+        // restored when processing the Else block (if present).
         inputs: SmallVec<[LocationWithCanonicalization<M>; 1]>,
     },
     Else,
@@ -181,7 +183,7 @@ impl<M: Machine> ControlFrame<M> {
     fn value_stack_depth_after(&self) -> usize {
         let mut depth: usize = self.value_stack_depth - self.param_types.len();
 
-        // For Loop, we have to use another slot for params that's implement the PHI operation.
+        // For Loop, we have to use another slot for params that implements the PHI operation.
         if matches!(self.state, ControlState::Loop) {
             depth -= self.param_types.len();
         }
@@ -295,8 +297,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
-                self.check_location_on_stack(loc, self.stack_offset.0)
-                    .unwrap();
+                self.check_location_on_stack(loc, self.stack_offset.0)?;
                 self.stack_offset.0 -= 8;
                 delta_stack_offset += 8;
             }
@@ -319,7 +320,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
-                self.check_location_on_stack(loc, stack_offset).unwrap();
+                self.check_location_on_stack(loc, stack_offset)?;
                 stack_offset -= 8;
                 delta_stack_offset += 8;
             }
