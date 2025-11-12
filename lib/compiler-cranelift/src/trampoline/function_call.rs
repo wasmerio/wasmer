@@ -8,7 +8,10 @@
 //! let my_func = instance.exports.get("func");
 //! my_func.call([1, 2])
 //! ```
-use crate::translator::{compiled_function_unwind_info, signature_to_cranelift_ir};
+use crate::{
+    CraneliftCallbacks,
+    translator::{compiled_function_unwind_info, signature_to_cranelift_ir},
+};
 use cranelift_codegen::{
     Context,
     ir::{self, InstBuilder},
@@ -16,11 +19,12 @@ use cranelift_codegen::{
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::mem;
-use wasmer_compiler::types::function::FunctionBody;
+use wasmer_compiler::{misc::CompiledKind, types::function::FunctionBody};
 use wasmer_types::{CompileError, FunctionType};
 
 /// Create a trampoline for invoking a WebAssembly function.
 pub fn make_trampoline_function_call(
+    callbacks: &Option<CraneliftCallbacks>,
     isa: &dyn TargetIsa,
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FunctionType,
@@ -102,12 +106,26 @@ pub fn make_trampoline_function_call(
         builder.finalize()
     }
 
+    if let Some(callbacks) = callbacks.as_ref() {
+        callbacks.preopt_ir(
+            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            context.func.display().to_string().as_bytes(),
+        );
+    }
+
     let mut code_buf = Vec::new();
     let mut ctrl_plane = Default::default();
     let compiled = context
         .compile(isa, &mut ctrl_plane)
         .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
     code_buf.extend_from_slice(compiled.code_buffer());
+
+    if let Some(callbacks) = callbacks.as_ref() {
+        callbacks.obj_memory_buffer(
+            &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+            &code_buf,
+        );
+    }
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 

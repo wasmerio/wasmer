@@ -1,4 +1,3 @@
-use crate::CompiledKind;
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
@@ -13,6 +12,7 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::borrow::Cow;
 use std::collections::{HashMap, HashSet};
 use std::sync::Arc;
+use wasmer_compiler::misc::CompiledKind;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;

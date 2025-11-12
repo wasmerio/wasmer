@@ -28,13 +28,14 @@ use target_lexicon::BinaryFormat;
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
-    config::{CompiledKind, LLVM},
+    config::LLVM,
     error::{err, err_nt},
     object_file::{CompiledFunction, load_object_file},
 };
 use wasmer_compiler::{
     FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, from_binaryreadererror_wasmerror,
+    misc::CompiledKind,
     types::{
         relocation::RelocationTarget,
         symbols::{Symbol, SymbolRegistry},
@@ -104,8 +105,8 @@ impl FuncTranslator {
         symbol_registry: &dyn SymbolRegistry,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
+        let function = CompiledKind::Local(wasm_module.get_function_name(func_index));
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
@@ -413,7 +414,9 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
         )?;
-        let function = CompiledKind::Local(*local_func_index);
+        let function = CompiledKind::Local(
+            wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
+        );
         let target_machine = &self.target_machine;
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
