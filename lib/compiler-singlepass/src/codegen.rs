@@ -2479,15 +2479,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 let frame = &mut self.control_stack.last_mut().unwrap();
 
                 // The Else block must be provided the very same inputs as the previous If block had,
-                // and so we need to copy the potentially consumed inputs.
+                // and so we need to copy the already consumed stack values.
                 let ControlState::If {
                     label_else,
                     ref inputs,
                 } = frame.state
                 else {
-                    return Err(CompileError::Codegen(
-                        "Else: frame.if_else unreachable code".to_owned(),
-                    ));
+                    panic!("Operator::Else must be connected to Operator::If statement");
                 };
                 for (input, _) in inputs {
                     match input {
@@ -2497,8 +2495,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         Location::SIMD(x) => {
                             self.machine.reserve_simd(*x);
                         }
-                        Location::Memory(..) => {
-                            // TODO: add assert about FP
+                        Location::Memory(reg, _) => {
+                            debug_assert_eq!(reg, &self.machine.local_pointer());
                             self.stack_offset.0 += 8;
                         }
                         _ => {}
