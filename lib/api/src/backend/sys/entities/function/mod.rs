@@ -8,6 +8,7 @@ use crate::{
     StoreInner, Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::store::{AsStoreMut, AsStoreRef, StoreMut},
+    sys::async_runtime::AsyncRuntimeError,
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
 };
@@ -17,9 +18,10 @@ use std::{
 };
 use wasmer_types::{NativeWasmType, RawValue};
 use wasmer_vm::{
-    MaybeInstanceOwned, StoreHandle, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext, VMFunctionKind, VMTrampoline,
-    on_host_stack, raise_user_trap, resume_panic, wasmer_call_trampoline,
+    MaybeInstanceOwned, StoreHandle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMContext,
+    VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody, VMFunctionContext,
+    VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap, raise_user_trap, resume_panic,
+    wasmer_call_trampoline,
 };
 
 use crate::backend::sys::async_runtime::{block_on_host_future, call_function_async};
@@ -593,6 +595,7 @@ enum InvocationResult<T, E> {
     Success(T),
     Exception(crate::Exception),
     Trap(Box<E>),
+    YieldOutsideAsyncContext,
 }
 
 fn to_invocation_result<T, E>(result: Result<T, E>) -> InvocationResult<T, E>
@@ -740,11 +743,18 @@ where
                 ),
                 HostCallOutcome::Future { func_ty, future } => {
                     let awaited = block_on_host_future(future);
+                    let result = match awaited {
+                        Ok(value) => Ok(value),
+                        Err(AsyncRuntimeError::RuntimeError(e)) => Err(e),
+                        Err(AsyncRuntimeError::YieldOutsideAsyncContext) => {
+                            return InvocationResult::YieldOutsideAsyncContext;
+                        }
+                    };
                     to_invocation_result(finalize_dynamic_call(
                         this.ctx.raw_store,
                         func_ty,
                         values_vec,
-                        awaited,
+                        result,
                     ))
                 }
             }))
@@ -763,6 +773,9 @@ where
                 )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+            Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
+                raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+            },
             Err(panic) => unsafe { resume_panic(panic) },
         }
     }
@@ -869,6 +882,9 @@ macro_rules! impl_host_function {
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+                    Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
+                        raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+                    },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
@@ -953,6 +969,9 @@ macro_rules! impl_host_function {
                         )
                     }
                     Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
+                    Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {
+                        raise_lib_trap(Trap::lib(TrapCode::YieldOutsideAsyncContext))
+                    },
                     Err(panic) => unsafe { resume_panic(panic) },
                 }
             }
