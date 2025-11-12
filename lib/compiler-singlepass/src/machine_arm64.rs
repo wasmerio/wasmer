@@ -47,6 +47,19 @@ pub struct MachineARM64 {
     has_neon: bool,
 }
 
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const ARM64_RETURN_VALUE_REGISTERS: [GPR; 8] = [
+    GPR::X0,
+    GPR::X1,
+    GPR::X2,
+    GPR::X3,
+    GPR::X4,
+    GPR::X5,
+    GPR::X6,
+    GPR::X7,
+];
+
 #[allow(dead_code)]
 #[derive(PartialEq)]
 enum ImmType {
@@ -1757,7 +1770,7 @@ impl Machine for MachineARM64 {
     ) -> Location {
         let register_params = self.get_param_registers(calling_convention);
         let return_values_memory_size =
-            8 * return_slots.saturating_sub(self.get_return_value_registers().len()) as i32;
+            8 * return_slots.saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len()) as i32;
 
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
@@ -1813,27 +1826,12 @@ impl Machine for MachineARM64 {
         )
     }
 
-    /// Get registers for first N function return values.
-    /// NOTE: The register set must be disjoint from pick_gpr registers!
-    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
-        &[
-            GPR::X0,
-            GPR::X1,
-            GPR::X2,
-            GPR::X3,
-            GPR::X4,
-            GPR::X5,
-            GPR::X6,
-            GPR::X7,
-        ]
-    }
-
     fn get_return_value_location(
         &self,
         idx: usize,
         stack_location: &mut usize,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
-        self.get_return_value_registers().get(idx).map_or_else(
+        ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
                 let loc = Location::Memory(GPR::XzrSp, *stack_location as i32);
                 *stack_location += 8;
@@ -1847,11 +1845,11 @@ impl Machine for MachineARM64 {
         &self,
         idx: usize,
     ) -> AbstractLocation<Self::GPR, Self::SIMD> {
-        self.get_return_value_registers().get(idx).map_or_else(
+        ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
                 Location::Memory(
                     GPR::X29,
-                    (16 * 2 + (idx - self.get_return_value_registers().len()) * 8) as i32,
+                    (16 * 2 + (idx - ARM64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
                 )
             },
             |reg| Location::GPR(*reg),

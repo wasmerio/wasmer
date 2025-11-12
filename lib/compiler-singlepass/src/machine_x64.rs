@@ -100,6 +100,10 @@ pub struct MachineX86_64 {
     unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
 }
 
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const X86_64_RETURN_VALUE_REGISTERS: [GPR; 2] = [GPR::RAX, GPR::RDX];
+
 impl MachineX86_64 {
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
         let assembler = AssemblerX64::new(0, target)?;
@@ -2316,7 +2320,7 @@ impl Machine for MachineX86_64 {
     ) -> Location {
         let register_params = self.get_param_registers(calling_convention);
         let return_values_memory_size =
-            8 * return_slots.saturating_sub(self.get_return_value_registers().len());
+            8 * return_slots.saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
         match calling_convention {
             CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
                 || {
@@ -2363,15 +2367,9 @@ impl Machine for MachineX86_64 {
         }
     }
 
-    /// Get registers for first N function return values.
-    /// NOTE: The register set must be disjoint from pick_gpr registers!
-    fn get_return_value_registers(&self) -> &'static [Self::GPR] {
-        &[GPR::RAX, GPR::RDX]
-    }
-
     /// Get return value location (to build a call, using SP for stack return values).
     fn get_return_value_location(&self, idx: usize, stack_location: &mut usize) -> Location {
-        self.get_return_value_registers().get(idx).map_or_else(
+        X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
                 let loc = Location::Memory(GPR::RSP, *stack_location as i32);
                 *stack_location += 8;
@@ -2383,11 +2381,11 @@ impl Machine for MachineX86_64 {
 
     /// Get return value location (from a call, using FP for stack return values).
     fn get_call_return_value_location(&self, idx: usize) -> Location {
-        self.get_return_value_registers().get(idx).map_or_else(
+        X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
                 Location::Memory(
                     GPR::RBP,
-                    (16 + (idx - self.get_return_value_registers().len()) * 8) as i32,
+                    (16 + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
                 )
             },
             |reg| Location::GPR(*reg),
@@ -7760,7 +7758,7 @@ impl Machine for MachineX86_64 {
             })
             .count();
         let stack_return_slots = (0..sig.results().len())
-            .filter(|&i| self.get_return_value_registers().get(i).is_none())
+            .filter(|&i| X86_64_RETURN_VALUE_REGISTERS.get(i).is_none())
             .count();
 
         // Stack slots are not shared in between function params and return values.
@@ -7835,7 +7833,7 @@ impl Machine for MachineX86_64 {
         // Write return values.
         let mut n_stack_return_slots: usize = 0;
         for i in 0..sig.results().len() {
-            let src = if let Some(&reg) = self.get_return_value_registers().get(i) {
+            let src = if let Some(&reg) = X86_64_RETURN_VALUE_REGISTERS.get(i) {
                 Location::GPR(reg)
             } else {
                 let loc = Location::GPR(GPR::R15);

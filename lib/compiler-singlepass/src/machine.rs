@@ -204,8 +204,6 @@ pub trait Machine {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location<Self::GPR, Self::SIMD>;
-    /// Get registers for first N function return values.
-    fn get_return_value_registers(&self) -> &'static [Self::GPR];
     /// Get return value location (to build a call, using SP for stack return values).
     fn get_return_value_location(
         &self,
