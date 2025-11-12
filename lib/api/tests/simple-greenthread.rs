@@ -18,6 +18,26 @@ const GREENTHREAD_WAT: &[u8] = include_bytes!(concat!(
 thread_local! {
     static LOCAL_SPAWNER: OnceLock<futures::executor::LocalSpawner> = OnceLock::new();
 }
+/// Spawns a future on the thread-local executor.
+///
+/// This helper function manages thread-local state by accessing the spawner
+/// stored in `LOCAL_SPAWNER` and scheduling the provided future to run on it.
+///
+/// # Panics
+///
+/// Panics if:
+/// - The local spawner has not been initialized via `LOCAL_SPAWNER.set()`.
+/// - The future cannot be spawned on the local executor.
+///
+/// # Example
+///
+/// The spawner must be initialized before calling this function:
+/// ```ignore
+/// LOCAL_SPAWNER.with(|spawner_lock| {
+///     spawner_lock.set(local_spawner).expect("Failed to set local spawner");
+/// });
+/// spawn_local(async { /* your async code */ });
+/// ```
 fn spawn_local<F>(future: F)
 where
     F: std::future::Future<Output = ()> + 'static,
