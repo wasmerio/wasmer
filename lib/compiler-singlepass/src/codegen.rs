@@ -5710,7 +5710,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 )?;
             }
             Operator::MemoryAtomicNotify { ref memarg } => {
-                let cnt = self.value_stack.pop().unwrap();
+                let _cnt = self.value_stack.pop().unwrap();
                 let dst = self.value_stack.pop().unwrap();
 
                 let memory_index = MemoryIndex::new(memarg.memory as usize);
