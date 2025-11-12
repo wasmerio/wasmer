@@ -7867,7 +7867,6 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
-        save_assembly_to_file("-module-trampoline.o", &body);
 
         Ok(FunctionBody {
             body,
