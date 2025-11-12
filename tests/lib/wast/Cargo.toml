@@ -26,6 +26,7 @@ tokio = { workspace = true, features = [
 	"io-util",
 	"rt",
 ], default-features = false }
+fs_extra.workspace = true
 
 [features]
 default = ["wat"]
