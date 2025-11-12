@@ -16,6 +16,26 @@ use crate::{AsStoreMut, RuntimeError, Value};
 
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static>>;
 
+pub(crate) fn call_function_async<'a, S>(
+    function: SysFunction,
+    store: &'a mut S,
+    params: Vec<Value>,
+) -> AsyncCallFuture<'a, S>
+where
+    S: AsStoreMut + 'static,
+{
+    AsyncCallFuture::new(function, store, params)
+}
+
+enum AsyncYield {
+    HostFuture(HostFuture),
+}
+
+enum AsyncResume {
+    Start,
+    HostFutureReady(Result<Vec<Value>, RuntimeError>),
+}
+
 pub(crate) struct AsyncCallFuture<'a, S: AsStoreMut + 'static> {
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
     pending_future: Option<HostFuture>,
@@ -35,11 +55,12 @@ where
         let coroutine =
             Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, _resume| {
                 let ctx_state = CoroutineContext::new(yielder);
-                let _guard = ctx_state.enter();
+                ctx_state.enter();
                 let result = {
                     let store_ref = unsafe { &mut *store_ptr };
                     function.call(store_ref, &params)
                 };
+                ctx_state.leave();
                 result
             });
 
@@ -89,16 +110,6 @@ where
     }
 }
 
-struct AsyncContext {
-    next: u64,
-    active: Vec<u64>,
-    coroutines: HashMap<u64, *const CoroutineContext>,
-}
-
-thread_local! {
-    static CURRENT_CONTEXT: RefCell<Option<AsyncContext>> = const { RefCell::new(None) };
-}
-
 pub enum AsyncRuntimeError {
     YieldOutsideAsyncContext,
     RuntimeError(RuntimeError),
@@ -109,8 +120,7 @@ where
     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static,
 {
     CURRENT_CONTEXT.with(|cell| {
-        let mut borrow = cell.borrow_mut();
-        match borrow.as_ref().and_then(|ctx| ctx.active.last().copied()) {
+        match CoroutineContext::get_current() {
             None => {
                 // If there is no async context or we haven't entered it,
                 // we can still directly run a future that doesn't block
@@ -119,44 +129,23 @@ where
                 // coroutine in the following scenario:
                 //   call_async -> wasm code -> imported function ->
                 //   call (non-async) -> wasm_code -> imported async function
-
-                // We drop the borrow anyway to let the future start a new
-                // async context if needed.
-                drop(borrow);
                 run_immediate(future)
             }
-            Some(current) => {
-                // If we have an active coroutine, get the context and yielder
-                let context = borrow.as_mut().unwrap();
-                let coro_context = *context
-                    .coroutines
-                    .get(&current)
-                    .expect("Coroutine context was already destroyed");
+            Some(context) => {
+                let ctx_ref = unsafe { context.as_ref().expect("valid context pointer") };
 
-                // Then pop ourselves from the active stack since we're not active anymore
-                // and un-borrow the cell for others to use.
-                assert_eq!(
-                    context.active.pop(),
-                    Some(current),
-                    "Active coroutine stack corrupted"
-                );
-                drop(borrow);
+                // Leave the coroutine context since we're yielding back to the
+                // parent stack, and will be inactive until the future is ready.
+                ctx_ref.leave();
 
                 // Now we can yield back to the runtime while we wait
-                let result = unsafe { &*coro_context }
+                let result = ctx_ref
                     .block_on_future(Box::pin(future))
                     .map_err(AsyncRuntimeError::RuntimeError);
 
                 // Once the future is ready, we borrow again and restore the current
                 // coroutine.
-                let mut borrow = cell.borrow_mut();
-                let context = borrow
-                    .as_mut()
-                    .expect("The async context was destroyed while a coroutine was pending");
-                if !context.coroutines.contains_key(&current) {
-                    panic!("The coroutine context was destroyed while a coroutine was pending");
-                }
-                context.active.push(current);
+                ctx_ref.enter();
 
                 result
             }
@@ -164,24 +153,8 @@ where
     })
 }
 
-pub(crate) fn call_function_async<'a, S>(
-    function: SysFunction,
-    store: &'a mut S,
-    params: Vec<Value>,
-) -> AsyncCallFuture<'a, S>
-where
-    S: AsStoreMut + 'static,
-{
-    AsyncCallFuture::new(function, store, params)
-}
-
-enum AsyncYield {
-    HostFuture(HostFuture),
-}
-
-enum AsyncResume {
-    Start,
-    HostFutureReady(Result<Vec<Value>, RuntimeError>),
+thread_local! {
+    static CURRENT_CONTEXT: RefCell<Vec<*const CoroutineContext>> = const { RefCell::new(Vec::new()) };
 }
 
 struct CoroutineContext {
@@ -195,63 +168,43 @@ impl CoroutineContext {
         }
     }
 
-    fn enter(&self) -> CoroutineContextGuard {
+    fn enter(&self) {
         CURRENT_CONTEXT.with(|cell| {
             let mut borrow = cell.borrow_mut();
 
-            // If there is no context yet, create one.
-            if borrow.is_none() {
-                *borrow = Some(AsyncContext {
-                    next: 0,
-                    active: vec![],
-                    coroutines: HashMap::new(),
-                });
-            }
-
-            let context = borrow.as_mut().unwrap();
-
-            // Assign an ID to this coroutine context.
-            let id = context.next;
-            context.next += 1;
-
-            // Add this context to the map and push it on top of the active stack.
-            context.coroutines.insert(id, self as *const _);
-            context.active.push(id);
-            CoroutineContextGuard { id }
+            // Push this coroutine on top of the active stack.
+            borrow.push(self as *const _);
         })
     }
 
+    // Note: we don't use a drop-style guard here on purpose; if a panic
+    // happens while a coroutine is running, CURRENT_CONTEXT will be in
+    // an inconsistent state. corosensei will unwind all coroutine stacks
+    // anyway, and if we had a guard that would get dropped and try to
+    // leave its context, it'd panic again at the assert_eq! below.
+    fn leave(&self) {
+        CURRENT_CONTEXT.with(|cell| {
+            let mut borrow = cell.borrow_mut();
+
+            // Pop this coroutine from the active stack.
+            assert_eq!(
+                borrow.pop(),
+                Some(self as *const _),
+                "Active coroutine stack corrupted"
+            );
+        });
+    }
+
+    fn get_current() -> Option<*const Self> {
+        CURRENT_CONTEXT.with(|cell| cell.borrow().last().copied())
+    }
+
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
-        let yielder = unsafe { &*self.yielder };
+        let yielder = unsafe { self.yielder.as_ref().expect("yielder pointer valid") };
         match yielder.suspend(AsyncYield::HostFuture(future)) {
             AsyncResume::HostFutureReady(result) => result,
             AsyncResume::Start => unreachable!("coroutine resumed without start"),
         }
-    }
-}
-
-struct CoroutineContextGuard {
-    id: u64,
-}
-
-impl Drop for CoroutineContextGuard {
-    fn drop(&mut self) {
-        CURRENT_CONTEXT.with(|cell| {
-            let mut borrow = cell.borrow_mut();
-            let context = borrow
-                .as_mut()
-                .expect("The async context was destroyed while a coroutine was active");
-            context.coroutines.remove(&self.id);
-            assert_eq!(
-                context.active.pop(),
-                Some(self.id),
-                "Active coroutine stack corrupted"
-            );
-            if context.coroutines.is_empty() {
-                // If there are no more coroutines, remove the context.
-                *borrow = None;
-            }
-        });
     }
 }
 
