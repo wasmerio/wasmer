@@ -3,8 +3,6 @@
 use core::fmt::Display;
 use std::{
     collections::HashMap,
-    fs::File,
-    io::Write,
     path::PathBuf,
     process::{Command, Stdio},
 };
@@ -13,7 +11,6 @@ use itertools::Itertools;
 use target_lexicon::Architecture;
 use tempfile::NamedTempFile;
 use wasmer_types::{CompileError, FunctionType, Type};
-use which::which;
 
 /// Represents the kind of compiled function or module, used for debugging and identification
 /// purposes across multiple compiler backends (e.g., LLVM, Cranelift).
@@ -90,48 +87,53 @@ pub fn function_kind_to_filename(kind: &CompiledKind) -> String {
     }
 }
 
-#[derive(Debug)]
-struct DecodedInsn<'a> {
-    offset: usize,
-    insn: &'a str,
-}
-
-fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileError> {
-    content
-        .lines()
-        .map(|line| line.trim())
-        .skip_while(|l| !l.starts_with("0000000000000000"))
-        .skip(1)
-        .filter(|line| line.trim() != "...")
-        .map(|line| -> Result<DecodedInsn<'_>, CompileError> {
-            let (offset, insn_part) = line.split_once(':').ok_or(CompileError::Codegen(
-                format!("cannot parse objdump line: '{line}'"),
-            ))?;
-            // instruction content can be empty
-            let insn = insn_part
-                .trim()
-                .split_once('\t')
-                .map_or("", |(_data, insn)| insn)
-                .trim();
-            Ok(DecodedInsn {
-                offset: usize::from_str_radix(offset, 16)
-                    .map_err(|err| CompileError::Codegen(format!("hex number expected: {err}")))?,
-                insn,
-            })
-        })
-        .collect()
-}
-
 /// Saves disassembled assembly code to a file with optional comments at specific offsets.
 ///
 /// This function takes raw machine code bytes, disassembles them using `objdump`, and writes
 /// the annotated assembly to a file in the specified debug directory.
+#[cfg(not(target_arch = "wasm32"))]
 pub fn save_assembly_to_file<C: Display>(
     arch: Architecture,
     path: PathBuf,
     body: &[u8],
     assembly_comments: HashMap<usize, C>,
 ) -> Result<(), CompileError> {
+    use std::{fs::File, io::Write};
+    use which::which;
+
+    #[derive(Debug)]
+    struct DecodedInsn<'a> {
+        offset: usize,
+        insn: &'a str,
+    }
+
+    fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileError> {
+        content
+            .lines()
+            .map(|line| line.trim())
+            .skip_while(|l| !l.starts_with("0000000000000000"))
+            .skip(1)
+            .filter(|line| line.trim() != "...")
+            .map(|line| -> Result<DecodedInsn<'_>, CompileError> {
+                let (offset, insn_part) = line.split_once(':').ok_or(CompileError::Codegen(
+                    format!("cannot parse objdump line: '{line}'"),
+                ))?;
+                // instruction content can be empty
+                let insn = insn_part
+                    .trim()
+                    .split_once('\t')
+                    .map_or("", |(_data, insn)| insn)
+                    .trim();
+                Ok(DecodedInsn {
+                    offset: usize::from_str_radix(offset, 16).map_err(|err| {
+                        CompileError::Codegen(format!("hex number expected: {err}"))
+                    })?,
+                    insn,
+                })
+            })
+            .collect()
+    }
+
     // Note objdump cannot read from stdin.
     let mut tmpfile = NamedTempFile::new()
         .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
@@ -197,5 +199,19 @@ pub fn save_assembly_to_file<C: Display>(
             })?;
     }
 
+    Ok(())
+}
+
+/// Saves disassembled assembly code to a file with optional comments at specific offsets.
+///
+/// This function takes raw machine code bytes, disassembles them using `objdump`, and writes
+/// the annotated assembly to a file in the specified debug directory.
+#[cfg(target_arch = "wasm32")]
+pub fn save_assembly_to_file<C: Display>(
+    _arch: Architecture,
+    _path: PathBuf,
+    _body: &[u8],
+    _assembly_comments: HashMap<usize, C>,
+) -> Result<(), CompileError> {
     Ok(())
 }
