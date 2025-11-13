@@ -1166,7 +1166,7 @@ impl MachineRiscv {
                     temps.push(tmp);
                 }
             }
-            _ => codegen_error!("singplepass emit_relaxed_store unreachable"),
+            _ => codegen_error!("singlepass emit_relaxed_store unreachable"),
         }
         for r in temps {
             self.release_gpr(r);
