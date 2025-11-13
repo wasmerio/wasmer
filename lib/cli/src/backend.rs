@@ -212,13 +212,6 @@ pub struct RuntimeOptions {
     #[clap(long)]
     llvm_num_threads: Option<NonZero<usize>>,
 
-    /// Singlepass debug directory, where object files will be written to.
-    ///
-    /// Only available for the singlepass compiler.
-    #[cfg(feature = "singlepass")]
-    #[clap(long)]
-    singlepass_debug_dir: Option<PathBuf>,
-
     #[clap(flatten)]
     features: WasmFeatures,
 }
