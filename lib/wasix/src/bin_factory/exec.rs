@@ -14,7 +14,7 @@ use crate::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
     },
-    syscalls::rewind_ext,
+    syscalls::{call_in_async_runtime, rewind_ext},
 };
 use tracing::*;
 use virtual_mio::block_on;
@@ -299,7 +299,7 @@ fn call_module(
             return;
         };
 
-        let mut call_ret = start.call(&mut store, &[]);
+        let mut call_ret = { call_in_async_runtime(&ctx, &mut store, start.clone(), &[]) };
 
         loop {
             // Technically, it's an error for a vfork to return from main, but anyway...
