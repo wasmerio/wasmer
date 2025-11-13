@@ -133,7 +133,7 @@ impl VMFuncRef {
     }
 }
 
-pub(crate) struct VMExceptionRef(*mut wasm_ref_t);
+pub struct VMExceptionRef(*mut wasm_ref_t);
 impl VMExceptionRef {
     /// Converts the `VMExceptionRef` into a `RawValue`.
     pub fn into_raw(self) -> RawValue {
