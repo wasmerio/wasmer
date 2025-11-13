@@ -4,7 +4,7 @@ version = "0.1.0"
 edition = "2024"
 
 [dependencies]
-axum = { version = "=0.6.9", features = ["tokio", "json"] }
+axum = { workspace = true, features = ["tokio", "json"] }
 serde.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt"] }
