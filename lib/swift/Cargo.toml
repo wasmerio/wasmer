@@ -13,8 +13,8 @@ name = "wasmer_swift"
 
 [dependencies]
 thiserror.workspace = true
-tokio = { version = "1.28.1", features = ["rt"], default-features = false }
-uniffi = "0.27"
+tokio = { workspace = true, features = ["rt"], default-features = false }
+uniffi.workspace = true
 virtual-fs = { path = "../virtual-fs", version = "=0.601.0", default-features = false, features = [
 	"webc-fs",
 ] }
@@ -30,7 +30,7 @@ wasmer-package.workspace = true
 
 
 [build-dependencies]
-uniffi = { version = "0.27", features = ["build"] }
+uniffi = { workspace = true, features = ["build"] }
 
 [package.metadata.docs.rs]
 features = ["wasmer/sys", "wasmer/compiler"]

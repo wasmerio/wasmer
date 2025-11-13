@@ -11,7 +11,7 @@ tracing-subscriber = { workspace = true, features = ["fmt"] }
 
 # NOTE: We need to pin and replace some dependencies to achieve wasix compatibility.
 tokio = { workspace = true, default-features = false, features = ["full"] }
-parking_lot = { version = "=0.12.1", features = ["nightly"] }
+parking_lot = { workspace = true, features = ["nightly"] }
 
 [patch.crates-io]
 tokio = { git = "https://github.com/wasix-org/tokio.git", branch = "wasix-1.24.2" }

@@ -15,11 +15,11 @@ rust-version.workspace = true
 [dependencies]
 anyhow.workspace = true
 async-trait = { workspace = true, optional = true }
-bitflags = "1.2"
+bitflags.workspace = true
 once_cell.workspace = true
 thiserror.workspace = true
-tracing-lib = { version = "0.1.26", optional = true, package = "tracing" }
-wai-bindgen-wasmer-impl = { version = "0.2.2" }
+tracing-lib = { workspace = true, optional = true }
+wai-bindgen-wasmer-impl.workspace = true
 wasmer = { version = "=6.1.0", path = "../api", default-features = false }
 
 [features]
