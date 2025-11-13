@@ -46,7 +46,6 @@ members = [
 	"lib/c-api/examples/wasmer-capi-examples-runner",
 	"lib/c-api/tests/wasmer-c-api-test-runner",
 	"lib/cache",
-	"lib/cli-compiler",
 	"lib/cli",
 	"lib/compiler-cranelift",
 	"lib/compiler-llvm",
@@ -176,6 +175,7 @@ clap_builder = { version = "=4.5.50" }
 clap_derive = { version = "=4.5.49" }
 clap_lex = { version = "=0.7.6" }
 which = {version = "8.0.0"}
+fs_extra = {version = "1.3.0"}
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

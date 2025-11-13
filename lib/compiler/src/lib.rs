@@ -49,6 +49,7 @@ mod lib {
 mod engine;
 mod traits;
 
+pub mod misc;
 pub mod object;
 pub mod serialize;
 pub mod types;
@@ -64,8 +65,6 @@ pub use self::artifact_builders::*;
 mod compiler;
 #[cfg(feature = "compiler")]
 pub use crate::compiler::{Compiler, CompilerConfig};
-
-pub mod misc;
 
 #[cfg(feature = "translator")]
 #[macro_use]

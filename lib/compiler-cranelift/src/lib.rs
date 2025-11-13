@@ -51,7 +51,7 @@ mod translator;
 use cranelift_codegen::ir::TrapCode;
 
 pub use crate::compiler::CraneliftCompiler;
-pub use crate::config::{Cranelift, CraneliftOptLevel};
+pub use crate::config::{Cranelift, CraneliftCallbacks, CraneliftOptLevel};
 pub use crate::debug::{ModuleInfoMemoryOffset, ModuleInfoVmctxInfo, ValueLabelsRanges};
 pub use crate::trampoline::make_trampoline_function_call;
 

@@ -575,6 +575,14 @@ impl ModuleInfo {
             .take(self.num_imported_functions)
             .map(move |sig_index| self.signatures[*sig_index].clone())
     }
+
+    /// Get the name of a function by its index.
+    pub fn get_function_name(&self, func_index: FunctionIndex) -> String {
+        self.function_names
+            .get(&func_index)
+            .cloned()
+            .unwrap_or_else(|| format!("function_{}", func_index.as_u32()))
+    }
 }
 
 impl fmt::Display for ModuleInfo {
