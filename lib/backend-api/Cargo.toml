@@ -30,7 +30,7 @@ time = { workspace = true, features = ["formatting", "parsing"] }
 tokio.workspace = true
 url = { workspace = true, features = ["serde"] }
 futures.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, default-features = true }
 cynic = { workspace = true, features = ["http-reqwest"] }
 pin-project-lite.workspace = true
 harsh.workspace = true
