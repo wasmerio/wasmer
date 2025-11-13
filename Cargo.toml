@@ -28,13 +28,13 @@ wasmer-middlewares = { version = "=6.1.0", path = "lib/middlewares", optional = 
 
 # Third party dependencies
 
-cfg-if = "1.0"
-tokio = { version = "1.39", features = [
+cfg-if.workspace = true
+tokio = { workspace = true, features = [
 	"rt",
 	"rt-multi-thread",
 	"macros",
 ], optional = true }
-crossbeam-queue = "0.3.8"
+crossbeam-queue.workspace = true
 
 [workspace]
 members = [
@@ -153,8 +153,8 @@ mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
 tokio = { version = "1.39.0", default-features = false }
 tokio-tungstenite = { version = "0.24.0" }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = { version = "0.2" }
 socket2 = { version = "0.5.7", features = ["all"] }
 pretty_assertions = "1.4.0"
@@ -317,6 +317,11 @@ terminal_size = "0.3.0"
 tracing-wasm = "0.2"
 insta = "1.21.1"
 md5 = "0.7.0"
+syn = { version = "2", default-features = false }
+proc-macro2 = "1"
+proc-macro-error2 = "2.0.1"
+quote = "1.0.20"
+test-log = { version = "0.2", default-features = false }
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
@@ -342,9 +347,9 @@ compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
 tempfile.workspace = true
 ureq.workspace = true
 # For logging tests using the `RUST_LOG=debug` when testing
-test-log = { version = "0.2", default-features = false, features = ["trace"] }
-tracing = { version = "0.1", default-features = false, features = ["log"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = [
+test-log = { workspace = true, default-features = false, features = ["trace"] }
+tracing = { workspace = true, default-features = false, features = ["log"] }
+tracing-subscriber = { workspace = true, default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }

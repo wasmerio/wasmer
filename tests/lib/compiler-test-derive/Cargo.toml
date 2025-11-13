@@ -13,9 +13,10 @@ keywords = ["unsafe", "body", "fn", "safety", "hygiene"]
 categories = ["rust-patterns", ]
 
 [dependencies]
-proc-macro2 = "1.*"
-quote = "1.*"
-syn =  { version = "1.*", features = ["full"] }
+proc-macro2.workspace = true
+quote.workspace = true
+# TODO: port to version 2
+syn = { version = "1.*", features = ["full"] }
 
 [features]
 
