@@ -467,8 +467,11 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
-                if let Some(ref singlepass_debug_dir) = self.singlepass_debug_dir {
-                    config.debug_dir = Some(singlepass_debug_dir.clone());
+                if let Some(mut debug_dir) = self.debug_dir.clone() {
+                    use wasmer_compiler_singlepass::SinglepassCallbacks;
+
+                    debug_dir.push("singlepass");
+                    config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
 
                 Box::new(config)
@@ -598,8 +601,11 @@ impl BackendType {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
-                if let Some(ref singlepass_debug_dir) = runtime_opts.singlepass_debug_dir {
-                    config.debug_dir = Some(singlepass_debug_dir.clone());
+                if let Some(mut debug_dir) = runtime_opts.debug_dir.clone() {
+                    use wasmer_compiler_singlepass::SinglepassCallbacks;
+
+                    debug_dir.push("singlepass");
+                    config.callbacks(Some(SinglepassCallbacks::new(debug_dir)?));
                 }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))

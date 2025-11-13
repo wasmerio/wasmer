@@ -21,7 +21,7 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
-use wasmer_compiler::misc::{save_assembly_to_file, types_to_signature};
+use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -227,20 +227,19 @@ impl Compiler for SinglepassCompiler {
             .into_par_iter_if_rayon()
             .map(|func_type| -> Result<FunctionBody, CompileError> {
                 let body = gen_std_trampoline(func_type, target, calling_convention)?;
-                if let Some(debug_dir) = self.config.debug_dir.as_ref() {
-                    let function_name = format!(
-                        "trampoline_call_{}_{}",
-                        types_to_signature(func_type.params()),
-                        types_to_signature(func_type.results())
-                    );
-                    save_assembly_to_file(
-                        arch,
-                        debug_dir.clone(),
-                        &function_name,
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
                         &body.body,
-                        HashMap::<usize, String>::new(),
+                    );
+                    callbacks.asm_memory_buffer(
+                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        arch,
+                        &body.body,
+                        HashMap::new(),
                     )?;
                 }
+
                 Ok(body)
             })
             .collect::<Result<Vec<_>, _>>()?
@@ -258,18 +257,16 @@ impl Compiler for SinglepassCompiler {
                     target,
                     calling_convention,
                 )?;
-                if let Some(debug_dir) = self.config.debug_dir.as_ref() {
-                    let function_name = format!(
-                        "trampoline_dynamic_{}_{}",
-                        types_to_signature(func_type.params()),
-                        types_to_signature(func_type.results())
-                    );
-                    save_assembly_to_file(
-                        arch,
-                        debug_dir.clone(),
-                        &function_name,
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
                         &body.body,
-                        HashMap::<usize, String>::new(),
+                    );
+                    callbacks.asm_memory_buffer(
+                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        arch,
+                        &body.body,
+                        HashMap::new(),
                     )?;
                 }
                 Ok(body)

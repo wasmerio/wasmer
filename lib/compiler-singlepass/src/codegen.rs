@@ -21,7 +21,7 @@ use target_lexicon::Architecture;
 
 use wasmer_compiler::{
     FunctionBodyData,
-    misc::save_assembly_to_file,
+    misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -5692,11 +5692,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         } = self.machine.assembler_finalize()?;
         body.shrink_to_fit();
 
-        if let Some(debug_dir) = self.config.debug_dir.as_ref() {
-            save_assembly_to_file(
+        if let Some(callbacks) = self.config.callbacks.as_ref() {
+            callbacks.obj_memory_buffer(&CompiledKind::Local(self.function_name.clone()), &body);
+            callbacks.asm_memory_buffer(
+                &CompiledKind::Local(self.function_name.clone()),
                 arch,
-                debug_dir.clone(),
-                &self.function_name,
                 &body,
                 assembly_comments,
             )?;

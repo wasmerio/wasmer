@@ -3,7 +3,7 @@
 use core::fmt::Display;
 use std::{
     collections::HashMap,
-    fs::{self, File},
+    fs::File,
     io::Write,
     path::PathBuf,
     process::{Command, Stdio},
@@ -128,8 +128,7 @@ fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileErro
 /// the annotated assembly to a file in the specified debug directory.
 pub fn save_assembly_to_file<C: Display>(
     arch: Architecture,
-    debug_dir: PathBuf,
-    function_name: &str,
+    path: PathBuf,
     body: &[u8],
     assembly_comments: HashMap<usize, C>,
 ) -> Result<(), CompileError> {
@@ -177,20 +176,9 @@ pub fn save_assembly_to_file<C: Display>(
 
     let parsed_instructions = parse_instructions(content.as_ref())?;
 
-    fs::create_dir_all(debug_dir.clone()).map_err(|err| {
-        CompileError::Codegen(format!("debug object file creation failed: {err}"))
-    })?;
-
-    let mut path = debug_dir;
-    path.push(format!("{function_name}.s"));
     let mut file = File::create(path).map_err(|err| {
         CompileError::Codegen(format!("debug object file creation failed: {err}"))
     })?;
-
-    file.write_all(format!(";; {function_name}\n\n").as_bytes())
-        .map_err(|err| {
-            CompileError::Codegen(format!("cannot write content to object file: {err}"))
-        })?;
 
     // Dump the instruction annotated with the comments.
     for insn in parsed_instructions {
