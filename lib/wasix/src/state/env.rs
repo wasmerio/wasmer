@@ -93,7 +93,7 @@ impl WasiEnvInit {
 
         Self {
             state: WasiState {
-                secret: rand::thread_rng().r#gen::<[u8; 32]>(),
+                secret: rand::rng().random::<[u8; 32]>(),
                 inodes,
                 fs,
                 futexs: Default::default(),
