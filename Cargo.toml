@@ -170,7 +170,7 @@ wasm-encoder = { version = "0.235.0", default-features = false, features = [
 ] }
 ignore = "0.4"
 parking_lot = "=0.12.1"
-clap = { version = "=4.5.50", default-features = false }
+clap = { version = "=4.5.50" }
 clap_builder = { version = "=4.5.50" }
 clap_derive = { version = "=4.5.49" }
 clap_lex = { version = "=0.7.6" }

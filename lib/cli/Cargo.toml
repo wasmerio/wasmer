@@ -230,7 +230,7 @@ mac_address = { workspace = true, optional = true }
 
 clap_complete.workspace = true
 clap_mangen.workspace = true
-zip = { workspace = true, default-features = false, features = ["deflate"] }
+zip = { workspace = true, features = ["deflate"] }
 console.workspace = true
 dotenvy.workspace = true
 lzma-rs.workspace = true
@@ -242,7 +242,7 @@ console-subscriber = { workspace = true, optional = true }
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
 clap = { workspace = true, features = ["derive", "env"] }
 [target.'cfg(target_family = "wasm")'.dependencies]
-clap = { workspace = true, default-features = false, features = [
+clap = { workspace = true, features = [
 	"std",
 	"help",
 	"usage",
