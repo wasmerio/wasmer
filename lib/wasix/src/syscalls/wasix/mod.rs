@@ -1,5 +1,6 @@
 mod call_dynamic;
 mod callback_signal;
+pub mod continuation_switch;
 mod chdir;
 mod closure_allocate;
 mod closure_free;
@@ -162,6 +163,7 @@ pub use sock_shutdown::*;
 pub use sock_status::*;
 pub use stack_checkpoint::*;
 pub use stack_restore::*;
+pub use continuation_switch::*;
 pub use thread_exit::*;
 pub use thread_id::*;
 pub use thread_join::*;
