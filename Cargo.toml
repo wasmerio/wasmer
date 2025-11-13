@@ -222,7 +222,7 @@ harsh = "0.2.2"
 merge-streams = "0.1.2"
 pin-project-lite = "0.2.10"
 serde_path_to_error = "0.1.14"
-async-tungstenite = { version = "0.28.0", default-features = false }
+async-tungstenite = "0.28.0"
 graphql-ws-client = "0.11.0"
 uuid = { version = "1", default-features = false }
 typetag = "0.1"

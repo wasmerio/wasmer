@@ -310,6 +310,7 @@ dependencies = [
  "futures-core",
  "futures-io",
  "futures-task",
+ "futures-util",
  "log",
  "pin-project-lite",
  "rustls-native-certs",
