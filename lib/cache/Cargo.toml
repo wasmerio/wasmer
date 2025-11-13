@@ -19,7 +19,7 @@ thiserror.workspace = true
 blake3.workspace = true
 
 [dev-dependencies]
-criterion = { workspace = true }
+criterion = { workspace = true, default-features = false }
 clap.workspace = true
 clap_builder.workspace = true
 clap_derive.workspace = true

@@ -68,7 +68,7 @@ wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=6.1.0", optional
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
 rusty_jsc = { workspace = true, optional = true }
-wasmparser = { workspace = true, optional = true }
+wasmparser = { workspace = true, default-features = false, optional = true }
 
 # - Mandatory dependencies for `sys` on Windows.
 [target.'cfg(all(not(target_arch = "wasm32"), target_os = "windows"))'.dependencies]
@@ -91,7 +91,7 @@ js-sys.workspace = true
 wasmer-derive = { path = "../derive", version = "=6.1.0" }
 wasmer-compiler = { path = "../compiler", version = "=6.1.0" }
 # - Optional dependencies for `js`.
-wasmparser = { workspace = true, optional = true }
+wasmparser = { workspace = true, default-features = false, optional = true }
 hashbrown = { workspace = true, optional = true }
 serde-wasm-bindgen.workspace = true
 serde.workspace = true
@@ -191,7 +191,7 @@ xz = { workspace = true, optional = true }
 zip = { workspace = true, optional = true }
 
 [target.'cfg(target_env = "musl")'.build-dependencies]
-bindgen = { workspace = true, features = [
+bindgen = { workspace = true, default-features = false, features = [
 	"static",
 	"logging",
 	"prettyplease",

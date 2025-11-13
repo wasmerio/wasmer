@@ -146,7 +146,7 @@ webc_runner = ["virtual-fs", "webc"]
 jit = ["compiler"]
 
 [build-dependencies]
-cbindgen = { workspace = true }
+cbindgen = { workspace = true, default-features = false }
 
 [lints.rust]
 unexpected_cfgs = { level = "warn", check-cfg = ['cfg(coverage_nightly)'] }
