@@ -59,7 +59,8 @@ anyhow.workspace = true
 sha2.workspace = true
 waker-fn.workspace = true
 cooked-waker.workspace = true
-rand.workspace = true
+# TODO: port to newer version
+rand = "0.8"
 tokio = { workspace = true, features = [
 	"sync",
 	"macros",

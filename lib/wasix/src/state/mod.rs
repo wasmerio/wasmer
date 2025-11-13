@@ -148,7 +148,7 @@ impl WasiState {
     // fn new(fs: WasiFs, inodes: Arc<RwLock<WasiInodes>>) -> Self {
     //     WasiState {
     //         fs,
-    //         secret: rand::rng().random::<[u8; 32]>(),
+    //         secret: rand::thread_rng().gen::<[u8; 32]>(),
     //         inodes,
     //         args: Vec::new(),
     //         preopen: Vec::new(),
