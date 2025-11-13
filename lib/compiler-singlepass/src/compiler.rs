@@ -3,7 +3,6 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::codegen::FuncGen;
-use crate::common_decl::save_assembly_to_file;
 use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
@@ -22,7 +21,7 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::collections::HashMap;
 use std::sync::Arc;
-use wasmer_compiler::misc::types_to_signature;
+use wasmer_compiler::misc::{save_assembly_to_file, types_to_signature};
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -239,7 +238,7 @@ impl Compiler for SinglepassCompiler {
                         debug_dir.clone(),
                         &function_name,
                         &body.body,
-                        HashMap::new(),
+                        HashMap::<usize, String>::new(),
                     )?;
                 }
                 Ok(body)
@@ -270,7 +269,7 @@ impl Compiler for SinglepassCompiler {
                         debug_dir.clone(),
                         &function_name,
                         &body.body,
-                        HashMap::new(),
+                        HashMap::<usize, String>::new(),
                     )?;
                 }
                 Ok(body)

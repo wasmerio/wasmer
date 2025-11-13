@@ -21,6 +21,7 @@ use target_lexicon::Architecture;
 
 use wasmer_compiler::{
     FunctionBodyData,
+    misc::save_assembly_to_file,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
