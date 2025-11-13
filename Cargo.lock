@@ -2257,6 +2257,7 @@ dependencies = [
  "futures-lite",
  "futures-sink",
  "futures-timer",
+ "log",
  "pin-project",
  "serde",
  "serde_json",

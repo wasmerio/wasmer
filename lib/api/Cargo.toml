@@ -35,7 +35,7 @@ cfg-if.workspace = true
 thiserror.workspace = true
 more-asserts.workspace = true
 bytes.workspace = true
-tracing.workspace = true
+tracing = { workspace = true, default-features = true }
 # - Optional shared dependencies.
 wat = { workspace = true, optional = true }
 rustc-demangle.workspace = true

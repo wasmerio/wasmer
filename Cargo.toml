@@ -223,7 +223,7 @@ merge-streams = "0.1.2"
 pin-project-lite = "0.2.10"
 serde_path_to_error = "0.1.14"
 async-tungstenite = { version = "0.28.0", default-features = false }
-graphql-ws-client = { version = "0.11.0", default-features = false }
+graphql-ws-client = "0.11.0"
 uuid = { version = "1", default-features = false }
 typetag = "0.1"
 field-offset = "0.3.3"
