@@ -656,7 +656,7 @@
 <a href=#656 id=656 data-nosnippet>656</a>            <span class="kw">return </span>Poll::Ready(<span class="prelude-val">Err</span>(net_error_into_io_err(err)));
 <a href=#657 id=657 data-nosnippet>657</a>        }
 <a href=#658 id=658 data-nosnippet>658</a>        <span class="kw">let </span>buf_unsafe = <span class="kw">unsafe </span>{ buf.unfilled_mut() };
-<a href=#659 id=659 data-nosnippet>659</a>        <span class="kw">match </span>this.try_recv(buf_unsafe) {
+<a href=#659 id=659 data-nosnippet>659</a>        <span class="kw">match </span>this.try_recv(buf_unsafe, <span class="bool-val">false</span>) {
 <a href=#660 id=660 data-nosnippet>660</a>            <span class="prelude-val">Ok</span>(ret) =&gt; {
 <a href=#661 id=661 data-nosnippet>661</a>                <span class="kw">unsafe </span>{ buf.assume_init(ret) };
 <a href=#662 id=662 data-nosnippet>662</a>                buf.set_filled(ret);
