@@ -152,10 +152,9 @@ pub fn save_assembly_to_file<C: Display>(
         }
     };
 
+    // Objdump is an optional dependency, do not fail if not present.
     if which("objdump").is_err() {
-        return Err(CompileError::Codegen(
-            "objdump not found in PATH. Please install binutils to use assembly debugging features.".to_string()
-        ));
+        return Ok(());
     }
 
     let command = Command::new("objdump")
@@ -166,8 +165,12 @@ pub fn save_assembly_to_file<C: Display>(
         .arg("-D")
         .arg(tmpfile.path())
         .stdout(Stdio::piped())
-        .spawn()
-        .map_err(|err| CompileError::Codegen(format!("objdump failed: {err}")))?;
+        .spawn();
+
+    let Ok(command) = command else {
+        // The target might not be supported, do not fail in that case.
+        return Ok(());
+    };
 
     let output = command
         .wait_with_output()
