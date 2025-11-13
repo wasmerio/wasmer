@@ -196,6 +196,7 @@ tracing-subscriber = { workspace = true, features = [
 	"env-filter",
 	"fmt",
 	"json",
+	"ansi"
 ] }
 async-trait = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
