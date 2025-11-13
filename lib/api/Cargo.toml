@@ -41,7 +41,7 @@ wat = { workspace = true, optional = true }
 rustc-demangle.workspace = true
 shared-buffer.workspace = true
 
-wasmi_c_api = { workspace = true, package = "wasmi_c_api_impl", optional = true, features = [
+wasmi_c_api = { workspace = true, optional = true, features = [
 	"prefix-symbols",
 ] }
 
@@ -198,7 +198,7 @@ bindgen = { workspace = true, default-features = false, features = [
 ] }
 
 [target.'cfg(not(target_env = "musl"))'.build-dependencies]
-bindgen.workspace = true
+bindgen = { workspace = true, default-features = true }
 
 [package.metadata.docs.rs]
 features = [
