@@ -101,8 +101,6 @@ pub struct MachineX86_64 {
     src_loc: u32,
     /// Vector of unwind operations with offset
     unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
-    /// Assembly comments.
-    assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 impl MachineX86_64 {
@@ -116,7 +114,6 @@ impl MachineX86_64 {
             instructions_address_map: vec![],
             src_loc: 0,
             unwind_ops: vec![],
-            assembly_comments: HashMap::new(),
         })
     }
     pub fn emit_relaxed_binop(
@@ -2469,12 +2466,15 @@ impl Machine for MachineX86_64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<FinalizedAssembly, CompileError> {
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
         Ok(FinalizedAssembly {
             body: self.assembler.finalize().map_err(|e| {
                 CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
             })?,
-            assembly_comments: self.assembly_comments,
+            assembly_comments,
         })
     }
 
@@ -8181,10 +8181,6 @@ impl Machine for MachineX86_64 {
     #[cfg(not(feature = "unwind"))]
     fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
-    }
-
-    fn add_assembly_comment(&mut self, comment: AssemblyComment) {
-        self.assembly_comments.insert(self.get_offset().0, comment);
     }
 }
 

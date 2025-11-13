@@ -47,8 +47,6 @@ pub struct MachineARM64 {
     unwind_ops: Vec<(usize, UnwindOps<GPR, NEON>)>,
     /// A boolean flag signaling if this machine supports NEON.
     has_neon: bool,
-    /// Assembly comments.
-    assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 #[allow(dead_code)]
@@ -92,7 +90,6 @@ impl MachineARM64 {
             pushed: false,
             unwind_ops: vec![],
             has_neon,
-            assembly_comments: HashMap::new(),
         }
     }
     fn compatible_imm(&self, imm: i64, ty: ImmType) -> bool {
@@ -2159,12 +2156,15 @@ impl Machine for MachineARM64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<FinalizedAssembly, CompileError> {
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
         Ok(FinalizedAssembly {
             body: self.assembler.finalize().map_err(|e| {
                 CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
             })?,
-            assembly_comments: self.assembly_comments,
+            assembly_comments,
         })
     }
 
@@ -8337,10 +8337,6 @@ impl Machine for MachineARM64 {
 
     fn gen_windows_unwind_info(&mut self, _code_len: usize) -> Option<Vec<u8>> {
         None
-    }
-
-    fn add_assembly_comment(&mut self, comment: AssemblyComment) {
-        self.assembly_comments.insert(self.get_offset().0, comment);
     }
 }
 

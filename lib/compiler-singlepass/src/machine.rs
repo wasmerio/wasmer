@@ -263,7 +263,10 @@ pub trait Machine {
     ) -> Result<(), CompileError>;
 
     /// Finalize the assembler
-    fn assembler_finalize(self) -> Result<FinalizedAssembly, CompileError>;
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError>;
 
     /// get_offset of Assembler
     fn get_offset(&self) -> Offset;
@@ -2347,9 +2350,6 @@ pub trait Machine {
     fn gen_dwarf_unwind_info(&mut self, code_len: usize) -> Option<UnwindInstructions>;
     /// generate Windows unwind instructions (or None if not possible / supported)
     fn gen_windows_unwind_info(&mut self, code_len: usize) -> Option<Vec<u8>>;
-
-    /// Record an assembler comment pointing to the current offset in the assembly output.
-    fn add_assembly_comment(&mut self, comment: AssemblyComment);
 }
 
 /// Standard entry trampoline generation

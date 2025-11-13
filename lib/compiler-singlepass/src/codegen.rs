@@ -16,7 +16,7 @@ use crate::{
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use smallvec::{SmallVec, smallvec};
-use std::{cmp, iter, ops::Neg};
+use std::{cmp, collections::HashMap, iter, ops::Neg};
 use target_lexicon::Architecture;
 
 use wasmer_compiler::{
@@ -104,6 +104,9 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Name of the function.
     function_name: String,
+
+    /// Assembly comments.
+    assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 struct SpecialLabelSet {
@@ -341,8 +344,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         sig: FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<Vec<Location<M::GPR, M::SIMD>>, CompileError> {
-        self.machine
-            .add_assembly_comment(AssemblyComment::InitializeLocals);
+        self.add_assembly_comment(AssemblyComment::InitializeLocals);
 
         // How many machine stack slots will all the locals use?
         let num_mem_slots = (0..n)
@@ -734,8 +736,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn emit_head(&mut self) -> Result<(), CompileError> {
-        self.machine
-            .add_assembly_comment(AssemblyComment::FunctionPrologue);
+        self.add_assembly_comment(AssemblyComment::FunctionPrologue);
         self.machine.emit_function_prolog()?;
 
         // Initialize locals.
@@ -746,7 +747,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         )?;
 
         // simulate "red zone" if not supported by the platform
-        self.machine.add_assembly_comment(AssemblyComment::RedZone);
+        self.add_assembly_comment(AssemblyComment::RedZone);
         self.machine.extend_stack(32)?;
 
         self.control_stack.push(ControlFrame {
@@ -766,8 +767,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
-        self.machine
-            .add_assembly_comment(AssemblyComment::FunctionBody);
+        self.add_assembly_comment(AssemblyComment::FunctionBody);
 
         Ok(())
     }
@@ -831,6 +831,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             special_labels,
             calling_convention,
             function_name,
+            assembly_comments: HashMap::new(),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5615,13 +5616,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn add_assembly_comment(&mut self, comment: AssemblyComment) {
+        // Collect assembly comments only if we're going to emit them.
+        if self.config.callbacks.is_some() {
+            self.assembly_comments
+                .insert(self.machine.get_offset().0, comment);
+        }
+    }
+
     pub fn finalize(
         mut self,
         data: &FunctionBodyData,
         arch: Architecture,
     ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
-        self.machine
-            .add_assembly_comment(AssemblyComment::TrapHandlersTable);
+        self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero)?;
@@ -5689,7 +5697,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let FinalizedAssembly {
             mut body,
             assembly_comments,
-        } = self.machine.assembler_finalize()?;
+        } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
 
         if let Some(callbacks) = self.config.callbacks.as_ref() {
