@@ -3,7 +3,7 @@ use std::{path::Path, sync::Arc};
 use anyhow::Context;
 use once_cell::sync::OnceCell;
 use sha2::Digest;
-use virtual_fs::FileSystem;
+use virtual_fs::UnionFileSystem;
 use wasmer_config::package::{
     PackageHash, PackageId, PackageSource, SuggestedCompilerOptimizations,
 };
@@ -90,7 +90,10 @@ pub struct BinaryPackage {
     /// entrypoint.
     pub entrypoint_cmd: Option<String>,
     pub hash: OnceCell<ModuleHash>,
-    pub webc_fs: Arc<dyn FileSystem + Send + Sync>,
+    // TODO: using a UnionFileSystem here directly is suboptimal, since cloning
+    // it is expensive. Shoudl instead store an immutable map that can easily
+    // be converted into a dashmap.
+    pub webc_fs: Option<Arc<UnionFileSystem>>,
     pub commands: Vec<BinaryPackageCommand>,
     pub uses: Vec<String>,
     pub file_system_memory_footprint: u64,
@@ -264,7 +267,7 @@ impl BinaryPackage {
 mod tests {
     use sha2::Digest;
     use tempfile::TempDir;
-    use virtual_fs::AsyncReadExt;
+    use virtual_fs::{AsyncReadExt, FileSystem as _};
     use wasmer_package::utils::from_disk;
 
     use crate::{
@@ -326,6 +329,8 @@ mod tests {
         // "/public/file.txt" on the guest.
         let mut f = pkg
             .webc_fs
+            .as_ref()
+            .expect("no webc fs")
             .new_open_options()
             .read(true)
             .open("/public/file.txt")

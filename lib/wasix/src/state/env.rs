@@ -1083,6 +1083,32 @@ impl WasiEnv {
                             continue;
                         }
                     }
+                    WasiFsRoot::Overlay(ofs) => {
+                        let root_fs = ofs.primary();
+
+                        if let Err(err) = root_fs
+                            .new_open_options_ext()
+                            .insert_ro_file(path, atom.clone())
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.id,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
+                        if let Err(err) = root_fs.new_open_options_ext().insert_ro_file(path2, atom)
+                        {
+                            tracing::debug!(
+                                "failed to add package [{}] command [{}] - {}",
+                                pkg.id,
+                                command.name(),
+                                err
+                            );
+                            continue;
+                        }
+                    }
                     WasiFsRoot::Backing(fs) => {
                         // FIXME: we're counting on the fs being a mem_fs here. Otherwise, memory
                         // usage will be very high.
