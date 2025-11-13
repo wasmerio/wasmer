@@ -14,7 +14,7 @@ version.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../types", version = "=6.1.0", default-features = false }
-wasmparser = { workspace = true, optional = true, default-features = false }
+wasmparser = { workspace = true, optional = true }
 enumset.workspace = true
 hashbrown = { workspace = true, optional = true }
 serde = { workspace = true, optional = true }

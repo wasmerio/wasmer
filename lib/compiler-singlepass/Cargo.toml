@@ -14,8 +14,8 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = ["translator", "compiler"], default-features = false }
-wasmer-types = { path = "../types", version = "=6.1.0", default-features = false, features = ["std"] }
+wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = ["translator", "compiler"] }
+wasmer-types = { path = "../types", version = "=6.1.0", features = ["std"] }
 hashbrown = { workspace = true, optional = true }
 gimli = { workspace = true, optional = true }
 enumset.workspace = true
@@ -29,7 +29,7 @@ smallvec.workspace = true
 rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
-target-lexicon = { workspace = true, default-features = false }
+target-lexicon = { workspace = true }
 
 [badges]
 maintenance = { status = "actively-developed" }
