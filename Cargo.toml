@@ -169,7 +169,7 @@ wasm-encoder = { version = "0.235.0", default-features = false, features = [
 	"std",
 ] }
 ignore = "0.4"
-parking_lot = "0.12"
+parking_lot = "=0.12.1"
 clap = { version = "=4.5.50", default-features = false }
 clap_builder = { version = "=4.5.50" }
 clap_derive = { version = "=4.5.49" }
@@ -180,7 +180,7 @@ phf = "0.11.2"
 dynasm = "4.0.0"
 dynasmrt = "4.0.0"
 cc = "1.0"
-regex = "1.5"
+regex = "1.11"
 rustc_version = "0.4"
 cranelift-entity = { version = "=0.124.2", default-features = false }
 cranelift-codegen = { version = "=0.124.2", default-features = false }
@@ -194,12 +194,12 @@ build-deps = "0.1.4"
 glob = "0.3"
 criterion = { version = "0.5", default-features = false }
 serial_test = { version = "2.0", default-features = false }
-ureq = "2.6"
+ureq = "2.10.1"
 gumdrop = "0.8"
 wast = "216.0.0"
 axum = { version = "=0.6.9", default-features = false }
 trybuild = "1.0.11"
-cynic = { version = "3.4.3", default-features = false }
+cynic = { version = "3.7.2", default-features = false }
 futures = "0.3.30"
 indicatif = "0.17.8"
 libfuzzer-sys = "0.4.0"
@@ -216,7 +216,7 @@ rustc-demangle = "0.1"
 cmake = "0.1.50"
 which = "7.0.0"
 xz = "0.1.0"
-zip = { version = "2.2.0", default-features = false }
+zip = { version = "2.4", default-features = false }
 bindgen = { version = "0.72.1", default-features = false }
 harsh = "0.2.2"
 merge-streams = "0.1.2"
@@ -231,7 +231,7 @@ cbindgen = { version = "0.29", default-features = false }
 inline-c = "0.1.7"
 wasmer-inline-c = "0.1.1"
 walkdir = "2.3.2"
-rand = "0.8.3"
+rand = "0.9.1"
 colored = "2.0"
 dirs = "4.0"
 path-clean = "1.0.1"
