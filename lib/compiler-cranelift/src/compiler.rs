@@ -139,7 +139,7 @@ impl CraneliftCompiler {
                     &memory_styles,
                     table_styles,
                 );
-                context.func.name = match get_function_name(func_index) {
+                context.func.name = match get_function_name(&mut context.func, func_index) {
                     ExternalName::User(nameref) => {
                         if context.func.params.user_named_funcs().is_valid(nameref) {
                             let name = &context.func.params.user_named_funcs()[nameref];
@@ -253,7 +253,7 @@ impl CraneliftCompiler {
                     memory_styles,
                     table_styles,
                 );
-                context.func.name = match get_function_name(func_index) {
+                context.func.name = match get_function_name(&mut context.func, func_index) {
                     ExternalName::User(nameref) => {
                         if context.func.params.user_named_funcs().is_valid(nameref) {
                             let name = &context.func.params.user_named_funcs()[nameref];
@@ -286,12 +286,30 @@ impl CraneliftCompiler {
                     *i,
                 )?;
 
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    use wasmer_compiler::misc::CompiledKind;
+
+                    callbacks.preopt_ir(
+                        &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
+                        context.func.display().to_string().as_bytes(),
+                    );
+                }
+
                 let mut code_buf: Vec<u8> = Vec::new();
                 let mut ctrl_plane = Default::default();
                 let result = context
                     .compile(&*isa, &mut ctrl_plane)
                     .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
                 code_buf.extend_from_slice(result.code_buffer());
+
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    use wasmer_compiler::misc::CompiledKind;
+
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
+                        &code_buf,
+                    );
+                }
 
                 let func_relocs = result
                     .buffer
@@ -379,7 +397,7 @@ impl CraneliftCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|sig| make_trampoline_function_call(&*isa, &mut cx, sig))
+            .map(|sig| make_trampoline_function_call(&self.config().callbacks, &*isa, &mut cx, sig))
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
@@ -390,7 +408,7 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, sig| {
-                make_trampoline_function_call(&*isa, cx, sig)
+                make_trampoline_function_call(&self.config().callbacks, &*isa, cx, sig)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -406,7 +424,15 @@ impl CraneliftCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|func_type| make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type))
+            .map(|func_type| {
+                make_trampoline_dynamic_function(
+                    &self.config().callbacks,
+                    &*isa,
+                    &offsets,
+                    &mut cx,
+                    &func_type,
+                )
+            })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
@@ -416,7 +442,13 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, func_type| {
-                make_trampoline_dynamic_function(&*isa, &offsets, cx, func_type)
+                make_trampoline_dynamic_function(
+                    &self.config().callbacks,
+                    &*isa,
+                    &offsets,
+                    cx,
+                    func_type,
+                )
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

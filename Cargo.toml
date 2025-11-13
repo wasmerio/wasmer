@@ -46,7 +46,6 @@ members = [
 	"lib/c-api/examples/wasmer-capi-examples-runner",
 	"lib/c-api/tests/wasmer-c-api-test-runner",
 	"lib/cache",
-	"lib/cli-compiler",
 	"lib/cli",
 	"lib/compiler-cranelift",
 	"lib/compiler-llvm",

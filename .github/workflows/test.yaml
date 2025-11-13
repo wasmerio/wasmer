@@ -224,16 +224,6 @@ jobs:
         run: |
           WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
 
-  test_wasm_build:
-    name: Test wasm build
-    runs-on: ubuntu-22.04
-    steps:
-      - uses: actions/checkout@v5
-      - name: rustup target add wasm32-wasip1
-        run: rustup target add wasm32-wasip1
-      - name: make build-wasmer-wasm
-        run: make build-wasmer-wasm
-
   test_build_jsc:
     name: Test JSC build
     runs-on: ubuntu-22.04

@@ -49,6 +49,7 @@ mod lib {
 mod engine;
 mod traits;
 
+pub mod misc;
 pub mod object;
 pub mod serialize;
 pub mod types;
