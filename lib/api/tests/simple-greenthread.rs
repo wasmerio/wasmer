@@ -71,8 +71,8 @@ impl Clone for Greenthread {
 
 fn greenthread_new(
     mut env: FunctionEnvMut<GreenEnv>,
-    params: &[Value],
-) -> core::result::Result<Vec<Value>, RuntimeError> {
+    entrypoint_data: u32,
+) -> core::result::Result<u32, RuntimeError> {
     let (data, mut store) = env.data_and_store_mut();
     let new_greenthread_id = data
         .next_free_id
@@ -81,7 +81,6 @@ fn greenthread_new(
     let function = data.entrypoint.clone().expect("entrypoint set");
     let (sender, receiver) = oneshot::channel::<()>();
 
-    let entrypoint_data = params[0].unwrap_i32() as u32;
     let new_greenthread = Greenthread {
         entrypoint: Some(entrypoint_data),
         resumer: Some(sender),
@@ -113,15 +112,13 @@ fn greenthread_new(
         panic!("Greenthread function returned {:?}", resumer);
     });
 
-    Ok(vec![Value::I32(new_greenthread_id as i32)])
+    Ok(new_greenthread_id)
 }
 
 fn greenthread_switch(
     mut env: FunctionEnvMut<GreenEnv>,
-    params: &[Value],
-) -> impl futures::Future<Output = core::result::Result<Vec<Value>, RuntimeError>> + use<> + Send {
-    let next_greenthread_id = params[0].unwrap_i32() as u32;
-
+    next_greenthread_id: u32,
+) -> impl futures::Future<Output = core::result::Result<(), RuntimeError>> + use<> + Send {
     let (data, _store) = env.data_and_store_mut();
     let current_greenthread_id = {
         let mut current = data.current_greenthread_id.write().unwrap();
@@ -161,7 +158,7 @@ fn greenthread_switch(
 
         *current_id_arc.write().unwrap() = current_greenthread_id;
 
-        Ok(vec![])
+        Ok(())
     }
 }
 
@@ -194,19 +191,10 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
         },
     );
 
-    let greenthread_new = Function::new_with_env(
-        &mut store,
-        &env,
-        FunctionType::new(vec![Type::I32], vec![Type::I32]),
-        greenthread_new,
-    );
+    let greenthread_new = Function::new_typed_with_env(&mut store, &env, greenthread_new);
 
-    let greenthread_switch = Function::new_with_env_async(
-        &mut store,
-        &env,
-        FunctionType::new(vec![Type::I32], Vec::<Type>::new()),
-        greenthread_switch,
-    );
+    let greenthread_switch =
+        Function::new_typed_with_env_async(&mut store, &env, greenthread_switch);
 
     let import_object = imports! {
         "test" => {
