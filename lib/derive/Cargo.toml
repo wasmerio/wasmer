@@ -13,8 +13,7 @@ version.workspace = true
 proc-macro = true
 
 [dependencies]
-# TODO: port to version 2
-syn = { version = "1.0.72", features = ["full", "extra-traits"] }
+syn = { workspace = true, features = ["full", "extra-traits"] }
 quote.workspace = true
 proc-macro2.workspace = true
 proc-macro-error2.workspace = true
