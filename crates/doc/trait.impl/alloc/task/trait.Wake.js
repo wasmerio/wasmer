@@ -1,5 +1,5 @@
 (function() {
-    var implementors = Object.fromEntries([["virtual_net",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.88.0/alloc/task/trait.Wake.html\" title=\"trait alloc::task::Wake\">Wake</a> for <a class=\"struct\" href=\"virtual_net/rx_tx/struct.NoopWaker.html\" title=\"struct virtual_net::rx_tx::NoopWaker\">NoopWaker</a>"]]]]);
+    var implementors = Object.fromEntries([["virtual_net",[["impl <a class=\"trait\" href=\"https://doc.rust-lang.org/1.89.0/alloc/task/trait.Wake.html\" title=\"trait alloc::task::Wake\">Wake</a> for <a class=\"struct\" href=\"virtual_net/rx_tx/struct.NoopWaker.html\" title=\"struct virtual_net::rx_tx::NoopWaker\">NoopWaker</a>"]]]]);
     if (window.register_implementors) {
         window.register_implementors(implementors);
     } else {

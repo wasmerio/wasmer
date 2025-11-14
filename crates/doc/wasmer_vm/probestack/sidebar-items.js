@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"fn":["__rust_probestack"],"static":["PROBESTACK"]};
+window.SIDEBAR_ITEMS = {"mod":["compiler_builtins"],"static":["PROBESTACK"]};

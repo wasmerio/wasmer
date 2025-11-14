@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["Drain","ExtractIf","IntoIter","Splice","Vec"]};
+window.SIDEBAR_ITEMS = {"struct":["Drain","ExtractIf","IntoIter","PeekMut","Splice","Vec"]};
