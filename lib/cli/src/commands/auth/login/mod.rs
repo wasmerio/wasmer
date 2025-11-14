@@ -384,12 +384,13 @@ mod tests {
     /// See https://github.com/wasmerio/wasmer/issues/4147.
     #[test]
     fn login_with_invalid_token_does_not_panic() {
+        let temp = TempDir::new().unwrap();
         let cmd = Login {
             no_browser: true,
-            wasmer_dir: crate::config::DEFAULT_WASMER_DIR.clone(),
+            wasmer_dir: temp.path().to_path_buf(),
             registry: Some("http://localhost:11".to_string().into()),
             token: Some("invalid".to_string()),
-            cache_dir: crate::config::DEFAULT_WASMER_CACHE_DIR.clone(),
+            cache_dir: temp.path().join("cache").to_path_buf(),
         };
 
         let res = cmd.run();
