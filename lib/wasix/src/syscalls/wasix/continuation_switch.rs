@@ -1,6 +1,7 @@
 use super::*;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
 use anyhow::Result;
+pub use context::Greenthread;
 use core::panic;
 use futures::task::LocalSpawnExt;
 use futures::{FutureExt, channel::oneshot};
@@ -14,16 +15,56 @@ use wasmer::{
 };
 use wasmer::{StoreMut, Tag, Type};
 
-pub struct Greenthread {
-    resumer: Option<oneshot::Sender<()>>,
-}
+mod context {
+    use futures::{FutureExt, channel::oneshot};
+    use wasmer::RuntimeError;
 
-impl Clone for Greenthread {
-    fn clone(&self) -> Self {
-        if self.resumer.is_some() {
-            panic!("Cannot clone a coroutine with a resumer");
+    pub struct Greenthread {
+        resumer: Option<oneshot::Sender<Result<(), RuntimeError>>>,
+    }
+
+    impl Greenthread {
+        // Create a new non-suspended context
+        pub fn new() -> Self {
+            Self { resumer: None }
         }
-        Self { resumer: None }
+        // Lock this greenthread until resumed
+        //
+        // Panics if the greenthread is already locked
+        pub fn suspend(&mut self) -> impl Future<Output = Result<(), RuntimeError>> + use<> {
+            let (sender, receiver) = oneshot::channel();
+            if self.resumer.is_some() {
+                panic!("Switching from a greenthread that is already switched out");
+            }
+            self.resumer = Some(sender);
+            receiver.map(|r| {
+                match r {
+                    Ok(v) => v,
+                    Err(_canceled) => {
+                        // TODO: Handle canceled properly
+                        panic!("Greenthread was canceled");
+                    }
+                }
+            })
+            // TODO: Think about whether canceled should be handled
+        }
+
+        // Allow this greenthread to be resumed
+        pub fn resume(&mut self, value: Result<(), RuntimeError>) -> () {
+            let resumer = self
+                .resumer
+                .take()
+                .expect("Resuming a greenthread that is not switched out");
+            resumer.send(value).unwrap();
+        }
+    }
+    impl Clone for Greenthread {
+        fn clone(&self) -> Self {
+            if self.resumer.is_some() {
+                panic!("Cannot clone a coroutine with a resumer");
+            }
+            Self { resumer: None }
+        }
     }
 }
 
@@ -49,12 +90,9 @@ pub fn call_in_async_runtime<'a>(
     entrypoint: wasmer::Function,
     params: &'a [wasmer::Value],
 ) -> Result<Box<[Value]>, RuntimeError> {
-    let mut runtime_builder = tokio::runtime::Builder::new_current_thread();
-    let runtime = runtime_builder.enable_all().build().unwrap();
-    let local = tokio::task::LocalSet::new();
     let cloned_params = params.to_vec();
 
-    let main_greenthread = Greenthread { resumer: None };
+    let main_greenthread = Greenthread::new();
 
     let env = ctx.data_mut(store);
     env.greenthreads
@@ -69,16 +107,16 @@ pub fn call_in_async_runtime<'a>(
             .set(local_spawner)
             .expect("Failed to set local spawner");
     });
-    let result = localpool.run_until(entrypoint.call_async(&mut *store, &[]));
+    let result = localpool.run_until(entrypoint.call_async(&mut *store, &cloned_params));
 
     result
 }
 
 /// ### `greenthread_delete()`
 #[instrument(level = "trace", skip(ctx), ret)]
-pub fn continuation_delete(
+pub fn context_delete(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    coroutine: u32,
+    coroutine: u64,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
@@ -91,14 +129,15 @@ pub fn continuation_delete(
 
 /// ### `greenthread_new()`
 #[instrument(level = "trace", skip(ctx), ret)]
-pub fn continuation_new<M: MemorySize>(
+pub fn context_new<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    new_coroutine_ptr: WasmPtr<u32, M>,
+    new_coroutine_ptr: WasmPtr<u64, M>,
     entrypoint: u32,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let (data, mut store) = ctx.data_and_store_mut();
+
     let new_greenthread_id = data
         .next_free_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -107,14 +146,9 @@ pub fn continuation_new<M: MemorySize>(
         .inner()
         .indirect_function_table_lookup(&mut store, entrypoint)
         .expect("Function not found in table");
-    // let function = function.as_ref().unwrap_or(entrypoint);
 
-    let (sender, receiver) = oneshot::channel::<()>();
-
-    let new_greenthread = Greenthread {
-        // entrypoint: Some(entrypoint_data),
-        resumer: Some(sender),
-    };
+    let mut new_greenthread = Greenthread::new();
+    let new_context_resume = new_greenthread.suspend();
 
     data.greenthreads
         .write()
@@ -127,34 +161,46 @@ pub fn continuation_new<M: MemorySize>(
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<_, StoreMut<'static>>(store.as_store_mut()) };
 
-    tokio::task::spawn_local(async move {
-        receiver.await.unwrap();
-        let resumer = function.call_async(&mut unsafe_static_store, &[]).await;
-        panic!("Greenthread function returned {:?}", resumer);
+    let greenthreads_arc = data.greenthreads.clone();
+
+    spawn_local(async move {
+        new_context_resume.await;
+        let result = function.call_async(&mut unsafe_static_store, &[]).await;
+
+        let mut main_greenthread = greenthreads_arc.write().unwrap();
+        let main_greenthread = main_greenthread.get_mut(&0).unwrap();
+        match result {
+            Err(e) => {
+                eprintln!("Context {} returned error {:?}", new_greenthread_id, e);
+                main_greenthread.resume(Err(e));
+            }
+            Ok(v) => {
+                panic!(
+                    "Context {} returned a value ({:?}). This is not allowed for now",
+                    new_greenthread_id, v
+                );
+                // TODO: Handle this properly
+            }
+        }
+        // TODO: Delete own greenthread
     });
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
     new_coroutine_ptr
-        .write(&memory, new_greenthread_id as u32)
+        .write(&memory, new_greenthread_id)
         .unwrap();
 
     Ok(Errno::Success)
 }
 
 /// Switch to another coroutine
-// #[instrument(level = "trace", skip(ctx), ret)]
-pub fn continuation_switch(
+#[instrument(level = "trace", skip(ctx), ret)]
+pub fn context_switch(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    next_greenthread_id: u32,
-    // params: &[Value],
+    next_greenthread_id: u64,
 ) -> impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<> {
-    // let next_continuation_id = next_continuation_id
-    //     .first()
-    //     .expect("Expected one argument for continuation_switch")
-    //     .unwrap_i32() as u32;
-
     match WasiEnv::do_pending_operations(&mut ctx) {
         Ok(()) => {}
         Err(e) => {
@@ -163,7 +209,6 @@ pub fn continuation_switch(
             // return async move {Err(RuntimeError::user(Box::new(e)))}
         }
     }
-    // let next_greenthread_id = params[0].unwrap_i32() as u32;
 
     let (data, _store) = ctx.data_and_store_mut();
     let current_greenthread_id = {
@@ -177,33 +222,21 @@ pub fn continuation_switch(
         panic!("Switching to self is not allowed");
     }
 
-    let (sender, receiver) = oneshot::channel::<()>();
+    let mut greenthreads = data.greenthreads.write().unwrap();
+    let this_one = greenthreads.get_mut(&current_greenthread_id).unwrap();
+    let receiver_promise = this_one.suspend();
 
-    {
-        let mut greenthreads = data.greenthreads.write().unwrap();
-        let this_one = greenthreads.get_mut(&current_greenthread_id).unwrap();
-        if this_one.resumer.is_some() {
-            panic!("Switching from a greenthread that is already switched out");
-        }
-        this_one.resumer = Some(sender);
-    }
-
-    {
-        let mut greenthreads = data.greenthreads.write().unwrap();
-        let next_one = greenthreads.get_mut(&next_greenthread_id).unwrap();
-        let Some(resumer) = next_one.resumer.take() else {
-            panic!("Switching to greenthread that has no resumer");
-        };
-        resumer.send(()).unwrap();
-    }
+    let next_one = greenthreads.get_mut(&next_greenthread_id).unwrap();
+    next_one.resume(Ok(()));
 
     let current_id_arc = data.current_greenthread_id.clone();
 
     async move {
-        let _ = receiver.map(|_| ()).await;
+        let result = receiver_promise.await;
 
         *current_id_arc.write().unwrap() = current_greenthread_id;
 
-        Ok(Errno::Success) // TODO: Errno::success
+        // If we get relayed a trap, propagate it. Other wise return success
+        result.and(Ok(Errno::Success))
     }
 }
