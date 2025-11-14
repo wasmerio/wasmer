@@ -192,7 +192,7 @@
 <a href=#192 id=192 data-nosnippet>192</a>    ///
 <a href=#193 id=193 data-nosnippet>193</a>    /// Available for cranelift, LLVM and singlepass.
 <a href=#194 id=194 data-nosnippet>194</a>    </span><span class="attr">#[clap(long, alias = <span class="string">"llvm-debug-dir"</span>)]
-<a href=#195 id=195 data-nosnippet>195</a>    </span>debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+<a href=#195 id=195 data-nosnippet>195</a>    </span>compiler_debug_dir: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
 <a href=#196 id=196 data-nosnippet>196</a>
 <a href=#197 id=197 data-nosnippet>197</a>    <span class="doccomment">/// Enable a profiler.
 <a href=#198 id=198 data-nosnippet>198</a>    ///
@@ -474,7 +474,7 @@
 <a href=#474 id=474 data-nosnippet>474</a>                        Profiler::Perfmap =&gt; config.enable_perfmap(),
 <a href=#475 id=475 data-nosnippet>475</a>                    }
 <a href=#476 id=476 data-nosnippet>476</a>                }
-<a href=#477 id=477 data-nosnippet>477</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = <span class="self">self</span>.debug_dir.clone() {
+<a href=#477 id=477 data-nosnippet>477</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = <span class="self">self</span>.compiler_debug_dir.clone() {
 <a href=#478 id=478 data-nosnippet>478</a>                    <span class="kw">use </span>wasmer_compiler_cranelift::CraneliftCallbacks;
 <a href=#479 id=479 data-nosnippet>479</a>
 <a href=#480 id=480 data-nosnippet>480</a>                    debug_dir.push(<span class="string">"cranelift"</span>);
@@ -496,7 +496,7 @@
 <a href=#496 id=496 data-nosnippet>496</a>                    config.num_threads(num_threads);
 <a href=#497 id=497 data-nosnippet>497</a>                }
 <a href=#498 id=498 data-nosnippet>498</a>
-<a href=#499 id=499 data-nosnippet>499</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = <span class="self">self</span>.debug_dir.clone() {
+<a href=#499 id=499 data-nosnippet>499</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = <span class="self">self</span>.compiler_debug_dir.clone() {
 <a href=#500 id=500 data-nosnippet>500</a>                    debug_dir.push(<span class="string">"llvm"</span>);
 <a href=#501 id=501 data-nosnippet>501</a>                    config.callbacks(<span class="prelude-val">Some</span>(LLVMCallbacks::new(debug_dir)<span class="question-mark">?</span>));
 <a href=#502 id=502 data-nosnippet>502</a>                }
@@ -606,7 +606,7 @@
 <a href=#606 id=606 data-nosnippet>606</a>                        Profiler::Perfmap =&gt; config.enable_perfmap(),
 <a href=#607 id=607 data-nosnippet>607</a>                    }
 <a href=#608 id=608 data-nosnippet>608</a>                }
-<a href=#609 id=609 data-nosnippet>609</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = runtime_opts.debug_dir.clone() {
+<a href=#609 id=609 data-nosnippet>609</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = runtime_opts.compiler_debug_dir.clone() {
 <a href=#610 id=610 data-nosnippet>610</a>                    <span class="kw">use </span>wasmer_compiler_cranelift::CraneliftCallbacks;
 <a href=#611 id=611 data-nosnippet>611</a>
 <a href=#612 id=612 data-nosnippet>612</a>                    debug_dir.push(<span class="string">"cranelift"</span>);
@@ -626,7 +626,7 @@
 <a href=#626 id=626 data-nosnippet>626</a>
 <a href=#627 id=627 data-nosnippet>627</a>                <span class="kw">let </span><span class="kw-2">mut </span>config = wasmer_compiler_llvm::LLVM::new();
 <a href=#628 id=628 data-nosnippet>628</a>
-<a href=#629 id=629 data-nosnippet>629</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = runtime_opts.debug_dir.clone() {
+<a href=#629 id=629 data-nosnippet>629</a>                <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>debug_dir) = runtime_opts.compiler_debug_dir.clone() {
 <a href=#630 id=630 data-nosnippet>630</a>                    debug_dir.push(<span class="string">"llvm"</span>);
 <a href=#631 id=631 data-nosnippet>631</a>                    config.callbacks(<span class="prelude-val">Some</span>(LLVMCallbacks::new(debug_dir)<span class="question-mark">?</span>));
 <a href=#632 id=632 data-nosnippet>632</a>                }
