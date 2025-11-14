@@ -15,8 +15,7 @@ categories = ["rust-patterns", ]
 [dependencies]
 proc-macro2.workspace = true
 quote.workspace = true
-# TODO: port to version 2
-syn = { version = "1.*", features = ["full"] }
+syn = { workspace = true, features = ["full"] }
 
 [features]
 
