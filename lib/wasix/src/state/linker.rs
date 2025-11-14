@@ -517,6 +517,9 @@ pub enum LinkError {
 
     #[error("Bad __tls_base export, expected a global of type I32 or I64")]
     BadTlsBaseExport,
+
+    #[error("Missing __tls_base export, required for TLS symbol '{0}'.{1}")]
+    MissingTlsBaseExport(String, String),
 }
 
 #[derive(Debug)]
@@ -583,10 +586,8 @@ pub enum ResolveError {
     #[error("Failed to perform pending DL operation: {0}")]
     PendingDlOperationFailed(#[from] LinkError),
 
-    #[error(
-        "Tried to resolve a tls symbol from a module that did not initialize thread local storage"
-    )]
-    TlsSymbolWithoutTls,
+    #[error("Module must export a `__tls_base` global to use thread-local symbols")]
+    NoTlsBaseGlobalExport,
 }
 
 #[derive(Debug, Clone)]
@@ -1774,7 +1775,7 @@ impl Linker {
                     offset,
                 } => {
                     let Some(tls_base) = group_state.tls_base(*resolved_from) else {
-                        return Err(ResolveError::TlsSymbolWithoutTls);
+                        return Err(ResolveError::NoTlsBaseGlobalExport);
                     };
                     return Ok(ResolvedExport::Global {
                         data_ptr: tls_base + offset,
@@ -3113,18 +3114,29 @@ impl InstanceGroupState {
                 }
 
                 InProgressSymbolResolution::MemGlobal(module_handle) => {
-                    let export = self
-                        .resolve_export_from(
-                            store,
-                            *module_handle,
-                            import.name(),
-                            self.instance(*module_handle),
-                            linker_state.dylink_info(*module_handle),
-                            linker_state.memory_base(*module_handle),
-                            self.tls_base(*module_handle),
-                            true,
-                        )
-                        .expect("Internal error: bad in-progress symbol resolution");
+                    let export = match self.resolve_export_from(
+                        store,
+                        *module_handle,
+                        import.name(),
+                        self.instance(*module_handle),
+                        linker_state.dylink_info(*module_handle),
+                        linker_state.memory_base(*module_handle),
+                        self.tls_base(*module_handle),
+                        true,
+                    ) {
+                        Ok(e) => e,
+                        Err(ResolveError::NoTlsBaseGlobalExport) => {
+                            return Err(LinkError::MissingTlsBaseExport(
+                                import.module().to_string(),
+                                import.name().to_string(),
+                            ));
+                        }
+                        Err(e) => {
+                            panic!("Internal error: failed to resolve exported symbol: {}", e)
+                        }
+                    };
+
+                    // .expect("Internal error: bad in-progress symbol resolution");
 
                     match export {
                         PartiallyResolvedExport::Global(addr) => {
@@ -3623,7 +3635,7 @@ impl InstanceGroupState {
 
                 if is_tls {
                     let Some(tls_base) = tls_base else {
-                        return Err(ResolveError::TlsSymbolWithoutTls);
+                        return Err(ResolveError::NoTlsBaseGlobalExport);
                     };
                     let final_value = value + tls_base;
                     trace!(
