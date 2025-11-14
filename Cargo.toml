@@ -323,6 +323,7 @@ proc-macro-error2 = "2.0.1"
 quote = "1.0.20"
 test-log = { version = "0.2", default-features = false }
 wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl" }
+unix_mode = "0.1.3"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }

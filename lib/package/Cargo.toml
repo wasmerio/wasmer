@@ -28,7 +28,7 @@ cfg-if.workspace = true
 ciborium.workspace = true
 semver.workspace = true
 url.workspace = true
-insta = { version = "1", features = ["filters", "yaml"] }
+insta = { workspace = true, features = ["filters", "yaml"] }
 flate2.workspace = true
 tar.workspace = true
 tempfile.workspace = true
