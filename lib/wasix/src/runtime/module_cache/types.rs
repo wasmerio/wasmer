@@ -51,6 +51,8 @@ pub trait ModuleCache: Debug {
     /// be significantly slower than the previous one.
     ///
     /// ```rust
+    /// # #[cfg(feature = "sys-thread")]
+    /// # {
     /// use wasmer_wasix::runtime::module_cache::{
     ///     ModuleCache, ThreadLocalCache, FileSystemCache, SharedCache,
     /// };
@@ -62,6 +64,7 @@ pub trait ModuleCache: Debug {
     ///
     /// let cache = SharedCache::default()
     ///     .with_fallback(FileSystemCache::new("~/.local/cache", task_manager));
+    /// # }
     /// ```
     fn with_fallback<C>(self, other: C) -> FallbackCache<Self, C>
     where
