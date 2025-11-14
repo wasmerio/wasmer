@@ -629,15 +629,14 @@ impl CmdAppCreate {
             url
         };
 
-        if let Some(ref template) = selected_template {
-            if let Some(root_dir) = &template.root_dir {
+        if let Some(ref template) = selected_template
+            && let Some(root_dir) = &template.root_dir {
                 let mut path_root_dir = PathBuf::from(root_dir);
                 if path_root_dir.is_absolute() {
                     path_root_dir = path_root_dir.strip_prefix("/")?.to_path_buf();
                 }
                 return Ok((url, Some(path_root_dir)));
             }
-        }
 
         Ok((url, None))
     }
