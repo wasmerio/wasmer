@@ -5,7 +5,7 @@ use std::{
     str,
     sync::{
         Arc, RwLock,
-        atomic::{AtomicU32},
+        atomic::{AtomicU64},
     },
     time::Duration,
 };
@@ -48,7 +48,7 @@ use wasmer_types::ModuleHash;
 pub use super::handles::*;
 use super::{Linker, WasiState, conv_env_vars};
 
-static MAIN_CONTINUATION_ID: u32 = 0;
+static MAIN_CONTINUATION_ID: u64 = 0;
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -186,9 +186,9 @@ pub struct WasiEnv {
     inner: WasiInstanceHandlesPointer,
 
     /// TODO: Document these fields
-    pub(crate) greenthreads: Arc<RwLock<BTreeMap<u32, Greenthread>>>,
-    pub(crate) current_greenthread_id: Arc<RwLock<u32>>,
-    pub(crate) next_free_id: AtomicU32,
+    pub(crate) greenthreads: Arc<RwLock<BTreeMap<u64, Greenthread>>>,
+    pub(crate) current_greenthread_id: Arc<RwLock<u64>>,
+    pub(crate) next_free_id: AtomicU64,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -221,7 +221,7 @@ impl Clone for WasiEnv {
             greenthreads: self.greenthreads.clone(),
             current_greenthread_id: self.current_greenthread_id.clone(),
             // TODO: This is wrong; The two lines above as well
-            next_free_id: AtomicU32::new(self.next_free_id.load(std::sync::atomic::Ordering::SeqCst)),
+            next_free_id: AtomicU64::new(self.next_free_id.load(std::sync::atomic::Ordering::SeqCst)),
         }
     }
 }
@@ -266,7 +266,7 @@ impl WasiEnv {
             // TODO: Not sure if we can even properly fork coroutines at all
             greenthreads: Arc::new(RwLock::new(BTreeMap::new())),
             current_greenthread_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
-            next_free_id: AtomicU32::new(MAIN_CONTINUATION_ID + 1),
+            next_free_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
         };
         Ok((new_env, handle))
     }
@@ -413,7 +413,7 @@ impl WasiEnv {
             disable_fs_cleanup: false,
             greenthreads: Arc::new(RwLock::new(BTreeMap::new())),
             current_greenthread_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
-            next_free_id: AtomicU32::new(MAIN_CONTINUATION_ID + 1),
+            next_free_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
         };
         env.owned_handles.push(thread);
 
