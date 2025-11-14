@@ -34,7 +34,7 @@ tokio = { workspace = true, features = [
 	"sync",
 	"macros",
 ], default-features = false }
-tracing = { workspace = true }
+tracing = { workspace = true, default-features = true }
 typetag = { workspace = true, optional = true }
 webc = { workspace = true, optional = true, features = ["v1"] }
 serde = { workspace = true, default-features = false, features = [
