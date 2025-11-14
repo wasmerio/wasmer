@@ -384,22 +384,23 @@
 <a href=#384 id=384 data-nosnippet>384</a>    /// See https://github.com/wasmerio/wasmer/issues/4147.
 <a href=#385 id=385 data-nosnippet>385</a>    </span><span class="attr">#[test]
 <a href=#386 id=386 data-nosnippet>386</a>    </span><span class="kw">fn </span>login_with_invalid_token_does_not_panic() {
-<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>cmd = Login {
-<a href=#388 id=388 data-nosnippet>388</a>            no_browser: <span class="bool-val">true</span>,
-<a href=#389 id=389 data-nosnippet>389</a>            wasmer_dir: <span class="kw">crate</span>::config::DEFAULT_WASMER_DIR.clone(),
-<a href=#390 id=390 data-nosnippet>390</a>            registry: <span class="prelude-val">Some</span>(<span class="string">"http://localhost:11"</span>.to_string().into()),
-<a href=#391 id=391 data-nosnippet>391</a>            token: <span class="prelude-val">Some</span>(<span class="string">"invalid"</span>.to_string()),
-<a href=#392 id=392 data-nosnippet>392</a>            cache_dir: <span class="kw">crate</span>::config::DEFAULT_WASMER_CACHE_DIR.clone(),
-<a href=#393 id=393 data-nosnippet>393</a>        };
-<a href=#394 id=394 data-nosnippet>394</a>
-<a href=#395 id=395 data-nosnippet>395</a>        <span class="kw">let </span>res = cmd.run();
-<a href=#396 id=396 data-nosnippet>396</a>        <span class="comment">// The CLI notices that either the registry is unreachable or the token is not tied to any
-<a href=#397 id=397 data-nosnippet>397</a>        // user. It shows a warning to the user, but does not return with an error code.
-<a href=#398 id=398 data-nosnippet>398</a>        //
-<a href=#399 id=399 data-nosnippet>399</a>        //  ------ i.e. this will fail
-<a href=#400 id=400 data-nosnippet>400</a>        // |
-<a href=#401 id=401 data-nosnippet>401</a>        // v
-<a href=#402 id=402 data-nosnippet>402</a>        // assert!(res.is_err());
-<a href=#403 id=403 data-nosnippet>403</a>        </span><span class="macro">assert!</span>(res.is_ok());
-<a href=#404 id=404 data-nosnippet>404</a>    }
-<a href=#405 id=405 data-nosnippet>405</a>}</code></pre></div></section></main></body></html>
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="kw">let </span>temp = TempDir::new().unwrap();
+<a href=#388 id=388 data-nosnippet>388</a>        <span class="kw">let </span>cmd = Login {
+<a href=#389 id=389 data-nosnippet>389</a>            no_browser: <span class="bool-val">true</span>,
+<a href=#390 id=390 data-nosnippet>390</a>            wasmer_dir: temp.path().to_path_buf(),
+<a href=#391 id=391 data-nosnippet>391</a>            registry: <span class="prelude-val">Some</span>(<span class="string">"http://localhost:11"</span>.to_string().into()),
+<a href=#392 id=392 data-nosnippet>392</a>            token: <span class="prelude-val">Some</span>(<span class="string">"invalid"</span>.to_string()),
+<a href=#393 id=393 data-nosnippet>393</a>            cache_dir: temp.path().join(<span class="string">"cache"</span>).to_path_buf(),
+<a href=#394 id=394 data-nosnippet>394</a>        };
+<a href=#395 id=395 data-nosnippet>395</a>
+<a href=#396 id=396 data-nosnippet>396</a>        <span class="kw">let </span>res = cmd.run();
+<a href=#397 id=397 data-nosnippet>397</a>        <span class="comment">// The CLI notices that either the registry is unreachable or the token is not tied to any
+<a href=#398 id=398 data-nosnippet>398</a>        // user. It shows a warning to the user, but does not return with an error code.
+<a href=#399 id=399 data-nosnippet>399</a>        //
+<a href=#400 id=400 data-nosnippet>400</a>        //  ------ i.e. this will fail
+<a href=#401 id=401 data-nosnippet>401</a>        // |
+<a href=#402 id=402 data-nosnippet>402</a>        // v
+<a href=#403 id=403 data-nosnippet>403</a>        // assert!(res.is_err());
+<a href=#404 id=404 data-nosnippet>404</a>        </span><span class="macro">assert!</span>(res.is_ok());
+<a href=#405 id=405 data-nosnippet>405</a>    }
+<a href=#406 id=406 data-nosnippet>406</a>}</code></pre></div></section></main></body></html>
