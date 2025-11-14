@@ -91,9 +91,9 @@ impl<'a> MemoryView<'a> {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
     /// #
-    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    /// let m = Memory::new(& mut store, MemoryType::new(1, None, false)).unwrap();
     ///
-    /// assert_eq!(m.size(), Pages(1));
+    /// assert_eq!(m.size(&store), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
         Bytes(self.size as usize).try_into().unwrap()
