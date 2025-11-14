@@ -1,14 +1,14 @@
 //! A common functionality used among various compilers.
 
 use itertools::Itertools;
-use wasmer_types::{FunctionType, Type};
+use wasmer_types::{FunctionType, LocalFunctionIndex, Type};
 
 /// Represents the kind of compiled function or module, used for debugging and identification
 /// purposes across multiple compiler backends (e.g., LLVM, Cranelift).
 #[derive(Debug, Clone)]
 pub enum CompiledKind {
     /// A locally-defined function in the Wasm file.
-    Local(String),
+    Local(LocalFunctionIndex, String),
     /// A function call trampoline for a given signature.
     FunctionCallTrampoline(FunctionType),
     /// A dynamic function trampoline for a given signature.
@@ -61,9 +61,25 @@ fn sanitize_filename(name: &str) -> String {
 
 /// Converts a kind into a filename, that we will use to dump
 /// the contents of the IR object file to.
-pub fn function_kind_to_filename(kind: &CompiledKind) -> String {
+pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
     match kind {
-        CompiledKind::Local(name) => sanitize_filename(name),
+        CompiledKind::Local(local_func_index, name) => {
+            let mut name = sanitize_filename(name);
+
+            // Limit to 255 characters to comply with common filesystem path component restrictions.
+            const PATH_LIMIT: usize = 255;
+
+            if name.len() + suffix.len() > PATH_LIMIT {
+                let id_string = local_func_index.as_u32().to_string();
+                name.truncate(PATH_LIMIT - id_string.len() - suffix.len() - 1);
+                name.push_str(format!("_{id_string}{suffix}").as_str());
+            } else {
+                name.push_str(suffix);
+            }
+
+            debug_assert!(name.len() <= PATH_LIMIT);
+            name
+        }
         CompiledKind::FunctionCallTrampoline(func_type) => format!(
             "trampoline_call_{}_{}",
             types_to_signature(func_type.params()),

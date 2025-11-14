@@ -106,7 +106,8 @@ impl FuncTranslator {
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
-        let function = CompiledKind::Local(wasm_module.get_function_name(func_index));
+        let function =
+            CompiledKind::Local(*local_func_index, wasm_module.get_function_name(func_index));
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
 
@@ -415,6 +416,7 @@ impl FuncTranslator {
             symbol_registry,
         )?;
         let function = CompiledKind::Local(
+            *local_func_index,
             wasm_module.get_function_name(wasm_module.func_index(*local_func_index)),
         );
         let target_machine = &self.target_machine;
