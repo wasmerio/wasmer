@@ -192,7 +192,7 @@ pub struct RuntimeOptions {
     ///
     /// Available for cranelift, LLVM and singlepass.
     #[clap(long, alias = "llvm-debug-dir")]
-    debug_dir: Option<PathBuf>,
+    compiler_debug_dir: Option<PathBuf>,
 
     /// Enable a profiler.
     ///
@@ -474,7 +474,7 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
-                if let Some(mut debug_dir) = self.debug_dir.clone() {
+                if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
                     use wasmer_compiler_cranelift::CraneliftCallbacks;
 
                     debug_dir.push("cranelift");
@@ -496,7 +496,7 @@ impl RuntimeOptions {
                     config.num_threads(num_threads);
                 }
 
-                if let Some(mut debug_dir) = self.debug_dir.clone() {
+                if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                 }
@@ -606,7 +606,7 @@ impl BackendType {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
-                if let Some(mut debug_dir) = runtime_opts.debug_dir.clone() {
+                if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     use wasmer_compiler_cranelift::CraneliftCallbacks;
 
                     debug_dir.push("cranelift");
@@ -626,7 +626,7 @@ impl BackendType {
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
 
-                if let Some(mut debug_dir) = runtime_opts.debug_dir.clone() {
+                if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
                     debug_dir.push("llvm");
                     config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                 }
