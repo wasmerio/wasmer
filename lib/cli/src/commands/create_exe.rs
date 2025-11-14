@@ -49,8 +49,8 @@ pub struct CreateExe {
     #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
-    /// Optional directorey used for debugging: if present, will output the zig command
-    /// for reproducing issues in a debug directory
+    /// Optional directory used for debugging: if present, will output the zig command
+    /// for reproducing issues in a debug directory.
     #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
