@@ -72,7 +72,9 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
             if name.len() + suffix.len() > PATH_LIMIT {
                 let id_string = local_func_index.as_u32().to_string();
                 name.truncate(PATH_LIMIT - id_string.len() - suffix.len() - 1);
-                name.push_str(format!("_{id_string}{suffix}").as_str());
+                name.push('_');
+                name.push_str(&id_string);
+                name.push_str(suffix);
             } else {
                 name.push_str(suffix);
             }
