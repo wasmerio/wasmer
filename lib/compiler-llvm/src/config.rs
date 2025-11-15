@@ -39,21 +39,21 @@ impl LLVMCallbacks {
 
     pub fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.preopt.ll", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".preopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping pre optimized LLVM IR");
     }
     pub fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.postopt.ll", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".postopt.ll"));
         module
             .print_to_file(&path)
             .expect("Error while dumping post optimized LLVM IR");
     }
     pub fn obj_memory_buffer(&self, kind: &CompiledKind, memory_buffer: &InkwellMemoryBuffer) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.o", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".o"));
         let mem_buf_slice = memory_buffer.as_slice();
         let mut file =
             File::create(path).expect("Error while creating debug object file from LLVM IR");
@@ -62,7 +62,7 @@ impl LLVMCallbacks {
 
     pub fn asm_memory_buffer(&self, kind: &CompiledKind, asm_memory_buffer: &InkwellMemoryBuffer) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.s", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".s"));
         let mem_buf_slice = asm_memory_buffer.as_slice();
         let mut file =
             File::create(path).expect("Error while creating debug assembly file from LLVM IR");
