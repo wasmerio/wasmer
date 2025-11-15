@@ -3,7 +3,7 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::codegen::FuncGen;
-use crate::config::Singlepass;
+use crate::config::{self, Singlepass};
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 use crate::machine::Machine;
@@ -19,7 +19,9 @@ use enumset::EnumSet;
 use gimli::write::{EhFrame, FrameTable, Writer};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
+use std::collections::HashMap;
 use std::sync::Arc;
+use wasmer_compiler::misc::{CompiledKind, save_assembly_to_file, types_to_signature};
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -33,7 +35,7 @@ use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    TableIndex, TrapCode, TrapInformation, VMOffsets,
+    TableIndex, TrapCode, TrapInformation, Type, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
@@ -78,7 +80,8 @@ impl Compiler for SinglepassCompiler {
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        match target.triple().architecture {
+        let arch = target.triple().architecture;
+        match arch {
             Architecture::X86_64 => {}
             Architecture::Aarch64(_) => {}
             _ => {
@@ -86,7 +89,7 @@ impl Compiler for SinglepassCompiler {
                     target.triple().architecture.to_string(),
                 ));
             }
-        }
+        };
 
         let calling_convention = match target.triple().default_calling_convention() {
             Ok(CallingConvention::WindowsFastcall) => CallingConvention::WindowsFastcall,
@@ -167,7 +170,7 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
-                match target.triple().architecture {
+                match arch {
                     Architecture::X86_64 => {
                         let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
@@ -187,7 +190,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input)
+                        generator.finalize(input, arch)
                     }
                     Architecture::Aarch64(_) => {
                         let machine = MachineARM64::new(Some(target.clone()));
@@ -208,7 +211,7 @@ impl Compiler for SinglepassCompiler {
                             generator.feed_operator(op)?;
                         }
 
-                        generator.finalize(input)
+                        generator.finalize(input, arch)
                     }
                     _ => unimplemented!(),
                 }
@@ -222,7 +225,23 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .map(|func_type| -> Result<FunctionBody, CompileError> {
+                let body = gen_std_trampoline(func_type, target, calling_convention)?;
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        &body.body,
+                    );
+                    callbacks.asm_memory_buffer(
+                        &CompiledKind::FunctionCallTrampoline(func_type.clone()),
+                        arch,
+                        &body.body,
+                        HashMap::new(),
+                    )?;
+                }
+
+                Ok(body)
+            })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -231,13 +250,26 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| {
-                gen_std_dynamic_import_trampoline(
+            .map(|func_type| -> Result<FunctionBody, CompileError> {
+                let body = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
                     target,
                     calling_convention,
-                )
+                )?;
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        &body.body,
+                    );
+                    callbacks.asm_memory_buffer(
+                        &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+                        arch,
+                        &body.body,
+                        HashMap::new(),
+                    )?;
+                }
+                Ok(body)
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()

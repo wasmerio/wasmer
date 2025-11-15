@@ -309,6 +309,11 @@ impl CraneliftCompiler {
                         &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
                         &code_buf,
                     );
+                    callbacks.asm_memory_buffer(
+                        &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
+                        target.triple().architecture,
+                        &code_buf,
+                    )?;
                 }
 
                 let func_relocs = result
@@ -397,7 +402,15 @@ impl CraneliftCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|sig| make_trampoline_function_call(&self.config().callbacks, &*isa, &mut cx, sig))
+            .map(|sig| {
+                make_trampoline_function_call(
+                    &self.config().callbacks,
+                    &*isa,
+                    target.triple().architecture,
+                    &mut cx,
+                    sig,
+                )
+            })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
@@ -408,7 +421,13 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, sig| {
-                make_trampoline_function_call(&self.config().callbacks, &*isa, cx, sig)
+                make_trampoline_function_call(
+                    &self.config().callbacks,
+                    &*isa,
+                    target.triple().architecture,
+                    cx,
+                    sig,
+                )
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -428,6 +447,7 @@ impl CraneliftCompiler {
                 make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
+                    target.triple().architecture,
                     &offsets,
                     &mut cx,
                     &func_type,
@@ -445,6 +465,7 @@ impl CraneliftCompiler {
                 make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
+                    target.triple().architecture,
                     &offsets,
                     cx,
                     func_type,
