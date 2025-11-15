@@ -26,7 +26,7 @@ serde = { workspace = true, features = ["derive", "rc"], optional = true }
 enum-iterator.workspace = true
 scopeguard = "1.1.0"
 region.workspace = true
-corosensei = { version = "0.3.0" }
+corosensei = { workspace = true }
 fnv = "1.0.3"
 parking_lot.workspace = true
 # - Optional shared dependencies.
