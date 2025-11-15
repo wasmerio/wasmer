@@ -9,7 +9,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::CustomSection,
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
@@ -46,6 +46,19 @@ pub struct MachineARM64 {
     /// A boolean flag signaling if this machine supports NEON.
     has_neon: bool,
 }
+
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const ARM64_RETURN_VALUE_REGISTERS: [GPR; 8] = [
+    GPR::X0,
+    GPR::X1,
+    GPR::X2,
+    GPR::X3,
+    GPR::X4,
+    GPR::X5,
+    GPR::X6,
+    GPR::X7,
+];
 
 #[allow(dead_code)]
 #[derive(PartialEq)]
@@ -1749,12 +1762,16 @@ impl Machine for MachineARM64 {
     // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         sz: Size,
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
         let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len()) as i32;
+
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
                 || {
@@ -1769,7 +1786,10 @@ impl Machine for MachineARM64 {
                     if sz > 1 && *stack_args & (sz - 1) != 0 {
                         *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
                     }
-                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    let loc = Location::Memory(
+                        GPR::X29,
+                        16 * 2 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += sz;
                     loc
                 },
@@ -1777,7 +1797,10 @@ impl Machine for MachineARM64 {
             ),
             _ => register_params.get(idx).map_or_else(
                 || {
-                    let loc = Location::Memory(GPR::X29, 16 * 2 + *stack_args as i32);
+                    let loc = Location::Memory(
+                        GPR::X29,
+                        16 * 2 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += 8;
                     loc
                 },
@@ -1802,6 +1825,39 @@ impl Machine for MachineARM64 {
             |reg| Location::GPR(*reg),
         )
     }
+
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        _calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::XzrSp, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        _calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        ARM64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::X29,
+                    (16 * 2 + (idx - ARM64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
     // move a location to another
     fn move_location(
         &mut self,
@@ -2204,28 +2260,6 @@ impl Machine for MachineARM64 {
         self.pushed = false; // SP is restored, consider it aligned
         self.emit_double_pop(Size::S64, Location::GPR(GPR::X27), Location::GPR(GPR::X28))?;
         self.emit_double_pop(Size::S64, Location::GPR(GPR::X29), Location::GPR(GPR::X30))?;
-        Ok(())
-    }
-
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => unreachable!(),
-                },
-                loc,
-                Location::GPR(GPR::X0),
-            )?;
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X0))?;
-        }
         Ok(())
     }
 
