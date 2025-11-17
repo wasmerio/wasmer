@@ -38,7 +38,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    syscalls::{platform_clock_time_get, wasix::continuation_switch::Greenthread},
+    syscalls::{platform_clock_time_get, wasix::context_switch::Context},
 };
 use wasmer_types::ModuleHash;
 
@@ -183,9 +183,9 @@ pub struct WasiEnv {
     inner: WasiInstanceHandlesPointer,
 
     /// TODO: Document these fields
-    pub(crate) greenthreads: Arc<RwLock<BTreeMap<u64, Greenthread>>>,
-    pub(crate) current_greenthread_id: Arc<RwLock<u64>>,
-    pub(crate) next_free_id: AtomicU64,
+    pub(crate) contexts: Arc<RwLock<BTreeMap<u64, Context>>>,
+    pub(crate) current_context_id: Arc<RwLock<u64>>,
+    pub(crate) next_available_context_id: AtomicU64,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -215,11 +215,12 @@ impl Clone for WasiEnv {
             replaying_journal: self.replaying_journal,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
-            greenthreads: self.greenthreads.clone(),
-            current_greenthread_id: self.current_greenthread_id.clone(),
+            contexts: self.contexts.clone(),
+            current_context_id: self.current_context_id.clone(),
             // TODO: This is wrong; The two lines above as well
-            next_free_id: AtomicU64::new(
-                self.next_free_id.load(std::sync::atomic::Ordering::SeqCst),
+            next_available_context_id: AtomicU64::new(
+                self.next_available_context_id
+                    .load(std::sync::atomic::Ordering::SeqCst),
             ),
         }
     }
@@ -263,9 +264,9 @@ impl WasiEnv {
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
             // TODO: Not sure if we can even properly fork coroutines at all
-            greenthreads: Arc::new(RwLock::new(BTreeMap::new())),
-            current_greenthread_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
-            next_free_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
+            contexts: Arc::new(RwLock::new(BTreeMap::new())),
+            current_context_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
+            next_available_context_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
         };
         Ok((new_env, handle))
     }
@@ -410,9 +411,9 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
-            greenthreads: Arc::new(RwLock::new(BTreeMap::new())),
-            current_greenthread_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
-            next_free_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
+            contexts: Arc::new(RwLock::new(BTreeMap::new())),
+            current_context_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
+            next_available_context_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
         };
         env.owned_handles.push(thread);
 
