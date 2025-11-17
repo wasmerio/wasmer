@@ -173,8 +173,9 @@ impl CmdAppCreate {
             scaling: None,
             locality: None,
             redirect: None,
-            extra: IndexMap::new(),
             jobs: None,
+            enable_email: None,
+            extra: IndexMap::new(),
         }
     }
 
