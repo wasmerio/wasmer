@@ -39,7 +39,10 @@ use wasmer_wasix_types::wasi::{
 
 pub use self::{
     builder::*,
-    env::{WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles},
+    env::{
+        WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles, context::Context,
+        local_spawn::call_in_async_runtime,
+    },
     func_env::WasiFunctionEnv,
     types::*,
 };

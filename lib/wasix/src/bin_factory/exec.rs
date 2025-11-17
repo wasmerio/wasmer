@@ -1,6 +1,5 @@
 #![allow(clippy::result_large_err)]
-use std::sync::Arc;
-
+use super::{BinaryPackage, BinaryPackageCommand};
 use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
@@ -14,15 +13,15 @@ use crate::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
     },
-    syscalls::{call_in_async_runtime, rewind_ext},
+    state::call_in_async_runtime,
+    syscalls::rewind_ext,
 };
+use crate::{Runtime, WasiEnv, WasiFunctionEnv};
+use std::sync::Arc;
 use tracing::*;
 use virtual_mio::block_on;
 use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
 use wasmer_wasix_types::wasi::Errno;
-
-use super::{BinaryPackage, BinaryPackageCommand};
-use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 
 #[tracing::instrument(level = "trace", skip_all, fields(%name, package_id=%binary.id))]
 pub async fn spawn_exec(

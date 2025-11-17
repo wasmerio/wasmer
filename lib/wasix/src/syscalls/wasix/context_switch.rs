@@ -1,7 +1,6 @@
 use super::*;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
 use anyhow::Result;
-pub use context::Context;
 use core::panic;
 use futures::task::LocalSpawnExt;
 use futures::{FutureExt, channel::oneshot};
@@ -14,100 +13,6 @@ use wasmer::{
     RuntimeError, Store, Value, imports,
 };
 use wasmer::{StoreMut, Tag, Type};
-
-mod context {
-    use futures::{FutureExt, channel::oneshot};
-    use wasmer::RuntimeError;
-
-    pub struct Context {
-        resumer: Option<oneshot::Sender<Result<(), RuntimeError>>>,
-    }
-
-    impl Context {
-        // Create a new non-suspended context
-        pub fn new() -> Self {
-            Self { resumer: None }
-        }
-        // Lock this context until resumed
-        //
-        // Panics if the context is already locked
-        pub fn suspend(&mut self) -> impl Future<Output = Result<(), RuntimeError>> + use<> {
-            let (sender, receiver) = oneshot::channel();
-            if self.resumer.is_some() {
-                panic!("Switching from a context that is already switched out");
-            }
-            self.resumer = Some(sender);
-            receiver.map(|r| {
-                match r {
-                    Ok(v) => v,
-                    Err(_canceled) => {
-                        // TODO: Handle canceled properly
-                        panic!("Context was canceled");
-                    }
-                }
-            })
-            // TODO: Think about whether canceled should be handled
-        }
-
-        // Allow this context to be resumed
-        pub fn resume(&mut self, value: Result<(), RuntimeError>) -> () {
-            let resumer = self
-                .resumer
-                .take()
-                .expect("Resuming a context that is not switched out");
-            resumer.send(value).unwrap();
-        }
-    }
-    impl Clone for Context {
-        fn clone(&self) -> Self {
-            if self.resumer.is_some() {
-                panic!("Cannot clone a context with a resumer");
-            }
-            Self { resumer: None }
-        }
-    }
-}
-
-thread_local! {
-    static LOCAL_SPAWNER: OnceLock<futures::executor::LocalSpawner> = OnceLock::new();
-}
-fn spawn_local<F>(future: F)
-where
-    F: std::future::Future<Output = ()> + 'static,
-{
-    LOCAL_SPAWNER.with(|spawner_lock| {
-        let spawner = spawner_lock.get().expect("Local spawner not initialized");
-        spawner
-            .spawn_local(future)
-            .expect("Failed to spawn local future");
-    });
-}
-
-#[instrument(level = "trace", skip(ctx, store), ret)]
-pub fn call_in_async_runtime<'a>(
-    ctx: &WasiFunctionEnv,
-    store: &mut Store,
-    entrypoint: wasmer::Function,
-    params: &'a [wasmer::Value],
-) -> Result<Box<[Value]>, RuntimeError> {
-    let cloned_params = params.to_vec();
-
-    let main_context = Context::new();
-
-    let env = ctx.data_mut(store);
-    env.contexts.write().unwrap().insert(0, main_context);
-
-    let mut localpool = futures::executor::LocalPool::new();
-    let local_spawner = localpool.spawner();
-    LOCAL_SPAWNER.with(|spawner_lock| {
-        spawner_lock
-            .set(local_spawner)
-            .expect("Failed to set local spawner");
-    });
-    let result = localpool.run_until(entrypoint.call_async(&mut *store, &cloned_params));
-
-    result
-}
 
 /// ### `context_delete()`
 #[instrument(level = "trace", skip(ctx), ret)]
@@ -144,7 +49,7 @@ pub fn context_new<M: MemorySize>(
         .indirect_function_table_lookup(&mut store, entrypoint)
         .expect("Function not found in table");
 
-    let mut new_context = Context::new();
+    let mut new_context = crate::state::Context::new();
     let new_context_resume = new_context.suspend();
 
     data.contexts
@@ -160,7 +65,12 @@ pub fn context_new<M: MemorySize>(
 
     let contexts_arc = data.contexts.clone();
 
-    spawn_local(async move {
+    let spawner = data
+        .current_spawner
+        .clone()
+        .expect("No async spawner set on WasiEnv. Did you enter the async env before?");
+
+    spawner.spawn_local(async move {
         new_context_resume.await;
         let result = function.call_async(&mut unsafe_static_store, &[]).await;
 
@@ -168,7 +78,6 @@ pub fn context_new<M: MemorySize>(
         let main_context = main_context.get_mut(&0).unwrap();
         match result {
             Err(e) => {
-                eprintln!("Context {} returned error {:?}", new_context_id, e);
                 main_context.resume(Err(e));
             }
             Ok(v) => {
