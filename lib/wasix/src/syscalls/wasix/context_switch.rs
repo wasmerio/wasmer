@@ -1,7 +1,7 @@
 use super::*;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
 use anyhow::Result;
-pub use context::Greenthread;
+pub use context::Context;
 use core::panic;
 use futures::task::LocalSpawnExt;
 use futures::{FutureExt, channel::oneshot};
@@ -19,22 +19,22 @@ mod context {
     use futures::{FutureExt, channel::oneshot};
     use wasmer::RuntimeError;
 
-    pub struct Greenthread {
+    pub struct Context {
         resumer: Option<oneshot::Sender<Result<(), RuntimeError>>>,
     }
 
-    impl Greenthread {
+    impl Context {
         // Create a new non-suspended context
         pub fn new() -> Self {
             Self { resumer: None }
         }
-        // Lock this greenthread until resumed
+        // Lock this context until resumed
         //
-        // Panics if the greenthread is already locked
+        // Panics if the context is already locked
         pub fn suspend(&mut self) -> impl Future<Output = Result<(), RuntimeError>> + use<> {
             let (sender, receiver) = oneshot::channel();
             if self.resumer.is_some() {
-                panic!("Switching from a greenthread that is already switched out");
+                panic!("Switching from a context that is already switched out");
             }
             self.resumer = Some(sender);
             receiver.map(|r| {
@@ -42,26 +42,26 @@ mod context {
                     Ok(v) => v,
                     Err(_canceled) => {
                         // TODO: Handle canceled properly
-                        panic!("Greenthread was canceled");
+                        panic!("Context was canceled");
                     }
                 }
             })
             // TODO: Think about whether canceled should be handled
         }
 
-        // Allow this greenthread to be resumed
+        // Allow this context to be resumed
         pub fn resume(&mut self, value: Result<(), RuntimeError>) -> () {
             let resumer = self
                 .resumer
                 .take()
-                .expect("Resuming a greenthread that is not switched out");
+                .expect("Resuming a context that is not switched out");
             resumer.send(value).unwrap();
         }
     }
-    impl Clone for Greenthread {
+    impl Clone for Context {
         fn clone(&self) -> Self {
             if self.resumer.is_some() {
-                panic!("Cannot clone a coroutine with a resumer");
+                panic!("Cannot clone a context with a resumer");
             }
             Self { resumer: None }
         }
@@ -92,13 +92,10 @@ pub fn call_in_async_runtime<'a>(
 ) -> Result<Box<[Value]>, RuntimeError> {
     let cloned_params = params.to_vec();
 
-    let main_greenthread = Greenthread::new();
+    let main_context = Context::new();
 
     let env = ctx.data_mut(store);
-    env.greenthreads
-        .write()
-        .unwrap()
-        .insert(0, main_greenthread);
+    env.contexts.write().unwrap().insert(0, main_context);
 
     let mut localpool = futures::executor::LocalPool::new();
     let local_spawner = localpool.spawner();
@@ -112,11 +109,11 @@ pub fn call_in_async_runtime<'a>(
     result
 }
 
-/// ### `greenthread_delete()`
+/// ### `context_delete()`
 #[instrument(level = "trace", skip(ctx), ret)]
 pub fn context_delete(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    coroutine: u64,
+    context_id: u64,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
@@ -127,19 +124,19 @@ pub fn context_delete(
     Ok(Errno::Success)
 }
 
-/// ### `greenthread_new()`
+/// ### `context_new()`
 #[instrument(level = "trace", skip(ctx), ret)]
 pub fn context_new<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
-    new_coroutine_ptr: WasmPtr<u64, M>,
+    new_context_ptr: WasmPtr<u64, M>,
     entrypoint: u32,
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let (data, mut store) = ctx.data_and_store_mut();
 
-    let new_greenthread_id = data
-        .next_free_id
+    let new_context_id = data
+        .next_available_context_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
     let function = data
@@ -147,13 +144,13 @@ pub fn context_new<M: MemorySize>(
         .indirect_function_table_lookup(&mut store, entrypoint)
         .expect("Function not found in table");
 
-    let mut new_greenthread = Greenthread::new();
-    let new_context_resume = new_greenthread.suspend();
+    let mut new_context = Context::new();
+    let new_context_resume = new_context.suspend();
 
-    data.greenthreads
+    data.contexts
         .write()
         .unwrap()
-        .insert(new_greenthread_id, new_greenthread);
+        .insert(new_context_id, new_context);
 
     // SAFETY: This is fine if we can ensure that ???
     //  A: The future does not outlive the store
@@ -161,45 +158,43 @@ pub fn context_new<M: MemorySize>(
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<_, StoreMut<'static>>(store.as_store_mut()) };
 
-    let greenthreads_arc = data.greenthreads.clone();
+    let contexts_arc = data.contexts.clone();
 
     spawn_local(async move {
         new_context_resume.await;
         let result = function.call_async(&mut unsafe_static_store, &[]).await;
 
-        let mut main_greenthread = greenthreads_arc.write().unwrap();
-        let main_greenthread = main_greenthread.get_mut(&0).unwrap();
+        let mut main_context = contexts_arc.write().unwrap();
+        let main_context = main_context.get_mut(&0).unwrap();
         match result {
             Err(e) => {
-                eprintln!("Context {} returned error {:?}", new_greenthread_id, e);
-                main_greenthread.resume(Err(e));
+                eprintln!("Context {} returned error {:?}", new_context_id, e);
+                main_context.resume(Err(e));
             }
             Ok(v) => {
                 panic!(
                     "Context {} returned a value ({:?}). This is not allowed for now",
-                    new_greenthread_id, v
+                    new_context_id, v
                 );
                 // TODO: Handle this properly
             }
         }
-        // TODO: Delete own greenthread
+        // TODO: Delete own context
     });
 
     let env = ctx.data();
     let memory = unsafe { env.memory_view(&ctx) };
 
-    new_coroutine_ptr
-        .write(&memory, new_greenthread_id)
-        .unwrap();
+    new_context_ptr.write(&memory, new_context_id).unwrap();
 
     Ok(Errno::Success)
 }
 
-/// Switch to another coroutine
+/// Switch to another context
 #[instrument(level = "trace", skip(ctx), ret)]
 pub fn context_switch(
     mut ctx: FunctionEnvMut<WasiEnv>,
-    next_greenthread_id: u64,
+    next_context_id: u64,
 ) -> impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<> {
     match WasiEnv::do_pending_operations(&mut ctx) {
         Ok(()) => {}
@@ -211,30 +206,30 @@ pub fn context_switch(
     }
 
     let (data, _store) = ctx.data_and_store_mut();
-    let current_greenthread_id = {
-        let mut current = data.current_greenthread_id.write().unwrap();
+    let current_context_id = {
+        let mut current = data.current_context_id.write().unwrap();
         let old = *current;
-        *current = next_greenthread_id;
+        *current = next_context_id;
         old
     };
 
-    if current_greenthread_id == next_greenthread_id {
+    if current_context_id == next_context_id {
         panic!("Switching to self is not allowed");
     }
 
-    let mut greenthreads = data.greenthreads.write().unwrap();
-    let this_one = greenthreads.get_mut(&current_greenthread_id).unwrap();
+    let mut contexts = data.contexts.write().unwrap();
+    let this_one = contexts.get_mut(&current_context_id).unwrap();
     let receiver_promise = this_one.suspend();
 
-    let next_one = greenthreads.get_mut(&next_greenthread_id).unwrap();
+    let next_one = contexts.get_mut(&next_context_id).unwrap();
     next_one.resume(Ok(()));
 
-    let current_id_arc = data.current_greenthread_id.clone();
+    let current_id_arc = data.current_context_id.clone();
 
     async move {
         let result = receiver_promise.await;
 
-        *current_id_arc.write().unwrap() = current_greenthread_id;
+        *current_id_arc.write().unwrap() = current_context_id;
 
         // If we get relayed a trap, propagate it. Other wise return success
         result.and(Ok(Errno::Success))
