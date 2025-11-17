@@ -1,3 +1,6 @@
+pub mod context;
+pub mod local_spawn;
+
 use std::{
     collections::{BTreeMap, HashMap},
     ops::Deref,
@@ -38,8 +41,10 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    syscalls::{platform_clock_time_get, wasix::context_switch::Context},
+    state::env::local_spawn::ThreadLocalSpawner,
+    syscalls::platform_clock_time_get,
 };
+use context::Context;
 use wasmer_types::ModuleHash;
 
 pub use super::handles::*;
@@ -186,6 +191,7 @@ pub struct WasiEnv {
     pub(crate) contexts: Arc<RwLock<BTreeMap<u64, Context>>>,
     pub(crate) current_context_id: Arc<RwLock<u64>>,
     pub(crate) next_available_context_id: AtomicU64,
+    pub(crate) current_spawner: Option<ThreadLocalSpawner>,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -222,6 +228,7 @@ impl Clone for WasiEnv {
                 self.next_available_context_id
                     .load(std::sync::atomic::Ordering::SeqCst),
             ),
+            current_spawner: self.current_spawner.clone(),
         }
     }
 }
@@ -267,6 +274,7 @@ impl WasiEnv {
             contexts: Arc::new(RwLock::new(BTreeMap::new())),
             current_context_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
             next_available_context_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
+            current_spawner: None,
         };
         Ok((new_env, handle))
     }
@@ -414,6 +422,7 @@ impl WasiEnv {
             contexts: Arc::new(RwLock::new(BTreeMap::new())),
             current_context_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
             next_available_context_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
+            current_spawner: None,
         };
         env.owned_handles.push(thread);
 
