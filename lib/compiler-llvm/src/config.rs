@@ -318,7 +318,7 @@ impl LLVM {
 
                 #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
                 let target_machine_ptr = my_target_machine.target_machine as *mut u8;
-                #[cfg(all(not(target_arch = "riscv64"), not(target_arch = "aarch64")))]
+                #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
                 let target_machine_ptr = my_target_machine.target_machine as *mut i8;
 
                 *(target_machine_ptr.offset(0x410) as *mut u64) = 5;
