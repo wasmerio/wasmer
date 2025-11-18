@@ -17,11 +17,11 @@ wasmer = { workspace = true, default-features = false }
 virtual-fs.workspace = true
 
 anyhow.workspace = true
-wast = "221.0.2"
-serde = "1"
+wast.workspace = true
+serde.workspace = true
 tempfile.workspace = true
 thiserror.workspace = true
-futures = "0.3"
+futures.workspace = true
 tokio = { workspace = true, features = [
 	"io-util",
 	"rt",

@@ -876,7 +876,7 @@ checksum = "4a65ebfec4fb190b6f90e944a817d60499ee0744e582530e2c9900a22e591d9a"
 dependencies = [
  "crossterm",
  "unicode-segmentation",
- "unicode-width 0.2.2",
+ "unicode-width",
 ]
 
 [[package]]
@@ -947,7 +947,7 @@ dependencies = [
  "encode_unicode",
  "libc",
  "once_cell",
- "unicode-width 0.2.2",
+ "unicode-width",
  "windows-sys 0.59.0",
 ]
 
@@ -2192,7 +2192,7 @@ version = "0.2.24"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cfe4fbac503b8d1f88e6676011885f34b7174f46e59956bba534ba83abded4df"
 dependencies = [
- "unicode-width 0.2.2",
+ "unicode-width",
 ]
 
 [[package]]
@@ -2863,7 +2863,7 @@ dependencies = [
  "console",
  "number_prefix",
  "portable-atomic",
- "unicode-width 0.2.2",
+ "unicode-width",
  "web-time",
 ]
 
@@ -6209,12 +6209,6 @@ checksum = "f6ccf251212114b54433ec949fd6a7841275f9ada20dddd2f29e9ceea4501493"
 
 [[package]]
 name = "unicode-width"
-version = "0.1.14"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7dd6e30e90baa6f72411720665d41d89b9a3d039dc45b8faea1ddd07f617f6af"
-
-[[package]]
-name = "unicode-width"
 version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b4ac048d71ede7ee76d585517add45da530660ef4390e49b098733c6e897f254"
@@ -6694,7 +6688,7 @@ dependencies = [
  "serde",
  "serde_json",
  "tempfile",
- "wast 216.0.1",
+ "wast 221.0.3",
 ]
 
 [[package]]
@@ -6829,15 +6823,6 @@ name = "wasm-encoder"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "1c3e4bc09095436c8e7584d86d33e6c3ee67045af8fb262cbb9cc321de553428"
-dependencies = [
- "leb128",
-]
-
-[[package]]
-name = "wasm-encoder"
-version = "0.216.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1de2d0fd411c201b8d76c04213901f9bb221abf17dd59c2201542d0b118bb90"
 dependencies = [
  "leb128",
 ]
@@ -7847,19 +7832,6 @@ dependencies = [
 
 [[package]]
 name = "wast"
-version = "216.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "62cc4cc72b93d4a11c416ad1b4bb37888a9ea1dff575ee865f5bf26682ceba0e"
-dependencies = [
- "bumpalo",
- "leb128",
- "memchr",
- "unicode-width 0.1.14",
- "wasm-encoder 0.216.1",
-]
-
-[[package]]
-name = "wast"
 version = "221.0.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "7e0d10d282261b825ffb3d49f46e8309e60a8b608328b6a0b0578e80f3f98e57"
@@ -7867,7 +7839,7 @@ dependencies = [
  "bumpalo",
  "leb128",
  "memchr",
- "unicode-width 0.2.2",
+ "unicode-width",
  "wasm-encoder 0.221.3",
 ]
 
@@ -7880,7 +7852,7 @@ dependencies = [
  "bumpalo",
  "leb128fmt",
  "memchr",
- "unicode-width 0.2.2",
+ "unicode-width",
  "wasm-encoder 0.240.0",
 ]
 
