@@ -1,14 +1,14 @@
 [package]
 name = "wasmer-wast"
-version = "6.1.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
+version.workspace = true
+authors.workspace = true
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
 repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
 wasmer-types = { path = "../../../lib/types", version = "=6.1.0" }

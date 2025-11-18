@@ -1,9 +1,9 @@
 [package]
 name = "wasmer-swift"
 version = "0.601.0"
-edition = "2024"
 description = "Experimental wasmer bindings for swift"
-license = "MIT"
+edition.workspace = true
+license.workspace = true
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 

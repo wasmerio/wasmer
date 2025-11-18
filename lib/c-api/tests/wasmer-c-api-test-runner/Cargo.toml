@@ -1,9 +1,9 @@
 [package]
 name = "wasmer-c-api-test-runner"
-version = "6.1.0"
-edition = "2024"
-license = "MIT"
 description = "wasmer-c-api-test-runner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 cc.workspace = true

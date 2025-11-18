@@ -3,7 +3,7 @@ name = "wasmer-bin-fuzz"
 version = "0.0.0"
 authors = ["Automatically generated"]
 publish = false
-edition = "2024"
+edition.workspace = true
 
 [package.metadata]
 cargo-fuzz = true
