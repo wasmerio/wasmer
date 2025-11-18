@@ -22,7 +22,7 @@ use std::{
 use futures::future::BoxFuture;
 use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
-use wasmer::{CompileError, Engine, Module, RuntimeError};
+use wasmer::{CompileError, Engine, Module, ProgressEngineExt as _, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
 
 #[cfg(feature = "journal")]
@@ -325,6 +325,8 @@ pub async fn load_module(
     on_progress: Option<ModuleLoadProgressReporter>,
 ) -> Result<Module, crate::SpawnError> {
     let wasm_hash = input.hash();
+
+    #[cfg(feature = "sys")]
     let result = if let Some(on_progress) = &on_progress {
         module_cache
             .load_with_progress(wasm_hash, engine, on_progress.clone())
@@ -349,7 +351,7 @@ pub async fn load_module(
         let p = CompilationProgressCallback::new(move |p| {
             progress.notify(ModuleLoadProgress::CompilingModule(p))
         });
-        Module::new_with_progress(&engine, input.wasm(), p)
+        engine.new_module_with_progress(input.wasm(), p)
     } else {
         Module::new(&engine, input.wasm())
     };
