@@ -15,7 +15,7 @@ use wasmer::{RuntimeError, Store, Value};
 // If that limitation is a problem, we can consider implementing a version that
 // accepts `Send` futures and sends them to the correct thread via channels.
 #[derive(Clone, Debug)]
-pub struct ThreadLocalSpawner {
+pub(crate) struct ThreadLocalSpawner {
     /// A reference to the local executor's spawner
     spawner: LocalSpawner,
     /// The thread this spawner is associated with
@@ -23,10 +23,14 @@ pub struct ThreadLocalSpawner {
     /// Used to generate better error messages when trying to spawn on the wrong thread
     thread: ThreadId,
 }
-// SAFETY: The ThreadLocalSpawner enforces using the spawner on the thread it was created on
-// through runtime checks. See the safety comment in spawn_local.
+// SAFETY: The ThreadLocalSpawner enforces the spawner is only used on the correct thread.
+// See the safety comment in ThreadLocalSpawner::spawn_local and ThreadLocalSpawner::spawner
 unsafe impl Send for ThreadLocalSpawner {}
+// SAFETY: The ThreadLocalSpawner enforces the spawner is only used on the correct thread.
+// See the safety comment in ThreadLocalSpawner::spawn_local and ThreadLocalSpawner::spawner
+unsafe impl Sync for ThreadLocalSpawner {}
 
+/// Errors that can occur during `spawn_local` calls
 #[derive(Debug, Error)]
 pub enum ThreadLocalSpawnerError {
     #[error(
@@ -45,7 +49,7 @@ impl ThreadLocalSpawner {
     /// Spawn a future onto the same thread as the local spawner
     ///
     /// Needs to be called from the same thread on which the associated executor was created
-    pub fn spawn_local<F: Future<Output = ()> + 'static>(
+    pub(crate) fn spawn_local<F: Future<Output = ()> + 'static>(
         &self,
         future: F,
     ) -> Result<(), ThreadLocalSpawnerError> {
@@ -69,18 +73,18 @@ impl ThreadLocalSpawner {
 }
 
 /// A thread-local executor that can run tasks on the current thread
-pub struct ThreadLocalExecutor {
+pub(crate) struct ThreadLocalExecutor {
     /// The local pool
     pool: LocalPool,
 }
 
 impl ThreadLocalExecutor {
-    fn new() -> Self {
+    pub(crate) fn new() -> Self {
         let local_pool = futures::executor::LocalPool::new();
         Self { pool: local_pool }
     }
 
-    fn get_spawner(&self) -> ThreadLocalSpawner {
+    pub(crate) fn spawner(&self) -> ThreadLocalSpawner {
         ThreadLocalSpawner {
             spawner: self.pool.spawner(),
             // SAFETY: This will always be the thread where the spawner was created on, as the ThreadLocalExecutor is not Send
@@ -88,7 +92,7 @@ impl ThreadLocalExecutor {
         }
     }
 
-    fn run_until<F: Future>(&mut self, future: F) -> F::Output {
+    pub(crate) fn run_until<F: Future>(&mut self, future: F) -> F::Output {
         self.pool.run_until(future)
     }
 }
@@ -106,7 +110,7 @@ pub fn call_in_async_runtime<'a>(
 
     // Set spawner in env
     let mut local_executor = ThreadLocalExecutor::new();
-    let spawner = local_executor.get_spawner();
+    let spawner = local_executor.spawner();
     let previous_spawner = env.current_spawner.replace(spawner);
 
     // Run function with the spawner
