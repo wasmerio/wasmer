@@ -12,12 +12,10 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::{
     borrow::Cow,
     collections::{HashMap, HashSet},
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
+    sync::Arc,
 };
 use wasmer_compiler::misc::CompiledKind;
+use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
 use wasmer_compiler::types::relocation::RelocationKind;
@@ -32,8 +30,8 @@ use wasmer_compiler::{
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
 use wasmer_types::{
-    CompilationProgress, CompilationProgressCallback, CompileError, FunctionIndex,
-    LocalFunctionIndex, ModuleInfo, SignatureIndex,
+    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex,
 };
 use wasmer_vm::LibCall;
 
@@ -167,39 +165,6 @@ impl SymbolRegistry for ModuleBasedSymbolRegistry {
         } else {
             self.short_names.name_to_symbol(name)
         }
-    }
-}
-
-#[derive(Clone)]
-struct ProgressContext {
-    callback: CompilationProgressCallback,
-    counter: Arc<AtomicU64>,
-    total: u64,
-    phase_name: &'static str,
-}
-
-impl ProgressContext {
-    fn new(callback: CompilationProgressCallback, total: u64, phase_name: &'static str) -> Self {
-        Self {
-            callback,
-            counter: Arc::new(AtomicU64::new(0)),
-            total,
-            phase_name,
-        }
-    }
-
-    fn notify(&self) -> Result<(), CompileError> {
-        if self.total == 0 {
-            return Ok(());
-        }
-        let step = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
-        self.callback
-            .notify(CompilationProgress::new(
-                Some(Cow::Borrowed(self.phase_name)),
-                Some(self.total),
-                Some(step),
-            ))
-            .map_err(CompileError::from)
     }
 }
 

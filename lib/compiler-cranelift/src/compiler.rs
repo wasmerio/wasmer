@@ -27,14 +27,9 @@ use gimli::write::{Address, EhFrame, FrameTable, Writer};
 
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use std::{
-    borrow::Cow,
-    sync::{
-        Arc,
-        atomic::{AtomicU64, Ordering},
-    },
-};
+use std::sync::Arc;
 
+use wasmer_compiler::progress::ProgressContext;
 #[cfg(feature = "unwind")]
 use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
 use wasmer_compiler::{
@@ -55,8 +50,8 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::target::CallingConvention;
 use wasmer_types::target::Target;
 use wasmer_types::{
-    CompilationProgress, CompilationProgressCallback, CompileError, FunctionIndex,
-    LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode, TrapInformation,
+    CompilationProgressCallback, CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo,
+    SignatureIndex, TrapCode, TrapInformation,
 };
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
@@ -585,39 +580,6 @@ fn mach_trap_to_trap(trap: &MachTrap) -> TrapInformation {
     TrapInformation {
         code_offset: offset,
         trap_code: translate_ir_trapcode(code),
-    }
-}
-
-#[derive(Clone)]
-struct ProgressContext {
-    callback: CompilationProgressCallback,
-    counter: Arc<AtomicU64>,
-    total: u64,
-    phase_name: &'static str,
-}
-
-impl ProgressContext {
-    fn new(callback: CompilationProgressCallback, total: u64, phase_name: &'static str) -> Self {
-        Self {
-            callback,
-            counter: Arc::new(AtomicU64::new(0)),
-            total,
-            phase_name,
-        }
-    }
-
-    fn notify(&self) -> Result<(), CompileError> {
-        if self.total == 0 {
-            return Ok(());
-        }
-        let step = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
-        self.callback
-            .notify(CompilationProgress::new(
-                Some(Cow::Borrowed(self.phase_name)),
-                Some(self.total),
-                Some(step),
-            ))
-            .map_err(CompileError::from)
     }
 }
 
