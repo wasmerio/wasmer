@@ -1,25 +1,35 @@
-use dashmap::DashMap;
-use futures::task::LocalSpawnExt;
-use std::{sync::atomic::AtomicU64, thread::ThreadId};
+use crate::WasiFunctionEnv;
+use futures::{
+    executor::{LocalPool, LocalSpawner},
+    task::LocalSpawnExt,
+};
+use std::{
+    sync::{Arc, Mutex, Weak},
+    thread::ThreadId,
+};
 use thiserror::Error;
 use wasmer::{RuntimeError, Store, Value};
 
-use crate::WasiFunctionEnv;
-
-thread_local! {
-    static NEXT_SPAWNER_ID: AtomicU64 = AtomicU64::new(0);
-    static LOCAL_SPAWNERS: DashMap<u64, futures::executor::LocalSpawner> = DashMap::new();
-}
-
-// Send, just a handle
+/// A `Send`able spawner that spawns onto a thread-local executor
+///
+/// Despite being `Send`, the spawner enforces at runtime that
+/// it is only used to spawn on the thread it was created on.
+//
+// If that limitation is a problem, we can consider implementing a version that
+// accepts `Send` futures and sends them to the correct thread via channels.
 #[derive(Clone, Debug)]
 pub struct ThreadLocalSpawner {
-    id: u64,
+    /// A reference to the local executor's spawner
+    pool: Weak<Mutex<Option<LocalSpawner>>>,
     /// The thread this spawner is associated with
     ///
     /// Used to generate better error messages when trying to spawn on the wrong thread
     thread: ThreadId,
 }
+
+// SAFETY: The ThreadLocalSpawner enforces using the spawner on the thread it was created on
+// through runtime checks. See the safety comment in spawn_local.
+unsafe impl Send for ThreadLocalSpawner {}
 
 #[derive(Debug, Error)]
 pub enum ThreadLocalSpawnerError {
@@ -35,57 +45,61 @@ pub enum ThreadLocalSpawnerError {
     SpawnError,
 }
 
-// Not send
-pub struct ThreadLocalExecutor {
-    id: u64,
-    pool: futures::executor::LocalPool,
-}
-
 impl ThreadLocalSpawner {
     /// Spawn a future onto the same thread as the local spawner
     ///
-    /// Needs to be called from the same thread as the spawner was created on
+    /// Needs to be called from the same thread on which the associated executor was created
     pub fn spawn_local<F: Future<Output = ()> + 'static>(
         &self,
         future: F,
     ) -> Result<(), ThreadLocalSpawnerError> {
+        // SAFETY: This is what makes implementing Send on ThreadLocalSpawner safe. We ensure that we only spawn
+        // on the same thread as the one the spawner was created on.
         if std::thread::current().id() != self.thread {
             return Err(ThreadLocalSpawnerError::NotOnTheCorrectThread {
                 expected: self.thread,
                 found: std::thread::current().id(),
             });
         }
-        LOCAL_SPAWNERS.with(|runtimes| {
-            let spawner = runtimes
-                .get(&self.id)
-                .ok_or(ThreadLocalSpawnerError::LocalPoolShutDown)?;
-            spawner
-                .spawn_local(future)
-                .map_err(|_| ThreadLocalSpawnerError::SpawnError)?;
-        });
+
+        let spawner = self
+            .pool
+            .upgrade()
+            .ok_or(ThreadLocalSpawnerError::LocalPoolShutDown)?;
+        // Unwrap on the mutex, as it should never be poisoned
+        let spawner = spawner.lock().unwrap();
+        let spawner = spawner
+            .as_ref()
+            .ok_or(ThreadLocalSpawnerError::LocalPoolShutDown)?;
+
+        spawner
+            .spawn_local(future)
+            .map_err(|_| ThreadLocalSpawnerError::SpawnError);
         Ok(())
     }
 }
 
+/// A thread-local executor that can run tasks on the current thread
+pub struct ThreadLocalExecutor {
+    pool: LocalPool,
+    spawner: Arc<Mutex<Option<LocalSpawner>>>,
+}
+
 impl ThreadLocalExecutor {
-    fn new() -> (ThreadLocalSpawner, Self) {
-        let localpool = futures::executor::LocalPool::new();
-        let local_spawner = localpool.spawner();
-        let runtime_id =
-            NEXT_SPAWNER_ID.with(|id| id.fetch_add(1, std::sync::atomic::Ordering::Relaxed));
-        LOCAL_SPAWNERS.with(|runtimes| {
-            runtimes.insert(runtime_id, local_spawner);
-        });
-        (
-            ThreadLocalSpawner {
-                id: runtime_id,
-                thread: std::thread::current().id(),
-            },
-            Self {
-                id: runtime_id,
-                pool: localpool,
-            },
-        )
+    fn new() -> Self {
+        let local_pool = futures::executor::LocalPool::new();
+        let local_spawner = Arc::new(Mutex::new(Some(local_pool.spawner())));
+        Self {
+            pool: local_pool,
+            spawner: local_spawner,
+        }
+    }
+
+    fn get_spawner(&self) -> ThreadLocalSpawner {
+        ThreadLocalSpawner {
+            pool: Arc::downgrade(&self.spawner),
+            thread: std::thread::current().id(),
+        }
     }
 
     fn run_until<F: Future>(&mut self, future: F) -> F::Output {
@@ -95,9 +109,15 @@ impl ThreadLocalExecutor {
 
 impl Drop for ThreadLocalExecutor {
     fn drop(&mut self) {
-        LOCAL_SPAWNERS.with(|runtimes| {
-            runtimes.remove(&self.id);
-        });
+        // Remove the spawner so no new tasks can be spawned
+        //
+        // This is technically not necessary, as the Weak upgrading in
+        // LocalSpawner does a similar thing, but if the Weak was upgraded
+        // before dropping the Executor this could lead to a SpawnError
+        // instead of a LocalPoolShutDown. We can differentiate "real"
+        // SpawnErrors from "dropped executor" errors this way
+        let mut spawner = self.spawner.lock().unwrap();
+        *spawner = None;
     }
 }
 
@@ -113,7 +133,8 @@ pub fn call_in_async_runtime<'a>(
     // TODO: Ensure there is only one executor at a time?
 
     // Set spawner in env
-    let (spawner, mut local_executor) = ThreadLocalExecutor::new();
+    let mut local_executor = ThreadLocalExecutor::new();
+    let spawner = local_executor.get_spawner();
     let previous_spawner = env.current_spawner.replace(spawner);
 
     // Run function with the spawner
