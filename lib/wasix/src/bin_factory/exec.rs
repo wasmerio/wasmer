@@ -14,7 +14,7 @@ use crate::{
         },
     },
     syscalls::rewind_ext,
-    utils::thread_local_executor::call_in_async_runtime,
+    utils::thread_local_executor::ThreadLocalExecutor,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::sync::Arc;
@@ -241,6 +241,33 @@ fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
         .ok()
 }
 
+// TODO: Figure out a better place for this function
+// Calls an async wasm in a blocking context
+//
+// This call blocks until the entrypoint returns, or it or any of the contexts it spawns traps
+fn call_with_threadlocal_executor(
+    ctx: &WasiFunctionEnv,
+    mut store: &mut Store,
+    entrypoint: wasmer::Function,
+    params: Vec<wasmer::Value>,
+) -> Result<Box<[Value]>, RuntimeError> {
+    // Create a new executor
+    let mut local_executor = ThreadLocalExecutor::new();
+
+    // Put the spawner into the WASI env, so that syscalls can use it to queue up new tasks
+    let spawner = local_executor.spawner();
+    let previous_spawner = ctx.data_mut(&mut store).current_spawner.replace(spawner);
+
+    // Run function with the spawner
+    let result = local_executor.run_until(entrypoint.call_async(&mut *store, &params));
+
+    // Reset to previous spawner
+    let env = ctx.data_mut(&mut store);
+    env.current_spawner = previous_spawner;
+
+    result
+}
+
 /// Calls the module
 fn call_module(
     ctx: WasiFunctionEnv,
@@ -298,7 +325,7 @@ fn call_module(
             return;
         };
 
-        let mut call_ret = { call_in_async_runtime(&ctx, &mut store, start.clone(), &[]) };
+        let mut call_ret = call_with_threadlocal_executor(&ctx, &mut store, start.clone(), vec![]);
 
         loop {
             // Technically, it's an error for a vfork to return from main, but anyway...
