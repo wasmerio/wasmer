@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["ImmType"],"struct":["MachineARM64"],"type":["Assembler","Location"]};
+window.SIDEBAR_ITEMS = {"constant":["ARM64_RETURN_VALUE_REGISTERS"],"enum":["ImmType"],"struct":["MachineARM64"],"type":["Assembler","Location"]};

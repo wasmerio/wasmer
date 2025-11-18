@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["AssemblerX64","MachineX86_64"],"type":["Assembler","Location"]};
+window.SIDEBAR_ITEMS = {"constant":["X86_64_RETURN_VALUE_REGISTERS"],"struct":["AssemblerX64","MachineX86_64"],"type":["Assembler","Location"]};
