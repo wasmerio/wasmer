@@ -102,9 +102,13 @@ impl Compiler for SinglepassCompiler {
         };
 
         let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
         let progress = progress_callback
             .cloned()
-            .map(|cb| ProgressContext::new(cb, total_functions, "singlepass::functions"));
+            .map(|cb| ProgressContext::new(cb, total_steps, "singlepass::functions"));
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
@@ -235,7 +239,13 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_trampoline(func_type, target, calling_convention))
+            .map(|func_type| {
+                let trampoline = gen_std_trampoline(func_type, target, calling_convention)?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
+            })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -245,12 +255,16 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
             .map(|func_type| {
-                gen_std_dynamic_import_trampoline(
+                let trampoline = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
                     target,
                     calling_convention,
-                )
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()

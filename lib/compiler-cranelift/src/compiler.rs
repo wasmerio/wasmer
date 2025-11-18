@@ -97,9 +97,13 @@ impl CraneliftCompiler {
             .collect::<PrimaryMap<SignatureIndex, ir::Signature>>();
 
         let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
         let progress = progress_callback
             .cloned()
-            .map(|cb| ProgressContext::new(cb, total_functions, "cranelift::functions"));
+            .map(|cb| ProgressContext::new(cb, total_steps, "cranelift::functions"));
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
@@ -412,7 +416,14 @@ impl CraneliftCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|sig| make_trampoline_function_call(&self.config().callbacks, &*isa, &mut cx, sig))
+            .map(|sig| {
+                let trampoline =
+                    make_trampoline_function_call(&self.config().callbacks, &*isa, &mut cx, sig)?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
+            })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
@@ -423,7 +434,12 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, sig| {
-                make_trampoline_function_call(&self.config().callbacks, &*isa, cx, sig)
+                let trampoline =
+                    make_trampoline_function_call(&self.config().callbacks, &*isa, cx, sig)?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -440,13 +456,17 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .into_iter()
             .map(|func_type| {
-                make_trampoline_dynamic_function(
+                let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     &offsets,
                     &mut cx,
                     &func_type,
-                )
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
@@ -457,13 +477,17 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, func_type| {
-                make_trampoline_dynamic_function(
+                let trampoline = make_trampoline_dynamic_function(
                     &self.config().callbacks,
                     &*isa,
                     &offsets,
                     cx,
                     func_type,
-                )
+                )?;
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
+                }
+                Ok(trampoline)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

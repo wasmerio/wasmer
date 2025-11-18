@@ -368,9 +368,13 @@ impl Compiler for LLVMCompiler {
 
         let module = &compile_info.module;
         let total_functions = function_body_inputs.len() as u64;
+        let total_function_call_trampolines = module.signatures.len() as u64;
+        let total_dynamic_trampolines = module.num_imported_functions as u64;
+        let total_steps =
+            total_functions + total_function_call_trampolines + total_dynamic_trampolines;
         let progress = progress_callback
             .cloned()
-            .map(|cb| ProgressContext::new(cb, total_functions, "Compiling functions"));
+            .map(|cb| ProgressContext::new(cb, total_steps, "Compiling functions"));
 
         // TODO: merge constants in sections.
 
@@ -542,6 +546,7 @@ impl Compiler for LLVMCompiler {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let function_call_trampolines = if self.config.num_threads.get() > 1 {
+            let progress = progress.clone();
             let pool = ThreadPoolBuilder::new()
                 .num_threads(self.config.num_threads.get())
                 .build()
@@ -558,7 +563,12 @@ impl Compiler for LLVMCompiler {
                             FuncTrampoline::new(target_machine, binary_format).unwrap()
                         },
                         |func_trampoline, sig| {
-                            func_trampoline.trampoline(sig, self.config(), "", compile_info)
+                            let trampoline =
+                                func_trampoline.trampoline(sig, self.config(), "", compile_info)?;
+                            if let Some(progress) = progress.as_ref() {
+                                progress.notify()?;
+                            }
+                            Ok(trampoline)
                         },
                     )
                     .collect::<Vec<_>>()
@@ -566,6 +576,7 @@ impl Compiler for LLVMCompiler {
                     .collect::<Result<PrimaryMap<_, _>, CompileError>>()
             })?
         } else {
+            let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
             module
@@ -573,7 +584,14 @@ impl Compiler for LLVMCompiler {
                 .values()
                 .collect::<Vec<_>>()
                 .into_iter()
-                .map(|sig| func_trampoline.trampoline(sig, self.config(), "", compile_info))
+                .map(|sig| {
+                    let trampoline =
+                        func_trampoline.trampoline(sig, self.config(), "", compile_info)?;
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify()?;
+                    }
+                    Ok(trampoline)
+                })
                 .collect::<Vec<_>>()
                 .into_iter()
                 .collect::<Result<PrimaryMap<_, _>, CompileError>>()?
@@ -584,6 +602,7 @@ impl Compiler for LLVMCompiler {
         // We can move that logic out and re-enable parallel processing. Hopefully, there aren't
         // enough dynamic trampolines to actually cause a noticeable performance degradation.
         let dynamic_function_trampolines = {
+            let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_trampoline = FuncTrampoline::new(target_machine, binary_format).unwrap();
             module
@@ -592,7 +611,7 @@ impl Compiler for LLVMCompiler {
                 .into_iter()
                 .enumerate()
                 .map(|(index, func_type)| {
-                    func_trampoline.dynamic_trampoline(
+                    let trampoline = func_trampoline.dynamic_trampoline(
                         &func_type,
                         self.config(),
                         "",
@@ -602,7 +621,11 @@ impl Compiler for LLVMCompiler {
                         &mut eh_frame_section_relocations,
                         &mut compact_unwind_section_bytes,
                         &mut compact_unwind_section_relocations,
-                    )
+                    )?;
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify()?;
+                    }
+                    Ok(trampoline)
                 })
                 .collect::<Vec<_>>()
                 .into_iter()

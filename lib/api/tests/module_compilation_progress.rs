@@ -38,6 +38,7 @@ fn test_module_compilation_abort_cranelift() {
 }
 
 const SIMPLE_WAT: &str = r#"(module
+  (import "env" "div" (func $div (param i32 i32) (result i32)))
   (func (export "add") (param i32 i32) (result i32)
     local.get 0
     local.get 1
@@ -69,8 +70,12 @@ fn test_module_compilation_progress(engine: Engine) {
         .expect("expected at least one progress item")
         .clone();
 
-    assert_eq!(last.phase_step_count(), Some(2));
-    assert_eq!(last.phase_step(), Some(2));
+    // 4 total steps:
+    // - 2 functions
+    // - 1 trampoline for exports (both share same signature)
+    // - 1 trampoline for imported function
+    assert_eq!(last.phase_step_count(), Some(4));
+    assert_eq!(last.phase_step(), Some(4));
 }
 
 fn test_module_compilation_abort(engine: Engine) {
