@@ -13,8 +13,8 @@ use crate::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
     },
-    state::call_in_async_runtime,
     syscalls::rewind_ext,
+    utils::thread_local_executor::call_in_async_runtime,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::sync::Arc;

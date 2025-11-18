@@ -1,31 +1,3 @@
-pub mod local_spawn;
-
-use std::{
-    collections::{BTreeMap, HashMap},
-    ops::Deref,
-    path::{Path, PathBuf},
-    str,
-    sync::{Arc, RwLock, atomic::AtomicU64},
-    time::Duration,
-};
-
-use futures::future::BoxFuture;
-use rand::Rng;
-use virtual_fs::{FileSystem, FsError, VirtualFile};
-use virtual_mio::block_on;
-use virtual_net::DynVirtualNetworking;
-use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
-    Module, RuntimeError,
-};
-use wasmer_config::package::PackageSource;
-use wasmer_wasix_types::{
-    types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid},
-    wasix::ThreadStartType,
-};
-use webc::metadata::annotations::Wasi;
-
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
@@ -40,10 +12,34 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
-    state::env::local_spawn::ThreadLocalSpawner,
     syscalls::platform_clock_time_get,
+    utils::thread_local_executor::ThreadLocalSpawner,
 };
+use futures::future::BoxFuture;
+use rand::Rng;
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::Deref,
+    path::{Path, PathBuf},
+    str,
+    sync::{Arc, RwLock, atomic::AtomicU64},
+    time::Duration,
+};
+use virtual_fs::{FileSystem, FsError, VirtualFile};
+use virtual_mio::block_on;
+use virtual_net::DynVirtualNetworking;
+use wasmer::{
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
+    Module, RuntimeError,
+};
+use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
+use wasmer_wasix_types::{
+    types::Signal,
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasix::ThreadStartType,
+};
+use webc::metadata::annotations::Wasi;
 
 pub use super::handles::*;
 use super::{Linker, WasiState, conv_env_vars};
