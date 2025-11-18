@@ -1,9 +1,25 @@
-#![cfg(any(feature = "cranelift", feature = "llvm"))]
+#![cfg(any(feature = "cranelift", feature = "llvm", feature = "singlepass"))]
 
 use std::sync::{Arc, Mutex};
 
 use wasmer::{CompileError, Engine, ProgressEngineExt as _};
 use wasmer_types::{CompilationProgress, UserAbort};
+
+#[cfg(feature = "singlepass")]
+#[test]
+fn test_module_compilation_progress_singlepass() {
+    let compiler = wasmer::sys::Singlepass::default();
+    let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
+    test_module_compilation_progress(engine);
+}
+
+#[cfg(feature = "singlepass")]
+#[test]
+fn test_module_compilation_abort_singlepass() {
+    let compiler = wasmer::sys::Cranelift::default();
+    let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
+    test_module_compilation_abort(engine);
+}
 
 #[cfg(feature = "cranelift")]
 #[test]
@@ -31,7 +47,7 @@ fn test_module_compilation_progress_llvm() {
 
 #[cfg(feature = "llvm")]
 #[test]
-fn test_module_compilation_abort_cranelift() {
+fn test_module_compilation_abort_llvm() {
     let compiler = wasmer::sys::LLVM::default();
     let engine: wasmer::Engine = wasmer::sys::EngineBuilder::new(compiler).engine().into();
     test_module_compilation_abort(engine);

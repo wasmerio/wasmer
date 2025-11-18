@@ -101,6 +101,7 @@ impl Compiler for SinglepassCompiler {
             }
         };
 
+        let module = &compile_info.module;
         let total_functions = function_body_inputs.len() as u64;
         let total_function_call_trampolines = module.signatures.len() as u64;
         let total_dynamic_trampolines = module.num_imported_functions as u64;
@@ -239,7 +240,7 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| {
+            .map(|func_type| -> Result<_, CompileError> {
                 let trampoline = gen_std_trampoline(func_type, target, calling_convention)?;
                 if let Some(progress) = progress.as_ref() {
                     progress.notify()?;
@@ -254,7 +255,7 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| {
+            .map(|func_type| -> Result<_, CompileError> {
                 let trampoline = gen_std_dynamic_import_trampoline(
                     &vmoffsets,
                     &func_type,
@@ -360,7 +361,7 @@ mod tests {
         // Compile for 32bit Linux
         let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&linux32, &info, &translation, inputs);
+        let result = compiler.compile_module(&linux32, &info, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
             error => panic!("Unexpected error: {error:?}"),
@@ -369,7 +370,7 @@ mod tests {
         // Compile for win32
         let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
         let (info, translation, inputs) = dummy_compilation_ingredients();
-        let result = compiler.compile_module(&win32, &info, &translation, inputs);
+        let result = compiler.compile_module(&win32, &info, &translation, inputs, None);
         match result.unwrap_err() {
             CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"), // Windows should be checked before architecture
             error => panic!("Unexpected error: {error:?}"),
