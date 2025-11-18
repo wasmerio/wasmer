@@ -3,7 +3,9 @@
 use crate::lib::std::{borrow::Cow, fmt, string::String, sync::Arc};
 
 /// Indicates the current compilation progress.
-// NOTE: fields are kept private on purpose to enable forwards compatibility and future extension.
+///
+/// All fields are kept private for forwards compatibility and future extension.
+/// Use the provided methods to access progress data.
 #[derive(Clone, Debug, Default)]
 pub struct CompilationProgress {
     phase_name: Option<Cow<'static, str>>,
@@ -41,7 +43,7 @@ impl CompilationProgress {
     }
 }
 
-/// Error returned when the user requests to abort compilation.
+/// Error returned when the user requests to abort an expensive computation.
 #[derive(Clone, Debug)]
 pub struct UserAbort {
     reason: String,
@@ -70,14 +72,19 @@ impl fmt::Display for UserAbort {
 #[cfg(feature = "std")]
 impl std::error::Error for UserAbort {}
 
-#[derive(Clone)]
 /// Wraps a boxed callback that can receive compilation progress notifications.
+#[derive(Clone)]
 pub struct CompilationProgressCallback {
     callback: Arc<dyn Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static>,
 }
 
 impl CompilationProgressCallback {
     /// Create a new callback wrapper.
+    ///
+    /// The provided callback will be invoked with progress updates during the compilation process,
+    /// and has to return a `Result<(), UserAbort>`.
+    ///
+    /// If the callback returns an error, the compilation will be aborted with a `CompileError::Aborted`.
     pub fn new<F>(callback: F) -> Self
     where
         F: Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static,

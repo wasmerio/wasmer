@@ -13,6 +13,7 @@ use wasmer_wasix::{
     SpawnError,
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     runtime::{
+        ModuleInput,
         module_cache::{
             HashedModuleData,
             progress::{ModuleLoadProgress, ModuleLoadProgressReporter},
@@ -113,7 +114,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 
     fn resolve_module<'a>(
         &'a self,
-        input: wasmer_wasix::runtime::ModuleInput<'a>,
+        input: ModuleInput<'a>,
         engine: Option<&Engine>,
         on_progress: Option<ModuleLoadProgressReporter>,
     ) -> BoxFuture<'a, Result<Module, SpawnError>> {
@@ -128,38 +129,39 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         use std::fmt::Write as _;
 
         let short_hash = input.hash().short_hash();
-        let progress_msg = format!("Compiling module ({short_hash})");
+        let progress_msg = match &input {
+            ModuleInput::Bytes(_) | ModuleInput::Hashed(_) => {
+                format!("Compiling module ({short_hash})")
+            }
+            ModuleInput::Command(cmd) => format!("Compiling {}", cmd.name()),
+        };
 
         let pb = self.progress.clone();
-        let on_progress = Some(ModuleLoadProgressReporter::new(move |prog| {
-            let msg = match prog {
-                ModuleLoadProgress::CompilingModule(c) => {
-                    if let (Some(step), Some(step_count)) = (c.phase_step(), c.phase_step_count()) {
-                        pb.set_length(step_count);
-                        pb.set_position(step);
-                    };
 
-                    let mut msg = format!("Compiling module ({short_hash})");
-                    if let Some(phase) = c.phase_name() {
-                        // Note: writing to strings can not fail.
-                        write!(msg, " - {phase}").unwrap();
+        let on_progress = Some(ModuleLoadProgressReporter::new({
+            let base_msg = progress_msg.clone();
+            move |prog| {
+                let msg = match prog {
+                    ModuleLoadProgress::CompilingModule(c) => {
+                        let mut msg = base_msg.clone();
+                        if let (Some(step), Some(step_count)) =
+                            (c.phase_step(), c.phase_step_count())
+                        {
+                            pb.set_length(step_count);
+                            pb.set_position(step);
+                            // Note: writing to strings can not fail.
+                            write!(msg, " ({step}/{step_count})").unwrap();
+                        };
+                        pb.tick();
+
+                        msg
                     }
+                    _ => base_msg.clone(),
+                };
 
-                    if let (Some(step), Some(step_count)) = (c.phase_step(), c.phase_step_count()) {
-                        pb.set_length(step_count);
-                        pb.set_position(step);
-                        // Note: writing to strings can not fail.
-                        write!(msg, " ({step}/{step_count})").unwrap();
-                    };
-                    pb.tick();
-
-                    msg
-                }
-                _ => "Compiling module...".to_string(),
-            };
-
-            pb.set_message(msg);
-            Ok(())
+                pb.set_message(msg);
+                Ok(())
+            }
         }));
 
         let engine = engine.cloned();

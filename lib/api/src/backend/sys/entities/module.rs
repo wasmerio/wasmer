@@ -58,15 +58,7 @@ impl Module {
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        #[cfg(feature = "compiler")]
-        {
-            Self::compile(engine, binary)
-        }
-
-        #[cfg(not(feature = "compiler"))]
-        {
-            Self::compile(engine, binary)
-        }
+        Self::compile(engine, binary)
     }
 
     pub(crate) unsafe fn from_binary_unchecked_with_progress(

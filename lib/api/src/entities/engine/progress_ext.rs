@@ -7,7 +7,15 @@ pub trait ProgressEngineExt {
     /// The callback is invoked with progress updates during the compilation process.
     /// The callback also may return an error to abort the compilation.
     ///
-    /// See [`CompilationProgressCallback::new`].
+    /// Signature of the callback function: `Fn(CompilationProgress) -> Result<(), UserAbort> + Send + Sync + 'static`
+    ///
+    /// # Aborting compilation
+    ///
+    /// The callback has to return a `Result<(), UserAbort>`.
+    ///
+    /// If the callback returns an error, the compilation will fail with a `CompileError::Aborted`.
+    ///
+    /// See [`CompilationProgressCallback::new`] for more details.
     fn new_module_with_progress(
         &self,
         bytes: &[u8],
@@ -16,7 +24,7 @@ pub trait ProgressEngineExt {
 }
 
 impl ProgressEngineExt for crate::Engine {
-    /// See [`NativeEngineExt::new_module_with_progress`].
+    /// See [`ProgressEngineExt::new_module_with_progress`].
     fn new_module_with_progress(
         &self,
         bytes: &[u8],

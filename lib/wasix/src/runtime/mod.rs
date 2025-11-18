@@ -54,13 +54,19 @@ pub enum TaintReason {
 ///
 /// Exists because the semantics for resolving modules can vary between
 /// different sources.
+///
+/// All variants are wrapped in `Cow` to allow for zero-copy usage when possible.
 pub enum ModuleInput<'a> {
+    /// Raw bytes.
     Bytes(Cow<'a, [u8]>),
+    /// Pre-hashed module data.
     Hashed(Cow<'a, HashedModuleData>),
+    /// A binary package command.
     Command(Cow<'a, BinaryPackageCommand>),
 }
 
 impl<'a> ModuleInput<'a> {
+    /// Convert to an owned version of the module input.
     pub fn to_owned(&'a self) -> ModuleInput<'static> {
         // The manual code below is needed due to compiler issues with the lifetime.
         match self {
@@ -77,6 +83,9 @@ impl<'a> ModuleInput<'a> {
         }
     }
 
+    /// Get the module hash.
+    ///
+    /// NOTE: may be expensive, depending on the variant.
     pub fn hash(&self) -> ModuleHash {
         match self {
             Self::Bytes(b) => {
@@ -88,6 +97,7 @@ impl<'a> ModuleInput<'a> {
         }
     }
 
+    /// Get the raw WebAssembly bytes.
     pub fn wasm(&self) -> &[u8] {
         match self {
             Self::Bytes(b) => b,
@@ -96,6 +106,9 @@ impl<'a> ModuleInput<'a> {
         }
     }
 
+    /// Convert to a `HashedModuleData`.
+    ///
+    /// May involve cloning and hashing.
     pub fn to_hashed(&self) -> HashedModuleData {
         match self {
             Self::Bytes(b) => HashedModuleData::new(b.as_ref()),
@@ -326,7 +339,6 @@ pub async fn load_module(
 ) -> Result<Module, crate::SpawnError> {
     let wasm_hash = input.hash();
 
-    #[cfg(feature = "sys")]
     let result = if let Some(on_progress) = &on_progress {
         module_cache
             .load_with_progress(wasm_hash, engine, on_progress.clone())
