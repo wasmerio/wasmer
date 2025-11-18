@@ -1792,7 +1792,9 @@ impl MachineRiscv {
 
 /// Get registers for first N function return values.
 /// NOTE: The register set must be disjoint from pick_gpr registers!
-pub(crate) const RISCV_RETURN_VALUE_REGISTERS: [GPR; 8] = [
+/// Intentionally omit GPR::X17: it is reserved as a scratch/temporary register
+/// and is frequently used while materializing/storing return values.
+pub(crate) const RISCV_RETURN_VALUE_REGISTERS: [GPR; 7] = [
     GPR::X10,
     GPR::X11,
     GPR::X12,
@@ -1800,7 +1802,6 @@ pub(crate) const RISCV_RETURN_VALUE_REGISTERS: [GPR; 8] = [
     GPR::X14,
     GPR::X15,
     GPR::X16,
-    GPR::X17,
 ];
 
 #[allow(dead_code)]
@@ -2232,8 +2233,8 @@ impl Machine for MachineRiscv {
         RISCV_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
             || {
                 Location::Memory(
-                    GPR::X29,
-                    (16 * 2 + (idx - RISCV_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                    GPR::Fp,
+                    (16 + (idx - RISCV_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
                 )
             },
             |reg| Location::GPR(*reg),
