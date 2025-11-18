@@ -1,6 +1,7 @@
 mod dummy_waker;
 mod owned_mutex_guard;
 pub mod store;
+pub mod thread_local_executor;
 mod thread_parker;
 
 #[cfg(feature = "js")]
