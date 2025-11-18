@@ -3,7 +3,7 @@ use futures::task::LocalSpawnExt;
 use std::sync::atomic::AtomicU64;
 use wasmer::{RuntimeError, Store, Value};
 
-use crate::{WasiFunctionEnv, state::env::context::Context};
+use crate::WasiFunctionEnv;
 
 thread_local! {
     static NEXT_SPAWNER_ID: AtomicU64 = AtomicU64::new(0);
@@ -67,6 +67,7 @@ impl Drop for ThreadLocalExecutor {
     }
 }
 
+// TODO: This does not belong here
 pub fn call_in_async_runtime<'a>(
     ctx: &WasiFunctionEnv,
     mut store: &mut Store,
@@ -74,9 +75,8 @@ pub fn call_in_async_runtime<'a>(
     params: &'a [wasmer::Value],
 ) -> Result<Box<[Value]>, RuntimeError> {
     let cloned_params = params.to_vec();
-    let main_context = Context::new();
     let env = ctx.data_mut(&mut store);
-    env.contexts.write().unwrap().insert(0, main_context);
+    // TODO: Ensure there is only one executor at a time?
 
     // Set spawner in env
     let (spawner, mut local_executor) = ThreadLocalExecutor::new();
