@@ -2845,7 +2845,7 @@ pub fn gen_std_trampoline_arm64(
         .len()
         .saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len());
     let mut stack_offset = (stack_args + stack_return_slots) as u32 * 8;
-    if stack_args > 0 {
+    if stack_offset > 0 {
         if !stack_offset.is_multiple_of(16) {
             stack_offset += 8;
             assert!(stack_offset.is_multiple_of(16));
