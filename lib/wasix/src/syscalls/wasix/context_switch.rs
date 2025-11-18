@@ -111,22 +111,21 @@ pub fn context_new<M: MemorySize>(
             .remove(&MAIN_CONTEXT_ID)
             .map(|(_id, val)| val)
             .expect("The main context should always be suspended when another context returns.");
-        match result {
-            Err(e) => {
-                main_context
-                    .send(Err(e))
-                    .expect("Failed to send error to main context, this should not happen");
-            }
+
+        // Take the underlying error, or create a new error if the context returned a value
+        let error = match result {
+            Err(e) => e,
             Ok(v) => {
-                // If we get here, something went wrong, as the entrypoint function is not supposed to return
-                panic!(
-                    "Context {} returned a value ({:?}). This is not allowed for now",
-                    new_context_id, v
-                );
                 // TODO: Handle this properly
+                RuntimeError::user(
+                    format!("Context {new_context_id} returned a value ({v:?}). This is not allowed for now")
+                    .into(),
+                )
             }
-        }
-        // TODO: Delete own context
+        };
+        main_context
+            .send(Err(error))
+            .expect("Failed to send error to main context, this should not happen");
     });
 
     let env = ctx.data();
@@ -143,6 +142,7 @@ pub fn context_switch(
     mut ctx: FunctionEnvMut<WasiEnv>,
     target_context_id: u64,
 ) -> impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<> {
+    // TODO: Should we call do_pending_operations here?
     match WasiEnv::do_pending_operations(&mut ctx) {
         Ok(()) => {}
         Err(e) => {
