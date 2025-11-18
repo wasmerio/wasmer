@@ -20,6 +20,7 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
+use wasmer_compiler::progress::ProgressContext;
 use wasmer_compiler::{
     Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
     ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
@@ -77,7 +78,7 @@ impl Compiler for SinglepassCompiler {
         compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
-        _on_progress: Option<&CompilationProgressCallback>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         match target.triple().architecture {
             Architecture::X86_64 => {}
@@ -99,6 +100,11 @@ impl Compiler for SinglepassCompiler {
                 ));
             }
         };
+
+        let total_functions = function_body_inputs.len() as u64;
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_functions, "singlepass::functions"));
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
@@ -168,7 +174,7 @@ impl Compiler for SinglepassCompiler {
                     }
                 }
 
-                match target.triple().architecture {
+                let result = match target.triple().architecture {
                     Architecture::X86_64 => {
                         let machine = MachineX86_64::new(Some(target.clone()))?;
                         let mut generator = FuncGen::new(
@@ -212,7 +218,13 @@ impl Compiler for SinglepassCompiler {
                         generator.finalize(input)
                     }
                     _ => unimplemented!(),
+                }?;
+
+                if let Some(progress) = progress.as_ref() {
+                    progress.notify()?;
                 }
+
+                Ok(result)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
