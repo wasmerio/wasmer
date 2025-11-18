@@ -12,18 +12,16 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer = { version = "=6.1.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "=6.1.0", path = "lib/compiler", features = [
-	"compiler",
-], optional = true }
-wasmer-compiler-cranelift = { version = "=6.1.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=6.1.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=6.1.0", path = "lib/compiler-llvm", optional = true }
-wasmer-wasix = { path = "lib/wasix", optional = true }
-wasmer-wast = { version = "=6.1.0", path = "tests/lib/wast", optional = true }
-wasmer-cache = { version = "=6.1.0", path = "lib/cache", optional = true }
-wasmer-types = { version = "=6.1.0", path = "lib/types" }
-wasmer-middlewares = { version = "=6.1.0", path = "lib/middlewares", optional = true }
+wasmer.workspace = true
+wasmer-compiler = { workspace = true, features = [ "compiler" ], optional = true }
+wasmer-compiler-cranelift = { workspace = true, optional = true }
+wasmer-compiler-singlepass = { workspace = true, optional = true }
+wasmer-compiler-llvm = { workspace = true, optional = true }
+wasmer-wasix = { workspace = true, optional = true }
+wasmer-wast = { workspace = true, optional = true }
+wasmer-cache = { workspace = true, optional = true }
+wasmer-types.workspace = true
+wasmer-middlewares = { workspace = true, optional = true }
 
 
 # Third party dependencies
@@ -87,10 +85,30 @@ version = "6.1.0"
 
 [workspace.dependencies]
 # Repo-local crates
-wasmer-package = { version = "0.601.0", path = "lib/package" }
-wasmer-config = { path = "./lib/config" }
-wasmer-wasix = { path = "./lib/wasix" }
-wasmer-sdk = { path = "./lib/sdk" }
+macro-wasmer-universal-test = { version = "=6.1.0", path = "lib/api/macro-wasmer-universal-test" }
+wasmer = { version = "=6.1.0", path = "lib/api", default-features = false }
+wasmer-api = { version = "=6.1.0", path = "lib/api", default-features = false, package = "wasmer" }
+wasmer-backend-api = { version = "=0.601.0", path = "lib/backend-api" }
+wasmer-cache = { version = "=6.1.0", path = "./lib/cache" }
+wasmer-compiler = { version = "=6.1.0", path = "./lib/compiler", default-features = false }
+wasmer-compiler-cranelift = { version = "=6.1.0", path = "./lib/compiler-cranelift" }
+wasmer-compiler-llvm = { version = "=6.1.0", path = "./lib/compiler-llvm" }
+wasmer-compiler-singlepass = { version = "=6.1.0", path = "./lib/compiler-singlepass" }
+wasmer-derive = { version = "=6.1.0", path = "./lib/derive" }
+wasmer-middlewares = { version = "=6.1.0", path = "./lib/middlewares" }
+wasmer-sdk = { version = "=6.1.0", path = "./lib/sdk" }
+wasmer-types = { version = "=6.1.0", path = "./lib/types", default-features = false }
+wasmer-vm = { version = "=6.1.0", path = "./lib/vm" }
+wasmer-wast = { version = "=6.1.0", path = "./tests/lib/wast" }
+
+virtual-fs = { version = "=0.601.0", path = "./lib/virtual-fs", default-features = false }
+virtual-mio = { version = "=0.601.0", path = "lib/virtual-io", default-features = false }
+virtual-net = { version = "=0.601.0", path = "lib/virtual-net", default-features = false }
+wasmer-config = { version = "=0.601.0", path = "./lib/config", default-features = false }
+wasmer-journal = { version = "=0.601.0", path = "lib/journal", default-features = false }
+wasmer-package = { version = "=0.601.0", path = "lib/package" }
+wasmer-wasix = { version = "=0.601.0", path = "./lib/wasix", default-features = false }
+wasmer-wasix-types = { version = "=0.601.0", path = "lib/wasi-types" }
 
 # Wasmer-owned crates
 webc = "=10.0.1"
@@ -333,7 +351,7 @@ glob.workspace = true
 rustc_version.workspace = true
 
 [dev-dependencies]
-wasmer = { version = "=6.1.0", path = "lib/api", features = [
+wasmer = { workspace = true, features = [
 	"compiler",
 	"singlepass",
 	"sys",

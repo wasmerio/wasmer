@@ -15,7 +15,7 @@ rust-version.workspace = true
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 [dependencies]
 # Wasmer dependencies.
-wasmer-config = { version = "0.601.0", path = "../config" }
+wasmer-config.workspace = true
 wasmer-package.workspace = true
 webc.workspace = true
 

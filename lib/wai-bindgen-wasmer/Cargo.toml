@@ -20,7 +20,7 @@ once_cell.workspace = true
 thiserror.workspace = true
 tracing-lib = { workspace = true, optional = true }
 wai-bindgen-wasmer-impl.workspace = true
-wasmer = { version = "=6.1.0", path = "../api", default-features = false }
+wasmer = { workspace = true, default-features = false }
 
 [features]
 # Enables generated code to emit events via the `tracing` crate whenever wasm is
