@@ -45,9 +45,7 @@ impl CompilerConfig for Singlepass {
 
     /// Gets the supported features for this compiler in the given target
     fn supported_features_for_target(&self, _target: &Target) -> Features {
-        let mut features = Features::default();
-        features.multi_value(false);
-        features
+        Features::default()
     }
 
     /// Pushes a middleware onto the back of the middleware chain.

@@ -440,7 +440,7 @@ async fn test_google_epoll() {
         let mut done = false;
         for n in 0.. {
             let mut buf: [MaybeUninit<u8>; 4096] = [MaybeUninit::uninit(); 4096];
-            match socket.try_recv(&mut buf) {
+            match socket.try_recv(&mut buf, false) {
                 Ok(0) => {
                     done = true;
                     break;
