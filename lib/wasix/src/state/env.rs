@@ -15,14 +15,15 @@ use crate::{
     syscalls::platform_clock_time_get,
     utils::thread_local_executor::ThreadLocalSpawner,
 };
-use futures::future::BoxFuture;
+use dashmap::DashMap;
+use futures::{channel::oneshot::Sender, future::BoxFuture};
 use rand::Rng;
 use std::{
-    collections::{BTreeMap, HashMap},
+    collections::HashMap,
     ops::Deref,
     path::{Path, PathBuf},
     str,
-    sync::{Arc, RwLock, atomic::AtomicU64},
+    sync::{Arc, atomic::AtomicU64},
     time::Duration,
 };
 use virtual_fs::{FileSystem, FsError, VirtualFile};
@@ -44,7 +45,8 @@ use webc::metadata::annotations::Wasi;
 pub use super::handles::*;
 use super::{Linker, WasiState, conv_env_vars};
 
-static MAIN_CONTINUATION_ID: u64 = 0;
+// TODO: Figure out a better place for this constant
+pub static MAIN_CONTEXT_ID: u64 = 0;
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -182,9 +184,8 @@ pub struct WasiEnv {
     inner: WasiInstanceHandlesPointer,
 
     /// TODO: Document these fields
-    pub(crate) contexts:
-        Arc<RwLock<BTreeMap<u64, futures::channel::oneshot::Sender<Result<(), RuntimeError>>>>>,
-    pub(crate) current_context_id: Arc<RwLock<u64>>,
+    pub(crate) contexts: Arc<DashMap<u64, Sender<Result<(), RuntimeError>>>>,
+    pub(crate) current_context_id: Arc<AtomicU64>,
     pub(crate) next_available_context_id: AtomicU64,
     pub(crate) current_spawner: Option<ThreadLocalSpawner>,
 }
@@ -217,8 +218,8 @@ impl Clone for WasiEnv {
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
             contexts: self.contexts.clone(),
+            // TODO: This is wrong; The contexts can't really be cloned. What do we even use clone on WasiEnv for?
             current_context_id: self.current_context_id.clone(),
-            // TODO: This is wrong; The two lines above as well
             next_available_context_id: AtomicU64::new(
                 self.next_available_context_id
                     .load(std::sync::atomic::Ordering::SeqCst),
@@ -266,9 +267,9 @@ impl WasiEnv {
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
             // TODO: Not sure if we can even properly fork coroutines at all
-            contexts: Arc::new(RwLock::new(BTreeMap::new())),
-            current_context_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
-            next_available_context_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
+            contexts: Arc::new(DashMap::new()),
+            current_context_id: Arc::new(AtomicU64::new(MAIN_CONTEXT_ID)),
+            next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
             current_spawner: None,
         };
         Ok((new_env, handle))
@@ -414,9 +415,9 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
-            contexts: Arc::new(RwLock::new(BTreeMap::new())),
-            current_context_id: Arc::new(RwLock::new(MAIN_CONTINUATION_ID)),
-            next_available_context_id: AtomicU64::new(MAIN_CONTINUATION_ID + 1),
+            contexts: Arc::new(DashMap::new()),
+            current_context_id: Arc::new(AtomicU64::new(MAIN_CONTEXT_ID)),
+            next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
             current_spawner: None,
         };
         env.owned_handles.push(thread);
