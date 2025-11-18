@@ -11,8 +11,8 @@ use thiserror::Error;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgress, CompilationProgressCallback, CompileError, DeserializeError, ExportType,
+    ExportsIterator, ImportType, ImportsIterator, ModuleInfo, SerializeError, UserAbort,
 };
 
 use crate::{AsEngineRef, macros::backend::match_rt, utils::IntoBytes};
@@ -111,6 +111,15 @@ impl Module {
     /// ```
     pub fn new(engine: &impl AsEngineRef, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         BackendModule::new(engine, bytes).map(Self)
+    }
+
+    /// Creates a new WebAssembly Module and reports compilation progress through `callback`.
+    pub fn new_with_progress(
+        engine: &impl AsEngineRef,
+        bytes: impl AsRef<[u8]>,
+        on_progress: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        BackendModule::new_with_progress(engine, bytes, on_progress).map(Self)
     }
 
     /// Creates a new WebAssembly module from a file path.

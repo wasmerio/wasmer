@@ -8,9 +8,9 @@ use crate::{
 
 use bytes::Bytes;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
-    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
-    SerializeError, TableType, Type,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ExternType, FunctionType, GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo,
+    Mutability, Pages, SerializeError, TableType, Type,
 };
 
 #[derive(Debug)]
@@ -150,6 +150,14 @@ impl Module {
     ) -> Result<Self, CompileError> {
         tracing::info!("Creating module from binary");
         unsafe { Self::from_binary_unchecked(engine, binary) }
+    }
+
+    pub(crate) fn from_binary_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        _callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        Self::from_binary(engine, binary)
     }
 
     #[allow(clippy::arc_with_non_send_sync)]

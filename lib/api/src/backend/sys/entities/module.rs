@@ -5,8 +5,8 @@ use std::sync::Arc;
 use bytes::Bytes;
 use wasmer_compiler::{Artifact, ArtifactCreate, Engine};
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ImportType, ImportsIterator, ModuleInfo, SerializeError,
 };
 
 use crate::{
@@ -45,12 +45,46 @@ impl Module {
         unsafe { Self::from_binary_unchecked(engine, binary) }
     }
 
+    pub(crate) fn from_binary_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        Self::validate(engine, binary)?;
+        unsafe { Self::from_binary_unchecked_with_progress(engine, binary, Some(callback)) }
+    }
+
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
         binary: &[u8],
     ) -> Result<Self, CompileError> {
-        let module = Self::compile(engine, binary)?;
-        Ok(module)
+        #[cfg(feature = "compiler")]
+        {
+            Self::compile(engine, binary)
+        }
+
+        #[cfg(not(feature = "compiler"))]
+        {
+            Self::compile(engine, binary)
+        }
+    }
+
+    pub(crate) unsafe fn from_binary_unchecked_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        callback: Option<CompilationProgressCallback>,
+    ) -> Result<Self, CompileError> {
+        #[cfg(feature = "compiler")]
+        {
+            let module = Self::compile_with_progress(engine, binary, callback)?;
+            Ok(module)
+        }
+
+        #[cfg(not(feature = "compiler"))]
+        {
+            let _ = callback;
+            Self::compile(engine, binary)
+        }
     }
 
     #[cfg(feature = "compiler")]
@@ -69,6 +103,20 @@ impl Module {
     #[cfg(feature = "compiler")]
     fn compile(engine: &impl AsEngineRef, binary: &[u8]) -> Result<Self, CompileError> {
         let artifact = engine.as_engine_ref().engine().as_sys().compile(binary)?;
+        Ok(Self::from_artifact(artifact))
+    }
+
+    #[cfg(feature = "compiler")]
+    fn compile_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        callback: Option<CompilationProgressCallback>,
+    ) -> Result<Self, CompileError> {
+        let artifact = engine
+            .as_engine_ref()
+            .engine()
+            .as_sys()
+            .compile_with_progress(binary, callback)?;
         Ok(Self::from_artifact(artifact))
     }
 

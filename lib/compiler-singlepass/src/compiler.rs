@@ -32,8 +32,8 @@ use wasmer_compiler::{
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
 use wasmer_types::{
-    CompileError, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, ModuleInfo,
-    TableIndex, TrapCode, TrapInformation, VMOffsets,
+    CompilationProgressCallback, CompileError, FunctionIndex, FunctionType, LocalFunctionIndex,
+    MemoryIndex, ModuleInfo, TableIndex, TrapCode, TrapInformation, VMOffsets,
 };
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
@@ -77,6 +77,7 @@ impl Compiler for SinglepassCompiler {
         compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        _on_progress: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         match target.triple().architecture {
             Architecture::X86_64 => {}

@@ -9,9 +9,14 @@ use inkwell::targets::FileType;
 use rayon::ThreadPoolBuilder;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::borrow::Cow;
-use std::collections::{HashMap, HashSet};
-use std::sync::Arc;
+use std::{
+    borrow::Cow,
+    collections::{HashMap, HashSet},
+    sync::{
+        Arc,
+        atomic::{AtomicU64, Ordering},
+    },
+};
 use wasmer_compiler::misc::CompiledKind;
 use wasmer_compiler::types::function::{Compilation, UnwindInfo};
 use wasmer_compiler::types::module::CompileModuleInfo;
@@ -26,7 +31,10 @@ use wasmer_compiler::{
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::Target;
-use wasmer_types::{CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex};
+use wasmer_types::{
+    CompilationProgress, CompilationProgressCallback, CompileError, FunctionIndex,
+    LocalFunctionIndex, ModuleInfo, SignatureIndex,
+};
 use wasmer_vm::LibCall;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
@@ -159,6 +167,39 @@ impl SymbolRegistry for ModuleBasedSymbolRegistry {
         } else {
             self.short_names.name_to_symbol(name)
         }
+    }
+}
+
+#[derive(Clone)]
+struct ProgressContext {
+    callback: CompilationProgressCallback,
+    counter: Arc<AtomicU64>,
+    total: u64,
+    phase_name: &'static str,
+}
+
+impl ProgressContext {
+    fn new(callback: CompilationProgressCallback, total: u64, phase_name: &'static str) -> Self {
+        Self {
+            callback,
+            counter: Arc::new(AtomicU64::new(0)),
+            total,
+            phase_name,
+        }
+    }
+
+    fn notify(&self) -> Result<(), CompileError> {
+        if self.total == 0 {
+            return Ok(());
+        }
+        let step = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
+        self.callback
+            .notify(CompilationProgress::new(
+                Some(Cow::Borrowed(self.phase_name)),
+                Some(self.total),
+                Some(step),
+            ))
+            .map_err(CompileError::from)
     }
 }
 
@@ -352,6 +393,7 @@ impl Compiler for LLVMCompiler {
         compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        progress_callback: Option<&CompilationProgressCallback>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
 
@@ -360,6 +402,10 @@ impl Compiler for LLVMCompiler {
         let binary_format = self.config.target_binary_format(target);
 
         let module = &compile_info.module;
+        let total_functions = function_body_inputs.len() as u64;
+        let progress = progress_callback
+            .cloned()
+            .map(|cb| ProgressContext::new(cb, total_functions, "Compiling functions"));
 
         // TODO: merge constants in sections.
 
@@ -383,6 +429,7 @@ impl Compiler for LLVMCompiler {
         let symbol_registry = ModuleBasedSymbolRegistry::new(module.clone());
 
         let functions = if self.config.num_threads.get() > 1 {
+            let progress = progress.clone();
             let pool = ThreadPoolBuilder::new()
                 .num_threads(self.config.num_threads.get())
                 .build()
@@ -401,7 +448,7 @@ impl Compiler for LLVMCompiler {
                             // TODO: remove (to serialize)
                             //let _data = data.lock().unwrap();
 
-                            func_translator.translate(
+                            let translated = func_translator.translate(
                                 module,
                                 module_translation,
                                 i,
@@ -410,12 +457,19 @@ impl Compiler for LLVMCompiler {
                                 memory_styles,
                                 table_styles,
                                 &symbol_registry,
-                            )
+                            )?;
+
+                            if let Some(progress) = progress.as_ref() {
+                                progress.notify()?;
+                            }
+
+                            Ok(translated)
                         },
                     )
                     .collect::<Result<Vec<_>, CompileError>>()
             })?
         } else {
+            let progress = progress.clone();
             let target_machine = self.config().target_machine(target);
             let func_translator = FuncTranslator::new(target_machine, binary_format).unwrap();
 
@@ -427,7 +481,7 @@ impl Compiler for LLVMCompiler {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
 
-                    func_translator.translate(
+                    let translated = func_translator.translate(
                         module,
                         module_translation,
                         &i,
@@ -436,7 +490,13 @@ impl Compiler for LLVMCompiler {
                         memory_styles,
                         table_styles,
                         &symbol_registry,
-                    )
+                    )?;
+
+                    if let Some(progress) = progress.as_ref() {
+                        progress.notify()?;
+                    }
+
+                    Ok(translated)
                 })
                 .collect::<Result<Vec<_>, CompileError>>()?
         };
