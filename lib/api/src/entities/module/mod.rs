@@ -69,7 +69,7 @@ impl Module {
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
     /// let wat = "(module)";
-    /// let module = Module::new(&store, wat)?;
+    /// let module = Module::new(&store.engine(), wat)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -96,7 +96,7 @@ impl Module {
     ///     0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
     ///     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
     /// ];
-    /// let module = Module::new(&store, bytes)?;
+    /// let module = Module::new(&store.engine(), bytes)?;
     /// # Ok(())
     /// # }
     /// ```
@@ -276,8 +276,9 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
     /// # }
@@ -306,8 +307,9 @@ impl Module {
     ///
     /// ```ignore
     /// # use wasmer::*;
-    /// # let mut store = Store::default();
     /// # fn main() -> anyhow::Result<()> {
+    /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
     /// # Ok(())
     /// # }
@@ -331,7 +333,7 @@ impl Module {
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
     /// let wat = "(module $moduleName)";
-    /// let module = Module::new(&store, wat)?;
+    /// let module = Module::new(&store.engine(), wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
     /// # Ok(())
     /// # }
@@ -354,7 +356,7 @@ impl Module {
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
     /// let wat = "(module)";
-    /// let mut module = Module::new(&store, wat)?;
+    /// let mut module = Module::new(&store.engine(), wat)?;
     /// assert_eq!(module.name(), None);
     /// module.set_name("foo");
     /// assert_eq!(module.name(), Some("foo"));
@@ -380,7 +382,7 @@ impl Module {
     ///     (import "host" "func1" (func))
     ///     (import "host" "func2" (func))
     /// )"#;
-    /// let module = Module::new(&store, wat)?;
+    /// let module = Module::new(&store.engine(), wat)?;
     /// for import in module.imports() {
     ///     assert_eq!(import.module(), "host");
     ///     assert!(import.name().contains("func"));
@@ -408,7 +410,7 @@ impl Module {
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)
     /// )"#;
-    /// let module = Module::new(&store, wat)?;
+    /// let module = Module::new(&store.engine(), wat)?;
     /// for export_ in module.exports() {
     ///     assert!(export_.name().contains("named"));
     ///     export_.ty();

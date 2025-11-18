@@ -44,6 +44,7 @@ impl Memory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
@@ -69,6 +70,7 @@ impl Memory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let mt = MemoryType::new(1, None, false);
     /// let m = Memory::new(&mut store, mt).unwrap();
@@ -98,6 +100,7 @@ impl Memory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
     /// let p = m.grow(&mut store, 2).unwrap();
@@ -115,6 +118,7 @@ impl Memory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();

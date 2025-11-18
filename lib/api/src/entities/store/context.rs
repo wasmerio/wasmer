@@ -51,7 +51,6 @@ pub(crate) struct StoreContext {
 }
 
 pub(crate) struct StoreMutWrapper {
-    // Need MaybeUninit for the Drop impl
     store_mut: *mut StoreMut,
 }
 

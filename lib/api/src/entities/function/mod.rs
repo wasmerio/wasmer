@@ -74,6 +74,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
@@ -89,6 +90,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
@@ -134,6 +136,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Store, Function, FunctionEnv, FunctionEnvMut};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -221,6 +224,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -243,6 +247,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -264,6 +269,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -292,7 +298,6 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -301,7 +306,9 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
+    /// # let mut store = store.as_mut();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -360,7 +367,6 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -369,7 +375,9 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
+    /// # let mut store = store.as_mut();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -388,7 +396,6 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -397,7 +404,9 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
+    /// # let mut store = store.as_mut();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -414,7 +423,6 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -423,7 +431,9 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
+    /// # let mut store = store.as_mut();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #

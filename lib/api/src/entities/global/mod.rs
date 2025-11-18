@@ -28,6 +28,7 @@ impl Global {
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -45,6 +46,7 @@ impl Global {
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
@@ -71,6 +73,7 @@ impl Global {
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let c = Global::new(&mut store, Value::I32(1));
     /// let v = Global::new_mut(&mut store, Value::I64(1));
@@ -89,6 +92,7 @@ impl Global {
     /// ```
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -105,6 +109,7 @@ impl Global {
     /// ```
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
@@ -122,6 +127,7 @@ impl Global {
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -133,6 +139,7 @@ impl Global {
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///

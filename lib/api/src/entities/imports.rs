@@ -15,17 +15,17 @@ use wasmer_types::ImportError;
 ///
 /// # Usage:
 /// ```no_run
-/// use wasmer::{Store, Exports, Module, Instance, imports, Imports, Function, FunctionEnvMut};
-/// # fn foo_test(mut store: &mut Store, module: Module) {
+/// use wasmer::{AsStoreMut, Exports, Module, Instance, imports, Imports, Function, FunctionEnvMut};
+/// # fn foo_test(store: &mut impl AsStoreMut, module: Module) {
 ///
-/// let host_fn = Function::new_typed(&mut store, foo);
+/// let host_fn = Function::new_typed(store, foo);
 /// let import_object: Imports = imports! {
 ///     "env" => {
 ///         "foo" => host_fn,
 ///     },
 /// };
 ///
-/// let instance = Instance::new(&mut store, &module, &import_object).expect("Could not instantiate module.");
+/// let instance = Instance::new(store, &module, &import_object).expect("Could not instantiate module.");
 ///
 /// fn foo(n: i32) -> i32 {
 ///     n
@@ -108,6 +108,7 @@ impl Imports {
     /// ```no_run
     /// # use wasmer::{FunctionEnv, Store};
     /// # let mut store: Store = Default::default();
+    /// # let mut store = store.as_mut();
     /// use wasmer::{StoreMut, Imports, Function, FunctionEnvMut};
     /// fn foo(n: i32) -> i32 {
     ///     n
@@ -244,6 +245,7 @@ impl fmt::Debug for Imports {
 /// ```
 /// # use wasmer::{StoreMut, Function, FunctionEnvMut, Store};
 /// # let mut store = Store::default();
+/// # let mut store = store.as_mut();
 /// use wasmer::imports;
 ///
 /// let import_object = imports! {

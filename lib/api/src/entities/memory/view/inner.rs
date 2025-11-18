@@ -119,6 +119,7 @@ impl<'a> BackendMemoryView<'a> {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
+    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
