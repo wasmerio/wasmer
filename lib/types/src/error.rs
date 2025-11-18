@@ -178,9 +178,10 @@ pub enum CompileError {
     /// Middleware error occurred.
     #[cfg_attr(feature = "std", error("Middleware error: {0}"))]
     MiddlewareError(String),
+
     /// Compilation aborted by a user callback.
     #[cfg_attr(feature = "std", error("Compilation aborted: {0}"))]
-    User(UserAbort),
+    Aborted(UserAbort),
 }
 
 impl From<WasmError> for CompileError {
@@ -191,7 +192,7 @@ impl From<WasmError> for CompileError {
 
 impl From<UserAbort> for CompileError {
     fn from(abort: UserAbort) -> Self {
-        Self::User(abort)
+        Self::Aborted(abort)
     }
 }
 
