@@ -8,8 +8,8 @@ use thiserror::Error;
 #[cfg(feature = "wat")]
 use wasmer_types::WasmError;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ImportType, ImportsIterator,
-    ModuleInfo, SerializeError,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ImportType, ImportsIterator, ModuleInfo, SerializeError,
 };
 
 use crate::{
@@ -41,6 +41,21 @@ impl BackendModule {
             )))
         })?;
         Self::from_binary(engine, bytes.as_ref())
+    }
+
+    #[inline]
+    pub fn new_with_progress(
+        engine: &impl AsEngineRef,
+        bytes: impl AsRef<[u8]>,
+        callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        #[cfg(feature = "wat")]
+        let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
+            CompileError::Wasm(WasmError::Generic(format!(
+                "Error when converting wat: {e}",
+            )))
+        })?;
+        Self::from_binary_with_progress(engine, bytes.as_ref(), callback)
     }
 
     /// Creates a new WebAssembly module from a file path.
@@ -96,6 +111,67 @@ impl BackendModule {
             #[cfg(feature = "jsc")]
             crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
                 crate::backend::jsc::entities::module::Module::from_binary(engine, binary)?,
+            )),
+        }
+    }
+
+    #[inline]
+    pub fn from_binary_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        match engine.as_engine_ref().inner.be {
+            #[cfg(feature = "sys")]
+            crate::BackendEngine::Sys(_) => Ok(Self::Sys(
+                crate::backend::sys::entities::module::Module::from_binary_with_progress(
+                    engine,
+                    binary,
+                    callback.clone(),
+                )?,
+            )),
+
+            #[cfg(feature = "wamr")]
+            crate::BackendEngine::Wamr(_) => Ok(Self::Wamr(
+                crate::backend::wamr::entities::module::Module::from_binary_with_progress(
+                    engine,
+                    binary,
+                    callback.clone(),
+                )?,
+            )),
+
+            #[cfg(feature = "wasmi")]
+            crate::BackendEngine::Wasmi(_) => Ok(Self::Wasmi(
+                crate::backend::wasmi::entities::module::Module::from_binary_with_progress(
+                    engine,
+                    binary,
+                    callback.clone(),
+                )?,
+            )),
+
+            #[cfg(feature = "v8")]
+            crate::BackendEngine::V8(_) => Ok(Self::V8(
+                crate::backend::v8::entities::module::Module::from_binary_with_progress(
+                    engine,
+                    binary,
+                    callback.clone(),
+                )?,
+            )),
+
+            #[cfg(feature = "js")]
+            crate::BackendEngine::Js(_) => Ok(Self::Js(
+                crate::backend::js::entities::module::Module::from_binary_with_progress(
+                    engine,
+                    binary,
+                    callback.clone(),
+                )?,
+            )),
+
+            #[cfg(feature = "jsc")]
+            crate::BackendEngine::Jsc(_) => Ok(Self::Jsc(
+                crate::backend::jsc::entities::module::Module::from_binary_with_progress(
+                    engine, binary, callback,
+                )?,
             )),
         }
     }

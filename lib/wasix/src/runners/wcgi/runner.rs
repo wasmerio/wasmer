@@ -1,4 +1,4 @@
-use std::{net::SocketAddr, sync::Arc};
+use std::{borrow::Cow, net::SocketAddr, sync::Arc};
 
 use super::super::Body;
 use anyhow::{Context, Error};
@@ -21,7 +21,7 @@ use crate::{
         wasi_common::CommonWasiOptions,
         wcgi::handler::{Handler, SharedState},
     },
-    runtime::task_manager::VirtualTaskManagerExt,
+    runtime::{ModuleInput, task_manager::VirtualTaskManagerExt},
 };
 
 use super::Callbacks;
@@ -62,7 +62,8 @@ impl WcgiRunner {
             .annotation("wasi")?
             .unwrap_or_else(|| Wasi::new(command_name));
 
-        let module = runtime.load_command_module_sync(cmd)?;
+        let input = ModuleInput::Command(Cow::Borrowed(cmd));
+        let module = runtime.resolve_module_sync(input, None, None)?;
 
         let Wcgi { dialect, .. } = metadata.annotation("wcgi")?.unwrap_or_default();
         let dialect = match dialect {

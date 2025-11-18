@@ -3,7 +3,7 @@ use std::{fmt::Debug, ops::Deref, path::PathBuf};
 use wasmer::{Engine, Module};
 use wasmer_types::ModuleHash;
 
-use crate::runtime::module_cache::FallbackCache;
+use crate::runtime::module_cache::{FallbackCache, progress::ModuleLoadProgressReporter};
 
 /// A cache for compiled WebAssembly modules.
 ///
@@ -25,6 +25,20 @@ use crate::runtime::module_cache::FallbackCache;
 pub trait ModuleCache: Debug {
     /// Load a module based on its hash.
     async fn load(&self, key: ModuleHash, engine: &Engine) -> Result<Module, CacheError>;
+
+    /// Load a module based on its hash, with progress reporting.
+    ///
+    /// The provided progress reporter will receive updates about the loading process, if supported.
+    async fn load_with_progress(
+        &self,
+        key: ModuleHash,
+        engine: &Engine,
+        on_progress: ModuleLoadProgressReporter,
+    ) -> Result<Module, CacheError> {
+        // Default implementation just ignores progress reporting.
+        let _ = on_progress;
+        self.load(key, engine).await
+    }
 
     /// Check if a module is present in the cache.
     async fn contains(&self, key: ModuleHash, engine: &Engine) -> Result<bool, CacheError>;

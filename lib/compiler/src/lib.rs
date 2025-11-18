@@ -51,6 +51,7 @@ mod traits;
 
 pub mod misc;
 pub mod object;
+pub mod progress;
 pub mod serialize;
 pub mod types;
 

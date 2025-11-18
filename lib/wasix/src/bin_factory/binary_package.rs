@@ -62,6 +62,12 @@ impl BinaryPackageCommand {
         self.atom.clone()
     }
 
+    /// Get a reference to this [`BinaryPackageCommand`]'s atom as a cheap
+    /// clone of the internal OwnedBuffer.
+    pub fn atom_ref(&self) -> &SharedBytes {
+        &self.atom
+    }
+
     pub fn hash(&self) -> &ModuleHash {
         &self.hash
     }
@@ -352,10 +358,10 @@ mod tests {
             name = "foo"
             source = "foo.wasm"
             abi = "wasi"
-            
+
             [[command]]
             name = "cmd"
-            module = "foo"     
+            module = "foo"
         "#;
         let manifest = temp.path().join("wasmer.toml");
         std::fs::write(&manifest, wasmer_toml).unwrap();
