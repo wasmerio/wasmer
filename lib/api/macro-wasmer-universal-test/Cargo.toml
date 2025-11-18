@@ -1,9 +1,9 @@
 [package]
 name = "macro-wasmer-universal-test"
-version = "6.1.0"
-edition = "2024"
-license = "MIT"
 description = "Universal test macro for wasmer-test"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [lib]
 proc-macro = true

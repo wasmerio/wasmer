@@ -1,10 +1,10 @@
 [package]
 name = "wasmer-integration-tests-cli"
 version = "6.1.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "CLI integration tests"
-repository = "https://github.com/wasmerio/wasmer"
-edition = "2024"
+authors.workspace = true
+repository.workspace = true
+edition.workspace = true
 publish = false
 
 [dev-dependencies]

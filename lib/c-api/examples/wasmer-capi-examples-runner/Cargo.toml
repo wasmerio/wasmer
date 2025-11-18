@@ -1,9 +1,9 @@
 [package]
 name = "wasmer-capi-examples-runner"
-version = "6.1.0"
-edition = "2024"
-license = "MIT"
 description = "wasmer-capi-examples-runner"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
 
 [dependencies]
 cc.workspace = true

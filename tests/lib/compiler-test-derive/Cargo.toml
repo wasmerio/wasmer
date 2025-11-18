@@ -4,9 +4,9 @@ proc-macro = true
 [package]
 name = "compiler-test-derive"
 version = "0.0.1"
-authors = ["Wasmer Engineering <engineering@wasmer.io>"]
-edition = "2024"
-license = "MIT"
+authors.workspace = true
+edition.workspace = true
+license.workspace = true
 
 description = "A macro to generate easily tests across compilers and engines"
 keywords = ["unsafe", "body", "fn", "safety", "hygiene"]

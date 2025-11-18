@@ -1,10 +1,10 @@
 [package]
 name = "wasi-test-generator"
-version = "6.1.0"
+version.workspace = true
 description = "Tests for our WASI implementation"
-license = "MIT"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2024"
+license.workspace = true
+authors.workspace = true
+edition.workspace = true
 publish = false
 
 [dependencies]
