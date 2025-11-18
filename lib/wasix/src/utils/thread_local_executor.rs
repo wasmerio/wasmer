@@ -1,11 +1,9 @@
-use crate::WasiFunctionEnv;
 use futures::{
     executor::{LocalPool, LocalSpawner},
     task::LocalSpawnExt,
 };
 use std::thread::ThreadId;
 use thiserror::Error;
-use wasmer::{RuntimeError, Store, Value};
 
 /// A `Send`able spawner that spawns onto a thread-local executor
 ///
@@ -95,30 +93,4 @@ impl ThreadLocalExecutor {
     pub(crate) fn run_until<F: Future>(&mut self, future: F) -> F::Output {
         self.pool.run_until(future)
     }
-}
-
-// TODO: This does not belong here
-pub fn call_in_async_runtime<'a>(
-    ctx: &WasiFunctionEnv,
-    mut store: &mut Store,
-    entrypoint: wasmer::Function,
-    params: &'a [wasmer::Value],
-) -> Result<Box<[Value]>, RuntimeError> {
-    let cloned_params = params.to_vec();
-    let env = ctx.data_mut(&mut store);
-    // TODO: Ensure there is only one executor at a time?
-
-    // Set spawner in env
-    let mut local_executor = ThreadLocalExecutor::new();
-    let spawner = local_executor.spawner();
-    let previous_spawner = env.current_spawner.replace(spawner);
-
-    // Run function with the spawner
-    let result = local_executor.run_until(entrypoint.call_async(&mut *store, &cloned_params));
-
-    // Reset to previous spawner
-    let env = ctx.data_mut(&mut store);
-    env.current_spawner = previous_spawner;
-
-    result
 }
