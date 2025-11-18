@@ -40,7 +40,7 @@ use wasmer_wasix_types::wasi::{
 pub use self::{
     builder::*,
     env::{
-        WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles, context::Context,
+        WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles,
         local_spawn::call_in_async_runtime,
     },
     func_env::WasiFunctionEnv,

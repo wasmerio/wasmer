@@ -1,4 +1,3 @@
-pub mod context;
 pub mod local_spawn;
 
 use std::{
@@ -17,7 +16,7 @@ use virtual_mio::block_on;
 use virtual_net::DynVirtualNetworking;
 use wasmer::{
     AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
-    Module,
+    Module, RuntimeError,
 };
 use wasmer_config::package::PackageSource;
 use wasmer_wasix_types::{
@@ -44,7 +43,6 @@ use crate::{
     state::env::local_spawn::ThreadLocalSpawner,
     syscalls::platform_clock_time_get,
 };
-use context::Context;
 use wasmer_types::ModuleHash;
 
 pub use super::handles::*;
@@ -188,7 +186,8 @@ pub struct WasiEnv {
     inner: WasiInstanceHandlesPointer,
 
     /// TODO: Document these fields
-    pub(crate) contexts: Arc<RwLock<BTreeMap<u64, Context>>>,
+    pub(crate) contexts:
+        Arc<RwLock<BTreeMap<u64, futures::channel::oneshot::Sender<Result<(), RuntimeError>>>>>,
     pub(crate) current_context_id: Arc<RwLock<u64>>,
     pub(crate) next_available_context_id: AtomicU64,
     pub(crate) current_spawner: Option<ThreadLocalSpawner>,
