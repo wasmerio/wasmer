@@ -1295,13 +1295,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     let ptr_in_bounds = if offset.is_const() {
                         // When the offset is constant, if it's below the minimum
                         // memory size, we've statically shown that it's safe.
-                        let load_offset_end = offset.const_add(value_size_v);
-                        let ptr_in_bounds = load_offset_end.const_int_compare(
-                            IntPredicate::ULE,
-                            intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
-                        );
-                        if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
-                            Some(ptr_in_bounds)
+                        let load_offset_end =
+                            offset.const_add(value_size_v).get_zero_extended_constant();
+                        if load_offset_end.is_some_and(|load_offset_end| {
+                            load_offset_end <= minimum.bytes().0 as u64
+                        }) {
+                            Some(intrinsics.i64_ty.const_int(1, false))
                         } else {
                             None
                         }
