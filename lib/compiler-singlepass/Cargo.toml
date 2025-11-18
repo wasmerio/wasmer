@@ -24,6 +24,8 @@ dynasm.workspace = true
 dynasmrt.workspace = true
 byteorder.workspace = true
 smallvec.workspace = true
+tempfile.workspace = true
+itertools.workspace = true
 
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 rayon = { workspace = true, optional = true }
