@@ -5,7 +5,7 @@ use crate::{
     common_decl::Size,
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
-    machine_riscv::ImmType,
+    machine_riscv::{ImmType, RISCV_RETURN_VALUE_REGISTERS},
     riscv_decl::{ArgumentRegisterAllocator, RiscvRegister},
 };
 pub use crate::{
@@ -1722,7 +1722,11 @@ pub fn gen_std_trampoline_riscv(
     );
 
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
-    let mut stack_offset = stack_args as u32 * 8;
+    let stack_return_slots = sig
+        .results()
+        .len()
+        .saturating_sub(RISCV_RETURN_VALUE_REGISTERS.len());
+    let mut stack_offset = (stack_args + stack_return_slots) as u32 * 8;
     if stack_args > 0 {
         if stack_offset % 16 != 0 {
             stack_offset += 8;
@@ -1738,7 +1742,7 @@ pub fn gen_std_trampoline_riscv(
 
     // Move arguments to their locations.
     // `callee_vmctx` is already in the first argument register, so no need to move.
-    let mut caller_stack_offset: i32 = 0;
+    let mut caller_stack_offset: i32 = stack_return_slots as i32 * 8;
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
             Type::I32 | Type::F32 => Size::S32,
@@ -1797,12 +1801,25 @@ pub fn gen_std_trampoline_riscv(
     dynasm!(a
         ; jalr ra, X(fptr), 0);
 
-    // Write return value.
-    if !sig.results().is_empty() {
+    // Write return values.
+    let mut n_stack_return_slots: usize = 0;
+    for i in 0..sig.results().len() {
+        let src = if let Some(&reg) = RISCV_RETURN_VALUE_REGISTERS.get(i) {
+            reg
+        } else {
+            a.emit_ld(
+                Size::S64,
+                false,
+                Location::GPR(SCRATCH_REG),
+                Location::Memory(GPR::Sp, (n_stack_return_slots as u32 * 8) as _),
+            )?;
+            n_stack_return_slots += 1;
+            SCRATCH_REG
+        };
         a.emit_sd(
             Size::S64,
-            Location::GPR(GPR::X10),
-            Location::Memory(args, 0),
+            Location::GPR(src),
+            Location::Memory(args, (i * 16) as _),
         )?;
     }
 

@@ -2737,7 +2737,7 @@ impl Machine for MachineRiscv {
     ) -> Result<(), CompileError> {
         match (src, dst) {
             (Location::Memory(_, _), Location::GPR(_)) => {
-                codegen_error!("singlepass emit_relaxed_sign_extension unreachable")
+                self.assembler.emit_ld(sz_src, true, dst, src)?;
             }
             _ => {
                 let mut temps = vec![];
@@ -2752,9 +2752,10 @@ impl Machine for MachineRiscv {
                 for r in temps {
                     self.release_gpr(r);
                 }
-                Ok(())
             }
         }
+
+        Ok(())
     }
     fn emit_imul_imm32(
         &mut self,
