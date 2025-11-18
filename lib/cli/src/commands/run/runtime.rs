@@ -13,7 +13,10 @@ use wasmer_wasix::{
     SpawnError,
     bin_factory::{BinaryPackage, BinaryPackageCommand},
     runtime::{
-        module_cache::HashedModuleData,
+        module_cache::{
+            HashedModuleData,
+            progress::{ModuleLoadProgress, ModuleLoadProgressReporter},
+        },
         resolver::{PackageSummary, QueryError},
     },
 };
@@ -108,138 +111,62 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         self.runtime.active_journal()
     }
 
-    fn load_hashed_module(
-        &self,
-        module: HashedModuleData,
+    fn resolve_module<'a>(
+        &'a self,
+        input: wasmer_wasix::runtime::ModuleInput<'a>,
         engine: Option<&Engine>,
-    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        if self.quiet_mode {
-            Box::pin(self.runtime.load_hashed_module(module, engine))
-        } else {
-            let hash = *module.hash();
-            let fut = self.runtime.load_hashed_module(module, engine);
-            Box::pin(compile_with_progress(
-                &self.progress,
-                fut,
-                hash,
-                None,
-                self.quiet_mode,
-            ))
-        }
-    }
-
-    fn load_hashed_module_sync(
-        &self,
-        wasm: HashedModuleData,
-        engine: Option<&Engine>,
-    ) -> Result<Module, wasmer_wasix::SpawnError> {
-        if self.quiet_mode {
-            self.runtime.load_hashed_module_sync(wasm, engine)
-        } else {
-            let hash = *wasm.hash();
-            compile_with_progress_sync(
-                &self.progress,
-                move || self.runtime.load_hashed_module_sync(wasm, engine),
-                &hash,
-                None,
-            )
-        }
-    }
-
-    fn load_command_module(
-        &self,
-        cmd: &BinaryPackageCommand,
-    ) -> BoxFuture<'_, Result<Module, SpawnError>> {
-        if self.quiet_mode {
-            self.runtime.load_command_module(cmd)
-        } else {
-            let fut = self.runtime.load_command_module(cmd);
-
-            Box::pin(compile_with_progress(
-                &self.progress,
-                fut,
-                *cmd.hash(),
-                Some(cmd.name().to_owned()),
-                self.quiet_mode,
-            ))
-        }
-    }
-
-    fn load_command_module_sync(
-        &self,
-        cmd: &wasmer_wasix::bin_factory::BinaryPackageCommand,
-    ) -> Result<Module, wasmer_wasix::SpawnError> {
-        if self.quiet_mode {
-            self.runtime.load_command_module_sync(cmd)
-        } else {
-            compile_with_progress_sync(
-                &self.progress,
-                || self.runtime.load_command_module_sync(cmd),
-                cmd.hash(),
-                Some(cmd.name()),
-            )
-        }
-    }
-}
-
-async fn compile_with_progress<'a, F, T>(
-    bar: &ProgressBar,
-    fut: F,
-    hash: ModuleHash,
-    name: Option<String>,
-    quiet_mode: bool,
-) -> T
-where
-    F: std::future::Future<Output = T> + Send + 'a,
-    T: Send + 'static,
-{
-    if quiet_mode {
-        fut.await
-    } else {
-        let should_clear = bar.is_finished() || bar.is_hidden();
-        show_compile_progress(bar, &hash, name.as_deref());
-        let res = fut.await;
-        if should_clear {
-            bar.finish_and_clear();
+        on_progress: Option<ModuleLoadProgressReporter>,
+    ) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        if on_progress.is_some() || self.quiet_mode {
+            return self.runtime.resolve_module(input, engine, on_progress);
         }
 
-        res
-    }
-}
+        use std::fmt::Write as _;
 
-fn compile_with_progress_sync<F, T>(
-    bar: &ProgressBar,
-    f: F,
-    hash: &ModuleHash,
-    name: Option<&str>,
-) -> T
-where
-    F: FnOnce() -> T,
-{
-    let should_clear = bar.is_finished() || bar.is_hidden();
-    show_compile_progress(bar, hash, name);
-    let res = f();
-    if should_clear {
-        bar.finish_and_clear();
-    }
-    res
-}
+        let pb = self.progress.clone();
+        let on_progress = Some(ModuleLoadProgressReporter::new(move |prog| {
+            let msg = match prog {
+                ModuleLoadProgress::CompilingModule(c) => {
+                    if let (Some(step), Some(step_count)) = (c.phase_step(), c.phase_step_count()) {
+                        pb.set_length(step_count);
+                        pb.set_position(step);
+                    };
 
-fn show_compile_progress(bar: &ProgressBar, hash: &ModuleHash, name: Option<&str>) {
-    // Only show a spinner if we're running in a TTY
-    let hash = hash.to_string();
-    let hash = &hash[0..8];
-    let msg = if let Some(name) = name {
-        format!("Compiling WebAssembly module for command '{name}' ({hash})...")
-    } else {
-        format!("Compiling WebAssembly module {hash}...")
-    };
+                    let mut msg = if let Some(phase) = c.phase_name() {
+                        format!("Compiling module: {}", phase)
+                    } else {
+                        "Compiling module".to_string()
+                    };
 
-    bar.set_message(msg);
-    bar.enable_steady_tick(Duration::from_millis(100));
+                    let progress = if let (Some(step), Some(step_count)) =
+                        (c.phase_step(), c.phase_step_count())
+                    {
+                        pb.set_length(step_count);
+                        pb.set_position(step);
+                        write!(msg, " ({}/{})", step, step_count).unwrap();
+                    };
 
-    if bar.is_finished() || bar.is_hidden() {
-        bar.reset();
+                    msg
+                }
+                _ => "Compiling module...".to_string(),
+            };
+
+            pb.set_message(msg);
+            Ok(())
+        }));
+
+        let engine = engine.cloned();
+
+        let f = async move {
+            let res = self
+                .runtime
+                .resolve_module(input, engine.as_ref(), on_progress)
+                .await;
+            self.progress.finish_and_clear();
+            res
+        };
+
+        Box::pin(f)
     }
 }
 
