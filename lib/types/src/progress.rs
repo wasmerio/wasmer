@@ -4,7 +4,7 @@ use crate::lib::std::{borrow::Cow, fmt, string::String, sync::Arc};
 
 /// Indicates the current compilation progress.
 // NOTE: fields are kept private on purpose to enable forwards compatibility and future extension.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, Default)]
 pub struct CompilationProgress {
     phase_name: Option<Cow<'static, str>>,
     phase_step_count: Option<u64>,
@@ -38,16 +38,6 @@ impl CompilationProgress {
     /// Returns the index of the current step within the phase, if known.
     pub fn phase_step(&self) -> Option<u64> {
         self.phase_step
-    }
-}
-
-impl Default for CompilationProgress {
-    fn default() -> Self {
-        Self {
-            phase_name: None,
-            phase_step_count: None,
-            phase_step: None,
-        }
     }
 }
 

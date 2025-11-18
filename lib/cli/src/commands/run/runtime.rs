@@ -133,17 +133,16 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
                     };
 
                     let mut msg = if let Some(phase) = c.phase_name() {
-                        format!("Compiling module: {}", phase)
+                        format!("Compiling module: {phase}")
                     } else {
                         "Compiling module".to_string()
                     };
 
-                    let progress = if let (Some(step), Some(step_count)) =
-                        (c.phase_step(), c.phase_step_count())
-                    {
+                    if let (Some(step), Some(step_count)) = (c.phase_step(), c.phase_step_count()) {
                         pb.set_length(step_count);
                         pb.set_position(step);
-                        write!(msg, " ({}/{})", step, step_count).unwrap();
+                        // Note: writing to strings can not fail.
+                        write!(msg, " ({step}/{step_count})").unwrap();
                     };
 
                     msg
