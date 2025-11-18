@@ -39,7 +39,9 @@ use wasmer_wasix_types::wasi::{
 
 pub use self::{
     builder::*,
-    env::{WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles},
+    env::{
+        MAIN_CONTEXT_ID, WasiEnv, WasiEnvInit, WasiModuleInstanceHandles, WasiModuleTreeHandles,
+    },
     func_env::WasiFunctionEnv,
     types::*,
 };
