@@ -3,7 +3,7 @@ use futures::{
     executor::{LocalPool, LocalSpawner},
     task::LocalSpawnExt,
 };
-use std::{cell::RefCell, rc::Rc, thread::ThreadId};
+use std::thread::ThreadId;
 use thiserror::Error;
 use wasmer::{RuntimeError, Store, Value};
 
@@ -17,13 +17,12 @@ use wasmer::{RuntimeError, Store, Value};
 #[derive(Clone, Debug)]
 pub struct ThreadLocalSpawner {
     /// A reference to the local executor's spawner
-    pool: Rc<RefCell<Option<LocalSpawner>>>,
+    spawner: LocalSpawner,
     /// The thread this spawner is associated with
     ///
     /// Used to generate better error messages when trying to spawn on the wrong thread
     thread: ThreadId,
 }
-
 // SAFETY: The ThreadLocalSpawner enforces using the spawner on the thread it was created on
 // through runtime checks. See the safety comment in spawn_local.
 unsafe impl Send for ThreadLocalSpawner {}
@@ -31,7 +30,7 @@ unsafe impl Send for ThreadLocalSpawner {}
 #[derive(Debug, Error)]
 pub enum ThreadLocalSpawnerError {
     #[error(
-        "Trying to spawn on a different thread than the one the ThreadLocalSpawner was created on. Expected: {expected:?}, found: {found:?}"
+        "The ThreadLocalSpawner can only spawn tasks on the thread it was created on. Expected to be on {expected:?} but was actually on {found:?}"
     )]
     NotOnTheCorrectThread { expected: ThreadId, found: ThreadId },
     #[error(
@@ -59,15 +58,13 @@ impl ThreadLocalSpawner {
             });
         }
 
-        // As we now know that we are on the correct thread, we can borrow_mut safely
-        let mut spawner = self.pool.borrow_mut();
-        // spawn_local does not run the future immediately, it just schedules it, so this is fine
-        spawner
-            .as_mut()
-            .ok_or(ThreadLocalSpawnerError::LocalPoolShutDown)?
+        // As we now know that we are on the correct thread, we can use the spawner safely
+        self.spawner
             .spawn_local(future)
-            .map_err(|_| ThreadLocalSpawnerError::SpawnError);
-        Ok(())
+            .map_err(|e| match e.is_shutdown() {
+                true => ThreadLocalSpawnerError::LocalPoolShutDown,
+                false => ThreadLocalSpawnerError::SpawnError,
+            })
     }
 }
 
@@ -75,23 +72,17 @@ impl ThreadLocalSpawner {
 pub struct ThreadLocalExecutor {
     /// The local pool
     pool: LocalPool,
-    /// A reference to the spawner. This reference is shared with all spawners created from this executor
-    spawner: Rc<RefCell<Option<LocalSpawner>>>,
 }
 
 impl ThreadLocalExecutor {
     fn new() -> Self {
         let local_pool = futures::executor::LocalPool::new();
-        let local_spawner = Rc::new(RefCell::new(Some(local_pool.spawner())));
-        Self {
-            pool: local_pool,
-            spawner: local_spawner,
-        }
+        Self { pool: local_pool }
     }
 
     fn get_spawner(&self) -> ThreadLocalSpawner {
         ThreadLocalSpawner {
-            pool: self.spawner.clone(),
+            spawner: self.pool.spawner(),
             // SAFETY: This will always be the thread where the spawner was created on, as the ThreadLocalExecutor is not Send
             thread: std::thread::current().id(),
         }
@@ -99,14 +90,6 @@ impl ThreadLocalExecutor {
 
     fn run_until<F: Future>(&mut self, future: F) -> F::Output {
         self.pool.run_until(future)
-    }
-}
-
-impl Drop for ThreadLocalExecutor {
-    fn drop(&mut self) {
-        // Remove the spawner so the spawners can detect that the executor has been shut down
-        // If we don't do this, they will just get an opaque SpawnError
-        *self.spawner.borrow_mut() = None;
     }
 }
 
