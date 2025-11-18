@@ -2,9 +2,9 @@ use super::*;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
 use anyhow::Result;
 use core::panic;
+use futures::TryFutureExt;
 use futures::task::LocalSpawnExt;
 use futures::{FutureExt, channel::oneshot};
-use rkyv::vec;
 use std::collections::BTreeMap;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, OnceLock, RwLock};
@@ -39,48 +39,50 @@ pub fn context_new<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     let (data, mut store) = ctx.data_and_store_mut();
-
     let new_context_id = data
         .next_available_context_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
 
-    let function = data
+    let entrypoint = data
         .inner()
         .indirect_function_table_lookup(&mut store, entrypoint)
         .expect("Function not found in table");
 
-    let mut new_context = crate::state::Context::new();
-    let new_context_resume = new_context.suspend();
-
-    data.contexts
+    // Setup sender and receiver for the new context
+    let (sender, receiver) = oneshot::channel::<Result<(), RuntimeError>>();
+    let wait_for_resume = receiver.unwrap_or_else(|_canceled| {
+        // TODO: Handle canceled properly
+        todo!("Context was canceled. Cleanup not implemented yet so we just panic");
+    });
+    let mut contexts = data
+        .contexts
         .write()
         .unwrap()
-        .insert(new_context_id, new_context);
+        .insert(new_context_id, sender);
 
     // SAFETY: This is fine if we can ensure that ???
     //  A: The future does not outlive the store
     //  B: we now have multiple mutable references, this is dangerous
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<_, StoreMut<'static>>(store.as_store_mut()) };
-
-    let contexts_arc = data.contexts.clone();
+    let contexts_cloned = data.contexts.clone();
 
     let spawner = data
         .current_spawner
         .clone()
         .expect("No async spawner set on WasiEnv. Did you enter the async env before?");
-
     spawner.spawn_local(async move {
-        new_context_resume.await;
-        let result = function.call_async(&mut unsafe_static_store, &[]).await;
+        wait_for_resume.await;
+        let result = entrypoint.call_async(&mut unsafe_static_store, &[]).await;
 
-        let mut main_context = contexts_arc.write().unwrap();
-        let main_context = main_context.get_mut(&0).unwrap();
+        let mut main_context = contexts_cloned.write().unwrap();
+        let main_context = main_context.remove(&0).unwrap();
         match result {
             Err(e) => {
-                main_context.resume(Err(e));
+                main_context.send(Err(e));
             }
             Ok(v) => {
+                // If we get here, something went wrong, as the entrypoint function is not supposed to return
                 panic!(
                     "Context {} returned a value ({:?}). This is not allowed for now",
                     new_context_id, v
@@ -126,17 +128,27 @@ pub fn context_switch(
         panic!("Switching to self is not allowed");
     }
 
-    let mut contexts = data.contexts.write().unwrap();
-    let this_one = contexts.get_mut(&current_context_id).unwrap();
-    let receiver_promise = this_one.suspend();
+    let (sender, receiver) = oneshot::channel::<Result<(), RuntimeError>>();
+    // if self.resumer.is_some() {
+    //     panic!("Switching from a context that is already switched out");
+    // }
+    let wait_for_resume = receiver.unwrap_or_else(|_canceled| {
+        // TODO: Handle canceled properly
+        todo!("Context was canceled. Cleanup not implemented yet so we just panic");
+    });
 
-    let next_one = contexts.get_mut(&next_context_id).unwrap();
-    next_one.resume(Ok(()));
+    // let this_one = contexts.get_mut(&current_context_id).unwrap();
+    // let receiver_promise = this_one.suspend();
+
+    let mut contexts = data.contexts.write().unwrap();
+    contexts.insert(current_context_id, sender);
+    let next_one = contexts.remove(&next_context_id).unwrap();
+    next_one.send(Ok(()));
 
     let current_id_arc = data.current_context_id.clone();
 
     async move {
-        let result = receiver_promise.await;
+        let result = wait_for_resume.await;
 
         *current_id_arc.write().unwrap() = current_context_id;
 
