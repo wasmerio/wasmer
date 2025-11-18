@@ -105,6 +105,23 @@ impl ModuleHash {
             Self::Sha256(bytes) => bytes.as_slice(),
         }
     }
+
+    /// Build a short hex representation of the hash (first 4 bytes).
+    pub fn short_hash(&self) -> String {
+        use std::fmt::Write as _;
+
+        let bytes = match self {
+            Self::XXHash(bytes) => &bytes[0..4],
+            Self::Sha256(bytes) => &bytes[0..4],
+        };
+
+        let mut s = String::new();
+        for byte in bytes {
+            write!(s, "{byte:02x}").unwrap();
+        }
+
+        s
+    }
 }
 
 impl Display for ModuleHash {

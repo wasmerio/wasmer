@@ -117,11 +117,18 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
         engine: Option<&Engine>,
         on_progress: Option<ModuleLoadProgressReporter>,
     ) -> BoxFuture<'a, Result<Module, SpawnError>> {
+        // If a progress reporter is already provided, or quiet mode is enabled,
+        // just delegate to the inner runtime.
         if on_progress.is_some() || self.quiet_mode {
             return self.runtime.resolve_module(input, engine, on_progress);
         }
 
+        // Compile with progress monitoring through the progress bar.
+
         use std::fmt::Write as _;
+
+        let short_hash = input.hash().short_hash();
+        let progress_msg = format!("Compiling module ({short_hash})");
 
         let pb = self.progress.clone();
         let on_progress = Some(ModuleLoadProgressReporter::new(move |prog| {
@@ -132,11 +139,11 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
                         pb.set_position(step);
                     };
 
-                    let mut msg = if let Some(phase) = c.phase_name() {
-                        format!("Compiling module: {phase}")
-                    } else {
-                        "Compiling module".to_string()
-                    };
+                    let mut msg = format!("Compiling module ({short_hash})");
+                    if let Some(phase) = c.phase_name() {
+                        // Note: writing to strings can not fail.
+                        write!(msg, " - {phase}").unwrap();
+                    }
 
                     if let (Some(step), Some(step_count)) = (c.phase_step(), c.phase_step_count()) {
                         pb.set_length(step_count);
@@ -144,6 +151,7 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
                         // Note: writing to strings can not fail.
                         write!(msg, " ({step}/{step_count})").unwrap();
                     };
+                    pb.tick();
 
                     msg
                 }
@@ -156,12 +164,27 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 
         let engine = engine.cloned();
 
+        let style = indicatif::ProgressStyle::default_bar()
+            .template("{spinner} {wide_bar:.cyan/blue} {msg}")
+            .expect("invalid progress bar template");
+        self.progress.set_style(style);
+
+        self.progress.reset();
+        self.progress.set_message(progress_msg);
+
         let f = async move {
             let res = self
                 .runtime
                 .resolve_module(input, engine.as_ref(), on_progress)
                 .await;
+
+            // Hide the progress bar and reset it to the default spinner style.
+            // Needed because future module downloads should not show a bar.
+            self.progress
+                .set_style(indicatif::ProgressStyle::default_spinner());
+            self.progress.reset();
             self.progress.finish_and_clear();
+
             res
         };
 
