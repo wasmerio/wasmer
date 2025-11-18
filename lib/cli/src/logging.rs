@@ -1,8 +1,8 @@
 //! Logging functions for the debug feature.
 
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use tracing::level_filters::LevelFilter;
-use tracing_subscriber::{EnvFilter, fmt, layer::SubscriberExt, util::SubscriberInitExt};
+use tracing_subscriber::{EnvFilter, Layer, fmt, layer::SubscriberExt, util::SubscriberInitExt};
 
 const WHITELISTED_LOG_TARGETS: &[&str] = &["wasmer", "wasmer_wasix", "virtual_fs"];
 
@@ -32,9 +32,16 @@ impl Output {
         self.verbose > 0
     }
 
+    /// Returns true if either the `--quiet` flag is set or stderr is not a TTY.
+    pub fn is_quiet_or_no_tty(&self) -> bool {
+        self.quiet || !std::io::stderr().is_terminal()
+    }
+
     /// Initialize logging based on the `$RUST_LOG` environment variable and
     /// command-line flags.
     pub fn initialize_logging(&self) {
+        let filter_layer = self.log_filter();
+
         let fmt_layer = fmt::layer()
             .with_target(true)
             .with_ansi(self.should_emit_colors())
@@ -49,18 +56,24 @@ impl Output {
             }
         };
 
-        let filter_layer = self.log_filter();
+        let registry = tracing_subscriber::registry();
+
+        #[cfg(feature = "tokio-subscriber")]
+        let registry = registry.with(console_subscriber::spawn());
 
         match self.log_format {
-            LogFormat::Text => tracing_subscriber::registry()
-                .with(filter_layer)
-                .with(fmt_layer.compact().with_target(true))
+            LogFormat::Text => registry
+                .with(
+                    fmt_layer
+                        .compact()
+                        .with_target(true)
+                        .with_filter(filter_layer),
+                )
                 .init(),
-            LogFormat::Json => tracing_subscriber::registry()
-                .with(filter_layer)
-                .with(fmt_layer.json().with_target(true))
+            LogFormat::Json => registry
+                .with(fmt_layer.json().with_target(true).with_filter(filter_layer))
                 .init(),
-        }
+        };
     }
 
     fn log_filter(&self) -> EnvFilter {

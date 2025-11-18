@@ -825,7 +825,7 @@ mod tests {
     #[test]
     fn alignment() {
         fn is_aligned(x: u32) -> bool {
-            x % 16 == 0
+            x.is_multiple_of(16)
         }
         assert!(is_aligned(align(0, 16)));
         assert!(is_aligned(align(32, 16)));

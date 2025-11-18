@@ -11,7 +11,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::CustomSection,
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, VMOffsets,
@@ -24,7 +24,7 @@ use crate::{
     emitter_riscv::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    riscv_decl::{FPR, GPR, new_machine_state},
+    riscv_decl::{FPR, GPR},
     unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
 };
 
@@ -1790,6 +1790,19 @@ impl MachineRiscv {
     }
 }
 
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const RISCV_RETURN_VALUE_REGISTERS: [GPR; 8] = [
+    GPR::X10,
+    GPR::X11,
+    GPR::X12,
+    GPR::X13,
+    GPR::X14,
+    GPR::X15,
+    GPR::X16,
+    GPR::X17,
+];
+
 #[allow(dead_code)]
 #[derive(PartialEq, Copy, Clone)]
 pub(crate) enum ImmType {
@@ -1819,12 +1832,6 @@ impl Machine for MachineRiscv {
     type SIMD = FPR;
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
-    }
-    fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex {
-        RegisterIndex(x as usize + 32)
     }
     fn get_vmctx_reg(&self) -> Self::GPR {
         // Must be a callee-save register.
@@ -1938,7 +1945,7 @@ impl Machine for MachineRiscv {
 
     fn push_used_simd(&mut self, used_neons: &[Self::SIMD]) -> Result<usize, CompileError> {
         let stack_adjust = (used_neons.len() * 8) as u32;
-        self.adjust_stack(stack_adjust)?;
+        self.extend_stack(stack_adjust)?;
 
         for (i, r) in used_neons.iter().enumerate() {
             self.assembler.emit_sd(
@@ -2033,7 +2040,7 @@ impl Machine for MachineRiscv {
     fn local_on_stack(&mut self, stack_offset: i32) -> Location {
         Location::Memory(GPR::Fp, -stack_offset)
     }
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if ImmType::Bits12Subtraction.compatible_imm(delta_stack_offset as _) {
             Location::Imm64(delta_stack_offset as _)
         } else {
@@ -2048,28 +2055,12 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::Sp),
         )
     }
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         let delta = if ImmType::Bits12.compatible_imm(delta_stack_offset as _) {
             Location::Imm64(delta_stack_offset as _)
         } else {
             self.assembler
                 .emit_mov_imm(Location::GPR(SCRATCH_REG), delta_stack_offset as _)?;
-            Location::GPR(SCRATCH_REG)
-        };
-        self.assembler.emit_add(
-            Size::S64,
-            Location::GPR(GPR::Sp),
-            delta,
-            Location::GPR(GPR::Sp),
-        )
-    }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        let delta_stack_offset = delta_stack_offset as i64;
-        let delta = if ImmType::Bits12.compatible_imm(delta_stack_offset) {
-            Location::Imm64(delta_stack_offset as _)
-        } else {
-            self.assembler
-                .emit_mov_imm(Location::GPR(SCRATCH_REG), delta_stack_offset)?;
             Location::GPR(SCRATCH_REG)
         };
         self.assembler.emit_add(
@@ -2184,16 +2175,22 @@ impl Machine for MachineRiscv {
     // Get call param location, MUST be called in order!
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         _sz: Size,
         stack_args: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(RISCV_RETURN_VALUE_REGISTERS.len()) as i32;
         self.get_param_registers(calling_convention)
             .get(idx)
             .map_or_else(
                 || {
-                    let loc = Location::Memory(GPR::Fp, 16 + *stack_args as i32);
+                    let loc = Location::Memory(
+                        GPR::Fp,
+                        16 + return_values_memory_size + *stack_args as i32,
+                    );
                     *stack_args += 8;
                     loc
                 },
@@ -2209,6 +2206,38 @@ impl Machine for MachineRiscv {
             .get(idx)
             .map(|reg| Location::GPR(*reg))
             .expect("memory parameters are not supported yet")
+    }
+
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        _calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        RISCV_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let loc = Location::Memory(GPR::Sp, *stack_location as i32);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        _calling_convention: CallingConvention,
+    ) -> AbstractLocation<Self::GPR, Self::SIMD> {
+        RISCV_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                Location::Memory(
+                    GPR::X29,
+                    (16 * 2 + (idx - RISCV_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
     }
 
     // move a location to another
@@ -2399,9 +2428,6 @@ impl Machine for MachineRiscv {
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.emit_pop(Size::S64, location)
     }
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
-    }
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
         self.assembler.finalize().map_err(|e| {
             CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
@@ -2471,27 +2497,6 @@ impl Machine for MachineRiscv {
             Location::GPR(GPR::Sp),
         )?;
 
-        Ok(())
-    }
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => unreachable!(),
-                },
-                loc,
-                Location::GPR(GPR::X10),
-            )?;
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::X10))?;
-        }
         Ok(())
     }
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {

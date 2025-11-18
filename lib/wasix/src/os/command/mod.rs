@@ -2,12 +2,11 @@ pub mod builtins;
 
 use std::{collections::HashMap, sync::Arc};
 
+use virtual_mio::block_on;
 use wasmer::FunctionEnvMut;
 use wasmer_wasix_types::wasi::Errno;
 
-use crate::{
-    Runtime, SpawnError, WasiEnv, runtime::task_manager::InlineWaker, syscalls::stderr_write,
-};
+use crate::{Runtime, SpawnError, WasiEnv, syscalls::stderr_write};
 
 use super::task::{OwnedTaskStatus, TaskJoinHandle, TaskStatus};
 
@@ -92,7 +91,7 @@ impl Commands {
             cmd.exec(parent_ctx, path.as_str(), builder)
         } else {
             unsafe {
-                InlineWaker::block_on(stderr_write(
+                block_on(stderr_write(
                     parent_ctx,
                     format!("wasm command unknown - {path}\r\n").as_bytes(),
                 ))

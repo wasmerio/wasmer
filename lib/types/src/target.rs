@@ -126,6 +126,11 @@ impl CpuFeature {
         // We default to an empty hash set
         EnumSet::new()
     }
+
+    /// Build a set of all available `CpuFeature`s.
+    pub fn all() -> EnumSet<Self> {
+        EnumSet::all()
+    }
 }
 
 // This options should map exactly the GCC options indicated

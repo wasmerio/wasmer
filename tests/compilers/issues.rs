@@ -91,6 +91,7 @@ fn call_with_static_data_pointers(mut config: crate::Config) -> Result<()> {
         memory: Option<Memory>,
     }
 
+    #[allow(clippy::too_many_arguments)]
     pub fn banana(
         mut ctx: FunctionEnvMut<Env>,
         a: u64,

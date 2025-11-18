@@ -14,22 +14,6 @@ pub struct Instance {
     _handle: StoreHandle<VMInstance>,
 }
 
-#[cfg(test)]
-mod send_test {
-    use super::*;
-
-    // Only here to statically ensure that `Instance` is `Send`.
-    // Will fail to compile otherwise.
-    #[allow(dead_code)]
-    fn instance_is_send(inst: Instance) {
-        fn is_send(t: impl Send) {
-            let _ = t;
-        }
-
-        is_send(inst);
-    }
-}
-
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
     fn from(other: wasmer_compiler::InstantiationError) -> Self {
         match other {
@@ -103,5 +87,21 @@ impl crate::BackendInstance {
             Self::Sys(s) => s,
             _ => panic!("Not a `sys` instance"),
         }
+    }
+}
+
+#[cfg(test)]
+mod send_test {
+    use super::*;
+
+    // Only here to statically ensure that `Instance` is `Send`.
+    // Will fail to compile otherwise.
+    #[allow(dead_code)]
+    fn instance_is_send(inst: Instance) {
+        fn is_send(t: impl Send) {
+            let _ = t;
+        }
+
+        is_send(inst);
     }
 }

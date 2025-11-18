@@ -1,4 +1,4 @@
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 
 use super::*;
 
@@ -25,7 +25,7 @@ impl JournalEffector {
         // any signals
         if env.replaying_journal {
             let state = env.state.clone();
-            InlineWaker::block_on(state.fs.close_all());
+            block_on(state.fs.close_all());
         } else {
             env.blocking_on_exit(exit_code);
         }

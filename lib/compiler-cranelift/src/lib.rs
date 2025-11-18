@@ -6,7 +6,7 @@
 //! Compared to LLVM, Cranelift is a bit faster and made entirely in Rust.
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![allow(clippy::new_without_default, clippy::new_without_default)]
+#![allow(clippy::new_without_default)]
 #![warn(
     clippy::float_arithmetic,
     clippy::mut_mut,
@@ -51,7 +51,7 @@ mod translator;
 use cranelift_codegen::ir::TrapCode;
 
 pub use crate::compiler::CraneliftCompiler;
-pub use crate::config::{Cranelift, CraneliftOptLevel};
+pub use crate::config::{Cranelift, CraneliftCallbacks, CraneliftOptLevel};
 pub use crate::debug::{ModuleInfoMemoryOffset, ModuleInfoVmctxInfo, ValueLabelsRanges};
 pub use crate::trampoline::make_trampoline_function_call;
 

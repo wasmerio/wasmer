@@ -2,7 +2,7 @@
 
 use crate::{
     codegen_error,
-    common_decl::{Size, save_assembly_to_file},
+    common_decl::Size,
     location::{Location as AbstractLocation, Reg},
     machine::MaybeImmediate,
     machine_riscv::ImmType,
@@ -1823,8 +1823,6 @@ pub fn gen_std_trampoline_riscv(
     dynasm!(a; ret);
 
     let mut body = a.finalize().unwrap();
-
-    save_assembly_to_file("-trampoline-dump.o", &body);
 
     body.shrink_to_fit();
     Ok(FunctionBody {

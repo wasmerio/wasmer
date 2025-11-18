@@ -1,4 +1,3 @@
-use crate::common_decl::RegisterIndex;
 use crate::machine::*;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -78,8 +77,6 @@ pub trait Descriptor<R: Reg, S: Reg> {
 
 #[allow(unused)]
 pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex;
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self;
     /// Convert from an SIMD register

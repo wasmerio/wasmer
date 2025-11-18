@@ -49,8 +49,8 @@ pub struct CreateExe {
     #[clap(name = "OUTPUT PATH", short = 'o')]
     output: PathBuf,
 
-    /// Optional directorey used for debugging: if present, will output the zig command
-    /// for reproducing issues in a debug directory
+    /// Optional directory used for debugging: if present, will output the zig command
+    /// for reproducing issues in a debug directory.
     #[clap(long, name = "DEBUG PATH")]
     debug_dir: Option<PathBuf>,
 
@@ -1657,20 +1657,20 @@ pub(super) mod utils {
     ) -> Result<CrossCompileSetup, anyhow::Error> {
         let target = target_triple;
 
-        if let Some(tarball_path) = cross_subc.tarball.as_mut() {
-            if tarball_path.is_relative() {
-                *tarball_path = starting_cd.join(&tarball_path);
-                if !tarball_path.exists() {
-                    return Err(anyhow!(
-                        "Tarball path `{}` does not exist.",
-                        tarball_path.display()
-                    ));
-                } else if tarball_path.is_dir() {
-                    return Err(anyhow!(
-                        "Tarball path `{}` is a directory.",
-                        tarball_path.display()
-                    ));
-                }
+        if let Some(tarball_path) = cross_subc.tarball.as_mut()
+            && tarball_path.is_relative()
+        {
+            *tarball_path = starting_cd.join(&tarball_path);
+            if !tarball_path.exists() {
+                return Err(anyhow!(
+                    "Tarball path `{}` does not exist.",
+                    tarball_path.display()
+                ));
+            } else if tarball_path.is_dir() {
+                return Err(anyhow!(
+                    "Tarball path `{}` is a directory.",
+                    tarball_path.display()
+                ));
             }
         }
 
@@ -1777,10 +1777,10 @@ pub(super) mod utils {
             return None;
         }
 
-        if let Architecture::Aarch64(_) = target.architecture {
-            if !(filename.contains("aarch64") || filename.contains("arm64")) {
-                return None;
-            }
+        if let Architecture::Aarch64(_) = target.architecture
+            && !(filename.contains("aarch64") || filename.contains("arm64"))
+        {
+            return None;
         }
 
         if let Architecture::X86_64 = target.architecture {
@@ -1793,22 +1793,22 @@ pub(super) mod utils {
             }
         }
 
-        if let OperatingSystem::Windows = target.operating_system {
-            if !filename.contains("windows") {
-                return None;
-            }
+        if let OperatingSystem::Windows = target.operating_system
+            && !filename.contains("windows")
+        {
+            return None;
         }
 
-        if let OperatingSystem::Darwin(_) = target.operating_system {
-            if !(filename.contains("apple") || filename.contains("darwin")) {
-                return None;
-            }
+        if let OperatingSystem::Darwin(_) = target.operating_system
+            && !(filename.contains("apple") || filename.contains("darwin"))
+        {
+            return None;
         }
 
-        if let OperatingSystem::Linux = target.operating_system {
-            if !filename.contains("linux") {
-                return None;
-            }
+        if let OperatingSystem::Linux = target.operating_system
+            && !filename.contains("linux")
+        {
+            return None;
         }
 
         Some(true)

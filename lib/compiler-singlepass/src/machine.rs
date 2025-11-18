@@ -17,7 +17,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationTarget},
         section::CustomSection,
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
@@ -78,10 +78,6 @@ pub trait Machine {
     type SIMD: Copy + Eq + Debug + Reg;
     /// Get current assembler offset
     fn assembler_get_offset(&self) -> Offset;
-    /// Convert from a GPR register to index register
-    fn index_from_gpr(&self, x: Self::GPR) -> RegisterIndex;
-    /// Convert from an SIMD register
-    fn index_from_simd(&self, x: Self::SIMD) -> RegisterIndex;
     /// Get the GPR that hold vmctx
     fn get_vmctx_reg(&self) -> Self::GPR;
     /// Picks an unused general purpose register for local/stack/argument use.
@@ -148,15 +144,10 @@ pub trait Machine {
     /// Memory location for a local on the stack
     /// Like Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)) for x86_64
     fn local_on_stack(&mut self, stack_offset: i32) -> Location<Self::GPR, Self::SIMD>;
-    /// Adjust stack for locals
-    /// Like assembler.emit_sub(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
-    /// restore stack
-    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
-    /// Pop stack of locals
-    /// Like assembler.emit_add(Size::S64, Location::Imm32(delta_stack_offset as u32), Location::GPR(GPR::RSP))
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
+    /// Allocate an extra space on the stack.
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
+    /// Truncate stack space by the `delta_stack_offset`.
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError>;
     /// Zero a location taht is 32bits
     fn zero_location(
         &mut self,
@@ -205,6 +196,7 @@ pub trait Machine {
     /// Get call param location (from a call, using FP for stack args)
     fn get_call_param_location(
         &self,
+        result_slots: usize,
         idx: usize,
         sz: Size,
         stack_offset: &mut usize,
@@ -212,6 +204,19 @@ pub trait Machine {
     ) -> Location<Self::GPR, Self::SIMD>;
     /// Get simple param location
     fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
@@ -245,8 +250,6 @@ pub trait Machine {
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState;
 
     /// Finalize the assembler
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError>;
@@ -261,13 +264,6 @@ pub trait Machine {
     fn emit_function_prolog(&mut self) -> Result<(), CompileError>;
     /// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
     fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
-    /// handle return value, with optional cannonicalization if wanted
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        cannonicalize: bool,
-        loc: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
     /// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
     fn emit_function_return_float(&mut self) -> Result<(), CompileError>;
     /// Is NaN canonicalization supported

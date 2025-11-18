@@ -1,9 +1,6 @@
 //! RISC-V structures.
 
-use crate::{
-    common_decl::{MachineState, MachineValue, RegisterIndex},
-    location::{CombinedRegister, Reg as AbstractReg},
-};
+use crate::location::{CombinedRegister, Reg as AbstractReg};
 use std::slice::Iter;
 use wasmer_types::{CompileError, Type};
 
@@ -367,12 +364,6 @@ pub enum RiscvRegister {
 }
 
 impl CombinedRegister for RiscvRegister {
-    fn to_index(&self) -> RegisterIndex {
-        match *self {
-            RiscvRegister::GPR(x) => RegisterIndex(x as usize),
-            RiscvRegister::FPR(x) => RegisterIndex(x as usize + 64),
-        }
-    }
     fn from_gpr(x: u16) -> Self {
         RiscvRegister::GPR(GPR::from_index(x as usize).unwrap())
     }
@@ -441,15 +432,5 @@ impl ArgumentRegisterAllocator {
         };
 
         Ok(ret)
-    }
-}
-
-/// Create a new `MachineState` with default values for RISC-V.
-pub fn new_machine_state() -> MachineState {
-    MachineState {
-        stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 32 + 32],
-        wasm_stack: vec![],
-        wasm_inst_offset: usize::MAX,
     }
 }

@@ -86,10 +86,10 @@ pub unsafe extern "C" fn wasm_frame_func_name(frame: &wasm_frame_t) -> wasm_name
 
 #[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_name_delete(name: Option<&mut wasm_name_t>) {
-    if let Some(s) = name {
-        if !s.name.is_null() {
-            let _ = unsafe { CString::from_raw(s.name) };
-        }
+    if let Some(s) = name
+        && !s.name.is_null()
+    {
+        let _ = unsafe { CString::from_raw(s.name) };
     }
 }
 

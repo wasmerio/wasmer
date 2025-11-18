@@ -40,8 +40,8 @@ use tokio_serde::formats::SymmetricalMessagePack;
 use tokio_util::codec::FramedRead;
 use tokio_util::codec::FramedWrite;
 use tokio_util::codec::LengthDelimitedCodec;
-use virtual_mio::InlineWaker;
 use virtual_mio::InterestType;
+use virtual_mio::block_on;
 
 use crate::IpCidr;
 use crate::IpRoute;
@@ -1006,7 +1006,7 @@ impl VirtualSocket for RemoteSocket {
     }
 
     fn ttl(&self) -> Result<u32> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetTtl)) {
+        match block_on(self.io_socket(RequestType::GetTtl)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Ttl(ttl) => Ok(ttl),
             res => {
@@ -1017,7 +1017,7 @@ impl VirtualSocket for RemoteSocket {
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrLocal)) {
+        match block_on(self.io_socket(RequestType::GetAddrLocal)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketAddr(addr) => Ok(addr),
             res => {
@@ -1028,7 +1028,7 @@ impl VirtualSocket for RemoteSocket {
     }
 
     fn status(&self) -> Result<crate::SocketStatus> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetStatus)) {
+        match block_on(self.io_socket(RequestType::GetStatus)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Status(status) => Ok(status),
             res => {
@@ -1068,10 +1068,10 @@ impl VirtualTcpListener for RemoteSocket {
         // server as the constructor invokes this method and we invoke it here after
         // receiving a child connection.
         let mut rx_recv = None;
-        if let Some((rx_socket, existing_rx_recv)) = self.pending_accept.take() {
-            if accepted.socket == rx_socket {
-                rx_recv.replace(existing_rx_recv);
-            }
+        if let Some((rx_socket, existing_rx_recv)) = self.pending_accept.take()
+            && accepted.socket == rx_socket
+        {
+            rx_recv.replace(existing_rx_recv);
         }
         let rx_recv = match rx_recv {
             Some(rx_recv) => rx_recv,
@@ -1133,7 +1133,7 @@ impl VirtualTcpListener for RemoteSocket {
     }
 
     fn addr_local(&self) -> Result<SocketAddr> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrLocal)) {
+        match block_on(self.io_socket(RequestType::GetAddrLocal)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketAddr(addr) => Ok(addr),
             res => {
@@ -1148,7 +1148,7 @@ impl VirtualTcpListener for RemoteSocket {
     }
 
     fn ttl(&self) -> Result<u8> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetTtl)) {
+        match block_on(self.io_socket(RequestType::GetTtl)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Ttl(val) => Ok(val.try_into().map_err(|_| NetworkError::InvalidData)?),
             res => {
@@ -1222,7 +1222,7 @@ impl VirtualRawSocket for RemoteSocket {
     }
 
     fn promiscuous(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetPromiscuous)) {
+        match block_on(self.io_socket(RequestType::GetPromiscuous)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1286,7 +1286,7 @@ impl VirtualUdpSocket for RemoteSocket {
     }
 
     fn broadcast(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetBroadcast)) {
+        match block_on(self.io_socket(RequestType::GetBroadcast)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1301,7 +1301,7 @@ impl VirtualUdpSocket for RemoteSocket {
     }
 
     fn multicast_loop_v4(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetMulticastLoopV4)) {
+        match block_on(self.io_socket(RequestType::GetMulticastLoopV4)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1316,7 +1316,7 @@ impl VirtualUdpSocket for RemoteSocket {
     }
 
     fn multicast_loop_v6(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetMulticastLoopV6)) {
+        match block_on(self.io_socket(RequestType::GetMulticastLoopV6)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1331,7 +1331,7 @@ impl VirtualUdpSocket for RemoteSocket {
     }
 
     fn multicast_ttl_v4(&self) -> Result<u32> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetMulticastTtlV4)) {
+        match block_on(self.io_socket(RequestType::GetMulticastTtlV4)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Ttl(ttl) => Ok(ttl),
             res => {
@@ -1366,7 +1366,7 @@ impl VirtualUdpSocket for RemoteSocket {
     }
 
     fn addr_peer(&self) -> Result<Option<SocketAddr>> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
+        match block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(None),
             ResponseType::SocketAddr(addr) => Ok(Some(addr)),
@@ -1386,7 +1386,7 @@ impl VirtualConnectedSocket for RemoteSocket {
     }
 
     fn linger(&self) -> Result<Option<Duration>> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetLinger)) {
+        match block_on(self.io_socket(RequestType::GetLinger)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::None => Ok(None),
             ResponseType::Duration(val) => Ok(Some(val)),
@@ -1460,7 +1460,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn recv_buf_size(&self) -> Result<usize> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetRecvBufSize)) {
+        match block_on(self.io_socket(RequestType::GetRecvBufSize)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Amount(amt) => Ok(amt.try_into().map_err(|_| NetworkError::IOError)?),
             res => {
@@ -1475,7 +1475,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn send_buf_size(&self) -> Result<usize> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetSendBufSize)) {
+        match block_on(self.io_socket(RequestType::GetSendBufSize)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Amount(val) => Ok(val.try_into().map_err(|_| NetworkError::IOError)?),
             res => {
@@ -1490,7 +1490,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn nodelay(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetNoDelay)) {
+        match block_on(self.io_socket(RequestType::GetNoDelay)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1505,7 +1505,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn keepalive(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetKeepAlive)) {
+        match block_on(self.io_socket(RequestType::GetKeepAlive)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1520,7 +1520,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn dontroute(&self) -> Result<bool> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetDontRoute)) {
+        match block_on(self.io_socket(RequestType::GetDontRoute)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::Flag(val) => Ok(val),
             res => {
@@ -1531,7 +1531,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn addr_peer(&self) -> Result<SocketAddr> {
-        match InlineWaker::block_on(self.io_socket(RequestType::GetAddrPeer)) {
+        match block_on(self.io_socket(RequestType::GetAddrPeer)) {
             ResponseType::Err(err) => Err(err),
             ResponseType::SocketAddr(addr) => Ok(addr),
             res => {
@@ -1551,7 +1551,7 @@ impl VirtualTcpSocket for RemoteSocket {
     }
 
     fn is_closed(&self) -> bool {
-        match InlineWaker::block_on(self.io_socket(RequestType::IsClosed)) {
+        match block_on(self.io_socket(RequestType::IsClosed)) {
             ResponseType::Flag(val) => val,
             _ => false,
         }

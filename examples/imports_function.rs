@@ -56,7 +56,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
         let result = args[0].unwrap_i32() * 2;
 
-        println!("Result of `multiply_dynamic`: {:?}", result);
+        println!("Result of `multiply_dynamic`: {result:?}");
 
         Ok(vec![Value::I32(result)])
     });
@@ -65,7 +65,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         println!("Calling `multiply_typed`...");
         let result = a * 3;
 
-        println!("Result of `multiply_typed`: {:?}", result);
+        println!("Result of `multiply_typed`: {result:?}");
 
         result
     }
@@ -87,14 +87,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The Wasm module exports a function called `sum`. Let's get it.
     let sum: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_function("sum")?.typed(&mut store)?;
+        instance.exports.get_function("sum")?.typed(&store)?;
 
     println!("Calling `sum` function...");
     // Let's call the `sum` exported function. It will call each
     // of the imported functions.
     let result = sum.call(&mut store, 1, 2)?;
 
-    println!("Results of `sum`: {:?}", result);
+    println!("Results of `sum`: {result:?}");
     assert_eq!(result, 8);
 
     Ok(())

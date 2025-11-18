@@ -6,7 +6,7 @@ use crate::{
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::{
     collections::HashSet,
     path::{Path, PathBuf},

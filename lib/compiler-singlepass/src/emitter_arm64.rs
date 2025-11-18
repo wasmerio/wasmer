@@ -3,8 +3,10 @@ pub use crate::{
     location::{Multiplier, Reg},
     machine::{Label, Offset},
 };
-use crate::{codegen_error, common_decl::Size, location::Location as AbstractLocation};
-use dynasm::dynasm;
+use crate::{
+    codegen_error, common_decl::Size, location::Location as AbstractLocation,
+    machine_arm64::ARM64_RETURN_VALUE_REGISTERS,
+};
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
     AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
@@ -2838,11 +2840,15 @@ pub fn gen_std_trampoline_arm64(
     );
 
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
-    let mut stack_offset = stack_args as u32 * 8;
+    let stack_return_slots = sig
+        .results()
+        .len()
+        .saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len());
+    let mut stack_offset = (stack_args + stack_return_slots) as u32 * 8;
     if stack_args > 0 {
-        if stack_offset % 16 != 0 {
+        if !stack_offset.is_multiple_of(16) {
             stack_offset += 8;
-            assert!(stack_offset % 16 == 0);
+            assert!(stack_offset.is_multiple_of(16));
         }
         if stack_offset < 0x1000 {
             dynasm!(a ; sub sp, sp, stack_offset);
@@ -2854,7 +2860,7 @@ pub fn gen_std_trampoline_arm64(
 
     // Move arguments to their locations.
     // `callee_vmctx` is already in the first argument register, so no need to move.
-    let mut caller_stack_offset: i32 = 0;
+    let mut caller_stack_offset: i32 = stack_return_slots as i32 * 8;
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
             Type::I32 | Type::F32 => Size::S32,
@@ -2923,9 +2929,26 @@ pub fn gen_std_trampoline_arm64(
 
     dynasm!(a  ; blr X(fptr));
 
-    // Write return value.
-    if !sig.results().is_empty() {
-        a.emit_str(Size::S64, Location::GPR(GPR::X0), Location::Memory(args, 0))?;
+    // Write return values.
+    let mut n_stack_return_slots: usize = 0;
+    for i in 0..sig.results().len() {
+        let src = if let Some(&reg) = ARM64_RETURN_VALUE_REGISTERS.get(i) {
+            reg
+        } else {
+            let loc = GPR::X16;
+            a.emit_ldr(
+                Size::S64,
+                Location::GPR(GPR::X16),
+                Location::Memory(GPR::XzrSp, (n_stack_return_slots as u32 * 8) as _),
+            )?;
+            n_stack_return_slots += 1;
+            loc
+        };
+        a.emit_str(
+            Size::S64,
+            Location::GPR(src),
+            Location::Memory(args, (i * 16) as _),
+        )?;
     }
 
     // Restore stack.

@@ -21,6 +21,7 @@ use virtual_fs::{
     ArcBoxFile, ArcFile, AsyncWriteExt, CombineFile, DeviceFile, DuplexPipe, FileSystem, Pipe,
     PipeRx, PipeTx, RootFileSystemBuilder, StaticFile, VirtualFile,
 };
+use virtual_mio::block_on;
 #[cfg(feature = "sys")]
 use wasmer::Engine;
 use wasmer_config::package::PackageSource;
@@ -33,7 +34,6 @@ use crate::{
     capabilities::Capabilities,
     os::task::{control_plane::WasiControlPlane, process::WasiProcess},
     runners::wasi::{PackageOrHash, RuntimeOrEngine},
-    runtime::task_manager::InlineWaker,
 };
 
 #[derive(Debug)]
@@ -179,7 +179,7 @@ impl Console {
             }
         };
 
-        let resolved_package = InlineWaker::block_on(BinaryPackage::from_registry(
+        let resolved_package = block_on(BinaryPackage::from_registry(
             &webc_ident,
             self.runtime.as_ref(),
         ));
@@ -188,7 +188,7 @@ impl Console {
             Ok(pkg) => pkg,
             Err(e) => {
                 let mut stderr = self.stderr.clone();
-                InlineWaker::block_on(async {
+                block_on(async {
                     let mut buffer = Vec::new();
                     writeln!(buffer, "Error: {e}").ok();
                     let mut source = e.source();
@@ -242,14 +242,14 @@ impl Console {
 
         // Display the welcome message
         if !self.whitelabel && !self.no_welcome {
-            InlineWaker::block_on(self.draw_welcome());
+            block_on(self.draw_welcome());
         }
 
         let wasi_process = env.process.clone();
 
         if let Err(err) = env.uses(self.uses.clone()) {
             let mut stderr = self.stderr.clone();
-            InlineWaker::block_on(async {
+            block_on(async {
                 virtual_fs::AsyncWriteExt::write_all(&mut stderr, format!("{err}\r\n").as_bytes())
                     .await
                     .ok();
@@ -271,13 +271,13 @@ impl Console {
                 .write(true)
                 .open(&path)
                 .map_err(|err| SpawnError::Other(err.into()))?;
-            InlineWaker::block_on(file.copy_reference(Box::new(StaticFile::new(data))))
+            block_on(file.copy_reference(Box::new(StaticFile::new(data))))
                 .map_err(|err| SpawnError::Other(err.into()))?;
         }
 
         // Build the config
         // Run the binary
-        let process = InlineWaker::block_on(spawn_exec(pkg, prog, env, &self.runtime))?;
+        let process = block_on(spawn_exec(pkg, prog, env, &self.runtime))?;
 
         // Return the process
         Ok((process, wasi_process))
