@@ -16,10 +16,11 @@ fn test_shared_memory_atomics_notify_send() {
     let wat = r#"(module
 (import "host" "memory" (memory 10 65536 shared))
 )"#;
-    let module = Module::new(&store, wat)
+    let module = Module::new(&store.engine(), wat)
         .map_err(|e| format!("{e:?}"))
         .unwrap();
 
+    let mut store = store.as_mut();
     let mem = Memory::new(&mut store, MemoryType::new(10, Some(65536), true)).unwrap();
 
     let imports = imports! {
@@ -75,6 +76,7 @@ fn test_shared_memory_disable_atomics() {
     use wasmer::AtomicsError;
 
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let mem = Memory::new(&mut store, MemoryType::new(10, Some(65536), true)).unwrap();
 
     let mem = mem.as_shared(&store).unwrap();
@@ -92,10 +94,11 @@ fn test_wasm_slice_issue_5444() {
     let wat = r#"(module
 (import "host" "memory" (memory 10 65536))
 )"#;
-    let module = Module::new(&store, wat)
+    let module = Module::new(&store.engine(), wat)
         .map_err(|e| format!("{e:?}"))
         .unwrap();
 
+    let mut store = store.as_mut();
     let mem = Memory::new(&mut store, MemoryType::new(10, Some(65536), false)).unwrap();
 
     let imports = imports! {
@@ -123,6 +126,7 @@ fn test_wasm_slice_issue_5444() {
 #[test]
 fn test_wasm_memory_size() {
     let mut store = Store::default();
+    let mut store = store.as_mut();
 
     // Test once with not-shared memory...
     {

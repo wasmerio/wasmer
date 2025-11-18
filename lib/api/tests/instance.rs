@@ -8,7 +8,7 @@ use wasmer::*;
 fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String> {
     let mut store = Store::default();
     let module = Module::new(
-        &store,
+        &store.engine(),
         "
 (module
   (type $sum_t (func (param i32 i32) (result i32)))
@@ -21,6 +21,7 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String>
     )
     .map_err(|e| format!("{e:?}"))?;
 
+    let mut store = store.as_mut();
     let imports = Imports::new();
     let instance = Instance::new(&mut store, &module, &imports).map_err(|e| format!("{e:?}"))?;
     let instance2 = instance.clone();
@@ -55,6 +56,7 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<(), String>
 )]
 fn unit_native_function_env() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
 
     #[derive(Clone, Debug)]
     struct Env {

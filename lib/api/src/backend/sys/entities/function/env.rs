@@ -24,7 +24,7 @@ impl<T> FunctionEnv<T> {
     {
         Self {
             handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
+                store.objects_mut().as_sys_mut(),
                 VMFunctionEnvironment::new(value),
             ),
             marker: PhantomData,
@@ -37,7 +37,7 @@ impl<T> FunctionEnv<T> {
         T: Any + Send + 'static + Sized,
     {
         self.handle
-            .get(store.as_store_ref().objects().as_sys())
+            .get(store.objects().as_sys())
             .as_ref()
             .downcast_ref::<T>()
             .unwrap()
@@ -69,7 +69,7 @@ impl<T> FunctionEnv<T> {
         T: Any + Send + 'static + Sized,
     {
         FunctionEnvMut {
-            store_mut: store.as_store_mut(),
+            store_mut: store.reborrow_mut(),
             func_env: self,
         }
     }
@@ -127,7 +127,7 @@ impl<T> Clone for FunctionEnv<T> {
 
 /// A temporary handle to a [`FunctionEnv`].
 pub struct FunctionEnvMut<'a, T: 'a> {
-    pub(crate) store_mut: StoreMut<'a>,
+    pub(crate) store_mut: &'a mut StoreMut,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
@@ -159,40 +159,36 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Borrows a new mutable reference
     pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
-            store_mut: self.store_mut.as_store_mut(),
+            store_mut: self.store_mut.reborrow_mut(),
             func_env: self.func_env.clone(),
         }
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
         let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
         // stored in a specific vec of Store, separate from the other objects
         // and not really directly accessible with the StoreMut
         let data = unsafe { &mut *data };
-        (data, self.store_mut.as_store_mut())
+        (data, self.store_mut.reborrow_mut())
     }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        StoreRef {
-            inner: self.store_mut.inner,
-        }
+    fn as_ref(&self) -> &crate::StoreInner {
+        self.store_mut.as_ref()
     }
 }
 
 impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut {
-            inner: self.store_mut.inner,
-        }
+    fn as_mut(&mut self) -> &mut crate::StoreInner {
+        self.store_mut.as_mut()
     }
 
-    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
-        self.store_mut.objects_mut()
+    fn reborrow_mut(&mut self) -> &mut StoreMut {
+        self.store_mut.reborrow_mut()
     }
 }
 

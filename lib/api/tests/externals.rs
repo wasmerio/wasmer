@@ -7,6 +7,7 @@ use wasmer::*;
 #[universal_test]
 fn global_new() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let global = Global::new(&mut store, Value::I32(10));
     assert_eq!(
         global.ty(&store),
@@ -35,6 +36,7 @@ fn global_new() -> Result<(), String> {
 )]
 fn global_get() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
 
     let global_i32 = Global::new(&mut store, Value::I32(10));
     assert_eq!(global_i32.get(&mut store), Value::I32(10));
@@ -66,6 +68,7 @@ fn global_get() -> Result<(), String> {
 )]
 fn global_set() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let global_i32 = Global::new(&mut store, Value::I32(10));
     // Set on a constant should error
     assert!(global_i32.set(&mut store, Value::I32(20)).is_err());
@@ -87,6 +90,7 @@ fn global_set() -> Result<(), String> {
 #[cfg_attr(feature = "wasmi", ignore = "wasmi does not support funcrefs")]
 fn table_new() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let table_type = TableType {
         ty: Type::FuncRef,
         minimum: 0,
@@ -136,6 +140,7 @@ fn table_set() -> Result<(), String> {
     #[cfg(feature = "sys")]
     {
         let mut store = Store::default();
+        let mut store = store.as_mut();
 
         let table_type = TableType {
             ty: Type::ExternRef,
@@ -213,6 +218,7 @@ fn table_grow() -> Result<(), String> {
     #[cfg(feature = "sys")]
     {
         let mut store = Store::default();
+        let mut store = store.as_mut();
         let table_type = TableType {
             ty: Type::FuncRef,
             minimum: 0,
@@ -249,6 +255,7 @@ fn table_copy() -> Result<(), String> {
 #[universal_test]
 fn memory_new() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let memory_type = MemoryType {
         shared: cfg!(feature = "wamr"),
         minimum: Pages(0),
@@ -267,6 +274,7 @@ fn memory_new() -> Result<(), String> {
 )]
 fn memory_grow() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let desc = MemoryType::new(Pages(10), Some(Pages(16)), false);
     let memory = Memory::new(&mut store, desc).map_err(|e| format!("{e:?}"))?;
     assert_eq!(memory.view(&store).size(), Pages(10));
@@ -298,6 +306,7 @@ fn memory_grow() -> Result<(), String> {
 #[universal_test]
 fn function_new() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let function = Function::new_typed(&mut store, || {});
     assert_eq!(function.ty(&store), FunctionType::new(vec![], vec![]));
     let function = Function::new_typed(&mut store, |_a: i32| {});
@@ -326,6 +335,7 @@ fn function_new() -> Result<(), String> {
 #[universal_test]
 fn function_new_env() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     #[derive(Clone)]
     struct MyEnv {}
 
@@ -369,6 +379,7 @@ fn function_new_env() -> Result<(), String> {
 #[universal_test]
 fn function_new_dynamic() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
 
     // Using &FunctionType signature
     let function_type = FunctionType::new(vec![], vec![]);
@@ -430,6 +441,7 @@ fn function_new_dynamic() -> Result<(), String> {
 #[universal_test]
 fn function_new_dynamic_env() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     #[derive(Clone)]
     struct MyEnv {}
     let my_env = MyEnv {};

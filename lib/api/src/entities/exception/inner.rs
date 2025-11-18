@@ -21,7 +21,7 @@ impl BackendException {
     #[inline]
     #[allow(irrefutable_let_patterns)]
     pub fn new(store: &mut impl AsStoreMut, tag: &Tag, payload: &[Value]) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 let BackendTag::Sys(tag) = &tag.0 else {

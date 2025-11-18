@@ -63,7 +63,7 @@ impl BackendGlobal {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Ok(Self::Sys(
                 crate::backend::sys::global::Global::from_value(store, val, mutability)?,
@@ -182,7 +182,7 @@ impl BackendGlobal {
 
     #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::global::Global::from_vm_extern(store, vm_extern),

@@ -22,7 +22,7 @@ impl BackendTag {
     /// and has no return value.
     #[inline]
     pub fn new<P: Into<Box<[Type]>>>(store: &mut impl AsStoreMut, params: P) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 Self::Sys(crate::backend::sys::tag::Tag::new(store, params))
@@ -60,7 +60,7 @@ impl BackendTag {
 
     #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTag) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::tag::Tag::from_vm_extern(store, vm_extern),

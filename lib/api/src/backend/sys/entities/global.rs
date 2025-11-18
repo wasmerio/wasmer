@@ -40,25 +40,18 @@ impl Global {
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> GlobalType {
-        *self
-            .handle
-            .get(store.as_store_ref().objects().as_sys())
-            .ty()
+        *self.handle.get(store.objects().as_sys()).ty()
     }
 
     pub(crate) fn get(&self, store: &mut impl AsStoreMut) -> Value {
         unsafe {
             let raw = self
                 .handle
-                .get(store.as_store_ref().objects().as_sys())
+                .get(store.objects().as_sys())
                 .vmglobal()
                 .as_ref()
                 .val;
-            let ty = self
-                .handle
-                .get(store.as_store_ref().objects().as_sys())
-                .ty()
-                .ty;
+            let ty = self.handle.get(store.objects().as_sys()).ty().ty;
             Value::from_raw(store, ty, raw)
         }
     }
@@ -79,7 +72,7 @@ impl Global {
         }
         unsafe {
             self.handle
-                .get_mut(store.as_store_mut().objects_mut().as_sys_mut())
+                .get_mut(store.objects_mut().as_sys_mut())
                 .vmglobal()
                 .as_mut()
                 .val = val.as_raw(store);
@@ -90,16 +83,13 @@ impl Global {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(
-                    store.as_store_ref().objects().id(),
-                    vm_extern.into_sys(),
-                )
+                StoreHandle::from_internal(store.objects().id(), vm_extern.into_sys())
             },
         }
     }
 
     pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+        self.handle.store_id() == store.objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

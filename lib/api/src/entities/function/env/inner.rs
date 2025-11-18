@@ -54,7 +54,7 @@ impl<T> BackendFunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        match store.as_store_mut().inner.store {
+        match store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::function::env::FunctionEnv::new(store, value),
@@ -199,7 +199,7 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
         match_rt!(on self => f {
             f.data_and_store_mut()
         })
@@ -207,23 +207,23 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
 }
 
 impl<T> AsStoreRef for BackendFunctionEnvMut<'_, T> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        match_rt!(on &self => f {
-            f.as_store_ref()
+    fn as_ref(&self) -> &crate::StoreInner {
+        match_rt!(on self => f {
+            f.as_ref()
         })
     }
 }
 
 impl<T> AsStoreMut for BackendFunctionEnvMut<'_, T> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        match_rt!(on self => s {
-            s.as_store_mut()
+    fn as_mut(&mut self) -> &mut crate::StoreInner {
+        match_rt!(on self => f {
+            f.as_mut()
         })
     }
 
-    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
-        match_rt!(on self => s {
-            s.objects_mut()
+    fn reborrow_mut(&mut self) -> &mut StoreMut {
+        match_rt!(on self => f {
+            f.reborrow_mut()
         })
     }
 }

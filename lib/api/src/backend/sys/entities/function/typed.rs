@@ -1,7 +1,8 @@
 use crate::backend::sys::engine::NativeEngineExt;
 use crate::store::{AsStoreMut, AsStoreRef};
 use crate::{
-    FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, TypedFunction, Value, WasmTypeList,
+    FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, StoreContext, TypedFunction, Value,
+    WasmTypeList,
 };
 use std::future::Future;
 use wasmer_types::{FunctionType, RawValue, Type};
@@ -21,7 +22,7 @@ macro_rules! impl_native_traits {
                 let anyfunc = unsafe {
                     *self.func.as_sys()
                         .handle
-                        .get(store.as_store_ref().objects().as_sys())
+                        .get(store.objects().as_sys())
                         .anyfunc
                         .as_ptr()
                         .as_ref()
@@ -49,22 +50,32 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
+                let config = store.engine().tunables().vmconfig().clone();
+                let signal_handler = store.signal_handler();
+
+                // Install the store into the store context
+                let store_id = store.objects().id();
+                let store_install_guard = StoreContext::ensure_installed(store);
+
                 let mut r;
                 loop {
-                    let storeref = store.as_store_ref();
-                    let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(
-                            store.as_store_ref().signal_handler(),
-                            config,
+                            signal_handler,
+                            &config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
                             args_rets.as_mut_ptr() as *mut u8,
                         )
                     };
-                    let store_mut = store.as_store_mut();
-                    if let Some(callback) = store_mut.inner.on_called.take() {
+
+                    // The `store` parameter potentially doesn't have its StoreMut anymore;
+                    // so borrow another reference from the store context which owns the
+                    // StoreMut at this point anyway.
+                    let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                    let mut store_mut = store_wrapper.as_mut();
+                    if let Some(callback) = store_mut.as_mut().on_called.take() {
                         match callback(store_mut) {
                             Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
                             Ok(wasmer_types::OnCalledAction::Finish) => { break; }
@@ -74,6 +85,9 @@ macro_rules! impl_native_traits {
                     }
                     break;
                 }
+
+                drop(store_install_guard);
+
                 r?;
 
                 let num_rets = rets_list.len();
@@ -102,35 +116,35 @@ macro_rules! impl_native_traits {
                 // Ok(Rets::from_c_struct(results))
             }
 
-            /// Call the typed func asynchronously.
-            #[allow(unused_mut)]
-            #[allow(clippy::too_many_arguments)]
-            pub fn call_async_sys<'a>(
-                &'a self,
-                store: &'a mut (impl AsStoreMut + 'static),
-                $( $x: $x, )*
-            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
-            where
-                $( $x: FromToNativeWasmType, )*
-            {
-                let func = self.func.clone();
-                let func_ty = func.ty(store);
-                let mut params_raw = [ $( $x.to_native().into_raw(store) ),* ];
-                let mut params_values = Vec::with_capacity(params_raw.len());
-                {
-                    let mut tmp_store = store.as_store_mut();
-                    for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
-                        unsafe {
-                            params_values.push(Value::from_raw(&mut tmp_store, *ty, *raw));
-                        }
-                    }
-                }
+            // TODO: async api
+            // /// Call the typed func asynchronously.
+            // #[allow(unused_mut)]
+            // #[allow(clippy::too_many_arguments)]
+            // pub fn call_async_sys<'a>(
+            //     &'a self,
+            //     store: &'a mut (impl AsStoreMut + 'static),
+            //     $( $x: $x, )*
+            // ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            // where
+            //     $( $x: FromToNativeWasmType, )*
+            // {
+            //     let func = self.func.clone();
+            //     let func_ty = func.ty(store);
+            //     let mut params_raw = [ $( $x.to_native().into_raw(store) ),* ];
+            //     let mut params_values = Vec::with_capacity(params_raw.len());
+            //     {
+            //         for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
+            //             unsafe {
+            //                 params_values.push(Value::from_raw(store, *ty, *raw));
+            //             }
+            //         }
+            //     }
 
-                async move {
-                    let results = func.call_async(store, &params_values).await?;
-                    convert_results::<Rets>(store, func_ty, results)
-                }
-            }
+            //     async move {
+            //         let results = func.call_async(store, &params_values).await?;
+            //         convert_results::<Rets>(store, func_ty, results)
+            //     }
+            // }
 
             #[doc(hidden)]
             #[allow(missing_docs)]
@@ -140,7 +154,7 @@ macro_rules! impl_native_traits {
                 let anyfunc = unsafe {
                     *self.func.as_sys()
                         .handle
-                        .get(store.as_store_ref().objects().as_sys())
+                        .get(store.objects().as_sys())
                         .anyfunc
                         .as_ptr()
                         .as_ref()
@@ -161,22 +175,32 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
+                let config = store.engine().tunables().vmconfig().clone();
+                let signal_handler = store.signal_handler();
+
+                // Install the store into the store context
+                let store_id = store.objects().id();
+                let store_install_guard = StoreContext::ensure_installed(store);
+
                 let mut r;
                 loop {
-                    let storeref = store.as_store_ref();
-                    let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(
-                            store.as_store_ref().signal_handler(),
-                            config,
+                            signal_handler,
+                            &config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
                             args_rets.as_mut_ptr() as *mut u8,
                         )
                     };
-                    let store_mut = store.as_store_mut();
-                    if let Some(callback) = store_mut.inner.on_called.take() {
+
+                    // The `store` parameter potentially doesn't have its StoreMut anymore;
+                    // so borrow another reference from the store context which owns the
+                    // StoreMut at this point anyway.
+                    let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
+                    let mut store_mut = store_wrapper.as_mut();
+                    if let Some(callback) = store_mut.as_mut().on_called.take() {
                         // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                         match callback(store_mut) {
                             Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
@@ -187,6 +211,9 @@ macro_rules! impl_native_traits {
                     }
                     break;
                 }
+
+                drop(store_install_guard);
+
                 r?;
 
                 let num_rets = rets_list.len();

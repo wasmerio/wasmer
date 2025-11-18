@@ -14,7 +14,7 @@ impl BackendExternRef {
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::external::ExternRef::new(store, value),
@@ -78,7 +78,7 @@ impl BackendExternRef {
         store: &mut impl AsStoreMut,
         vm_externref: VMExternRef,
     ) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(unsafe {
                 crate::backend::sys::entities::external::ExternRef::from_vm_externref(

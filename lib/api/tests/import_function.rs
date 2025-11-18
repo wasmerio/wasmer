@@ -19,8 +19,9 @@ fn pass_i64_between_host_and_plugin() -> Result<(), String> {
             (i64.add (call $add_one_i64 (i64.add (local.get 0) (i64.const 1))) (i64.const 1))
         )
     )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
 
+    let mut store = store.as_mut();
     let imports = {
         imports! {
             "host" => {
@@ -65,8 +66,9 @@ fn pass_u64_between_host_and_plugin() -> Result<(), String> {
             (i64.add (call $add_one_u64 (i64.add (local.get 0) (i64.const 1))) (i64.const 1))
         )
     )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
 
+    let mut store = store.as_mut();
     let imports = {
         imports! {
             "host" => {
@@ -106,7 +108,8 @@ fn calling_function_exports() -> Result<()> {
         local.get $rhs
         i32.add)
 )"#;
-    let module = Module::new(&store, wat)?;
+    let module = Module::new(&store.engine(), wat)?;
+    let mut store = store.as_mut();
     let imports = imports! {
         // "host" => {
         //     "host_func1" => Function::new_typed(&mut store, |p: u64| {
@@ -130,7 +133,7 @@ fn back_and_forth_with_imports() -> Result<()> {
     let mut store = Store::default();
     // We can use the WAT syntax as well!
     let module = Module::new(
-        &store,
+        &store.engine(),
         br#"(module
             (func $sum (import "env" "sum") (param i32 i32) (result i32))
             (func (export "add_one") (param i32) (result i32)
@@ -138,6 +141,8 @@ fn back_and_forth_with_imports() -> Result<()> {
             )
         )"#,
     )?;
+
+    let mut store = store.as_mut();
 
     fn sum(a: i32, b: i32) -> i32 {
         println!("Summing: {a}+{b}");

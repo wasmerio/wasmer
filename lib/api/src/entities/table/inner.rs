@@ -33,7 +33,7 @@ impl BackendTable {
         ty: TableType,
         init: Value,
     ) -> Result<Self, RuntimeError> {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             BackendStore::Sys(_) => Ok(Self::Sys(
                 crate::backend::sys::entities::table::Table::new(store, ty, init)?,
@@ -135,7 +135,7 @@ impl BackendTable {
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             BackendStore::Sys(_) => crate::backend::sys::entities::table::Table::copy(
                 store,
@@ -196,7 +196,7 @@ impl BackendTable {
 
     #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, ext: VMExternTable) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::table::Table::from_vm_extern(store, ext),
@@ -242,6 +242,8 @@ impl BackendTable {
 
 #[cfg(test)]
 mod test {
+    use crate::AsStoreRef;
+
     /// Check the example from <https://github.com/wasmerio/wasmer/issues/3197>.
     #[test]
     #[cfg_attr(
@@ -261,7 +263,9 @@ mod test {
         // Tests that the table type of `table` is compatible with the export in the WAT
         // This tests that `wasmer_types::types::is_table_compatible` works as expected.
         let mut store = Store::default();
-        let module = Module::new(&store, WAT).unwrap();
+        let module = Module::new(&store.engine(), WAT).unwrap();
+
+        let mut store = store.as_mut();
         let ty = TableType::new(Type::FuncRef, 0, None);
         let table = Table::new(&mut store, ty, Value::FuncRef(None)).unwrap();
         table.grow(&mut store, 100, Value::FuncRef(None)).unwrap();

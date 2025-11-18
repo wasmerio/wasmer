@@ -8,7 +8,7 @@ use wasmer::*;
 fn module_get_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module)"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), None);
 
     Ok(())
@@ -18,7 +18,7 @@ fn module_get_name() -> Result<(), String> {
 fn module_set_name() -> Result<(), String> {
     let store = Store::default();
     let wat = r#"(module $name)"#;
-    let mut module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let mut module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(module.name(), Some("name"));
 
     module.set_name("new_name");
@@ -36,7 +36,7 @@ fn imports() -> Result<(), String> {
 (import "host" "table" (table 1 funcref))
 (import "host" "global" (global i32))
 )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(
         module.imports().collect::<Vec<_>>(),
         vec![
@@ -108,7 +108,7 @@ fn exports() -> Result<(), String> {
 (table (export "table") 1 funcref)
 (global (export "global") i32 (i32.const 0))
 )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
     assert_eq!(
         module.exports().collect::<Vec<_>>(),
         vec![
@@ -190,7 +190,8 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 (func (export "call_host_func8")
       (call 7 (i32.const -1)))
 )"#;
-    let module = Module::new(&store, wat).map_err(|e| format!("{e:?}"))?;
+    let module = Module::new(&store.engine(), wat).map_err(|e| format!("{e:?}"))?;
+    let mut store = store.as_mut();
     let imports = imports! {
         "host" => {
             "host_func1" => Function::new_typed(&mut store, |p: u64| {
@@ -281,7 +282,8 @@ fn calling_host_functions_with_negative_values_works() -> Result<(), String> {
 fn module_custom_sections() -> Result<(), String> {
     let store = Store::default();
     let custom_section_wasm_bytes = include_bytes!("simple-name-section.wasm");
-    let module = Module::new(&store, custom_section_wasm_bytes).map_err(|e| format!("{e:?}"))?;
+    let module =
+        Module::new(&store.engine(), custom_section_wasm_bytes).map_err(|e| format!("{e:?}"))?;
     let sections = module.custom_sections("name");
     let sections_vec: Vec<Box<[u8]>> = sections.collect();
     assert_eq!(sections_vec.len(), 1);

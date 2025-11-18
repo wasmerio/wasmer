@@ -24,7 +24,7 @@ impl Exception {
             panic!("cannot create Exception with Tag from another Store");
         }
 
-        let store_objects = store.as_store_ref().objects().as_sys();
+        let store_objects = store.objects().as_sys();
         let store_id = store_objects.id();
 
         let tag_ty = tag.handle.get(store_objects).signature.params();
@@ -62,14 +62,14 @@ impl Exception {
     }
 
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.exnref.0.store_id() == store.as_store_ref().objects().id()
+        self.exnref.0.store_id() == store.objects().id()
     }
 
     pub fn tag(&self, store: &impl AsStoreRef) -> crate::sys::tag::Tag {
         if !self.is_from_store(store) {
             panic!("Exception is from another Store");
         }
-        let ctx = store.as_store_ref().objects().as_sys();
+        let ctx = store.objects().as_sys();
         let exception = self.exnref.0.get(ctx);
         let tag_handle = exception.tag();
         crate::sys::tag::Tag {
@@ -81,7 +81,7 @@ impl Exception {
         if !self.is_from_store(store) {
             panic!("Exception is from another Store");
         }
-        let ctx = store.as_store_ref().objects().as_sys();
+        let ctx = store.objects().as_sys();
         let exception = self.exnref.0.get(ctx);
         let params_ty = exception.tag().get(ctx).signature.params().to_vec();
         let payload_ptr = exception.payload();

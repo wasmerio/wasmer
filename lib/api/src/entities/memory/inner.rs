@@ -28,7 +28,7 @@ impl BackendMemory {
     /// ```
     #[inline]
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Ok(Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new(store, ty)?,
@@ -59,7 +59,7 @@ impl BackendMemory {
     /// Create a memory object from an existing memory and attaches it to the store
     #[inline]
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        match new_store.as_store_mut().inner.store {
+        match new_store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new_from_existing(
@@ -251,7 +251,7 @@ impl BackendMemory {
 
     #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),

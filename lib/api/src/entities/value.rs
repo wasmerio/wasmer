@@ -120,7 +120,7 @@ impl Value {
             Type::F32 => Self::F32(unsafe { raw.f32 }),
             Type::F64 => Self::F64(unsafe { raw.f64 }),
             Type::V128 => Self::V128(unsafe { raw.u128 }),
-            Type::FuncRef => match store.as_store_ref().inner.store {
+            Type::FuncRef => match store.as_ref().store {
                 #[cfg(feature = "sys")]
                 crate::BackendStore::Sys(_) => Self::FuncRef({
                     unsafe { crate::backend::sys::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys) }
@@ -157,7 +157,7 @@ impl Value {
                         .map(|f| unsafe { Function::from_vm_funcref(store, f) })
                 }),
             },
-            Type::ExternRef => match store.as_store_ref().inner.store {
+            Type::ExternRef => match store.as_ref().store {
                 #[cfg(feature = "sys")]
                 crate::BackendStore::Sys(_) => Self::ExternRef({
                     unsafe {
@@ -203,14 +203,11 @@ impl Value {
                     .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
                 }),
             },
-            Type::ExceptionRef => match store.as_store_ref().inner.store {
+            Type::ExceptionRef => match store.as_ref().store {
                 #[cfg(feature = "sys")]
                 crate::BackendStore::Sys(_) => Self::ExceptionRef(
                     unsafe {
-                        crate::backend::sys::vm::VMExceptionRef::from_raw(
-                            store.as_store_ref().objects().id(),
-                            raw,
-                        )
+                        crate::backend::sys::vm::VMExceptionRef::from_raw(store.objects().id(), raw)
                     }
                     .map(VMExceptionRef::Sys)
                     .map(Exception::from_vm_exceptionref),

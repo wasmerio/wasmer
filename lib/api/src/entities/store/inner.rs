@@ -34,7 +34,7 @@ impl std::fmt::Debug for StoreInner {
 // TODO: better documentation!
 pub type OnCalledHandler = Box<
     dyn FnOnce(
-        StoreMut<'_>,
+        &mut StoreMut,
     )
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;

@@ -54,10 +54,7 @@ impl Instance {
         let mut handle = module.as_sys().instantiate(store, &externs)?;
         let exports = Self::get_exports(store, module, handle.as_sys_mut());
         let instance = Self {
-            _handle: StoreHandle::new(
-                store.as_store_mut().objects_mut().as_sys_mut(),
-                handle.into_sys(),
-            ),
+            _handle: StoreHandle::new(store.objects_mut().as_sys_mut(), handle.into_sys()),
         };
 
         Ok((instance, exports))

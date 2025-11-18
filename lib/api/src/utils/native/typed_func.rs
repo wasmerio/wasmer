@@ -62,7 +62,7 @@ macro_rules! impl_native_traits {
                 $(
                     let [<p_ $x>] = $x;
                 )*
-                match store.as_store_mut().inner.store {
+                match store.as_mut().store {
                     #[cfg(feature = "sys")]
                     BackendStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
                     #[cfg(feature = "wamr")]
@@ -79,46 +79,47 @@ macro_rules! impl_native_traits {
                 }
             }
 
-            /// Call the typed func asynchronously.
-            #[allow(unused_mut)]
-            #[allow(clippy::too_many_arguments)]
-            pub fn call_async<'a>(
-                &'a self,
-                store: &'a mut (impl AsStoreMut + 'static),
-                $( $x: $x, )*
-            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
-            where
-                $( $x: FromToNativeWasmType, )*
-            {
-                $(
-                    let [<p_ $x>] = $x;
-                )*
-                async move {
-                    match store.as_store_mut().inner.store {
-                        #[cfg(feature = "sys")]
-                        BackendStore::Sys(_) => {
-                            self.call_async_sys(store, $([<p_ $x>]),*).await
-                        }
-                        #[cfg(feature = "wamr")]
-                        BackendStore::Wamr(_) => async_backend_error(),
-                        #[cfg(feature = "wasmi")]
-                        BackendStore::Wasmi(_) => async_backend_error(),
-                        #[cfg(feature = "v8")]
-                        BackendStore::V8(_) => async_backend_error(),
-                        #[cfg(feature = "js")]
-                        BackendStore::Js(_) => async_backend_error(),
-                        #[cfg(feature = "jsc")]
-                        BackendStore::Jsc(_) => async_backend_error(),
-                    }
-                }
-            }
+            // TODO: async api
+            // /// Call the typed func asynchronously.
+            // #[allow(unused_mut)]
+            // #[allow(clippy::too_many_arguments)]
+            // pub fn call_async<'a>(
+            //     &'a self,
+            //     store: &'a mut (impl AsStoreMut + 'static),
+            //     $( $x: $x, )*
+            // ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            // where
+            //     $( $x: FromToNativeWasmType, )*
+            // {
+            //     $(
+            //         let [<p_ $x>] = $x;
+            //     )*
+            //     async move {
+            //         match store.as_mut().store {
+            //             #[cfg(feature = "sys")]
+            //             BackendStore::Sys(_) => {
+            //                 self.call_async_sys(store, $([<p_ $x>]),*).await
+            //             }
+            //             #[cfg(feature = "wamr")]
+            //             BackendStore::Wamr(_) => async_backend_error(),
+            //             #[cfg(feature = "wasmi")]
+            //             BackendStore::Wasmi(_) => async_backend_error(),
+            //             #[cfg(feature = "v8")]
+            //             BackendStore::V8(_) => async_backend_error(),
+            //             #[cfg(feature = "js")]
+            //             BackendStore::Js(_) => async_backend_error(),
+            //             #[cfg(feature = "jsc")]
+            //             BackendStore::Jsc(_) => async_backend_error(),
+            //         }
+            //     }
+            // }
 
             #[doc(hidden)]
             #[allow(missing_docs)]
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call_raw(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
-                match store.as_store_mut().inner.store {
+                match store.as_mut().store {
                     #[cfg(feature = "sys")]
                     BackendStore::Sys(_) => self.call_raw_sys(store, params_list),
                     #[cfg(feature = "wamr")]

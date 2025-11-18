@@ -79,25 +79,30 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         self.0.as_mut()
     }
 
+    /// Borrows a new mutable reference to the attached Store
+    pub fn as_store_mut(&mut self) -> &mut StoreMut {
+        self.reborrow_mut()
+    }
+
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
         self.0.data_and_store_mut()
     }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        self.0.as_store_ref()
+    fn as_ref(&self) -> &crate::StoreInner {
+        self.0.as_ref()
     }
 }
 
 impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        self.0.as_store_mut()
+    fn as_mut(&mut self) -> &mut crate::StoreInner {
+        self.0.as_mut()
     }
 
-    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
-        self.0.objects_mut()
+    fn reborrow_mut(&mut self) -> &mut StoreMut {
+        self.0.reborrow_mut()
     }
 }
 

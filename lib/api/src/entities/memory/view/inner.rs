@@ -19,7 +19,7 @@ impl<'a> BackendMemoryView<'a> {
     #[inline]
     #[allow(clippy::needless_return)]
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        match &store.as_store_ref().inner.store {
+        match &store.as_ref().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::memory::view::MemoryView::new(

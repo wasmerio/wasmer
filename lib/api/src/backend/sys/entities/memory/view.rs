@@ -23,15 +23,9 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        let size = memory
-            .handle
-            .get(store.as_store_ref().objects().as_sys())
-            .size();
+        let size = memory.handle.get(store.objects().as_sys()).size();
 
-        let definition = memory
-            .handle
-            .get(store.as_store_ref().objects().as_sys())
-            .vmmemory();
+        let definition = memory.handle.get(store.objects().as_sys()).vmmemory();
         let def = unsafe { definition.as_ref() };
 
         Self {

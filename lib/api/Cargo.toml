@@ -51,6 +51,7 @@ loupe = { workspace = true, optional = true, features = [
 ] }
 paste = "1.0.15"
 derive_more = { workspace = true, features = ["from", "debug"] }
+async-lock.workspace = true
 
 # Dependencies and Development Dependencies for `sys`.
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]

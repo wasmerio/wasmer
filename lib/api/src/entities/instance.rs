@@ -56,7 +56,7 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let (_inner, exports) = match &store.as_store_mut().inner.store {
+        let (_inner, exports) = match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 let (i, e) = crate::backend::sys::instance::Instance::new(store, module, imports)?;
@@ -115,7 +115,7 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
-        let (_inner, exports) = match &store.as_store_mut().inner.store {
+        let (_inner, exports) = match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 let (i, e) =

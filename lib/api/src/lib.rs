@@ -51,7 +51,8 @@
 //!     "#;
 //!
 //!     let mut store = Store::default();
-//!     let module = Module::new(&store, &module_wat)?;
+//!     let module = Module::new(&store.engine(), &module_wat)?;
+//!     let mut store = store.as_mut();
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
 //!     let instance = Instance::new(&mut store, &module, &import_object)?;
@@ -146,12 +147,12 @@
 //! [`imports!`] macro:
 //!
 //! ```
-//! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, Store, Imports};
-//! # fn imports_example(mut store: &mut Store) -> Imports {
-//! let memory = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
+//! # use wasmer::{imports, Function, FunctionEnv, FunctionEnvMut, Memory, MemoryType, AsStoreMut, Imports};
+//! # fn imports_example(store: &mut impl AsStoreMut) -> Imports {
+//! let memory = Memory::new(store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
 //!     "env" => {
-//!          "my_function" => Function::new_typed(&mut store, || println!("Hello")),
+//!          "my_function" => Function::new_typed(store, || println!("Hello")),
 //!          "memory" => memory,
 //!     }
 //! }
@@ -162,12 +163,12 @@
 //! from any instance via `instance.exports`:
 //!
 //! ```
-//! # use wasmer::{imports, Instance, FunctionEnv, Memory, TypedFunction, Store};
-//! # fn exports_example(mut env: FunctionEnv<()>, mut store: &mut Store, instance: &Instance) -> anyhow::Result<()> {
+//! # use wasmer::{imports, Instance, FunctionEnv, Memory, TypedFunction, AsStoreMut};
+//! # fn exports_example(mut env: FunctionEnv<()>, store: &mut impl AsStoreMut, instance: &Instance) -> anyhow::Result<()> {
 //! let memory = instance.exports.get_memory("memory")?;
 //! let memory: &Memory = instance.exports.get("some_other_memory")?;
-//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&mut store, "add")?;
-//! let result = add.call(&mut store, 5, 37)?;
+//! let add: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(store, "add")?;
+//! let result = add.call(store, 5, 37)?;
 //! assert_eq!(result, 42);
 //! # Ok(())
 //! # }
@@ -379,7 +380,8 @@
 //!         i32.add))
 //!     "#;
 //!     let mut store = Store::default();
-//!     let module = Module::new(&store, &module_wat).unwrap();
+//!     let module = Module::new(&store.engine(), &module_wat).unwrap();
+//!     let mut store = store.as_mut();
 //!     // The module doesn't import anything, so we create an empty import object.
 //!     let import_object = imports! {};
 //!     let instance = Instance::new(&mut store, &module, &import_object).unwrap();

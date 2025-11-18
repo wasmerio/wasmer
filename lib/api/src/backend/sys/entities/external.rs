@@ -32,7 +32,7 @@ impl ExternRef {
         T: Any + Send + Sync + 'static + Sized,
     {
         self.handle
-            .get(store.as_store_ref().objects().as_sys())
+            .get(store.objects().as_sys())
             .as_ref()
             .downcast_ref::<T>()
     }
@@ -60,6 +60,6 @@ impl ExternRef {
     /// Externref and funcref values are tied to a context and can only be used
     /// with that context.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+        self.handle.store_id() == store.objects().id()
     }
 }

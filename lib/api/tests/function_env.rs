@@ -11,6 +11,7 @@ use wasmer::*;
 )]
 fn data_and_store_mut() -> Result<(), String> {
     let mut store = Store::default();
+    let mut store = store.as_mut();
     let global_mut = Global::new_mut(&mut store, Value::I32(10));
     struct Env {
         value: i32,

@@ -44,7 +44,7 @@ impl BackendFunction {
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
-        let env = FunctionEnv::new(&mut store.as_store_mut(), ());
+        let env = FunctionEnv::new(store, ());
         let wrapped_func = move |_env: FunctionEnvMut<()>,
                                  args: &[Value]|
               -> Result<Vec<Value>, RuntimeError> { func(args) };
@@ -102,7 +102,7 @@ impl BackendFunction {
             + Send
             + Sync,
     {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_with_env(
@@ -150,7 +150,7 @@ impl BackendFunction {
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
     {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 Self::Sys(crate::backend::sys::entities::function::Function::new_typed(store, func))
@@ -209,7 +209,7 @@ impl BackendFunction {
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
     {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_typed_with_env(
@@ -250,118 +250,119 @@ impl BackendFunction {
         }
     }
 
-    #[inline]
-    pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
-    where
-        FT: Into<FunctionType>,
-        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
-    {
-        match &store.as_store_mut().inner.store {
-            #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_async(store, ty, func),
-            ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
-            #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
-        }
-    }
+    // TODO: async API
+    // #[inline]
+    // pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    // where
+    //     FT: Into<FunctionType>,
+    //     F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
+    //     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    // {
+    //     match &store.as_mut().store {
+    //         #[cfg(feature = "sys")]
+    //         crate::BackendStore::Sys(_) => Self::Sys(
+    //             crate::backend::sys::entities::function::Function::new_async(store, ty, func),
+    //         ),
+    //         #[cfg(feature = "wamr")]
+    //         crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+    //         #[cfg(feature = "wasmi")]
+    //         crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+    //         #[cfg(feature = "v8")]
+    //         crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+    //         #[cfg(feature = "js")]
+    //         crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+    //         #[cfg(feature = "jsc")]
+    //         crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+    //     }
+    // }
 
-    #[inline]
-    pub fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
-        store: &mut impl AsStoreMut,
-        env: &FunctionEnv<T>,
-        ty: FT,
-        func: F,
-    ) -> Self
-    where
-        FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
-    {
-        match &store.as_store_mut().inner.store {
-            #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_with_env_async(
-                    store, env, ty, func,
-                ),
-            ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
-            #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
-        }
-    }
+    // #[inline]
+    // pub fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+    //     store: &mut impl AsStoreMut,
+    //     env: &FunctionEnv<T>,
+    //     ty: FT,
+    //     func: F,
+    // ) -> Self
+    // where
+    //     FT: Into<FunctionType>,
+    //     F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
+    //     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    // {
+    //     match &store.as_mut().store {
+    //         #[cfg(feature = "sys")]
+    //         crate::BackendStore::Sys(_) => Self::Sys(
+    //             crate::backend::sys::entities::function::Function::new_with_env_async(
+    //                 store, env, ty, func,
+    //             ),
+    //         ),
+    //         #[cfg(feature = "wamr")]
+    //         crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+    //         #[cfg(feature = "wasmi")]
+    //         crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+    //         #[cfg(feature = "v8")]
+    //         crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+    //         #[cfg(feature = "js")]
+    //         crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+    //         #[cfg(feature = "jsc")]
+    //         crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+    //     }
+    // }
 
-    #[inline]
-    pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
-    where
-        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
-        Args: WasmTypeList + 'static,
-        Rets: WasmTypeList + 'static,
-    {
-        match &store.as_store_mut().inner.store {
-            #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_typed_async(store, func),
-            ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
-            #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
-        }
-    }
+    // #[inline]
+    // pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    // where
+    //     F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
+    //     Args: WasmTypeList + 'static,
+    //     Rets: WasmTypeList + 'static,
+    // {
+    //     match &store.as_mut().store {
+    //         #[cfg(feature = "sys")]
+    //         crate::BackendStore::Sys(_) => Self::Sys(
+    //             crate::backend::sys::entities::function::Function::new_typed_async(store, func),
+    //         ),
+    //         #[cfg(feature = "wamr")]
+    //         crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+    //         #[cfg(feature = "wasmi")]
+    //         crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+    //         #[cfg(feature = "v8")]
+    //         crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+    //         #[cfg(feature = "js")]
+    //         crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+    //         #[cfg(feature = "jsc")]
+    //         crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+    //     }
+    // }
 
-    #[inline]
-    pub fn new_typed_with_env_async<T: Send + 'static, F, Args, Rets>(
-        store: &mut impl AsStoreMut,
-        env: &FunctionEnv<T>,
-        func: F,
-    ) -> Self
-    where
-        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
-        Args: WasmTypeList + 'static,
-        Rets: WasmTypeList + 'static,
-    {
-        match &store.as_store_mut().inner.store {
-            #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
-                crate::backend::sys::entities::function::Function::new_typed_with_env_async(
-                    store, env, func,
-                ),
-            ),
-            #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
-            #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
-            #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
-            #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => unsupported_async_backend("js"),
-            #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
-        }
-    }
+    // #[inline]
+    // pub fn new_typed_with_env_async<T: Send + 'static, F, Args, Rets>(
+    //     store: &mut impl AsStoreMut,
+    //     env: &FunctionEnv<T>,
+    //     func: F,
+    // ) -> Self
+    // where
+    //     F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
+    //     Args: WasmTypeList + 'static,
+    //     Rets: WasmTypeList + 'static,
+    // {
+    //     match &store.as_mut().store {
+    //         #[cfg(feature = "sys")]
+    //         crate::BackendStore::Sys(_) => Self::Sys(
+    //             crate::backend::sys::entities::function::Function::new_typed_with_env_async(
+    //                 store, env, func,
+    //             ),
+    //         ),
+    //         #[cfg(feature = "wamr")]
+    //         crate::BackendStore::Wamr(_) => unsupported_async_backend("wamr"),
+    //         #[cfg(feature = "wasmi")]
+    //         crate::BackendStore::Wasmi(_) => unsupported_async_backend("wasmi"),
+    //         #[cfg(feature = "v8")]
+    //         crate::BackendStore::V8(_) => unsupported_async_backend("v8"),
+    //         #[cfg(feature = "js")]
+    //         crate::BackendStore::Js(_) => unsupported_async_backend("js"),
+    //         #[cfg(feature = "jsc")]
+    //         crate::BackendStore::Jsc(_) => unsupported_async_backend("jsc"),
+    //     }
+    // }
 
     /// Returns the [`FunctionType`] of the `Function`.
     ///
@@ -528,7 +529,7 @@ impl BackendFunction {
 
     #[inline]
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(unsafe {
                 crate::backend::sys::entities::function::Function::from_vm_funcref(
@@ -694,7 +695,7 @@ impl BackendFunction {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
-        match &store.as_store_mut().inner.store {
+        match &store.as_mut().store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::from_vm_extern(store, vm_extern),

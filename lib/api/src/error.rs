@@ -159,8 +159,8 @@ impl RuntimeError {
     /// will be thrown in the WebAssembly code instead of the usual trapping.
     pub fn exception(ctx: &impl AsStoreRef, exception: Exception) -> Self {
         let exnref = exception.vm_exceptionref();
-        let store = ctx.as_store_ref();
-        match store.inner.objects {
+        let store = ctx.as_ref();
+        match store.objects {
             #[cfg(feature = "sys")]
             crate::StoreObjects::Sys(ref store_objects) => {
                 crate::backend::sys::vm::Trap::uncaught_exception(

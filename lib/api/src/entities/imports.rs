@@ -311,6 +311,7 @@ mod test {
     #[test]
     fn namespace() {
         let mut store = Store::default();
+        let mut store = store.as_mut();
         let g1 = Global::new(&mut store, Value::I32(0));
         let namespace = namespace! {
             "happy" => g1
@@ -333,6 +334,7 @@ mod test {
         use crate::Function;
 
         let mut store: Store = Default::default();
+        let mut store = store.as_mut();
 
         fn func(arg: i32) -> i32 {
             arg + 1
@@ -383,6 +385,7 @@ mod test {
     #[test]
     fn chaining_works() {
         let mut store = Store::default();
+        let mut store = store.as_mut();
 
         let g = Global::new(&mut store, Value::I32(0));
 
@@ -415,6 +418,7 @@ mod test {
     #[test]
     fn extending_conflict_overwrites() {
         let mut store = Store::default();
+        let mut store = store.as_mut();
         let g1 = Global::new(&mut store, Value::I32(0));
         let g2 = Global::new(&mut store, Value::I64(0));
 
@@ -443,6 +447,7 @@ mod test {
         */
         // now test it in reverse
         let mut store = Store::default();
+        let mut store = store.as_mut();
         let g1 = Global::new(&mut store, Value::I32(0));
         let g2 = Global::new(&mut store, Value::I64(0));
 

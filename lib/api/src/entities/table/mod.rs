@@ -142,7 +142,9 @@ mod test {
         // Tests that the table type of `table` is compatible with the export in the WAT
         // This tests that `wasmer_types::types::is_table_compatible` works as expected.
         let mut store = Store::default();
-        let module = Module::new(&store, WAT).unwrap();
+        let module = Module::new(&store.engine(), WAT).unwrap();
+
+        let mut store = store.as_mut();
         let ty = TableType::new(Type::FuncRef, 0, None);
         let table = Table::new(&mut store, ty, Value::FuncRef(None)).unwrap();
         table.grow(&mut store, 100, Value::FuncRef(None)).unwrap();

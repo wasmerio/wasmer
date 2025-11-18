@@ -1,17 +1,28 @@
 //! Defines the [`Store`] data type and various useful traits and data types to interact with a
 //! store.
 
+/// Defines the [`StoreContext`] type.
+mod context;
+
 /// Defines the [`StoreInner`] data type.
 mod inner;
 
 /// Create temporary handles to engines.
 mod store_ref;
+
+use async_lock::RwLock;
+use std::{
+    ops::{Deref, DerefMut},
+    sync::{Arc, TryLockError},
+};
+
 pub use store_ref::*;
 
 mod obj;
 pub use obj::*;
 
 use crate::{AsEngineRef, BackendEngine, Engine, EngineRef};
+pub(crate) use context::*;
 pub(crate) use inner::*;
 use wasmer_types::StoreId;
 
@@ -29,7 +40,7 @@ use wasmer_vm::TrapHandlerFn;
 /// For more informations, check out the [related WebAssembly specification]
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
-    pub(crate) inner: Box<StoreInner>,
+    pub(crate) inner: Arc<async_lock::RwLock<StoreInner>>,
 }
 
 impl Store {
@@ -65,11 +76,34 @@ impl Store {
         };
 
         Self {
-            inner: Box::new(StoreInner {
+            inner: std::sync::Arc::new(async_lock::RwLock::new(StoreInner {
                 objects: StoreObjects::from_store_ref(&store),
                 on_called: None,
                 store,
-            }),
+            })),
+        }
+    }
+
+    /// Creates a new [`StoreRef`] if the store is available for reading.
+    pub(crate) fn make_ref(&self) -> Option<StoreRef> {
+        self.inner
+            .try_read_arc()
+            .map(|guard| StoreRef { inner: guard })
+    }
+
+    /// Creates a new [`StoreRef`] if the store is available for reading.
+    pub(crate) fn make_mut(&self) -> Option<StoreMut> {
+        self.inner
+            .try_write_arc()
+            .map(|guard| StoreMut { inner: guard })
+    }
+
+    /// Builds an [`AsStoreMut`] handle to this store, provided
+    /// the store is not locked. Panics if the store is already locked.
+    pub fn as_mut<'a>(&'a mut self) -> impl AsStoreMut + 'a {
+        StoreMutGuard {
+            inner: Some(self.make_mut().expect("Store is locked")),
+            marker: std::marker::PhantomData,
         }
     }
 
@@ -83,19 +117,28 @@ impl Store {
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
         use crate::backend::sys::entities::store::NativeStoreExt;
         #[allow(irrefutable_let_patterns)]
-        if let BackendStore::Sys(ref mut s) = self.inner.store {
+        if let BackendStore::Sys(ref mut s) = self.make_mut().expect("Store is locked").inner.store
+        {
             s.set_trap_handler(handler)
         }
     }
 
     /// Returns the [`Engine`].
-    pub fn engine(&self) -> &Engine {
-        self.inner.store.engine()
+    pub fn engine<'a>(&'a self) -> StoreEngineRef<'a> {
+        // Happily unwrap the read lock here because we don't expect
+        // embedder code to access stores in parallel.
+        StoreEngineRef {
+            inner: self.make_ref().expect("Store is locked"),
+            marker: std::marker::PhantomData,
+        }
     }
 
     /// Returns mutable reference to [`Engine`].
-    pub fn engine_mut(&mut self) -> &mut Engine {
-        self.inner.store.engine_mut()
+    pub fn engine_mut<'a>(&'a mut self) -> StoreEngineMut<'a> {
+        StoreEngineMut {
+            inner: self.make_mut().expect("Store is locked"),
+            marker: std::marker::PhantomData,
+        }
     }
 
     /// Checks whether two stores are identical. A store is considered
@@ -106,7 +149,7 @@ impl Store {
 
     /// Returns the ID of this store
     pub fn id(&self) -> StoreId {
-        self.inner.objects.id()
+        self.make_ref().expect("Store is locked").objects().id()
     }
 }
 
@@ -133,29 +176,83 @@ impl std::fmt::Debug for Store {
     }
 }
 
-impl AsEngineRef for Store {
-    fn as_engine_ref(&self) -> EngineRef<'_> {
-        self.inner.store.as_engine_ref()
-    }
+/// Marker used to make the engine accessible from a store reference.
+/// Needed because the store's lock must be held while accessing the engine.
+///
+/// This struct borrows the [`Store`] to help prevent accidental deadlocks.
+pub struct StoreEngineRef<'a> {
+    inner: StoreRef,
+    marker: std::marker::PhantomData<&'a ()>,
+}
 
-    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
-        Some(self.as_store_ref())
+impl Deref for StoreEngineRef<'_> {
+    type Target = Engine;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.engine()
     }
 }
 
-impl AsStoreRef for Store {
-    fn as_store_ref(&self) -> StoreRef<'_> {
-        StoreRef { inner: &self.inner }
+/// Marker used to make the engine accessible from a store reference.
+/// Needed because the store's lock must be held while accessing the engine.
+///
+/// This struct borrows the [`Store`] to help prevent accidental deadlocks.
+pub struct StoreEngineMut<'a> {
+    inner: StoreMut,
+    marker: std::marker::PhantomData<&'a ()>,
+}
+
+impl Deref for StoreEngineMut<'_> {
+    type Target = Engine;
+
+    fn deref(&self) -> &Self::Target {
+        self.inner.engine()
     }
 }
-impl AsStoreMut for Store {
-    fn as_store_mut(&mut self) -> StoreMut<'_> {
-        StoreMut {
-            inner: &mut self.inner,
-        }
+
+impl DerefMut for StoreEngineMut<'_> {
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        self.inner.engine_mut()
+    }
+}
+
+/// A guard that provides mutable access to a [`Store`]. This is
+/// the only way for embedders to construct an [`AsStoreMut`]
+/// from a [`Store`]. The internal [`StoreMut`] is taken when
+/// using this value to invoke [`Function::call`](crate::Function::call).
+// TODO: can we put the value back after the function returns? We should be able to
+// TODO: what would the API look like?
+pub struct StoreMutGuard<'a> {
+    inner: Option<StoreMut>,
+    marker: std::marker::PhantomData<&'a ()>,
+}
+
+impl AsStoreRef for StoreMutGuard<'_> {
+    fn as_ref(&self) -> &StoreInner {
+        self.inner
+            .as_ref()
+            .expect("StoreMutGuard is taken")
+            .as_ref()
+    }
+}
+
+impl AsStoreMut for StoreMutGuard<'_> {
+    fn as_mut(&mut self) -> &mut StoreInner {
+        self.inner
+            .as_mut()
+            .expect("StoreMutGuard is taken")
+            .as_mut()
     }
 
-    fn objects_mut(&mut self) -> &mut StoreObjects {
-        &mut self.inner.objects
+    fn reborrow_mut(&mut self) -> &mut StoreMut {
+        self.inner.as_mut().expect("StoreMutGuard is taken")
+    }
+
+    fn take(&mut self) -> Option<StoreMut> {
+        self.inner.take()
+    }
+
+    fn put_back(&mut self, store_mut: StoreMut) {
+        assert!(self.inner.replace(store_mut).is_none());
     }
 }

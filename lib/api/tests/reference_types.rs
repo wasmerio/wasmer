@@ -23,7 +23,9 @@ pub mod reference_types {
       (table.set $table (i32.const 0) (local.get $fr))
       (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         #[derive(Clone, Debug)]
         pub struct Env(Arc<AtomicBool>);
         let env = Env(Arc::new(AtomicBool::new(false)));
@@ -54,7 +56,7 @@ pub mod reference_types {
         let call_set_value: &Function = instance.exports.get_function("call_set_value")?;
         let results: Box<[Value]> =
             call_set_value.call(&mut store, &[Value::FuncRef(Some(func_to_call))])?;
-        assert!(env.as_ref(&store.as_store_ref()).0.load(Ordering::SeqCst));
+        assert!(env.as_ref(&store).0.load(Ordering::SeqCst));
         assert_eq!(&*results, &[Value::I32(343)]);
 
         Ok(())
@@ -80,7 +82,9 @@ pub mod reference_types {
 (func (export "call_host_func_with_wasm_func") (result i32)
       (call $func_ref_call (ref.func $product)))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let env = FunctionEnv::new(&mut store, ());
         fn func_ref_call(
             mut env: FunctionEnvMut<()>,
@@ -149,7 +153,9 @@ pub mod reference_types {
     (func (export "get_hashmap_native") (param) (result externref)
           (call $get_new_extern_ref_native))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let env = FunctionEnv::new(&mut store, ());
         let imports = imports! {
             "env" => {
@@ -228,7 +234,9 @@ pub mod reference_types {
     (func (export "drop") (param $er externref) (result)
           (drop (local.get $er)))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
         let f: TypedFunction<Option<ExternRef>, ()> =
             instance.exports.get_typed_function(&store, "drop")?;
@@ -252,7 +260,9 @@ pub mod reference_types {
     (func $hello (param) (result i32)
           (i32.const 73))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
         {
             let er_global: &Global = instance.exports.get_global("er_global")?;
@@ -321,7 +331,9 @@ pub mod reference_types {
           (call $intermediate (local.get $er) (local.get $idx))
           (local.get $er))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
         let f: TypedFunction<(Option<ExternRef>, i32), Option<ExternRef>> = instance
@@ -358,7 +370,9 @@ pub mod reference_types {
           (drop (global.get $global))
           (global.get $global))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
         let global: &Global = instance.exports.get_global("global")?;
@@ -386,7 +400,9 @@ pub mod reference_types {
           (local.get 0)
           (unreachable))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
         let pass_extern_ref: TypedFunction<Option<ExternRef>, ()> = instance
@@ -414,7 +430,9 @@ pub mod reference_types {
     (func $copy_into_table2 (export "copy_into_table2")
           (table.copy $table2 $table1 (i32.const 0) (i32.const 0) (i32.const 4)))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
         let grow_table_with_ref: TypedFunction<(Option<ExternRef>, i32), i32> = instance
@@ -503,7 +521,9 @@ pub mod reference_types {
     (func (export "call_set_value") (param $er externref) (param $idx i32)
           (table.set $table2 (local.get $idx) (local.get $er)))
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
 
         let grow_table_with_ref: TypedFunction<(Option<ExternRef>, i32), i32> = instance
@@ -593,7 +613,9 @@ pub mod reference_types {
           (table.get $table (local.get $idx)))
 
 )"#;
-        let module = Module::new(&store, wat)?;
+        let module = Module::new(&store.engine(), wat)?;
+
+        let mut store = store.as_mut();
         let instance = Instance::new(&mut store, &module, &imports! {})?;
         let call_set_value: TypedFunction<(Option<ExternRef>, i32), ()> = instance
             .exports
