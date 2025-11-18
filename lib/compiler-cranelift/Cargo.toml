@@ -14,7 +14,7 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { workspace = true, default-features = false, features = [
+wasmer-compiler = { workspace = true, features = [
 	"translator",
 	"compiler",
 ] }

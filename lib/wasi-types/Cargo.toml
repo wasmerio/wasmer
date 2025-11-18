@@ -16,7 +16,7 @@ rust-version.workspace = true
 
 [dependencies]
 wasmer = { default-features = false, workspace = true }
-wasmer-types.workspace = true
+wasmer-types = { workspace = true, default-features = true }
 wasmer-derive.workspace = true
 wai-bindgen-gen-rust.workspace = true
 wai-bindgen-rust = { workspace = true, default-features = false, features = [

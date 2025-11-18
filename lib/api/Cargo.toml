@@ -56,7 +56,7 @@ derive_more = { workspace = true, features = ["from", "debug"] }
 [target.'cfg(not(target_arch = "wasm32"))'.dependencies]
 # - Mandatory dependencies for `sys`.
 wasmer-vm = { workspace = true, optional = true }
-wasmer-compiler = { workspace = true, default-features = true, optional = true }
+wasmer-compiler = { workspace = true, optional = true }
 wasmer-derive.workspace = true
 wasmer-types = { workspace = true, default-features = true }
 target-lexicon = { workspace = true, default-features = false }

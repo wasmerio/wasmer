@@ -90,7 +90,7 @@ wasmer = { version = "=6.1.0", path = "lib/api", default-features = false }
 wasmer-api = { version = "=6.1.0", path = "lib/api", default-features = false, package = "wasmer" }
 wasmer-backend-api = { version = "=0.601.0", path = "lib/backend-api" }
 wasmer-cache = { version = "=6.1.0", path = "./lib/cache" }
-wasmer-compiler = { version = "=6.1.0", path = "./lib/compiler", default-features = false }
+wasmer-compiler = { version = "=6.1.0", path = "./lib/compiler" }
 wasmer-compiler-cranelift = { version = "=6.1.0", path = "./lib/compiler-cranelift" }
 wasmer-compiler-llvm = { version = "=6.1.0", path = "./lib/compiler-llvm" }
 wasmer-compiler-singlepass = { version = "=6.1.0", path = "./lib/compiler-singlepass" }
