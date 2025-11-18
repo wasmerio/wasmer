@@ -1,5 +1,5 @@
 #![allow(clippy::result_large_err)]
-use std::sync::Arc;
+use std::{borrow::Cow, sync::Arc};
 
 use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
@@ -8,7 +8,7 @@ use crate::{
         thread::{RewindResultType, WasiThreadRunGuard},
     },
     runtime::{
-        TaintReason,
+        ModuleInput, TaintReason,
         module_cache::HashedModuleData,
         task_manager::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
@@ -34,7 +34,8 @@ pub async fn spawn_exec(
     spawn_union_fs(&env, &binary).await?;
 
     let cmd = package_command_by_name(&binary, name)?;
-    let module = runtime.load_command_module(cmd).await?;
+    let input = ModuleInput::Command(Cow::Borrowed(cmd));
+    let module = runtime.resolve_module(input, None, None).await?;
 
     // Free the space used by the binary, since we don't need it
     // any longer
