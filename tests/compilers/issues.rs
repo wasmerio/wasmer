@@ -603,7 +603,7 @@ fn compiler_debug_dir_test(mut config: crate::Config) {
                 .expect("path must be valid"),
         );
     }
-    let mut store = config.store();
+    let store = config.store();
 
     let mut wat = include_str!("../wast/spec/fac.wast").to_string();
     wat.truncate(
