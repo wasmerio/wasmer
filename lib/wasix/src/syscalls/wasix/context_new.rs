@@ -61,7 +61,7 @@ async fn launch_function(
 ) -> () {
     // Wait for the context to be unblocked
     let prelaunch_result = wait_for_unblock.await;
-    current_context_id.store(new_context_id, Ordering::SeqCst);
+    current_context_id.store(new_context_id, Ordering::Relaxed);
 
     // Handle if the context was canceled before it even started
     match prelaunch_result {
@@ -133,10 +133,9 @@ pub fn context_new<M: MemorySize>(
     };
 
     // Create a new context ID
-    // TODO: Review which Ordering is appropriate here
     let new_context_id = data
         .next_available_context_id
-        .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
+        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
     // Write the new context ID into memory
     let memory = unsafe { data.memory_view(&store) };
