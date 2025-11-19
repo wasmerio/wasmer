@@ -3617,10 +3617,10 @@
 <a href=#3617 id=3617 data-nosnippet>3617</a>                    <span class="self">self</span>.machine.emit_function_epilog()<span class="question-mark">?</span>;
 <a href=#3618 id=3618 data-nosnippet>3618</a>
 <a href=#3619 id=3619 data-nosnippet>3619</a>                    <span class="comment">// Make a copy of the return value in XMM0, as required by the SysV CC.
-<a href=#3620 id=3620 data-nosnippet>3620</a>                    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>return_type) = <span class="self">self</span>.signature.results().iter().exactly_one() {
-<a href=#3621 id=3621 data-nosnippet>3621</a>                        <span class="kw">if </span>return_type == Type::F32 || return_type == Type::F64 {
-<a href=#3622 id=3622 data-nosnippet>3622</a>                            <span class="self">self</span>.machine.emit_function_return_float()<span class="question-mark">?</span>;
-<a href=#3623 id=3623 data-nosnippet>3623</a>                        }
+<a href=#3620 id=3620 data-nosnippet>3620</a>                    </span><span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">&amp;</span>return_type) = <span class="self">self</span>.signature.results().iter().exactly_one()
+<a href=#3621 id=3621 data-nosnippet>3621</a>                        &amp;&amp; (return_type == Type::F32 || return_type == Type::F64)
+<a href=#3622 id=3622 data-nosnippet>3622</a>                    {
+<a href=#3623 id=3623 data-nosnippet>3623</a>                        <span class="self">self</span>.machine.emit_function_return_float()<span class="question-mark">?</span>;
 <a href=#3624 id=3624 data-nosnippet>3624</a>                    };
 <a href=#3625 id=3625 data-nosnippet>3625</a>                    <span class="self">self</span>.machine.emit_ret()<span class="question-mark">?</span>;
 <a href=#3626 id=3626 data-nosnippet>3626</a>                } <span class="kw">else </span>{
