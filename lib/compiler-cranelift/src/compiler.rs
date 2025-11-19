@@ -173,6 +173,7 @@ impl CraneliftCompiler {
 
                 let mut code_buf: Vec<u8> = Vec::new();
                 let mut ctrl_plane = Default::default();
+                let func_name_map = context.func.params.user_named_funcs().clone();
                 let result = context
                     .compile(&*isa, &mut ctrl_plane)
                     .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
@@ -182,7 +183,7 @@ impl CraneliftCompiler {
                     .buffer
                     .relocs()
                     .into_iter()
-                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .map(|r| mach_reloc_to_reloc(module, &func_name_map, r))
                     .collect::<Vec<_>>();
 
                 let traps = result
@@ -297,6 +298,7 @@ impl CraneliftCompiler {
 
                 let mut code_buf: Vec<u8> = Vec::new();
                 let mut ctrl_plane = Default::default();
+                let func_name_map = context.func.params.user_named_funcs().clone();
                 let result = context
                     .compile(&*isa, &mut ctrl_plane)
                     .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
@@ -315,7 +317,7 @@ impl CraneliftCompiler {
                     .buffer
                     .relocs()
                     .iter()
-                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .map(|r| mach_reloc_to_reloc(module, &func_name_map, r))
                     .collect::<Vec<_>>();
 
                 let traps = result
@@ -524,7 +526,11 @@ impl Compiler for CraneliftCompiler {
     }
 }
 
-fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Relocation {
+fn mach_reloc_to_reloc(
+    module: &ModuleInfo,
+    func_index_map: &cranelift_entity::PrimaryMap<ir::UserExternalNameRef, ir::UserExternalName>,
+    reloc: &FinalizedMachReloc,
+) -> Relocation {
     let FinalizedMachReloc {
         offset,
         kind,
@@ -538,10 +544,11 @@ fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Reloc
         }
     };
     let reloc_target: RelocationTarget = if let ExternalName::User(extname_ref) = name {
+        let func_index = func_index_map[*extname_ref].index;
         //debug_assert_eq!(namespace, 0);
         RelocationTarget::LocalFunc(
             module
-                .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
+                .local_func_index(FunctionIndex::from_u32(func_index))
                 .expect("The provided function should be local"),
         )
     } else if let ExternalName::LibCall(libcall) = name {
