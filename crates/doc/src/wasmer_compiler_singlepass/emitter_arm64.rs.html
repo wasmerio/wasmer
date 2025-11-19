@@ -2845,7 +2845,7 @@
 <a href=#2845 id=2845 data-nosnippet>2845</a>        .len()
 <a href=#2846 id=2846 data-nosnippet>2846</a>        .saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len());
 <a href=#2847 id=2847 data-nosnippet>2847</a>    <span class="kw">let </span><span class="kw-2">mut </span>stack_offset = (stack_args + stack_return_slots) <span class="kw">as </span>u32 * <span class="number">8</span>;
-<a href=#2848 id=2848 data-nosnippet>2848</a>    <span class="kw">if </span>stack_args &gt; <span class="number">0 </span>{
+<a href=#2848 id=2848 data-nosnippet>2848</a>    <span class="kw">if </span>stack_offset &gt; <span class="number">0 </span>{
 <a href=#2849 id=2849 data-nosnippet>2849</a>        <span class="kw">if </span>!stack_offset.is_multiple_of(<span class="number">16</span>) {
 <a href=#2850 id=2850 data-nosnippet>2850</a>            stack_offset += <span class="number">8</span>;
 <a href=#2851 id=2851 data-nosnippet>2851</a>            <span class="macro">assert!</span>(stack_offset.is_multiple_of(<span class="number">16</span>));
