@@ -438,7 +438,7 @@ impl Abi for X86_64SystemV {
                 }
             };
 
-        if let Some(basic_value) = call_site.try_as_basic_value().left() {
+        if let Some(basic_value) = call_site.try_as_basic_value().basic() {
             if func_sig.results().len() > 1 {
                 if basic_value.get_type() == intrinsics.i64_ty.as_basic_type_enum() {
                     assert!(func_sig.results().len() == 2);
@@ -548,12 +548,10 @@ impl Abi for X86_64SystemV {
             {
                 let sret_ty = call_site
                     .try_as_basic_value()
-                    .right()
-                    .unwrap()
+                    .unwrap_instruction()
                     .get_operand(0)
                     .unwrap()
-                    .left()
-                    .unwrap();
+                    .unwrap_value();
                 let sret = sret_ty.into_pointer_value();
                 // re-build the llvm-type struct holding the return values
                 let llvm_results: Vec<_> = func_sig
