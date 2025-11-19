@@ -92,12 +92,12 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
             name
         }
         CompiledKind::FunctionCallTrampoline(func_type) => format!(
-            "trampoline_call_{}_{}",
+            "trampoline_call_{}_{}{suffix}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
         CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
-            "trampoline_dynamic_{}_{}",
+            "trampoline_dynamic_{}_{}{suffix}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
