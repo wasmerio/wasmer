@@ -18,17 +18,17 @@ curl https://sh.rustup.rs -sSf | sh
 
 Linux is fully supported by Wasmer. WASI(x) is also fully supported. Users
 building from source can enable the LLVM backend following the instruction in
-the dedicated section below and installing LLVM version 18. To install it,
+the dedicated section below and installing LLVM version 21. To install it,
 refer to [LLVM's download
-page](https://github.com/llvm/llvm-project/releases/tag/llvmorg-18.1.7) or
+page](https://github.com/llvm/llvm-project/releases/tag/llvmorg-21.1.6) or
 check your distro's package manager.
 
 ### macOS
 
 macOS is fully supported by Wasmer. WASI(x) is also fully supported. Users
 building from source can enable the LLVM backend following the instruction in
-the dedicated section below and installing LLVM version 18. To install it on
-macOS, you can use [homebrew](https://brew.sh/): `brew install llvm@18`.
+the dedicated section below and installing LLVM version 21. To install it on
+macOS, you can use [homebrew](https://brew.sh/): `brew install llvm@21`.
 
 ### Windows
 
@@ -37,7 +37,7 @@ Windows is fully supported by Wasmer. WASI(x) is also fully supported.
 1. Install [Visual Studio](https://visualstudio.microsoft.com/thank-you-downloading-visual-studio/?sku=Community&rel=15)
 2. Install [Rust for Windows](https://win.rustup.rs/)
 3. Install [Git for Windows](https://git-scm.com/download/win). Allow it to add `git.exe` to your PATH (default settings for the installer are fine).
-4. \(optional\) Install [LLVM 18.0](https://github.com/llvm/llvm-project/releases/download/llvmorg-18.1.7/LLVM-18.1.7-win64.exe)
+4. \(optional\) Install [LLVM 21.0](https://github.com/llvm/llvm-project/releases/download/llvmorg-21.1.6/LLVM-21.1.6-win64.exe)
 
 ## Building the Wasmer Runtime
 
@@ -91,12 +91,12 @@ variable, and force its enabling with `ENABLE_SINGLEPASS=1`.
 
 If you want support for the Wasmer LLVM compiler, then you will also need to:
 
-- Ensure that LLVM >=18.1.x is installed on your system
+- Ensure that LLVM >=21.1.x is installed on your system
   - You can refer to [LLVM install instructions](https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm#requirements)
   - You can also [download and use a prebuilt LLVM binary](https://releases.llvm.org/download.html)
 - In case `llvm-config` is not accessible, set the correct environment variable
-  for LLVM to access: For example, the environment variable for LLVM 18.1.x
-  would be: `LLVM_SYS_181_PREFIX=/path/to/unpacked/llvm-18.1`
+  for LLVM to access: For example, the environment variable for LLVM 21.1.x
+  would be: `LLVM_SYS_211_PREFIX=/path/to/unpacked/llvm-21.1`
 
 And create a Wasmer release
 
