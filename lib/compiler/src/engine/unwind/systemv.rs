@@ -276,3 +276,69 @@ impl Drop for UnwindRegistry {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_unwind_registry_thread_safety() {
+        // This test verifies that the global FRAME_REGISTRY_LOCK prevents
+        // race conditions when multiple threads register/deregister frames.
+        // While we can't easily trigger the original segfault in a test,
+        // we can verify that concurrent operations don't cause panics.
+        
+        use std::thread;
+
+        let handles: Vec<_> = (0..4)
+            .map(|_| {
+                thread::spawn(|| {
+                    // Create and drop UnwindRegistry instances
+                    for _ in 0..10 {
+                        let mut registry = UnwindRegistry::new();
+                        // Simulate publishing with empty eh_frame
+                        let _ = registry.publish(None);
+                        // Drop happens here, which should be thread-safe
+                    }
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().expect("Thread should not panic");
+        }
+    }
+
+    #[test]
+    fn test_frame_registry_lock_serializes_access() {
+        // Test that the lock properly serializes access to frame operations.
+        // This test verifies the mutex works correctly by ensuring concurrent
+        // lock acquisitions succeed without deadlocks.
+        
+        use std::sync::Arc;
+        use std::sync::atomic::{AtomicUsize, Ordering};
+        use std::thread;
+
+        let counter = Arc::new(AtomicUsize::new(0));
+        let handles: Vec<_> = (0..10)
+            .map(|_| {
+                let counter = Arc::clone(&counter);
+                thread::spawn(move || {
+                    // Simulate the pattern used in register_frames and Drop
+                    let _lock = FRAME_REGISTRY_LOCK.lock().unwrap();
+                    // Critical section - if the lock works, only one thread
+                    // should be here at a time
+                    let current = counter.load(Ordering::SeqCst);
+                    counter.store(current + 1, Ordering::SeqCst);
+                })
+            })
+            .collect();
+
+        for handle in handles {
+            handle.join().expect("Thread should not panic");
+        }
+
+        // All threads completed successfully
+        assert_eq!(counter.load(Ordering::SeqCst), 10);
+    }
+}
