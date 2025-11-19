@@ -48,7 +48,7 @@ pub fn lookup_typechecked_entrypoint(
         return Err(Errno::Inval);
     }
 
-    return Ok(entrypoint);
+    Ok(entrypoint)
 }
 
 async fn launch_function(
@@ -63,6 +63,7 @@ async fn launch_function(
     let prelaunch_result = wait_for_unblock.await;
     current_context_id.store(new_context_id, Ordering::SeqCst);
 
+    // Handle if the context was canceled before it even started
     match prelaunch_result {
         Ok(_) => (),
         Err(canceled) => {
@@ -74,10 +75,14 @@ async fn launch_function(
         }
     };
 
+    // Actually call the entrypoint function
     let result = typechecked_entrypoint
         .call_async(&mut unsafe_static_store, &[])
         .await;
 
+    // If that function returns, we need to resume the main context with an error
+
+    // Retrieve the main context
     let main_context = contexts_cloned
         .remove(&MAIN_CONTEXT_ID)
         .map(|(_id, val)| val)
@@ -96,6 +101,8 @@ async fn launch_function(
             )
         }
     };
+
+    // Resume the main context with the error
     main_context
         .send(Err(error))
         .expect("Failed to send error to main context, this should not happen");
@@ -125,37 +132,36 @@ pub fn context_new<M: MemorySize>(
         return Ok(Errno::Again);
     };
 
+    // Create a new context ID
     // TODO: Review which Ordering is appropriate here
     let new_context_id = data
         .next_available_context_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
-    {
-        let memory = unsafe { data.memory_view(&mut store) };
-        wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
-    }
+
+    // Write the new context ID into memory
+    let memory = unsafe { data.memory_view(&store) };
+    wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
 
     // Setup sender and receiver for the new context
-    let (sender, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+    let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
-    let maybe_old_value = data.contexts.insert(new_context_id, sender);
-    if maybe_old_value.is_some() {
+    // Store the unblock function into the WasiEnv
+    let previous_unblock = data.contexts.insert(new_context_id, unblock);
+    if previous_unblock.is_some() {
         // This should never happen, and if it does, it is an error in WASIX
-        panic!(
-            "There already is a context suspended with ID {new_context_id}. How did we get here?",
-        );
+        panic!("There already is a context suspended with ID {new_context_id}");
     }
 
-    // SAFETY: This is fine if we can ensure that ???
-    //  A: The future does not outlive the store
-    //  B: we now have multiple mutable references, this is dangerous
+    // Clone necessary arcs for the entrypoint future
+    // SAFETY: Will be made safe with the proper wasmer async API
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<StoreMut<'_>, StoreMut<'static>>(store.as_store_mut()) };
-
     let contexts_cloned: Arc<
         dashmap::DashMap<u64, oneshot::Sender<std::result::Result<(), RuntimeError>>>,
     > = data.contexts.clone();
     let current_context_id: Arc<AtomicU64> = data.current_context_id.clone();
 
+    // Create the future that will launch the entrypoint function
     let entrypoint_future = launch_function(
         unsafe_static_store,
         wait_for_unblock,
@@ -164,8 +170,12 @@ pub fn context_new<M: MemorySize>(
         contexts_cloned,
         typechecked_entrypoint,
     );
-    // Queue the
-    match spawner.spawn_local(entrypoint_future) {
+
+    // Queue the future onto the thread-local executor
+    let spawn_result = spawner.spawn_local(entrypoint_future);
+
+    // Return failure if spawning failed
+    match spawn_result {
         Ok(()) => Ok(Errno::Success),
         Err(ThreadLocalSpawnerError::LocalPoolShutDown) => {
             // TODO: Handle cancellation properly
