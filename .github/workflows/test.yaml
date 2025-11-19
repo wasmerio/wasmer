@@ -69,7 +69,7 @@ jobs:
           mkdir -p /opt/llvm-18
           tar xf /opt/llvm.tar.xz --strip-components=1 -C /opt/llvm-18
           echo '/opt/llvm-18/bin' >> $GITHUB_PATH
-          echo 'LLVM_SYS_180_PREFIX=/opt/llvm-18' >> $GITHUB_ENV
+          echo 'LLVM_SYS_181_PREFIX=/opt/llvm-18' >> $GITHUB_ENV
       - name: Cache
         uses: whywaita/actions-cache-s3@v2
         with:
@@ -146,7 +146,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_181_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: make test-wasi-fyi
@@ -216,7 +216,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_181_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
 
@@ -367,7 +367,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_181_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: make test-build-docs-rs-ci
@@ -664,7 +664,7 @@ jobs:
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_181_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
       - name: Add `brew` libs to `RUSTFLAGS`
@@ -901,7 +901,7 @@ jobs:
           tar xf llvm.tar.xz --strip-components=1 -C ${LLVM_DIR}
           echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
           echo "${LLVM_DIR}/usr/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_180_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
+          echo "LLVM_SYS_181_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
           echo "ENABLE_LLVM=1" >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
