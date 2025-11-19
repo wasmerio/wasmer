@@ -4,6 +4,7 @@
 //! Module for System V ABI unwind registry.
 
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use std::sync::Mutex;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
@@ -20,6 +21,12 @@ unsafe extern "C" {
     fn __register_frame(fde: *const u8);
     fn __deregister_frame(fde: *const u8);
 }
+
+// Global mutex to synchronize access to __register_frame and __deregister_frame.
+// This is necessary because these functions in libgcc are not thread-safe when
+// called concurrently, which can lead to segfaults when the FDE data structures
+// are accessed simultaneously by multiple threads.
+static FRAME_REGISTRY_LOCK: Mutex<()> = Mutex::new(());
 
 // Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -204,6 +211,8 @@ impl UnwindRegistry {
 
             for record in records_to_register {
                 // Register the CFI with libgcc
+                // Use the global lock to ensure thread-safe access to __register_frame
+                let _lock = FRAME_REGISTRY_LOCK.lock().unwrap();
                 unsafe {
                     __register_frame(record as *const u8);
                 }
@@ -258,6 +267,8 @@ impl Drop for UnwindRegistry {
 
                     #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
                     {
+                        // Use the global lock to ensure thread-safe access to __deregister_frame
+                        let _lock = FRAME_REGISTRY_LOCK.lock().unwrap();
                         __deregister_frame(*registration as *const _);
                     }
                 }
