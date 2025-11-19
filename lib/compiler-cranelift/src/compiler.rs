@@ -290,7 +290,7 @@ impl CraneliftCompiler {
                     use wasmer_compiler::misc::CompiledKind;
 
                     callbacks.preopt_ir(
-                        &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
+                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
                         context.func.display().to_string().as_bytes(),
                     );
                 }
@@ -306,7 +306,7 @@ impl CraneliftCompiler {
                     use wasmer_compiler::misc::CompiledKind;
 
                     callbacks.obj_memory_buffer(
-                        &CompiledKind::Local(compile_info.module.get_function_name(func_index)),
+                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
                         &code_buf,
                     );
                 }
