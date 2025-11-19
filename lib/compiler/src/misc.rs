@@ -162,9 +162,10 @@ pub fn save_assembly_to_file<C: Display>(
         .flush()
         .map_err(|err| CompileError::Codegen(format!("flush failed: {err}")))?;
 
-    let objdump_arch = match arch {
-        Architecture::X86_64 => "i386:x86-64",
-        Architecture::Aarch64(..) => "aarch64",
+    let (objdump_arch, objdump_binary) = match arch {
+        Architecture::X86_64 => ("i386:x86-64", "x86_64-linux-gnu-objdump"),
+        Architecture::Aarch64(..) => ("aarch64", "aarch64-linux-gnu-objdump"),
+        Architecture::Riscv64(..) => ("riscv:rv64", "riscv64-linux-gnu-objdump"),
         _ => {
             return Err(CompileError::Codegen(
                 "Assembly dumping is not supported for this architecture".to_string(),
@@ -172,12 +173,14 @@ pub fn save_assembly_to_file<C: Display>(
         }
     };
 
-    // Objdump is an optional dependency, do not fail if not present.
-    if which("objdump").is_err() {
+    let bins = [objdump_binary, "objdump"];
+    let objdump_binary = bins.iter().find(|bin| which(bin).is_ok());
+    let Some(objdump_binary) = objdump_binary else {
+        // Objdump is an optional dependency, do not fail if not present.
         return Ok(());
-    }
+    };
 
-    let command = Command::new("objdump")
+    let command = Command::new(objdump_binary)
         .arg("-b")
         .arg("binary")
         .arg("-m")
@@ -185,6 +188,7 @@ pub fn save_assembly_to_file<C: Display>(
         .arg("-D")
         .arg(tmpfile.path())
         .stdout(Stdio::piped())
+        .stderr(Stdio::null())
         .spawn();
 
     let Ok(command) = command else {
