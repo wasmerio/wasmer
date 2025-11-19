@@ -47,24 +47,27 @@ fn inner_context_switch(
     }
 
     let (data) = ctx.data_mut();
+
+    // Get own context ID
     // TODO: Review which Ordering is appropriate here
     let own_context_id = data
         .current_context_id
         .swap(target_context_id, Ordering::SeqCst);
 
+    // If switching to self, do nothing
     if own_context_id == target_context_id {
         tracing::trace!("Switching context {own_context_id} to itself, which is a no-op");
         return Err(Ok(Errno::Success));
     }
 
-    let (sender, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+    // Setup sender and receiver for the new context
+    let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
-    let maybe_old_value = data.contexts.insert(own_context_id, sender);
-    if maybe_old_value.is_some() {
+    // Store the unblock function into the WasiEnv
+    let previous_unblock = data.contexts.insert(own_context_id, unblock);
+    if previous_unblock.is_some() {
         // This should never happen, and if it does, it is an error in WASIX
-        panic!(
-            "Context {own_context_id} is already suspended but tried to switch to context {target_context_id}. How did we get here?",
-        );
+        panic!("There is already a unblock present for the current context {own_context_id}");
     }
 
     // Unblock the other context
@@ -82,11 +85,19 @@ fn inner_context_switch(
         );
     };
 
+    // Clone necessary arcs for the future
     let current_context_id = data.current_context_id.clone();
+
+    // Create the future that will resolve when this context is switched back to
+    // again
     Ok(async move {
+        // Wait until we are unblocked again
         let result = wait_for_unblock.await;
+
+        // Restore our own context ID
         current_context_id.store(own_context_id, Ordering::SeqCst);
 
+        // Handle if we were canceled instead of beeing unblocked
         let result = match result {
             Ok(v) => v,
             Err(canceled) => {
