@@ -36,7 +36,7 @@ impl SinglepassCallbacks {
     /// Writes the object file memory buffer to a debug file.
     pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.o", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".o"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift object");
         file.write_all(mem_buffer).unwrap();
@@ -51,7 +51,7 @@ impl SinglepassCallbacks {
         assembly_comments: HashMap<usize, AssemblyComment>,
     ) -> Result<(), wasmer_types::CompileError> {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.s", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".s"));
         save_assembly_to_file(arch, path, mem_buffer, assembly_comments)
     }
 }
@@ -103,9 +103,7 @@ impl CompilerConfig for Singlepass {
 
     /// Gets the supported features for this compiler in the given target
     fn supported_features_for_target(&self, _target: &Target) -> Features {
-        let mut features = Features::default();
-        features.multi_value(false);
-        features
+        Features::default()
     }
 
     /// Pushes a middleware onto the back of the middleware chain.

@@ -97,7 +97,6 @@ impl Config {
                 compiler.enable_verifier();
                 if let Some(mut debug_dir) = debug_dir {
                     use wasmer_compiler_llvm::LLVMCallbacks;
-
                     debug_dir.push("llvm");
                     compiler.callbacks(Some(
                         LLVMCallbacks::new(debug_dir)
@@ -112,6 +111,14 @@ impl Config {
                 let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
                 compiler.canonicalize_nans(canonicalize_nans);
                 compiler.enable_verifier();
+                if let Some(mut debug_dir) = debug_dir {
+                    use wasmer_compiler_singlepass::SinglepassCallbacks;
+                    debug_dir.push("singlepass");
+                    compiler.callbacks(Some(
+                        SinglepassCallbacks::new(debug_dir)
+                            .expect("cannot crate debug directory: {debug_dir}"),
+                    ));
+                }
                 self.add_middlewares(&mut compiler);
                 Box::new(compiler)
             }

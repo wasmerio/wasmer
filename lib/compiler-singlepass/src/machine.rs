@@ -17,7 +17,7 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationTarget},
         section::CustomSection,
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
     CompileError, FunctionIndex, FunctionType, TrapCode, TrapInformation, VMOffsets,
@@ -221,6 +221,7 @@ pub trait Machine {
     /// Get call param location (from a call, using FP for stack args)
     fn get_call_param_location(
         &self,
+        result_slots: usize,
         idx: usize,
         sz: Size,
         stack_offset: &mut usize,
@@ -228,6 +229,19 @@ pub trait Machine {
     ) -> Location<Self::GPR, Self::SIMD>;
     /// Get simple param location
     fn get_simple_param_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location<Self::GPR, Self::SIMD>;
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
@@ -278,13 +292,6 @@ pub trait Machine {
     fn emit_function_prolog(&mut self) -> Result<(), CompileError>;
     /// emit native function epilog (depending on the calling Convention, like "MOV RBP, RSP / POP RBP")
     fn emit_function_epilog(&mut self) -> Result<(), CompileError>;
-    /// handle return value, with optional cannonicalization if wanted
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        cannonicalize: bool,
-        loc: Location<Self::GPR, Self::SIMD>,
-    ) -> Result<(), CompileError>;
     /// Handle copy to SIMD register from ret value (if needed by the arch/calling convention)
     fn emit_function_return_float(&mut self) -> Result<(), CompileError>;
     /// Is NaN canonicalization supported
