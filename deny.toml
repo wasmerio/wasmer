@@ -119,6 +119,9 @@ exceptions = [
 	# Each entry is the crate and version constraint, and its specific allow
 	# list
 	#{ allow = ["Zlib"], crate = "adler32" },
+
+	{ allow = ["BUSL-1.1"], crate = "wasmer-compiler-singlepass" },
+	{ allow = ["BUSL-1.1"], crate = "wasmer-compiler-llvm" },
 ]
 
 # Some crates don't have (easily) machine readable licensing information,
@@ -126,14 +129,14 @@ exceptions = [
 # licensing information
 [[licenses.clarify]]
 crate = "wasmer-compiler-singlepass"
-expression = "ISC"
+expression = "BUSL-1.1"
 license-files = [
     { path = "LICENSE", hash = 0x11303e40 },
 ]
 
 [[licenses.clarify]]
 crate = "wasmer-compiler-llvm"
-expression = "ISC"
+expression = "BUSL-1.1"
 license-files = [
     { path = "LICENSE", hash = 0x79b6d01b },
 ]
