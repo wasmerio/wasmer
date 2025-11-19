@@ -33,7 +33,7 @@
 <a href=#33 id=33 data-nosnippet>33</a>    <span class="doccomment">/// Writes the pre-optimization intermediate representation to a debug file.
 <a href=#34 id=34 data-nosnippet>34</a>    </span><span class="kw">pub fn </span>preopt_ir(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>CompiledKind, mem_buffer: <span class="kw-2">&amp;</span>[u8]) {
 <a href=#35 id=35 data-nosnippet>35</a>        <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
-<a href=#36 id=36 data-nosnippet>36</a>        path.push(<span class="macro">format!</span>(<span class="string">"{}.preopt.clif"</span>, function_kind_to_filename(kind)));
+<a href=#36 id=36 data-nosnippet>36</a>        path.push(function_kind_to_filename(kind, <span class="string">".preopt.clif"</span>));
 <a href=#37 id=37 data-nosnippet>37</a>        <span class="kw">let </span><span class="kw-2">mut </span>file =
 <a href=#38 id=38 data-nosnippet>38</a>            File::create(path).expect(<span class="string">"Error while creating debug file from Cranelift IR"</span>);
 <a href=#39 id=39 data-nosnippet>39</a>        file.write_all(mem_buffer).unwrap();
@@ -42,7 +42,7 @@
 <a href=#42 id=42 data-nosnippet>42</a>    <span class="doccomment">/// Writes the object file memory buffer to a debug file.
 <a href=#43 id=43 data-nosnippet>43</a>    </span><span class="kw">pub fn </span>obj_memory_buffer(<span class="kw-2">&amp;</span><span class="self">self</span>, kind: <span class="kw-2">&amp;</span>CompiledKind, mem_buffer: <span class="kw-2">&amp;</span>[u8]) {
 <a href=#44 id=44 data-nosnippet>44</a>        <span class="kw">let </span><span class="kw-2">mut </span>path = <span class="self">self</span>.debug_dir.clone();
-<a href=#45 id=45 data-nosnippet>45</a>        path.push(<span class="macro">format!</span>(<span class="string">"{}.o"</span>, function_kind_to_filename(kind)));
+<a href=#45 id=45 data-nosnippet>45</a>        path.push(function_kind_to_filename(kind, <span class="string">".o"</span>));
 <a href=#46 id=46 data-nosnippet>46</a>        <span class="kw">let </span><span class="kw-2">mut </span>file =
 <a href=#47 id=47 data-nosnippet>47</a>            File::create(path).expect(<span class="string">"Error while creating debug file from Cranelift object"</span>);
 <a href=#48 id=48 data-nosnippet>48</a>        file.write_all(mem_buffer).unwrap();
