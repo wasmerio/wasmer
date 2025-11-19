@@ -26,8 +26,7 @@ pub fn context_delete(
     let env = ctx.data();
     let memory: MemoryView<'_> = unsafe { env.memory_view(&ctx) };
 
-    // TODO: Review which Ordering is appropriate here
-    let own_context_id = env.current_context_id.load(Ordering::SeqCst);
+    let own_context_id = env.current_context_id.load(Ordering::Relaxed);
     if own_context_id == target_context_id {
         tracing::trace!(
             "Context {} tried to delete itself, which is not allowed",
