@@ -49,10 +49,9 @@ fn inner_context_switch(
     let (data) = ctx.data_mut();
 
     // Get own context ID
-    // TODO: Review which Ordering is appropriate here
     let own_context_id = data
         .current_context_id
-        .swap(target_context_id, Ordering::SeqCst);
+        .swap(target_context_id, Ordering::Relaxed);
 
     // If switching to self, do nothing
     if own_context_id == target_context_id {
@@ -95,7 +94,7 @@ fn inner_context_switch(
         let result = wait_for_unblock.await;
 
         // Restore our own context ID
-        current_context_id.store(own_context_id, Ordering::SeqCst);
+        current_context_id.store(own_context_id, Ordering::Relaxed);
 
         // Handle if we were canceled instead of beeing unblocked
         let result = match result {
