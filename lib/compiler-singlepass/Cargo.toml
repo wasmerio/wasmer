@@ -32,6 +32,7 @@ rayon = { workspace = true, optional = true }
 
 [dev-dependencies]
 target-lexicon = { workspace = true, default-features = false }
+wat = "1.216.0"
 
 [badges]
 maintenance = { status = "actively-developed" }

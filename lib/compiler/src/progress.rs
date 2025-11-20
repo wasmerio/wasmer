@@ -37,9 +37,7 @@ impl ProgressContext {
 
     /// Notifies the callback that the next step in the phase has completed.
     pub fn notify(&self) -> Result<(), CompileError> {
-        if self.total == 0 {
-            return Ok(());
-        }
+        dbg!("notify", self.phase_name, self.total, self.counter.load(Ordering::SeqCst));
         let step = self.counter.fetch_add(1, Ordering::SeqCst) + 1;
         self.callback
             .notify(CompilationProgress::new(

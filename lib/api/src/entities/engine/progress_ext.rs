@@ -16,6 +16,8 @@ pub trait ProgressEngineExt {
     /// If the callback returns an error, the compilation will fail with a `CompileError::Aborted`.
     ///
     /// See [`CompilationProgressCallback::new`] for more details.
+    ///
+    /// **NOTE**: Not all engines/backends support progress reporting.
     fn new_module_with_progress(
         &self,
         bytes: &[u8],

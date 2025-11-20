@@ -66,17 +66,8 @@ impl Module {
         binary: &[u8],
         callback: Option<CompilationProgressCallback>,
     ) -> Result<Self, CompileError> {
-        #[cfg(feature = "compiler")]
-        {
-            let module = Self::compile_with_progress(engine, binary, callback)?;
-            Ok(module)
-        }
-
-        #[cfg(not(feature = "compiler"))]
-        {
-            let _ = callback;
-            Self::compile(engine, binary)
-        }
+        let module = Self::compile_with_progress(engine, binary, callback)?;
+        Ok(module)
     }
 
     #[cfg(feature = "compiler")]
