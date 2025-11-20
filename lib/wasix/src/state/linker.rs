@@ -3132,11 +3132,9 @@ impl InstanceGroupState {
                             ));
                         }
                         Err(e) => {
-                            panic!("Internal error: failed to resolve exported symbol: {}", e)
+                            panic!("Internal error: failed to resolve exported symbol: {e}")
                         }
                     };
-
-                    // .expect("Internal error: bad in-progress symbol resolution");
 
                     match export {
                         PartiallyResolvedExport::Global(addr) => {
