@@ -70,7 +70,9 @@ impl Config {
         &self,
         #[allow(unused_variables)] canonicalize_nans: bool,
     ) -> Box<dyn CompilerConfig> {
-        let debug_dir = std::env::var("WASMER_DEBUG_DIR").ok().map(PathBuf::from);
+        let debug_dir = std::env::var("WASMER_COMPILER_DEBUG_DIR")
+            .ok()
+            .map(PathBuf::from);
 
         match &self.compiler {
             #[cfg(feature = "cranelift")]
