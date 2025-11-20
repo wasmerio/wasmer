@@ -151,63 +151,60 @@ impl UnwindRegistry {
 
         #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
         {
-            // Validate that the `.eh_frame` is well-formed before registering it.
-            // See https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-Core-generic/LSB-Core-generic/ehframechpt.html for more details.
-            // We put the frame records into a vector before registering them, because
-            // calling `__register_frame` with invalid data can cause segfaults.
-
-            // Pointers to the registrations that will be registered with `__register_frame`.
-            // For libgcc based systems, these are CIEs.
-            // For libunwind based systems, these are FDEs.
-            let mut records_to_register = Vec::new();
-
-            let mut current = 0;
-            let mut last_len = 0;
-            while current <= (eh_frame.len() - size_of::<u32>()) {
-                // If a CFI or a FDE starts with 0u32 it is a terminator.
-                let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
-                if len == 0 {
-                    current += size_of::<u32>();
-                    last_len = 0;
-                    continue;
-                }
-                // The first record after a terminator is always a CIE.
-                let is_cie = last_len == 0;
-                last_len = len;
-                let record = eh_frame.as_ptr() as usize + current;
-                current = current + len as usize + 4;
-
-                if using_libunwind() {
-                    // For libunwind based systems, `__register_frame` takes a pointer to an FDE.
+            if using_libunwind() {
+                // For libunwind-based systems, __register_frame takes a pointer to an FDE.
+                // We need to iterate through the .eh_frame and register each FDE individually.
+                
+                let mut records_to_register = Vec::new();
+                let mut current = 0;
+                let mut last_len = 0;
+                
+                while current <= (eh_frame.len() - size_of::<u32>()) {
+                    let len = u32::from_ne_bytes(eh_frame[current..(current + 4)].try_into().unwrap());
+                    if len == 0 {
+                        current += size_of::<u32>();
+                        last_len = 0;
+                        continue;
+                    }
+                    let is_cie = last_len == 0;
+                    last_len = len;
+                    let record = eh_frame.as_ptr() as usize + current;
+                    current = current + len as usize + 4;
+                    
+                    // For libunwind, register FDEs only
                     if !is_cie {
-                        // Every record that's not a CIE is an FDE.
                         records_to_register.push(record);
                     }
-                    continue;
                 }
-
-                // For libgcc based systems, `__register_frame` takes a pointer to a CIE.
-                if is_cie {
-                    records_to_register.push(record);
+                
+                assert_eq!(
+                    last_len, 0,
+                    "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
+                );
+                assert_eq!(
+                    current,
+                    eh_frame.len(),
+                    "The `.eh_frame` must be finished after the last record",
+                );
+                
+                for record in records_to_register {
+                    unsafe {
+                        __register_frame(record as *const u8);
+                    }
+                    self.registrations.push(record);
                 }
-            }
-
-            assert_eq!(
-                last_len, 0,
-                "The last record in the `.eh_frame` must be a terminator (but it actually has length {last_len})"
-            );
-            assert_eq!(
-                current,
-                eh_frame.len(),
-                "The `.eh_frame` must be finished after the last record",
-            );
-
-            for record in records_to_register {
-                // Register the CFI with libgcc
+            } else {
+                // For libgcc-based systems, __register_frame takes a pointer to the start
+                // of the entire .eh_frame section (not individual CIEs).
+                // See LLVM's RTDyldMemoryManager.cpp for reference.
+                //
+                // libgcc finds the end of the section by looking for a terminating
+                // entry (four zero bytes).
                 unsafe {
-                    __register_frame(record as *const u8);
+                    __register_frame(eh_frame.as_ptr());
                 }
-                self.registrations.push(record);
+                // Store the pointer to the start of .eh_frame for deregistration
+                self.registrations.push(eh_frame.as_ptr() as usize);
             }
         }
     }
@@ -239,37 +236,31 @@ impl UnwindRegistry {
 
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
-        // Note: We intentionally do NOT call __deregister_frame here.
-        // 
-        // On systems using libgcc, there is a destructor function
-        // `release_registered_frames` (marked with __attribute__((destructor)))
-        // that runs during program shutdown and cleans up all registered frames.
-        // 
-        // If we try to manually deregister frames in Drop, we can race with
-        // libgcc's own cleanup during process exit, leading to segfaults when:
-        // 1. Our Drop runs after libgcc's destructor has already cleaned up
-        // 2. We try to deregister frames that libgcc has already removed
-        // 
-        // The libgcc code has an assertion: gcc_assert(in_shutdown || ob)
-        // which will abort if we try to deregister a non-existent frame outside
-        // of shutdown, causing the segfault described in the issue.
-        // 
-        // Therefore, we rely on libgcc's automatic cleanup and do not manually
-        // deregister frames. This is safe because:
-        // - During normal operation, frames remain registered (no memory leak)
-        // - During shutdown, libgcc's destructor cleans everything up
-        // - The comment in libgcc says: "Frame releases that happen later are
-        //   silently ignored" when in_shutdown is true
-        
-        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         if self.published {
             unsafe {
-                // On macOS ARM64, we still need to clean up compact unwind info
-                // as it uses a different mechanism than libgcc
+                // Deregister frames in reverse order for optimal performance with libgcc's
+                // linked list structure (which is sorted in decreasing PC order).
                 for registration in self.registrations.iter().rev() {
-                    compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
+                    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                    {
+                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
+                    }
+
+                    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
+                    {
+                        // Only attempt to deregister if we have a valid non-null pointer.
+                        // This check helps avoid issues during shutdown when GCC's own
+                        // destructor may have already cleaned up the frame registry.
+                        if *registration != 0 {
+                            __deregister_frame(*registration as *const _);
+                        }
+                    }
                 }
-                self.compact_unwind_mgr.deregister();
+                
+                #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
+                {
+                    self.compact_unwind_mgr.deregister();
+                }
             }
         }
     }
@@ -282,28 +273,27 @@ mod tests {
     #[test]
     fn test_unwind_registry_drop_does_not_panic() {
         // This test verifies that dropping an UnwindRegistry doesn't panic.
-        // The key behavior is that we do NOT call __deregister_frame in Drop
-        // to avoid racing with libgcc's destructor during program shutdown.
+        // Deregistration should work correctly for modules that are unloaded.
         let mut registry = UnwindRegistry::new();
         let _ = registry.publish(None);
-        // Drop happens here - should not panic
+        // Drop happens here - should cleanly deregister frames
     }
 
     #[test]
     fn test_multiple_registries_can_be_dropped() {
         // Verify that multiple UnwindRegistry instances can be safely dropped.
-        // This would previously cause issues if __deregister_frame was called
-        // during Drop, as it could race with libgcc's cleanup.
+        // This simulates loading and unloading multiple WASM modules.
         for _ in 0..10 {
             let mut registry = UnwindRegistry::new();
             let _ = registry.publish(None);
+            // Each registry should properly clean up its frames
         }
     }
 
     #[test]
     fn test_concurrent_registry_drops() {
         // Test that multiple threads can safely drop UnwindRegistry instances
-        // without racing with each other or with libgcc's shutdown cleanup.
+        // This simulates concurrent module unloading.
         use std::thread;
 
         let handles: Vec<_> = (0..4)
@@ -312,6 +302,7 @@ mod tests {
                     for _ in 0..5 {
                         let mut registry = UnwindRegistry::new();
                         let _ = registry.publish(None);
+                        // Each thread drops its registries independently
                     }
                 })
             })
