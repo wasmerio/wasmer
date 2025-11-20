@@ -36,7 +36,7 @@ package = "inkwell"
 version = "0.7.0"
 default-features = false
 features = [
-	"llvm18-1-prefer-static",
+	"llvm21-1-prefer-static",
 	"target-x86",
 	"target-aarch64",
 	"target-riscv",
