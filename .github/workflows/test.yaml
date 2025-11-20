@@ -533,7 +533,15 @@ jobs:
             },
             {
               build: macos-arm,
-              os: macos-14,
+              os: depot-macos-14,
+              target: aarch64-apple-darwin,
+              exe: "",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
+              supports_v8: true,
+            },
+            {
+              build: macos-arm,
+              os: depot-macos-15,
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
