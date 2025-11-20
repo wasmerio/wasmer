@@ -61,6 +61,7 @@ async fn launch_function(
 ) -> () {
     // Wait for the context to be unblocked
     let prelaunch_result = wait_for_unblock.await;
+    // Restore our own context ID
     current_context_id.store(new_context_id, Ordering::Relaxed);
 
     // Handle if the context was canceled before it even started
