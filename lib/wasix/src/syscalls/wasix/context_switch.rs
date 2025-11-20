@@ -60,27 +60,44 @@ fn inner_context_switch(
     // Setup sender and receiver for the new context
     let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
-    // Store the unblock function into the WasiEnv
-    let previous_unblock = data.contexts.insert(own_context_id, unblock);
-    if previous_unblock.is_some() {
-        // This should never happen, and if it does, it is an error in WASIX
-        panic!("There is already a unblock present for the current context {own_context_id}");
-    }
+    // Put our unblock function into the env and get the target's unblock function
+    let unblock_target = {
+        // Lock contexts for this block
+        let mut contexts = data.contexts.write().unwrap();
 
-    // Unblock the other context
-    let Some(unblock_target) = data.contexts.remove(&target_context_id).map(|(_, val)| val) else {
-        tracing::trace!(
-            "Context {own_context_id} tried to switch to context {target_context_id} but it does not exist or is not suspended"
-        );
-        return Err(Ok(Errno::Inval));
+        // Assert preconditions
+        if contexts.get(&target_context_id).is_none() {
+            tracing::trace!(
+                "Context {own_context_id} tried to switch to context {target_context_id} but it does not exist or is not suspended"
+            );
+
+            return Err(Ok(Errno::Inval));
+        }
+        if contexts.get(&own_context_id).is_some() {
+            // This should never happen, and if it does, it is an error in WASIX
+            panic!("There is already a unblock present for the current context {own_context_id}");
+        }
+
+        // Insert our unblock function and remove the target's unblock function
+        let unblock_target = contexts.remove(&target_context_id).unwrap(); // Unwrap is safe due to precondition check above
+        contexts.insert(own_context_id, unblock);
+        unblock_target
     };
-    let Ok(_) = unblock_target.send(Ok(())) else {
-        // This should never happen, and if it does, it is an error in WASIX
-        // TODO: Handle cancellation properly
-        panic!(
-            "Context {own_context_id} failed to unblock target context {target_context_id}. This should never happen"
-        );
-    };
+
+    // Unblock the target
+    let unblock_result = unblock_target.send(Ok(()));
+    match unblock_result {
+        Ok(_) => {
+            // Successfully unblocked target context
+        }
+        Err(_) => {
+            // This should never happen, and if it does, it is an error in WASIX
+            // TODO: Handle cancellation properly
+            panic!(
+                "Context {own_context_id} failed to unblock target context {target_context_id}. This should never happen"
+            );
+        }
+    }
 
     // Clone necessary arcs for the future
     let current_context_id = data.current_context_id.clone();
