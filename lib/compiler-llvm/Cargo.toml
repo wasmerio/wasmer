@@ -33,10 +33,10 @@ tracing = { workspace = true, features = ["log"] }
 
 [dependencies.inkwell]
 package = "inkwell"
-version = "0.5.0"
+version = "0.7.0"
 default-features = false
 features = [
-	"llvm18-0-prefer-static",
+	"llvm18-1-prefer-static",
 	"target-x86",
 	"target-aarch64",
 	"target-riscv",
