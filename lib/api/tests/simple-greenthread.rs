@@ -1,6 +1,6 @@
 use std::collections::BTreeMap;
 use std::sync::atomic::AtomicU32;
-use std::sync::{Arc, OnceLock, RwLock};
+use std::sync::{Arc, RwLock};
 
 use anyhow::Result;
 use futures::task::LocalSpawnExt;
@@ -10,26 +10,6 @@ use wasmer::{
     RuntimeError, Store, StoreMut, Type, Value, imports,
 };
 
-const GREENTHREAD_WAT: &[u8] = include_bytes!(concat!(
-    env!("CARGO_MANIFEST_DIR"),
-    "/../../tests/examples/simple-greenthread.wat"
-));
-
-thread_local! {
-    static LOCAL_SPAWNER: OnceLock<futures::executor::LocalSpawner> = OnceLock::new();
-}
-fn spawn_local<F>(future: F)
-where
-    F: std::future::Future<Output = ()> + 'static,
-{
-    LOCAL_SPAWNER.with(|spawner_lock| {
-        let spawner = spawner_lock.get().expect("Local spawner not initialized");
-        spawner
-            .spawn_local(future)
-            .expect("Failed to spawn local future");
-    });
-}
-
 struct GreenEnv {
     logs: Vec<String>,
     memory: Option<Memory>,
@@ -37,7 +17,14 @@ struct GreenEnv {
     current_greenthread_id: Arc<RwLock<u32>>,
     next_free_id: AtomicU32,
     entrypoint: Option<Function>,
+    spawner: Option<futures::executor::LocalSpawner>,
 }
+
+// Required for carrying the spawner around. Safe because we don't do threads.
+// It worked before with a thread-local! spawner, so this is equivalent.
+// The thread-local version does not work with multiple tests
+unsafe impl Send for GreenEnv {}
+unsafe impl Sync for GreenEnv {}
 
 impl GreenEnv {
     fn new() -> Self {
@@ -48,6 +35,7 @@ impl GreenEnv {
             current_greenthread_id: Arc::new(RwLock::new(0)),
             next_free_id: AtomicU32::new(1),
             entrypoint: None,
+            spawner: None,
         }
     }
 }
@@ -101,16 +89,19 @@ fn greenthread_new(
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<_, StoreMut<'static>>(store.as_store_mut()) };
 
-    spawn_local(async move {
-        receiver.await.unwrap();
-        let resumer = function
-            .call_async(
-                &mut unsafe_static_store,
-                &[Value::I32(entrypoint_data as i32)],
-            )
-            .await;
-        panic!("Greenthread function returned {:?}", resumer);
-    });
+    let spawner = env.data().spawner.as_ref().expect("spawner set").clone();
+    spawner
+        .spawn_local(async move {
+            receiver.await.unwrap();
+            let resumer = function
+                .call_async(
+                    &mut unsafe_static_store,
+                    &[Value::I32(entrypoint_data as i32)],
+                )
+                .await;
+            panic!("Greenthread function returned {:?}", resumer);
+        })
+        .unwrap();
 
     Ok(new_greenthread_id)
 }
@@ -162,11 +153,9 @@ fn greenthread_switch(
     }
 }
 
-#[cfg(not(target_arch = "wasm32"))]
-#[test]
-fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
+fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
     let mut store = Store::default();
-    let module = Module::new(&store, GREENTHREAD_WAT)?;
+    let module = Module::new(&store, wat)?;
 
     let env = FunctionEnv::new(&mut store, GreenEnv::new());
 
@@ -227,16 +216,24 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
 
     let mut localpool = futures::executor::LocalPool::new();
     let local_spawner = localpool.spawner();
-    LOCAL_SPAWNER.with(|spawner_lock| {
-        spawner_lock
-            .set(local_spawner)
-            .expect("Failed to set local spawner");
-    });
+    env.as_mut(&mut store).spawner = Some(local_spawner);
+
     localpool
         .run_until(main_fn.call_async(&mut store, &[]))
         .unwrap();
 
-    // Expected log order
+    return Ok(env.as_ref(&store).logs.clone());
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
+    let logs = run_greenthread_test(include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/examples/simple-greenthread.wat"
+    )))?;
+
+    // Expected logs
     let expected = [
         "[gr1] main  -> test1",
         "[gr2] test1 -> test2",
@@ -246,13 +243,31 @@ fn green_threads_switch_and_log_in_expected_order() -> Result<()> {
         "[main] main <- test1",
     ];
 
-    let logs = &env.as_ref(&store).logs;
-    assert_eq!(
-        logs.len(),
-        expected.len(),
-        "Unexpected number of log entries: {:?}",
-        logs
-    );
+    assert_eq!(logs.len(), expected.len(),);
+    for (i, exp) in expected.iter().enumerate() {
+        assert_eq!(logs[i], *exp, "Log entry mismatch at index {i}: {:?}", logs);
+    }
+
+    Ok(())
+}
+
+#[cfg(not(target_arch = "wasm32"))]
+#[test]
+fn green_threads_switch_main_crashed() -> Result<()> {
+    let logs = run_greenthread_test(include_bytes!(concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/../../tests/examples/simple-greenthread2.wat"
+    )))?;
+
+    // Expected logs
+    let expected = [
+        "[main] switching to side",
+        "[side] switching to main",
+        "[main] switching to side",
+        "[side] switching to main",
+    ];
+
+    assert_eq!(logs.len(), expected.len(),);
     for (i, exp) in expected.iter().enumerate() {
         assert_eq!(logs[i], *exp, "Log entry mismatch at index {i}: {:?}", logs);
     }
