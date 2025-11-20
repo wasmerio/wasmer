@@ -896,8 +896,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             "should_trap_expect",
         ))
         .try_as_basic_value()
-        .left()
-        .unwrap()
+        .unwrap_basic()
         .into_int_value();
 
         let shouldnt_trap_block = self
@@ -946,8 +945,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             "should_trap_expect",
         ))
         .try_as_basic_value()
-        .left()
-        .unwrap()
+        .unwrap_basic()
         .into_int_value();
 
         let shouldnt_trap_block = self
@@ -1211,7 +1209,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         ],
                         "",
                     )
-                    .map(|v| v.try_as_basic_value().left().unwrap())
+                    .map(|v| v.try_as_basic_value().unwrap_basic())
             ),
             None => Ok(value),
         }
@@ -1297,13 +1295,12 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     let ptr_in_bounds = if offset.is_const() {
                         // When the offset is constant, if it's below the minimum
                         // memory size, we've statically shown that it's safe.
-                        let load_offset_end = offset.const_add(value_size_v);
-                        let ptr_in_bounds = load_offset_end.const_int_compare(
-                            IntPredicate::ULE,
-                            intrinsics.i64_ty.const_int(minimum.bytes().0 as u64, false),
-                        );
-                        if ptr_in_bounds.get_zero_extended_constant() == Some(1) {
-                            Some(ptr_in_bounds)
+                        let load_offset_end =
+                            offset.const_add(value_size_v).get_zero_extended_constant();
+                        if load_offset_end.is_some_and(|load_offset_end| {
+                            load_offset_end <= minimum.bytes().0 as u64
+                        }) {
+                            Some(intrinsics.i64_ty.const_int(1, false))
                         } else {
                             None
                         }
@@ -1364,8 +1361,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                             "ptr_in_bounds_expect",
                         ))
                         .try_as_basic_value()
-                        .left()
-                        .unwrap()
+                        .unwrap_basic()
                         .into_int_value();
 
                         let in_bounds_continue_block =
@@ -1444,8 +1440,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
             "is_aligned_expect",
         ))
         .try_as_basic_value()
-        .left()
-        .unwrap()
+        .unwrap_basic()
         .into_int_value();
 
         let continue_block = self
@@ -2905,8 +2900,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "index_in_bounds_expect",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
 
                 let in_bounds_continue_block = self
@@ -3058,8 +3052,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "initialized_and_sigindices_match_expect",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
 
                 let continue_block = self
@@ -3277,8 +3270,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3295,8 +3287,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3313,8 +3304,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3331,8 +3321,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3401,8 +3390,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3419,8 +3407,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3437,8 +3424,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -3455,8 +3441,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -4385,8 +4370,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
             }
             Operator::I64Clz => {
@@ -4399,8 +4383,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::I32Ctz => {
@@ -4413,8 +4396,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
             }
             Operator::I64Ctz => {
@@ -4427,8 +4409,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::I8x16Popcnt => {
@@ -4440,8 +4421,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -4457,8 +4437,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
             }
             Operator::I64Popcnt => {
@@ -4470,8 +4449,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::I32Eqz => {
@@ -4834,8 +4812,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
@@ -4855,8 +4832,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
@@ -4877,8 +4853,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -4903,8 +4878,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -4928,8 +4902,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
@@ -4949,8 +4922,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
@@ -4971,8 +4943,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -4997,8 +4968,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -5022,8 +4992,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f32_nan())?,
@@ -5043,8 +5012,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(
                     res,
                     ((i1.strip_pending() & i2.strip_pending())? | ExtraInfo::pending_f64_nan())?,
@@ -5065,8 +5033,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -5091,8 +5058,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -5116,8 +5082,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
             Operator::F64Div => {
@@ -5134,8 +5099,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
             Operator::F32x4Div => {
@@ -5153,8 +5117,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -5176,8 +5139,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -5192,8 +5154,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
             Operator::F64Sqrt => {
@@ -5204,8 +5165,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
             Operator::F32x4Sqrt => {
@@ -5217,8 +5177,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let bits = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "bits")
@@ -5234,8 +5193,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let bits = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "bits")
@@ -5261,8 +5219,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32,
@@ -5275,8 +5232,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32,
@@ -5289,8 +5245,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32,
@@ -5303,8 +5258,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
 
                 let res = err!(self.builder.build_select(
@@ -5368,8 +5322,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64,
@@ -5382,8 +5335,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64,
@@ -5396,8 +5348,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64,
@@ -5410,8 +5361,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
 
                 let res = err!(self.builder.build_select(
@@ -5475,8 +5425,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32x4,
@@ -5489,8 +5438,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32x4,
@@ -5503,8 +5451,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32x4,
@@ -5517,8 +5464,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
 
                 let res = err!(
@@ -5608,8 +5554,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64x2,
@@ -5622,8 +5567,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64x2,
@@ -5636,8 +5580,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64x2,
@@ -5650,8 +5593,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
 
                 let res = err!(
@@ -5741,8 +5683,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32,
@@ -5755,8 +5696,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32,
@@ -5769,8 +5709,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32,
@@ -5783,8 +5722,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
 
                 let res = err!(self.builder.build_select(
@@ -5848,8 +5786,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64,
@@ -5862,8 +5799,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64,
@@ -5876,8 +5812,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64,
@@ -5890,8 +5825,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_int_value();
 
                 let res = err!(self.builder.build_select(
@@ -5955,8 +5889,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32x4,
@@ -5969,8 +5902,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32x4,
@@ -5983,8 +5915,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f32x4,
@@ -5997,8 +5928,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
 
                 let res = err!(
@@ -6089,8 +6019,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v2_is_nan = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64x2,
@@ -6103,8 +6032,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_lt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64x2,
@@ -6117,8 +6045,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
                 let v1_gt_v2 = err!(self.builder.build_call(
                     self.intrinsics.cmp_f64x2,
@@ -6131,8 +6058,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap()
+                .unwrap_basic()
                 .into_vector_value();
 
                 let res = err!(
@@ -6211,8 +6137,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
             }
@@ -6225,8 +6150,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6242,8 +6166,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
             }
@@ -6256,8 +6179,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6273,8 +6195,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (info | ExtraInfo::pending_f32_nan())?);
             }
@@ -6287,8 +6208,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6304,8 +6224,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (info | ExtraInfo::pending_f64_nan())?);
             }
@@ -6318,8 +6237,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6334,8 +6252,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_call(self.intrinsics.trunc_f32, &[v.into()], "")
                 )
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
@@ -6348,8 +6265,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6364,8 +6280,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_call(self.intrinsics.trunc_f64, &[v.into()], "")
                 )
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
@@ -6378,8 +6293,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6395,8 +6309,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (i | ExtraInfo::pending_f32_nan())?);
             }
@@ -6409,8 +6322,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6426,8 +6338,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state
                     .push1_extra(res, (i | ExtraInfo::pending_f64_nan())?);
             }
@@ -6440,8 +6351,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6457,8 +6367,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_call(self.intrinsics.fabs_f32, &[v.into()], "")
                 )
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 // The exact NaN returned by F32Abs is fully defined. Do not
                 // adjust.
                 self.state.push1_extra(res, i.strip_pending());
@@ -6471,8 +6380,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         .build_call(self.intrinsics.fabs_f64, &[v.into()], "")
                 )
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 // The exact NaN returned by F64Abs is fully defined. Do not
                 // adjust.
                 self.state.push1_extra(res, i.strip_pending());
@@ -6491,8 +6399,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6515,8 +6422,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let res = err!(
                     self.builder
                         .build_bit_cast(res, self.intrinsics.i128_ty, "")
@@ -6583,8 +6489,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 // The exact NaN returned by F32Copysign is fully defined.
                 // Do not adjust.
                 self.state.push1_extra(res, mag_info.strip_pending());
@@ -6599,8 +6504,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ""
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 // The exact NaN returned by F32Copysign is fully defined.
                 // Do not adjust.
                 self.state.push1_extra(res, mag_info.strip_pending());
@@ -8622,8 +8526,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::pending_f32_nan());
             }
             Operator::F64PromoteF32 => {
@@ -8635,8 +8538,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1_extra(res, ExtraInfo::pending_f64_nan());
             }
             Operator::F32ConvertI32S | Operator::F32ConvertI64S => {
@@ -12641,7 +12543,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     ],
                     "",
                 ));
-                self.state.push1(grow.try_as_basic_value().left().unwrap());
+                self.state.push1(grow.try_as_basic_value().unwrap_basic());
             }
             Operator::MemorySize { mem } => {
                 let memory_index = MemoryIndex::from_u32(mem);
@@ -12656,7 +12558,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ));
                 //size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
-                self.state.push1(size.try_as_basic_value().left().unwrap());
+                self.state.push1(size.try_as_basic_value().unwrap_basic());
             }
             Operator::MemoryInit { data_index, mem } => {
                 let (dest, src, len) = self.state.pop3()?;
@@ -12763,8 +12665,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1(value);
             }
             Operator::TableGet { table } => {
@@ -12785,8 +12686,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 let value = err!(
                     self.builder.build_bit_cast(
                         value,
@@ -12920,8 +12820,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1(size);
             }
             Operator::TableSize { table } => {
@@ -12940,8 +12839,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                     "",
                 ))
                 .try_as_basic_value()
-                .left()
-                .unwrap();
+                .unwrap_basic();
                 self.state.push1(size);
             }
             Operator::MemoryAtomicWait32 { memarg } => {
@@ -12965,7 +12863,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "",
                     )
                 );
-                self.state.push1(ret.try_as_basic_value().left().unwrap());
+                self.state.push1(ret.try_as_basic_value().unwrap_basic());
             }
             Operator::MemoryAtomicWait64 { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
@@ -12988,7 +12886,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "",
                     )
                 );
-                self.state.push1(ret.try_as_basic_value().left().unwrap());
+                self.state.push1(ret.try_as_basic_value().unwrap_basic());
             }
             Operator::MemoryAtomicNotify { memarg } => {
                 let memory_index = MemoryIndex::from_u32(memarg.memory);
@@ -13010,7 +12908,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "",
                     )
                 );
-                self.state.push1(cnt.try_as_basic_value().left().unwrap());
+                self.state.push1(cnt.try_as_basic_value().unwrap_basic());
             }
 
             Operator::TryTable { try_table } => {
@@ -13164,8 +13062,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         (
                             &selector_value
                                 .try_as_basic_value()
-                                .left()
-                                .unwrap()
+                                .unwrap_basic()
                                 .into_int_value(),
                             catch_specific_block,
                         ),
@@ -13222,7 +13119,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "exnref"
                     ));
 
-                    let exnref = exnref.try_as_basic_value().left().unwrap().into_int_value();
+                    let exnref = exnref.try_as_basic_value().unwrap_basic().into_int_value();
                     let selector = selector.as_basic_value().into_int_value();
 
                     for catch in catches.iter() {
@@ -13263,8 +13160,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 ));
                                 let exn_payload_ptr = exn_payload_ptr
                                     .try_as_basic_value()
-                                    .left()
-                                    .unwrap()
+                                    .unwrap_basic()
                                     .into_pointer_value();
 
                                 // Read each value from the data ptr.
@@ -13327,8 +13223,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                                 ));
                                 let exn_payload_ptr = exn_payload_ptr
                                     .try_as_basic_value()
-                                    .left()
-                                    .unwrap()
+                                    .unwrap_basic()
                                     .into_pointer_value();
 
                                 // Read each value from the data ptr.
@@ -13502,7 +13397,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                         "exnref",
                     )
                 );
-                let exnref = exnref.try_as_basic_value().left().unwrap();
+                let exnref = exnref.try_as_basic_value().unwrap_basic();
 
                 let exn_payload_ptr = err!(self.builder.build_direct_call(
                     self.intrinsics.read_exnref,
@@ -13511,8 +13406,7 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
                 ));
                 let exn_payload_ptr = exn_payload_ptr
                     .try_as_basic_value()
-                    .left()
-                    .unwrap()
+                    .unwrap_basic()
                     .into_pointer_value();
 
                 for (i, value) in values.into_iter().enumerate() {
