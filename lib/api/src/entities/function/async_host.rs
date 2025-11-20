@@ -1,33 +1,33 @@
 use std::{future::Future, marker::PhantomData, pin::Pin};
 
 use crate::{
-    FunctionEnvMut, HostFunctionKind, RuntimeError, WasmTypeList, WithEnv, WithoutEnv,
+    AsyncFunctionEnvMut, HostFunctionKind, RuntimeError, WasmTypeList, WithEnv, WithoutEnv,
     utils::{FromToNativeWasmType, IntoResult},
 };
 
 /// Wrapper conveying whether an async host function receives an environment.
-pub enum AsyncFunctionEnv<'a, T, Kind> {
+pub enum AsyncFunctionEnv<T, Kind> {
     /// Used by host functions without an environment.
-    WithoutEnv(PhantomData<(&'a T, Kind)>),
+    WithoutEnv(PhantomData<(T, Kind)>),
     /// Used by host functions that capture an environment.
-    WithEnv(FunctionEnvMut<'a, T>),
+    WithEnv(AsyncFunctionEnvMut<T>),
 }
 
-impl<'a, T> AsyncFunctionEnv<'a, T, WithoutEnv> {
+impl<T> AsyncFunctionEnv<T, WithoutEnv> {
     /// Create an environment wrapper for functions without host state.
     pub fn new() -> Self {
         Self::WithoutEnv(PhantomData)
     }
 }
 
-impl<'a, T> AsyncFunctionEnv<'a, T, WithEnv> {
-    /// Create an environment wrapper carrying [`FunctionEnvMut`].
-    pub fn with_env(env: FunctionEnvMut<'a, T>) -> Self {
+impl<T> AsyncFunctionEnv<T, WithEnv> {
+    /// Create an environment wrapper carrying [`AsyncFunctionEnvMut`].
+    pub fn with_env(env: AsyncFunctionEnvMut<T>) -> Self {
         Self::WithEnv(env)
     }
 
-    /// Extract the underlying [`FunctionEnvMut`].
-    pub fn into_env(self) -> FunctionEnvMut<'a, T> {
+    /// Extract the underlying [`AsyncFunctionEnvMut`].
+    pub fn into_env(self) -> AsyncFunctionEnvMut<T> {
         match self {
             Self::WithEnv(env) => env,
             Self::WithoutEnv(_) => unreachable!("with-env async function called without env"),
@@ -45,7 +45,7 @@ where
     /// Invoke the host function asynchronously.
     fn call_async(
         &self,
-        env: AsyncFunctionEnv<'_, T, Kind>,
+        env: AsyncFunctionEnv<T, Kind>,
         args: Args,
     ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>> + Send>>;
 }
@@ -63,7 +63,7 @@ macro_rules! impl_async_host_function_without_env {
         {
             fn call_async(
                 &self,
-                _env: AsyncFunctionEnv<'_, (), WithoutEnv>,
+                _env: AsyncFunctionEnv<(), WithoutEnv>,
                 args: ( $( $x ),* ),
             ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>> + Send>> {
                 #[allow(non_snake_case)]
@@ -84,7 +84,7 @@ macro_rules! impl_async_host_function_with_env {
         impl<$( $x, )* Rets, RetsAsResult,  T, F, Fut > AsyncHostFunction<T, ( $( $x ),* ), Rets, WithEnv> for F
         where
             T: Send + 'static,
-            F: Fn(FunctionEnvMut<'_, T>, $( $x ),*) -> Fut + Send  + 'static,
+            F: Fn(AsyncFunctionEnvMut<T>, $( $x ),*) -> Fut + Send  + 'static,
             Fut: Future<Output = RetsAsResult> + Send + 'static,
             RetsAsResult: IntoResult<Rets>,
             Rets: WasmTypeList,
@@ -93,7 +93,7 @@ macro_rules! impl_async_host_function_with_env {
         {
             fn call_async(
                 &self,
-                env: AsyncFunctionEnv<'_, T, WithEnv>,
+                env: AsyncFunctionEnv<T, WithEnv>,
                 args: ( $( $x ),* ),
             ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>> + Send>> {
                 #[allow(non_snake_case)]

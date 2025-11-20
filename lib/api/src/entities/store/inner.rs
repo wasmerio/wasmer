@@ -20,6 +20,10 @@ pub struct StoreInner {
     pub(crate) on_called: Option<OnCalledHandler>,
 }
 
+// TODO: async api - figure this out!
+unsafe impl Send for StoreInner {}
+unsafe impl Sync for StoreInner {}
+
 impl std::fmt::Debug for StoreInner {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
         f.debug_struct("StoreInner")

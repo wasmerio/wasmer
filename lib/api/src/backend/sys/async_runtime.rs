@@ -12,53 +12,104 @@ use std::{
 use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
-use crate::{AsStoreMut, RuntimeError, Value};
+use crate::{AsStoreMut, AsStoreRef, RuntimeError, Store, StoreContext, StoreMut, Value};
+use wasmer_types::StoreId;
 
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static>>;
 
-pub(crate) fn call_function_async<'a, S>(
+pub(crate) fn call_function_async<'a>(
     function: SysFunction,
-    store: &'a mut S,
+    store: Store,
     params: Vec<Value>,
-) -> AsyncCallFuture<'a, S>
-where
-    S: AsStoreMut + 'static,
-{
+) -> AsyncCallFuture<'a> {
     AsyncCallFuture::new(function, store, params)
 }
 
-enum AsyncYield {
-    HostFuture(HostFuture),
-}
+struct AsyncYield(HostFuture);
 
 enum AsyncResume {
     Start,
     HostFutureReady(Result<Vec<Value>, RuntimeError>),
 }
 
-pub(crate) struct AsyncCallFuture<'a, S: AsStoreMut + 'static> {
+pub(crate) struct AsyncCallFuture<'a> {
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    pending_store_install: Option<Pin<Box<dyn Future<Output = StoreContextInstaller> + 'a>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
     result: Option<Result<Box<[Value]>, RuntimeError>>,
 
+    // Store handle we can use to lock the store down
+    store: Store,
+
     // Use Rc<RefCell<...>> to make sure that the future is !Send and !Sync
-    _marker: PhantomData<Rc<RefCell<&'a mut S>>>,
+    _marker: PhantomData<Rc<RefCell<&'a mut ()>>>,
 }
 
-impl<'a, S> AsyncCallFuture<'a, S>
-where
-    S: AsStoreMut + 'static,
-{
-    pub(crate) fn new(function: SysFunction, store: &'a mut S, params: Vec<Value>) -> Self {
-        let store_ptr = store as *mut S;
+// We can't use any of the existing AsStoreMut types here, since we keep
+// changing the store context underneath us while the coroutine yields.
+// To work around it, we use this dummy struct, which just grabs the store
+// from the store context. Since we always have a store context installed
+// when resuming the coroutine, this is safe in that it can access the store
+// through the store context. HOWEVER, references returned from this struct
+// CAN NOT BE HELD ACROSS A YIELD POINT. We don't do this anywhere in the
+// `Function::call code.
+struct AsyncCallStoreMut {
+    store_id: StoreId,
+}
+
+impl AsStoreRef for AsyncCallStoreMut {
+    fn as_ref(&self) -> &crate::StoreInner {
+        // Safety: This is only used with Function::call, which doesn't store
+        // the returned reference anywhere, including when calling into WASM
+        // code.
+        unsafe {
+            StoreContext::get_current_transient(self.store_id)
+                .as_ref()
+                .unwrap()
+                .as_ref()
+        }
+    }
+}
+
+impl AsStoreMut for AsyncCallStoreMut {
+    fn as_mut(&mut self) -> &mut crate::StoreInner {
+        // Safety: This is only used with Function::call, which doesn't store
+        // the returned reference anywhere, including when calling into WASM
+        // code.
+        unsafe {
+            StoreContext::get_current_transient(self.store_id)
+                .as_mut()
+                .unwrap()
+                .as_mut()
+        }
+    }
+
+    fn reborrow_mut(&mut self) -> &mut StoreMut {
+        // Safety: This is only used with Function::call, which doesn't store
+        // the returned reference anywhere, including when calling into WASM
+        // code.
+        unsafe {
+            StoreContext::get_current_transient(self.store_id)
+                .as_mut()
+                .unwrap()
+                .reborrow_mut()
+        }
+    }
+}
+
+impl<'a> AsyncCallFuture<'a> {
+    pub(crate) fn new(function: SysFunction, store: crate::Store, params: Vec<Value>) -> Self {
+        let store_id = store.id;
         let coroutine =
-            Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, _resume| {
+            Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
+                assert!(matches!(resume, AsyncResume::Start));
+
                 let ctx_state = CoroutineContext::new(yielder);
                 ctx_state.enter();
                 let result = {
-                    let store_ref = unsafe { &mut *store_ptr };
-                    function.call(store_ref, &params)
+                    let mut store_mut = AsyncCallStoreMut { store_id };
+                    function.call(&mut store_mut, &params)
                 };
                 ctx_state.leave();
                 result
@@ -66,18 +117,17 @@ where
 
         Self {
             coroutine: Some(coroutine),
+            pending_store_install: None,
             pending_future: None,
             next_resume: Some(AsyncResume::Start),
             result: None,
+            store,
             _marker: PhantomData,
         }
     }
 }
 
-impl<'a, S> Future for AsyncCallFuture<'a, S>
-where
-    S: AsStoreMut + 'static,
-{
+impl Future for AsyncCallFuture<'_> {
     type Output = Result<Box<[Value]>, RuntimeError>;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -92,13 +142,40 @@ where
                 }
             }
 
-            let resume_arg = self.next_resume.take().unwrap_or(AsyncResume::Start);
-            let coroutine = match self.coroutine.as_mut() {
-                Some(coro) => coro,
-                None => return Poll::Ready(self.result.take().expect("polled after completion")),
+            // If we're ready, return early
+            if self.coroutine.is_none() {
+                return Poll::Ready(self.result.take().expect("polled after completion"));
+            }
+
+            // Start a store installation if not in progress already
+            if let None = self.pending_store_install {
+                self.pending_store_install =
+                    Some(Box::pin(StoreContextInstaller::install(Store {
+                        id: self.store.id,
+                        inner: self.store.inner.clone(),
+                    })));
+            }
+
+            // Acquiring a store lock should be the last step before resuming
+            // the coroutine, to minimize the time we hold the lock.
+            let store_context_guard = match self
+                .pending_store_install
+                .as_mut()
+                .unwrap()
+                .as_mut()
+                .poll(cx)
+            {
+                Poll::Ready(guard) => {
+                    self.pending_store_install = None;
+                    guard
+                }
+                Poll::Pending => return Poll::Pending,
             };
+
+            let resume_arg = self.next_resume.take().expect("no resume arg available");
+            let coroutine = self.coroutine.as_mut().unwrap();
             match coroutine.resume(resume_arg) {
-                CoroutineResult::Yield(AsyncYield::HostFuture(fut)) => {
+                CoroutineResult::Yield(AsyncYield(fut)) => {
                     self.pending_future = Some(fut);
                 }
                 CoroutineResult::Return(result) => {
@@ -106,6 +183,29 @@ where
                     self.result = Some(result);
                 }
             }
+
+            // Uninstall the store context to unlock the store after the coroutine
+            // yields or returns.
+            drop(store_context_guard);
+        }
+    }
+}
+
+enum StoreContextInstaller {
+    FromThreadContext(crate::StoreMutWrapper),
+    Installed(crate::ForcedStoreInstallGuard),
+}
+
+impl StoreContextInstaller {
+    async fn install(store: Store) -> Self {
+        if let Some(wrapper) = unsafe { crate::StoreContext::try_get_current(store.id) } {
+            // If we're already in the scope of this store, we can just reuse it.
+            StoreContextInstaller::FromThreadContext(wrapper)
+        } else {
+            // Otherwise, need to acquire a new StoreMut.
+            let store_mut = store.make_mut_async().await;
+            let guard = crate::StoreContext::force_install(store_mut);
+            StoreContextInstaller::Installed(guard)
         }
     }
 }
@@ -201,7 +301,7 @@ impl CoroutineContext {
 
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
         let yielder = unsafe { self.yielder.as_ref().expect("yielder pointer valid") };
-        match yielder.suspend(AsyncYield::HostFuture(future)) {
+        match yielder.suspend(AsyncYield(future)) {
             AsyncResume::HostFutureReady(result) => result,
             AsyncResume::Start => unreachable!("coroutine resumed without start"),
         }

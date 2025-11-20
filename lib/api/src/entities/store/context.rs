@@ -54,6 +54,10 @@ pub(crate) struct StoreMutWrapper {
     store_mut: *mut StoreMut,
 }
 
+pub(crate) struct ForcedStoreInstallGuard {
+    store_id: Option<StoreId>,
+}
+
 pub(crate) enum StoreInstallGuard<'a> {
     Installed {
         store_id: StoreId,
@@ -96,9 +100,22 @@ impl StoreContext {
         })
     }
 
+    /// Install the given [`StoreMut`] as the current store context.
+    /// This function can only be used when the caller has a [`StoreMut`],
+    /// which itself is proof that the store is not already active.
+    pub(crate) fn force_install(store_mut: StoreMut) -> ForcedStoreInstallGuard {
+        let id = store_mut.objects().id();
+        Self::install(store_mut);
+        ForcedStoreInstallGuard { store_id: Some(id) }
+    }
+
     /// Ensure that a store context with the given id is installed.
     /// Returns true if the [`StoreMut`] was taken out of the provided
     /// [`AsStoreMut`] and installed, false if it was already active.
+    /// This function takes care of the problem of initial
+    /// [`Function::call`](crate::Function::call) needing to install the
+    /// store context vs nested calls having only a reference to the
+    /// store and needing to reuse the existing context.
     pub(crate) fn ensure_installed<'a>(
         store_mut: &'a mut impl AsStoreMut,
     ) -> StoreInstallGuard<'a> {
@@ -155,9 +172,46 @@ impl StoreContext {
             }
         })
     }
+
+    /// Safety: In addition to the safety requirements of [`Self::get_current`],
+    /// the pointer returned from this function will become invalid if
+    /// the store context is changed in any way (via installing or uninstalling
+    /// a store context). The caller must ensure that the store context
+    /// remains unchanged for the entire lifetime of the returned reference.
+    pub(crate) unsafe fn get_current_transient(id: StoreId) -> *mut StoreMut {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack
+                .last_mut()
+                .expect("No store context installed on this thread");
+            assert_eq!(top.id, id, "Mismatched store context access");
+            unsafe { top.store_mut.get() }
+        })
+    }
+
+    /// Safety: See [`get_current`].
+    pub(crate) unsafe fn try_get_current(id: StoreId) -> Option<StoreMutWrapper> {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack.last_mut()?;
+            if top.id != id {
+                return None;
+            }
+            top.borrow_count += 1;
+            Some(StoreMutWrapper {
+                store_mut: top.store_mut.get(),
+            })
+        })
+    }
 }
 
 impl StoreMutWrapper {
+    pub(crate) fn as_ref(&self) -> &StoreMut {
+        // Safety: the store_mut is always initialized unless the StoreMutWrapper
+        // is dropped, at which point it's impossible to call this function
+        unsafe { self.store_mut.as_ref().unwrap() }
+    }
+
     pub(crate) fn as_mut(&mut self) -> &mut StoreMut {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
@@ -196,6 +250,40 @@ impl Drop for StoreInstallGuard<'_> {
                 );
                 store_mut.put_back(top.store_mut.into_inner());
             })
+        }
+    }
+}
+
+impl ForcedStoreInstallGuard {
+    // Need to do this via mutable ref for the Drop impl
+    fn uninstall_by_ref(&mut self) -> StoreMut {
+        if let Some(store_id) = self.store_id.take() {
+            STORE_CONTEXT_STACK.with(|cell| {
+                let mut stack = cell.borrow_mut();
+                let top = stack.pop().expect("Store context stack underflow");
+                assert_eq!(top.id, store_id, "Mismatched store context uninstall");
+                assert_eq!(
+                    top.borrow_count, 0,
+                    "Cannot uninstall store context while it is still borrowed"
+                );
+                top.store_mut.into_inner()
+            })
+        } else {
+            unreachable!("ForcedStoreInstallGuard already uninstalled")
+        }
+    }
+
+    // However, the public API will take self by value to
+    // prevent double-uninstalling
+    pub(crate) fn uninstall(mut self) -> StoreMut {
+        self.uninstall_by_ref()
+    }
+}
+
+impl Drop for ForcedStoreInstallGuard {
+    fn drop(&mut self) {
+        if self.store_id.is_some() {
+            self.uninstall_by_ref();
         }
     }
 }

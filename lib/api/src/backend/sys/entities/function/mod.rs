@@ -4,8 +4,9 @@ pub(crate) mod env;
 pub(crate) mod typed;
 
 use crate::{
-    BackendFunction, FunctionEnv, FunctionEnvMut, FunctionType, HostFunction, RuntimeError,
-    StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
+    AsAsyncStore, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, BackendFunction, FunctionEnv,
+    FunctionEnvMut, FunctionType, HostFunction, RuntimeError, StoreContext, StoreInner, Value,
+    WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::{
         function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
@@ -123,93 +124,95 @@ impl Function {
         }
     }
 
-    // TODO: async API
-    // pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
-    // where
-    //     FT: Into<FunctionType>,
-    //     F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
-    //     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
-    // {
-    //     let env = FunctionEnv::new(store, ());
-    //     let wrapped = move |_env: FunctionEnvMut<()>, values: &[Value]| func(values);
-    //     Self::new_with_env_async(store, &env, ty, wrapped)
-    // }
+    pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        let env = FunctionEnv::new(store, ());
+        let wrapped = move |_env: AsyncFunctionEnvMut<()>, values: &[Value]| func(values);
+        Self::new_with_env_async(store, &env, ty, wrapped)
+    }
 
-    // TODO: async API
-    // pub(crate) fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
-    //     store: &mut impl AsStoreMut,
-    //     env: &FunctionEnv<T>,
-    //     ty: FT,
-    //     func: F,
-    // ) -> Self
-    // where
-    //     FT: Into<FunctionType>,
-    //     F: Fn(FunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
-    //     Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
-    // {
-    //     let function_type = ty.into();
-    //     let func_ty = function_type.clone();
-    //     let func_env = env.clone().into_sys();
-    //     let store_id = store.objects().id();
-    //     let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
-    //         unsafe {
-    //             let mut store_wrapper = StoreContext::get_current(store_id);
-    //             let mut store = store_wrapper.as_mut();
-    //             let mut args = Vec::with_capacity(func_ty.params().len());
+    pub(crate) fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        ty: FT,
+        func: F,
+    ) -> Self
+    where
+        FT: Into<FunctionType>,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+    {
+        let function_type = ty.into();
+        let func_ty = function_type.clone();
+        let func_env = env.clone().into_sys();
+        let store_id = store.objects().id();
+        let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
+            unsafe {
+                let mut store_wrapper = StoreContext::get_current(store_id);
+                let mut store = store_wrapper.as_mut();
+                let mut args = Vec::with_capacity(func_ty.params().len());
 
-    //             for (i, ty) in func_ty.params().iter().enumerate() {
-    //                 args.push(Value::from_raw(
-    //                     store,
-    //                     *ty,
-    //                     values_vec.add(i).read_unaligned(),
-    //                 ));
-    //             }
-    //             let env = env::FunctionEnvMut {
-    //                 store_mut: store,
-    //                 func_env: func_env.clone(),
-    //             }
-    //             .into();
-    //             let sig = func_ty.clone();
-    //             let future = func(env, &args);
-    //             HostCallOutcome::Future {
-    //                 func_ty: sig,
-    //                 future: Box::pin(future)
-    //                     as Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>>,
-    //             }
-    //         }
-    //     };
-    //     let mut host_data = Box::new(VMDynamicFunctionContext {
-    //         address: std::ptr::null(),
-    //         ctx: DynamicFunction {
-    //             func: wrapper,
-    //             store_id,
-    //         },
-    //     });
-    //     host_data.address = host_data.ctx.func_body_ptr() as *const VMFunctionBody;
+                for (i, ty) in func_ty.params().iter().enumerate() {
+                    args.push(Value::from_raw(
+                        store,
+                        *ty,
+                        values_vec.add(i).read_unaligned(),
+                    ));
+                }
+                let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
+                    env::AsyncFunctionEnvMut {
+                        store: crate::Store {
+                            id: store.store_handle.id,
+                            inner: store.store_handle.inner.clone(),
+                        },
+                        func_env: func_env.clone(),
+                    },
+                ));
+                let sig = func_ty.clone();
+                let future = func(env, &args);
+                HostCallOutcome::Future {
+                    func_ty: sig,
+                    future: Box::pin(future)
+                        as Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>>,
+                }
+            }
+        };
+        let mut host_data = Box::new(VMDynamicFunctionContext {
+            address: std::ptr::null(),
+            ctx: DynamicFunction {
+                func: wrapper,
+                store_id,
+            },
+        });
+        host_data.address = host_data.ctx.func_body_ptr() as *const VMFunctionBody;
 
-    //     let func_ptr = std::ptr::null() as VMFunctionCallback;
-    //     let type_index = store.engine().as_sys().register_signature(&function_type);
-    //     let vmctx = VMFunctionContext {
-    //         host_env: host_data.as_ref() as *const _ as *mut c_void,
-    //     };
-    //     let call_trampoline = host_data.ctx.call_trampoline_address();
-    //     let anyfunc = VMCallerCheckedAnyfunc {
-    //         func_ptr,
-    //         type_index,
-    //         vmctx,
-    //         call_trampoline,
-    //     };
+        let func_ptr = std::ptr::null() as VMFunctionCallback;
+        let type_index = store.engine().as_sys().register_signature(&function_type);
+        let vmctx = VMFunctionContext {
+            host_env: host_data.as_ref() as *const _ as *mut c_void,
+        };
+        let call_trampoline = host_data.ctx.call_trampoline_address();
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr,
+            type_index,
+            vmctx,
+            call_trampoline,
+        };
 
-    //     let vm_function = VMFunction {
-    //         anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
-    //         kind: VMFunctionKind::Dynamic,
-    //         signature: function_type,
-    //         host_data,
-    //     };
-    //     Self {
-    //         handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
-    //     }
-    // }
+        let vm_function = VMFunction {
+            anyfunc: MaybeInstanceOwned::Host(Box::new(UnsafeCell::new(anyfunc))),
+            kind: VMFunctionKind::Dynamic,
+            signature: function_type,
+            host_data,
+        };
+        Self {
+            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), vm_function),
+        }
+    }
 
     /// Creates a new host `Function` from a native function.
     pub(crate) fn new_typed<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
@@ -251,77 +254,90 @@ impl Function {
         }
     }
 
-    // TODO: async API
-    // pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
-    // where
-    //     Args: WasmTypeList + 'static,
-    //     Rets: WasmTypeList + 'static,
-    //     F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
-    // {
-    //     let env = FunctionEnv::new(store, ());
-    //     let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
-    //     let args_sig = Arc::new(signature.clone());
-    //     let results_sig = Arc::new(signature.clone());
-    //     let func = Arc::new(func);
-    //     Self::new_with_env_async(store, &env, signature, move |mut env_mut, values| -> Pin<
-    //         Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
-    //     > {
-    //         let store = AsStoreMut::reborrow_mut(&mut env_mut);
-    //         let args_sig = args_sig.clone();
-    //         let results_sig = results_sig.clone();
-    //         let func = func.clone();
-    //         let args =
-    //             match typed_args_from_values::<Args>(store, args_sig.as_ref(), values) {
-    //             Ok(args) => args,
-    //             Err(err) => return Box::pin(async { Err(err) }),
-    //         };
-    //         let future = func
-    //             .as_ref()
-    //             .call_async(AsyncFunctionEnv::new(), args);
-    //         Box::pin(async move {
-    //             let typed_result = future.await?;
-    //             typed_results_to_values::<Rets>(store, results_sig.as_ref(), typed_result)
-    //         })
-    //     })
-    // }
+    pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
+    where
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + Send + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
+    {
+        let env = FunctionEnv::new(store, ());
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(store, &env, signature, move |mut env_mut, values| -> Pin<
+            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
+        > {
+            let sys_env = match env_mut.0 {
+                BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
+                _ => panic!("Not a sys backend"),
+            };
+            let mut store_mut_wrapper = unsafe { StoreContext::get_current(sys_env.store_id()) };
+            let store_mut = store_mut_wrapper.as_mut();
+            let args_sig = args_sig.clone();
+            let results_sig = results_sig.clone();
+            let func = func.clone();
+            let args =
+                match typed_args_from_values::<Args>(store_mut, args_sig.as_ref(), values) {
+                Ok(args) => args,
+                Err(err) => return Box::pin(async { Err(err) }),
+            };
+            drop(store_mut_wrapper);
+            let future = func
+                .as_ref()
+                .call_async(AsyncFunctionEnv::new(), args);
+            Box::pin(async move {
+                let typed_result = future.await?;
+                let mut store_mut = env_mut.write().await;
+                typed_results_to_values::<Rets>(store_mut.reborrow_mut(), results_sig.as_ref(), typed_result)
+            })
+        })
+    }
 
-    // TODO: async API
-    // pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
-    //     store: &mut impl AsStoreMut,
-    //     env: &FunctionEnv<T>,
-    //     func: F,
-    // ) -> Self
-    // where
-    //     T: Send + 'static,
-    //     F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
-    //     Args: WasmTypeList + 'static,
-    //     Rets: WasmTypeList + 'static,
-    // {
-    //     let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
-    //     let args_sig = Arc::new(signature.clone());
-    //     let results_sig = Arc::new(signature.clone());
-    //     let func = Arc::new(func);
-    //     Self::new_with_env_async(store, env, signature, move |mut env_mut, values| -> Pin<
-    //         Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
-    //     > {
-    //         let store = AsStoreMut::reborrow_mut(&mut env_mut);
-    //         let args_sig = args_sig.clone();
-    //         let results_sig = results_sig.clone();
-    //         let func = func.clone();
-    //         let args =
-    //             match typed_args_from_values::<Args>(store, args_sig.as_ref(), values) {
-    //             Ok(args) => args,
-    //             Err(err) => return Box::pin(async { Err(err) }),
-    //         };
-    //         let future = func
-    //             .as_ref()
-    //             .call_async(AsyncFunctionEnv::with_env(env_mut), args);
-    //         Box::pin(async move {
-    //             let typed_result = future.await?;
-    //             typed_results_to_values::<Rets>(store, results_sig.as_ref(), typed_result)
-    //         })
-    //     })
-    // }
+    pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
+        store: &mut impl AsStoreMut,
+        env: &FunctionEnv<T>,
+        func: F,
+    ) -> Self
+    where
+        T: Send + Sync + 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
+        Args: WasmTypeList + 'static,
+        Rets: WasmTypeList + Send + 'static,
+    {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        let args_sig = Arc::new(signature.clone());
+        let results_sig = Arc::new(signature.clone());
+        let func = Arc::new(func);
+        Self::new_with_env_async(store, env, signature, move |mut env_mut, values| -> Pin<
+            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
+        > {
+            let sys_env = match env_mut.0 {
+                BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
+                _ => panic!("Not a sys backend"),
+            };
+            let mut store_mut_wrapper = unsafe { StoreContext::get_current(sys_env.store_id()) };
+            let store_mut = store_mut_wrapper.as_mut();
+            let args_sig = args_sig.clone();
+            let results_sig = results_sig.clone();
+            let func = func.clone();
+            let args =
+                match typed_args_from_values::<Args>(store_mut, args_sig.as_ref(), values) {
+                Ok(args) => args,
+                Err(err) => return Box::pin(async { Err(err) }),
+            };
+            drop(store_mut_wrapper);
+            let env_mut_clone = env_mut.as_mut();
+            let future = func
+                .as_ref()
+                .call_async(AsyncFunctionEnv::with_env(env_mut), args);
+            Box::pin(async move {
+                let typed_result = future.await?;
+                let mut store_mut = env_mut_clone.write().await;
+                typed_results_to_values::<Rets>(store_mut.reborrow_mut(), results_sig.as_ref(), typed_result)
+            })
+        })
+    }
 
     pub(crate) fn new_typed_with_env<T: Send + 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
@@ -521,10 +537,11 @@ impl Function {
 
     pub(crate) fn call_async<'a>(
         &self,
-        store: &'a mut (impl AsStoreMut + 'static),
+        store: &'a impl AsAsyncStore,
         params: Vec<Value>,
     ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
         let function = self.clone();
+        let store = store.store();
         Box::pin(call_function_async(function, store, params))
     }
 

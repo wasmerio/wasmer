@@ -1,5 +1,5 @@
 use crate::backend::sys::engine::NativeEngineExt;
-use crate::store::{AsStoreMut, AsStoreRef};
+use crate::store::{AsAsyncStore, AsStoreMut, AsStoreRef};
 use crate::{
     FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, StoreContext, TypedFunction, Value,
     WasmTypeList,
@@ -116,35 +116,37 @@ macro_rules! impl_native_traits {
                 // Ok(Rets::from_c_struct(results))
             }
 
-            // TODO: async api
-            // /// Call the typed func asynchronously.
-            // #[allow(unused_mut)]
-            // #[allow(clippy::too_many_arguments)]
-            // pub fn call_async_sys<'a>(
-            //     &'a self,
-            //     store: &'a mut (impl AsStoreMut + 'static),
-            //     $( $x: $x, )*
-            // ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
-            // where
-            //     $( $x: FromToNativeWasmType, )*
-            // {
-            //     let func = self.func.clone();
-            //     let func_ty = func.ty(store);
-            //     let mut params_raw = [ $( $x.to_native().into_raw(store) ),* ];
-            //     let mut params_values = Vec::with_capacity(params_raw.len());
-            //     {
-            //         for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
-            //             unsafe {
-            //                 params_values.push(Value::from_raw(store, *ty, *raw));
-            //             }
-            //         }
-            //     }
+            /// Call the typed func asynchronously.
+            #[allow(unused_mut)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_async_sys<'a>(
+                &'a self,
+                store: &'a impl AsAsyncStore,
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            where
+                $( $x: FromToNativeWasmType, )*
+            {
+                async move {
+                    let mut write = store.write_lock().await;
+                    let func = self.func.clone();
+                    let func_ty = func.ty(&mut write);
+                    let mut params_raw = [ $( $x.to_native().into_raw(&mut write) ),* ];
+                    let mut params_values = Vec::with_capacity(params_raw.len());
+                    {
+                        for (raw, ty) in params_raw.iter().zip(func_ty.params()) {
+                            unsafe {
+                                params_values.push(Value::from_raw(&mut write, *ty, *raw));
+                            }
+                        }
+                    }
+                    drop(write);
 
-            //     async move {
-            //         let results = func.call_async(store, &params_values).await?;
-            //         convert_results::<Rets>(store, func_ty, results)
-            //     }
-            // }
+                    let results = func.call_async(store, &params_values).await?;
+                    let mut write = store.write_lock().await;
+                    convert_results::<Rets>(&mut write, func_ty, results)
+                }
+            }
 
             #[doc(hidden)]
             #[allow(missing_docs)]

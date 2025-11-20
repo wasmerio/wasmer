@@ -1,6 +1,10 @@
 //! Defines the [`Store`] data type and various useful traits and data types to interact with a
 //! store.
 
+/// Defines the [`AsAsyncStore`] trait and its supporting types.
+mod asynk;
+pub use asynk::*;
+
 /// Defines the [`StoreContext`] type.
 mod context;
 
@@ -40,6 +44,7 @@ use wasmer_vm::TrapHandlerFn;
 /// For more informations, check out the [related WebAssembly specification]
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
+    pub(crate) id: StoreId,
     pub(crate) inner: Arc<async_lock::RwLock<StoreInner>>,
 }
 
@@ -75,9 +80,11 @@ impl Store {
             }
         };
 
+        let objects = StoreObjects::from_store_ref(&store);
         Self {
+            id: objects.id(),
             inner: std::sync::Arc::new(async_lock::RwLock::new(StoreInner {
-                objects: StoreObjects::from_store_ref(&store),
+                objects,
                 on_called: None,
                 store,
             })),
@@ -85,24 +92,48 @@ impl Store {
     }
 
     /// Creates a new [`StoreRef`] if the store is available for reading.
-    pub(crate) fn make_ref(&self) -> Option<StoreRef> {
+    pub(crate) fn try_make_ref(&self) -> Option<StoreRef> {
         self.inner
             .try_read_arc()
             .map(|guard| StoreRef { inner: guard })
     }
 
-    /// Creates a new [`StoreRef`] if the store is available for reading.
-    pub(crate) fn make_mut(&self) -> Option<StoreMut> {
-        self.inner
-            .try_write_arc()
-            .map(|guard| StoreMut { inner: guard })
+    /// Waits for the store to become available and creates a new
+    /// [`StoreRef`] afterwards.
+    pub(crate) async fn make_ref_async(&self) -> StoreRef {
+        let guard = self.inner.read_arc().await;
+        StoreRef { inner: guard }
+    }
+
+    /// Creates a new [`StoreMut`] if the store is available for writing.
+    pub(crate) fn try_make_mut(&self) -> Option<StoreMut> {
+        self.inner.try_write_arc().map(|guard| StoreMut {
+            inner: guard,
+            store_handle: crate::Store {
+                id: self.id,
+                inner: self.inner.clone(),
+            },
+        })
+    }
+
+    /// Waits for the store to become available and creates a new
+    /// [`StoreMut`] afterwards.
+    pub(crate) async fn make_mut_async(&self) -> StoreMut {
+        let guard = self.inner.write_arc().await;
+        StoreMut {
+            inner: guard,
+            store_handle: Self {
+                id: self.id,
+                inner: self.inner.clone(),
+            },
+        }
     }
 
     /// Builds an [`AsStoreMut`] handle to this store, provided
     /// the store is not locked. Panics if the store is already locked.
     pub fn as_mut<'a>(&'a mut self) -> impl AsStoreMut + 'a {
         StoreMutGuard {
-            inner: Some(self.make_mut().expect("Store is locked")),
+            inner: Some(self.try_make_mut().expect("Store is locked")),
             marker: std::marker::PhantomData,
         }
     }
@@ -117,7 +148,8 @@ impl Store {
     pub fn set_trap_handler(&mut self, handler: Option<Box<TrapHandlerFn<'static>>>) {
         use crate::backend::sys::entities::store::NativeStoreExt;
         #[allow(irrefutable_let_patterns)]
-        if let BackendStore::Sys(ref mut s) = self.make_mut().expect("Store is locked").inner.store
+        if let BackendStore::Sys(ref mut s) =
+            self.try_make_mut().expect("Store is locked").inner.store
         {
             s.set_trap_handler(handler)
         }
@@ -128,7 +160,7 @@ impl Store {
         // Happily unwrap the read lock here because we don't expect
         // embedder code to access stores in parallel.
         StoreEngineRef {
-            inner: self.make_ref().expect("Store is locked"),
+            inner: self.try_make_ref().expect("Store is locked"),
             marker: std::marker::PhantomData,
         }
     }
@@ -136,7 +168,7 @@ impl Store {
     /// Returns mutable reference to [`Engine`].
     pub fn engine_mut<'a>(&'a mut self) -> StoreEngineMut<'a> {
         StoreEngineMut {
-            inner: self.make_mut().expect("Store is locked"),
+            inner: self.try_make_mut().expect("Store is locked"),
             marker: std::marker::PhantomData,
         }
     }
@@ -149,7 +181,7 @@ impl Store {
 
     /// Returns the ID of this store
     pub fn id(&self) -> StoreId {
-        self.make_ref().expect("Store is locked").objects().id()
+        self.id
     }
 }
 
@@ -223,8 +255,8 @@ impl DerefMut for StoreEngineMut<'_> {
 // TODO: can we put the value back after the function returns? We should be able to
 // TODO: what would the API look like?
 pub struct StoreMutGuard<'a> {
-    inner: Option<StoreMut>,
-    marker: std::marker::PhantomData<&'a ()>,
+    pub(crate) inner: Option<StoreMut>,
+    pub(crate) marker: std::marker::PhantomData<&'a ()>,
 }
 
 impl AsStoreRef for StoreMutGuard<'_> {

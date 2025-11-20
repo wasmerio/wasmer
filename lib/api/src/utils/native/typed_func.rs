@@ -8,8 +8,8 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
 use crate::{
-    AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError,
-    WasmTypeList, store::AsStoreRef,
+    AsAsyncStore, AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto,
+    RuntimeError, WasmTypeList, store::AsStoreRef,
 };
 use std::future::Future;
 use std::marker::PhantomData;
@@ -79,40 +79,41 @@ macro_rules! impl_native_traits {
                 }
             }
 
-            // TODO: async api
-            // /// Call the typed func asynchronously.
-            // #[allow(unused_mut)]
-            // #[allow(clippy::too_many_arguments)]
-            // pub fn call_async<'a>(
-            //     &'a self,
-            //     store: &'a mut (impl AsStoreMut + 'static),
-            //     $( $x: $x, )*
-            // ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
-            // where
-            //     $( $x: FromToNativeWasmType, )*
-            // {
-            //     $(
-            //         let [<p_ $x>] = $x;
-            //     )*
-            //     async move {
-            //         match store.as_mut().store {
-            //             #[cfg(feature = "sys")]
-            //             BackendStore::Sys(_) => {
-            //                 self.call_async_sys(store, $([<p_ $x>]),*).await
-            //             }
-            //             #[cfg(feature = "wamr")]
-            //             BackendStore::Wamr(_) => async_backend_error(),
-            //             #[cfg(feature = "wasmi")]
-            //             BackendStore::Wasmi(_) => async_backend_error(),
-            //             #[cfg(feature = "v8")]
-            //             BackendStore::V8(_) => async_backend_error(),
-            //             #[cfg(feature = "js")]
-            //             BackendStore::Js(_) => async_backend_error(),
-            //             #[cfg(feature = "jsc")]
-            //             BackendStore::Jsc(_) => async_backend_error(),
-            //         }
-            //     }
-            // }
+            /// Call the typed func asynchronously.
+            #[allow(unused_mut)]
+            #[allow(clippy::too_many_arguments)]
+            pub fn call_async<'a>(
+                &'a self,
+                store: &'a impl AsAsyncStore,
+                $( $x: $x, )*
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            where
+                $( $x: FromToNativeWasmType, )*
+            {
+                $(
+                    let [<p_ $x>] = $x;
+                )*
+                async move {
+                    let read_lock = store.read_lock().await;
+                    match read_lock.as_ref().store {
+                        #[cfg(feature = "sys")]
+                        BackendStore::Sys(_) => {
+                            drop(read_lock);
+                            self.call_async_sys(store, $([<p_ $x>]),*).await
+                        }
+                        #[cfg(feature = "wamr")]
+                        BackendStore::Wamr(_) => async_backend_error(),
+                        #[cfg(feature = "wasmi")]
+                        BackendStore::Wasmi(_) => async_backend_error(),
+                        #[cfg(feature = "v8")]
+                        BackendStore::V8(_) => async_backend_error(),
+                        #[cfg(feature = "js")]
+                        BackendStore::Js(_) => async_backend_error(),
+                        #[cfg(feature = "jsc")]
+                        BackendStore::Jsc(_) => async_backend_error(),
+                    }
+                }
+            }
 
             #[doc(hidden)]
             #[allow(missing_docs)]

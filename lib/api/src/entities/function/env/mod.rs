@@ -1,7 +1,7 @@
 pub(crate) mod inner;
 pub(crate) use inner::*;
 
-use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
+use crate::{AsAsyncStore, AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 #[derive(Debug, derive_more::From)]
@@ -88,6 +88,11 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
         self.0.data_and_store_mut()
     }
+
+    /// Creates an [`AsAsyncStore`] from this [`FunctionEnvMut`].
+    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
+        self.0.as_async_store()
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
@@ -112,5 +117,101 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         self.0.fmt(f)
+    }
+}
+
+/// A temporary handle to a [`FunctionEnv`], suitable for use
+/// in async imports.
+pub struct AsyncFunctionEnvMut<T>(pub(crate) BackendAsyncFunctionEnvMut<T>);
+
+/// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
+pub struct AsyncFunctionEnvHandle<'a, T>(pub(crate) BackendAsyncFunctionEnvHandle<'a, T>);
+
+/// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
+/// Internally, a [`StoreMutGuard`] is used, so the store handle from this
+/// type can be used to invoke [`Function::call`](crate::Function::call)
+/// while outside a store's context.
+pub struct AsyncFunctionEnvHandleMut<'a, T>(pub(crate) BackendAsyncFunctionEnvHandleMut<'a, T>);
+
+impl<T: Send + Sync + 'static> AsyncFunctionEnvMut<T> {
+    /// Waits for a store lock and returns a read-only handle to the
+    /// function environment.
+    pub async fn read<'a>(&'a self) -> AsyncFunctionEnvHandle<'a, T> {
+        AsyncFunctionEnvHandle(self.0.read().await)
+    }
+
+    /// Waits for a store lock and returns a mutable handle to the
+    /// function environment.
+    pub async fn write<'a>(&'a self) -> AsyncFunctionEnvHandleMut<'a, T> {
+        AsyncFunctionEnvHandleMut(self.0.write().await)
+    }
+
+    /// Borrows a new immmutable reference
+    pub fn as_ref(&self) -> FunctionEnv<T> {
+        FunctionEnv(self.0.as_ref())
+    }
+
+    /// Borrows a new mutable reference
+    pub fn as_mut(&mut self) -> AsyncFunctionEnvMut<T> {
+        AsyncFunctionEnvMut(self.0.as_mut())
+    }
+
+    /// Creates an [`AsAsyncStore`] from this [`AsyncFunctionEnvMut`].
+    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
+        self.0.as_async_store()
+    }
+}
+
+impl<T: Send + 'static> AsyncFunctionEnvHandle<'_, T> {
+    /// Returns a reference to the host state in this function environment.
+    pub fn data(&self) -> &T {
+        self.0.data()
+    }
+
+    /// Returns both the host state and the attached StoreRef
+    pub fn data_and_store(&self) -> (&T, &impl AsStoreRef) {
+        self.0.data_and_store()
+    }
+}
+
+impl<T: Send + 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
+    fn as_ref(&self) -> &crate::StoreInner {
+        AsStoreRef::as_ref(&self.0)
+    }
+}
+
+impl<T: Send + 'static> AsyncFunctionEnvHandleMut<'_, T> {
+    /// Returns a mutable reference to the host state in this function environment.
+    pub fn data_mut(&mut self) -> &mut T {
+        self.0.data_mut()
+    }
+
+    /// Returns both the host state and the attached StoreMut
+    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
+        self.0.data_and_store_mut()
+    }
+}
+
+impl<T: Send + 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
+    fn as_ref(&self) -> &crate::StoreInner {
+        AsStoreRef::as_ref(&self.0)
+    }
+}
+
+impl<T: Send + 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
+    fn as_mut(&mut self) -> &mut crate::StoreInner {
+        AsStoreMut::as_mut(&mut self.0)
+    }
+
+    fn reborrow_mut(&mut self) -> &mut StoreMut {
+        AsStoreMut::reborrow_mut(&mut self.0)
+    }
+
+    fn take(&mut self) -> Option<StoreMut> {
+        AsStoreMut::take(&mut self.0)
+    }
+
+    fn put_back(&mut self, store_mut: StoreMut) {
+        AsStoreMut::put_back(&mut self.0, store_mut);
     }
 }

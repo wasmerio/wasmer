@@ -4,8 +4,11 @@ use std::{
 };
 
 use super::{StoreObjects, inner::StoreInner};
-use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
-use wasmer_types::{ExternType, OnCalledAction};
+use crate::{
+    Store,
+    entities::engine::{AsEngineRef, Engine, EngineRef},
+};
+use wasmer_types::{ExternType, OnCalledAction, StoreId};
 
 #[cfg(feature = "sys")]
 use wasmer_vm::TrapHandlerFn;
@@ -25,6 +28,10 @@ impl StoreRef {
 /// A temporary handle to a [`crate::Store`].
 pub struct StoreMut {
     pub(crate) inner: async_lock::RwLockWriteGuardArc<StoreInner>,
+
+    // Also keep an Arc to the store itself, so we can recreate
+    // the store for async functions.
+    pub(crate) store_handle: Store,
 }
 
 impl StoreMut {
