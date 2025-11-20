@@ -49,9 +49,7 @@ fn inner_context_switch(
     let (data) = ctx.data_mut();
 
     // Get own context ID
-    let own_context_id = data
-        .current_context_id
-        .swap(target_context_id, Ordering::Relaxed);
+    let own_context_id = data.current_context_id.load(Ordering::Relaxed);
 
     // If switching to self, do nothing
     if own_context_id == target_context_id {
@@ -92,7 +90,6 @@ fn inner_context_switch(
     Ok(async move {
         // Wait until we are unblocked again
         let result = wait_for_unblock.await;
-
         // Restore our own context ID
         current_context_id.store(own_context_id, Ordering::Relaxed);
 
