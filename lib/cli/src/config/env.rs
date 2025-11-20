@@ -36,6 +36,7 @@ pub struct WasmerEnv {
 impl WasmerEnv {
     const APP_DOMAIN_PROD: &'static str = "wasmer.app";
     const APP_DOMAIN_DEV: &'static str = "wasmer.dev";
+    const APP_DOMAIN_BUGT: &'static str = "wasmer.fun";
 
     pub fn new(
         wasmer_dir: PathBuf,
@@ -148,6 +149,8 @@ impl WasmerEnv {
             Ok(Self::APP_DOMAIN_PROD.to_string())
         } else if domain.ends_with("wasmer.wtf") {
             Ok(Self::APP_DOMAIN_DEV.to_string())
+        } else if domain.ends_with("wasmer.fun") {
+            Ok(Self::APP_DOMAIN_BUGT.to_string())
         } else {
             anyhow::bail!(
                 "could not determine app domain for backend url '{}': unknown backend",
