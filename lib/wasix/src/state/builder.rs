@@ -698,20 +698,24 @@ impl WasiEnvBuilder {
     /// Sets the FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-    pub fn fs(mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) -> Self {
+    pub fn fs(mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) -> Self {
         self.set_fs(fs);
         self
     }
 
-    pub fn set_fs(&mut self, fs: Box<dyn virtual_fs::FileSystem + Send + Sync>) {
-        self.fs = Some(WasiFsRoot::Backing(Arc::new(fs)));
+    pub fn set_fs(&mut self, fs: impl Into<Arc<dyn virtual_fs::FileSystem + Send + Sync>>) {
+        self.fs = Some(WasiFsRoot::Backing(fs.into()));
+    }
+
+    pub(crate) fn set_fs_root(&mut self, fs: WasiFsRoot) {
+        self.fs = Some(fs);
     }
 
     /// Sets a new sandbox FileSystem to be used with this WASI instance.
     ///
     /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
     pub fn sandbox_fs(mut self, fs: TmpFileSystem) -> Self {
-        self.fs = Some(WasiFsRoot::Sandbox(Arc::new(fs)));
+        self.fs = Some(WasiFsRoot::Sandbox(fs));
         self
     }
 
@@ -843,7 +847,7 @@ impl WasiEnvBuilder {
         let fs_backing = self
             .fs
             .take()
-            .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
+            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
 
         if let Some(dir) = &self.current_dir {
             match fs_backing.read_dir(dir) {
