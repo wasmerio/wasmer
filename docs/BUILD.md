@@ -91,12 +91,12 @@ variable, and force its enabling with `ENABLE_SINGLEPASS=1`.
 
 If you want support for the Wasmer LLVM compiler, then you will also need to:
 
-- Ensure that LLVM >=18.0.x is installed on your system
+- Ensure that LLVM >=18.1.x is installed on your system
   - You can refer to [LLVM install instructions](https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm#requirements)
   - You can also [download and use a prebuilt LLVM binary](https://releases.llvm.org/download.html)
 - In case `llvm-config` is not accessible, set the correct environment variable
-  for LLVM to access: For example, the environment variable for LLVM 18.0.x
-  would be: `LLVM_SYS_180_PREFIX=/path/to/unpacked/llvm-18.0`
+  for LLVM to access: For example, the environment variable for LLVM 18.1.x
+  would be: `LLVM_SYS_181_PREFIX=/path/to/unpacked/llvm-18.1`
 
 And create a Wasmer release
 

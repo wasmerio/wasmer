@@ -30,7 +30,7 @@ rayon.workspace = true
 phf = { workspace = true, features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
 inkwell = { workspace = true, features = [
-	"llvm18-0-prefer-static",
+	"llvm18-1-prefer-static",
 	"target-x86",
 	"target-aarch64",
 	"target-riscv",
