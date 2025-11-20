@@ -1,13 +1,13 @@
 [package]
 name = "test-generator"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 publish = false
 license = "Apache-2.0 WITH LLVM-exception"
 
 [dependencies]
-anyhow = "1.0"
-target-lexicon = "0.12"
+anyhow.workspace = true
+target-lexicon.workspace = true
 
 [features]
 test-universal = []

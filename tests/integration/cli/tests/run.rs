@@ -1316,5 +1316,5 @@ fn http_get(url: impl IntoUrl) -> Result<String, reqwest::Error> {
 }
 
 fn random_port() -> u16 {
-    rand::thread_rng().gen_range(10_000_u16..u16::MAX)
+    rand::rng().random_range(10_000_u16..u16::MAX)
 }

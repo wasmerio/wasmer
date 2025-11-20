@@ -11,9 +11,9 @@ version.workspace = true
 readme = "README.md"
 
 [dependencies]
-wasmer-backend-api = { path = "../backend-api", version = "=0.601.0" }
-wasmer-config = { path = "../config", version = "=0.601.0" }
-wasmer-package = { path = "../package", version = "=0.601.0" }
+wasmer-backend-api.workspace = true
+wasmer-config.workspace = true
+wasmer-package.workspace = true
 
 reqwest = { workspace = true, default-features = false, features = ["json", "multipart", "gzip", "stream"] }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
@@ -27,12 +27,12 @@ sha2 = { workspace = true }
 semver = { workspace = true }
 toml = { workspace = true }
 bytesize = { workspace = true }
-walkdir = "2"
-zip = { version = "2.4", default-features = false, features = ["deflate"] }
+walkdir.workspace = true
+zip = { workspace = true, default-features = false, features = ["deflate"] }
 tracing = { workspace = true }
 ignore.workspace = true
 
 [dev-dependencies]
-rand = "0.9.1"
-tempfile = "3"
-url = "2"
+rand.workspace = true
+tempfile.workspace = true
+url.workspace = true

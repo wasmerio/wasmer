@@ -1,31 +1,23 @@
 use proc_macro_error2::abort;
 use proc_macro2::TokenStream;
 use quote::quote;
-use syn::{Data, DeriveInput, Fields, Member, Meta, MetaList, NestedMeta};
+use syn::{Data, DeriveInput, Fields, Member};
 
 /// We can only validate types that have a well defined layout.
 fn check_repr(input: &DeriveInput) {
-    let reprs = input
-        .attrs
-        .iter()
-        .filter_map(|attr| {
-            if let Meta::List(MetaList { path, nested, .. }) = attr.parse_meta().unwrap()
-                && path.is_ident("repr")
-            {
-                return Some(nested.into_iter().collect::<Vec<_>>());
-            }
-            None
-        })
-        .flatten();
-
-    // We require either repr(C) or repr(transparent) to ensure fields are in
-    // source code order.
-    for meta in reprs {
-        if let NestedMeta::Meta(Meta::Path(path)) = meta
-            && (path.is_ident("C") || path.is_ident("transparent"))
-        {
-            return;
+    if input.attrs.iter().any(|attr| {
+        attr.path().is_ident("repr") && {
+            let mut valid = false;
+            let _ = attr.parse_nested_meta(|meta| {
+                if meta.path.is_ident("C") || meta.path.is_ident("transparent") {
+                    valid = true;
+                }
+                Ok(())
+            });
+            valid
         }
+    }) {
+        return;
     }
 
     abort!(
