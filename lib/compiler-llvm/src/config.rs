@@ -316,9 +316,15 @@ impl LLVM {
 
                 let my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
 
-                #[cfg(any(target_arch = "riscv64", target_arch = "aarch64"))]
+                #[cfg(any(
+                    target_arch = "riscv64",
+                    all(target_arch = "aarch64", target_os = "linux")
+                ))]
                 let target_machine_ptr = my_target_machine.target_machine as *mut u8;
-                #[cfg(not(any(target_arch = "riscv64", target_arch = "aarch64")))]
+                #[cfg(not(any(
+                    target_arch = "riscv64",
+                    all(target_arch = "aarch64", target_os = "linux")
+                )))]
                 let target_machine_ptr = my_target_machine.target_machine as *mut i8;
 
                 *(target_machine_ptr.offset(0x410) as *mut u64) = 5;
