@@ -29,10 +29,10 @@
 <a href=#29 id=29 data-nosnippet>29</a>
 <a href=#30 id=30 data-nosnippet>30</a><span class="doccomment">/// Compute an `ir::ExternalName` for a given wasm function index.
 <a href=#31 id=31 data-nosnippet>31</a></span><span class="kw">pub fn </span>get_function_name(func: <span class="kw-2">&amp;mut </span>Function, func_index: FunctionIndex) -&gt; ir::ExternalName {
-<a href=#32 id=32 data-nosnippet>32</a>    <span class="comment">// Called as the function name offset is used for debugging purpose.
-<a href=#33 id=33 data-nosnippet>33</a>    </span>func.params
-<a href=#34 id=34 data-nosnippet>34</a>        .ensure_user_func_name(UserExternalName::new(<span class="number">0</span>, func_index.as_u32()));
-<a href=#35 id=35 data-nosnippet>35</a>    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
+<a href=#32 id=32 data-nosnippet>32</a>    ir::ExternalName::user(
+<a href=#33 id=33 data-nosnippet>33</a>        func.params
+<a href=#34 id=34 data-nosnippet>34</a>            .ensure_user_func_name(UserExternalName::new(<span class="number">0</span>, func_index.as_u32())),
+<a href=#35 id=35 data-nosnippet>35</a>    )
 <a href=#36 id=36 data-nosnippet>36</a>}
 <a href=#37 id=37 data-nosnippet>37</a>
 <a href=#38 id=38 data-nosnippet>38</a><span class="doccomment">/// The type of the `current_elements` field.
