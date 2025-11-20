@@ -6,8 +6,8 @@ use anyhow::Result;
 use futures::task::LocalSpawnExt;
 use futures::{FutureExt, channel::oneshot};
 use wasmer::{
-    AsStoreMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory, Module,
-    RuntimeError, Store, StoreMut, Type, Value, imports,
+    AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory,
+    Module, RuntimeError, Store, Type, Value, imports,
 };
 
 struct GreenEnv {
@@ -61,7 +61,8 @@ fn greenthread_new(
     mut env: FunctionEnvMut<GreenEnv>,
     entrypoint_data: u32,
 ) -> core::result::Result<u32, RuntimeError> {
-    let (data, mut store) = env.data_and_store_mut();
+    let async_store = env.as_async_store();
+    let data = env.data_mut();
     let new_greenthread_id = data
         .next_free_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -79,25 +80,12 @@ fn greenthread_new(
         .unwrap()
         .insert(new_greenthread_id, new_greenthread);
 
-    // SAFETY: This is only sound if the following invariants are upheld:
-    //  A: The future spawned here must not outlive the lifetime of the store.
-    //     In this test, we ensure that the store lives at least as long as the future,
-    //     and the future completes before the store is dropped.
-    //  B: There must not be multiple mutable references (no aliasing) to the store at the same time.
-    //     We must ensure that the store is not accessed elsewhere while the future is running.
-    //     If these invariants are not guaranteed, this code is unsound and may cause undefined behavior.
-    let mut unsafe_static_store =
-        unsafe { std::mem::transmute::<_, StoreMut<'static>>(store.as_store_mut()) };
-
     let spawner = env.data().spawner.as_ref().expect("spawner set").clone();
     spawner
         .spawn_local(async move {
             receiver.await.unwrap();
             let resumer = function
-                .call_async(
-                    &mut unsafe_static_store,
-                    &[Value::I32(entrypoint_data as i32)],
-                )
+                .call_async(&async_store, &[Value::I32(entrypoint_data as i32)])
                 .await;
             panic!("Greenthread function returned {:?}", resumer);
         })
@@ -106,62 +94,61 @@ fn greenthread_new(
     Ok(new_greenthread_id)
 }
 
-fn greenthread_switch(
-    mut env: FunctionEnvMut<GreenEnv>,
-    next_greenthread_id: u32,
-) -> impl futures::Future<Output = core::result::Result<(), RuntimeError>> + use<> + Send {
-    let (data, _store) = env.data_and_store_mut();
-    let current_greenthread_id = {
-        let mut current = data.current_greenthread_id.write().unwrap();
-        let old = *current;
-        *current = next_greenthread_id;
-        old
+async fn greenthread_switch(env: AsyncFunctionEnvMut<GreenEnv>, next_greenthread_id: u32) {
+    let (receiver, current_id_arc, current_greenthread_id) = {
+        let mut write_lock = env.write().await;
+        let data = write_lock.data_mut();
+
+        let current_greenthread_id = {
+            let mut current = data.current_greenthread_id.write().unwrap();
+            let old = *current;
+            *current = next_greenthread_id;
+            old
+        };
+
+        if current_greenthread_id == next_greenthread_id {
+            panic!("Switching to self is not allowed");
+        }
+
+        let (sender, receiver) = oneshot::channel::<()>();
+
+        {
+            let mut greenthreads = data.greenthreads.write().unwrap();
+            let this_one = greenthreads.get_mut(&current_greenthread_id).unwrap();
+            if this_one.resumer.is_some() {
+                panic!("Switching from a greenthread that is already switched out");
+            }
+            this_one.resumer = Some(sender);
+        }
+
+        {
+            let mut greenthreads = data.greenthreads.write().unwrap();
+            let next_one = greenthreads.get_mut(&next_greenthread_id).unwrap();
+            let Some(resumer) = next_one.resumer.take() else {
+                panic!("Switching to greenthread that has no resumer");
+            };
+            resumer.send(()).unwrap();
+        }
+        let current_id_arc = data.current_greenthread_id.clone();
+
+        (receiver, current_id_arc, current_greenthread_id)
     };
 
-    if current_greenthread_id == next_greenthread_id {
-        panic!("Switching to self is not allowed");
-    }
+    let _ = receiver.map(|_| ()).await;
 
-    let (sender, receiver) = oneshot::channel::<()>();
-
-    {
-        let mut greenthreads = data.greenthreads.write().unwrap();
-        let this_one = greenthreads.get_mut(&current_greenthread_id).unwrap();
-        if this_one.resumer.is_some() {
-            panic!("Switching from a greenthread that is already switched out");
-        }
-        this_one.resumer = Some(sender);
-    }
-
-    {
-        let mut greenthreads = data.greenthreads.write().unwrap();
-        let next_one = greenthreads.get_mut(&next_greenthread_id).unwrap();
-        let Some(resumer) = next_one.resumer.take() else {
-            panic!("Switching to greenthread that has no resumer");
-        };
-        resumer.send(()).unwrap();
-    }
-
-    let current_id_arc = data.current_greenthread_id.clone();
-
-    async move {
-        let _ = receiver.map(|_| ()).await;
-
-        *current_id_arc.write().unwrap() = current_greenthread_id;
-
-        Ok(())
-    }
+    *current_id_arc.write().unwrap() = current_greenthread_id;
 }
 
 fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
     let mut store = Store::default();
-    let module = Module::new(&store, wat)?;
+    let module = Module::new(&store.engine(), wat)?;
 
-    let env = FunctionEnv::new(&mut store, GreenEnv::new());
+    let mut store_mut = store.as_mut();
+    let env = FunctionEnv::new(&mut store_mut, GreenEnv::new());
 
     // log(ptr, len)
     let log_fn = Function::new_with_env(
-        &mut store,
+        &mut store_mut,
         &env,
         FunctionType::new(vec![Type::I32, Type::I32], vec![]),
         |mut env: FunctionEnvMut<GreenEnv>, params: &[Value]| {
@@ -180,10 +167,10 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         },
     );
 
-    let greenthread_new = Function::new_typed_with_env(&mut store, &env, greenthread_new);
+    let greenthread_new = Function::new_typed_with_env(&mut store_mut, &env, greenthread_new);
 
     let greenthread_switch =
-        Function::new_typed_with_env_async(&mut store, &env, greenthread_switch);
+        Function::new_typed_with_env_async(&mut store_mut, &env, greenthread_switch);
 
     let import_object = imports! {
         "test" => {
@@ -193,13 +180,13 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         }
     };
 
-    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let instance = Instance::new(&mut store_mut, &module, &import_object)?;
 
     let entrypoint = instance.exports.get_function("entrypoint")?.clone();
-    env.as_mut(&mut store).entrypoint = Some(entrypoint);
+    env.as_mut(&mut store_mut).entrypoint = Some(entrypoint);
 
     let memory = instance.exports.get_memory("memory")?.clone();
-    env.as_mut(&mut store).memory = Some(memory);
+    env.as_mut(&mut store_mut).memory = Some(memory);
 
     let main_fn = instance.exports.get_function("_main")?;
 
@@ -208,7 +195,7 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         resumer: None,
     };
 
-    env.as_mut(&mut store)
+    env.as_mut(&mut store_mut)
         .greenthreads
         .write()
         .unwrap()
@@ -216,13 +203,16 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
 
     let mut localpool = futures::executor::LocalPool::new();
     let local_spawner = localpool.spawner();
-    env.as_mut(&mut store).spawner = Some(local_spawner);
+    env.as_mut(&mut store_mut).spawner = Some(local_spawner);
+
+    drop(store_mut);
 
     localpool
-        .run_until(main_fn.call_async(&mut store, &[]))
+        .run_until(main_fn.call_async(&store, &[]))
         .unwrap();
 
-    return Ok(env.as_ref(&store).logs.clone());
+    let mut store_mut = store.as_mut();
+    return Ok(env.as_ref(&mut store_mut).logs.clone());
 }
 
 #[cfg(not(target_arch = "wasm32"))]
@@ -267,7 +257,8 @@ fn green_threads_switch_main_crashed() -> Result<()> {
         "[side] switching to main",
     ];
 
-    assert_eq!(logs.len(), expected.len(),);
+    eprintln!("logs: {:?}", logs);
+    assert_eq!(logs.len(), expected.len());
     for (i, exp) in expected.iter().enumerate() {
         assert_eq!(logs[i], *exp, "Log entry mismatch at index {i}: {:?}", logs);
     }
