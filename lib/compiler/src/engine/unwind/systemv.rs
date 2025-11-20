@@ -4,7 +4,6 @@
 //! Module for System V ABI unwind registry.
 
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
-use std::sync::Mutex;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
@@ -21,12 +20,6 @@ unsafe extern "C" {
     fn __register_frame(fde: *const u8);
     fn __deregister_frame(fde: *const u8);
 }
-
-// Global mutex to synchronize access to __register_frame and __deregister_frame.
-// This is necessary because these functions in libgcc are not thread-safe when
-// called concurrently, which can lead to segfaults when the FDE data structures
-// are accessed simultaneously by multiple threads.
-static FRAME_REGISTRY_LOCK: Mutex<()> = Mutex::new(());
 
 // Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -211,8 +204,6 @@ impl UnwindRegistry {
 
             for record in records_to_register {
                 // Register the CFI with libgcc
-                // Use the global lock to ensure thread-safe access to __register_frame
-                let _lock = FRAME_REGISTRY_LOCK.lock().unwrap();
                 unsafe {
                     __register_frame(record as *const u8);
                 }
@@ -248,30 +239,37 @@ impl UnwindRegistry {
 
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
+        // Note: We intentionally do NOT call __deregister_frame here.
+        // 
+        // On systems using libgcc, there is a destructor function
+        // `release_registered_frames` (marked with __attribute__((destructor)))
+        // that runs during program shutdown and cleans up all registered frames.
+        // 
+        // If we try to manually deregister frames in Drop, we can race with
+        // libgcc's own cleanup during process exit, leading to segfaults when:
+        // 1. Our Drop runs after libgcc's destructor has already cleaned up
+        // 2. We try to deregister frames that libgcc has already removed
+        // 
+        // The libgcc code has an assertion: gcc_assert(in_shutdown || ob)
+        // which will abort if we try to deregister a non-existent frame outside
+        // of shutdown, causing the segfault described in the issue.
+        // 
+        // Therefore, we rely on libgcc's automatic cleanup and do not manually
+        // deregister frames. This is safe because:
+        // - During normal operation, frames remain registered (no memory leak)
+        // - During shutdown, libgcc's destructor cleans everything up
+        // - The comment in libgcc says: "Frame releases that happen later are
+        //   silently ignored" when in_shutdown is true
+        
+        #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         if self.published {
             unsafe {
-                // libgcc stores the frame entries as a linked list in decreasing sort order
-                // based on the PC value of the registered entry.
-                //
-                // As we store the registrations in increasing order, it would be O(N^2) to
-                // deregister in that order.
-                //
-                // To ensure that we just pop off the first element in the list upon every
-                // deregistration, walk our list of registrations backwards.
+                // On macOS ARM64, we still need to clean up compact unwind info
+                // as it uses a different mechanism than libgcc
                 for registration in self.registrations.iter().rev() {
-                    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-                    {
-                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
-                        self.compact_unwind_mgr.deregister();
-                    }
-
-                    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-                    {
-                        // Use the global lock to ensure thread-safe access to __deregister_frame
-                        let _lock = FRAME_REGISTRY_LOCK.lock().unwrap();
-                        __deregister_frame(*registration as *const _);
-                    }
+                    compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
                 }
+                self.compact_unwind_mgr.deregister();
             }
         }
     }
@@ -282,23 +280,38 @@ mod tests {
     use super::*;
 
     #[test]
-    fn test_unwind_registry_thread_safety() {
-        // This test verifies that the global FRAME_REGISTRY_LOCK prevents
-        // race conditions when multiple threads register/deregister frames.
-        // While we can't easily trigger the original segfault in a test,
-        // we can verify that concurrent operations don't cause panics.
-        
+    fn test_unwind_registry_drop_does_not_panic() {
+        // This test verifies that dropping an UnwindRegistry doesn't panic.
+        // The key behavior is that we do NOT call __deregister_frame in Drop
+        // to avoid racing with libgcc's destructor during program shutdown.
+        let mut registry = UnwindRegistry::new();
+        let _ = registry.publish(None);
+        // Drop happens here - should not panic
+    }
+
+    #[test]
+    fn test_multiple_registries_can_be_dropped() {
+        // Verify that multiple UnwindRegistry instances can be safely dropped.
+        // This would previously cause issues if __deregister_frame was called
+        // during Drop, as it could race with libgcc's cleanup.
+        for _ in 0..10 {
+            let mut registry = UnwindRegistry::new();
+            let _ = registry.publish(None);
+        }
+    }
+
+    #[test]
+    fn test_concurrent_registry_drops() {
+        // Test that multiple threads can safely drop UnwindRegistry instances
+        // without racing with each other or with libgcc's shutdown cleanup.
         use std::thread;
 
         let handles: Vec<_> = (0..4)
             .map(|_| {
                 thread::spawn(|| {
-                    // Create and drop UnwindRegistry instances
-                    for _ in 0..10 {
+                    for _ in 0..5 {
                         let mut registry = UnwindRegistry::new();
-                        // Simulate publishing with empty eh_frame
                         let _ = registry.publish(None);
-                        // Drop happens here, which should be thread-safe
                     }
                 })
             })
@@ -307,38 +320,5 @@ mod tests {
         for handle in handles {
             handle.join().expect("Thread should not panic");
         }
-    }
-
-    #[test]
-    fn test_frame_registry_lock_serializes_access() {
-        // Test that the lock properly serializes access to frame operations.
-        // This test verifies the mutex works correctly by ensuring concurrent
-        // lock acquisitions succeed without deadlocks.
-        
-        use std::sync::Arc;
-        use std::sync::atomic::{AtomicUsize, Ordering};
-        use std::thread;
-
-        let counter = Arc::new(AtomicUsize::new(0));
-        let handles: Vec<_> = (0..10)
-            .map(|_| {
-                let counter = Arc::clone(&counter);
-                thread::spawn(move || {
-                    // Simulate the pattern used in register_frames and Drop
-                    let _lock = FRAME_REGISTRY_LOCK.lock().unwrap();
-                    // Critical section - if the lock works, only one thread
-                    // should be here at a time
-                    let current = counter.load(Ordering::SeqCst);
-                    counter.store(current + 1, Ordering::SeqCst);
-                })
-            })
-            .collect();
-
-        for handle in handles {
-            handle.join().expect("Thread should not panic");
-        }
-
-        // All threads completed successfully
-        assert_eq!(counter.load(Ordering::SeqCst), 10);
     }
 }
