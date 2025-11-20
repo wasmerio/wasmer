@@ -56,7 +56,7 @@ async fn launch_function(
     wait_for_unblock: Receiver<Result<(), RuntimeError>>,
     current_context_id: Arc<AtomicU64>,
     new_context_id: u64,
-    contexts_cloned: Arc<dashmap::DashMap<u64, Sender<Result<(), RuntimeError>>>>,
+    contexts_cloned: Arc<RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>>,
     typechecked_entrypoint: Function,
 ) -> () {
     // Wait for the context to be unblocked
@@ -85,8 +85,9 @@ async fn launch_function(
 
     // Retrieve the main context
     let main_context = contexts_cloned
+        .write()
+        .unwrap()
         .remove(&MAIN_CONTEXT_ID)
-        .map(|(_id, val)| val)
         .expect("The main context should always be suspended when another context returns.");
 
     // Take the underlying error, or create a new error if the context returned a value
@@ -143,22 +144,22 @@ pub fn context_new<M: MemorySize>(
     wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
 
     // Setup sender and receiver for the new context
-    let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+    let wait_for_unblock = {
+        let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
-    // Store the unblock function into the WasiEnv
-    let previous_unblock = data.contexts.insert(new_context_id, unblock);
-    if previous_unblock.is_some() {
-        // This should never happen, and if it does, it is an error in WASIX
-        panic!("There already is a context suspended with ID {new_context_id}");
-    }
+        let mut contexts = data.contexts.write().unwrap();
+        // Store the unblock function into the WasiEnv
+        let None = contexts.insert(new_context_id, unblock) else {
+            panic!("There already is a context suspended with ID {new_context_id}");
+        };
+        wait_for_unblock
+    };
 
     // Clone necessary arcs for the entrypoint future
     // SAFETY: Will be made safe with the proper wasmer async API
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<StoreMut<'_>, StoreMut<'static>>(store.as_store_mut()) };
-    let contexts_cloned: Arc<
-        dashmap::DashMap<u64, oneshot::Sender<std::result::Result<(), RuntimeError>>>,
-    > = data.contexts.clone();
+    let contexts_cloned = data.contexts.clone();
     let current_context_id: Arc<AtomicU64> = data.current_context_id.clone();
 
     // Create the future that will launch the entrypoint function

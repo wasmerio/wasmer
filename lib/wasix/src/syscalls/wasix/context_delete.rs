@@ -44,8 +44,8 @@ pub fn context_delete(
     }
 
     // TODO: actually delete the context
-    let removed_future = env.contexts.remove(&target_context_id);
-    let Some((_id, _val)) = removed_future else {
+    let removed_future = env.contexts.write().unwrap().remove(&target_context_id);
+    let Some(_) = removed_future else {
         // Context did not exist, so we do not need to remove it
         tracing::trace!(
             "Context {} tried to delete context {} but it is already removed",

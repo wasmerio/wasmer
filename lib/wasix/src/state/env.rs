@@ -15,15 +15,14 @@ use crate::{
     syscalls::platform_clock_time_get,
     utils::thread_local_executor::ThreadLocalSpawner,
 };
-use dashmap::DashMap;
 use futures::{channel::oneshot::Sender, future::BoxFuture};
 use rand::Rng;
 use std::{
-    collections::HashMap,
+    collections::{BTreeMap, HashMap},
     ops::Deref,
     path::{Path, PathBuf},
     str,
-    sync::{Arc, atomic::AtomicU64},
+    sync::{Arc, RwLock, atomic::AtomicU64},
     time::Duration,
 };
 use virtual_fs::{FileSystem, FsError, VirtualFile};
@@ -184,7 +183,7 @@ pub struct WasiEnv {
     inner: WasiInstanceHandlesPointer,
 
     /// TODO: Document these fields
-    pub(crate) contexts: Arc<DashMap<u64, Sender<Result<(), RuntimeError>>>>,
+    pub(crate) contexts: Arc<RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>>,
     pub(crate) current_context_id: Arc<AtomicU64>,
     pub(crate) next_available_context_id: AtomicU64,
     pub(crate) current_spawner: Option<ThreadLocalSpawner>,
@@ -267,7 +266,7 @@ impl WasiEnv {
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
             // TODO: Not sure if we can even properly fork coroutines at all
-            contexts: Arc::new(DashMap::new()),
+            contexts: Default::default(),
             current_context_id: Arc::new(AtomicU64::new(MAIN_CONTEXT_ID)),
             next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
             current_spawner: None,
@@ -415,7 +414,7 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
-            contexts: Arc::new(DashMap::new()),
+            contexts: Default::default(),
             current_context_id: Arc::new(AtomicU64::new(MAIN_CONTEXT_ID)),
             next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
             current_spawner: None,
