@@ -4,6 +4,7 @@
 //! Module for System V ABI unwind registry.
 
 use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use std::sync::Mutex;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
@@ -20,6 +21,16 @@ unsafe extern "C" {
     fn __register_frame(fde: *const u8);
     fn __deregister_frame(fde: *const u8);
 }
+
+/// The GLOBAL_UNREGISTRY fullfills two purposes:
+/// 1. It keeps track of all the frames that should be deregistered. We don't want to
+///    deregister frames in UnwindRegistry::Drop as that could be called during
+///    program shutdown and can collide with release_registered_frames and lead to
+///    crashes.
+/// 2. It serves as a lock to ensure that registrations and deregistrations are not
+///    interleaved when multiple threads are registering/deregistering frames at the
+///    same time because that can also lead to crashes.
+static GLOBAL_UNREGISTRY: Mutex<Vec<usize>> = Mutex::new(Vec::new());
 
 // Apple-specific unwind functions - the following is taken from LLVM's libunwind itself.
 #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
@@ -141,12 +152,26 @@ impl UnwindRegistry {
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
+            // Aquire the unregistry lock to avoid interleaved registrations/deregistrations.
+            let mut unregistry = GLOBAL_UNREGISTRY.lock().unwrap();
+
+            for registration in unregistry.iter_mut() {
+                unsafe {
+                    compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
+                }
+                self.compact_unwind_mgr.deregister();
+            }
+            unregistry.clear();
+
             // Special call for macOS on aarch64 to register the `.eh_frame` section.
             // TODO: I am not 100% sure if it's correct to never deregister the `.eh_frame` section. It was this way before
             // I started working on this, so I kept it that way.
             unsafe {
                 compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
             }
+
+            // Drop the lock here to make sure it is held during the entire registration process.
+            drop(unregistry);
         }
 
         #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
@@ -202,6 +227,16 @@ impl UnwindRegistry {
                 "The `.eh_frame` must be finished after the last record",
             );
 
+            // Aquire the unregistry lock to avoid interleaved registrations/deregistrations.
+            let mut unregistry = GLOBAL_UNREGISTRY.lock().unwrap();
+
+            // Unregister previously registered frames to avoid memory leaks.
+            for registration in unregistry.iter_mut() {
+                unsafe {
+                    __deregister_frame(*registration as *const _);
+                }
+            }
+            unregistry.clear();
             for record in records_to_register {
                 // Register the CFI with libgcc
                 unsafe {
@@ -209,6 +244,9 @@ impl UnwindRegistry {
                 }
                 self.registrations.push(record);
             }
+
+            // Drop the lock here to make sure it is held during the entire registration process.
+            drop(unregistry);
         }
     }
 
@@ -240,28 +278,20 @@ impl UnwindRegistry {
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
         if self.published {
-            unsafe {
-                // libgcc stores the frame entries as a linked list in decreasing sort order
-                // based on the PC value of the registered entry.
-                //
-                // As we store the registrations in increasing order, it would be O(N^2) to
-                // deregister in that order.
-                //
-                // To ensure that we just pop off the first element in the list upon every
-                // deregistration, walk our list of registrations backwards.
-                for registration in self.registrations.iter().rev() {
-                    #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
-                    {
-                        compact_unwind::__unw_remove_dynamic_eh_frame_section(*registration);
-                        self.compact_unwind_mgr.deregister();
-                    }
+            let mut unregistry = GLOBAL_UNREGISTRY.lock().unwrap();
 
-                    #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
-                    {
-                        __deregister_frame(*registration as *const _);
-                    }
-                }
-            }
+            // libgcc stores the frame entries as a linked list in decreasing sort order
+            // based on the PC value of the registered entry.
+            //
+            // As we store the registrations in increasing order, it would be O(N^2) to
+            // deregister in that order.
+            //
+            // To ensure that we just pop off the first element in the list upon every
+            // deregistration, walk our list of registrations backwards.
+
+            // Queue up all registrations for deregistration.
+            unregistry.reserve(self.registrations.len());
+            unregistry.extend(self.registrations.iter().rev());
         }
     }
 }
