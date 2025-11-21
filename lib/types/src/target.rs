@@ -48,7 +48,7 @@ pub enum CpuFeature {
     LZCNT,
     // ARM features
     NEON,
-    // RISCV-V features
+    // RISC-V features
 }
 
 impl CpuFeature {
