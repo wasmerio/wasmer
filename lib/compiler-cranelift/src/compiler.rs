@@ -267,8 +267,8 @@ impl CraneliftCompiler {
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
-            .map_init(FuncTranslator::new, |func_translator, (i, input)| {
-                compile_function(func_translator, (i, input))
+            .map_init(FuncTranslator::new, |func_translator, &(i, input)| {
+                compile_function(func_translator, (&i, input))
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
