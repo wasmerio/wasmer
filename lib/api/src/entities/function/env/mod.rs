@@ -133,7 +133,7 @@ pub struct AsyncFunctionEnvHandle<'a, T>(pub(crate) BackendAsyncFunctionEnvHandl
 /// while outside a store's context.
 pub struct AsyncFunctionEnvHandleMut<'a, T>(pub(crate) BackendAsyncFunctionEnvHandleMut<'a, T>);
 
-impl<T: Send + Sync + 'static> AsyncFunctionEnvMut<T> {
+impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
     pub async fn read<'a>(&'a self) -> AsyncFunctionEnvHandle<'a, T> {
@@ -162,7 +162,7 @@ impl<T: Send + Sync + 'static> AsyncFunctionEnvMut<T> {
     }
 }
 
-impl<T: Send + 'static> AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.0.data()
@@ -174,13 +174,13 @@ impl<T: Send + 'static> AsyncFunctionEnvHandle<'_, T> {
     }
 }
 
-impl<T: Send + 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
     fn as_ref(&self) -> &crate::StoreInner {
         AsStoreRef::as_ref(&self.0)
     }
 }
 
-impl<T: Send + 'static> AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.0.data_mut()
@@ -192,13 +192,13 @@ impl<T: Send + 'static> AsyncFunctionEnvHandleMut<'_, T> {
     }
 }
 
-impl<T: Send + 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
     fn as_ref(&self) -> &crate::StoreInner {
         AsStoreRef::as_ref(&self.0)
     }
 }
 
-impl<T: Send + 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
     fn as_mut(&mut self) -> &mut crate::StoreInner {
         AsStoreMut::as_mut(&mut self.0)
     }

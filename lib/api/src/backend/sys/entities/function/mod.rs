@@ -127,15 +127,15 @@ impl Function {
     pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         let env = FunctionEnv::new(store, ());
         let wrapped = move |_env: AsyncFunctionEnvMut<()>, values: &[Value]| func(values);
         Self::new_with_env_async(store, &env, ty, wrapped)
     }
 
-    pub(crate) fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+    pub(crate) fn new_with_env_async<FT, F, Fut, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -143,8 +143,8 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         let function_type = ty.into();
         let func_ty = function_type.clone();
@@ -176,8 +176,7 @@ impl Function {
                 let future = func(env, &args);
                 HostCallOutcome::Future {
                     func_ty: sig,
-                    future: Box::pin(future)
-                        as Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>>,
+                    future: Box::pin(future),
                 }
             }
         };
@@ -257,8 +256,8 @@ impl Function {
     pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         Args: WasmTypeList + 'static,
-        Rets: WasmTypeList + Send + 'static,
-        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
+        Rets: WasmTypeList + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
     {
         let env = FunctionEnv::new(store, ());
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
@@ -266,7 +265,7 @@ impl Function {
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
         Self::new_with_env_async(store, &env, signature, move |mut env_mut, values| -> Pin<
-            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
+            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
         > {
             let sys_env = match env_mut.0 {
                 BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
@@ -300,17 +299,17 @@ impl Function {
         func: F,
     ) -> Self
     where
-        T: Send + Sync + 'static,
-        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
+        T: 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
         Args: WasmTypeList + 'static,
-        Rets: WasmTypeList + Send + 'static,
+        Rets: WasmTypeList + 'static,
     {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         let args_sig = Arc::new(signature.clone());
         let results_sig = Arc::new(signature.clone());
         let func = Arc::new(func);
         Self::new_with_env_async(store, env, signature, move |mut env_mut, values| -> Pin<
-            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>,
+            Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>,
         > {
             let sys_env = match env_mut.0 {
                 BackendAsyncFunctionEnvMut::Sys(ref mut sys_env) => sys_env,
@@ -734,7 +733,7 @@ pub(crate) enum HostCallOutcome {
     },
     Future {
         func_ty: FunctionType,
-        future: Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send>>,
+        future: Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>>>>,
     },
 }
 

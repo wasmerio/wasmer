@@ -1,9 +1,6 @@
-use std::{
-    ops::{Deref, DerefMut},
-    sync::Arc,
-};
+use std::ops::{Deref, DerefMut};
 
-use super::{StoreObjects, inner::StoreInner};
+use super::{local_rwlock::{LocalReadGuardRc, LocalWriteGuardRc}, inner::StoreInner, StoreObjects};
 use crate::{
     Store,
     entities::engine::{AsEngineRef, Engine, EngineRef},
@@ -14,9 +11,8 @@ use wasmer_types::{ExternType, OnCalledAction, StoreId};
 use wasmer_vm::TrapHandlerFn;
 
 /// A temporary handle to a [`crate::Store`].
-#[derive(Debug)]
 pub struct StoreRef {
-    pub(crate) inner: async_lock::RwLockReadGuardArc<StoreInner>,
+    pub(crate) inner: LocalReadGuardRc<StoreInner>,
 }
 
 impl StoreRef {
@@ -27,7 +23,7 @@ impl StoreRef {
 
 /// A temporary handle to a [`crate::Store`].
 pub struct StoreMut {
-    pub(crate) inner: async_lock::RwLockWriteGuardArc<StoreInner>,
+    pub(crate) inner: LocalWriteGuardRc<StoreInner>,
 
     // Also keep an Arc to the store itself, so we can recreate
     // the store for async functions.

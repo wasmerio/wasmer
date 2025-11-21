@@ -15,7 +15,7 @@ use super::entities::function::Function as SysFunction;
 use crate::{AsStoreMut, AsStoreRef, RuntimeError, Store, StoreContext, StoreMut, Value};
 use wasmer_types::StoreId;
 
-type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static>>;
+type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
 
 pub(crate) fn call_function_async<'a>(
     function: SysFunction,
@@ -217,7 +217,7 @@ pub enum AsyncRuntimeError {
 
 pub(crate) fn block_on_host_future<Fut>(future: Fut) -> Result<Vec<Value>, AsyncRuntimeError>
 where
-    Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static,
+    Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 {
     CURRENT_CONTEXT.with(|cell| {
         match CoroutineContext::get_current() {
@@ -309,7 +309,7 @@ impl CoroutineContext {
 }
 
 fn run_immediate(
-    future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + Send + 'static,
+    future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 ) -> Result<Vec<Value>, AsyncRuntimeError> {
     fn noop_raw_waker() -> RawWaker {
         fn no_op(_: *const ()) {}

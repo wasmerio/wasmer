@@ -47,15 +47,15 @@ where
         &self,
         env: AsyncFunctionEnv<T, Kind>,
         args: Args,
-    ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>> + Send>>;
+    ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>>>>;
 }
 
 macro_rules! impl_async_host_function_without_env {
     ( $( $x:ident ),* ) => {
         impl<$( $x, )* Rets, RetsAsResult, F, Fut > AsyncHostFunction<(), ( $( $x ),* ), Rets, WithoutEnv> for F
         where
-            F: Fn($( $x ),*) -> Fut + Send + Sync + 'static,
-            Fut: Future<Output = RetsAsResult> + Send + 'static,
+            F: Fn($( $x ),*) -> Fut + 'static,
+            Fut: Future<Output = RetsAsResult> + 'static,
             RetsAsResult: IntoResult<Rets>,
             Rets: WasmTypeList,
             ( $( $x ),* ): WasmTypeList + 'static,
@@ -65,7 +65,7 @@ macro_rules! impl_async_host_function_without_env {
                 &self,
                 _env: AsyncFunctionEnv<(), WithoutEnv>,
                 args: ( $( $x ),* ),
-            ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>> + Send>> {
+            ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>>>> {
                 #[allow(non_snake_case)]
                 let ( $( $x ),* ) = args;
                 let fut = (self)( $( $x ),* );
@@ -83,9 +83,9 @@ macro_rules! impl_async_host_function_with_env {
     ( $( $x:ident ),* ) => {
         impl<$( $x, )* Rets, RetsAsResult,  T, F, Fut > AsyncHostFunction<T, ( $( $x ),* ), Rets, WithEnv> for F
         where
-            T: Send + 'static,
-            F: Fn(AsyncFunctionEnvMut<T>, $( $x ),*) -> Fut + Send  + 'static,
-            Fut: Future<Output = RetsAsResult> + Send + 'static,
+            T: 'static,
+            F: Fn(AsyncFunctionEnvMut<T>, $( $x ),*) -> Fut + 'static,
+            Fut: Future<Output = RetsAsResult> + 'static,
             RetsAsResult: IntoResult<Rets>,
             Rets: WasmTypeList,
             ( $( $x ),* ): WasmTypeList + 'static,
@@ -95,7 +95,7 @@ macro_rules! impl_async_host_function_with_env {
                 &self,
                 env: AsyncFunctionEnv<T, WithEnv>,
                 args: ( $( $x ),* ),
-            ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>> + Send>> {
+            ) -> Pin<Box<dyn Future<Output = Result<Rets, RuntimeError>>>> {
                 #[allow(non_snake_case)]
                 let ( $( $x ),* ) = args;
                 let fut = (self)(env.into_env(), $( $x ),* );

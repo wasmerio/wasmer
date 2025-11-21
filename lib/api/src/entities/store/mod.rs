@@ -14,11 +14,11 @@ mod inner;
 /// Create temporary handles to engines.
 mod store_ref;
 
-use async_lock::RwLock;
-use std::{
-    ops::{Deref, DerefMut},
-    sync::{Arc, TryLockError},
-};
+/// Single-threaded async-aware RwLock.
+mod local_rwlock;
+pub(crate) use local_rwlock::*;
+
+use std::ops::{Deref, DerefMut};
 
 pub use store_ref::*;
 
@@ -45,7 +45,7 @@ use wasmer_vm::TrapHandlerFn;
 /// [related WebAssembly specification]: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 pub struct Store {
     pub(crate) id: StoreId,
-    pub(crate) inner: Arc<async_lock::RwLock<StoreInner>>,
+    pub(crate) inner: LocalRwLock<StoreInner>,
 }
 
 impl Store {
@@ -83,31 +83,31 @@ impl Store {
         let objects = StoreObjects::from_store_ref(&store);
         Self {
             id: objects.id(),
-            inner: std::sync::Arc::new(async_lock::RwLock::new(StoreInner {
+            inner: LocalRwLock::new(StoreInner {
                 objects,
                 on_called: None,
                 store,
-            })),
+            }),
         }
     }
 
     /// Creates a new [`StoreRef`] if the store is available for reading.
     pub(crate) fn try_make_ref(&self) -> Option<StoreRef> {
         self.inner
-            .try_read_arc()
+            .try_read_rc()
             .map(|guard| StoreRef { inner: guard })
     }
 
     /// Waits for the store to become available and creates a new
     /// [`StoreRef`] afterwards.
     pub(crate) async fn make_ref_async(&self) -> StoreRef {
-        let guard = self.inner.read_arc().await;
+        let guard = self.inner.read_rc().await;
         StoreRef { inner: guard }
     }
 
     /// Creates a new [`StoreMut`] if the store is available for writing.
     pub(crate) fn try_make_mut(&self) -> Option<StoreMut> {
-        self.inner.try_write_arc().map(|guard| StoreMut {
+        self.inner.try_write_rc().map(|guard| StoreMut {
             inner: guard,
             store_handle: crate::Store {
                 id: self.id,
@@ -119,7 +119,7 @@ impl Store {
     /// Waits for the store to become available and creates a new
     /// [`StoreMut`] afterwards.
     pub(crate) async fn make_mut_async(&self) -> StoreMut {
-        let guard = self.inner.write_arc().await;
+        let guard = self.inner.write_rc().await;
         StoreMut {
             inner: guard,
             store_handle: Self {

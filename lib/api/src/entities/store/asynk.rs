@@ -29,14 +29,14 @@ pub trait AsAsyncStore {
     }
 
     /// Acquires a read lock on the store.
-    fn read_lock<'a>(&'a self) -> impl Future<Output = AsyncStoreReadLock<'a>> + Send + Sync + 'a {
+    fn read_lock<'a>(&'a self) -> impl Future<Output = AsyncStoreReadLock<'a>> + 'a {
         AsyncStoreReadLock::acquire(self.store_ref())
     }
 
     /// Acquires a write lock on the store.
     fn write_lock<'a>(
         &'a self,
-    ) -> impl Future<Output = AsyncStoreWriteLock<'a>> + Send + Sync + 'a {
+    ) -> impl Future<Output = AsyncStoreWriteLock<'a>> + 'a {
         AsyncStoreWriteLock::acquire(self.store_ref())
     }
 }

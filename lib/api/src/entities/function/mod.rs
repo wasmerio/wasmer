@@ -167,15 +167,15 @@ impl Function {
     pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&[Value]) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+        F: Fn(&[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         Self(BackendFunction::new_async(store, ty, func))
     }
 
     /// Creates a new async host `Function` (dynamic) with the provided signature
     /// and environment.
-    pub fn new_with_env_async<FT, F, Fut, T: Send + 'static>(
+    pub fn new_with_env_async<FT, F, Fut, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         ty: FT,
@@ -183,8 +183,8 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static + Send + Sync,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static + Send,
+        F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
+        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
         Self(BackendFunction::new_with_env_async(store, env, ty, func))
     }
@@ -192,26 +192,26 @@ impl Function {
     /// Creates a new async host `Function` from a native typed function.
     ///
     /// The future can return either the raw result tuple or any type that implements
-    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E)`).
+    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E>`).
     pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
-        Rets: WasmTypeList + Send + 'static,
+        Rets: WasmTypeList + 'static,
         Args: WasmTypeList + 'static,
-        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + Send + Sync + 'static,
+        F: AsyncHostFunction<(), Args, Rets, WithoutEnv> + 'static,
     {
         Self(BackendFunction::new_typed_async(store, func))
     }
 
     /// Creates a new async host `Function` with an environment from a typed function.
-    pub fn new_typed_with_env_async<T: Send + Sync + 'static, F, Args, Rets>(
+    pub fn new_typed_with_env_async<T: 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
         func: F,
     ) -> Self
     where
-        Rets: WasmTypeList + Send + 'static,
+        Rets: WasmTypeList + 'static,
         Args: WasmTypeList + 'static,
-        F: AsyncHostFunction<T, Args, Rets, WithEnv> + Send + Sync + 'static,
+        F: AsyncHostFunction<T, Args, Rets, WithEnv> + 'static,
     {
         Self(BackendFunction::new_typed_with_env_async(store, env, func))
     }

@@ -35,7 +35,7 @@ impl<T> FunctionEnv<T> {
     /// Get the data as reference
     pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
     where
-        T: Any + Send + 'static + Sized,
+        T: Any + 'static + Sized,
     {
         self.handle
             .get(store.objects().as_sys())
@@ -55,7 +55,7 @@ impl<T> FunctionEnv<T> {
     /// Get the data as mutable
     pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
     where
-        T: Any + Send + 'static + Sized,
+        T: Any + 'static + Sized,
     {
         self.handle
             .get_mut(store.objects_mut().as_sys_mut())
@@ -67,7 +67,7 @@ impl<T> FunctionEnv<T> {
     /// Convert it into a `FunctionEnvMut`
     pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
     where
-        T: Any + Send + 'static + Sized,
+        T: Any + 'static + Sized,
     {
         FunctionEnvMut {
             store_mut: store.reborrow_mut(),
@@ -253,7 +253,7 @@ where
     }
 }
 
-impl<T: Send + Sync + 'static> AsyncFunctionEnvMut<T> {
+impl<T: 'static> AsyncFunctionEnvMut<T> {
     pub(crate) fn store_id(&self) -> StoreId {
         self.store.id
     }
@@ -305,7 +305,7 @@ impl<T: Send + Sync + 'static> AsyncFunctionEnvMut<T> {
     }
 }
 
-impl<T: Send + 'static> AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.read_lock)
@@ -317,13 +317,13 @@ impl<T: Send + 'static> AsyncFunctionEnvHandle<'_, T> {
     }
 }
 
-impl<T: Send + 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
     fn as_ref(&self) -> &crate::StoreInner {
         AsStoreRef::as_ref(&self.read_lock)
     }
 }
 
-impl<T: Send + 'static> AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.write_lock)
@@ -342,13 +342,13 @@ impl<T: Send + 'static> AsyncFunctionEnvHandleMut<'_, T> {
     }
 }
 
-impl<T: Send + 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
     fn as_ref(&self) -> &crate::StoreInner {
         AsStoreRef::as_ref(&self.write_lock)
     }
 }
 
-impl<T: Send + 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
     fn as_mut(&mut self) -> &mut crate::StoreInner {
         AsStoreMut::as_mut(&mut self.write_lock)
     }
