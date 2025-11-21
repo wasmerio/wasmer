@@ -8,6 +8,7 @@
   
   (data (i32.const 0) "[main] switching to side")
   (data (i32.const 100) "[side] switching to main")
+  (data (i32.const 200) "[main] returned")
 
   (global $main (mut i32) (i32.const 0))
   (global $side (mut i32) (i32.const 0))
@@ -21,7 +22,7 @@
 
     ;; Print [main] switching to side
     i32.const 0
-    i32.const 20   
+    i32.const 30   
     call $log
 
     ;; Switch to side
@@ -30,22 +31,22 @@
 
     ;; Print [main] switching to side
     i32.const 0
-    i32.const 20
+    i32.const 30
     call $log
 
     ;; Switch to side
     global.get $side
     (call $greenthread_switch)
 
-    ;; Print [main] returned from side
-    i32.const 100
-    i32.const 20
+    ;; Print [main] returned
+    i32.const 200
+    i32.const 30
     call $log
   )
   (func $side 
     ;; Print [side] switching to main
     i32.const 100
-    i32.const 20   
+    i32.const 30   
     call $log
 
     ;; Switch to main
@@ -54,7 +55,7 @@
 
     ;; Print [side] switching to main
     i32.const 100
-    i32.const 20   
+    i32.const 30   
     call $log
 
     ;; Switch to main

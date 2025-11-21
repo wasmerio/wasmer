@@ -162,7 +162,7 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
                 bytes.push(view.read_u8(i as u64).expect("in bounds"));
             }
             let s = String::from_utf8_lossy(&bytes).to_string();
-            data.logs.push(s);
+            data.logs.push(s.trim_matches('\0').to_string());
             Ok(vec![])
         },
     );
@@ -255,6 +255,7 @@ fn green_threads_switch_main_crashed() -> Result<()> {
         "[side] switching to main",
         "[main] switching to side",
         "[side] switching to main",
+        "[main] returned",
     ];
 
     eprintln!("logs: {:?}", logs);
