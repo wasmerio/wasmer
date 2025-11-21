@@ -303,7 +303,7 @@ impl CraneliftCompiler {
             .map(|sig| make_trampoline_function_call(&self.config().callbacks, &*isa, &mut cx, sig))
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
+            .collect();
         #[cfg(feature = "rayon")]
         let function_call_trampolines = module
             .signatures
@@ -315,7 +315,7 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
+            .collect();
 
         use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
@@ -338,7 +338,7 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+            .collect();
         #[cfg(feature = "rayon")]
         let dynamic_function_trampolines = module
             .imported_function_types()
@@ -355,7 +355,7 @@ impl CraneliftCompiler {
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+            .collect();
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
