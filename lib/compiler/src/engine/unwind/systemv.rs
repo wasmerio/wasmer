@@ -22,7 +22,7 @@ unsafe extern "C" {
     fn __deregister_frame(fde: *const u8);
 }
 
-/// The GLOBAL_UNREGISTRY fullfills two purposes:
+/// The GLOBAL_UNREGISTRY fulfills two purposes:
 /// 1. It keeps track of all the frames that should be deregistered. We don't want to
 ///    deregister frames in UnwindRegistry::Drop as that could be called during
 ///    program shutdown and can collide with release_registered_frames and lead to
@@ -152,7 +152,7 @@ impl UnwindRegistry {
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
-            // Aquire the unregistry lock to avoid interleaved registrations/deregistrations.
+            // Acquire the unregistry lock to avoid interleaved registrations/deregistrations.
             let mut unregistry = GLOBAL_UNREGISTRY.lock().unwrap();
 
             for registration in unregistry.iter_mut() {
@@ -169,9 +169,6 @@ impl UnwindRegistry {
             unsafe {
                 compact_unwind::__unw_add_dynamic_eh_frame_section(eh_frame.as_ptr() as usize);
             }
-
-            // Drop the lock here to make sure it is held during the entire registration process.
-            drop(unregistry);
         }
 
         #[cfg(not(all(target_os = "macos", target_arch = "aarch64")))]
@@ -227,7 +224,7 @@ impl UnwindRegistry {
                 "The `.eh_frame` must be finished after the last record",
             );
 
-            // Aquire the unregistry lock to avoid interleaved registrations/deregistrations.
+            // Acquire the unregistry lock to avoid interleaved registrations/deregistrations.
             let mut unregistry = GLOBAL_UNREGISTRY.lock().unwrap();
 
             // Unregister previously registered frames to avoid memory leaks.
@@ -244,9 +241,6 @@ impl UnwindRegistry {
                 }
                 self.registrations.push(record);
             }
-
-            // Drop the lock here to make sure it is held during the entire registration process.
-            drop(unregistry);
         }
     }
 
