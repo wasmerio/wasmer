@@ -71,8 +71,8 @@ async fn launch_function(
             tracing::trace!(
                 "Context {new_context_id} was canceled before it even started: {canceled}",
             );
-            // TODO: Handle cancellation properly
-            panic!("Sender was dropped: {canceled}");
+            // At this point we don't need to do anything else
+            return;
         }
     };
 
@@ -82,18 +82,24 @@ async fn launch_function(
         .await;
 
     // If that function returns, we need to resume the main context with an error
-
-    // Retrieve the main context
-    let main_context = contexts_cloned
-        .write()
-        .unwrap()
-        .remove(&MAIN_CONTEXT_ID)
-        .expect("The main context should always be suspended when another context returns.");
-
     // Take the underlying error, or create a new error if the context returned a value
     let error = match result {
-        Err(e) => e,
+        Err(e) => match e.downcast_ref::<ContextError>() {
+            Some(s) => {
+                tracing::trace!("Context {new_context_id} exited with error string: {}", s);
+                // Context was cancelled, so we can just exit here.
+                //
+                // At this point we don't need to do anything else
+                return;
+            }
+            None => {
+                // Propagate the runtime error to main
+                e
+            }
+        },
         Ok(v) => {
+            // Not really sure how we should handle this case
+            //
             // TODO: Handle returning functions with a real error type
             RuntimeError::user(
                 format!(
@@ -103,6 +109,13 @@ async fn launch_function(
             )
         }
     };
+
+    // Retrieve the main context
+    let main_context = contexts_cloned
+        .write()
+        .unwrap()
+        .remove(&MAIN_CONTEXT_ID)
+        .expect("The main context should always be suspended when another context returns.");
 
     // Resume the main context with the error
     main_context
