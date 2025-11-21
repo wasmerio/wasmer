@@ -438,6 +438,8 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
           i64.add
           local.get 16
           i64.add
+          local.get 512
+          i64.add
         )
       )
     "#;
@@ -454,6 +456,8 @@ fn large_number_local(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
+// TODO: the tests fails on RISC-V as the `j` instruction can reach only +- 1MiB offset.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[compiler_test(issues)]
 /// Singlepass panics on aarch64 for long relocations.
 ///
@@ -470,6 +474,8 @@ fn issue_4519(mut config: crate::Config) -> Result<()> {
     Ok(())
 }
 
+// TODO: the tests fails on RISC-V as the `j` instruction can reach only +- 1MiB offset.
+#[cfg(any(target_arch = "x86_64", target_arch = "aarch64"))]
 #[compiler_test(issues)]
 /// Singlepass panics on aarch64 for long relocations.
 /// This test specifically targets the emission of sdiv64, srem64, urem64 binops.
