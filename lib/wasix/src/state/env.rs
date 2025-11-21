@@ -1,29 +1,3 @@
-use std::{
-    collections::HashMap,
-    ops::Deref,
-    path::{Path, PathBuf},
-    str,
-    sync::Arc,
-    time::Duration,
-};
-
-use futures::future::BoxFuture;
-use rand::Rng;
-use virtual_fs::{FileSystem, FsError, VirtualFile};
-use virtual_mio::block_on;
-use virtual_net::DynVirtualNetworking;
-use wasmer::{
-    AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
-    Module,
-};
-use wasmer_config::package::PackageSource;
-use wasmer_wasix_types::{
-    types::Signal,
-    wasi::{Errno, ExitCode, Snapshot0Clockid},
-    wasix::ThreadStartType,
-};
-use webc::metadata::annotations::Wasi;
-
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, JournalEffector, SnapshotTrigger};
 use crate::{
@@ -39,11 +13,39 @@ use crate::{
         thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     syscalls::platform_clock_time_get,
+    utils::thread_local_executor::ThreadLocalSpawner,
 };
+use futures::{channel::oneshot::Sender, future::BoxFuture};
+use rand::Rng;
+use std::{
+    collections::{BTreeMap, HashMap},
+    ops::Deref,
+    path::{Path, PathBuf},
+    str,
+    sync::{Arc, RwLock, atomic::AtomicU64},
+    time::Duration,
+};
+use virtual_fs::{FileSystem, FsError, VirtualFile};
+use virtual_mio::block_on;
+use virtual_net::DynVirtualNetworking;
+use wasmer::{
+    AsStoreMut, AsStoreRef, ExportError, FunctionEnvMut, Instance, Memory, MemoryType, MemoryView,
+    Module, RuntimeError,
+};
+use wasmer_config::package::PackageSource;
 use wasmer_types::ModuleHash;
+use wasmer_wasix_types::{
+    types::Signal,
+    wasi::{Errno, ExitCode, Snapshot0Clockid},
+    wasix::ThreadStartType,
+};
+use webc::metadata::annotations::Wasi;
 
 pub use super::handles::*;
 use super::{Linker, WasiState, conv_env_vars};
+
+// TODO: Figure out a better place for this constant
+pub static MAIN_CONTEXT_ID: u64 = 0;
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
@@ -179,6 +181,12 @@ pub struct WasiEnv {
     ///  not be cloned when `WasiEnv` is cloned)
     /// TODO: We should move this outside of `WasiEnv` with some refactoring
     inner: WasiInstanceHandlesPointer,
+
+    /// TODO: Document these fields
+    pub(crate) contexts: Arc<RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>>,
+    pub(crate) current_context_id: Arc<AtomicU64>,
+    pub(crate) next_available_context_id: AtomicU64,
+    pub(crate) current_spawner: Option<ThreadLocalSpawner>,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -208,6 +216,14 @@ impl Clone for WasiEnv {
             replaying_journal: self.replaying_journal,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
+            contexts: self.contexts.clone(),
+            // TODO: This is wrong; The contexts can't really be cloned. What do we even use clone on WasiEnv for?
+            current_context_id: self.current_context_id.clone(),
+            next_available_context_id: AtomicU64::new(
+                self.next_available_context_id
+                    .load(std::sync::atomic::Ordering::SeqCst),
+            ),
+            current_spawner: self.current_spawner.clone(),
         }
     }
 }
@@ -249,6 +265,11 @@ impl WasiEnv {
             replaying_journal: false,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
+            // TODO: Not sure if we can even properly fork coroutines at all
+            contexts: Default::default(),
+            current_context_id: Arc::new(AtomicU64::new(MAIN_CONTEXT_ID)),
+            next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
+            current_spawner: None,
         };
         Ok((new_env, handle))
     }
@@ -393,6 +414,10 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
+            contexts: Default::default(),
+            current_context_id: Arc::new(AtomicU64::new(MAIN_CONTEXT_ID)),
+            next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
+            current_spawner: None,
         };
         env.owned_handles.push(thread);
 
