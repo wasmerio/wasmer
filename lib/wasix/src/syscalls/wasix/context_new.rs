@@ -1,4 +1,5 @@
 use super::*;
+use crate::os::task::thread::context_switching::ContextSwitchingContext;
 use crate::state::MAIN_CONTEXT_ID;
 use crate::utils::thread_local_executor::ThreadLocalSpawnerError;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
@@ -53,16 +54,15 @@ pub fn lookup_typechecked_entrypoint(
 
 async fn launch_function(
     mut unsafe_static_store: StoreMut<'static>,
+    contexts: Arc<ContextSwitchingContext>,
     wait_for_unblock: Receiver<Result<(), RuntimeError>>,
-    current_context_id: Arc<AtomicU64>,
     new_context_id: u64,
-    contexts_cloned: Arc<RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>>,
     typechecked_entrypoint: Function,
 ) -> () {
     // Wait for the context to be unblocked
     let prelaunch_result = wait_for_unblock.await;
     // Restore our own context ID
-    current_context_id.store(new_context_id, Ordering::Relaxed);
+    contexts.set_active_context_id(new_context_id);
 
     // Handle if the context was canceled before it even started
     match prelaunch_result {
@@ -111,11 +111,9 @@ async fn launch_function(
     };
 
     // Retrieve the main context
-    let main_context = contexts_cloned
-        .write()
-        .unwrap()
-        .remove(&MAIN_CONTEXT_ID)
-        .expect("The main context should always be suspended when another context returns.");
+    let main_context = contexts.remove_unblocker(&MAIN_CONTEXT_ID).expect(
+        "The main context should always be suspended when another context returns or traps.",
+    );
 
     // Resume the main context with the error
     main_context
@@ -133,6 +131,15 @@ pub fn context_new<M: MemorySize>(
 
     let (data, mut store) = ctx.data_and_store_mut();
 
+    // Verify that we are in an async context
+    let contexts = match &data.context_switching_context {
+        Some(c) => c,
+        None => {
+            tracing::trace!("Context switching is not enabled");
+            return Ok(Errno::Again);
+        }
+    };
+
     // Lookup and check the entrypoint function
     let typechecked_entrypoint = match lookup_typechecked_entrypoint(data, &mut store, entrypoint) {
         Ok(func) => func,
@@ -141,47 +148,34 @@ pub fn context_new<M: MemorySize>(
         }
     };
 
-    // Verify that we are in an async context
-    let Some(spawner) = data.current_spawner.clone() else {
-        tracing::trace!("No async spawner set on WasiEnv. Did you enter the async env before?");
-        return Ok(Errno::Again);
-    };
-
     // Create a new context ID
-    let new_context_id = data
-        .next_available_context_id
-        .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+    let new_context_id = contexts.allocate_new_context_id();
 
     // Write the new context ID into memory
     let memory = unsafe { data.memory_view(&store) };
     wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
 
     // Setup sender and receiver for the new context
-    let wait_for_unblock = {
-        let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+    let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
-        let mut contexts = data.contexts.write().unwrap();
-        // Store the unblock function into the WasiEnv
-        let None = contexts.insert(new_context_id, unblock) else {
-            panic!("There already is a context suspended with ID {new_context_id}");
-        };
-        wait_for_unblock
+    // Store the unblock function into the WasiEnv
+    let None = contexts.insert_unblocker(new_context_id, unblock) else {
+        panic!("There already is a context suspended with ID {new_context_id}");
     };
 
     // Clone necessary arcs for the entrypoint future
     // SAFETY: Will be made safe with the proper wasmer async API
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<StoreMut<'_>, StoreMut<'static>>(store.as_store_mut()) };
-    let contexts_cloned = data.contexts.clone();
-    let current_context_id: Arc<AtomicU64> = data.current_context_id.clone();
+    let contexts_cloned = contexts.clone();
+    let spawner = contexts.get_spawner();
 
     // Create the future that will launch the entrypoint function
     let entrypoint_future = launch_function(
         unsafe_static_store,
-        wait_for_unblock,
-        current_context_id,
-        new_context_id,
         contexts_cloned,
+        wait_for_unblock,
+        new_context_id,
         typechecked_entrypoint,
     );
 
