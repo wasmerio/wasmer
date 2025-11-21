@@ -4,7 +4,9 @@ use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
         TaskJoinHandle,
-        thread::{RewindResultType, WasiThreadRunGuard},
+        thread::{
+            RewindResultType, WasiThreadRunGuard, context_switching::ContextSwitchingContext,
+        },
     },
     runtime::{
         TaintReason,
@@ -251,19 +253,29 @@ fn call_with_threadlocal_executor(
     entrypoint: wasmer::Function,
     params: Vec<wasmer::Value>,
 ) -> Result<Box<[Value]>, RuntimeError> {
+    // TODO: Maybe move this to the runtime or task manager, so that the runtime can
+    //       control which executor is used. That would also allow using only one shared
+    //       executor per thread.
     // Create a new executor
     let mut local_executor = ThreadLocalExecutor::new();
 
     // Put the spawner into the WASI env, so that syscalls can use it to queue up new tasks
     let spawner = local_executor.spawner();
-    let previous_spawner = ctx.data_mut(&mut store).current_spawner.replace(spawner);
+    let env = ctx.data_mut(&mut store);
+    if env.context_switching_context.is_some() {
+        panic!("Can not start a threadlocal executor as there is already one present");
+    }
+    env.context_switching_context = Some(Arc::new(ContextSwitchingContext::new(spawner)));
 
     // Run function with the spawner
     let result = local_executor.run_until(entrypoint.call_async(&mut *store, &params));
 
-    // Reset to previous spawner
+    // Remove the spawner again
     let env = ctx.data_mut(&mut store);
-    env.current_spawner = previous_spawner;
+    if env.context_switching_context.is_none() {
+        panic!("No context switching context present in env after the main function completed.");
+    }
+    env.context_switching_context = None;
 
     result
 }

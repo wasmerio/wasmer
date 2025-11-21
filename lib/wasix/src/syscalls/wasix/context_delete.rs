@@ -26,7 +26,16 @@ pub fn context_delete(
     let env = ctx.data();
     let memory: MemoryView<'_> = unsafe { env.memory_view(&ctx) };
 
-    let own_context_id = env.current_context_id.load(Ordering::Relaxed);
+    // Verify that we are in an async context
+    let contexts = match &env.context_switching_context {
+        Some(c) => c,
+        None => {
+            tracing::trace!("Context switching is not enabled");
+            return Ok(Errno::Again);
+        }
+    };
+
+    let own_context_id = contexts.active_context_id();
     if own_context_id == target_context_id {
         tracing::trace!(
             "Context {} tried to delete itself, which is not allowed",
@@ -44,7 +53,7 @@ pub fn context_delete(
     }
 
     // TODO: actually delete the context
-    let removed_future = env.contexts.write().unwrap().remove(&target_context_id);
+    let removed_future = contexts.remove_unblocker(&target_context_id);
     let Some(_) = removed_future else {
         // Context did not exist, so we do not need to remove it
         tracing::trace!(

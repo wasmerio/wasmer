@@ -1,0 +1,119 @@
+use std::{
+    collections::BTreeMap,
+    sync::{RwLock, atomic::AtomicU64},
+};
+
+use futures::channel::oneshot::Sender;
+use thiserror::Error;
+use wasmer::RuntimeError;
+
+use crate::utils::thread_local_executor::ThreadLocalSpawner;
+
+#[derive(Debug)]
+pub(crate) struct ContextSwitchingContext {
+    /// TODO: Document these fields
+    unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
+    current_context_id: AtomicU64,
+    next_available_context_id: AtomicU64,
+    current_spawner: ThreadLocalSpawner,
+}
+
+#[derive(Debug, Error)]
+pub enum ContextSwitchError {
+    #[error("Target context to switch to is missing")]
+    SwitchTargetMissing,
+    #[error("Failed to unblock target context")]
+    SwitchUnblockFailed,
+    #[error("Own context is already blocked")]
+    OwnContextAlreadyBlocked,
+}
+
+impl ContextSwitchingContext {
+    pub(crate) fn new(spawner: ThreadLocalSpawner) -> Self {
+        Self {
+            unblockers: RwLock::new(BTreeMap::new()),
+            current_context_id: AtomicU64::new(0),
+            next_available_context_id: AtomicU64::new(1),
+            current_spawner: spawner,
+        }
+    }
+
+    pub(crate) fn active_context_id(&self) -> u64 {
+        self.current_context_id
+            .load(std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub(crate) fn set_active_context_id(&self, context_id: u64) {
+        self.current_context_id
+            .store(context_id, std::sync::atomic::Ordering::Relaxed);
+    }
+
+    pub(crate) fn allocate_new_context_id(&self) -> u64 {
+        self.next_available_context_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    }
+
+    pub(crate) fn get_spawner(&self) -> ThreadLocalSpawner {
+        self.current_spawner.clone()
+    }
+
+    pub(crate) fn remove_unblocker(
+        &self,
+        target_context_id: &u64,
+    ) -> Option<Sender<Result<(), RuntimeError>>> {
+        self.unblockers.write().unwrap().remove(target_context_id)
+    }
+
+    /// Insert an unblocker for the given context ID
+    ///
+    /// Returns the previous unblocker if one existed
+    pub(crate) fn insert_unblocker(
+        &self,
+        target_context_id: u64,
+        unblocker: Sender<Result<(), RuntimeError>>,
+    ) -> Option<Sender<Result<(), RuntimeError>>> {
+        self.unblockers
+            .write()
+            .unwrap()
+            .insert(target_context_id, unblocker)
+    }
+
+    pub(crate) fn switch(
+        &self,
+        target_context_id: u64,
+        own_unblocker: Sender<Result<(), RuntimeError>>,
+    ) -> Result<(), ContextSwitchError> {
+        // Lock contexts for this block
+        let mut contexts = self.unblockers.write().unwrap();
+        let own_context_id = self.active_context_id();
+
+        // Assert preconditions (target is blocked && we are unblocked)
+        if contexts.get(&target_context_id).is_none() {
+            return Err(ContextSwitchError::SwitchTargetMissing);
+        }
+        if contexts.get(&own_context_id).is_some() {
+            return Err(ContextSwitchError::OwnContextAlreadyBlocked);
+        }
+
+        // Unblock the target
+        // Dont mark ourself as blocked yet, as we first need to know that unblocking succeeded
+        let unblock_target = contexts.remove(&target_context_id).unwrap(); // Unwrap is safe due to precondition check above
+        let unblock_result: std::result::Result<(), std::result::Result<(), RuntimeError>> =
+            unblock_target.send(Ok(()));
+        let Ok(_) = unblock_result else {
+            // If there is no target to unblock, we assume it exited, but the unblock function was not removed
+            // For now we treat this like a missing context
+            // It can't happen again, as we already removed the unblock function
+            //
+            // TODO: Think about whether this is correct
+            tracing::trace!(
+                "Context {own_context_id} tried to switch to context {target_context_id} but it could not be unblocked (perhaps it exited?)"
+            );
+            return Err(ContextSwitchError::SwitchUnblockFailed);
+        };
+
+        // After we have unblocked the target, we can insert our own unblock function
+        contexts.insert(own_context_id, own_unblocker);
+        Ok(())
+    }
+}

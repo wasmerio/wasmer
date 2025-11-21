@@ -1,3 +1,17 @@
+// TODO: Move to better location
+pub mod context_switching;
+
+use super::{
+    control_plane::TaskCountGuard,
+    task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
+};
+use crate::{
+    WasiRuntimeError,
+    os::task::process::{WasiProcessId, WasiProcessInner},
+    state::LinkError,
+    syscalls::HandleRewindType,
+};
+use bytes::{Bytes, BytesMut};
 use serde::{Deserialize, Serialize};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::{
@@ -6,25 +20,11 @@ use std::{
     sync::{Arc, Condvar, Mutex, Weak},
     task::Waker,
 };
-
-use bytes::{Bytes, BytesMut};
 use wasmer::{ExportError, InstantiationError, MemoryError};
 use wasmer_wasix_types::{
     types::Signal,
     wasi::{Errno, ExitCode},
     wasix::ThreadStartType,
-};
-
-use crate::{
-    WasiRuntimeError,
-    os::task::process::{WasiProcessId, WasiProcessInner},
-    state::LinkError,
-    syscalls::HandleRewindType,
-};
-
-use super::{
-    control_plane::TaskCountGuard,
-    task_join_handle::{OwnedTaskStatus, TaskJoinHandle},
 };
 
 /// Represents the ID of a WASI thread
