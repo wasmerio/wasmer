@@ -2080,7 +2080,7 @@ impl Machine for MachineRiscv {
     // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
-        size: Size,
+        _size: Size,
         loc: Location,
         dest: Location,
     ) -> Result<(), CompileError> {
@@ -2089,10 +2089,10 @@ impl Machine for MachineRiscv {
             | Location::Imm32(_)
             | Location::Imm8(_)
             | Location::Memory(_, _) => {
-                self.move_location(size, loc, Location::GPR(SCRATCH_REG))?;
-                self.move_location(size, Location::GPR(SCRATCH_REG), dest)
+                self.move_location(Size::S64, loc, Location::GPR(SCRATCH_REG))?;
+                self.move_location(Size::S64, Location::GPR(SCRATCH_REG), dest)
             }
-            _ => self.move_location(size, loc, dest),
+            _ => self.move_location(Size::S64, loc, dest),
         }
     }
 
