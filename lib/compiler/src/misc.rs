@@ -1,7 +1,16 @@
 //! A common functionality used among various compilers.
 
+use core::fmt::Display;
+use std::{
+    collections::HashMap,
+    path::PathBuf,
+    process::{Command, Stdio},
+};
+
 use itertools::Itertools;
-use wasmer_types::{FunctionType, LocalFunctionIndex, Type};
+use target_lexicon::Architecture;
+use tempfile::NamedTempFile;
+use wasmer_types::{CompileError, FunctionType, LocalFunctionIndex, Type};
 
 /// Represents the kind of compiled function or module, used for debugging and identification
 /// purposes across multiple compiler backends (e.g., LLVM, Cranelift).
@@ -83,15 +92,148 @@ pub fn function_kind_to_filename(kind: &CompiledKind, suffix: &str) -> String {
             name
         }
         CompiledKind::FunctionCallTrampoline(func_type) => format!(
-            "trampoline_call_{}_{}",
+            "trampoline_call_{}_{}{suffix}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
         CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
-            "trampoline_dynamic_{}_{}",
+            "trampoline_dynamic_{}_{}{suffix}",
             types_to_signature(func_type.params()),
             types_to_signature(func_type.results())
         ),
         CompiledKind::Module => "module".into(),
     }
+}
+
+/// Saves disassembled assembly code to a file with optional comments at specific offsets.
+///
+/// This function takes raw machine code bytes, disassembles them using `objdump`, and writes
+/// the annotated assembly to a file in the specified debug directory.
+#[cfg(not(target_arch = "wasm32"))]
+pub fn save_assembly_to_file<C: Display>(
+    arch: Architecture,
+    path: PathBuf,
+    body: &[u8],
+    assembly_comments: HashMap<usize, C>,
+) -> Result<(), CompileError> {
+    use std::{fs::File, io::Write};
+    use which::which;
+
+    #[derive(Debug)]
+    struct DecodedInsn<'a> {
+        offset: usize,
+        insn: &'a str,
+    }
+
+    fn parse_instructions(content: &str) -> Result<Vec<DecodedInsn<'_>>, CompileError> {
+        content
+            .lines()
+            .map(|line| line.trim())
+            .skip_while(|l| !l.starts_with("0000000000000000"))
+            .skip(1)
+            .filter(|line| line.trim() != "...")
+            .map(|line| -> Result<DecodedInsn<'_>, CompileError> {
+                let (offset, insn_part) = line.split_once(':').ok_or(CompileError::Codegen(
+                    format!("cannot parse objdump line: '{line}'"),
+                ))?;
+                // instruction content can be empty
+                let insn = insn_part
+                    .trim()
+                    .split_once('\t')
+                    .map_or("", |(_data, insn)| insn)
+                    .trim();
+                Ok(DecodedInsn {
+                    offset: usize::from_str_radix(offset, 16).map_err(|err| {
+                        CompileError::Codegen(format!("hex number expected: {err}"))
+                    })?,
+                    insn,
+                })
+            })
+            .collect()
+    }
+
+    // Note objdump cannot read from stdin.
+    let mut tmpfile = NamedTempFile::new()
+        .map_err(|err| CompileError::Codegen(format!("cannot create temporary file: {err}")))?;
+    tmpfile
+        .write_all(body)
+        .map_err(|err| CompileError::Codegen(format!("assembly dump write failed: {err}")))?;
+    tmpfile
+        .flush()
+        .map_err(|err| CompileError::Codegen(format!("flush failed: {err}")))?;
+
+    let (objdump_arch, objdump_binary) = match arch {
+        Architecture::X86_64 => ("i386:x86-64", "x86_64-linux-gnu-objdump"),
+        Architecture::Aarch64(..) => ("aarch64", "aarch64-linux-gnu-objdump"),
+        Architecture::Riscv64(..) => ("riscv:rv64", "riscv64-linux-gnu-objdump"),
+        _ => {
+            return Err(CompileError::Codegen(
+                "Assembly dumping is not supported for this architecture".to_string(),
+            ));
+        }
+    };
+
+    let bins = [objdump_binary, "objdump"];
+    let objdump_binary = bins.iter().find(|bin| which(bin).is_ok());
+    let Some(objdump_binary) = objdump_binary else {
+        // Objdump is an optional dependency, do not fail if not present.
+        return Ok(());
+    };
+
+    let command = Command::new(objdump_binary)
+        .arg("-b")
+        .arg("binary")
+        .arg("-m")
+        .arg(objdump_arch)
+        .arg("-D")
+        .arg(tmpfile.path())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::null())
+        .spawn();
+
+    let Ok(command) = command else {
+        // The target might not be supported, do not fail in that case.
+        return Ok(());
+    };
+
+    let output = command
+        .wait_with_output()
+        .map_err(|err| CompileError::Codegen(format!("failed to read stdout: {err}")))?;
+    let content = String::from_utf8_lossy(&output.stdout);
+
+    let parsed_instructions = parse_instructions(content.as_ref())?;
+
+    let mut file = File::create(path).map_err(|err| {
+        CompileError::Codegen(format!("debug object file creation failed: {err}"))
+    })?;
+
+    // Dump the instruction annotated with the comments.
+    for insn in parsed_instructions {
+        if let Some(comment) = assembly_comments.get(&insn.offset) {
+            file.write_all(format!("      \t\t;; {comment}\n").as_bytes())
+                .map_err(|err| {
+                    CompileError::Codegen(format!("cannot write content to object file: {err}"))
+                })?;
+        }
+        file.write_all(format!("{:6x}:\t\t{}\n", insn.offset, insn.insn).as_bytes())
+            .map_err(|err| {
+                CompileError::Codegen(format!("cannot write content to object file: {err}"))
+            })?;
+    }
+
+    Ok(())
+}
+
+/// Saves disassembled assembly code to a file with optional comments at specific offsets.
+///
+/// This function takes raw machine code bytes, disassembles them using `objdump`, and writes
+/// the annotated assembly to a file in the specified debug directory.
+#[cfg(target_arch = "wasm32")]
+pub fn save_assembly_to_file<C: Display>(
+    _arch: Architecture,
+    _path: PathBuf,
+    _body: &[u8],
+    _assembly_comments: HashMap<usize, C>,
+) -> Result<(), CompileError> {
+    Ok(())
 }
