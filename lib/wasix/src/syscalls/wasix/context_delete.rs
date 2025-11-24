@@ -1,5 +1,5 @@
 use super::*;
-use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
+use crate::syscalls::*;
 use anyhow::Result;
 use core::panic;
 use futures::TryFutureExt;
