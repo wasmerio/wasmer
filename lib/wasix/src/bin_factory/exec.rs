@@ -265,7 +265,7 @@ fn call_with_threadlocal_executor(
     if env.context_switching_context.is_some() {
         panic!("Can not start a threadlocal executor as there is already one present");
     }
-    env.context_switching_context = Some(Arc::new(ContextSwitchingContext::new(spawner)));
+    env.context_switching_context = Some(ContextSwitchingContext::new(spawner));
 
     // Run function with the spawner
     let result = local_executor.run_until(entrypoint.call_async(&mut *store, &params));
