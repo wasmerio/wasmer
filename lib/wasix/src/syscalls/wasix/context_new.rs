@@ -1,7 +1,7 @@
 use super::*;
 use crate::os::task::thread::context_switching::{ContextCanceled, ContextSwitchingContext};
+use crate::syscalls::*;
 use crate::utils::thread_local_executor::ThreadLocalSpawnerError;
-use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
 use core::panic;
 use futures::TryFutureExt;
 use futures::channel::oneshot::{Receiver, Sender};

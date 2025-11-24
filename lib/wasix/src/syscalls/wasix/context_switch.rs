@@ -1,6 +1,6 @@
 use super::*;
 use crate::os::task::thread::context_switching::ContextSwitchError;
-use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
+use crate::syscalls::*;
 use MaybeLater::{Later, Now};
 use anyhow::Result;
 use core::panic;
