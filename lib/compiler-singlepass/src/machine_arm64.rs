@@ -1074,7 +1074,7 @@ impl MachineARM64 {
         if offset < 0 {
             return false;
         }
-        let shift = size.bytes() - 1;
+        let shift = size.bytes().trailing_zeros() as i32;
         if offset >= 0x1000 << shift {
             return false;
         }
