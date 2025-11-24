@@ -1,5 +1,4 @@
 use super::*;
-use crate::state::MAIN_CONTEXT_ID;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
 use anyhow::Result;
 use core::panic;
@@ -36,6 +35,8 @@ pub fn context_delete(
     };
 
     let own_context_id = contexts.active_context_id();
+    let main_context_id = contexts.main_context_id();
+
     if own_context_id == target_context_id {
         tracing::trace!(
             "Context {} tried to delete itself, which is not allowed",
@@ -44,7 +45,7 @@ pub fn context_delete(
         return Ok(Errno::Inval);
     }
 
-    if target_context_id == MAIN_CONTEXT_ID {
+    if target_context_id == main_context_id {
         tracing::trace!(
             "Context {} tried to delete the main context, which is not allowed",
             own_context_id
