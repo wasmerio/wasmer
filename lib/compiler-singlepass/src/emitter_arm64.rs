@@ -3240,21 +3240,19 @@ pub fn gen_import_call_trampoline_arm64(
     let offset = vmoffsets.vmctx_vmfunction_import(index);
     // for ldr, offset needs to be a multiple of 8, wich often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
-    let offset = if (offset > 0) && ((offset < 0xF8)
-        || (offset < 0x7FF8 && offset.is_multiple_of(8)))
-        || (offset > 0 && offset < 0x7FF8 && offset.is_multiple_of(8))
-    {
-        offset
-    } else {
-        a.emit_mov_imm(Location::GPR(GPR::X16), (offset as i64) as u64)?;
-        a.emit_add(
-            Size::S64,
-            Location::GPR(GPR::X0),
-            Location::GPR(GPR::X16),
-            Location::GPR(GPR::X0),
-        )?;
-        0
-    };
+    let offset =
+        if (offset > 0) && ((offset < 0xF8) || (offset < 0x7FF8 && offset.is_multiple_of(8))) {
+            offset
+        } else {
+            a.emit_mov_imm(Location::GPR(GPR::X16), (offset as i64) as u64)?;
+            a.emit_add(
+                Size::S64,
+                Location::GPR(GPR::X0),
+                Location::GPR(GPR::X16),
+                Location::GPR(GPR::X0),
+            )?;
+            0
+        };
     #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
