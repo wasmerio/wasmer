@@ -152,7 +152,10 @@ impl VirtualTaskManager for TokioTaskManager {
             SpawnType::CreateMemoryOfType(t) => SpawnMemoryTypeOrStore::Type(*t),
             SpawnType::ShareMemory(_, _) | SpawnType::CopyMemory(_, _) => {
                 let mut store = env.runtime().new_store();
-                let memory = self.build_memory(&mut store.as_store_mut(), &task.spawn_type)?;
+                let memory = {
+                    let mut store_mut = store.as_mut();
+                    self.build_memory(store_mut.reborrow_mut(), &task.spawn_type)?
+                };
                 SpawnMemoryTypeOrStore::StoreAndMemory(store, memory)
             }
         };
@@ -224,12 +227,18 @@ impl VirtualTaskManager for TokioTaskManager {
             self.rt.handle().spawn(async move {
                 // We wait for either the trigger or for a snapshot to take place
                 let result = loop {
-                    let env = ctx.data(&store);
+                    let (wait_for_signal_future, wait_for_snapshot_future) = {
+                        let store_ref = store.as_ref();
+                        let env = ctx.data(&store_ref);
+                        (env.thread.wait_for_signal(), crate::wait_for_snapshot(env))
+                    };
+
                     break tokio::select! {
                         r = &mut trigger => r,
-                        _ = env.thread.wait_for_signal() => {
+                        _ = wait_for_signal_future => {
                             tracing::debug!("wait-for-signal(triggered)");
-                            let mut ctx = ctx.env.clone().into_mut(&mut store);
+                            let mut store_mut = store.as_mut();
+                            let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
                             if let Err(err) =
                                 crate::WasiEnv::do_pending_link_operations(
                                     &mut ctx,
@@ -249,9 +258,10 @@ impl VirtualTaskManager for TokioTaskManager {
                                 continue;
                             }
                         }
-                        _ = crate::wait_for_snapshot(env) => {
+                        _ = wait_for_snapshot_future => {
                             tracing::debug!("wait-for-snapshot(triggered)");
-                            let mut ctx = ctx.env.clone().into_mut(&mut store);
+                            let mut store_mut = store.as_mut();
+                            let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
                             crate::os::task::WasiProcessInner::do_checkpoints_from_outside(&mut ctx);
                             continue;
                         }

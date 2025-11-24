@@ -1180,8 +1180,8 @@ where
         memory_stack.len(),
         total_stack_space
     );
-    ctx.as_store_mut().on_called(move |mut store| {
-        let mut ctx = func.into_mut(&mut store);
+    ctx.as_store_mut().on_called(move |store| {
+        let mut ctx = func.into_mut(store);
         let env = ctx.data();
         let memory = env
             .try_memory_view(&ctx)

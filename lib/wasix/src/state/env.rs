@@ -420,19 +420,18 @@ impl WasiEnv {
     ) -> Result<(Instance, WasiFunctionEnv), WasiThreadError> {
         let pid = self.process.pid();
 
-        let mut store = store.as_store_mut();
         let engine = self.runtime().engine();
-        let mut func_env = WasiFunctionEnv::new(&mut store, self);
+        let mut func_env = WasiFunctionEnv::new(store, self);
 
         let is_dl = super::linker::is_dynamically_linked(&module);
         if is_dl {
             let linker = match parent_linker_and_ctx {
-                Some((linker, ctx)) => linker.create_instance_group(ctx, &mut store, &mut func_env),
+                Some((linker, ctx)) => linker.create_instance_group(ctx, store, &mut func_env),
                 None => {
                     // FIXME: should we be storing envs as raw byte arrays?
                     let ld_library_path_owned;
                     let ld_library_path = {
-                        let envs = func_env.data(&store).state.envs.lock().unwrap();
+                        let envs = func_env.data(store).state.envs.lock().unwrap();
                         ld_library_path_owned = match envs
                             .iter()
                             .find_map(|env| env.strip_prefix(b"LD_LIBRARY_PATH="))
@@ -454,7 +453,7 @@ impl WasiEnv {
                     Linker::new(
                         engine,
                         &module,
-                        &mut store,
+                        store,
                         memory,
                         &mut func_env,
                         8 * 1024 * 1024,
@@ -474,7 +473,7 @@ impl WasiEnv {
                         "Failed to link DL main module",
                     );
                     func_env
-                        .data(&store)
+                        .data(store)
                         .blocking_on_exit(Some(Errno::Noexec.into()));
                     return Err(WasiThreadError::LinkError(Arc::new(e)));
                 }
@@ -482,8 +481,7 @@ impl WasiEnv {
         }
 
         // Let's instantiate the module with the imports.
-        let mut import_object =
-            import_object_for_all_wasi_versions(&module, &mut store, &func_env.env);
+        let mut import_object = import_object_for_all_wasi_versions(&module, store, &func_env.env);
 
         let imported_memory = if let Some(memory) = memory {
             import_object.define("env", "memory", memory.clone());
@@ -493,7 +491,7 @@ impl WasiEnv {
         };
 
         // Construct the instance.
-        let instance = match Instance::new(&mut store, &module, &import_object) {
+        let instance = match Instance::new(store, &module, &import_object) {
             Ok(a) => a,
             Err(err) => {
                 tracing::error!(
@@ -541,7 +539,7 @@ impl WasiEnv {
 
         // Initialize the WASI environment
         if let Err(err) = func_env.initialize_handles_and_layout(
-            &mut store,
+            store,
             instance.clone(),
             handles,
             None,
@@ -561,7 +559,7 @@ impl WasiEnv {
         // If this module exports an _initialize function, run that first.
         if call_initialize
             && let Ok(initialize) = instance.exports.get_function("_initialize")
-            && let Err(err) = crate::run_wasi_func_start(initialize, &mut store)
+            && let Err(err) = crate::run_wasi_func_start(initialize, store)
         {
             func_env
                 .data(&store)

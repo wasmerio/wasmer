@@ -369,24 +369,26 @@ impl WasiThread {
     }
 
     /// Waits for a signal to arrive
-    pub async fn wait_for_signal(&self) {
+    pub fn wait_for_signal(&self) -> impl Future<Output = ()> + Send + Sync + 'static {
         // This poller will process any signals when the main working function is idle
-        struct SignalPoller<'a> {
-            thread: &'a WasiThread,
+        struct SignalPoller {
+            thread: Arc<WasiThreadState>,
         }
-        impl std::future::Future for SignalPoller<'_> {
+        impl std::future::Future for SignalPoller {
             type Output = ();
             fn poll(
                 self: std::pin::Pin<&mut Self>,
                 cx: &mut std::task::Context<'_>,
             ) -> std::task::Poll<Self::Output> {
-                if self.thread.has_signals_or_subscribe(cx.waker()) {
+                if WasiThread::state_has_signals_or_subscribe(&self.thread, cx.waker()) {
                     return std::task::Poll::Ready(());
                 }
                 std::task::Poll::Pending
             }
         }
-        SignalPoller { thread: self }.await
+        SignalPoller {
+            thread: self.state.clone(),
+        }
     }
 
     /// Returns all the signals that are waiting to be processed
@@ -412,9 +414,13 @@ impl WasiThread {
         }
     }
 
-    /// Returns all the signals that are waiting to be processed
     pub fn has_signals_or_subscribe(&self, waker: &Waker) -> bool {
-        let mut guard = self.state.signals.lock().unwrap();
+        Self::state_has_signals_or_subscribe(&self.state, waker)
+    }
+
+    /// Returns all the signals that are waiting to be processed
+    fn state_has_signals_or_subscribe(state: &WasiThreadState, waker: &Waker) -> bool {
+        let mut guard = state.signals.lock().unwrap();
         let has_signals = !guard.0.is_empty();
         if !has_signals && !guard.1.iter().any(|w| w.will_wake(waker)) {
             guard.1.push(waker.clone());

@@ -18,7 +18,9 @@ use crate::{
 };
 use tracing::*;
 use virtual_mio::block_on;
-use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer::{
+    AsStoreMut, AsStoreRef, Function, Memory32, Memory64, Module, RuntimeError, Store, Value,
+};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinaryPackage, BinaryPackageCommand};
@@ -141,7 +143,11 @@ pub fn spawn_exec_module(
                 TaskWasm::new(Box::new(run_exec), env, module, true, true).with_pre_run(Box::new(
                     |ctx, store| {
                         Box::pin(async move {
-                            ctx.data(store).state.fs.close_cloexec_fds().await;
+                            let state = {
+                                let store_ref = store.as_ref();
+                                ctx.data(&store_ref).state.clone()
+                            };
+                            state.fs.close_cloexec_fds().await;
                         })
                     },
                 )),
@@ -164,13 +170,17 @@ unsafe fn run_recycle(
     mut store: Store,
 ) {
     if let Some(callback) = callback {
-        let env = ctx.data_mut(&mut store);
+        let mut store_mut = store.as_mut();
+        let env = ctx.data_mut(&mut store_mut);
         let memory = unsafe { env.memory() }.clone();
 
         let props = TaskWasmRecycleProperties {
             env: env.clone(),
             memory,
-            store,
+            store: {
+                drop(store_mut);
+                store
+            },
         };
         callback(props);
     }
@@ -179,16 +189,17 @@ unsafe fn run_recycle(
 pub fn run_exec(props: TaskWasmRunProperties) {
     let ctx = props.ctx;
     let mut store = props.store;
+    let mut store_mut = store.as_mut();
 
     // Create the WasiFunctionEnv
-    let thread = WasiThreadRunGuard::new(ctx.data(&store).thread.clone());
+    let thread = WasiThreadRunGuard::new(ctx.data(&store_mut).thread.clone());
     let recycle = props.recycle;
 
     // Perform the initialization
     let ctx = {
         // If this module exports an _initialize function, run that first.
         if let Ok(initialize) = ctx
-            .data(&store)
+            .data(&store_mut)
             .inner()
             .main_module_instance_handles()
             .instance
@@ -196,10 +207,11 @@ pub fn run_exec(props: TaskWasmRunProperties) {
             .get_function("_initialize")
         {
             let initialize = initialize.clone();
-            if let Err(err) = initialize.call(&mut store, &[]) {
+            if let Err(err) = initialize.call(&mut store_mut, &[]) {
                 thread.thread.set_status_finished(Err(err.into()));
-                ctx.data(&store)
+                ctx.data(&store_mut)
                     .blocking_on_exit(Some(Errno::Noexec.into()));
+                drop(store_mut);
                 unsafe { run_recycle(recycle, ctx, store) };
                 return;
             }
@@ -211,27 +223,29 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     // Bootstrap the process
     // Unsafe: The bootstrap must be executed in the same thread that runs the
     //         actual WASM code
-    let rewind_state = match unsafe { ctx.bootstrap(&mut store) } {
+    let rewind_state = match unsafe { ctx.bootstrap(&mut store_mut) } {
         Ok(r) => r,
         Err(err) => {
             tracing::warn!("failed to bootstrap - {}", err);
             thread.thread.set_status_finished(Err(err));
-            ctx.data(&store)
+            ctx.data(&store_mut)
                 .blocking_on_exit(Some(Errno::Noexec.into()));
+            drop(store_mut);
             unsafe { run_recycle(recycle, ctx, store) };
             return;
         }
     };
 
     // If there is a start function
-    debug!("wasi[{}]::called main()", ctx.data(&store).pid());
+    debug!("wasi[{}]::called main()", ctx.data(&store_mut).pid());
     // TODO: rewrite to use crate::run_wasi_func
 
     // Call the module
+    drop(store_mut);
     call_module(ctx, store, thread, rewind_state, recycle);
 }
 
-fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
+fn get_start(ctx: &WasiFunctionEnv, store: &impl AsStoreRef) -> Option<Function> {
     ctx.data(store)
         .inner()
         .main_module_instance_handles()
@@ -250,7 +264,9 @@ fn call_module(
     rewind_state: Option<(RewindState, RewindResultType)>,
     recycle: Option<Box<TaskWasmRecycle>>,
 ) {
-    let env = ctx.data(&store);
+    let mut store_mut = store.as_mut();
+
+    let env = ctx.data(&store_mut);
     let pid = env.pid();
     let tasks = env.tasks().clone();
     handle.thread.set_status_running();
@@ -258,7 +274,7 @@ fn call_module(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
-        let mut ctx = ctx.env.clone().into_mut(&mut store);
+        let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
         if rewind_state.is_64bit {
             let res = rewind_ext::<Memory64>(
                 &mut ctx,
@@ -269,7 +285,9 @@ fn call_module(
             );
             if res != Errno::Success {
                 ctx.data().blocking_on_exit(Some(res.into()));
-                unsafe { run_recycle(recycle, WasiFunctionEnv { env: ctx.as_ref() }, store) };
+                let env = WasiFunctionEnv { env: ctx.as_ref() };
+                drop(store_mut);
+                unsafe { run_recycle(recycle, env, store) };
                 return;
             }
         } else {
@@ -282,7 +300,9 @@ fn call_module(
             );
             if res != Errno::Success {
                 ctx.data().blocking_on_exit(Some(res.into()));
-                unsafe { run_recycle(recycle, WasiFunctionEnv { env: ctx.as_ref() }, store) };
+                let env = WasiFunctionEnv { env: ctx.as_ref() };
+                drop(store_mut);
+                unsafe { run_recycle(recycle, env, store) };
                 return;
             }
         };
@@ -291,19 +311,20 @@ fn call_module(
     // Invoke the start function
     let ret = {
         // Call the module
-        let Some(start) = get_start(&ctx, &store) else {
+        let Some(start) = get_start(&ctx, &store_mut) else {
             debug!("wasi[{}]::exec-failed: missing _start function", pid);
-            ctx.data(&store)
+            ctx.data(&store_mut)
                 .blocking_on_exit(Some(Errno::Noexec.into()));
+            drop(store_mut);
             unsafe { run_recycle(recycle, ctx, store) };
             return;
         };
 
-        let mut call_ret = start.call(&mut store, &[]);
+        let mut call_ret = start.call(&mut store_mut, &[]);
 
         loop {
             // Technically, it's an error for a vfork to return from main, but anyway...
-            match resume_vfork(&ctx, &mut store, &start, &call_ret) {
+            match resume_vfork(&ctx, &mut store_mut, &start, &call_ret) {
                 // A vfork was resumed, there may be another, so loop back
                 Ok(Some(ret)) => call_ret = ret,
 
@@ -343,6 +364,7 @@ fn call_module(
                     };
 
                     // Spawns the WASM process after a trigger
+                    drop(store_mut);
                     if let Err(err) = unsafe {
                         tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
                     } {
@@ -374,7 +396,7 @@ fn call_module(
         match err.as_exit_code() {
             Some(s) => s,
             None => {
-                let err_display = err.display(&mut store);
+                let err_display = err.display(&mut store_mut);
                 error!("{err_display}");
                 eprintln!("{err_display}");
                 Errno::Noexec.into()
@@ -385,7 +407,8 @@ fn call_module(
     };
 
     // Cleanup the environment
-    ctx.data(&store).blocking_on_exit(Some(code));
+    ctx.data(&store_mut).blocking_on_exit(Some(code));
+    drop(store_mut);
     unsafe { run_recycle(recycle, ctx, store) };
 
     debug!("wasi[{pid}]::main() has exited with {code}");
@@ -395,7 +418,7 @@ fn call_module(
 #[allow(clippy::type_complexity)]
 fn resume_vfork(
     ctx: &WasiFunctionEnv,
-    store: &mut Store,
+    store: &mut impl AsStoreMut,
     start: &Function,
     call_ret: &Result<Box<[Value]>, RuntimeError>,
 ) -> Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno> {

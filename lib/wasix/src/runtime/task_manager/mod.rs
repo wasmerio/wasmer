@@ -10,9 +10,7 @@ use bytes::Bytes;
 use derive_more::Debug;
 use futures::future::BoxFuture;
 use futures::{Future, TryFutureExt};
-use wasmer::{
-    AsStoreMut, AsStoreRef, FunctionEnv, Memory, MemoryType, Module, Store, StoreMut, StoreRef,
-};
+use wasmer::{AsStoreMut, AsStoreRef, FunctionEnv, Memory, MemoryType, Module, Store, StoreMut};
 use wasmer_wasix_types::wasi::{Errno, ExitCode};
 
 use crate::syscalls::AsyncifyFuture;
@@ -26,14 +24,16 @@ pub enum SpawnType<'a> {
     CreateMemory,
     CreateMemoryOfType(MemoryType),
     // TODO: is there a way to get rid of the memory reference
-    ShareMemory(Memory, StoreRef<'a>),
+    #[debug("ShareMemory(..)")]
+    ShareMemory(Memory, &'a dyn AsStoreRef),
     // TODO: is there a way to get rid of the memory reference
     // Note: The message sender is triggered once the memory
     // has been copied, this makes sure its not modified until
     // its been properly copied
-    CopyMemory(Memory, StoreRef<'a>),
+    #[debug("CopyMemory(..)")]
+    CopyMemory(Memory, &'a dyn AsStoreRef),
     #[debug("NewLinkerInstanceGroup(..)")]
-    NewLinkerInstanceGroup(Linker, FunctionEnv<WasiEnv>, StoreMut<'a>),
+    NewLinkerInstanceGroup(Linker, FunctionEnv<WasiEnv>, &'a mut dyn AsStoreMut),
 }
 
 /// Describes whether a new memory should be created (and, in case, its type) or if it was already
@@ -210,7 +210,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 Ok(Some(mem))
             }
             SpawnType::ShareMemory(mem, old_store) => {
-                let mem = mem.share_in_store(&old_store, store).map_err(|err| {
+                let mem = mem.share_in_store(old_store, store).map_err(|err| {
                     tracing::warn!(
                         error = &err as &dyn std::error::Error,
                         "could not clone memory",
@@ -220,7 +220,7 @@ pub trait VirtualTaskManager: std::fmt::Debug + Send + Sync + 'static {
                 Ok(Some(mem))
             }
             SpawnType::CopyMemory(mem, old_store) => {
-                let mem = mem.copy_to_store(&old_store, store).map_err(|err| {
+                let mem = mem.copy_to_store(old_store, store).map_err(|err| {
                     tracing::warn!(
                         error = &err as &dyn std::error::Error,
                         "could not copy memory",
@@ -384,8 +384,9 @@ impl dyn VirtualTaskManager {
             }
         }
 
-        let snapshot = capture_store_snapshot(&mut store.as_store_mut());
-        let env = ctx.data(&store);
+        let mut store_guard = store.as_mut();
+        let snapshot = capture_store_snapshot(&mut store_guard);
+        let env = ctx.data(&mut store_guard);
         let env_inner = env.inner();
         let handles = env_inner
             .static_module_instance_handles()
@@ -394,6 +395,7 @@ impl dyn VirtualTaskManager {
         let memory = handles.memory_clone();
         let thread = env.thread.clone();
         let env = env.clone();
+        drop(store_guard); // Drop before moving store
 
         let thread_inner = thread.clone();
         self.task_wasm(
@@ -416,7 +418,7 @@ impl dyn VirtualTaskManager {
                 false,
                 false,
             )
-            .with_memory(SpawnType::ShareMemory(memory, store.as_store_ref()))
+            .with_memory(SpawnType::ShareMemory(memory, &store.as_ref()))
             .with_globals(snapshot)
             .with_trigger(Box::new(move || {
                 Box::pin(async move {

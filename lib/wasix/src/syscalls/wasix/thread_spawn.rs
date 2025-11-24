@@ -120,9 +120,9 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<(), Errno> {
     // We extract the memory which will be passed to the thread
-    let func_env = ctx.as_ref();
+    let func_env = FunctionEnvMut::as_ref(&ctx);
     let mut store = ctx.as_store_mut();
-    let env = func_env.as_ref(&store);
+    let env = func_env.as_ref(store);
     let tasks = env.tasks().clone();
 
     let env_inner = env.inner();
@@ -165,7 +165,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     let thread_module = module_handles.module_clone();
     let spawn_type = match linker {
         Some(linker) => crate::runtime::SpawnType::NewLinkerInstanceGroup(linker, func_env, store),
-        None => crate::runtime::SpawnType::ShareMemory(thread_memory, store.as_store_ref()),
+        None => crate::runtime::SpawnType::ShareMemory(thread_memory, store),
     };
 
     // Now spawn a thread
@@ -186,7 +186,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 // This function calls into the module
 fn call_module_internal<M: MemorySize>(
     env: &WasiFunctionEnv,
-    store: &mut Store,
+    store: &mut impl AsStoreMut,
     start_ptr_offset: M::Offset,
 ) -> Result<(), DeepSleepWork> {
     // We either call the reactor callback or the thread spawn callback
@@ -194,13 +194,13 @@ fn call_module_internal<M: MemorySize>(
 
     // Note: we ensure both unwraps can happen before getting to this point
     let spawn = env
-        .data(&store)
+        .data(store)
         .inner()
         .main_module_instance_handles()
         .thread_spawn
         .clone()
         .unwrap();
-    let tid = env.data(&store).tid();
+    let tid = env.data(store).tid();
     let thread_result = spawn.call(
         store,
         tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap(),
@@ -220,11 +220,11 @@ fn call_module_internal<M: MemorySize>(
 
 fn handle_thread_result(
     env: &WasiFunctionEnv,
-    store: &mut Store,
+    store: &mut impl AsStoreMut,
     err: Result<(), RuntimeError>,
 ) -> Result<Option<ExitCode>, DeepSleepWork> {
-    let tid = env.data(&store).tid();
-    let pid = env.data(&store).pid();
+    let tid = env.data(store).tid();
+    let pid = env.data(store).pid();
     let Err(err) = err else {
         trace!("thread exited cleanly without calling thread_exit");
         return Ok(None);
@@ -238,7 +238,7 @@ fn handle_thread_result(
             trace!(exit_code = ?code, "thread requested exit");
             if !code.is_success() {
                 // TODO: Why do we need to taint the runtime on a non-zero exit code? Why not also for zero?
-                env.data(&store)
+                env.data(store)
                     .runtime
                     .on_taint(TaintReason::NonZeroExitCode(code));
             };
@@ -252,21 +252,21 @@ fn handle_thread_result(
             eprintln!(
                 "Thread {tid} of process {pid} failed because it has an unknown wasix version"
             );
-            env.data(&store)
+            env.data(store)
                 .runtime
                 .on_taint(TaintReason::UnknownWasiVersion);
             Ok(Some(ExitCode::from(129)))
         }
         Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
             eprintln!("Thread {tid} of process {pid} failed to find required symbol: {symbol}");
-            env.data(&store)
+            env.data(store)
                 .runtime
                 .on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
             Ok(Some(ExitCode::from(129)))
         }
         Err(err) => {
             eprintln!("Thread {tid} of process {pid} failed with runtime error: {err}");
-            env.data(&store)
+            env.data(store)
                 .runtime
                 .on_taint(TaintReason::RuntimeError(err));
             Ok(Some(ExitCode::from(129)))
@@ -282,12 +282,13 @@ fn call_module<M: MemorySize>(
     thread_handle: Arc<WasiThreadHandle>,
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) {
-    let env = ctx.data(&store);
+    let mut store_mut = store.as_mut();
+    let env = ctx.data(&mut store_mut);
     let tasks = env.tasks().clone();
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
-        let mut ctx = ctx.env.clone().into_mut(&mut store);
+        let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
         let res = rewind_ext::<M>(
             &mut ctx,
             Some(rewind_state.memory_stack),
@@ -301,7 +302,9 @@ fn call_module<M: MemorySize>(
     }
 
     // Now invoke the module
-    let ret = call_module_internal::<M>(&ctx, &mut store, start_ptr_offset);
+    let ret = call_module_internal::<M>(&ctx, &mut store_mut, start_ptr_offset);
+
+    drop(store_mut);
 
     // If it went to deep sleep then we need to handle that
     if let Err(deep) = ret {

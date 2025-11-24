@@ -1,6 +1,10 @@
 use std::ops::{Deref, DerefMut};
 
-use super::{local_rwlock::{LocalReadGuardRc, LocalWriteGuardRc}, inner::StoreInner, StoreObjects};
+use super::{
+    StoreObjects,
+    inner::StoreInner,
+    local_rwlock::{LocalReadGuardRc, LocalWriteGuardRc},
+};
 use crate::{
     Store,
     entities::engine::{AsEngineRef, Engine, EngineRef},
@@ -41,7 +45,7 @@ impl StoreMut {
 
     // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
     /// Sets the unwind callback which will be invoked when the call finishes
-    fn on_called<F>(&mut self, callback: F)
+    pub fn on_called<F>(&mut self, callback: F)
     where
         F: FnOnce(
                 &mut StoreMut,

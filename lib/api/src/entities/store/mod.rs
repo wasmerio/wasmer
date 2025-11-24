@@ -129,6 +129,15 @@ impl Store {
         }
     }
 
+    /// Builds an [`AsStoreRef`] handle to this store, provided
+    /// the store is not locked for writing. Panics otherwise.
+    pub fn as_ref<'a>(&'a self) -> impl AsStoreRef + 'a {
+        StoreRefGuard {
+            inner: self.try_make_ref().expect("Store is locked for writing"),
+            marker: std::marker::PhantomData,
+        }
+    }
+
     /// Builds an [`AsStoreMut`] handle to this store, provided
     /// the store is not locked. Panics if the store is already locked.
     pub fn as_mut<'a>(&'a mut self) -> impl AsStoreMut + 'a {
@@ -245,6 +254,18 @@ impl Deref for StoreEngineMut<'_> {
 impl DerefMut for StoreEngineMut<'_> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.inner.engine_mut()
+    }
+}
+
+/// The immutable counter-part to [`StoreMutGuard`].
+pub struct StoreRefGuard<'a> {
+    pub(crate) inner: StoreRef,
+    pub(crate) marker: std::marker::PhantomData<&'a ()>,
+}
+
+impl AsStoreRef for StoreRefGuard<'_> {
+    fn as_ref(&self) -> &StoreInner {
+        self.inner.as_ref()
     }
 }
 

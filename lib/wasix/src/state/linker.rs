@@ -279,8 +279,8 @@ use virtual_mio::block_on;
 use wasmer::{
     AsStoreMut, AsStoreRef, Engine, ExportError, Exportable, Extern, ExternType, Function,
     FunctionEnv, FunctionEnvMut, FunctionType, Global, GlobalType, ImportType, Imports, Instance,
-    InstantiationError, Memory, MemoryError, Module, RuntimeError, StoreMut, Table, Tag, Type,
-    Value, WASM_PAGE_SIZE, WasmTypeList,
+    InstantiationError, Memory, MemoryError, Module, RuntimeError, Table, Tag, Type, Value,
+    WASM_PAGE_SIZE, WasmTypeList,
 };
 use wasmer_wasix_types::wasix::WasiMemoryLayout;
 
@@ -884,8 +884,8 @@ macro_rules! write_linker_state {
                 Err(TryLockError::WouldBlock) => {
                     // The group that holds the lock is most likely waiting for an op
                     // to finish, so we should help it with that...
-                    let env = $ctx.as_ref();
-                    let mut store = $ctx.as_store_mut();
+                    let env = FunctionEnvMut::as_ref(&$ctx);
+                    let mut store = $ctx.reborrow_mut();
                     $linker.do_pending_link_operations_internal($group_state, &mut store, &env)?;
                     // ... and sleep for a while before attempting the lock again, so
                     // everything has time to settle. We don't care too much about the
@@ -949,7 +949,7 @@ impl Linker {
     pub fn new(
         engine: Engine,
         main_module: &Module,
-        store: &mut StoreMut<'_>,
+        store: &mut impl AsStoreMut,
         memory: Option<Memory>,
         func_env: &mut WasiFunctionEnv,
         stack_size: u64,
@@ -1263,7 +1263,7 @@ impl Linker {
     pub fn create_instance_group(
         &self,
         parent_ctx: &mut FunctionEnvMut<'_, WasiEnv>,
-        store: &mut StoreMut<'_>,
+        store: &mut impl AsStoreMut,
         func_env: &mut WasiFunctionEnv,
     ) -> Result<(Self, LinkedMainModule), LinkError> {
         trace!("Spawning new instance group");
@@ -1597,7 +1597,7 @@ impl Linker {
         write_linker_state!(linker_state, self, group_state, ctx);
 
         let mut link_state = InProgressLinkState::default();
-        let env = ctx.as_ref();
+        let env = FunctionEnvMut::as_ref(&ctx);
         let mut store = ctx.as_store_mut();
 
         trace!("Loading module tree for requested module");
@@ -1979,7 +1979,7 @@ impl Linker {
 
         lock_instance_group_state!(guard, group_state, self, LinkError::InstanceGroupIsDead);
 
-        let env = ctx.as_ref();
+        let env = FunctionEnvMut::as_ref(&ctx);
         let mut store = ctx.as_store_mut();
         self.do_pending_link_operations_internal(group_state, &mut store, &env)
     }

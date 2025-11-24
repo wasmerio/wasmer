@@ -158,7 +158,7 @@ pub fn proc_fork<M: MemorySize>(
         let instance_handles = env_inner.static_module_instance_handles().unwrap();
         let module = instance_handles.module_clone();
         let memory = instance_handles.memory_clone();
-        let spawn_type = SpawnType::CopyMemory(memory, ctx.as_store_ref());
+        let spawn_type = SpawnType::CopyMemory(memory, &ctx);
 
         // Spawn a new process with this current execution environment
         let signaler = Box::new(child_env.process.clone());
@@ -175,7 +175,8 @@ pub fn proc_fork<M: MemorySize>(
                 // Rewind the stack and carry on
                 {
                     trace!("rewinding child");
-                    let mut ctx = ctx.env.clone().into_mut(&mut store);
+                    let mut store_mut = store.as_mut();
+                    let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
                     let (data, mut store) = ctx.data_and_store_mut();
                     match rewind::<M, _>(
                         ctx,
@@ -244,14 +245,15 @@ fn run<M: MemorySize>(
     child_handle: WasiThreadHandle,
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> ExitCode {
-    let env = ctx.data(&store);
+    let mut store_mut = store.as_mut();
+    let env = ctx.data(&store_mut);
     let tasks = env.tasks().clone();
     let pid = env.pid();
     let tid = env.tid();
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
-        let mut ctx = ctx.env.clone().into_mut(&mut store);
+        let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
         let res = rewind_ext::<M>(
             &mut ctx,
             Some(rewind_state.memory_stack),
@@ -265,28 +267,28 @@ fn run<M: MemorySize>(
     }
 
     let mut ret: ExitCode = Errno::Success.into();
-    let err = if ctx.data(&store).thread.is_main() {
+    let err = if ctx.data(&store_mut).thread.is_main() {
         trace!(%pid, %tid, "re-invoking main");
         let start = ctx
-            .data(&store)
+            .data(&store_mut)
             .inner()
             .static_module_instance_handles()
             .unwrap()
             .start
             .clone()
             .unwrap();
-        start.call(&mut store)
+        start.call(&mut store_mut)
     } else {
         trace!(%pid, %tid, "re-invoking thread_spawn");
         let start = ctx
-            .data(&store)
+            .data(&store_mut)
             .inner()
             .static_module_instance_handles()
             .unwrap()
             .thread_spawn
             .clone()
             .unwrap();
-        start.call(&mut store, 0, 0)
+        start.call(&mut store_mut, 0, 0)
     };
     if let Err(err) = err {
         match err.downcast::<WasiError>() {
@@ -314,6 +316,7 @@ fn run<M: MemorySize>(
                 };
 
                 /// Spawns the WASM process after a trigger
+                drop(store_mut);
                 unsafe {
                     tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
                 };
@@ -325,7 +328,7 @@ fn run<M: MemorySize>(
     trace!(%pid, %tid, "child exited (code = {})", ret);
 
     // Clean up the environment and return the result
-    ctx.on_exit((&mut store), Some(ret));
+    ctx.on_exit(&mut store_mut, Some(ret));
 
     // We drop the handle at the last moment which will close the thread
     drop(child_handle);

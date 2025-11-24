@@ -226,7 +226,6 @@ impl WasiProcessInner {
         // Enter the lock which will determine if we are in a checkpoint or not
 
         use bytes::Bytes;
-        use wasmer::AsStoreMut;
         use wasmer_types::OnCalledAction;
 
         use crate::{WasiError, os::task::thread::RewindResultType, rewind_ext};

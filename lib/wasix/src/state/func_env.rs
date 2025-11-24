@@ -61,7 +61,7 @@ impl WasiFunctionEnv {
                 // browser otherwise creation will fail.
                 let _ = ty.maximum.get_or_insert(wasmer_types::Pages::max_value());
 
-                let mem = Memory::new(&mut store, ty).map_err(|err| {
+                let mem = Memory::new(&mut store.as_mut(), ty).map_err(|err| {
                     tracing::error!(
                         error = &err as &dyn std::error::Error,
                         memory_type=?ty,
@@ -78,7 +78,7 @@ impl WasiFunctionEnv {
 
         let (_, ctx) = env.instantiate(
             module,
-            &mut store,
+            &mut store.as_mut(),
             memory,
             update_layout,
             call_initialize,
@@ -89,7 +89,7 @@ impl WasiFunctionEnv {
         // has access to the globals?
         // Set all the globals
         if let Some(snapshot) = store_snapshot {
-            restore_store_snapshot(&mut store, &snapshot);
+            restore_store_snapshot(&mut store.as_mut(), &snapshot);
         }
 
         Ok((ctx, store))
