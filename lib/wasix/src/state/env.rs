@@ -46,9 +46,6 @@ use webc::metadata::annotations::Wasi;
 pub use super::handles::*;
 use super::{Linker, WasiState, conv_env_vars};
 
-// TODO: Figure out a better place for this constant
-pub static MAIN_CONTEXT_ID: u64 = 0;
-
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
 pub struct WasiEnvInit {
