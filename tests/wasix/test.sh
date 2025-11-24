@@ -11,9 +11,11 @@ while read dir; do
 
     if [ -e "$dir/.no-build" ]; then
         cmd="cd $dir; \
+            find . -name 'output*' | xargs rm -f; \
             ./run.sh"
     else
         cmd="cd $dir; \
+            find . -name 'output*' | xargs rm -f; \
             wasixcc main.c -o main.wasm; \
             ./run.sh"
     fi
