@@ -2331,7 +2331,7 @@ impl Machine for MachineARM64 {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> GPR {
+    fn get_gpr_for_call(&self) -> GPR {
         GPR::X27
     }
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {

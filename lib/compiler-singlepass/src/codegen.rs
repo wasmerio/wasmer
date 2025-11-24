@@ -685,7 +685,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
         // mark the GPR used for Call as used
         self.machine
-            .reserve_unused_temp_gpr(self.machine.get_grp_for_call());
+            .reserve_unused_temp_gpr(self.machine.get_gpr_for_call());
 
         let calling_convention = self.calling_convention;
 
@@ -773,7 +773,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.extend_stack(stack_padding as u32)?;
         }
         // release the GPR used for call
-        self.machine.release_gpr(self.machine.get_grp_for_call());
+        self.machine.release_gpr(self.machine.get_gpr_for_call());
 
         let begin = self.machine.assembler_get_offset().0;
         cb(self)?;
@@ -2363,7 +2363,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 self.machine.release_gpr(table_count);
                 self.machine.release_gpr(table_base);
 
-                let gpr_for_call = self.machine.get_grp_for_call();
+                let gpr_for_call = self.machine.get_gpr_for_call();
                 if table_count != gpr_for_call {
                     self.machine.move_location(
                         Size::S64,
@@ -2634,12 +2634,12 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index]
                     iter::once((
@@ -2664,13 +2664,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_memory_init_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, data_index, dst, src, len]
                     [
@@ -2704,13 +2704,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_data_drop_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, data_index]
                     iter::once((Location::Imm32(data_index), CanonicalizeType::None)),
@@ -2745,13 +2745,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_copy_index) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, len]
                     [
@@ -2797,13 +2797,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_fill_index) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, len]
                     [
@@ -2840,13 +2840,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, val, memory_index]
                     [
@@ -3420,13 +3420,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_raise_trap_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [trap_code]
                     [(
@@ -5280,13 +5280,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_func_ref_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, func_index] -> funcref
                     iter::once((
@@ -5321,13 +5321,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, elem_index, reftype]
                     [
@@ -5361,13 +5361,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, elem_index] -> reftype
                     [
@@ -5399,13 +5399,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index] -> i32
                     iter::once((
@@ -5434,13 +5434,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             },
                         ) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, init_value, delta, table_index] -> u32
                     [
@@ -5474,13 +5474,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_copy_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, dst_table_index, src_table_index, dst, src, len]
                     [
@@ -5519,13 +5519,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_fill_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, start_idx, item, len]
                     [
@@ -5556,13 +5556,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_table_init_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, table_index, elem_index, dst, src, len]
                     [
@@ -5596,13 +5596,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                             .vmctx_builtin_function(VMBuiltinFunctionIndex::get_elem_drop_index())
                             as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, elem_index]
                     iter::once((Location::Imm32(elem_index), CanonicalizeType::None)),
@@ -5636,13 +5636,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_atomic_wait32) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
@@ -5688,13 +5688,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_atomic_wait64) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
@@ -5739,13 +5739,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         self.machine.get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(memory_atomic_notify) as i32,
                     ),
-                    Location::GPR(self.machine.get_grp_for_call()),
+                    Location::GPR(self.machine.get_gpr_for_call()),
                 )?;
 
                 self.emit_call_native(
                     |this| {
                         this.machine
-                            .emit_call_register(this.machine.get_grp_for_call())
+                            .emit_call_register(this.machine.get_gpr_for_call())
                     },
                     // [vmctx, memory_index, dst, src, timeout]
                     [
