@@ -2344,7 +2344,7 @@ impl Machine for MachineARM64 {
             &mut temps,
             ImmType::None,
             true,
-            Some(GPR::X27),
+            Some(self.get_gpr_for_call()),
         )?;
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
