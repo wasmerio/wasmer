@@ -2578,8 +2578,14 @@ impl Machine for MachineRiscv {
     }
     fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
         let mut temps = vec![];
-        let loc =
-            self.location_to_reg(Size::S64, location, &mut temps, ImmType::None, true, None)?;
+        let loc = self.location_to_reg(
+            Size::S64,
+            location,
+            &mut temps,
+            ImmType::None,
+            true,
+            Some(self.get_grp_for_call()),
+        )?;
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
             _ => codegen_error!("singlepass can't emit CALL Location"),
