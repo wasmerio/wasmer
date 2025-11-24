@@ -41,8 +41,8 @@ pub enum ContextSwitchError {
 }
 
 #[derive(Error, Debug)]
-#[error("Context was cancelled")]
-pub struct ContextCancelled();
+#[error("Context was canceled")]
+pub struct ContextCanceled();
 
 impl ContextSwitchingContext {
     pub(crate) fn new(spawner: ThreadLocalSpawner) -> Self {
@@ -99,11 +99,7 @@ impl ContextSwitchingContext {
         &self,
         target_context_id: u64,
     ) -> Result<
-        impl Future<Output = Result<Result<(), RuntimeError>, ContextCancelled>>
-        + Send
-        + Sync
-        + use<>
-        + 'static,
+        impl Future<Output = Result<(), RuntimeError>> + Send + Sync + use<> + 'static,
         ContextSwitchError,
     > {
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
@@ -141,7 +137,7 @@ impl ContextSwitchingContext {
         contexts.insert(own_context_id, own_unblocker);
         let weak_inner = Arc::downgrade(&self.inner);
         Ok(async move {
-            let unblock_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+            let unblock_result = wait_for_unblock.map_err(|_| ContextCanceled()).await;
 
             // Restore our own context ID
             let Some(inner) = Weak::upgrade(&weak_inner) else {
@@ -154,7 +150,19 @@ impl ContextSwitchingContext {
                 .store(own_context_id, Ordering::Relaxed);
             drop(inner);
 
-            unblock_result
+            // Handle if we were canceled instead of being unblocked
+            match unblock_result {
+                Ok(v) => v,
+                Err(canceled) => {
+                    tracing::trace!(
+                        "Context {own_context_id} was canceled while it was suspended: {}",
+                        canceled
+                    );
+
+                    let err = ContextCanceled().into();
+                    return Err(RuntimeError::user(err));
+                }
+            }
         })
     }
 
@@ -182,7 +190,7 @@ impl ContextSwitchingContext {
         let weak_inner = Arc::downgrade(&self.inner);
         let context_future = async move {
             // First wait for the unblock signal
-            let prelaunch_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+            let prelaunch_result = wait_for_unblock.map_err(|_| ContextCanceled()).await;
 
             // Set the current context ID
             let Some(inner) = Weak::upgrade(&weak_inner) else {
@@ -213,7 +221,7 @@ impl ContextSwitchingContext {
             // If that function returns something went wrong.
             // If it's a cancellation, we can just let this context run out.
             // If it's another error, we resume the main context with the error
-            let error = match launch_result.downcast_ref::<ContextCancelled>() {
+            let error = match launch_result.downcast_ref::<ContextCanceled>() {
                 Some(err) => {
                     tracing::trace!("Context {new_context_id} exited with error: {}", err);
                     // Context was cancelled, so we can just let it run out.
