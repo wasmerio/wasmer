@@ -2,6 +2,7 @@ use super::*;
 use crate::os::task::thread::context_switching::ContextSwitchError;
 use crate::state::MAIN_CONTEXT_ID;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
+use MaybeLater::{Later, Now};
 use anyhow::Result;
 use core::panic;
 use futures::TryFutureExt;
@@ -17,28 +18,29 @@ use wasmer::{
 };
 use wasmer::{StoreMut, Tag, Type};
 
-/// Error type for errors internal to context switching
-///
-/// Will be returned as a RuntimeError::User
-#[derive(Error, Debug)]
-pub(crate) enum ContextError {
-    // Should always be handled by the launch_entrypoint function and thus never propagated
-    // to the user
-    #[error("Context was cancelled. If you see this message, something went wrong.")]
-    Cancelled,
-}
-
 /// Switch to another context
-#[instrument(level = "trace", skip(ctx), ret)]
+#[instrument(level = "trace", skip(ctx))]
 pub fn context_switch(
     mut ctx: FunctionEnvMut<WasiEnv>,
     target_context_id: u64,
 ) -> impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<> {
-    let sync_part = inner_context_switch(ctx, target_context_id);
-    async move {
-        match sync_part {
-            Ok(fut) => fut.await,
-            Err(res) => res,
+    inner_context_switch(ctx, target_context_id).future()
+}
+
+enum MaybeLater<
+    F: Future<Output = T> + Send + 'static,
+    T: Send + 'static = Result<Errno, RuntimeError>,
+> {
+    Now(T),
+    Later(F),
+}
+impl<F: Future<Output = T> + Send + 'static, T: Send + 'static> MaybeLater<F, T> {
+    fn future(self) -> impl Future<Output = T> + Send + 'static {
+        async move {
+            match self {
+                MaybeLater::Now(v) => v,
+                MaybeLater::Later(fut) => fut.await,
+            }
         }
     }
 }
@@ -51,15 +53,12 @@ pub fn context_switch(
 fn inner_context_switch(
     mut ctx: FunctionEnvMut<WasiEnv>,
     target_context_id: u64,
-) -> Result<
-    impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<>,
-    Result<Errno, RuntimeError>,
-> {
+) -> MaybeLater<impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<>> {
     // TODO: Should we call do_pending_operations here?
     match WasiEnv::do_pending_operations(&mut ctx) {
         Ok(()) => {}
         Err(e) => {
-            return Err(Err(RuntimeError::user(Box::new(e))));
+            return Now(Err(RuntimeError::user(Box::new(e))));
         }
     }
 
@@ -70,7 +69,7 @@ fn inner_context_switch(
         Some(c) => c,
         None => {
             tracing::trace!("Context switching is not enabled");
-            return Err(Ok(Errno::Again));
+            return Now(Ok(Errno::Again));
         }
     };
 
@@ -80,7 +79,7 @@ fn inner_context_switch(
     // If switching to self, do nothing
     if own_context_id == target_context_id {
         tracing::trace!("Switching context {own_context_id} to itself, which is a no-op");
-        return Err(Ok(Errno::Success));
+        return Now(Ok(Errno::Success));
     }
 
     // Try to unblock the target and put our unblock function into the env, if successful
@@ -90,7 +89,7 @@ fn inner_context_switch(
             tracing::trace!(
                 "Context {own_context_id} tried to switch to context {target_context_id} but it does not exist or is not suspended"
             );
-            return Err(Ok(Errno::Inval));
+            return Now(Ok(Errno::Inval));
         }
         Err(ContextSwitchError::OwnContextAlreadyBlocked) => {
             // This should never happen, because the active context should never have an unblock function (as it is not suspended)
@@ -106,17 +105,10 @@ fn inner_context_switch(
             tracing::trace!(
                 "Context {own_context_id} tried to switch to context {target_context_id} but it could not be unblocked (perhaps it exited?)"
             );
-            return Err(Ok(Errno::Inval));
+            return Now(Ok(Errno::Inval));
         }
     };
 
-    // Clone necessary arcs for the future
-    let contexts_cloned = contexts.clone();
-    // Create the future that will resolve when this context is switched back to again
-    Ok(async move {
-        // Wait until we are unblocked again
-        wait_for_unblock.map(|v| v.map(|_| Errno::Success)).await
-
-        // If we get relayed a trap, propagate it. Other wise return success
-    })
+    // Wait until we are unblocked again
+    Later(wait_for_unblock.map(|v| v.map(|_| Errno::Success)))
 }
