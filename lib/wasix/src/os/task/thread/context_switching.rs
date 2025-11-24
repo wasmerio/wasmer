@@ -1,3 +1,13 @@
+use crate::{
+    WasiFunctionEnv,
+    utils::thread_local_executor::{
+        ThreadLocalExecutor, ThreadLocalSpawner, ThreadLocalSpawnerError,
+    },
+};
+use futures::{
+    TryFutureExt,
+    channel::oneshot::{self, Sender},
+};
 use std::{
     collections::BTreeMap,
     sync::{
@@ -5,15 +15,8 @@ use std::{
         atomic::{AtomicU64, Ordering},
     },
 };
-
-use futures::{
-    TryFutureExt,
-    channel::oneshot::{self, Sender},
-};
 use thiserror::Error;
 use wasmer::RuntimeError;
-
-use crate::utils::thread_local_executor::{ThreadLocalSpawner, ThreadLocalSpawnerError};
 
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingContext {
@@ -45,7 +48,7 @@ pub enum ContextSwitchError {
 pub struct ContextCanceled();
 
 impl ContextSwitchingContext {
-    pub(crate) fn new(spawner: ThreadLocalSpawner) -> Self {
+    fn new(spawner: ThreadLocalSpawner) -> Self {
         Self {
             inner: Arc::new(ContextSwitchingContextInner {
                 unblockers: RwLock::new(BTreeMap::new()),
@@ -54,6 +57,41 @@ impl ContextSwitchingContext {
                 spawner,
             }),
         }
+    }
+
+    /// Run the main context function in a context switching context
+    ///
+    /// This call blocks until the entrypoint returns, or it or any of the contexts it spawns traps
+    pub(crate) fn run_main_context(
+        ctx: &WasiFunctionEnv,
+        mut store: &mut (impl wasmer::AsStoreMut + 'static),
+        entrypoint: wasmer::Function,
+        params: Vec<wasmer::Value>,
+    ) -> Result<Box<[wasmer::Value]>, RuntimeError> {
+        // Create a new executor
+        let mut local_executor = ThreadLocalExecutor::new();
+
+        let this = Self::new(local_executor.spawner());
+
+        // Put the spawner into the WASI env, so that syscalls can use it to queue up new tasks
+        let env = ctx.data_mut(&mut store);
+        let previous_context = env.context_switching_context.replace(this);
+        if previous_context.is_some() {
+            panic!(
+                "Failed to start a wasix main context as there was already a context switching context present in the WASI env."
+            );
+        }
+
+        // Run function with the spawner
+        let result = local_executor.run_until(entrypoint.call_async(&mut *store, &params));
+
+        // Remove the spawner again
+        let env = ctx.data_mut(&mut store);
+        env.context_switching_context.take().expect(
+            "Failed to remove wasix context switching context from WASI env after main context finished, this should never happen",
+        );
+
+        result
     }
 
     // Get the currently active context ID
