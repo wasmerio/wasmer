@@ -166,7 +166,7 @@ impl ContextSwitchingContext {
     pub(crate) fn new_context<T, F>(&self, entrypoint: T) -> u64
     where
         T: FnOnce(u64) -> F + 'static,
-        F: Future<Output = ()> + 'static,
+        F: Future<Output = RuntimeError> + 'static,
     {
         // Create a new context ID
         let new_context_id = self.allocate_new_context_id();
@@ -208,7 +208,37 @@ impl ContextSwitchingContext {
             };
 
             // Launch the context entrypoint
-            entrypoint(new_context_id).await
+            let launch_result = entrypoint(new_context_id).await;
+
+            // If that function returns something went wrong.
+            // If it's a cancellation, we can just let this context run out.
+            // If it's another error, we resume the main context with the error
+            let error = match launch_result.downcast_ref::<ContextCancelled>() {
+                Some(err) => {
+                    tracing::trace!("Context {new_context_id} exited with error: {}", err);
+                    // Context was cancelled, so we can just let it run out.
+                    return;
+                }
+                None => launch_result, // Propagate the runtime error to main
+            };
+
+            // Retrieve the main context
+            let Some(inner) = Weak::upgrade(&weak_inner) else {
+                // The context switching context has been dropped, so we can't proceed
+                // TODO: Handle this properly
+                return;
+            };
+            let Some(main_context) = inner.unblockers.write().unwrap().remove(&0) else {
+                // The main context should always be suspended when another context returns or traps with anything but cancellation
+                panic!(
+                    "The main context should always be suspended when another context returns or traps (with anything but a cancellation)."
+                );
+            };
+            // Resume the main context with the error
+            main_context
+                .send(Err(error))
+                .expect("Failed to send error to main context, this should not happen");
+            drop(inner);
         };
 
         // Queue the future onto the thread-local executor
