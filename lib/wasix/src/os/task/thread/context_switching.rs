@@ -1,6 +1,5 @@
 use std::{
     collections::BTreeMap,
-    pin::Pin,
     sync::{RwLock, atomic::AtomicU64},
 };
 
@@ -131,23 +130,12 @@ impl ContextSwitchingContext {
 
     /// Create a new context and spawn it onto the thread-local executor
     ///
-    /// The creator function is given the new context ID and a future that resolves when the context is unblocked
-    /// It is expected to return a future that waits for that future to be unblocked and then runs the context
+    /// The entrypoint function is called when the context is unblocked for the first time
     ///
-    /// This function always succeeds or panics, as there are no recoverable errors possible when spawning onto the thread-local executor
-    pub(crate) fn new_context<T, F>(&self, creator: T) -> u64
+    /// If the context is cancelled before it is unblocked, the entrypoint will not be called
+    pub(crate) fn new_context<T, F>(&self, entrypoint: T) -> u64
     where
-        T: FnOnce(
-            u64,
-            Pin<
-                Box<
-                    dyn Future<Output = Result<Result<(), RuntimeError>, ContextCancelled>>
-                        + Send
-                        + Sync
-                        + 'static,
-                >,
-            >,
-        ) -> F,
+        T: FnOnce(u64) -> F + 'static,
         F: Future<Output = ()> + 'static,
     {
         // Create a new context ID
@@ -161,13 +149,28 @@ impl ContextSwitchingContext {
         };
 
         // Create the future for the new context
-        let future = creator(
-            new_context_id,
-            Box::pin(wait_for_unblock.map_err(|_| ContextCancelled())),
-        );
+        let context_future = async move {
+            // First wait for the unblock signal
+            let prelaunch_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+
+            // Handle if the context was canceled before it even started
+            match prelaunch_result {
+                Ok(_) => (),
+                Err(canceled) => {
+                    tracing::trace!(
+                        "Context {new_context_id} was canceled before it even started: {canceled}",
+                    );
+                    // At this point we don't need to do anything else
+                    return;
+                }
+            };
+
+            // Launch the context entrypoint
+            entrypoint(new_context_id).await
+        };
 
         // Queue the future onto the thread-local executor
-        let spawn_result = self.spawner.spawn_local(future);
+        let spawn_result = self.spawner.spawn_local(context_future);
 
         match spawn_result {
             Ok(()) => new_context_id,
