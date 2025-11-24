@@ -1,6 +1,9 @@
 use std::{
     collections::BTreeMap,
-    sync::{RwLock, atomic::AtomicU64},
+    sync::{
+        Arc, RwLock,
+        atomic::{AtomicU64, Ordering},
+    },
 };
 
 use futures::{
@@ -16,7 +19,7 @@ use crate::utils::thread_local_executor::{ThreadLocalSpawner, ThreadLocalSpawner
 pub(crate) struct ContextSwitchingContext {
     /// TODO: Document these fields
     unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
-    current_context_id: AtomicU64,
+    current_context_id: Arc<AtomicU64>,
     next_available_context_id: AtomicU64,
     spawner: ThreadLocalSpawner,
 }
@@ -39,20 +42,16 @@ impl ContextSwitchingContext {
     pub(crate) fn new(spawner: ThreadLocalSpawner) -> Self {
         Self {
             unblockers: RwLock::new(BTreeMap::new()),
-            current_context_id: AtomicU64::new(0),
+            current_context_id: Arc::new(AtomicU64::new(0)),
             next_available_context_id: AtomicU64::new(1),
             spawner,
         }
     }
 
+    // Get the currently active context ID
     pub(crate) fn active_context_id(&self) -> u64 {
         self.current_context_id
             .load(std::sync::atomic::Ordering::Relaxed)
-    }
-
-    pub(crate) fn set_active_context_id(&self, context_id: u64) {
-        self.current_context_id
-            .store(context_id, std::sync::atomic::Ordering::Relaxed);
     }
 
     pub(crate) fn allocate_new_context_id(&self) -> u64 {
@@ -125,7 +124,13 @@ impl ContextSwitchingContext {
 
         // After we have unblocked the target, we can insert our own unblock function
         contexts.insert(own_context_id, own_unblocker);
-        Ok(async move { wait_for_unblock.map_err(|_| ContextCancelled()).await })
+        let current_context_id_cloned = self.current_context_id.clone();
+        Ok(async move {
+            let unblock_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+            // Restore our own context ID
+            current_context_id_cloned.store(own_context_id, std::sync::atomic::Ordering::Relaxed);
+            unblock_result
+        })
     }
 
     /// Create a new context and spawn it onto the thread-local executor
@@ -149,9 +154,12 @@ impl ContextSwitchingContext {
         };
 
         // Create the future for the new context
+        let current_context_id_cloned = self.current_context_id.clone();
         let context_future = async move {
             // First wait for the unblock signal
             let prelaunch_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+            // Set the current context ID
+            current_context_id_cloned.store(new_context_id, Ordering::Relaxed);
 
             // Handle if the context was canceled before it even started
             match prelaunch_result {
