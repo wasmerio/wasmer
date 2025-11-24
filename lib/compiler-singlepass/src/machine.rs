@@ -277,7 +277,7 @@ pub trait Machine {
     /// emit a label
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError>;
 
-    /// get the gpr use for call. like RAX on x86_64
+    /// get the gpr used for call. like RAX on x86_64
     fn get_gpr_for_call(&self) -> Self::GPR;
     /// Emit a call using the value in register
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError>;
