@@ -2340,12 +2340,6 @@ impl Machine for MachineARM64 {
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
     }
-    fn get_gpr_for_ret(&self) -> GPR {
-        GPR::X0
-    }
-    fn get_simd_for_ret(&self) -> NEON {
-        NEON::V0
-    }
 
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
         self.assembler.arch_requires_indirect_call_trampoline()

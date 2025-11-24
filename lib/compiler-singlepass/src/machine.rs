@@ -297,10 +297,6 @@ pub trait Machine {
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// get the gpr for the return of generic values
-    fn get_gpr_for_ret(&self) -> Self::GPR;
-    /// get the simd for the return of float/double values
-    fn get_simd_for_ret(&self) -> Self::SIMD;
 
     /// Emit a debug breakpoint
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError>;
