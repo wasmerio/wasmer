@@ -1,5 +1,6 @@
 use std::{
     collections::BTreeMap,
+    pin::Pin,
     sync::{RwLock, atomic::AtomicU64},
 };
 
@@ -10,7 +11,7 @@ use futures::{
 use thiserror::Error;
 use wasmer::RuntimeError;
 
-use crate::utils::thread_local_executor::ThreadLocalSpawner;
+use crate::utils::thread_local_executor::{ThreadLocalSpawner, ThreadLocalSpawnerError};
 
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingContext {
@@ -18,7 +19,7 @@ pub(crate) struct ContextSwitchingContext {
     unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
     current_context_id: AtomicU64,
     next_available_context_id: AtomicU64,
-    current_spawner: ThreadLocalSpawner,
+    spawner: ThreadLocalSpawner,
 }
 
 #[derive(Debug, Error)]
@@ -41,7 +42,7 @@ impl ContextSwitchingContext {
             unblockers: RwLock::new(BTreeMap::new()),
             current_context_id: AtomicU64::new(0),
             next_available_context_id: AtomicU64::new(1),
-            current_spawner: spawner,
+            spawner,
         }
     }
 
@@ -58,10 +59,6 @@ impl ContextSwitchingContext {
     pub(crate) fn allocate_new_context_id(&self) -> u64 {
         self.next_available_context_id
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
-    }
-
-    pub(crate) fn get_spawner(&self) -> ThreadLocalSpawner {
-        self.current_spawner.clone()
     }
 
     pub(crate) fn remove_unblocker(
@@ -130,5 +127,66 @@ impl ContextSwitchingContext {
         // After we have unblocked the target, we can insert our own unblock function
         contexts.insert(own_context_id, own_unblocker);
         Ok(async move { wait_for_unblock.map_err(|_| ContextCancelled()).await })
+    }
+
+    /// Create a new context and spawn it onto the thread-local executor
+    ///
+    /// The creator function is given the new context ID and a future that resolves when the context is unblocked
+    /// It is expected to return a future that waits for that future to be unblocked and then runs the context
+    ///
+    /// This function always succeeds or panics, as there are no recoverable errors possible when spawning onto the thread-local executor
+    pub(crate) fn new_context<T, F>(&self, creator: T) -> u64
+    where
+        T: FnOnce(
+            u64,
+            Pin<
+                Box<
+                    dyn Future<Output = Result<Result<(), RuntimeError>, ContextCancelled>>
+                        + Send
+                        + Sync
+                        + 'static,
+                >,
+            >,
+        ) -> F,
+        F: Future<Output = ()> + 'static,
+    {
+        // Create a new context ID
+        let new_context_id = self.allocate_new_context_id();
+
+        let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+
+        // Store the unblocker
+        let None = self.insert_unblocker(new_context_id, own_unblocker) else {
+            panic!("There already is a context suspended with ID {new_context_id}");
+        };
+
+        // Create the future for the new context
+        let future = creator(
+            new_context_id,
+            Box::pin(wait_for_unblock.map_err(|_| ContextCancelled())),
+        );
+
+        // Queue the future onto the thread-local executor
+        let spawn_result = self.spawner.spawn_local(future);
+
+        match spawn_result {
+            Ok(()) => new_context_id,
+            Err(ThreadLocalSpawnerError::LocalPoolShutDown) => {
+                // TODO: Handle cancellation properly
+                panic!(
+                    "Failed to spawn context {new_context_id} because the local executor has been shut down",
+                );
+            }
+            Err(ThreadLocalSpawnerError::NotOnTheCorrectThread { expected, found }) => {
+                // Not on the correct host thread. If this error happens, it is a bug in WASIX.
+                panic!(
+                    "Failed to spawn context {new_context_id} because the current thread ({found:?}) is not the expected thread ({expected:?}) for the local executor"
+                )
+            }
+            Err(ThreadLocalSpawnerError::SpawnError) => {
+                // This should never happen
+                panic!("Failed to spawn_local context {new_context_id} , this should not happen");
+            }
+        }
     }
 }
