@@ -828,9 +828,7 @@ impl MachineRiscv {
         let loc_a = self.location_to_reg(sz, loc_a, &mut temps, ImmType::None, true, None)?;
         let loc_b = self.location_to_reg(sz, loc_b, &mut temps, ImmType::None, true, None)?;
 
-        // We must sign-extend the 32-bit integeres for signed comparison operations
-        // TODO: assert on other sizes + just for signed only?
-        if sz == Size::S32 && signed {
+        if sz != Size::S64 {
             self.assembler.emit_extend(sz, signed, loc_a, loc_a)?;
             self.assembler.emit_extend(sz, signed, loc_b, loc_b)?;
         }
