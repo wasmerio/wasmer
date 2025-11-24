@@ -3,7 +3,10 @@ use std::{
     sync::{RwLock, atomic::AtomicU64},
 };
 
-use futures::channel::oneshot::Sender;
+use futures::{
+    TryFutureExt,
+    channel::oneshot::{self, Sender},
+};
 use thiserror::Error;
 use wasmer::RuntimeError;
 
@@ -27,6 +30,10 @@ pub enum ContextSwitchError {
     #[error("Own context is already blocked")]
     OwnContextAlreadyBlocked,
 }
+
+#[derive(Error, Debug)]
+#[error("Context was cancelled")]
+pub struct ContextCancelled();
 
 impl ContextSwitchingContext {
     pub(crate) fn new(spawner: ThreadLocalSpawner) -> Self {
@@ -81,8 +88,16 @@ impl ContextSwitchingContext {
     pub(crate) fn switch(
         &self,
         target_context_id: u64,
-        own_unblocker: Sender<Result<(), RuntimeError>>,
-    ) -> Result<(), ContextSwitchError> {
+    ) -> Result<
+        impl Future<Output = Result<Result<(), RuntimeError>, ContextCancelled>>
+        + Send
+        + Sync
+        + use<>
+        + 'static,
+        ContextSwitchError,
+    > {
+        let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+
         // Lock contexts for this block
         let mut contexts = self.unblockers.write().unwrap();
         let own_context_id = self.active_context_id();
@@ -114,6 +129,6 @@ impl ContextSwitchingContext {
 
         // After we have unblocked the target, we can insert our own unblock function
         contexts.insert(own_context_id, own_unblocker);
-        Ok(())
+        Ok(async move { wait_for_unblock.map_err(|_| ContextCancelled()).await })
     }
 }
