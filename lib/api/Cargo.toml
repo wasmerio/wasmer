@@ -41,7 +41,7 @@ wat = { workspace = true, optional = true }
 rustc-demangle.workspace = true
 shared-buffer.workspace = true
 
-wasmi_c_api = { workspace = true, optional = true, features = [
+wasmi_c_api_impl = { workspace = true, optional = true, features = [
 	"prefix-symbols",
 ] }
 
@@ -145,7 +145,7 @@ wamr-default = ["wamr", "wat"]
 wamr = ["wasm-c-api", "std", "dep:which", "dep:zip", "dep:ureq"]
 
 # --- Enable the wasmi backend and use it as default backend.
-wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api"]
+wasmi = ["wasm-c-api", "std", "dep:wasmi_c_api_impl"]
 # --- Enable the wasmi backend and use it as defaul backend only if it is the only one enabled.
 wasmi-default = ["wasmi", "wat"]
 

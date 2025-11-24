@@ -18,7 +18,7 @@ async-trait = { workspace = true, optional = true }
 bitflags.workspace = true
 once_cell.workspace = true
 thiserror.workspace = true
-tracing-lib = { workspace = true, optional = true }
+tracing = { workspace = true, optional = true }
 wai-bindgen-wasmer-impl.workspace = true
 wasmer = { version = "=6.1.0", path = "../api", default-features = false }
 
@@ -26,7 +26,7 @@ wasmer = { version = "=6.1.0", path = "../api", default-features = false }
 # Enables generated code to emit events via the `tracing` crate whenever wasm is
 # entered and when native functions are called. Note that tracing is currently
 # only done for imported functions.
-tracing = ["tracing-lib", "wai-bindgen-wasmer-impl/tracing"]
+tracing = ["dep:tracing", "wai-bindgen-wasmer-impl/tracing"]
 
 # Enables async support for generated code, although when enabled this still
 # needs to be configured through the macro invocation.

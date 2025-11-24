@@ -4,7 +4,7 @@ pub use wai_bindgen_wasmer_impl::{export, import};
 
 #[cfg(feature = "async")]
 pub use async_trait::async_trait;
-#[cfg(feature = "tracing-lib")]
+#[cfg(feature = "tracing")]
 pub use tracing_lib as tracing;
 #[doc(hidden)]
 pub use {anyhow, bitflags, once_cell, wasmer};

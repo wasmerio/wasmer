@@ -283,7 +283,6 @@ libunwind = "1.3.3"
 mach2 = "0.4.2"
 bitflags = "1.2"
 wai-bindgen-wasmer-impl = "0.2.2"
-tracing-lib = { version = "0.1.26", package = "tracing" }
 wai-bindgen-rust = { version = "0.2.1", default-features = false }
 wai-bindgen-gen-core = { version = "0.2.1", default-features = false }
 wai-bindgen-gen-rust-wasm = { version = "0.2.1", default-features = false }
@@ -322,7 +321,7 @@ proc-macro2 = "1"
 proc-macro-error2 = "2.0.1"
 quote = "1.0.20"
 test-log = { version = "0.2", default-features = false }
-wasmi_c_api = { version = "0.40.0", package = "wasmi_c_api_impl" }
+wasmi_c_api_impl.version = "0.40.0"
 unix_mode = "0.1.3"
 
 [build-dependencies]
