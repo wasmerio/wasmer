@@ -184,8 +184,10 @@ pub struct WasiEnv {
     /// TODO: We should move this outside of `WasiEnv` with some refactoring
     inner: WasiInstanceHandlesPointer,
 
-    // TODO: Move this to something thread local
-    pub(crate) context_switching_context: Option<Arc<ContextSwitchingContext>>,
+    /// Tracks the active contexts of the WASIX context switching API
+    ///
+    /// This is `None` when the main function was not launched with context switching
+    pub(crate) context_switching_context: Option<ContextSwitchingContext>,
 }
 
 impl std::fmt::Debug for WasiEnv {
