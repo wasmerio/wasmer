@@ -196,7 +196,10 @@ pub fn run_exec(props: TaskWasmRunProperties) {
             .get_function("_initialize")
         {
             let initialize = initialize.clone();
-            if let Err(err) = initialize.call(&mut store, &[]) {
+
+            if let Err(err) =
+                ContextSwitchingContext::run_main_context(&ctx, &mut store, initialize, vec![])
+            {
                 thread.thread.set_status_finished(Err(err.into()));
                 ctx.data(&store)
                     .blocking_on_exit(Some(Errno::Noexec.into()));
