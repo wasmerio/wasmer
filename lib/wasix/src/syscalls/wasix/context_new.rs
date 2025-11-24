@@ -58,9 +58,6 @@ async fn async_entrypoint(
     own_context_id: u64,
     typechecked_entrypoint: Function,
 ) -> () {
-    // Restore our own context ID
-    contexts.set_active_context_id(own_context_id);
-
     // Actually call the entrypoint function
     let result = typechecked_entrypoint
         .call_async(&mut unsafe_static_store, &[])
