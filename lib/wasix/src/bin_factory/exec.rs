@@ -16,7 +16,6 @@ use crate::{
         },
     },
     syscalls::rewind_ext,
-    utils::thread_local_executor::ThreadLocalExecutor,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
 use std::sync::Arc;
@@ -243,43 +242,6 @@ fn get_start(ctx: &WasiFunctionEnv, store: &Store) -> Option<Function> {
         .ok()
 }
 
-// TODO: Figure out a better place for this function
-// Calls an async wasm in a blocking context
-//
-// This call blocks until the entrypoint returns, or it or any of the contexts it spawns traps
-fn call_with_threadlocal_executor(
-    ctx: &WasiFunctionEnv,
-    mut store: &mut Store,
-    entrypoint: wasmer::Function,
-    params: Vec<wasmer::Value>,
-) -> Result<Box<[Value]>, RuntimeError> {
-    // TODO: Maybe move this to the runtime or task manager, so that the runtime can
-    //       control which executor is used. That would also allow using only one shared
-    //       executor per thread.
-    // Create a new executor
-    let mut local_executor = ThreadLocalExecutor::new();
-
-    // Put the spawner into the WASI env, so that syscalls can use it to queue up new tasks
-    let spawner = local_executor.spawner();
-    let env = ctx.data_mut(&mut store);
-    if env.context_switching_context.is_some() {
-        panic!("Can not start a threadlocal executor as there is already one present");
-    }
-    env.context_switching_context = Some(ContextSwitchingContext::new(spawner));
-
-    // Run function with the spawner
-    let result = local_executor.run_until(entrypoint.call_async(&mut *store, &params));
-
-    // Remove the spawner again
-    let env = ctx.data_mut(&mut store);
-    if env.context_switching_context.is_none() {
-        panic!("No context switching context present in env after the main function completed.");
-    }
-    env.context_switching_context = None;
-
-    result
-}
-
 /// Calls the module
 fn call_module(
     ctx: WasiFunctionEnv,
@@ -337,7 +299,8 @@ fn call_module(
             return;
         };
 
-        let mut call_ret = call_with_threadlocal_executor(&ctx, &mut store, start.clone(), vec![]);
+        let mut call_ret =
+            ContextSwitchingContext::run_main_context(&ctx, &mut store, start.clone(), vec![]);
 
         loop {
             // Technically, it's an error for a vfork to return from main, but anyway...
