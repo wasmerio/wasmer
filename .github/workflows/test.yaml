@@ -52,7 +52,7 @@ jobs:
     name: Code lint
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -99,7 +99,7 @@ jobs:
     name: cargo-deny
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: EmbarkStudios/cargo-deny-action@v2
         with:
           log-level: error
@@ -108,7 +108,7 @@ jobs:
     name: Test on NodeJS
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -128,7 +128,7 @@ jobs:
     name: Test wasi-fyi
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -162,7 +162,7 @@ jobs:
     name: Test WASIX
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -227,7 +227,7 @@ jobs:
     name: Test JSC build
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
@@ -283,7 +283,7 @@ jobs:
           ]
     container: ${{ matrix.metadata.container }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
 
       - name: Setup MSVC (Windows)
         uses: ilammy/msvc-dev-cmd@v1
@@ -345,7 +345,7 @@ jobs:
     name: Test build docs rs
     runs-on: ubuntu-22.04
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@master
         with:
           toolchain: "nightly-2025-09-27"
@@ -392,7 +392,7 @@ jobs:
             },
           ]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
@@ -453,7 +453,7 @@ jobs:
             },
           ]
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       #- uses: dtolnay/rust-toolchain@stable
       #  with:
       #    toolchain: ${{ env.MSRV }}
@@ -579,7 +579,7 @@ jobs:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up libstdc++ on Linux
         if: matrix.metadata.build == 'linux-x64'
         run: |
@@ -849,7 +849,7 @@ jobs:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up libstdc++ on Linux
         if: matrix.metadata.build == 'linux-x64'
         run: |
@@ -975,7 +975,7 @@ jobs:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: goto-bus-stop/setup-zig@v2
         with:
           version: 0.10.0
