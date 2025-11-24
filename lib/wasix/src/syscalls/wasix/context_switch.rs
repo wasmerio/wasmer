@@ -83,13 +83,9 @@ fn inner_context_switch(
         return Err(Ok(Errno::Success));
     }
 
-    // TODO: Move into switch
-    // Setup sender and receiver for the new context
-    let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
-
     // Try to unblock the target and put our unblock function into the env, if successful
-    match contexts.switch(target_context_id, unblock) {
-        Ok(()) => {}
+    let wait_for_unblock = match contexts.switch(target_context_id) {
+        Ok(wait_for_unblock) => wait_for_unblock,
         Err(ContextSwitchError::SwitchTargetMissing) => {
             tracing::trace!(
                 "Context {own_context_id} tried to switch to context {target_context_id} but it does not exist or is not suspended"
