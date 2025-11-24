@@ -2740,12 +2740,26 @@ impl Machine for MachineRiscv {
         sz_dst: Size,
         dst: Location,
     ) -> Result<(), CompileError> {
+        let mut temps = vec![];
+
         match (src, dst) {
-            (Location::Memory(_, _), Location::GPR(_)) => {
+            (Location::Memory(reg, offset), Location::GPR(_)) => {
+                let src = if ImmType::Bits12.compatible_imm(offset as _) {
+                    src
+                } else {
+                    let tmp =
+                        self.location_to_reg(sz_src, src, &mut temps, ImmType::None, true, None)?;
+                    self.assembler.emit_mov_imm(tmp, offset as _)?;
+                    self.assembler
+                        .emit_add(Size::S64, Location::GPR(reg), tmp, tmp)?;
+                    let Location::GPR(tmp) = tmp else {
+                        unreachable!()
+                    };
+                    Location::Memory(tmp, 0)
+                };
                 self.assembler.emit_ld(sz_src, true, dst, src)?;
             }
             _ => {
-                let mut temps = vec![];
                 let src =
                     self.location_to_reg(sz_src, src, &mut temps, ImmType::None, true, None)?;
                 let dest =
@@ -2754,10 +2768,11 @@ impl Machine for MachineRiscv {
                 if dst != dest {
                     self.move_location(sz_dst, dest, dst)?;
                 }
-                for r in temps {
-                    self.release_gpr(r);
-                }
             }
+        }
+
+        for r in temps {
+            self.release_gpr(r);
         }
 
         Ok(())
