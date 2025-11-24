@@ -5,7 +5,7 @@ use super::*;
 use crate::journal::JournalEffector;
 use crate::{
     WasiThreadHandle,
-    os::task::thread::WasiMemoryLayout,
+    os::task::thread::{WasiMemoryLayout, context_switching::ContextSwitchingContext},
     runtime::{
         TaintReason,
         task_manager::{TaskWasm, TaskWasmRunProperties},
@@ -185,7 +185,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 
 // This function calls into the module
 fn call_module_internal<M: MemorySize>(
-    env: &WasiFunctionEnv,
+    ctx: &WasiFunctionEnv,
     store: &mut Store,
     start_ptr_offset: M::Offset,
 ) -> Result<(), DeepSleepWork> {
@@ -193,28 +193,36 @@ fn call_module_internal<M: MemorySize>(
     //trace!("threading: invoking thread callback (reactor={})", reactor);
 
     // Note: we ensure both unwraps can happen before getting to this point
-    let spawn = env
+    let spawn = ctx
         .data(&store)
         .inner()
         .main_module_instance_handles()
         .thread_spawn
         .clone()
         .unwrap();
-    let tid = env.data(&store).tid();
-    let thread_result = spawn.call(
+    let tid = ctx.data(&store).tid();
+    // TODO: Find a better way to get a Function from a TypedFunction
+    // SAFETY: no
+    let spawn = unsafe { std::mem::transmute::<TypedFunction<(i32, i32), ()>, Function>(spawn) };
+    let tid_i32 = tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap();
+    let start_pointer_i32 = start_ptr_offset
+        .try_into()
+        .map_err(|_| Errno::Overflow)
+        .unwrap();
+    let thread_result = ContextSwitchingContext::run_main_context(
+        ctx,
         store,
-        tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap(),
-        start_ptr_offset
-            .try_into()
-            .map_err(|_| Errno::Overflow)
-            .unwrap(),
-    );
+        spawn,
+        vec![Value::I32(tid_i32), Value::I32(start_pointer_i32)],
+    )
+    .map(|_| ());
+
     trace!("callback finished (ret={:?})", thread_result);
 
-    let exit_code = handle_thread_result(env, store, thread_result)?;
+    let exit_code = handle_thread_result(ctx, store, thread_result)?;
 
     // Clean up the environment on exit
-    env.on_exit(store, exit_code);
+    ctx.on_exit(store, exit_code);
     Ok(())
 }
 
