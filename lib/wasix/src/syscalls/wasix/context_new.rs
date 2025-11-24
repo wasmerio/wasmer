@@ -1,5 +1,5 @@
 use super::*;
-use crate::os::task::thread::context_switching::ContextSwitchingContext;
+use crate::os::task::thread::context_switching::{ContextCancelled, ContextSwitchingContext};
 use crate::state::MAIN_CONTEXT_ID;
 use crate::utils::thread_local_executor::ThreadLocalSpawnerError;
 use crate::{run_wasi_func, run_wasi_func_start, syscalls::*};
@@ -55,21 +55,24 @@ pub fn lookup_typechecked_entrypoint(
 async fn launch_function(
     mut unsafe_static_store: StoreMut<'static>,
     contexts: Arc<ContextSwitchingContext>,
-    wait_for_unblock: Receiver<Result<(), RuntimeError>>,
-    new_context_id: u64,
+    wait_for_unblock: impl Future<Output = Result<Result<(), RuntimeError>, ContextCancelled>>
+    + Send
+    + Sync
+    + 'static,
+    own_context_id: u64,
     typechecked_entrypoint: Function,
 ) -> () {
     // Wait for the context to be unblocked
     let prelaunch_result = wait_for_unblock.await;
     // Restore our own context ID
-    contexts.set_active_context_id(new_context_id);
+    contexts.set_active_context_id(own_context_id);
 
     // Handle if the context was canceled before it even started
     match prelaunch_result {
         Ok(_) => (),
         Err(canceled) => {
             tracing::trace!(
-                "Context {new_context_id} was canceled before it even started: {canceled}",
+                "Context {own_context_id} was canceled before it even started: {canceled}",
             );
             // At this point we don't need to do anything else
             return;
@@ -86,7 +89,7 @@ async fn launch_function(
     let error = match result {
         Err(e) => match e.downcast_ref::<ContextError>() {
             Some(s) => {
-                tracing::trace!("Context {new_context_id} exited with error string: {}", s);
+                tracing::trace!("Context {own_context_id} exited with error string: {}", s);
                 // Context was cancelled, so we can just exit here.
                 //
                 // At this point we don't need to do anything else
@@ -103,7 +106,7 @@ async fn launch_function(
             // TODO: Handle returning functions with a real error type
             RuntimeError::user(
                 format!(
-                    "Context {new_context_id} returned a value ({v:?}). This is not allowed for now"
+                    "Context {own_context_id} returned a value ({v:?}). This is not allowed for now"
                 )
                 .into(),
             )
@@ -148,58 +151,31 @@ pub fn context_new<M: MemorySize>(
         }
     };
 
-    // Create a new context ID
-    let new_context_id = contexts.allocate_new_context_id();
-
-    // Write the new context ID into memory
-    let memory = unsafe { data.memory_view(&store) };
-    wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
-
-    // Setup sender and receiver for the new context
-    let (unblock, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
-
-    // Store the unblock function into the WasiEnv
-    let None = contexts.insert_unblocker(new_context_id, unblock) else {
-        panic!("There already is a context suspended with ID {new_context_id}");
-    };
-
     // Clone necessary arcs for the entrypoint future
     // SAFETY: Will be made safe with the proper wasmer async API
     let mut unsafe_static_store =
         unsafe { std::mem::transmute::<StoreMut<'_>, StoreMut<'static>>(store.as_store_mut()) };
     let contexts_cloned = contexts.clone();
-    let spawner = contexts.get_spawner();
 
-    // Create the future that will launch the entrypoint function
-    let entrypoint_future = launch_function(
-        unsafe_static_store,
-        contexts_cloned,
-        wait_for_unblock,
-        new_context_id,
-        typechecked_entrypoint,
-    );
+    // Setup sender and receiver for the new context
+    let new_context_id = contexts.new_context(|new_context_id, wait_for_unblock| {
+        // Create the future that will launch the entrypoint function
+        let entrypoint_future = launch_function(
+            unsafe_static_store,
+            contexts_cloned,
+            wait_for_unblock,
+            new_context_id,
+            typechecked_entrypoint,
+        );
 
-    // Queue the future onto the thread-local executor
-    let spawn_result = spawner.spawn_local(entrypoint_future);
+        entrypoint_future
+    });
+
+    // Write the new context ID into memory
+    let memory = unsafe { data.memory_view(&store) };
+    wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
+
+    return Ok(Errno::Success);
 
     // Return failure if spawning failed
-    match spawn_result {
-        Ok(()) => Ok(Errno::Success),
-        Err(ThreadLocalSpawnerError::LocalPoolShutDown) => {
-            // TODO: Handle cancellation properly
-            panic!(
-                "Failed to spawn context {new_context_id} because the local executor has been shut down",
-            );
-        }
-        Err(ThreadLocalSpawnerError::NotOnTheCorrectThread { expected, found }) => {
-            // Not on the correct host thread. If this error happens, it is a bug in WASIX.
-            panic!(
-                "Failed to spawn context {new_context_id} because the current thread ({found:?}) is not the expected thread ({expected:?}) for the local executor"
-            )
-        }
-        Err(ThreadLocalSpawnerError::SpawnError) => {
-            // This should never happen
-            panic!("Failed to spawn_local context {new_context_id} , this should not happen");
-        }
-    }
 }
