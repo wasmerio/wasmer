@@ -1074,12 +1074,7 @@ impl MachineARM64 {
         if offset < 0 {
             return false;
         }
-        let shift = match size {
-            Size::S8 => 0,
-            Size::S16 => 1,
-            Size::S32 => 2,
-            Size::S64 => 3,
-        };
+        let shift = size.bytes() - 1;
         if offset >= 0x1000 << shift {
             return false;
         }
@@ -1467,7 +1462,7 @@ impl Machine for MachineARM64 {
     }
 
     fn push_used_simd(&mut self, used_neons: &[NEON]) -> Result<usize, CompileError> {
-        let stack_adjust = if used_neons.len() & 1 == 1 {
+        let stack_adjust = if used_neons.len() % 2 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
             (used_neons.len() * 8) as u32
@@ -1491,7 +1486,7 @@ impl Machine for MachineARM64 {
                 Location::Memory(GPR::XzrSp, (i * 8) as i32),
             )?;
         }
-        let stack_adjust = if used_neons.len() & 1 == 1 {
+        let stack_adjust = if used_neons.len() % 2 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
             (used_neons.len() * 8) as u32
@@ -1731,17 +1726,9 @@ impl Machine for MachineARM64 {
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
                 || {
-                    let sz = 1
-                        << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
                     // align first
-                    if sz > 1 && *stack_args & (sz - 1) != 0 {
-                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
-                    }
+                    let sz = sz.bytes() as usize;
+                    *stack_args = (*stack_args).next_multiple_of(sz);
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += sz;
                     loc
@@ -1775,17 +1762,9 @@ impl Machine for MachineARM64 {
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
                 || {
-                    let sz = 1
-                        << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
+                    let sz = sz.bytes() as usize;
                     // align first
-                    if sz > 1 && *stack_args & (sz - 1) != 0 {
-                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
-                    }
+                    *stack_args = (*stack_args).next_multiple_of(sz);
                     let loc = Location::Memory(
                         GPR::X29,
                         16 * 2 + return_values_memory_size + *stack_args as i32,
