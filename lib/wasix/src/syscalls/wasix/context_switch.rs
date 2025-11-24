@@ -115,23 +115,8 @@ fn inner_context_switch(
     // Create the future that will resolve when this context is switched back to again
     Ok(async move {
         // Wait until we are unblocked again
-        let result = wait_for_unblock.await;
-
-        // Handle if we were canceled instead of beeing unblocked
-        let result = match result {
-            Ok(v) => v,
-            Err(canceled) => {
-                tracing::trace!(
-                    "Context {own_context_id} was canceled while it was suspended: {}",
-                    canceled
-                );
-
-                let err = ContextError::Cancelled.into();
-                return Err(RuntimeError::user(err));
-            }
-        };
+        wait_for_unblock.map(|v| v.map(|_| Errno::Success)).await
 
         // If we get relayed a trap, propagate it. Other wise return success
-        result.and(Ok(Errno::Success))
     })
 }
