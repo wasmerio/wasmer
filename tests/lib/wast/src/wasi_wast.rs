@@ -96,7 +96,7 @@ impl<'a> WasiTest<'a> {
     /// Execute the WASI test and assert.
     pub fn run(
         &self,
-        mut store: &mut Store,
+        store: &mut Store,
         base_path: &str,
         filesystem_kind: WasiFileSystemKind,
     ) -> anyhow::Result<bool> {
@@ -126,14 +126,15 @@ impl<'a> WasiTest<'a> {
         };
         let module_hash = ModuleHash::xxhash(&wasm_bytes);
 
-        let module = Module::new(store, wasm_bytes)?;
+        let module = Module::new(&store.engine(), wasm_bytes)?;
         let (builder, _tempdirs, mut stdin_tx, stdout_rx, stderr_rx) =
             { block_on(async { self.create_wasi_env(filesystem_kind).await }) }?;
 
-        let (instance, _wasi_env) =
-            builder
-                .runtime(Arc::new(rt))
-                .instantiate_ext(module, module_hash, store)?;
+        let (instance, _wasi_env) = builder.runtime(Arc::new(rt)).instantiate_ext(
+            module,
+            module_hash,
+            &mut store.as_mut(),
+        )?;
 
         let start = instance.exports.get_function("_start")?;
 
@@ -152,7 +153,7 @@ impl<'a> WasiTest<'a> {
         }
 
         // TODO: handle errors here when the error fix gets shipped
-        match start.call(&mut store, &[]) {
+        match start.call(&mut store.as_mut(), &[]) {
             Ok(_) => {}
             Err(e) => {
                 let stdout_str = get_stdio_output(&stdout_rx)?;
@@ -367,7 +368,11 @@ impl<'a> WasiTest<'a> {
         module: &Module,
     ) -> anyhow::Result<Imports> {
         let version = self.get_version(module)?;
-        Ok(generate_import_object_from_env(store, ctx, version))
+        Ok(generate_import_object_from_env(
+            &mut store.as_mut(),
+            ctx,
+            version,
+        ))
     }
 }
 

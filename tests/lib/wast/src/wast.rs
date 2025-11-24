@@ -427,7 +427,7 @@ impl Wast {
     }
 
     fn instantiate(&mut self, module: &[u8]) -> Result<Instance> {
-        let module = Module::new(&self.store, module)?;
+        let module = Module::new(&self.store.engine(), module)?;
         let mut imports = self.import_object.clone();
 
         for import in module.imports() {
@@ -442,7 +442,7 @@ impl Wast {
             imports.register_namespace(module_name, instance.exports.clone());
         }
 
-        let instance = Instance::new(&mut self.store, &module, &imports)?;
+        let instance = Instance::new(&mut self.store.as_mut(), &module, &imports)?;
         Ok(instance)
     }
 
@@ -462,7 +462,7 @@ impl Wast {
     ) -> Result<Vec<Value>> {
         let instance = self.get_instance(instance_name)?;
         let func: &Function = instance.exports.get(field)?;
-        match func.call(&mut self.store, args) {
+        match func.call(&mut self.store.as_mut(), args) {
             Ok(result) => Ok(result.into()),
             Err(e) => Err(e.into()),
         }
@@ -472,7 +472,7 @@ impl Wast {
     fn get(&mut self, instance_name: Option<&str>, field: &str) -> Result<Vec<Value>> {
         let instance = self.get_instance(instance_name)?;
         let global: &Global = instance.exports.get(field)?;
-        Ok(vec![global.get(&mut self.store)])
+        Ok(vec![global.get(&mut self.store.as_mut())])
     }
 
     /// Translate from a `script::Value` to a `Value`.
@@ -493,7 +493,9 @@ impl Wast {
                 ty: AbstractHeapType::Extern,
                 ..
             }) => Value::null(),
-            RefExtern(number) => Value::ExternRef(Some(ExternRef::new(&mut self.store, *number))),
+            RefExtern(number) => {
+                Value::ExternRef(Some(ExternRef::new(&mut self.store.as_mut(), *number)))
+            }
             other => bail!("couldn't convert {other:?} to a runtime value"),
         })
     }
@@ -578,7 +580,7 @@ impl Wast {
             (Value::ExceptionRef(None), WastRetCore::RefNull(_)) => true,
             (Value::ExternRef(Some(_)), WastRetCore::RefNull(_)) => false,
             (Value::ExternRef(Some(extern_ref)), WastRetCore::RefExtern(num)) => {
-                let x = extern_ref.downcast::<u32>(&self.store).cloned();
+                let x = extern_ref.downcast::<u32>(&self.store.as_ref()).cloned();
                 x == *num
             }
             _ => bail!("don't know how to compare {actual:?} and {expected:?} yet"),

@@ -508,7 +508,7 @@ impl Run {
         /// store here.
         let mut store = self.rt.get_store()?;
         let imports = Imports::default();
-        let instance = Instance::new(&mut store, module, &imports)
+        let instance = Instance::new(&mut store.as_mut(), module, &imports)
             .context("Unable to instantiate the WebAssembly module")?;
 
         let entry_function  = match &self.invoke {
@@ -538,7 +538,7 @@ impl Run {
                 Ok(())
             }
             Err(err) => {
-                bail!("{}", err.display(&mut store));
+                bail!("{}", err.display(&mut store.as_mut()));
             }
         }
     }
@@ -646,7 +646,7 @@ fn invoke_function(
     func: &Function,
     args: &[String],
 ) -> anyhow::Result<Result<Box<[Value]>, RuntimeError>> {
-    let func_ty = func.ty(store);
+    let func_ty = func.ty(&store.as_ref());
     let required_arguments = func_ty.params().len();
     let provided_arguments = args.len();
 
@@ -664,7 +664,7 @@ fn invoke_function(
         })
         .collect::<Result<Vec<_>, _>>()?;
 
-    Ok(func.call(store, &invoke_args))
+    Ok(func.call(&mut store.as_mut(), &invoke_args))
 }
 
 fn parse_value(s: &str, ty: wasmer_types::Type) -> Result<Value, Error> {

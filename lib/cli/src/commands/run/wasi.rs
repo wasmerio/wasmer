@@ -13,7 +13,9 @@ use tokio::runtime::Handle;
 use url::Url;
 use virtual_fs::{DeviceFile, FileSystem, PassthruFileSystem, RootFileSystemBuilder};
 use virtual_net::ruleset::Ruleset;
-use wasmer::{Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer::{
+    AsStoreMut, Engine, Function, Instance, Memory32, Memory64, Module, RuntimeError, Store, Value,
+};
 use wasmer_config::package::PackageSource as PackageSpecifier;
 use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
@@ -718,7 +720,7 @@ impl Wasi {
         program_name: String,
         args: Vec<String>,
         runtime: Arc<dyn Runtime + Send + Sync>,
-        store: &mut Store,
+        store: &mut impl AsStoreMut,
     ) -> Result<(WasiFunctionEnv, Instance)> {
         let builder = self.prepare(module, program_name, args, runtime)?;
         let (instance, wasi_env) = builder.instantiate_ext(module.clone(), module_hash, store)?;
