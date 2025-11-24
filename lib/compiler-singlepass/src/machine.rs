@@ -56,8 +56,6 @@ pub struct TrapTable {
 // all machine seems to have a page this size, so not per arch for now
 pub const NATIVE_PAGE_SIZE: usize = 4096;
 
-pub struct MachineStackOffset(pub usize);
-
 #[allow(dead_code)]
 pub enum UnsignedCondition {
     Equal,

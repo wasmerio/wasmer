@@ -7,7 +7,7 @@ use crate::{
     common_decl::*,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, MachineStackOffset, NATIVE_PAGE_SIZE, UnsignedCondition},
+    machine::{Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition},
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
@@ -76,9 +76,10 @@ pub struct FuncGen<'a, M: Machine> {
     /// A list of frames describing the current control stack.
     control_stack: Vec<ControlFrame<M>>,
 
-    stack_offset: MachineStackOffset,
+    /// Stack offset tracking in bytes.
+    stack_offset: usize,
 
-    save_area_offset: Option<MachineStackOffset>,
+    save_area_offset: Option<usize>,
 
     /// Low-level machine state.
     machine: M,
@@ -254,8 +255,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
     /// Acquire location that will live on the stack.
     fn acquire_location_on_stack(&mut self) -> Result<Location<M::GPR, M::SIMD>, CompileError> {
-        self.stack_offset.0 += 8;
-        let loc = self.machine.local_on_stack(self.stack_offset.0 as i32);
+        self.stack_offset += 8;
+        let loc = self.machine.local_on_stack(self.stack_offset as i32);
         self.machine
             .extend_stack(self.machine.round_stack_adjust(8) as u32)?;
 
@@ -297,8 +298,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
-                self.check_location_on_stack(loc, self.stack_offset.0)?;
-                self.stack_offset.0 -= 8;
+                self.check_location_on_stack(loc, self.stack_offset)?;
+                self.stack_offset -= 8;
                 delta_stack_offset += 8;
             }
         }
@@ -315,7 +316,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         stack_depth: usize,
     ) -> Result<(), CompileError> {
         let mut delta_stack_offset: usize = 0;
-        let mut stack_offset = self.stack_offset.0;
+        let mut stack_offset = self.stack_offset;
         let locs = &self.value_stack[stack_depth..];
 
         for (loc, _) in locs.iter().rev() {
@@ -349,7 +350,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
         let offset = offset.neg() as usize;
         if offset != expected_stack_offset {
-            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset.0);
+            codegen_error!("Invalid memory offset {offset}!={}", self.stack_offset);
         }
         Ok(())
     }
@@ -481,27 +482,27 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Save callee-saved registers.
         for loc in locations.iter() {
             if let Location::GPR(_) = *loc {
-                self.stack_offset.0 += 8;
-                self.machine.move_local(self.stack_offset.0 as i32, *loc)?;
+                self.stack_offset += 8;
+                self.machine.move_local(self.stack_offset as i32, *loc)?;
             }
         }
 
         // Save the Reg use for vmctx.
-        self.stack_offset.0 += 8;
+        self.stack_offset += 8;
         self.machine.move_local(
-            self.stack_offset.0 as i32,
+            self.stack_offset as i32,
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
         // Check if need to same some CallingConvention specific regs
         let regs_to_save = self.machine.list_to_save(calling_convention);
         for loc in regs_to_save.iter() {
-            self.stack_offset.0 += 8;
-            self.machine.move_local(self.stack_offset.0 as i32, *loc)?;
+            self.stack_offset += 8;
+            self.machine.move_local(self.stack_offset as i32, *loc)?;
         }
 
         // Save the offset of register save area.
-        self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
+        self.save_area_offset = Some(self.stack_offset);
 
         // Load in-register parameters into the allocated locations.
         // Locals are allocated on the stack from higher address to lower address,
@@ -554,7 +555,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         }
 
         // Add the size of all locals allocated to stack.
-        self.stack_offset.0 += static_area_size - callee_saved_regs_size;
+        self.stack_offset += static_area_size - callee_saved_regs_size;
 
         Ok(locations)
     }
@@ -565,7 +566,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     ) -> Result<(), CompileError> {
         // Unwind stack to the "save area".
         self.machine
-            .restore_saved_area(self.save_area_offset.as_ref().unwrap().0 as i32)?;
+            .restore_saved_area(self.save_area_offset.unwrap() as i32)?;
 
         let regs_to_save = self.machine.list_to_save(calling_convention);
         for loc in regs_to_save.iter().rev() {
@@ -721,7 +722,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
 
         // Align stack to 16 bytes.
         let stack_unaligned =
-            (self.machine.round_stack_adjust(self.stack_offset.0) + used_stack + stack_offset) % 16;
+            (self.machine.round_stack_adjust(self.stack_offset) + used_stack + stack_offset) % 16;
         if stack_unaligned != 0 {
             stack_offset += 16 - stack_unaligned;
         }
@@ -936,7 +937,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             local_types,
             value_stack: vec![],
             control_stack: vec![],
-            stack_offset: MachineStackOffset(0),
+            stack_offset: 0,
             save_area_offset: None,
             machine,
             unreachable_depth: 0,
@@ -2504,7 +2505,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                         }
                         Location::Memory(reg, _) => {
                             debug_assert_eq!(reg, &self.machine.local_pointer());
-                            self.stack_offset.0 += 8;
+                            self.stack_offset += 8;
                         }
                         _ => {}
                     }
