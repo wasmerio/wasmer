@@ -94,9 +94,9 @@ pub trait Machine {
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR;
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
-    /// Push used gpr to the stack. Return the bytes taken on the stack
+    /// Push used gpr to the stack. Return the bytes taken on the stack.
     fn push_used_gpr(&mut self, gprs: &[Self::GPR]) -> Result<usize, CompileError>;
-    /// Pop used gpr to the stack
+    /// Pop used gpr from the stack.
     fn pop_used_gpr(&mut self, gprs: &[Self::GPR]) -> Result<(), CompileError>;
     /// Picks an unused SIMD register.
     ///
