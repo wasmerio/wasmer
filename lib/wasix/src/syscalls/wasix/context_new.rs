@@ -52,32 +52,14 @@ pub fn lookup_typechecked_entrypoint(
     Ok(entrypoint)
 }
 
-async fn launch_function(
+async fn async_entrypoint(
     mut unsafe_static_store: StoreMut<'static>,
     contexts: Arc<ContextSwitchingContext>,
-    wait_for_unblock: impl Future<Output = Result<Result<(), RuntimeError>, ContextCancelled>>
-    + Send
-    + Sync
-    + 'static,
     own_context_id: u64,
     typechecked_entrypoint: Function,
 ) -> () {
-    // Wait for the context to be unblocked
-    let prelaunch_result = wait_for_unblock.await;
     // Restore our own context ID
     contexts.set_active_context_id(own_context_id);
-
-    // Handle if the context was canceled before it even started
-    match prelaunch_result {
-        Ok(_) => (),
-        Err(canceled) => {
-            tracing::trace!(
-                "Context {own_context_id} was canceled before it even started: {canceled}",
-            );
-            // At this point we don't need to do anything else
-            return;
-        }
-    };
 
     // Actually call the entrypoint function
     let result = typechecked_entrypoint
@@ -157,25 +139,20 @@ pub fn context_new<M: MemorySize>(
         unsafe { std::mem::transmute::<StoreMut<'_>, StoreMut<'static>>(store.as_store_mut()) };
     let contexts_cloned = contexts.clone();
 
-    // Setup sender and receiver for the new context
-    let new_context_id = contexts.new_context(|new_context_id, wait_for_unblock| {
-        // Create the future that will launch the entrypoint function
-        let entrypoint_future = launch_function(
+    // Create the new context
+    let new_context_id = contexts.new_context(|new_context_id| {
+        async_entrypoint(
             unsafe_static_store,
             contexts_cloned,
-            wait_for_unblock,
             new_context_id,
             typechecked_entrypoint,
-        );
-
-        entrypoint_future
+        )
     });
 
     // Write the new context ID into memory
     let memory = unsafe { data.memory_view(&store) };
     wasi_try_mem_ok!(new_context_ptr.write(&memory, new_context_id));
 
+    // Return success
     return Ok(Errno::Success);
-
-    // Return failure if spawning failed
 }
