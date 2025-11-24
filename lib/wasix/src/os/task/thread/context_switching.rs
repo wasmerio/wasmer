@@ -25,7 +25,7 @@ pub(crate) struct ContextSwitchingContext {
 }
 
 #[derive(Debug)]
-pub(crate) struct ContextSwitchingContextInner {
+struct ContextSwitchingContextInner {
     /// TODO: Document these fields
     unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
     current_context_id: AtomicU64,
@@ -43,6 +43,8 @@ pub enum ContextSwitchError {
     OwnContextAlreadyBlocked,
 }
 
+const MAIN_CONTEXT_ID: u64 = 0;
+
 #[derive(Error, Debug)]
 #[error("Context was canceled")]
 pub struct ContextCanceled();
@@ -52,8 +54,8 @@ impl ContextSwitchingContext {
         Self {
             inner: Arc::new(ContextSwitchingContextInner {
                 unblockers: RwLock::new(BTreeMap::new()),
-                current_context_id: AtomicU64::new(0),
-                next_available_context_id: AtomicU64::new(1),
+                current_context_id: AtomicU64::new(MAIN_CONTEXT_ID),
+                next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
                 spawner,
             }),
         }
@@ -94,17 +96,16 @@ impl ContextSwitchingContext {
         result
     }
 
-    // Get the currently active context ID
+    /// Get the ID of the currently active context
     pub(crate) fn active_context_id(&self) -> u64 {
         self.inner
             .current_context_id
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
-    pub(crate) fn allocate_new_context_id(&self) -> u64 {
-        self.inner
-            .next_available_context_id
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
+    /// Get the id of the main context (0)
+    pub(crate) fn main_context_id(&self) -> u64 {
+        MAIN_CONTEXT_ID
     }
 
     pub(crate) fn remove_unblocker(
@@ -215,7 +216,10 @@ impl ContextSwitchingContext {
         F: Future<Output = RuntimeError> + 'static,
     {
         // Create a new context ID
-        let new_context_id = self.allocate_new_context_id();
+        let new_context_id = self
+            .inner
+            .next_available_context_id
+            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
 
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
@@ -274,7 +278,8 @@ impl ContextSwitchingContext {
                 // TODO: Handle this properly
                 return;
             };
-            let Some(main_context) = inner.unblockers.write().unwrap().remove(&0) else {
+            let Some(main_context) = inner.unblockers.write().unwrap().remove(&MAIN_CONTEXT_ID)
+            else {
                 // The main context should always be suspended when another context returns or traps with anything but cancellation
                 panic!(
                     "The main context should always be suspended when another context returns or traps (with anything but a cancellation)."
