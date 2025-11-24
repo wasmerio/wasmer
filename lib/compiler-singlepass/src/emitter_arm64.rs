@@ -3240,7 +3240,8 @@ pub fn gen_import_call_trampoline_arm64(
     let offset = vmoffsets.vmctx_vmfunction_import(index);
     // for ldr, offset needs to be a multiple of 8, wich often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
-    let offset = if (offset > 0 && offset < 0xF8)
+    let offset = if (offset > 0) && ((offset < 0xF8)
+        || (offset < 0x7FF8 && offset.is_multiple_of(8)))
         || (offset > 0 && offset < 0x7FF8 && offset.is_multiple_of(8))
     {
         offset
