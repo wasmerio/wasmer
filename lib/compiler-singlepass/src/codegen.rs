@@ -1725,13 +1725,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if self.machine.arch_supports_canonicalize_nan()
                     && self.config.enable_nan_canonicalization
                 {
-                    for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)].iter() {
+                    for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
                         if fp.to_size().is_some() {
                             self.machine
-                                .canonicalize_nan(Size::S32, *loc, Location::GPR(*tmp))?
+                                .canonicalize_nan(Size::S32, loc, Location::GPR(tmp))?
                         } else {
                             self.machine
-                                .move_location(Size::S32, *loc, Location::GPR(*tmp))?
+                                .move_location(Size::S32, loc, Location::GPR(tmp))?
                         }
                     }
                 } else {
@@ -1874,13 +1874,13 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                 if self.machine.arch_supports_canonicalize_nan()
                     && self.config.enable_nan_canonicalization
                 {
-                    for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)].iter() {
+                    for ((loc, fp), tmp) in [(loc_a, tmp1), (loc_b, tmp2)] {
                         if fp.to_size().is_some() {
                             self.machine
-                                .canonicalize_nan(Size::S64, *loc, Location::GPR(*tmp))?
+                                .canonicalize_nan(Size::S64, loc, Location::GPR(tmp))?
                         } else {
                             self.machine
-                                .move_location(Size::S64, *loc, Location::GPR(*tmp))?
+                                .move_location(Size::S64, loc, Location::GPR(tmp))?
                         }
                     }
                 } else {
