@@ -116,8 +116,6 @@ fn inner_context_switch(
     Ok(async move {
         // Wait until we are unblocked again
         let result = wait_for_unblock.await;
-        // Restore our own context ID
-        contexts_cloned.set_active_context_id(own_context_id);
 
         // Handle if we were canceled instead of beeing unblocked
         let result = match result {
