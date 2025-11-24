@@ -568,16 +568,27 @@ impl WasiEnv {
         }
 
         // If this module exports an _initialize function, run that first.
-        if call_initialize
-            && let Ok(initialize) = instance.exports.get_function("_initialize")
-            && let Err(err) = crate::run_wasi_func_start(initialize, &mut store)
-        {
-            func_env
-                .data(&store)
-                .blocking_on_exit(Some(Errno::Noexec.into()));
-            return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
-                err,
-            ))));
+        if call_initialize && let Ok(initialize) = instance.exports.get_function("_initialize") {
+            // TODO: Fix lifetime issues once rebased onto the static store branch
+            let mut static_store = unsafe {
+                std::mem::transmute::<wasmer::StoreMut<'_>, wasmer::StoreMut<'static>>(
+                    store.as_store_mut(),
+                )
+            };
+            let initialize_result = ContextSwitchingContext::run_main_context(
+                &func_env,
+                &mut static_store,
+                initialize.clone(),
+                vec![],
+            );
+            if let Err(err) = initialize_result {
+                func_env
+                    .data(&store)
+                    .blocking_on_exit(Some(Errno::Noexec.into()));
+                return Err(WasiThreadError::InitFailed(Arc::new(anyhow::Error::from(
+                    err,
+                ))));
+            }
         }
 
         Ok((instance, func_env))
