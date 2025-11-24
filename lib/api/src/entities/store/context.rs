@@ -106,6 +106,11 @@ impl StoreContext {
     pub(crate) fn force_install(store_mut: StoreMut) -> ForcedStoreInstallGuard {
         let id = store_mut.objects().id();
         Self::install(store_mut);
+        tracing::trace!(
+            "Force-installed store context for store id {}\n{}",
+            id,
+            std::backtrace::Backtrace::capture()
+        );
         ForcedStoreInstallGuard { store_id: Some(id) }
     }
 
@@ -145,6 +150,11 @@ impl StoreContext {
                 );
             };
             Self::install(store_mut_instance);
+            tracing::trace!(
+                "Installed store context for store id {}\n{}",
+                store_id,
+                std::backtrace::Backtrace::capture()
+            );
             StoreInstallGuard::Installed {
                 store_id,
                 store_mut,
@@ -167,6 +177,12 @@ impl StoreContext {
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
             top.borrow_count += 1;
+            tracing::trace!(
+                "Acquired mutable borrow for store id {}, current borrow count {}\n{}",
+                id,
+                top.borrow_count,
+                std::backtrace::Backtrace::capture()
+            );
             StoreMutWrapper {
                 store_mut: top.store_mut.get(),
             }
@@ -185,6 +201,12 @@ impl StoreContext {
                 .last_mut()
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
+            tracing::trace!(
+                "Acquired transient mutable borrow for store id {}, current borrow count {}\n{}",
+                id,
+                top.borrow_count,
+                std::backtrace::Backtrace::capture()
+            );
             unsafe { top.store_mut.get() }
         })
     }
@@ -198,6 +220,12 @@ impl StoreContext {
                 return None;
             }
             top.borrow_count += 1;
+            tracing::trace!(
+                "Acquired mutable borrow for store id {}, current borrow count {}\n{}",
+                id,
+                top.borrow_count,
+                std::backtrace::Backtrace::capture()
+            );
             Some(StoreMutWrapper {
                 store_mut: top.store_mut.get(),
             })
@@ -229,6 +257,12 @@ impl Drop for StoreMutWrapper {
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context reinstall");
             top.borrow_count -= 1;
+            tracing::trace!(
+                "Dropped mutable borrow for store id {}, current borrow count {}\n{}",
+                id,
+                top.borrow_count,
+                std::backtrace::Backtrace::capture()
+            );
         })
     }
 }
@@ -249,6 +283,11 @@ impl Drop for StoreInstallGuard<'_> {
                     "Cannot uninstall store context while it is still borrowed"
                 );
                 store_mut.put_back(top.store_mut.into_inner());
+                tracing::trace!(
+                    "Uninstalled store context for store id {}\n{}",
+                    *store_id,
+                    std::backtrace::Backtrace::capture()
+                );
             })
         }
     }
