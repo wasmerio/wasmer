@@ -1,7 +1,7 @@
 use std::{
     collections::BTreeMap,
     sync::{
-        Arc, RwLock,
+        Arc, RwLock, Weak,
         atomic::{AtomicU64, Ordering},
     },
 };
@@ -18,8 +18,14 @@ use crate::utils::thread_local_executor::{ThreadLocalSpawner, ThreadLocalSpawner
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingContext {
     /// TODO: Document these fields
+    inner: Arc<ContextSwitchingContextInner>,
+}
+
+#[derive(Debug)]
+pub(crate) struct ContextSwitchingContextInner {
+    /// TODO: Document these fields
     unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
-    current_context_id: Arc<AtomicU64>,
+    current_context_id: AtomicU64,
     next_available_context_id: AtomicU64,
     spawner: ThreadLocalSpawner,
 }
@@ -41,21 +47,25 @@ pub struct ContextCancelled();
 impl ContextSwitchingContext {
     pub(crate) fn new(spawner: ThreadLocalSpawner) -> Self {
         Self {
-            unblockers: RwLock::new(BTreeMap::new()),
-            current_context_id: Arc::new(AtomicU64::new(0)),
-            next_available_context_id: AtomicU64::new(1),
-            spawner,
+            inner: Arc::new(ContextSwitchingContextInner {
+                unblockers: RwLock::new(BTreeMap::new()),
+                current_context_id: AtomicU64::new(0),
+                next_available_context_id: AtomicU64::new(1),
+                spawner,
+            }),
         }
     }
 
     // Get the currently active context ID
     pub(crate) fn active_context_id(&self) -> u64 {
-        self.current_context_id
+        self.inner
+            .current_context_id
             .load(std::sync::atomic::Ordering::Relaxed)
     }
 
     pub(crate) fn allocate_new_context_id(&self) -> u64 {
-        self.next_available_context_id
+        self.inner
+            .next_available_context_id
             .fetch_add(1, std::sync::atomic::Ordering::Relaxed)
     }
 
@@ -63,7 +73,11 @@ impl ContextSwitchingContext {
         &self,
         target_context_id: &u64,
     ) -> Option<Sender<Result<(), RuntimeError>>> {
-        self.unblockers.write().unwrap().remove(target_context_id)
+        self.inner
+            .unblockers
+            .write()
+            .unwrap()
+            .remove(target_context_id)
     }
 
     /// Insert an unblocker for the given context ID
@@ -74,7 +88,8 @@ impl ContextSwitchingContext {
         target_context_id: u64,
         unblocker: Sender<Result<(), RuntimeError>>,
     ) -> Option<Sender<Result<(), RuntimeError>>> {
-        self.unblockers
+        self.inner
+            .unblockers
             .write()
             .unwrap()
             .insert(target_context_id, unblocker)
@@ -94,7 +109,7 @@ impl ContextSwitchingContext {
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
         // Lock contexts for this block
-        let mut contexts = self.unblockers.write().unwrap();
+        let mut contexts = self.inner.unblockers.write().unwrap();
         let own_context_id = self.active_context_id();
 
         // Assert preconditions (target is blocked && we are unblocked)
@@ -124,11 +139,21 @@ impl ContextSwitchingContext {
 
         // After we have unblocked the target, we can insert our own unblock function
         contexts.insert(own_context_id, own_unblocker);
-        let current_context_id_cloned = self.current_context_id.clone();
+        let weak_inner = Arc::downgrade(&self.inner);
         Ok(async move {
             let unblock_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+
             // Restore our own context ID
-            current_context_id_cloned.store(own_context_id, std::sync::atomic::Ordering::Relaxed);
+            let Some(inner) = Weak::upgrade(&weak_inner) else {
+                // The context switching context has been dropped, so we can't proceed
+                // TODO: Handle this properly
+                todo!();
+            };
+            inner
+                .current_context_id
+                .store(own_context_id, Ordering::Relaxed);
+            drop(inner);
+
             unblock_result
         })
     }
@@ -154,12 +179,21 @@ impl ContextSwitchingContext {
         };
 
         // Create the future for the new context
-        let current_context_id_cloned = self.current_context_id.clone();
+        let weak_inner = Arc::downgrade(&self.inner);
         let context_future = async move {
             // First wait for the unblock signal
             let prelaunch_result = wait_for_unblock.map_err(|_| ContextCancelled()).await;
+
             // Set the current context ID
-            current_context_id_cloned.store(new_context_id, Ordering::Relaxed);
+            let Some(inner) = Weak::upgrade(&weak_inner) else {
+                // The context switching context has been dropped, so we can't proceed
+                // TODO: Handle this properly
+                return;
+            };
+            inner
+                .current_context_id
+                .store(new_context_id, Ordering::Relaxed);
+            drop(inner);
 
             // Handle if the context was canceled before it even started
             match prelaunch_result {
@@ -178,7 +212,7 @@ impl ContextSwitchingContext {
         };
 
         // Queue the future onto the thread-local executor
-        let spawn_result = self.spawner.spawn_local(context_future);
+        let spawn_result = self.inner.spawner.spawn_local(context_future);
 
         match spawn_result {
             Ok(()) => new_context_id,
