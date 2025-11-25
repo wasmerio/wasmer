@@ -182,9 +182,9 @@ dynasmrt = "4.0.0"
 cc = "1.0"
 regex = "1.11"
 rustc_version = "0.4"
-cranelift-entity = { version = "=0.125.4", default-features = false }
-cranelift-codegen = { version = "=0.125.4", default-features = false }
-cranelift-frontend = { version = "=0.125.4", default-features = false }
+cranelift-entity = { version = "=0.126.0", default-features = false }
+cranelift-codegen = { version = "=0.126.0", default-features = false }
+cranelift-frontend = { version = "=0.126.0", default-features = false }
 xxhash-rust = { version = "0.8.10", default-features = false }
 macho-unwind-info = "0.5.0"
 windows-sys = { version = "0.59", default-features = false }
