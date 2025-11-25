@@ -321,7 +321,7 @@ proc-macro2 = "1"
 proc-macro-error2 = "2.0.1"
 quote = "1.0.20"
 test-log = { version = "0.2", default-features = false }
-wasmi_c_api_impl.version = "0.40.0"
+wasmi_c_api_impl = "0.40.0"
 unix_mode = "0.1.3"
 
 [build-dependencies]
