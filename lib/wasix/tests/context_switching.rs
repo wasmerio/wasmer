@@ -4,16 +4,15 @@ use wasmer::Module;
 use wasmer_types::ModuleHash;
 use wasmer_wasix::runners::wasi::{RuntimeOrEngine, WasiRunner};
 
-#[cfg(target_os = "linux")]
-#[test]
-fn test_context_switching() {
+fn test_with_wasixcc(name: &str) -> Result<(), anyhow::Error> {
+    eprintln!("Compiling test case: {}", name);
     let test_dir = PathBuf::from(env!("CARGO_MANIFEST_DIR"))
         .join("tests")
         .join(PathBuf::from(
             file!().split('/').last().unwrap().trim_end_matches(".rs"),
         ));
-    let main_c = test_dir.join("main.c");
-    let main_wasm = test_dir.join("main.tmp.wasm");
+    let main_c = test_dir.join(format!("{name}.c"));
+    let main_wasm = test_dir.join(format!("{name}.test.wasm"));
 
     // Compile with wasixcc
     let mut command = Command::new("wasixcc");
@@ -34,12 +33,34 @@ fn test_context_switching() {
 
     // Run the WASM module using WasiRunner
     let runner = WasiRunner::new();
-    runner
-        .run_wasm(
-            RuntimeOrEngine::Engine(engine),
-            "wasix-test",
-            module,
-            ModuleHash::random(),
-        )
-        .unwrap();
+    runner.run_wasm(
+        RuntimeOrEngine::Engine(engine),
+        "wasix-test",
+        module,
+        ModuleHash::random(),
+    )
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_simple_switching() {
+    test_with_wasixcc("simple_switching").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_switching_with_main() {
+    test_with_wasixcc("switching_with_main").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_switching_to_a_deleted_context() {
+    test_with_wasixcc("switching_to_a_deleted_context").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_switching_threads() {
+    test_with_wasixcc("switching_in_threads").unwrap();
 }

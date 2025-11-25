@@ -2,7 +2,12 @@
 #include <stdio.h>
 #include <assert.h>
 #include <errno.h>
+#include <pthread.h>
 #include <wasix/context.h>
+
+#ifndef NULL
+#define NULL ((void*)0)
+#endif
 
 wasix_context_id_t context1;
 wasix_context_id_t context2;
@@ -43,12 +48,23 @@ void test2(void) {
     exit(50);
 }
 
-int main() {
+void* abort_in_thread(void* arg) {
     wasix_context_new(&context1, test1);
     wasix_context_new(&context2, test2);
     wasix_context_switch(context1);
-    
-    assert(counter == 4);
+
+    return NULL;
+}
+
+int main() {
+    pthread_t thread;
+    pthread_create(&thread, NULL, abort_in_thread, NULL);
+    pthread_join(thread, NULL);
+
+    if(counter != 4) {
+        printf("Error: expected counter to be 4 but it is %d\n", counter);
+        exit(1);
+    }
 
     return 0;
 }
