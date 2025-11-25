@@ -52,7 +52,7 @@ pub fn lookup_typechecked_entrypoint(
 }
 
 #[instrument(level = "trace", skip(ctx), ret)]
-pub fn context_new<M: MemorySize>(
+pub fn context_create<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     new_context_ptr: WasmPtr<u64, M>,
     entrypoint: u32,
