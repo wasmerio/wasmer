@@ -16,7 +16,7 @@ use wasmer::{StoreMut, Tag, Type};
 
 /// ### `context_delete()`
 #[instrument(level = "trace", skip(ctx), ret)]
-pub fn context_delete(
+pub fn context_destroy(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
     target_context_id: u64,
 ) -> Result<Errno, WasiError> {
