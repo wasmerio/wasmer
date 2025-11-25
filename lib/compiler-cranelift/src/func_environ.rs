@@ -29,10 +29,10 @@ use wasmer_types::{
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_function_name(func: &mut Function, func_index: FunctionIndex) -> ir::ExternalName {
-    // Called as the function name offset is used for debugging purpose.
-    func.params
-        .ensure_user_func_name(UserExternalName::new(0, func_index.as_u32()));
-    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
+    ir::ExternalName::user(
+        func.params
+            .ensure_user_func_name(UserExternalName::new(0, func_index.as_u32())),
+    )
 }
 
 /// The type of the `current_elements` field.
