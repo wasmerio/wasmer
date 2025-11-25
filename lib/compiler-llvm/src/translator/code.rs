@@ -1041,16 +1041,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         value: BasicValueEnum<'ctx>,
         info: ExtraInfo,
     ) -> Result<(VectorValue<'ctx>, ExtraInfo), CompileError> {
-        let (value, info) = if self.config.enable_nan_canonicalization {
-            if info.has_pending_f64_nan() {
-                let value = err!(
-                    self.builder
-                        .build_bit_cast(value, self.intrinsics.f64x2_ty, "")
-                );
-                (self.canonicalize_nans(value)?, info.strip_pending())
-            } else {
-                (value, info)
-            }
+        let (value, info) = if self.config.enable_nan_canonicalization && info.has_pending_f64_nan()
+        {
+            let value = err!(
+                self.builder
+                    .build_bit_cast(value, self.intrinsics.f64x2_ty, "")
+            );
+            (self.canonicalize_nans(value)?, info.strip_pending())
         } else {
             (value, info)
         };
@@ -1071,16 +1068,13 @@ impl<'ctx> LLVMFunctionCodeGenerator<'ctx, '_> {
         value: BasicValueEnum<'ctx>,
         info: ExtraInfo,
     ) -> Result<(VectorValue<'ctx>, ExtraInfo), CompileError> {
-        let (value, info) = if self.config.enable_nan_canonicalization {
-            if info.has_pending_f32_nan() {
-                let value = err!(
-                    self.builder
-                        .build_bit_cast(value, self.intrinsics.f32x4_ty, "")
-                );
-                (self.canonicalize_nans(value)?, info.strip_pending())
-            } else {
-                (value, info)
-            }
+        let (value, info) = if self.config.enable_nan_canonicalization && info.has_pending_f32_nan()
+        {
+            let value = err!(
+                self.builder
+                    .build_bit_cast(value, self.intrinsics.f32x4_ty, "")
+            );
+            (self.canonicalize_nans(value)?, info.strip_pending())
         } else {
             (value, info)
         };
