@@ -20,6 +20,18 @@
 )]
 #![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
 
+macro_rules! cfg_std_or_core {
+    ($($item:item)*) => {
+        $(
+            #[cfg(any(
+                feature = "std",
+                feature = "core",
+            ))]
+            $item
+        )*
+    };
+}
+
 #[cfg(all(feature = "std", feature = "core"))]
 compile_error!(
     "The `std` and `core` features are both enabled, which is an error. Please enable only once."
@@ -47,30 +59,22 @@ mod lib {
     }
 }
 
-#[cfg(any(feature = "std", feature = "core"))]
-mod engine;
-#[cfg(any(feature = "std", feature = "core"))]
-mod traits;
+cfg_std_or_core! {
+    mod engine;
+    mod traits;
 
-#[cfg(any(feature = "std", feature = "core"))]
-pub mod misc;
-#[cfg(any(feature = "std", feature = "core"))]
-pub mod object;
-#[cfg(any(feature = "std", feature = "core"))]
-pub mod serialize;
-#[cfg(any(feature = "std", feature = "core"))]
-pub mod types;
+    pub mod misc;
+    pub mod object;
+    pub mod serialize;
+    pub mod types;
 
-#[cfg(any(feature = "std", feature = "core"))]
-pub use crate::engine::*;
-#[cfg(any(feature = "std", feature = "core"))]
-pub use crate::traits::*;
+    pub use crate::engine::*;
+    pub use crate::traits::*;
 
-#[cfg(any(feature = "std", feature = "core"))]
-mod artifact_builders;
+    mod artifact_builders;
 
-#[cfg(any(feature = "std", feature = "core"))]
-pub use self::artifact_builders::*;
+    pub use self::artifact_builders::*;
+}
 
 #[cfg(feature = "compiler")]
 mod compiler;
