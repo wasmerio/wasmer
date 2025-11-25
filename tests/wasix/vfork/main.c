@@ -269,9 +269,7 @@ int subprocess_trap(int fd)
         return 1;
     }
 
-    // A bad function pointer is guaranteed to trap one way or another
-    void (*f)(void) = (void (*)(void))0x12345678;
-    f();
+    __builtin_trap();
 
     return 1;
 }
@@ -295,9 +293,7 @@ int trap_before_exec()
             return 1;
         }
 
-        // A bad function pointer is guaranteed to trap one way or another
-        void (*f)(void) = (void (*)(void))0x12345678;
-        f();
+        __builtin_trap();
 
         return 100;
     }
