@@ -213,8 +213,13 @@ fn call_module_internal<M: MemorySize>(
 
     let exit_code = handle_thread_result(env, store, thread_result)?;
 
-    // If the thread exited with a non-zero exit code, set the thread's status
-    // before calling on_exit to ensure the exit code is properly propagated
+    // Fix for issue #5501: When a thread exits with a non-zero exit code (e.g., from abort()),
+    // we must set the thread's status BEFORE calling on_exit(). This is because on_exit()
+    // eventually calls process.terminate() which propagates the exit code to all threads.
+    // Without setting the status first, there's a race where the thread handle cleanup
+    // (WasiThreadHandleProtected::drop) could set the status to Success(0) before the
+    // correct exit code is recorded. The existing test `test_snapshot_worker_panicking`
+    // validates this behavior by ensuring a trap in a worker thread results in exit code 173.
     if let Some(code) = exit_code {
         env.data(store).thread.set_status_finished(Ok(code));
     }
