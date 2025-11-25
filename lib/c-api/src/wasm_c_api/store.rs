@@ -1,20 +1,29 @@
 use super::engine::wasm_engine_t;
-use std::cell::UnsafeCell;
-use std::rc::Rc;
-use wasmer_api::{AsStoreMut, AsStoreRef, Store, StoreMut, StoreRef as BaseStoreRef};
+use wasmer_api::{AsEngineRef, AsStoreMut, AsStoreRef, Store};
 
-#[derive(Clone)]
 pub struct StoreRef {
-    inner: Rc<UnsafeCell<Store>>,
+    inner: Store,
+}
+
+impl Clone for StoreRef {
+    fn clone(&self) -> Self {
+        StoreRef {
+            inner: self.inner.dangerous_clone(),
+        }
+    }
 }
 
 impl StoreRef {
-    pub unsafe fn store(&self) -> BaseStoreRef<'_> {
-        unsafe { (*self.inner.get()).as_store_ref() }
+    pub fn engine(&self) -> impl AsEngineRef + '_ {
+        self.inner.engine()
     }
 
-    pub unsafe fn store_mut(&mut self) -> StoreMut<'_> {
-        unsafe { (*self.inner.get()).as_store_mut() }
+    pub unsafe fn store(&self) -> impl AsStoreRef + '_ {
+        unsafe { self.inner.dangerous_ref_from_context() }
+    }
+
+    pub unsafe fn store_mut(&mut self) -> impl AsStoreMut + '_ {
+        unsafe { self.inner.dangerous_mut_from_context() }
     }
 }
 
@@ -37,9 +46,7 @@ pub unsafe extern "C" fn wasm_store_new(
     let store = Store::new(engine.inner.clone());
 
     Some(Box::new(wasm_store_t {
-        inner: StoreRef {
-            inner: Rc::new(UnsafeCell::new(store)),
-        },
+        inner: StoreRef { inner: store },
     }))
 }
 

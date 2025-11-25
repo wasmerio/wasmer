@@ -42,54 +42,56 @@ pub unsafe extern "C" fn wasm_instance_new(
     trap: Option<&mut *mut wasm_trap_t>,
 ) -> Option<Box<wasm_instance_t>> {
     let store = store?;
-    let mut store_mut = unsafe { store.inner.store_mut() };
-    let module = module?;
-    let imports = imports?;
+    let instance = {
+        let mut store_mut = unsafe { store.inner.store_mut() };
+        let module = module?;
+        let imports = imports?;
 
-    let wasm_module = &module.inner;
-    let module_imports = wasm_module.imports();
-    let module_import_count = module_imports.len();
-    let externs = imports
-        .as_slice()
-        .iter()
-        .map(|imp| Extern::from(imp.as_ref().unwrap().as_ref().clone()))
-        .take(module_import_count)
-        .collect::<Vec<Extern>>();
+        let wasm_module = &module.inner;
+        let module_imports = wasm_module.imports();
+        let module_import_count = module_imports.len();
+        let externs = imports
+            .as_slice()
+            .iter()
+            .map(|imp| Extern::from(imp.as_ref().unwrap().as_ref().clone()))
+            .take(module_import_count)
+            .collect::<Vec<Extern>>();
 
-    let instance = match Instance::new_by_index(&mut store_mut, wasm_module, &externs) {
-        Ok(instance) => instance,
+        match Instance::new_by_index(&mut store_mut, wasm_module, &externs) {
+            Ok(instance) => instance,
 
-        Err(InstantiationError::Link(link_error)) => {
-            crate::error::update_last_error(link_error);
+            Err(InstantiationError::Link(link_error)) => {
+                crate::error::update_last_error(link_error);
 
-            return None;
-        }
-
-        Err(InstantiationError::Start(runtime_error)) => {
-            if let Some(trap) = trap {
-                let this_trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
-                *trap = Box::into_raw(this_trap);
+                return None;
             }
 
-            return None;
-        }
+            Err(InstantiationError::Start(runtime_error)) => {
+                if let Some(trap) = trap {
+                    let this_trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
+                    *trap = Box::into_raw(this_trap);
+                }
 
-        Err(e @ InstantiationError::CpuFeature(_)) => {
-            crate::error::update_last_error(e);
+                return None;
+            }
 
-            return None;
-        }
+            Err(e @ InstantiationError::CpuFeature(_)) => {
+                crate::error::update_last_error(e);
 
-        Err(e @ InstantiationError::DifferentStores) => {
-            crate::error::update_last_error(e);
+                return None;
+            }
 
-            return None;
-        }
+            Err(e @ InstantiationError::DifferentStores) => {
+                crate::error::update_last_error(e);
 
-        Err(e @ InstantiationError::DifferentArchOS) => {
-            crate::error::update_last_error(e);
+                return None;
+            }
 
-            return None;
+            Err(e @ InstantiationError::DifferentArchOS) => {
+                crate::error::update_last_error(e);
+
+                return None;
+            }
         }
     };
 

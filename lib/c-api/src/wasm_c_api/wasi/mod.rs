@@ -16,6 +16,7 @@ use std::ffi::CStr;
 use std::os::raw::c_char;
 use std::slice;
 use std::sync::Arc;
+use wasmer_api::AsStoreRef;
 #[cfg(feature = "webc_runner")]
 use wasmer_api::{AsStoreMut, Imports, Module};
 use wasmer_wasix::{
@@ -266,7 +267,6 @@ fn prepare_webc_env(
     use virtual_fs::static_fs::StaticFileSystem;
     use webc::v1::{FsEntryType, WebC};
 
-    let store_mut = store.as_store_mut();
     let runtime = config.runtime.take();
 
     let runtime = runtime.unwrap_or_else(|| {
@@ -279,7 +279,7 @@ fn prepare_webc_env(
     let handle = runtime.handle().clone();
     let _guard = handle.enter();
     let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-    rt.set_engine(store_mut.engine().clone());
+    rt.set_engine(store.engine().clone());
 
     let slice = unsafe { std::slice::from_raw_parts(bytes, len) };
     let volumes = WebC::parse_volumes_from_fileblock(slice).ok()?;
@@ -338,38 +338,41 @@ pub unsafe extern "C" fn wasi_env_new(
     mut config: Box<wasi_config_t>,
 ) -> Option<Box<wasi_env_t>> {
     let store = &mut store?.inner;
-    let mut store_mut = unsafe { store.store_mut() };
 
-    let runtime = config.runtime.take();
+    let env = {
+        let mut store_mut = unsafe { store.store_mut() };
 
-    let runtime = runtime.unwrap_or_else(|| {
-        tokio::runtime::Builder::new_multi_thread()
-            .enable_all()
-            .build()
-            .unwrap()
-    });
+        let runtime = config.runtime.take();
 
-    let handle = runtime.handle().clone();
-    let _guard = handle.enter();
-    let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-    rt.set_engine(store_mut.engine().clone());
+        let runtime = runtime.unwrap_or_else(|| {
+            tokio::runtime::Builder::new_multi_thread()
+                .enable_all()
+                .build()
+                .unwrap()
+        });
 
-    if !config.inherit_stdout {
-        config.builder.set_stdout(Box::new(Pipe::channel().0));
-    }
+        let handle = runtime.handle().clone();
+        let _guard = handle.enter();
+        let mut rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+        rt.set_engine(store_mut.engine().clone());
 
-    if !config.inherit_stderr {
-        config.builder.set_stderr(Box::new(Pipe::channel().0));
-    }
+        if !config.inherit_stdout {
+            config.builder.set_stdout(Box::new(Pipe::channel().0));
+        }
 
-    // TODO: impl capturer for stdin
+        if !config.inherit_stderr {
+            config.builder.set_stderr(Box::new(Pipe::channel().0));
+        }
 
-    let env = c_try!(
-        config
-            .builder
-            .runtime(Arc::new(rt))
-            .finalize(&mut store_mut)
-    );
+        // TODO: impl capturer for stdin
+
+        c_try!(
+            config
+                .builder
+                .runtime(Arc::new(rt))
+                .finalize(&mut store_mut)
+        )
+    };
 
     Some(Box::new(wasi_env_t {
         inner: env,
@@ -575,7 +578,9 @@ unsafe fn wasi_get_imports_inner(
     };
     let memory = {
         let mut store_mut = unsafe { store.store_mut() };
-        tasks.build_memory(&mut store_mut, &spawn_type).unwrap()
+        tasks
+            .build_memory(store_mut.reborrow_mut(), &spawn_type)
+            .unwrap()
     };
 
     if let Some(memory) = memory {

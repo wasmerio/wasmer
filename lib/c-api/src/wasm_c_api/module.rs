@@ -1,7 +1,7 @@
 use super::store::wasm_store_t;
 use super::types::{wasm_byte_vec_t, wasm_exporttype_vec_t, wasm_importtype_vec_t};
 use std::ptr::NonNull;
-use wasmer_api::Module;
+use wasmer_api::{AsStoreRef, Module};
 
 /// Opaque type representing a WebAssembly module.
 #[derive(Clone)]
@@ -30,10 +30,9 @@ pub unsafe extern "C" fn wasm_module_new(
     bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
     let store = store?;
-    let store_mut = unsafe { store.inner.store_mut() };
     let bytes = bytes?;
 
-    let module = c_try!(Module::from_binary(&store_mut, bytes.as_slice()));
+    let module = c_try!(Module::from_binary(&store.inner.engine(), bytes.as_slice()));
 
     Some(Box::new(wasm_module_t { inner: module }))
 }
@@ -101,7 +100,7 @@ pub unsafe extern "C" fn wasm_module_validate(
         None => return false,
     };
 
-    Module::validate(&store, bytes.as_slice())
+    Module::validate(store.engine(), bytes.as_slice())
         .map(|_| true)
         .unwrap_or(false)
 }
@@ -460,7 +459,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     let bytes = bytes?;
 
     let store_ref = unsafe { store.inner.store() };
-    let module = c_try!(unsafe { Module::deserialize(&store_ref, bytes.as_slice()) });
+    let module = c_try!(unsafe { Module::deserialize(store_ref.engine(), bytes.as_slice()) });
 
     Some(unsafe {
         NonNull::new_unchecked(Box::into_raw(Box::new(wasm_module_t { inner: module })))

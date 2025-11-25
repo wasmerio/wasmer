@@ -51,46 +51,49 @@ pub unsafe extern "C" fn wasm_func_new(
     let function_type = function_type?;
     let callback = callback?;
     let store = store?;
-    let mut store_mut = unsafe { store.inner.store_mut() };
 
-    let func_sig = &function_type.inner().function_type;
-    let num_rets = func_sig.results().len();
-    let inner_callback = move |mut _env: FunctionEnvMut<'_, FunctionCEnv>,
-                               args: &[Value]|
-          -> Result<Vec<Value>, RuntimeError> {
-        let processed_args: wasm_val_vec_t = args
-            .iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<wasm_val_t>, _>>()
-            .expect("Argument conversion failed")
+    let function = {
+        let mut store_mut = unsafe { store.inner.store_mut() };
+
+        let func_sig = &function_type.inner().function_type;
+        let num_rets = func_sig.results().len();
+        let inner_callback = move |mut _env: FunctionEnvMut<'_, FunctionCEnv>,
+                                   args: &[Value]|
+              -> Result<Vec<Value>, RuntimeError> {
+            let processed_args: wasm_val_vec_t = args
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<wasm_val_t>, _>>()
+                .expect("Argument conversion failed")
+                .into();
+
+            let mut results: wasm_val_vec_t = vec![
+                wasm_val_t {
+                    kind: wasm_valkind_enum::WASM_I64 as _,
+                    of: wasm_val_inner { int64_t: 0 },
+                };
+                num_rets
+            ]
             .into();
 
-        let mut results: wasm_val_vec_t = vec![
-            wasm_val_t {
-                kind: wasm_valkind_enum::WASM_I64 as _,
-                of: wasm_val_inner { int64_t: 0 },
-            };
-            num_rets
-        ]
-        .into();
+            let trap = unsafe { callback(&processed_args, &mut results) };
 
-        let trap = unsafe { callback(&processed_args, &mut results) };
+            if let Some(trap) = trap {
+                return Err(trap.inner);
+            }
 
-        if let Some(trap) = trap {
-            return Err(trap.inner);
-        }
+            let processed_results = results
+                .take()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<Value>, _>>()
+                .expect("Result conversion failed");
 
-        let processed_results = results
-            .take()
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Value>, _>>()
-            .expect("Result conversion failed");
-
-        Ok(processed_results)
+            Ok(processed_results)
+        };
+        let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::default());
+        Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback)
     };
-    let env = FunctionEnv::new(&mut store_mut, FunctionCEnv::default());
-    let function = Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.inner.clone(), function.into()),
     }))
@@ -107,78 +110,81 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let function_type = function_type?;
     let callback = callback?;
     let store = store?;
-    let mut store_mut = unsafe { store.inner.store_mut() };
 
-    let func_sig = &function_type.inner().function_type;
-    let num_rets = func_sig.results().len();
+    let function = {
+        let mut store_mut = unsafe { store.inner.store_mut() };
 
-    #[derive(Clone)]
-    #[repr(C)]
-    struct WrapperEnv {
-        env: FunctionCEnv,
-        env_finalizer: Arc<Mutex<Option<wasm_env_finalizer_t>>>,
-    }
+        let func_sig = &function_type.inner().function_type;
+        let num_rets = func_sig.results().len();
 
-    // Only relevant when using multiple threads in the C API;
-    // Synchronization will be done via the C API / on the C side.
-    unsafe impl Send for WrapperEnv {}
-    unsafe impl Sync for WrapperEnv {}
+        #[derive(Clone)]
+        #[repr(C)]
+        struct WrapperEnv {
+            env: FunctionCEnv,
+            env_finalizer: Arc<Mutex<Option<wasm_env_finalizer_t>>>,
+        }
 
-    impl Drop for WrapperEnv {
-        fn drop(&mut self) {
-            if let Ok(mut guard) = self.env_finalizer.lock()
-                && Arc::strong_count(&self.env_finalizer) == 1
-                && let Some(env_finalizer) = guard.take()
-            {
-                unsafe { (env_finalizer)(self.env.as_ptr()) };
+        // Only relevant when using multiple threads in the C API;
+        // Synchronization will be done via the C API / on the C side.
+        unsafe impl Send for WrapperEnv {}
+        unsafe impl Sync for WrapperEnv {}
+
+        impl Drop for WrapperEnv {
+            fn drop(&mut self) {
+                if let Ok(mut guard) = self.env_finalizer.lock()
+                    && Arc::strong_count(&self.env_finalizer) == 1
+                    && let Some(env_finalizer) = guard.take()
+                {
+                    unsafe { (env_finalizer)(self.env.as_ptr()) };
+                }
             }
         }
-    }
-    let inner_callback = move |env: FunctionEnvMut<'_, WrapperEnv>,
-                               args: &[Value]|
-          -> Result<Vec<Value>, RuntimeError> {
-        let processed_args: wasm_val_vec_t = args
-            .iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<wasm_val_t>, _>>()
-            .expect("Argument conversion failed")
+        let inner_callback = move |env: FunctionEnvMut<'_, WrapperEnv>,
+                                   args: &[Value]|
+              -> Result<Vec<Value>, RuntimeError> {
+            let processed_args: wasm_val_vec_t = args
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<wasm_val_t>, _>>()
+                .expect("Argument conversion failed")
+                .into();
+
+            let mut results: wasm_val_vec_t = vec![
+                wasm_val_t {
+                    kind: wasm_valkind_enum::WASM_I64 as _,
+                    of: wasm_val_inner { int64_t: 0 },
+                };
+                num_rets
+            ]
             .into();
 
-        let mut results: wasm_val_vec_t = vec![
-            wasm_val_t {
-                kind: wasm_valkind_enum::WASM_I64 as _,
-                of: wasm_val_inner { int64_t: 0 },
-            };
-            num_rets
-        ]
-        .into();
+            let trap = unsafe { callback(env.data().env.as_ptr(), &processed_args, &mut results) };
 
-        let trap = unsafe { callback(env.data().env.as_ptr(), &processed_args, &mut results) };
+            if let Some(trap) = trap {
+                return Err(trap.inner);
+            }
 
-        if let Some(trap) = trap {
-            return Err(trap.inner);
-        }
+            let processed_results = results
+                .take()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<Value>, _>>()
+                .expect("Result conversion failed");
 
-        let processed_results = results
-            .take()
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Value>, _>>()
-            .expect("Result conversion failed");
-
-        Ok(processed_results)
+            Ok(processed_results)
+        };
+        let env = FunctionEnv::new(
+            &mut store_mut,
+            WrapperEnv {
+                env: FunctionCEnv::new(c_try!(
+                    std::ptr::NonNull::new(env),
+                    "Function environment cannot be a null pointer."
+                )),
+                env_finalizer: Arc::new(Mutex::new(env_finalizer)),
+            },
+        );
+        Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback)
     };
-    let env = FunctionEnv::new(
-        &mut store_mut,
-        WrapperEnv {
-            env: FunctionCEnv::new(c_try!(
-                std::ptr::NonNull::new(env),
-                "Function environment cannot be a null pointer."
-            )),
-            env_finalizer: Arc::new(Mutex::new(env_finalizer)),
-        },
-    );
-    let function = Function::new_with_env(&mut store_mut, &env, func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         extern_: wasm_extern_t::new(store.inner.clone(), function.into()),
     }))

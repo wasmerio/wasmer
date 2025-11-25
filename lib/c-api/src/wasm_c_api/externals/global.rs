@@ -29,15 +29,17 @@ pub unsafe extern "C" fn wasm_global_new(
 ) -> Option<Box<wasm_global_t>> {
     let global_type = global_type?;
     let store = store?;
-    let mut store_mut = unsafe { store.inner.store_mut() };
-    let val = val?;
+    let global = {
+        let mut store_mut = unsafe { store.inner.store_mut() };
+        let val = val?;
 
-    let global_type = &global_type.inner().global_type;
-    let wasm_val = val.try_into().ok()?;
-    let global = if global_type.mutability.is_mutable() {
-        Global::new_mut(&mut store_mut, wasm_val)
-    } else {
-        Global::new(&mut store_mut, wasm_val)
+        let global_type = &global_type.inner().global_type;
+        let wasm_val = val.try_into().ok()?;
+        if global_type.mutability.is_mutable() {
+            Global::new_mut(&mut store_mut, wasm_val)
+        } else {
+            Global::new(&mut store_mut, wasm_val)
+        }
     };
     Some(Box::new(wasm_global_t {
         extern_: wasm_extern_t::new(store.inner.clone(), global.into()),
