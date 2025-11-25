@@ -389,6 +389,23 @@ where
                 Errno::Child.into()
             }))));
         }
+
+        // Check for signal intervals (like alarms) that have elapsed and trigger them
+        let (triggered_intervals, next_signal_time) = env.process.trigger_elapsed_signals();
+
+        // If there's a pending signal interval, schedule a wake-up for when it fires
+        if let Some(wait_time) = next_signal_time {
+            let waker = cx.waker().clone();
+            let tasks = env.tasks().clone();
+            let sleep_tasks = tasks.clone();
+            let _ = tasks.task_shared(Box::new(move || {
+                Box::pin(async move {
+                    sleep_tasks.sleep_now(wait_time).await;
+                    waker.wake();
+                })
+            }));
+        }
+
         if env.thread.has_signals_or_subscribe(cx.waker()) {
             let has_exit = {
                 let signals = env.thread.signals().lock().unwrap();

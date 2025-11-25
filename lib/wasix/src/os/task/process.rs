@@ -756,6 +756,63 @@ impl WasiProcess {
         );
     }
 
+    /// Checks if any signal intervals have elapsed and triggers them by signaling
+    /// all threads in the process. Returns true if any signals were triggered.
+    /// Also returns the duration until the next signal interval (if any).
+    pub fn trigger_elapsed_signals(&self) -> (bool, Option<Duration>) {
+        let now =
+            platform_clock_time_get(Snapshot0Clockid::Monotonic, 1_000_000).unwrap() as u128;
+
+        let mut triggered = false;
+        let mut signals_to_trigger = Vec::new();
+        let mut signals_to_remove = Vec::new();
+        let mut next_signal_time: Option<Duration> = None;
+
+        {
+            let inner = self.inner.0.lock().unwrap();
+            for (sig, signal_interval) in inner.signal_intervals.iter() {
+                let elapsed = now.saturating_sub(signal_interval.last_signal);
+                let interval_nanos = signal_interval.interval.as_nanos();
+
+                if elapsed >= interval_nanos {
+                    // Signal has elapsed, trigger it
+                    signals_to_trigger.push(*sig);
+                    if !signal_interval.repeat {
+                        signals_to_remove.push(*sig);
+                    }
+                } else {
+                    // Calculate time until this signal should fire
+                    let time_remaining = Duration::from_nanos((interval_nanos - elapsed) as u64);
+                    next_signal_time = Some(match next_signal_time {
+                        Some(current_min) => current_min.min(time_remaining),
+                        None => time_remaining,
+                    });
+                }
+            }
+        }
+
+        // Now trigger the signals (requires acquiring the lock again to update last_signal)
+        if !signals_to_trigger.is_empty() {
+            let mut inner = self.inner.0.lock().unwrap();
+            for sig in &signals_to_trigger {
+                if let Some(signal_interval) = inner.signal_intervals.get_mut(sig) {
+                    signal_interval.last_signal = now;
+                }
+                // Signal all threads in the process
+                for thread in inner.threads.values() {
+                    thread.signal(*sig);
+                }
+                triggered = true;
+            }
+            // Remove non-repeating signals
+            for sig in signals_to_remove {
+                inner.signal_intervals.remove(&sig);
+            }
+        }
+
+        (triggered, next_signal_time)
+    }
+
     /// Returns the number of active threads for this process
     pub fn active_threads(&self) -> u32 {
         let inner = self.inner.0.lock().unwrap();
