@@ -537,17 +537,17 @@
 <a href=#537 id=537 data-nosnippet>537</a>        <span class="kw">match </span>(sz, reg, addr) {
 <a href=#538 id=538 data-nosnippet>538</a>            (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) =&gt; {
 <a href=#539 id=539 data-nosnippet>539</a>                <span class="kw">let </span>disp = disp <span class="kw">as </span>u32;
-<a href=#540 id=540 data-nosnippet>540</a>                <span class="macro">assert!</span>((disp &amp; <span class="number">0x7</span>) == <span class="number">0 </span>&amp;&amp; (disp &lt; <span class="number">0x8000</span>));
+<a href=#540 id=540 data-nosnippet>540</a>                <span class="macro">assert!</span>(disp.is_multiple_of(<span class="number">8</span>) &amp;&amp; (disp &lt; <span class="number">0x8000</span>));
 <a href=#541 id=541 data-nosnippet>541</a>                <span class="macro">dynasm!</span>(<span class="self">self </span>; str X(reg), [X(addr), disp]);
 <a href=#542 id=542 data-nosnippet>542</a>            }
 <a href=#543 id=543 data-nosnippet>543</a>            (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) =&gt; {
 <a href=#544 id=544 data-nosnippet>544</a>                <span class="kw">let </span>disp = disp <span class="kw">as </span>u32;
-<a href=#545 id=545 data-nosnippet>545</a>                <span class="macro">assert!</span>((disp &amp; <span class="number">0x3</span>) == <span class="number">0 </span>&amp;&amp; (disp &lt; <span class="number">0x4000</span>));
+<a href=#545 id=545 data-nosnippet>545</a>                <span class="macro">assert!</span>(disp.is_multiple_of(<span class="number">4</span>) &amp;&amp; (disp &lt; <span class="number">0x4000</span>));
 <a href=#546 id=546 data-nosnippet>546</a>                <span class="macro">dynasm!</span>(<span class="self">self </span>; str W(reg), [X(addr), disp]);
 <a href=#547 id=547 data-nosnippet>547</a>            }
 <a href=#548 id=548 data-nosnippet>548</a>            (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) =&gt; {
 <a href=#549 id=549 data-nosnippet>549</a>                <span class="kw">let </span>disp = disp <span class="kw">as </span>u32;
-<a href=#550 id=550 data-nosnippet>550</a>                <span class="macro">assert!</span>((disp &amp; <span class="number">0x1</span>) == <span class="number">0 </span>&amp;&amp; (disp &lt; <span class="number">0x2000</span>));
+<a href=#550 id=550 data-nosnippet>550</a>                <span class="macro">assert!</span>(disp.is_multiple_of(<span class="number">2</span>) &amp;&amp; (disp &lt; <span class="number">0x2000</span>));
 <a href=#551 id=551 data-nosnippet>551</a>                <span class="macro">dynasm!</span>(<span class="self">self </span>; strh W(reg), [X(addr), disp]);
 <a href=#552 id=552 data-nosnippet>552</a>            }
 <a href=#553 id=553 data-nosnippet>553</a>            (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) =&gt; {
@@ -557,12 +557,12 @@
 <a href=#557 id=557 data-nosnippet>557</a>            }
 <a href=#558 id=558 data-nosnippet>558</a>            (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) =&gt; {
 <a href=#559 id=559 data-nosnippet>559</a>                <span class="kw">let </span>disp = disp <span class="kw">as </span>u32;
-<a href=#560 id=560 data-nosnippet>560</a>                <span class="macro">assert!</span>((disp &amp; <span class="number">0x7</span>) == <span class="number">0 </span>&amp;&amp; (disp &lt; <span class="number">0x8000</span>));
+<a href=#560 id=560 data-nosnippet>560</a>                <span class="macro">assert!</span>(disp.is_multiple_of(<span class="number">8</span>) &amp;&amp; (disp &lt; <span class="number">0x8000</span>));
 <a href=#561 id=561 data-nosnippet>561</a>                <span class="macro">dynasm!</span>(<span class="self">self </span>; str D(reg), [X(addr), disp]);
 <a href=#562 id=562 data-nosnippet>562</a>            }
 <a href=#563 id=563 data-nosnippet>563</a>            (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) =&gt; {
 <a href=#564 id=564 data-nosnippet>564</a>                <span class="kw">let </span>disp = disp <span class="kw">as </span>u32;
-<a href=#565 id=565 data-nosnippet>565</a>                <span class="macro">assert!</span>((disp &amp; <span class="number">0x3</span>) == <span class="number">0 </span>&amp;&amp; (disp &lt; <span class="number">0x4000</span>));
+<a href=#565 id=565 data-nosnippet>565</a>                <span class="macro">assert!</span>(disp.is_multiple_of(<span class="number">4</span>) &amp;&amp; (disp &lt; <span class="number">0x4000</span>));
 <a href=#566 id=566 data-nosnippet>566</a>                <span class="macro">dynasm!</span>(<span class="self">self </span>; str S(reg), [X(addr), disp]);
 <a href=#567 id=567 data-nosnippet>567</a>            }
 <a href=#568 id=568 data-nosnippet>568</a>            (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) =&gt; {
@@ -2860,7 +2860,7 @@
 <a href=#2860 id=2860 data-nosnippet>2860</a>
 <a href=#2861 id=2861 data-nosnippet>2861</a>    <span class="comment">// Move arguments to their locations.
 <a href=#2862 id=2862 data-nosnippet>2862</a>    // `callee_vmctx` is already in the first argument register, so no need to move.
-<a href=#2863 id=2863 data-nosnippet>2863</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>caller_stack_offset: i32 = stack_return_slots <span class="kw">as </span>i32 * <span class="number">8</span>;
+<a href=#2863 id=2863 data-nosnippet>2863</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>caller_stack_offset = stack_return_slots <span class="kw">as </span>u32 * <span class="number">8</span>;
 <a href=#2864 id=2864 data-nosnippet>2864</a>    <span class="kw">for </span>(i, param) <span class="kw">in </span>sig.params().iter().enumerate() {
 <a href=#2865 id=2865 data-nosnippet>2865</a>        <span class="kw">let </span>sz = <span class="kw">match </span><span class="kw-2">*</span>param {
 <a href=#2866 id=2866 data-nosnippet>2866</a>            Type::I32 | Type::F32 =&gt; Size::S32,
@@ -2884,431 +2884,415 @@
 <a href=#2884 id=2884 data-nosnippet>2884</a>                <span class="attr">#[allow(clippy::single_match)]
 <a href=#2885 id=2885 data-nosnippet>2885</a>                </span><span class="kw">match </span>calling_convention {
 <a href=#2886 id=2886 data-nosnippet>2886</a>                    CallingConvention::AppleAarch64 =&gt; {
-<a href=#2887 id=2887 data-nosnippet>2887</a>                        <span class="kw">let </span>sz = <span class="number">1
-<a href=#2888 id=2888 data-nosnippet>2888</a>                            </span>&lt;&lt; <span class="kw">match </span>sz {
-<a href=#2889 id=2889 data-nosnippet>2889</a>                                Size::S8 =&gt; <span class="number">0</span>,
-<a href=#2890 id=2890 data-nosnippet>2890</a>                                Size::S16 =&gt; <span class="number">1</span>,
-<a href=#2891 id=2891 data-nosnippet>2891</a>                                Size::S32 =&gt; <span class="number">2</span>,
-<a href=#2892 id=2892 data-nosnippet>2892</a>                                Size::S64 =&gt; <span class="number">3</span>,
-<a href=#2893 id=2893 data-nosnippet>2893</a>                            };
-<a href=#2894 id=2894 data-nosnippet>2894</a>                        <span class="comment">// align first
-<a href=#2895 id=2895 data-nosnippet>2895</a>                        </span><span class="kw">if </span>sz &gt; <span class="number">1 </span>&amp;&amp; caller_stack_offset &amp; (sz - <span class="number">1</span>) != <span class="number">0 </span>{
-<a href=#2896 id=2896 data-nosnippet>2896</a>                            caller_stack_offset = (caller_stack_offset + (sz - <span class="number">1</span>)) &amp; !(sz - <span class="number">1</span>);
-<a href=#2897 id=2897 data-nosnippet>2897</a>                        }
-<a href=#2898 id=2898 data-nosnippet>2898</a>                    }
-<a href=#2899 id=2899 data-nosnippet>2899</a>                    <span class="kw">_ </span>=&gt; (),
-<a href=#2900 id=2900 data-nosnippet>2900</a>                };
-<a href=#2901 id=2901 data-nosnippet>2901</a>                <span class="comment">// using X16 as scratch reg
-<a href=#2902 id=2902 data-nosnippet>2902</a>                </span>a.emit_ldr(
-<a href=#2903 id=2903 data-nosnippet>2903</a>                    sz,
-<a href=#2904 id=2904 data-nosnippet>2904</a>                    Location::GPR(GPR::X16),
-<a href=#2905 id=2905 data-nosnippet>2905</a>                    Location::Memory(args, (i * <span class="number">16</span>) <span class="kw">as </span>i32),
-<a href=#2906 id=2906 data-nosnippet>2906</a>                )<span class="question-mark">?</span>;
-<a href=#2907 id=2907 data-nosnippet>2907</a>                a.emit_str(
-<a href=#2908 id=2908 data-nosnippet>2908</a>                    sz,
-<a href=#2909 id=2909 data-nosnippet>2909</a>                    Location::GPR(GPR::X16),
-<a href=#2910 id=2910 data-nosnippet>2910</a>                    Location::Memory(GPR::XzrSp, caller_stack_offset),
-<a href=#2911 id=2911 data-nosnippet>2911</a>                )<span class="question-mark">?</span>;
-<a href=#2912 id=2912 data-nosnippet>2912</a>                <span class="kw">match </span>calling_convention {
-<a href=#2913 id=2913 data-nosnippet>2913</a>                    CallingConvention::AppleAarch64 =&gt; {
-<a href=#2914 id=2914 data-nosnippet>2914</a>                        caller_stack_offset += <span class="number">1
-<a href=#2915 id=2915 data-nosnippet>2915</a>                            </span>&lt;&lt; <span class="kw">match </span>sz {
-<a href=#2916 id=2916 data-nosnippet>2916</a>                                Size::S8 =&gt; <span class="number">0</span>,
-<a href=#2917 id=2917 data-nosnippet>2917</a>                                Size::S16 =&gt; <span class="number">1</span>,
-<a href=#2918 id=2918 data-nosnippet>2918</a>                                Size::S32 =&gt; <span class="number">2</span>,
-<a href=#2919 id=2919 data-nosnippet>2919</a>                                Size::S64 =&gt; <span class="number">3</span>,
-<a href=#2920 id=2920 data-nosnippet>2920</a>                            };
-<a href=#2921 id=2921 data-nosnippet>2921</a>                    }
-<a href=#2922 id=2922 data-nosnippet>2922</a>                    <span class="kw">_ </span>=&gt; {
-<a href=#2923 id=2923 data-nosnippet>2923</a>                        caller_stack_offset += <span class="number">8</span>;
-<a href=#2924 id=2924 data-nosnippet>2924</a>                    }
-<a href=#2925 id=2925 data-nosnippet>2925</a>                }
-<a href=#2926 id=2926 data-nosnippet>2926</a>            }
-<a href=#2927 id=2927 data-nosnippet>2927</a>        }
-<a href=#2928 id=2928 data-nosnippet>2928</a>    }
-<a href=#2929 id=2929 data-nosnippet>2929</a>
-<a href=#2930 id=2930 data-nosnippet>2930</a>    <span class="macro">dynasm!</span>(a  ; blr X(fptr));
-<a href=#2931 id=2931 data-nosnippet>2931</a>
-<a href=#2932 id=2932 data-nosnippet>2932</a>    <span class="comment">// Write return values.
-<a href=#2933 id=2933 data-nosnippet>2933</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>n_stack_return_slots: usize = <span class="number">0</span>;
-<a href=#2934 id=2934 data-nosnippet>2934</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..sig.results().len() {
-<a href=#2935 id=2935 data-nosnippet>2935</a>        <span class="kw">let </span>src = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>reg) = ARM64_RETURN_VALUE_REGISTERS.get(i) {
-<a href=#2936 id=2936 data-nosnippet>2936</a>            reg
-<a href=#2937 id=2937 data-nosnippet>2937</a>        } <span class="kw">else </span>{
-<a href=#2938 id=2938 data-nosnippet>2938</a>            <span class="kw">let </span>loc = GPR::X16;
-<a href=#2939 id=2939 data-nosnippet>2939</a>            a.emit_ldr(
-<a href=#2940 id=2940 data-nosnippet>2940</a>                Size::S64,
-<a href=#2941 id=2941 data-nosnippet>2941</a>                Location::GPR(GPR::X16),
-<a href=#2942 id=2942 data-nosnippet>2942</a>                Location::Memory(GPR::XzrSp, (n_stack_return_slots <span class="kw">as </span>u32 * <span class="number">8</span>) <span class="kw">as _</span>),
-<a href=#2943 id=2943 data-nosnippet>2943</a>            )<span class="question-mark">?</span>;
-<a href=#2944 id=2944 data-nosnippet>2944</a>            n_stack_return_slots += <span class="number">1</span>;
-<a href=#2945 id=2945 data-nosnippet>2945</a>            loc
-<a href=#2946 id=2946 data-nosnippet>2946</a>        };
-<a href=#2947 id=2947 data-nosnippet>2947</a>        a.emit_str(
-<a href=#2948 id=2948 data-nosnippet>2948</a>            Size::S64,
-<a href=#2949 id=2949 data-nosnippet>2949</a>            Location::GPR(src),
-<a href=#2950 id=2950 data-nosnippet>2950</a>            Location::Memory(args, (i * <span class="number">16</span>) <span class="kw">as _</span>),
-<a href=#2951 id=2951 data-nosnippet>2951</a>        )<span class="question-mark">?</span>;
-<a href=#2952 id=2952 data-nosnippet>2952</a>    }
-<a href=#2953 id=2953 data-nosnippet>2953</a>
-<a href=#2954 id=2954 data-nosnippet>2954</a>    <span class="comment">// Restore stack.
-<a href=#2955 id=2955 data-nosnippet>2955</a>    </span><span class="macro">dynasm!</span>(a
-<a href=#2956 id=2956 data-nosnippet>2956</a>        ; ldp X(fptr), X(args), [x29, <span class="number">16</span>]
-<a href=#2957 id=2957 data-nosnippet>2957</a>        ; ldp x29, x30, [x29]
-<a href=#2958 id=2958 data-nosnippet>2958</a>    );
-<a href=#2959 id=2959 data-nosnippet>2959</a>    <span class="kw">let </span>restored_stack_offset = <span class="number">32 </span>+ stack_offset;
-<a href=#2960 id=2960 data-nosnippet>2960</a>    <span class="kw">if </span>restored_stack_offset &lt; <span class="number">0x1000 </span>{
-<a href=#2961 id=2961 data-nosnippet>2961</a>        <span class="macro">dynasm!</span>(a; add sp, sp, restored_stack_offset);
-<a href=#2962 id=2962 data-nosnippet>2962</a>    } <span class="kw">else </span>{
-<a href=#2963 id=2963 data-nosnippet>2963</a>        a.emit_mov_imm(Location::GPR(GPR::X26), restored_stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
-<a href=#2964 id=2964 data-nosnippet>2964</a>        <span class="macro">dynasm!</span>(a; add sp, sp, x26);
-<a href=#2965 id=2965 data-nosnippet>2965</a>    }
-<a href=#2966 id=2966 data-nosnippet>2966</a>    <span class="macro">dynasm!</span>(a; ret);
-<a href=#2967 id=2967 data-nosnippet>2967</a>
-<a href=#2968 id=2968 data-nosnippet>2968</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = a.finalize().unwrap();
-<a href=#2969 id=2969 data-nosnippet>2969</a>    body.shrink_to_fit();
-<a href=#2970 id=2970 data-nosnippet>2970</a>    <span class="prelude-val">Ok</span>(FunctionBody {
-<a href=#2971 id=2971 data-nosnippet>2971</a>        body,
-<a href=#2972 id=2972 data-nosnippet>2972</a>        unwind_info: <span class="prelude-val">None</span>,
-<a href=#2973 id=2973 data-nosnippet>2973</a>    })
-<a href=#2974 id=2974 data-nosnippet>2974</a>}
-<a href=#2975 id=2975 data-nosnippet>2975</a><span class="comment">// Generates dynamic import function call trampoline for a function type.
-<a href=#2976 id=2976 data-nosnippet>2976</a></span><span class="kw">pub fn </span>gen_std_dynamic_import_trampoline_arm64(
-<a href=#2977 id=2977 data-nosnippet>2977</a>    vmoffsets: <span class="kw-2">&amp;</span>VMOffsets,
-<a href=#2978 id=2978 data-nosnippet>2978</a>    sig: <span class="kw-2">&amp;</span>FunctionType,
-<a href=#2979 id=2979 data-nosnippet>2979</a>    calling_convention: CallingConvention,
-<a href=#2980 id=2980 data-nosnippet>2980</a>) -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
-<a href=#2981 id=2981 data-nosnippet>2981</a>    <span class="kw">let </span><span class="kw-2">mut </span>a = Assembler::new(<span class="number">0</span>);
-<a href=#2982 id=2982 data-nosnippet>2982</a>    <span class="comment">// Allocate argument array.
-<a href=#2983 id=2983 data-nosnippet>2983</a>    </span><span class="kw">let </span>stack_offset: usize = <span class="number">16 </span>* std::cmp::max(sig.params().len(), sig.results().len());
-<a href=#2984 id=2984 data-nosnippet>2984</a>    <span class="comment">// Save LR and X26, as scratch register
-<a href=#2985 id=2985 data-nosnippet>2985</a>    </span>a.emit_stpdb(
-<a href=#2986 id=2986 data-nosnippet>2986</a>        Size::S64,
-<a href=#2987 id=2987 data-nosnippet>2987</a>        Location::GPR(GPR::X30),
-<a href=#2988 id=2988 data-nosnippet>2988</a>        Location::GPR(GPR::X26),
-<a href=#2989 id=2989 data-nosnippet>2989</a>        GPR::XzrSp,
-<a href=#2990 id=2990 data-nosnippet>2990</a>        <span class="number">16</span>,
-<a href=#2991 id=2991 data-nosnippet>2991</a>    )<span class="question-mark">?</span>;
-<a href=#2992 id=2992 data-nosnippet>2992</a>
-<a href=#2993 id=2993 data-nosnippet>2993</a>    <span class="kw">if </span>stack_offset != <span class="number">0 </span>{
-<a href=#2994 id=2994 data-nosnippet>2994</a>        <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
-<a href=#2995 id=2995 data-nosnippet>2995</a>            a.emit_sub(
-<a href=#2996 id=2996 data-nosnippet>2996</a>                Size::S64,
-<a href=#2997 id=2997 data-nosnippet>2997</a>                Location::GPR(GPR::XzrSp),
-<a href=#2998 id=2998 data-nosnippet>2998</a>                Location::Imm32(stack_offset <span class="kw">as _</span>),
-<a href=#2999 id=2999 data-nosnippet>2999</a>                Location::GPR(GPR::XzrSp),
-<a href=#3000 id=3000 data-nosnippet>3000</a>            )<span class="question-mark">?</span>;
-<a href=#3001 id=3001 data-nosnippet>3001</a>        } <span class="kw">else </span>{
-<a href=#3002 id=3002 data-nosnippet>3002</a>            a.emit_mov_imm(Location::GPR(GPR::X26), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
-<a href=#3003 id=3003 data-nosnippet>3003</a>            a.emit_sub(
-<a href=#3004 id=3004 data-nosnippet>3004</a>                Size::S64,
-<a href=#3005 id=3005 data-nosnippet>3005</a>                Location::GPR(GPR::XzrSp),
-<a href=#3006 id=3006 data-nosnippet>3006</a>                Location::GPR(GPR::X26),
-<a href=#3007 id=3007 data-nosnippet>3007</a>                Location::GPR(GPR::XzrSp),
-<a href=#3008 id=3008 data-nosnippet>3008</a>            )<span class="question-mark">?</span>;
-<a href=#3009 id=3009 data-nosnippet>3009</a>        }
-<a href=#3010 id=3010 data-nosnippet>3010</a>    }
-<a href=#3011 id=3011 data-nosnippet>3011</a>
-<a href=#3012 id=3012 data-nosnippet>3012</a>    <span class="comment">// Copy arguments.
-<a href=#3013 id=3013 data-nosnippet>3013</a>    </span><span class="kw">if </span>!sig.params().is_empty() {
-<a href=#3014 id=3014 data-nosnippet>3014</a>        <span class="kw">let </span><span class="kw-2">mut </span>argalloc = ArgumentRegisterAllocator::default();
-<a href=#3015 id=3015 data-nosnippet>3015</a>        argalloc.next(Type::I64, calling_convention).unwrap(); <span class="comment">// skip VMContext
-<a href=#3016 id=3016 data-nosnippet>3016</a>
-<a href=#3017 id=3017 data-nosnippet>3017</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>stack_param_count: usize = <span class="number">0</span>;
-<a href=#3018 id=3018 data-nosnippet>3018</a>
-<a href=#3019 id=3019 data-nosnippet>3019</a>        <span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
-<a href=#3020 id=3020 data-nosnippet>3020</a>            <span class="kw">let </span>source_loc = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
-<a href=#3021 id=3021 data-nosnippet>3021</a>                <span class="prelude-val">Some</span>(ARM64Register::GPR(gpr)) =&gt; Location::GPR(gpr),
-<a href=#3022 id=3022 data-nosnippet>3022</a>                <span class="prelude-val">Some</span>(ARM64Register::NEON(neon)) =&gt; Location::SIMD(neon),
-<a href=#3023 id=3023 data-nosnippet>3023</a>                <span class="prelude-val">None </span>=&gt; {
-<a href=#3024 id=3024 data-nosnippet>3024</a>                    <span class="kw">let </span>sz = <span class="kw">match </span>calling_convention {
-<a href=#3025 id=3025 data-nosnippet>3025</a>                        CallingConvention::AppleAarch64 =&gt; <span class="kw">match </span><span class="kw-2">*</span>ty {
-<a href=#3026 id=3026 data-nosnippet>3026</a>                            Type::I32 | Type::F32 =&gt; Size::S32,
-<a href=#3027 id=3027 data-nosnippet>3027</a>                            <span class="kw">_ </span>=&gt; {
-<a href=#3028 id=3028 data-nosnippet>3028</a>                                <span class="kw">if </span>stack_param_count &amp; <span class="number">7 </span>!= <span class="number">0 </span>{
-<a href=#3029 id=3029 data-nosnippet>3029</a>                                    stack_param_count = (stack_param_count + <span class="number">7</span>) &amp; !<span class="number">7</span>;
-<a href=#3030 id=3030 data-nosnippet>3030</a>                                };
-<a href=#3031 id=3031 data-nosnippet>3031</a>                                Size::S64
-<a href=#3032 id=3032 data-nosnippet>3032</a>                            }
-<a href=#3033 id=3033 data-nosnippet>3033</a>                        },
-<a href=#3034 id=3034 data-nosnippet>3034</a>                        <span class="kw">_ </span>=&gt; Size::S64,
-<a href=#3035 id=3035 data-nosnippet>3035</a>                    };
-<a href=#3036 id=3036 data-nosnippet>3036</a>                    a.emit_ldr(
-<a href=#3037 id=3037 data-nosnippet>3037</a>                        sz,
-<a href=#3038 id=3038 data-nosnippet>3038</a>                        Location::GPR(GPR::X26),
-<a href=#3039 id=3039 data-nosnippet>3039</a>                        Location::Memory(GPR::XzrSp, (stack_offset + <span class="number">16 </span>+ stack_param_count) <span class="kw">as _</span>),
-<a href=#3040 id=3040 data-nosnippet>3040</a>                    )<span class="question-mark">?</span>;
-<a href=#3041 id=3041 data-nosnippet>3041</a>                    stack_param_count += <span class="kw">match </span>sz {
-<a href=#3042 id=3042 data-nosnippet>3042</a>                        Size::S32 =&gt; <span class="number">4</span>,
-<a href=#3043 id=3043 data-nosnippet>3043</a>                        Size::S64 =&gt; <span class="number">8</span>,
-<a href=#3044 id=3044 data-nosnippet>3044</a>                        <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
-<a href=#3045 id=3045 data-nosnippet>3045</a>                            <span class="string">"singlepass unreachable in gen_std_dynamic_import_trampoline_arm64"
-<a href=#3046 id=3046 data-nosnippet>3046</a>                        </span>),
-<a href=#3047 id=3047 data-nosnippet>3047</a>                    };
-<a href=#3048 id=3048 data-nosnippet>3048</a>                    Location::GPR(GPR::X26)
-<a href=#3049 id=3049 data-nosnippet>3049</a>                }
-<a href=#3050 id=3050 data-nosnippet>3050</a>            };
-<a href=#3051 id=3051 data-nosnippet>3051</a>            a.emit_str(
-<a href=#3052 id=3052 data-nosnippet>3052</a>                Size::S64,
-<a href=#3053 id=3053 data-nosnippet>3053</a>                source_loc,
-<a href=#3054 id=3054 data-nosnippet>3054</a>                Location::Memory(GPR::XzrSp, (i * <span class="number">16</span>) <span class="kw">as _</span>),
-<a href=#3055 id=3055 data-nosnippet>3055</a>            )<span class="question-mark">?</span>;
-<a href=#3056 id=3056 data-nosnippet>3056</a>
-<a href=#3057 id=3057 data-nosnippet>3057</a>            <span class="comment">// Zero upper 64 bits.
-<a href=#3058 id=3058 data-nosnippet>3058</a>            </span>a.emit_str(
-<a href=#3059 id=3059 data-nosnippet>3059</a>                Size::S64,
-<a href=#3060 id=3060 data-nosnippet>3060</a>                Location::GPR(GPR::XzrSp),                       <span class="comment">// XZR here
-<a href=#3061 id=3061 data-nosnippet>3061</a>                </span>Location::Memory(GPR::XzrSp, (i * <span class="number">16 </span>+ <span class="number">8</span>) <span class="kw">as _</span>), <span class="comment">// XSP here
-<a href=#3062 id=3062 data-nosnippet>3062</a>            </span>)<span class="question-mark">?</span>;
-<a href=#3063 id=3063 data-nosnippet>3063</a>        }
-<a href=#3064 id=3064 data-nosnippet>3064</a>    }
-<a href=#3065 id=3065 data-nosnippet>3065</a>
-<a href=#3066 id=3066 data-nosnippet>3066</a>    <span class="attr">#[allow(clippy::match_single_binding)]
-<a href=#3067 id=3067 data-nosnippet>3067</a>    </span><span class="kw">match </span>calling_convention {
-<a href=#3068 id=3068 data-nosnippet>3068</a>        <span class="kw">_ </span>=&gt; {
-<a href=#3069 id=3069 data-nosnippet>3069</a>            <span class="comment">// Load target address.
-<a href=#3070 id=3070 data-nosnippet>3070</a>            </span><span class="kw">let </span>offset = vmoffsets.vmdynamicfunction_import_context_address();
-<a href=#3071 id=3071 data-nosnippet>3071</a>            a.emit_ldur(Size::S64, Location::GPR(GPR::X26), GPR::X0, offset <span class="kw">as </span>i32)<span class="question-mark">?</span>;
-<a href=#3072 id=3072 data-nosnippet>3072</a>            <span class="comment">// Load values array.
-<a href=#3073 id=3073 data-nosnippet>3073</a>            </span>a.emit_add(
-<a href=#3074 id=3074 data-nosnippet>3074</a>                Size::S64,
-<a href=#3075 id=3075 data-nosnippet>3075</a>                Location::GPR(GPR::XzrSp),
-<a href=#3076 id=3076 data-nosnippet>3076</a>                Location::Imm8(<span class="number">0</span>),
-<a href=#3077 id=3077 data-nosnippet>3077</a>                Location::GPR(GPR::X1),
-<a href=#3078 id=3078 data-nosnippet>3078</a>            )<span class="question-mark">?</span>;
-<a href=#3079 id=3079 data-nosnippet>3079</a>        }
-<a href=#3080 id=3080 data-nosnippet>3080</a>    };
-<a href=#3081 id=3081 data-nosnippet>3081</a>
-<a href=#3082 id=3082 data-nosnippet>3082</a>    <span class="comment">// Call target.
-<a href=#3083 id=3083 data-nosnippet>3083</a>    </span>a.emit_call_register(GPR::X26)<span class="question-mark">?</span>;
-<a href=#3084 id=3084 data-nosnippet>3084</a>
-<a href=#3085 id=3085 data-nosnippet>3085</a>    <span class="comment">// Fetch return value.
-<a href=#3086 id=3086 data-nosnippet>3086</a>    </span><span class="kw">if </span>!sig.results().is_empty() {
-<a href=#3087 id=3087 data-nosnippet>3087</a>        <span class="macro">assert_eq!</span>(sig.results().len(), <span class="number">1</span>);
-<a href=#3088 id=3088 data-nosnippet>3088</a>        a.emit_ldr(
-<a href=#3089 id=3089 data-nosnippet>3089</a>            Size::S64,
-<a href=#3090 id=3090 data-nosnippet>3090</a>            Location::GPR(GPR::X0),
-<a href=#3091 id=3091 data-nosnippet>3091</a>            Location::Memory(GPR::XzrSp, <span class="number">0</span>),
-<a href=#3092 id=3092 data-nosnippet>3092</a>        )<span class="question-mark">?</span>;
-<a href=#3093 id=3093 data-nosnippet>3093</a>    }
-<a href=#3094 id=3094 data-nosnippet>3094</a>
-<a href=#3095 id=3095 data-nosnippet>3095</a>    <span class="comment">// Release values array.
-<a href=#3096 id=3096 data-nosnippet>3096</a>    </span><span class="kw">if </span>stack_offset != <span class="number">0 </span>{
-<a href=#3097 id=3097 data-nosnippet>3097</a>        <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
-<a href=#3098 id=3098 data-nosnippet>3098</a>            a.emit_add(
-<a href=#3099 id=3099 data-nosnippet>3099</a>                Size::S64,
-<a href=#3100 id=3100 data-nosnippet>3100</a>                Location::GPR(GPR::XzrSp),
-<a href=#3101 id=3101 data-nosnippet>3101</a>                Location::Imm32(stack_offset <span class="kw">as _</span>),
-<a href=#3102 id=3102 data-nosnippet>3102</a>                Location::GPR(GPR::XzrSp),
-<a href=#3103 id=3103 data-nosnippet>3103</a>            )<span class="question-mark">?</span>;
-<a href=#3104 id=3104 data-nosnippet>3104</a>        } <span class="kw">else </span>{
-<a href=#3105 id=3105 data-nosnippet>3105</a>            a.emit_mov_imm(Location::GPR(GPR::X26), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
-<a href=#3106 id=3106 data-nosnippet>3106</a>            a.emit_add(
-<a href=#3107 id=3107 data-nosnippet>3107</a>                Size::S64,
-<a href=#3108 id=3108 data-nosnippet>3108</a>                Location::GPR(GPR::XzrSp),
-<a href=#3109 id=3109 data-nosnippet>3109</a>                Location::GPR(GPR::X26),
-<a href=#3110 id=3110 data-nosnippet>3110</a>                Location::GPR(GPR::XzrSp),
-<a href=#3111 id=3111 data-nosnippet>3111</a>            )<span class="question-mark">?</span>;
-<a href=#3112 id=3112 data-nosnippet>3112</a>        }
-<a href=#3113 id=3113 data-nosnippet>3113</a>    }
-<a href=#3114 id=3114 data-nosnippet>3114</a>    a.emit_ldpia(
-<a href=#3115 id=3115 data-nosnippet>3115</a>        Size::S64,
-<a href=#3116 id=3116 data-nosnippet>3116</a>        Location::GPR(GPR::X30),
-<a href=#3117 id=3117 data-nosnippet>3117</a>        Location::GPR(GPR::X26),
-<a href=#3118 id=3118 data-nosnippet>3118</a>        GPR::XzrSp,
-<a href=#3119 id=3119 data-nosnippet>3119</a>        <span class="number">16</span>,
-<a href=#3120 id=3120 data-nosnippet>3120</a>    )<span class="question-mark">?</span>;
-<a href=#3121 id=3121 data-nosnippet>3121</a>
-<a href=#3122 id=3122 data-nosnippet>3122</a>    <span class="comment">// Return.
-<a href=#3123 id=3123 data-nosnippet>3123</a>    </span>a.emit_ret()<span class="question-mark">?</span>;
-<a href=#3124 id=3124 data-nosnippet>3124</a>
-<a href=#3125 id=3125 data-nosnippet>3125</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = a.finalize().unwrap();
-<a href=#3126 id=3126 data-nosnippet>3126</a>    body.shrink_to_fit();
-<a href=#3127 id=3127 data-nosnippet>3127</a>    <span class="prelude-val">Ok</span>(FunctionBody {
-<a href=#3128 id=3128 data-nosnippet>3128</a>        body,
-<a href=#3129 id=3129 data-nosnippet>3129</a>        unwind_info: <span class="prelude-val">None</span>,
-<a href=#3130 id=3130 data-nosnippet>3130</a>    })
-<a href=#3131 id=3131 data-nosnippet>3131</a>}
-<a href=#3132 id=3132 data-nosnippet>3132</a><span class="comment">// Singlepass calls import functions through a trampoline.
-<a href=#3133 id=3133 data-nosnippet>3133</a></span><span class="kw">pub fn </span>gen_import_call_trampoline_arm64(
-<a href=#3134 id=3134 data-nosnippet>3134</a>    vmoffsets: <span class="kw-2">&amp;</span>VMOffsets,
-<a href=#3135 id=3135 data-nosnippet>3135</a>    index: FunctionIndex,
-<a href=#3136 id=3136 data-nosnippet>3136</a>    sig: <span class="kw-2">&amp;</span>FunctionType,
-<a href=#3137 id=3137 data-nosnippet>3137</a>    calling_convention: CallingConvention,
-<a href=#3138 id=3138 data-nosnippet>3138</a>) -&gt; <span class="prelude-ty">Result</span>&lt;CustomSection, CompileError&gt; {
-<a href=#3139 id=3139 data-nosnippet>3139</a>    <span class="kw">let </span><span class="kw-2">mut </span>a = Assembler::new(<span class="number">0</span>);
-<a href=#3140 id=3140 data-nosnippet>3140</a>
-<a href=#3141 id=3141 data-nosnippet>3141</a>    <span class="comment">// Singlepass internally treats all arguments as integers
-<a href=#3142 id=3142 data-nosnippet>3142</a>    // For the standard System V calling convention requires
-<a href=#3143 id=3143 data-nosnippet>3143</a>    //  floating point arguments to be passed in NEON registers.
-<a href=#3144 id=3144 data-nosnippet>3144</a>    //  Translation is expensive, so only do it if needed.
-<a href=#3145 id=3145 data-nosnippet>3145</a>    </span><span class="kw">if </span>sig
-<a href=#3146 id=3146 data-nosnippet>3146</a>        .params()
-<a href=#3147 id=3147 data-nosnippet>3147</a>        .iter()
-<a href=#3148 id=3148 data-nosnippet>3148</a>        .any(|<span class="kw-2">&amp;</span>x| x == Type::F32 || x == Type::F64)
-<a href=#3149 id=3149 data-nosnippet>3149</a>    {
-<a href=#3150 id=3150 data-nosnippet>3150</a>        <span class="attr">#[allow(clippy::match_single_binding)]
-<a href=#3151 id=3151 data-nosnippet>3151</a>        </span><span class="kw">match </span>calling_convention {
-<a href=#3152 id=3152 data-nosnippet>3152</a>            <span class="kw">_ </span>=&gt; {
-<a href=#3153 id=3153 data-nosnippet>3153</a>                <span class="comment">// Allocate stack space for arguments.
-<a href=#3154 id=3154 data-nosnippet>3154</a>                </span><span class="kw">let </span>stack_offset: i32 = <span class="kw">if </span>sig.params().len() &gt; <span class="number">7 </span>{
-<a href=#3155 id=3155 data-nosnippet>3155</a>                    <span class="number">7 </span>* <span class="number">8
-<a href=#3156 id=3156 data-nosnippet>3156</a>                </span>} <span class="kw">else </span>{
-<a href=#3157 id=3157 data-nosnippet>3157</a>                    (sig.params().len() <span class="kw">as </span>i32) * <span class="number">8
-<a href=#3158 id=3158 data-nosnippet>3158</a>                </span>};
-<a href=#3159 id=3159 data-nosnippet>3159</a>                <span class="kw">let </span>stack_offset = <span class="kw">if </span>stack_offset &amp; <span class="number">15 </span>!= <span class="number">0 </span>{
-<a href=#3160 id=3160 data-nosnippet>3160</a>                    stack_offset + <span class="number">8
-<a href=#3161 id=3161 data-nosnippet>3161</a>                </span>} <span class="kw">else </span>{
-<a href=#3162 id=3162 data-nosnippet>3162</a>                    stack_offset
-<a href=#3163 id=3163 data-nosnippet>3163</a>                };
-<a href=#3164 id=3164 data-nosnippet>3164</a>                <span class="kw">if </span>stack_offset &gt; <span class="number">0 </span>{
-<a href=#3165 id=3165 data-nosnippet>3165</a>                    <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
-<a href=#3166 id=3166 data-nosnippet>3166</a>                        a.emit_sub(
-<a href=#3167 id=3167 data-nosnippet>3167</a>                            Size::S64,
-<a href=#3168 id=3168 data-nosnippet>3168</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3169 id=3169 data-nosnippet>3169</a>                            Location::Imm32(stack_offset <span class="kw">as </span>u32),
-<a href=#3170 id=3170 data-nosnippet>3170</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3171 id=3171 data-nosnippet>3171</a>                        )<span class="question-mark">?</span>;
-<a href=#3172 id=3172 data-nosnippet>3172</a>                    } <span class="kw">else </span>{
-<a href=#3173 id=3173 data-nosnippet>3173</a>                        a.emit_mov_imm(Location::GPR(GPR::X16), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
-<a href=#3174 id=3174 data-nosnippet>3174</a>                        a.emit_sub(
-<a href=#3175 id=3175 data-nosnippet>3175</a>                            Size::S64,
-<a href=#3176 id=3176 data-nosnippet>3176</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3177 id=3177 data-nosnippet>3177</a>                            Location::GPR(GPR::X16),
-<a href=#3178 id=3178 data-nosnippet>3178</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3179 id=3179 data-nosnippet>3179</a>                        )<span class="question-mark">?</span>;
-<a href=#3180 id=3180 data-nosnippet>3180</a>                    }
-<a href=#3181 id=3181 data-nosnippet>3181</a>                }
-<a href=#3182 id=3182 data-nosnippet>3182</a>
-<a href=#3183 id=3183 data-nosnippet>3183</a>                <span class="comment">// Store all arguments to the stack to prevent overwrite.
-<a href=#3184 id=3184 data-nosnippet>3184</a>                </span><span class="kw">static </span>PARAM_REGS: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[
-<a href=#3185 id=3185 data-nosnippet>3185</a>                    GPR::X1,
-<a href=#3186 id=3186 data-nosnippet>3186</a>                    GPR::X2,
-<a href=#3187 id=3187 data-nosnippet>3187</a>                    GPR::X3,
-<a href=#3188 id=3188 data-nosnippet>3188</a>                    GPR::X4,
-<a href=#3189 id=3189 data-nosnippet>3189</a>                    GPR::X5,
-<a href=#3190 id=3190 data-nosnippet>3190</a>                    GPR::X6,
-<a href=#3191 id=3191 data-nosnippet>3191</a>                    GPR::X7,
-<a href=#3192 id=3192 data-nosnippet>3192</a>                ];
-<a href=#3193 id=3193 data-nosnippet>3193</a>                <span class="kw">let </span><span class="kw-2">mut </span>param_locations = <span class="macro">vec!</span>[];
-<a href=#3194 id=3194 data-nosnippet>3194</a>                <span class="kw">for </span>(i, param_reg) <span class="kw">in </span>PARAM_REGS.iter().enumerate().take(sig.params().len()) {
-<a href=#3195 id=3195 data-nosnippet>3195</a>                    <span class="kw">let </span>loc = <span class="kw">match </span>i {
-<a href=#3196 id=3196 data-nosnippet>3196</a>                        <span class="number">0</span>..=<span class="number">6 </span>=&gt; {
-<a href=#3197 id=3197 data-nosnippet>3197</a>                            <span class="kw">let </span>loc = Location::Memory(GPR::XzrSp, (i * <span class="number">8</span>) <span class="kw">as </span>i32);
-<a href=#3198 id=3198 data-nosnippet>3198</a>                            a.emit_str(Size::S64, Location::GPR(<span class="kw-2">*</span>param_reg), loc)<span class="question-mark">?</span>;
-<a href=#3199 id=3199 data-nosnippet>3199</a>                            loc
-<a href=#3200 id=3200 data-nosnippet>3200</a>                        }
-<a href=#3201 id=3201 data-nosnippet>3201</a>                        <span class="kw">_ </span>=&gt; Location::Memory(GPR::XzrSp, stack_offset + ((i - <span class="number">7</span>) * <span class="number">8</span>) <span class="kw">as </span>i32),
-<a href=#3202 id=3202 data-nosnippet>3202</a>                    };
-<a href=#3203 id=3203 data-nosnippet>3203</a>                    param_locations.push(loc);
-<a href=#3204 id=3204 data-nosnippet>3204</a>                }
-<a href=#3205 id=3205 data-nosnippet>3205</a>
-<a href=#3206 id=3206 data-nosnippet>3206</a>                <span class="comment">// Copy arguments.
-<a href=#3207 id=3207 data-nosnippet>3207</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>caller_stack_offset: i32 = <span class="number">0</span>;
-<a href=#3208 id=3208 data-nosnippet>3208</a>                <span class="kw">let </span><span class="kw-2">mut </span>argalloc = ArgumentRegisterAllocator::default();
-<a href=#3209 id=3209 data-nosnippet>3209</a>                argalloc.next(Type::I64, calling_convention).unwrap(); <span class="comment">// skip VMContext
-<a href=#3210 id=3210 data-nosnippet>3210</a>                </span><span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
-<a href=#3211 id=3211 data-nosnippet>3211</a>                    <span class="kw">let </span>prev_loc = param_locations[i];
-<a href=#3212 id=3212 data-nosnippet>3212</a>                    <span class="kw">let </span>targ = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
-<a href=#3213 id=3213 data-nosnippet>3213</a>                        <span class="prelude-val">Some</span>(ARM64Register::GPR(gpr)) =&gt; Location::GPR(gpr),
-<a href=#3214 id=3214 data-nosnippet>3214</a>                        <span class="prelude-val">Some</span>(ARM64Register::NEON(neon)) =&gt; Location::SIMD(neon),
-<a href=#3215 id=3215 data-nosnippet>3215</a>                        <span class="prelude-val">None </span>=&gt; {
-<a href=#3216 id=3216 data-nosnippet>3216</a>                            <span class="comment">// No register can be allocated. Put this argument on the stack.
-<a href=#3217 id=3217 data-nosnippet>3217</a>                            </span>a.emit_ldr(Size::S64, Location::GPR(GPR::X16), prev_loc)<span class="question-mark">?</span>;
-<a href=#3218 id=3218 data-nosnippet>3218</a>                            a.emit_str(
-<a href=#3219 id=3219 data-nosnippet>3219</a>                                Size::S64,
-<a href=#3220 id=3220 data-nosnippet>3220</a>                                Location::GPR(GPR::X16),
-<a href=#3221 id=3221 data-nosnippet>3221</a>                                Location::Memory(GPR::XzrSp, stack_offset + caller_stack_offset),
-<a href=#3222 id=3222 data-nosnippet>3222</a>                            )<span class="question-mark">?</span>;
-<a href=#3223 id=3223 data-nosnippet>3223</a>                            caller_stack_offset += <span class="number">8</span>;
-<a href=#3224 id=3224 data-nosnippet>3224</a>                            <span class="kw">continue</span>;
-<a href=#3225 id=3225 data-nosnippet>3225</a>                        }
-<a href=#3226 id=3226 data-nosnippet>3226</a>                    };
-<a href=#3227 id=3227 data-nosnippet>3227</a>                    a.emit_ldr(Size::S64, targ, prev_loc)<span class="question-mark">?</span>;
-<a href=#3228 id=3228 data-nosnippet>3228</a>                }
-<a href=#3229 id=3229 data-nosnippet>3229</a>
-<a href=#3230 id=3230 data-nosnippet>3230</a>                <span class="comment">// Restore stack pointer.
-<a href=#3231 id=3231 data-nosnippet>3231</a>                </span><span class="kw">if </span>stack_offset &gt; <span class="number">0 </span>{
-<a href=#3232 id=3232 data-nosnippet>3232</a>                    <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
-<a href=#3233 id=3233 data-nosnippet>3233</a>                        a.emit_add(
-<a href=#3234 id=3234 data-nosnippet>3234</a>                            Size::S64,
-<a href=#3235 id=3235 data-nosnippet>3235</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3236 id=3236 data-nosnippet>3236</a>                            Location::Imm32(stack_offset <span class="kw">as </span>u32),
-<a href=#3237 id=3237 data-nosnippet>3237</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3238 id=3238 data-nosnippet>3238</a>                        )<span class="question-mark">?</span>;
-<a href=#3239 id=3239 data-nosnippet>3239</a>                    } <span class="kw">else </span>{
-<a href=#3240 id=3240 data-nosnippet>3240</a>                        a.emit_mov_imm(Location::GPR(GPR::X16), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
-<a href=#3241 id=3241 data-nosnippet>3241</a>                        a.emit_add(
-<a href=#3242 id=3242 data-nosnippet>3242</a>                            Size::S64,
-<a href=#3243 id=3243 data-nosnippet>3243</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3244 id=3244 data-nosnippet>3244</a>                            Location::GPR(GPR::X16),
-<a href=#3245 id=3245 data-nosnippet>3245</a>                            Location::GPR(GPR::XzrSp),
-<a href=#3246 id=3246 data-nosnippet>3246</a>                        )<span class="question-mark">?</span>;
-<a href=#3247 id=3247 data-nosnippet>3247</a>                    }
-<a href=#3248 id=3248 data-nosnippet>3248</a>                }
-<a href=#3249 id=3249 data-nosnippet>3249</a>            }
-<a href=#3250 id=3250 data-nosnippet>3250</a>        }
-<a href=#3251 id=3251 data-nosnippet>3251</a>    }
-<a href=#3252 id=3252 data-nosnippet>3252</a>
-<a href=#3253 id=3253 data-nosnippet>3253</a>    <span class="comment">// Emits a tail call trampoline that loads the address of the target import function
-<a href=#3254 id=3254 data-nosnippet>3254</a>    // from Ctx and jumps to it.
-<a href=#3255 id=3255 data-nosnippet>3255</a>
-<a href=#3256 id=3256 data-nosnippet>3256</a>    </span><span class="kw">let </span>offset = vmoffsets.vmctx_vmfunction_import(index);
-<a href=#3257 id=3257 data-nosnippet>3257</a>    <span class="comment">// for ldr, offset needs to be a multiple of 8, wich often is not
-<a href=#3258 id=3258 data-nosnippet>3258</a>    // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
-<a href=#3259 id=3259 data-nosnippet>3259</a>    </span><span class="kw">let </span>offset =
-<a href=#3260 id=3260 data-nosnippet>3260</a>        <span class="kw">if </span>(offset &gt; <span class="number">0 </span>&amp;&amp; offset &lt; <span class="number">0xF8</span>) || (offset &gt; <span class="number">0 </span>&amp;&amp; offset &lt; <span class="number">0x7FF8 </span>&amp;&amp; (offset &amp; <span class="number">7</span>) == <span class="number">0</span>) {
-<a href=#3261 id=3261 data-nosnippet>3261</a>            offset
-<a href=#3262 id=3262 data-nosnippet>3262</a>        } <span class="kw">else </span>{
-<a href=#3263 id=3263 data-nosnippet>3263</a>            a.emit_mov_imm(Location::GPR(GPR::X16), (offset <span class="kw">as </span>i64) <span class="kw">as </span>u64)<span class="question-mark">?</span>;
-<a href=#3264 id=3264 data-nosnippet>3264</a>            a.emit_add(
-<a href=#3265 id=3265 data-nosnippet>3265</a>                Size::S64,
-<a href=#3266 id=3266 data-nosnippet>3266</a>                Location::GPR(GPR::X0),
-<a href=#3267 id=3267 data-nosnippet>3267</a>                Location::GPR(GPR::X16),
-<a href=#3268 id=3268 data-nosnippet>3268</a>                Location::GPR(GPR::X0),
-<a href=#3269 id=3269 data-nosnippet>3269</a>            )<span class="question-mark">?</span>;
-<a href=#3270 id=3270 data-nosnippet>3270</a>            <span class="number">0
-<a href=#3271 id=3271 data-nosnippet>3271</a>        </span>};
-<a href=#3272 id=3272 data-nosnippet>3272</a>    <span class="attr">#[allow(clippy::match_single_binding)]
-<a href=#3273 id=3273 data-nosnippet>3273</a>    </span><span class="kw">match </span>calling_convention {
-<a href=#3274 id=3274 data-nosnippet>3274</a>        <span class="kw">_ </span>=&gt; {
-<a href=#3275 id=3275 data-nosnippet>3275</a>            <span class="kw">if </span>(offset &amp; <span class="number">7</span>) == <span class="number">0 </span>{
-<a href=#3276 id=3276 data-nosnippet>3276</a>                a.emit_ldr(
-<a href=#3277 id=3277 data-nosnippet>3277</a>                    Size::S64,
-<a href=#3278 id=3278 data-nosnippet>3278</a>                    Location::GPR(GPR::X16),
-<a href=#3279 id=3279 data-nosnippet>3279</a>                    Location::Memory(GPR::X0, offset <span class="kw">as </span>i32), <span class="comment">// function pointer
-<a href=#3280 id=3280 data-nosnippet>3280</a>                </span>)<span class="question-mark">?</span>;
-<a href=#3281 id=3281 data-nosnippet>3281</a>                a.emit_ldr(
-<a href=#3282 id=3282 data-nosnippet>3282</a>                    Size::S64,
-<a href=#3283 id=3283 data-nosnippet>3283</a>                    Location::GPR(GPR::X0),
-<a href=#3284 id=3284 data-nosnippet>3284</a>                    Location::Memory(GPR::X0, offset <span class="kw">as </span>i32 + <span class="number">8</span>), <span class="comment">// target vmctx
-<a href=#3285 id=3285 data-nosnippet>3285</a>                </span>)<span class="question-mark">?</span>;
-<a href=#3286 id=3286 data-nosnippet>3286</a>            } <span class="kw">else </span>{
-<a href=#3287 id=3287 data-nosnippet>3287</a>                a.emit_ldur(
-<a href=#3288 id=3288 data-nosnippet>3288</a>                    Size::S64,
-<a href=#3289 id=3289 data-nosnippet>3289</a>                    Location::GPR(GPR::X16),
-<a href=#3290 id=3290 data-nosnippet>3290</a>                    GPR::X0,
-<a href=#3291 id=3291 data-nosnippet>3291</a>                    offset <span class="kw">as </span>i32, <span class="comment">// function pointer
-<a href=#3292 id=3292 data-nosnippet>3292</a>                </span>)<span class="question-mark">?</span>;
-<a href=#3293 id=3293 data-nosnippet>3293</a>                a.emit_ldur(
-<a href=#3294 id=3294 data-nosnippet>3294</a>                    Size::S64,
-<a href=#3295 id=3295 data-nosnippet>3295</a>                    Location::GPR(GPR::X0),
-<a href=#3296 id=3296 data-nosnippet>3296</a>                    GPR::X0,
-<a href=#3297 id=3297 data-nosnippet>3297</a>                    offset <span class="kw">as </span>i32 + <span class="number">8</span>, <span class="comment">// target vmctx
-<a href=#3298 id=3298 data-nosnippet>3298</a>                </span>)<span class="question-mark">?</span>;
-<a href=#3299 id=3299 data-nosnippet>3299</a>            }
-<a href=#3300 id=3300 data-nosnippet>3300</a>        }
-<a href=#3301 id=3301 data-nosnippet>3301</a>    }
-<a href=#3302 id=3302 data-nosnippet>3302</a>    a.emit_b_register(GPR::X16)<span class="question-mark">?</span>;
-<a href=#3303 id=3303 data-nosnippet>3303</a>
-<a href=#3304 id=3304 data-nosnippet>3304</a>    <span class="kw">let </span><span class="kw-2">mut </span>contents = a.finalize().unwrap();
-<a href=#3305 id=3305 data-nosnippet>3305</a>    contents.shrink_to_fit();
-<a href=#3306 id=3306 data-nosnippet>3306</a>    <span class="kw">let </span>section_body = SectionBody::new_with_vec(contents);
-<a href=#3307 id=3307 data-nosnippet>3307</a>
-<a href=#3308 id=3308 data-nosnippet>3308</a>    <span class="prelude-val">Ok</span>(CustomSection {
-<a href=#3309 id=3309 data-nosnippet>3309</a>        protection: CustomSectionProtection::ReadExecute,
-<a href=#3310 id=3310 data-nosnippet>3310</a>        alignment: <span class="prelude-val">None</span>,
-<a href=#3311 id=3311 data-nosnippet>3311</a>        bytes: section_body,
-<a href=#3312 id=3312 data-nosnippet>3312</a>        relocations: <span class="macro">vec!</span>[],
-<a href=#3313 id=3313 data-nosnippet>3313</a>    })
-<a href=#3314 id=3314 data-nosnippet>3314</a>}</code></pre></div></section></main></body></html>
+<a href=#2887 id=2887 data-nosnippet>2887</a>                        <span class="comment">// align first
+<a href=#2888 id=2888 data-nosnippet>2888</a>                        </span>caller_stack_offset = caller_stack_offset.next_multiple_of(sz.bytes());
+<a href=#2889 id=2889 data-nosnippet>2889</a>                    }
+<a href=#2890 id=2890 data-nosnippet>2890</a>                    <span class="kw">_ </span>=&gt; (),
+<a href=#2891 id=2891 data-nosnippet>2891</a>                };
+<a href=#2892 id=2892 data-nosnippet>2892</a>                <span class="comment">// using X16 as scratch reg
+<a href=#2893 id=2893 data-nosnippet>2893</a>                </span>a.emit_ldr(
+<a href=#2894 id=2894 data-nosnippet>2894</a>                    sz,
+<a href=#2895 id=2895 data-nosnippet>2895</a>                    Location::GPR(GPR::X16),
+<a href=#2896 id=2896 data-nosnippet>2896</a>                    Location::Memory(args, (i * <span class="number">16</span>) <span class="kw">as </span>i32),
+<a href=#2897 id=2897 data-nosnippet>2897</a>                )<span class="question-mark">?</span>;
+<a href=#2898 id=2898 data-nosnippet>2898</a>                a.emit_str(
+<a href=#2899 id=2899 data-nosnippet>2899</a>                    sz,
+<a href=#2900 id=2900 data-nosnippet>2900</a>                    Location::GPR(GPR::X16),
+<a href=#2901 id=2901 data-nosnippet>2901</a>                    Location::Memory(GPR::XzrSp, caller_stack_offset <span class="kw">as _</span>),
+<a href=#2902 id=2902 data-nosnippet>2902</a>                )<span class="question-mark">?</span>;
+<a href=#2903 id=2903 data-nosnippet>2903</a>                <span class="kw">match </span>calling_convention {
+<a href=#2904 id=2904 data-nosnippet>2904</a>                    CallingConvention::AppleAarch64 =&gt; {
+<a href=#2905 id=2905 data-nosnippet>2905</a>                        caller_stack_offset += sz.bytes();
+<a href=#2906 id=2906 data-nosnippet>2906</a>                    }
+<a href=#2907 id=2907 data-nosnippet>2907</a>                    <span class="kw">_ </span>=&gt; {
+<a href=#2908 id=2908 data-nosnippet>2908</a>                        caller_stack_offset += <span class="number">8</span>;
+<a href=#2909 id=2909 data-nosnippet>2909</a>                    }
+<a href=#2910 id=2910 data-nosnippet>2910</a>                }
+<a href=#2911 id=2911 data-nosnippet>2911</a>            }
+<a href=#2912 id=2912 data-nosnippet>2912</a>        }
+<a href=#2913 id=2913 data-nosnippet>2913</a>    }
+<a href=#2914 id=2914 data-nosnippet>2914</a>
+<a href=#2915 id=2915 data-nosnippet>2915</a>    <span class="macro">dynasm!</span>(a  ; blr X(fptr));
+<a href=#2916 id=2916 data-nosnippet>2916</a>
+<a href=#2917 id=2917 data-nosnippet>2917</a>    <span class="comment">// Write return values.
+<a href=#2918 id=2918 data-nosnippet>2918</a>    </span><span class="kw">let </span><span class="kw-2">mut </span>n_stack_return_slots: usize = <span class="number">0</span>;
+<a href=#2919 id=2919 data-nosnippet>2919</a>    <span class="kw">for </span>i <span class="kw">in </span><span class="number">0</span>..sig.results().len() {
+<a href=#2920 id=2920 data-nosnippet>2920</a>        <span class="kw">let </span>src = <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span>reg) = ARM64_RETURN_VALUE_REGISTERS.get(i) {
+<a href=#2921 id=2921 data-nosnippet>2921</a>            reg
+<a href=#2922 id=2922 data-nosnippet>2922</a>        } <span class="kw">else </span>{
+<a href=#2923 id=2923 data-nosnippet>2923</a>            <span class="kw">let </span>loc = GPR::X16;
+<a href=#2924 id=2924 data-nosnippet>2924</a>            a.emit_ldr(
+<a href=#2925 id=2925 data-nosnippet>2925</a>                Size::S64,
+<a href=#2926 id=2926 data-nosnippet>2926</a>                Location::GPR(GPR::X16),
+<a href=#2927 id=2927 data-nosnippet>2927</a>                Location::Memory(GPR::XzrSp, (n_stack_return_slots <span class="kw">as </span>u32 * <span class="number">8</span>) <span class="kw">as _</span>),
+<a href=#2928 id=2928 data-nosnippet>2928</a>            )<span class="question-mark">?</span>;
+<a href=#2929 id=2929 data-nosnippet>2929</a>            n_stack_return_slots += <span class="number">1</span>;
+<a href=#2930 id=2930 data-nosnippet>2930</a>            loc
+<a href=#2931 id=2931 data-nosnippet>2931</a>        };
+<a href=#2932 id=2932 data-nosnippet>2932</a>        a.emit_str(
+<a href=#2933 id=2933 data-nosnippet>2933</a>            Size::S64,
+<a href=#2934 id=2934 data-nosnippet>2934</a>            Location::GPR(src),
+<a href=#2935 id=2935 data-nosnippet>2935</a>            Location::Memory(args, (i * <span class="number">16</span>) <span class="kw">as _</span>),
+<a href=#2936 id=2936 data-nosnippet>2936</a>        )<span class="question-mark">?</span>;
+<a href=#2937 id=2937 data-nosnippet>2937</a>    }
+<a href=#2938 id=2938 data-nosnippet>2938</a>
+<a href=#2939 id=2939 data-nosnippet>2939</a>    <span class="comment">// Restore stack.
+<a href=#2940 id=2940 data-nosnippet>2940</a>    </span><span class="macro">dynasm!</span>(a
+<a href=#2941 id=2941 data-nosnippet>2941</a>        ; ldp X(fptr), X(args), [x29, <span class="number">16</span>]
+<a href=#2942 id=2942 data-nosnippet>2942</a>        ; ldp x29, x30, [x29]
+<a href=#2943 id=2943 data-nosnippet>2943</a>    );
+<a href=#2944 id=2944 data-nosnippet>2944</a>    <span class="kw">let </span>restored_stack_offset = <span class="number">32 </span>+ stack_offset;
+<a href=#2945 id=2945 data-nosnippet>2945</a>    <span class="kw">if </span>restored_stack_offset &lt; <span class="number">0x1000 </span>{
+<a href=#2946 id=2946 data-nosnippet>2946</a>        <span class="macro">dynasm!</span>(a; add sp, sp, restored_stack_offset);
+<a href=#2947 id=2947 data-nosnippet>2947</a>    } <span class="kw">else </span>{
+<a href=#2948 id=2948 data-nosnippet>2948</a>        a.emit_mov_imm(Location::GPR(GPR::X26), restored_stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+<a href=#2949 id=2949 data-nosnippet>2949</a>        <span class="macro">dynasm!</span>(a; add sp, sp, x26);
+<a href=#2950 id=2950 data-nosnippet>2950</a>    }
+<a href=#2951 id=2951 data-nosnippet>2951</a>    <span class="macro">dynasm!</span>(a; ret);
+<a href=#2952 id=2952 data-nosnippet>2952</a>
+<a href=#2953 id=2953 data-nosnippet>2953</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = a.finalize().unwrap();
+<a href=#2954 id=2954 data-nosnippet>2954</a>    body.shrink_to_fit();
+<a href=#2955 id=2955 data-nosnippet>2955</a>    <span class="prelude-val">Ok</span>(FunctionBody {
+<a href=#2956 id=2956 data-nosnippet>2956</a>        body,
+<a href=#2957 id=2957 data-nosnippet>2957</a>        unwind_info: <span class="prelude-val">None</span>,
+<a href=#2958 id=2958 data-nosnippet>2958</a>    })
+<a href=#2959 id=2959 data-nosnippet>2959</a>}
+<a href=#2960 id=2960 data-nosnippet>2960</a><span class="comment">// Generates dynamic import function call trampoline for a function type.
+<a href=#2961 id=2961 data-nosnippet>2961</a></span><span class="kw">pub fn </span>gen_std_dynamic_import_trampoline_arm64(
+<a href=#2962 id=2962 data-nosnippet>2962</a>    vmoffsets: <span class="kw-2">&amp;</span>VMOffsets,
+<a href=#2963 id=2963 data-nosnippet>2963</a>    sig: <span class="kw-2">&amp;</span>FunctionType,
+<a href=#2964 id=2964 data-nosnippet>2964</a>    calling_convention: CallingConvention,
+<a href=#2965 id=2965 data-nosnippet>2965</a>) -&gt; <span class="prelude-ty">Result</span>&lt;FunctionBody, CompileError&gt; {
+<a href=#2966 id=2966 data-nosnippet>2966</a>    <span class="kw">let </span><span class="kw-2">mut </span>a = Assembler::new(<span class="number">0</span>);
+<a href=#2967 id=2967 data-nosnippet>2967</a>    <span class="comment">// Allocate argument array.
+<a href=#2968 id=2968 data-nosnippet>2968</a>    </span><span class="kw">let </span>stack_offset: usize = <span class="number">16 </span>* std::cmp::max(sig.params().len(), sig.results().len());
+<a href=#2969 id=2969 data-nosnippet>2969</a>    <span class="comment">// Save LR and X26, as scratch register
+<a href=#2970 id=2970 data-nosnippet>2970</a>    </span>a.emit_stpdb(
+<a href=#2971 id=2971 data-nosnippet>2971</a>        Size::S64,
+<a href=#2972 id=2972 data-nosnippet>2972</a>        Location::GPR(GPR::X30),
+<a href=#2973 id=2973 data-nosnippet>2973</a>        Location::GPR(GPR::X26),
+<a href=#2974 id=2974 data-nosnippet>2974</a>        GPR::XzrSp,
+<a href=#2975 id=2975 data-nosnippet>2975</a>        <span class="number">16</span>,
+<a href=#2976 id=2976 data-nosnippet>2976</a>    )<span class="question-mark">?</span>;
+<a href=#2977 id=2977 data-nosnippet>2977</a>
+<a href=#2978 id=2978 data-nosnippet>2978</a>    <span class="kw">if </span>stack_offset != <span class="number">0 </span>{
+<a href=#2979 id=2979 data-nosnippet>2979</a>        <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
+<a href=#2980 id=2980 data-nosnippet>2980</a>            a.emit_sub(
+<a href=#2981 id=2981 data-nosnippet>2981</a>                Size::S64,
+<a href=#2982 id=2982 data-nosnippet>2982</a>                Location::GPR(GPR::XzrSp),
+<a href=#2983 id=2983 data-nosnippet>2983</a>                Location::Imm32(stack_offset <span class="kw">as _</span>),
+<a href=#2984 id=2984 data-nosnippet>2984</a>                Location::GPR(GPR::XzrSp),
+<a href=#2985 id=2985 data-nosnippet>2985</a>            )<span class="question-mark">?</span>;
+<a href=#2986 id=2986 data-nosnippet>2986</a>        } <span class="kw">else </span>{
+<a href=#2987 id=2987 data-nosnippet>2987</a>            a.emit_mov_imm(Location::GPR(GPR::X26), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+<a href=#2988 id=2988 data-nosnippet>2988</a>            a.emit_sub(
+<a href=#2989 id=2989 data-nosnippet>2989</a>                Size::S64,
+<a href=#2990 id=2990 data-nosnippet>2990</a>                Location::GPR(GPR::XzrSp),
+<a href=#2991 id=2991 data-nosnippet>2991</a>                Location::GPR(GPR::X26),
+<a href=#2992 id=2992 data-nosnippet>2992</a>                Location::GPR(GPR::XzrSp),
+<a href=#2993 id=2993 data-nosnippet>2993</a>            )<span class="question-mark">?</span>;
+<a href=#2994 id=2994 data-nosnippet>2994</a>        }
+<a href=#2995 id=2995 data-nosnippet>2995</a>    }
+<a href=#2996 id=2996 data-nosnippet>2996</a>
+<a href=#2997 id=2997 data-nosnippet>2997</a>    <span class="comment">// Copy arguments.
+<a href=#2998 id=2998 data-nosnippet>2998</a>    </span><span class="kw">if </span>!sig.params().is_empty() {
+<a href=#2999 id=2999 data-nosnippet>2999</a>        <span class="kw">let </span><span class="kw-2">mut </span>argalloc = ArgumentRegisterAllocator::default();
+<a href=#3000 id=3000 data-nosnippet>3000</a>        argalloc.next(Type::I64, calling_convention).unwrap(); <span class="comment">// skip VMContext
+<a href=#3001 id=3001 data-nosnippet>3001</a>
+<a href=#3002 id=3002 data-nosnippet>3002</a>        </span><span class="kw">let </span><span class="kw-2">mut </span>stack_param_count: usize = <span class="number">0</span>;
+<a href=#3003 id=3003 data-nosnippet>3003</a>
+<a href=#3004 id=3004 data-nosnippet>3004</a>        <span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
+<a href=#3005 id=3005 data-nosnippet>3005</a>            <span class="kw">let </span>source_loc = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
+<a href=#3006 id=3006 data-nosnippet>3006</a>                <span class="prelude-val">Some</span>(ARM64Register::GPR(gpr)) =&gt; Location::GPR(gpr),
+<a href=#3007 id=3007 data-nosnippet>3007</a>                <span class="prelude-val">Some</span>(ARM64Register::NEON(neon)) =&gt; Location::SIMD(neon),
+<a href=#3008 id=3008 data-nosnippet>3008</a>                <span class="prelude-val">None </span>=&gt; {
+<a href=#3009 id=3009 data-nosnippet>3009</a>                    <span class="kw">let </span>sz = <span class="kw">match </span>calling_convention {
+<a href=#3010 id=3010 data-nosnippet>3010</a>                        CallingConvention::AppleAarch64 =&gt; <span class="kw">match </span><span class="kw-2">*</span>ty {
+<a href=#3011 id=3011 data-nosnippet>3011</a>                            Type::I32 | Type::F32 =&gt; Size::S32,
+<a href=#3012 id=3012 data-nosnippet>3012</a>                            <span class="kw">_ </span>=&gt; {
+<a href=#3013 id=3013 data-nosnippet>3013</a>                                stack_param_count = stack_param_count.next_multiple_of(<span class="number">8</span>);
+<a href=#3014 id=3014 data-nosnippet>3014</a>                                Size::S64
+<a href=#3015 id=3015 data-nosnippet>3015</a>                            }
+<a href=#3016 id=3016 data-nosnippet>3016</a>                        },
+<a href=#3017 id=3017 data-nosnippet>3017</a>                        <span class="kw">_ </span>=&gt; Size::S64,
+<a href=#3018 id=3018 data-nosnippet>3018</a>                    };
+<a href=#3019 id=3019 data-nosnippet>3019</a>                    a.emit_ldr(
+<a href=#3020 id=3020 data-nosnippet>3020</a>                        sz,
+<a href=#3021 id=3021 data-nosnippet>3021</a>                        Location::GPR(GPR::X26),
+<a href=#3022 id=3022 data-nosnippet>3022</a>                        Location::Memory(GPR::XzrSp, (stack_offset + <span class="number">16 </span>+ stack_param_count) <span class="kw">as _</span>),
+<a href=#3023 id=3023 data-nosnippet>3023</a>                    )<span class="question-mark">?</span>;
+<a href=#3024 id=3024 data-nosnippet>3024</a>                    stack_param_count += <span class="kw">match </span>sz {
+<a href=#3025 id=3025 data-nosnippet>3025</a>                        Size::S32 =&gt; <span class="number">4</span>,
+<a href=#3026 id=3026 data-nosnippet>3026</a>                        Size::S64 =&gt; <span class="number">8</span>,
+<a href=#3027 id=3027 data-nosnippet>3027</a>                        <span class="kw">_ </span>=&gt; <span class="macro">codegen_error!</span>(
+<a href=#3028 id=3028 data-nosnippet>3028</a>                            <span class="string">"singlepass unreachable in gen_std_dynamic_import_trampoline_arm64"
+<a href=#3029 id=3029 data-nosnippet>3029</a>                        </span>),
+<a href=#3030 id=3030 data-nosnippet>3030</a>                    };
+<a href=#3031 id=3031 data-nosnippet>3031</a>                    Location::GPR(GPR::X26)
+<a href=#3032 id=3032 data-nosnippet>3032</a>                }
+<a href=#3033 id=3033 data-nosnippet>3033</a>            };
+<a href=#3034 id=3034 data-nosnippet>3034</a>            a.emit_str(
+<a href=#3035 id=3035 data-nosnippet>3035</a>                Size::S64,
+<a href=#3036 id=3036 data-nosnippet>3036</a>                source_loc,
+<a href=#3037 id=3037 data-nosnippet>3037</a>                Location::Memory(GPR::XzrSp, (i * <span class="number">16</span>) <span class="kw">as _</span>),
+<a href=#3038 id=3038 data-nosnippet>3038</a>            )<span class="question-mark">?</span>;
+<a href=#3039 id=3039 data-nosnippet>3039</a>
+<a href=#3040 id=3040 data-nosnippet>3040</a>            <span class="comment">// Zero upper 64 bits.
+<a href=#3041 id=3041 data-nosnippet>3041</a>            </span>a.emit_str(
+<a href=#3042 id=3042 data-nosnippet>3042</a>                Size::S64,
+<a href=#3043 id=3043 data-nosnippet>3043</a>                Location::GPR(GPR::XzrSp),                       <span class="comment">// XZR here
+<a href=#3044 id=3044 data-nosnippet>3044</a>                </span>Location::Memory(GPR::XzrSp, (i * <span class="number">16 </span>+ <span class="number">8</span>) <span class="kw">as _</span>), <span class="comment">// XSP here
+<a href=#3045 id=3045 data-nosnippet>3045</a>            </span>)<span class="question-mark">?</span>;
+<a href=#3046 id=3046 data-nosnippet>3046</a>        }
+<a href=#3047 id=3047 data-nosnippet>3047</a>    }
+<a href=#3048 id=3048 data-nosnippet>3048</a>
+<a href=#3049 id=3049 data-nosnippet>3049</a>    <span class="attr">#[allow(clippy::match_single_binding)]
+<a href=#3050 id=3050 data-nosnippet>3050</a>    </span><span class="kw">match </span>calling_convention {
+<a href=#3051 id=3051 data-nosnippet>3051</a>        <span class="kw">_ </span>=&gt; {
+<a href=#3052 id=3052 data-nosnippet>3052</a>            <span class="comment">// Load target address.
+<a href=#3053 id=3053 data-nosnippet>3053</a>            </span><span class="kw">let </span>offset = vmoffsets.vmdynamicfunction_import_context_address();
+<a href=#3054 id=3054 data-nosnippet>3054</a>            a.emit_ldur(Size::S64, Location::GPR(GPR::X26), GPR::X0, offset <span class="kw">as </span>i32)<span class="question-mark">?</span>;
+<a href=#3055 id=3055 data-nosnippet>3055</a>            <span class="comment">// Load values array.
+<a href=#3056 id=3056 data-nosnippet>3056</a>            </span>a.emit_add(
+<a href=#3057 id=3057 data-nosnippet>3057</a>                Size::S64,
+<a href=#3058 id=3058 data-nosnippet>3058</a>                Location::GPR(GPR::XzrSp),
+<a href=#3059 id=3059 data-nosnippet>3059</a>                Location::Imm8(<span class="number">0</span>),
+<a href=#3060 id=3060 data-nosnippet>3060</a>                Location::GPR(GPR::X1),
+<a href=#3061 id=3061 data-nosnippet>3061</a>            )<span class="question-mark">?</span>;
+<a href=#3062 id=3062 data-nosnippet>3062</a>        }
+<a href=#3063 id=3063 data-nosnippet>3063</a>    };
+<a href=#3064 id=3064 data-nosnippet>3064</a>
+<a href=#3065 id=3065 data-nosnippet>3065</a>    <span class="comment">// Call target.
+<a href=#3066 id=3066 data-nosnippet>3066</a>    </span>a.emit_call_register(GPR::X26)<span class="question-mark">?</span>;
+<a href=#3067 id=3067 data-nosnippet>3067</a>
+<a href=#3068 id=3068 data-nosnippet>3068</a>    <span class="comment">// Fetch return value.
+<a href=#3069 id=3069 data-nosnippet>3069</a>    </span><span class="kw">if </span>!sig.results().is_empty() {
+<a href=#3070 id=3070 data-nosnippet>3070</a>        <span class="macro">assert_eq!</span>(sig.results().len(), <span class="number">1</span>);
+<a href=#3071 id=3071 data-nosnippet>3071</a>        a.emit_ldr(
+<a href=#3072 id=3072 data-nosnippet>3072</a>            Size::S64,
+<a href=#3073 id=3073 data-nosnippet>3073</a>            Location::GPR(GPR::X0),
+<a href=#3074 id=3074 data-nosnippet>3074</a>            Location::Memory(GPR::XzrSp, <span class="number">0</span>),
+<a href=#3075 id=3075 data-nosnippet>3075</a>        )<span class="question-mark">?</span>;
+<a href=#3076 id=3076 data-nosnippet>3076</a>    }
+<a href=#3077 id=3077 data-nosnippet>3077</a>
+<a href=#3078 id=3078 data-nosnippet>3078</a>    <span class="comment">// Release values array.
+<a href=#3079 id=3079 data-nosnippet>3079</a>    </span><span class="kw">if </span>stack_offset != <span class="number">0 </span>{
+<a href=#3080 id=3080 data-nosnippet>3080</a>        <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
+<a href=#3081 id=3081 data-nosnippet>3081</a>            a.emit_add(
+<a href=#3082 id=3082 data-nosnippet>3082</a>                Size::S64,
+<a href=#3083 id=3083 data-nosnippet>3083</a>                Location::GPR(GPR::XzrSp),
+<a href=#3084 id=3084 data-nosnippet>3084</a>                Location::Imm32(stack_offset <span class="kw">as _</span>),
+<a href=#3085 id=3085 data-nosnippet>3085</a>                Location::GPR(GPR::XzrSp),
+<a href=#3086 id=3086 data-nosnippet>3086</a>            )<span class="question-mark">?</span>;
+<a href=#3087 id=3087 data-nosnippet>3087</a>        } <span class="kw">else </span>{
+<a href=#3088 id=3088 data-nosnippet>3088</a>            a.emit_mov_imm(Location::GPR(GPR::X26), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+<a href=#3089 id=3089 data-nosnippet>3089</a>            a.emit_add(
+<a href=#3090 id=3090 data-nosnippet>3090</a>                Size::S64,
+<a href=#3091 id=3091 data-nosnippet>3091</a>                Location::GPR(GPR::XzrSp),
+<a href=#3092 id=3092 data-nosnippet>3092</a>                Location::GPR(GPR::X26),
+<a href=#3093 id=3093 data-nosnippet>3093</a>                Location::GPR(GPR::XzrSp),
+<a href=#3094 id=3094 data-nosnippet>3094</a>            )<span class="question-mark">?</span>;
+<a href=#3095 id=3095 data-nosnippet>3095</a>        }
+<a href=#3096 id=3096 data-nosnippet>3096</a>    }
+<a href=#3097 id=3097 data-nosnippet>3097</a>    a.emit_ldpia(
+<a href=#3098 id=3098 data-nosnippet>3098</a>        Size::S64,
+<a href=#3099 id=3099 data-nosnippet>3099</a>        Location::GPR(GPR::X30),
+<a href=#3100 id=3100 data-nosnippet>3100</a>        Location::GPR(GPR::X26),
+<a href=#3101 id=3101 data-nosnippet>3101</a>        GPR::XzrSp,
+<a href=#3102 id=3102 data-nosnippet>3102</a>        <span class="number">16</span>,
+<a href=#3103 id=3103 data-nosnippet>3103</a>    )<span class="question-mark">?</span>;
+<a href=#3104 id=3104 data-nosnippet>3104</a>
+<a href=#3105 id=3105 data-nosnippet>3105</a>    <span class="comment">// Return.
+<a href=#3106 id=3106 data-nosnippet>3106</a>    </span>a.emit_ret()<span class="question-mark">?</span>;
+<a href=#3107 id=3107 data-nosnippet>3107</a>
+<a href=#3108 id=3108 data-nosnippet>3108</a>    <span class="kw">let </span><span class="kw-2">mut </span>body = a.finalize().unwrap();
+<a href=#3109 id=3109 data-nosnippet>3109</a>    body.shrink_to_fit();
+<a href=#3110 id=3110 data-nosnippet>3110</a>    <span class="prelude-val">Ok</span>(FunctionBody {
+<a href=#3111 id=3111 data-nosnippet>3111</a>        body,
+<a href=#3112 id=3112 data-nosnippet>3112</a>        unwind_info: <span class="prelude-val">None</span>,
+<a href=#3113 id=3113 data-nosnippet>3113</a>    })
+<a href=#3114 id=3114 data-nosnippet>3114</a>}
+<a href=#3115 id=3115 data-nosnippet>3115</a><span class="comment">// Singlepass calls import functions through a trampoline.
+<a href=#3116 id=3116 data-nosnippet>3116</a></span><span class="kw">pub fn </span>gen_import_call_trampoline_arm64(
+<a href=#3117 id=3117 data-nosnippet>3117</a>    vmoffsets: <span class="kw-2">&amp;</span>VMOffsets,
+<a href=#3118 id=3118 data-nosnippet>3118</a>    index: FunctionIndex,
+<a href=#3119 id=3119 data-nosnippet>3119</a>    sig: <span class="kw-2">&amp;</span>FunctionType,
+<a href=#3120 id=3120 data-nosnippet>3120</a>    calling_convention: CallingConvention,
+<a href=#3121 id=3121 data-nosnippet>3121</a>) -&gt; <span class="prelude-ty">Result</span>&lt;CustomSection, CompileError&gt; {
+<a href=#3122 id=3122 data-nosnippet>3122</a>    <span class="kw">let </span><span class="kw-2">mut </span>a = Assembler::new(<span class="number">0</span>);
+<a href=#3123 id=3123 data-nosnippet>3123</a>
+<a href=#3124 id=3124 data-nosnippet>3124</a>    <span class="comment">// Singlepass internally treats all arguments as integers
+<a href=#3125 id=3125 data-nosnippet>3125</a>    // For the standard System V calling convention requires
+<a href=#3126 id=3126 data-nosnippet>3126</a>    //  floating point arguments to be passed in NEON registers.
+<a href=#3127 id=3127 data-nosnippet>3127</a>    //  Translation is expensive, so only do it if needed.
+<a href=#3128 id=3128 data-nosnippet>3128</a>    </span><span class="kw">if </span>sig
+<a href=#3129 id=3129 data-nosnippet>3129</a>        .params()
+<a href=#3130 id=3130 data-nosnippet>3130</a>        .iter()
+<a href=#3131 id=3131 data-nosnippet>3131</a>        .any(|<span class="kw-2">&amp;</span>x| x == Type::F32 || x == Type::F64)
+<a href=#3132 id=3132 data-nosnippet>3132</a>    {
+<a href=#3133 id=3133 data-nosnippet>3133</a>        <span class="attr">#[allow(clippy::match_single_binding)]
+<a href=#3134 id=3134 data-nosnippet>3134</a>        </span><span class="kw">match </span>calling_convention {
+<a href=#3135 id=3135 data-nosnippet>3135</a>            <span class="kw">_ </span>=&gt; {
+<a href=#3136 id=3136 data-nosnippet>3136</a>                <span class="comment">// Allocate stack space for arguments.
+<a href=#3137 id=3137 data-nosnippet>3137</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>stack_offset: u32 = <span class="kw">if </span>sig.params().len() &gt; <span class="number">7 </span>{
+<a href=#3138 id=3138 data-nosnippet>3138</a>                    <span class="number">7 </span>* <span class="number">8
+<a href=#3139 id=3139 data-nosnippet>3139</a>                </span>} <span class="kw">else </span>{
+<a href=#3140 id=3140 data-nosnippet>3140</a>                    (sig.params().len() <span class="kw">as </span>u32) * <span class="number">8
+<a href=#3141 id=3141 data-nosnippet>3141</a>                </span>};
+<a href=#3142 id=3142 data-nosnippet>3142</a>                stack_offset = stack_offset.next_multiple_of(<span class="number">16</span>);
+<a href=#3143 id=3143 data-nosnippet>3143</a>                <span class="kw">if </span>stack_offset != <span class="number">0 </span>{
+<a href=#3144 id=3144 data-nosnippet>3144</a>                    <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
+<a href=#3145 id=3145 data-nosnippet>3145</a>                        a.emit_sub(
+<a href=#3146 id=3146 data-nosnippet>3146</a>                            Size::S64,
+<a href=#3147 id=3147 data-nosnippet>3147</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3148 id=3148 data-nosnippet>3148</a>                            Location::Imm32(stack_offset <span class="kw">as </span>u32),
+<a href=#3149 id=3149 data-nosnippet>3149</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3150 id=3150 data-nosnippet>3150</a>                        )<span class="question-mark">?</span>;
+<a href=#3151 id=3151 data-nosnippet>3151</a>                    } <span class="kw">else </span>{
+<a href=#3152 id=3152 data-nosnippet>3152</a>                        a.emit_mov_imm(Location::GPR(GPR::X16), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+<a href=#3153 id=3153 data-nosnippet>3153</a>                        a.emit_sub(
+<a href=#3154 id=3154 data-nosnippet>3154</a>                            Size::S64,
+<a href=#3155 id=3155 data-nosnippet>3155</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3156 id=3156 data-nosnippet>3156</a>                            Location::GPR(GPR::X16),
+<a href=#3157 id=3157 data-nosnippet>3157</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3158 id=3158 data-nosnippet>3158</a>                        )<span class="question-mark">?</span>;
+<a href=#3159 id=3159 data-nosnippet>3159</a>                    }
+<a href=#3160 id=3160 data-nosnippet>3160</a>                }
+<a href=#3161 id=3161 data-nosnippet>3161</a>
+<a href=#3162 id=3162 data-nosnippet>3162</a>                <span class="comment">// Store all arguments to the stack to prevent overwrite.
+<a href=#3163 id=3163 data-nosnippet>3163</a>                </span><span class="kw">static </span>PARAM_REGS: <span class="kw-2">&amp;</span>[GPR] = <span class="kw-2">&amp;</span>[
+<a href=#3164 id=3164 data-nosnippet>3164</a>                    GPR::X1,
+<a href=#3165 id=3165 data-nosnippet>3165</a>                    GPR::X2,
+<a href=#3166 id=3166 data-nosnippet>3166</a>                    GPR::X3,
+<a href=#3167 id=3167 data-nosnippet>3167</a>                    GPR::X4,
+<a href=#3168 id=3168 data-nosnippet>3168</a>                    GPR::X5,
+<a href=#3169 id=3169 data-nosnippet>3169</a>                    GPR::X6,
+<a href=#3170 id=3170 data-nosnippet>3170</a>                    GPR::X7,
+<a href=#3171 id=3171 data-nosnippet>3171</a>                ];
+<a href=#3172 id=3172 data-nosnippet>3172</a>                <span class="kw">let </span><span class="kw-2">mut </span>param_locations = <span class="macro">vec!</span>[];
+<a href=#3173 id=3173 data-nosnippet>3173</a>                <span class="kw">for </span>(i, param_reg) <span class="kw">in </span>PARAM_REGS.iter().enumerate().take(sig.params().len()) {
+<a href=#3174 id=3174 data-nosnippet>3174</a>                    <span class="kw">let </span>loc = <span class="kw">match </span>i {
+<a href=#3175 id=3175 data-nosnippet>3175</a>                        <span class="number">0</span>..=<span class="number">6 </span>=&gt; {
+<a href=#3176 id=3176 data-nosnippet>3176</a>                            <span class="kw">let </span>loc = Location::Memory(GPR::XzrSp, (i * <span class="number">8</span>) <span class="kw">as </span>i32);
+<a href=#3177 id=3177 data-nosnippet>3177</a>                            a.emit_str(Size::S64, Location::GPR(<span class="kw-2">*</span>param_reg), loc)<span class="question-mark">?</span>;
+<a href=#3178 id=3178 data-nosnippet>3178</a>                            loc
+<a href=#3179 id=3179 data-nosnippet>3179</a>                        }
+<a href=#3180 id=3180 data-nosnippet>3180</a>                        <span class="kw">_ </span>=&gt; {
+<a href=#3181 id=3181 data-nosnippet>3181</a>                            Location::Memory(GPR::XzrSp, (stack_offset + (i <span class="kw">as </span>u32 - <span class="number">7</span>) * <span class="number">8</span>) <span class="kw">as </span>i32)
+<a href=#3182 id=3182 data-nosnippet>3182</a>                        }
+<a href=#3183 id=3183 data-nosnippet>3183</a>                    };
+<a href=#3184 id=3184 data-nosnippet>3184</a>                    param_locations.push(loc);
+<a href=#3185 id=3185 data-nosnippet>3185</a>                }
+<a href=#3186 id=3186 data-nosnippet>3186</a>
+<a href=#3187 id=3187 data-nosnippet>3187</a>                <span class="comment">// Copy arguments.
+<a href=#3188 id=3188 data-nosnippet>3188</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>caller_stack_offset: u32 = <span class="number">0</span>;
+<a href=#3189 id=3189 data-nosnippet>3189</a>                <span class="kw">let </span><span class="kw-2">mut </span>argalloc = ArgumentRegisterAllocator::default();
+<a href=#3190 id=3190 data-nosnippet>3190</a>                argalloc.next(Type::I64, calling_convention).unwrap(); <span class="comment">// skip VMContext
+<a href=#3191 id=3191 data-nosnippet>3191</a>                </span><span class="kw">for </span>(i, ty) <span class="kw">in </span>sig.params().iter().enumerate() {
+<a href=#3192 id=3192 data-nosnippet>3192</a>                    <span class="kw">let </span>prev_loc = param_locations[i];
+<a href=#3193 id=3193 data-nosnippet>3193</a>                    <span class="kw">let </span>targ = <span class="kw">match </span>argalloc.next(<span class="kw-2">*</span>ty, calling_convention)<span class="question-mark">? </span>{
+<a href=#3194 id=3194 data-nosnippet>3194</a>                        <span class="prelude-val">Some</span>(ARM64Register::GPR(gpr)) =&gt; Location::GPR(gpr),
+<a href=#3195 id=3195 data-nosnippet>3195</a>                        <span class="prelude-val">Some</span>(ARM64Register::NEON(neon)) =&gt; Location::SIMD(neon),
+<a href=#3196 id=3196 data-nosnippet>3196</a>                        <span class="prelude-val">None </span>=&gt; {
+<a href=#3197 id=3197 data-nosnippet>3197</a>                            <span class="comment">// No register can be allocated. Put this argument on the stack.
+<a href=#3198 id=3198 data-nosnippet>3198</a>                            </span>a.emit_ldr(Size::S64, Location::GPR(GPR::X16), prev_loc)<span class="question-mark">?</span>;
+<a href=#3199 id=3199 data-nosnippet>3199</a>                            a.emit_str(
+<a href=#3200 id=3200 data-nosnippet>3200</a>                                Size::S64,
+<a href=#3201 id=3201 data-nosnippet>3201</a>                                Location::GPR(GPR::X16),
+<a href=#3202 id=3202 data-nosnippet>3202</a>                                Location::Memory(
+<a href=#3203 id=3203 data-nosnippet>3203</a>                                    GPR::XzrSp,
+<a href=#3204 id=3204 data-nosnippet>3204</a>                                    (stack_offset + caller_stack_offset) <span class="kw">as </span>i32,
+<a href=#3205 id=3205 data-nosnippet>3205</a>                                ),
+<a href=#3206 id=3206 data-nosnippet>3206</a>                            )<span class="question-mark">?</span>;
+<a href=#3207 id=3207 data-nosnippet>3207</a>                            caller_stack_offset += <span class="number">8</span>;
+<a href=#3208 id=3208 data-nosnippet>3208</a>                            <span class="kw">continue</span>;
+<a href=#3209 id=3209 data-nosnippet>3209</a>                        }
+<a href=#3210 id=3210 data-nosnippet>3210</a>                    };
+<a href=#3211 id=3211 data-nosnippet>3211</a>                    a.emit_ldr(Size::S64, targ, prev_loc)<span class="question-mark">?</span>;
+<a href=#3212 id=3212 data-nosnippet>3212</a>                }
+<a href=#3213 id=3213 data-nosnippet>3213</a>
+<a href=#3214 id=3214 data-nosnippet>3214</a>                <span class="comment">// Restore stack pointer.
+<a href=#3215 id=3215 data-nosnippet>3215</a>                </span><span class="kw">if </span>stack_offset &gt; <span class="number">0 </span>{
+<a href=#3216 id=3216 data-nosnippet>3216</a>                    <span class="kw">if </span>stack_offset &lt; <span class="number">0x1000 </span>{
+<a href=#3217 id=3217 data-nosnippet>3217</a>                        a.emit_add(
+<a href=#3218 id=3218 data-nosnippet>3218</a>                            Size::S64,
+<a href=#3219 id=3219 data-nosnippet>3219</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3220 id=3220 data-nosnippet>3220</a>                            Location::Imm32(stack_offset <span class="kw">as </span>u32),
+<a href=#3221 id=3221 data-nosnippet>3221</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3222 id=3222 data-nosnippet>3222</a>                        )<span class="question-mark">?</span>;
+<a href=#3223 id=3223 data-nosnippet>3223</a>                    } <span class="kw">else </span>{
+<a href=#3224 id=3224 data-nosnippet>3224</a>                        a.emit_mov_imm(Location::GPR(GPR::X16), stack_offset <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+<a href=#3225 id=3225 data-nosnippet>3225</a>                        a.emit_add(
+<a href=#3226 id=3226 data-nosnippet>3226</a>                            Size::S64,
+<a href=#3227 id=3227 data-nosnippet>3227</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3228 id=3228 data-nosnippet>3228</a>                            Location::GPR(GPR::X16),
+<a href=#3229 id=3229 data-nosnippet>3229</a>                            Location::GPR(GPR::XzrSp),
+<a href=#3230 id=3230 data-nosnippet>3230</a>                        )<span class="question-mark">?</span>;
+<a href=#3231 id=3231 data-nosnippet>3231</a>                    }
+<a href=#3232 id=3232 data-nosnippet>3232</a>                }
+<a href=#3233 id=3233 data-nosnippet>3233</a>            }
+<a href=#3234 id=3234 data-nosnippet>3234</a>        }
+<a href=#3235 id=3235 data-nosnippet>3235</a>    }
+<a href=#3236 id=3236 data-nosnippet>3236</a>
+<a href=#3237 id=3237 data-nosnippet>3237</a>    <span class="comment">// Emits a tail call trampoline that loads the address of the target import function
+<a href=#3238 id=3238 data-nosnippet>3238</a>    // from Ctx and jumps to it.
+<a href=#3239 id=3239 data-nosnippet>3239</a>
+<a href=#3240 id=3240 data-nosnippet>3240</a>    </span><span class="kw">let </span>offset = vmoffsets.vmctx_vmfunction_import(index);
+<a href=#3241 id=3241 data-nosnippet>3241</a>    <span class="comment">// for ldr, offset needs to be a multiple of 8, wich often is not
+<a href=#3242 id=3242 data-nosnippet>3242</a>    // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
+<a href=#3243 id=3243 data-nosnippet>3243</a>    </span><span class="kw">let </span>offset =
+<a href=#3244 id=3244 data-nosnippet>3244</a>        <span class="kw">if </span>(offset &gt; <span class="number">0</span>) &amp;&amp; ((offset &lt; <span class="number">0xF8</span>) || (offset &lt; <span class="number">0x7FF8 </span>&amp;&amp; offset.is_multiple_of(<span class="number">8</span>))) {
+<a href=#3245 id=3245 data-nosnippet>3245</a>            offset
+<a href=#3246 id=3246 data-nosnippet>3246</a>        } <span class="kw">else </span>{
+<a href=#3247 id=3247 data-nosnippet>3247</a>            a.emit_mov_imm(Location::GPR(GPR::X16), (offset <span class="kw">as </span>i64) <span class="kw">as </span>u64)<span class="question-mark">?</span>;
+<a href=#3248 id=3248 data-nosnippet>3248</a>            a.emit_add(
+<a href=#3249 id=3249 data-nosnippet>3249</a>                Size::S64,
+<a href=#3250 id=3250 data-nosnippet>3250</a>                Location::GPR(GPR::X0),
+<a href=#3251 id=3251 data-nosnippet>3251</a>                Location::GPR(GPR::X16),
+<a href=#3252 id=3252 data-nosnippet>3252</a>                Location::GPR(GPR::X0),
+<a href=#3253 id=3253 data-nosnippet>3253</a>            )<span class="question-mark">?</span>;
+<a href=#3254 id=3254 data-nosnippet>3254</a>            <span class="number">0
+<a href=#3255 id=3255 data-nosnippet>3255</a>        </span>};
+<a href=#3256 id=3256 data-nosnippet>3256</a>    <span class="attr">#[allow(clippy::match_single_binding)]
+<a href=#3257 id=3257 data-nosnippet>3257</a>    </span><span class="kw">match </span>calling_convention {
+<a href=#3258 id=3258 data-nosnippet>3258</a>        <span class="kw">_ </span>=&gt; {
+<a href=#3259 id=3259 data-nosnippet>3259</a>            <span class="kw">if </span>offset.is_multiple_of(<span class="number">8</span>) {
+<a href=#3260 id=3260 data-nosnippet>3260</a>                a.emit_ldr(
+<a href=#3261 id=3261 data-nosnippet>3261</a>                    Size::S64,
+<a href=#3262 id=3262 data-nosnippet>3262</a>                    Location::GPR(GPR::X16),
+<a href=#3263 id=3263 data-nosnippet>3263</a>                    Location::Memory(GPR::X0, offset <span class="kw">as </span>i32), <span class="comment">// function pointer
+<a href=#3264 id=3264 data-nosnippet>3264</a>                </span>)<span class="question-mark">?</span>;
+<a href=#3265 id=3265 data-nosnippet>3265</a>                a.emit_ldr(
+<a href=#3266 id=3266 data-nosnippet>3266</a>                    Size::S64,
+<a href=#3267 id=3267 data-nosnippet>3267</a>                    Location::GPR(GPR::X0),
+<a href=#3268 id=3268 data-nosnippet>3268</a>                    Location::Memory(GPR::X0, offset <span class="kw">as </span>i32 + <span class="number">8</span>), <span class="comment">// target vmctx
+<a href=#3269 id=3269 data-nosnippet>3269</a>                </span>)<span class="question-mark">?</span>;
+<a href=#3270 id=3270 data-nosnippet>3270</a>            } <span class="kw">else </span>{
+<a href=#3271 id=3271 data-nosnippet>3271</a>                a.emit_ldur(
+<a href=#3272 id=3272 data-nosnippet>3272</a>                    Size::S64,
+<a href=#3273 id=3273 data-nosnippet>3273</a>                    Location::GPR(GPR::X16),
+<a href=#3274 id=3274 data-nosnippet>3274</a>                    GPR::X0,
+<a href=#3275 id=3275 data-nosnippet>3275</a>                    offset <span class="kw">as </span>i32, <span class="comment">// function pointer
+<a href=#3276 id=3276 data-nosnippet>3276</a>                </span>)<span class="question-mark">?</span>;
+<a href=#3277 id=3277 data-nosnippet>3277</a>                a.emit_ldur(
+<a href=#3278 id=3278 data-nosnippet>3278</a>                    Size::S64,
+<a href=#3279 id=3279 data-nosnippet>3279</a>                    Location::GPR(GPR::X0),
+<a href=#3280 id=3280 data-nosnippet>3280</a>                    GPR::X0,
+<a href=#3281 id=3281 data-nosnippet>3281</a>                    offset <span class="kw">as </span>i32 + <span class="number">8</span>, <span class="comment">// target vmctx
+<a href=#3282 id=3282 data-nosnippet>3282</a>                </span>)<span class="question-mark">?</span>;
+<a href=#3283 id=3283 data-nosnippet>3283</a>            }
+<a href=#3284 id=3284 data-nosnippet>3284</a>        }
+<a href=#3285 id=3285 data-nosnippet>3285</a>    }
+<a href=#3286 id=3286 data-nosnippet>3286</a>    a.emit_b_register(GPR::X16)<span class="question-mark">?</span>;
+<a href=#3287 id=3287 data-nosnippet>3287</a>
+<a href=#3288 id=3288 data-nosnippet>3288</a>    <span class="kw">let </span><span class="kw-2">mut </span>contents = a.finalize().unwrap();
+<a href=#3289 id=3289 data-nosnippet>3289</a>    contents.shrink_to_fit();
+<a href=#3290 id=3290 data-nosnippet>3290</a>    <span class="kw">let </span>section_body = SectionBody::new_with_vec(contents);
+<a href=#3291 id=3291 data-nosnippet>3291</a>
+<a href=#3292 id=3292 data-nosnippet>3292</a>    <span class="prelude-val">Ok</span>(CustomSection {
+<a href=#3293 id=3293 data-nosnippet>3293</a>        protection: CustomSectionProtection::ReadExecute,
+<a href=#3294 id=3294 data-nosnippet>3294</a>        alignment: <span class="prelude-val">None</span>,
+<a href=#3295 id=3295 data-nosnippet>3295</a>        bytes: section_body,
+<a href=#3296 id=3296 data-nosnippet>3296</a>        relocations: <span class="macro">vec!</span>[],
+<a href=#3297 id=3297 data-nosnippet>3297</a>    })
+<a href=#3298 id=3298 data-nosnippet>3298</a>}</code></pre></div></section></main></body></html>
