@@ -316,74 +316,80 @@
 <a href=#316 id=316 data-nosnippet>316</a>
 <a href=#317 id=317 data-nosnippet>317</a>                </span><span class="kw">let </span>my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
 <a href=#318 id=318 data-nosnippet>318</a>
-<a href=#319 id=319 data-nosnippet>319</a>                <span class="attr">#[cfg(target_arch = <span class="string">"riscv64"</span>)]
-<a href=#320 id=320 data-nosnippet>320</a>                </span><span class="kw">let </span>target_machine_ptr = my_target_machine.target_machine <span class="kw">as </span><span class="kw-2">*mut </span>u8;
-<a href=#321 id=321 data-nosnippet>321</a>                <span class="attr">#[cfg(not(target_arch = <span class="string">"riscv64"</span>))]
-<a href=#322 id=322 data-nosnippet>322</a>                </span><span class="kw">let </span>target_machine_ptr = my_target_machine.target_machine <span class="kw">as </span><span class="kw-2">*mut </span>i8;
-<a href=#323 id=323 data-nosnippet>323</a>
-<a href=#324 id=324 data-nosnippet>324</a>                <span class="kw-2">*</span>(target_machine_ptr.offset(<span class="number">0x410</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u64) = <span class="number">5</span>;
-<a href=#325 id=325 data-nosnippet>325</a>                std::ptr::copy_nonoverlapping(
-<a href=#326 id=326 data-nosnippet>326</a>                    <span class="string">c"lp64d"</span>.as_ptr(),
-<a href=#327 id=327 data-nosnippet>327</a>                    target_machine_ptr.offset(<span class="number">0x418</span>),
-<a href=#328 id=328 data-nosnippet>328</a>                    <span class="number">6</span>,
-<a href=#329 id=329 data-nosnippet>329</a>                );
-<a href=#330 id=330 data-nosnippet>330</a>
-<a href=#331 id=331 data-nosnippet>331</a>                std::mem::transmute::&lt;MyTargetMachine, inkwell::targets::TargetMachine&gt;(
-<a href=#332 id=332 data-nosnippet>332</a>                    my_target_machine,
-<a href=#333 id=333 data-nosnippet>333</a>                )
-<a href=#334 id=334 data-nosnippet>334</a>            }
-<a href=#335 id=335 data-nosnippet>335</a>        } <span class="kw">else </span>{
-<a href=#336 id=336 data-nosnippet>336</a>            llvm_target_machine
-<a href=#337 id=337 data-nosnippet>337</a>        }
-<a href=#338 id=338 data-nosnippet>338</a>    }
-<a href=#339 id=339 data-nosnippet>339</a>}
-<a href=#340 id=340 data-nosnippet>340</a>
-<a href=#341 id=341 data-nosnippet>341</a><span class="kw">impl </span>CompilerConfig <span class="kw">for </span>LLVM {
-<a href=#342 id=342 data-nosnippet>342</a>    <span class="doccomment">/// Emit code suitable for dlopen.
-<a href=#343 id=343 data-nosnippet>343</a>    </span><span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#344 id=344 data-nosnippet>344</a>        <span class="comment">// TODO: although we can emit PIC, the object file parser does not yet
-<a href=#345 id=345 data-nosnippet>345</a>        // support all the relocations.
-<a href=#346 id=346 data-nosnippet>346</a>        </span><span class="self">self</span>.is_pic = <span class="bool-val">true</span>;
-<a href=#347 id=347 data-nosnippet>347</a>    }
-<a href=#348 id=348 data-nosnippet>348</a>
-<a href=#349 id=349 data-nosnippet>349</a>    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#350 id=350 data-nosnippet>350</a>        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true
-<a href=#351 id=351 data-nosnippet>351</a>    </span>}
-<a href=#352 id=352 data-nosnippet>352</a>
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="doccomment">/// Whether to verify compiler IR.
-<a href=#354 id=354 data-nosnippet>354</a>    </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
-<a href=#355 id=355 data-nosnippet>355</a>        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
-<a href=#356 id=356 data-nosnippet>356</a>    }
-<a href=#357 id=357 data-nosnippet>357</a>
-<a href=#358 id=358 data-nosnippet>358</a>    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
-<a href=#359 id=359 data-nosnippet>359</a>        <span class="self">self</span>.enable_nan_canonicalization = enable;
-<a href=#360 id=360 data-nosnippet>360</a>    }
-<a href=#361 id=361 data-nosnippet>361</a>
-<a href=#362 id=362 data-nosnippet>362</a>    <span class="doccomment">/// Transform it into the compiler.
-<a href=#363 id=363 data-nosnippet>363</a>    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
-<a href=#364 id=364 data-nosnippet>364</a>        Box::new(LLVMCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
-<a href=#365 id=365 data-nosnippet>365</a>    }
-<a href=#366 id=366 data-nosnippet>366</a>
-<a href=#367 id=367 data-nosnippet>367</a>    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
-<a href=#368 id=368 data-nosnippet>368</a>    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
-<a href=#369 id=369 data-nosnippet>369</a>        <span class="self">self</span>.middlewares.push(middleware);
-<a href=#370 id=370 data-nosnippet>370</a>    }
-<a href=#371 id=371 data-nosnippet>371</a>
-<a href=#372 id=372 data-nosnippet>372</a>    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
-<a href=#373 id=373 data-nosnippet>373</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
-<a href=#374 id=374 data-nosnippet>374</a>        feats.exceptions(<span class="bool-val">true</span>);
-<a href=#375 id=375 data-nosnippet>375</a>        feats
+<a href=#319 id=319 data-nosnippet>319</a>                <span class="attr">#[cfg(any(
+<a href=#320 id=320 data-nosnippet>320</a>                    target_arch = <span class="string">"riscv64"</span>,
+<a href=#321 id=321 data-nosnippet>321</a>                    all(target_arch = <span class="string">"aarch64"</span>, target_os = <span class="string">"linux"</span>)
+<a href=#322 id=322 data-nosnippet>322</a>                ))]
+<a href=#323 id=323 data-nosnippet>323</a>                </span><span class="kw">let </span>target_machine_ptr = my_target_machine.target_machine <span class="kw">as </span><span class="kw-2">*mut </span>u8;
+<a href=#324 id=324 data-nosnippet>324</a>                <span class="attr">#[cfg(not(any(
+<a href=#325 id=325 data-nosnippet>325</a>                    target_arch = <span class="string">"riscv64"</span>,
+<a href=#326 id=326 data-nosnippet>326</a>                    all(target_arch = <span class="string">"aarch64"</span>, target_os = <span class="string">"linux"</span>)
+<a href=#327 id=327 data-nosnippet>327</a>                )))]
+<a href=#328 id=328 data-nosnippet>328</a>                </span><span class="kw">let </span>target_machine_ptr = my_target_machine.target_machine <span class="kw">as </span><span class="kw-2">*mut </span>i8;
+<a href=#329 id=329 data-nosnippet>329</a>
+<a href=#330 id=330 data-nosnippet>330</a>                <span class="kw-2">*</span>(target_machine_ptr.offset(<span class="number">0x410</span>) <span class="kw">as </span><span class="kw-2">*mut </span>u64) = <span class="number">5</span>;
+<a href=#331 id=331 data-nosnippet>331</a>                std::ptr::copy_nonoverlapping(
+<a href=#332 id=332 data-nosnippet>332</a>                    <span class="string">c"lp64d"</span>.as_ptr(),
+<a href=#333 id=333 data-nosnippet>333</a>                    target_machine_ptr.offset(<span class="number">0x418</span>),
+<a href=#334 id=334 data-nosnippet>334</a>                    <span class="number">6</span>,
+<a href=#335 id=335 data-nosnippet>335</a>                );
+<a href=#336 id=336 data-nosnippet>336</a>
+<a href=#337 id=337 data-nosnippet>337</a>                std::mem::transmute::&lt;MyTargetMachine, inkwell::targets::TargetMachine&gt;(
+<a href=#338 id=338 data-nosnippet>338</a>                    my_target_machine,
+<a href=#339 id=339 data-nosnippet>339</a>                )
+<a href=#340 id=340 data-nosnippet>340</a>            }
+<a href=#341 id=341 data-nosnippet>341</a>        } <span class="kw">else </span>{
+<a href=#342 id=342 data-nosnippet>342</a>            llvm_target_machine
+<a href=#343 id=343 data-nosnippet>343</a>        }
+<a href=#344 id=344 data-nosnippet>344</a>    }
+<a href=#345 id=345 data-nosnippet>345</a>}
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a><span class="kw">impl </span>CompilerConfig <span class="kw">for </span>LLVM {
+<a href=#348 id=348 data-nosnippet>348</a>    <span class="doccomment">/// Emit code suitable for dlopen.
+<a href=#349 id=349 data-nosnippet>349</a>    </span><span class="kw">fn </span>enable_pic(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#350 id=350 data-nosnippet>350</a>        <span class="comment">// TODO: although we can emit PIC, the object file parser does not yet
+<a href=#351 id=351 data-nosnippet>351</a>        // support all the relocations.
+<a href=#352 id=352 data-nosnippet>352</a>        </span><span class="self">self</span>.is_pic = <span class="bool-val">true</span>;
+<a href=#353 id=353 data-nosnippet>353</a>    }
+<a href=#354 id=354 data-nosnippet>354</a>
+<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">fn </span>enable_perfmap(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#356 id=356 data-nosnippet>356</a>        <span class="self">self</span>.enable_perfmap = <span class="bool-val">true
+<a href=#357 id=357 data-nosnippet>357</a>    </span>}
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>    <span class="doccomment">/// Whether to verify compiler IR.
+<a href=#360 id=360 data-nosnippet>360</a>    </span><span class="kw">fn </span>enable_verifier(<span class="kw-2">&amp;mut </span><span class="self">self</span>) {
+<a href=#361 id=361 data-nosnippet>361</a>        <span class="self">self</span>.enable_verifier = <span class="bool-val">true</span>;
+<a href=#362 id=362 data-nosnippet>362</a>    }
+<a href=#363 id=363 data-nosnippet>363</a>
+<a href=#364 id=364 data-nosnippet>364</a>    <span class="kw">fn </span>canonicalize_nans(<span class="kw-2">&amp;mut </span><span class="self">self</span>, enable: bool) {
+<a href=#365 id=365 data-nosnippet>365</a>        <span class="self">self</span>.enable_nan_canonicalization = enable;
+<a href=#366 id=366 data-nosnippet>366</a>    }
+<a href=#367 id=367 data-nosnippet>367</a>
+<a href=#368 id=368 data-nosnippet>368</a>    <span class="doccomment">/// Transform it into the compiler.
+<a href=#369 id=369 data-nosnippet>369</a>    </span><span class="kw">fn </span>compiler(<span class="self">self</span>: Box&lt;<span class="self">Self</span>&gt;) -&gt; Box&lt;<span class="kw">dyn </span>Compiler&gt; {
+<a href=#370 id=370 data-nosnippet>370</a>        Box::new(LLVMCompiler::new(<span class="kw-2">*</span><span class="self">self</span>))
+<a href=#371 id=371 data-nosnippet>371</a>    }
+<a href=#372 id=372 data-nosnippet>372</a>
+<a href=#373 id=373 data-nosnippet>373</a>    <span class="doccomment">/// Pushes a middleware onto the back of the middleware chain.
+<a href=#374 id=374 data-nosnippet>374</a>    </span><span class="kw">fn </span>push_middleware(<span class="kw-2">&amp;mut </span><span class="self">self</span>, middleware: Arc&lt;<span class="kw">dyn </span>ModuleMiddleware&gt;) {
+<a href=#375 id=375 data-nosnippet>375</a>        <span class="self">self</span>.middlewares.push(middleware);
 <a href=#376 id=376 data-nosnippet>376</a>    }
-<a href=#377 id=377 data-nosnippet>377</a>}
-<a href=#378 id=378 data-nosnippet>378</a>
-<a href=#379 id=379 data-nosnippet>379</a><span class="kw">impl </span>Default <span class="kw">for </span>LLVM {
-<a href=#380 id=380 data-nosnippet>380</a>    <span class="kw">fn </span>default() -&gt; LLVM {
-<a href=#381 id=381 data-nosnippet>381</a>        <span class="self">Self</span>::new()
+<a href=#377 id=377 data-nosnippet>377</a>
+<a href=#378 id=378 data-nosnippet>378</a>    <span class="kw">fn </span>supported_features_for_target(<span class="kw-2">&amp;</span><span class="self">self</span>, _target: <span class="kw-2">&amp;</span>Target) -&gt; wasmer_types::Features {
+<a href=#379 id=379 data-nosnippet>379</a>        <span class="kw">let </span><span class="kw-2">mut </span>feats = Features::default();
+<a href=#380 id=380 data-nosnippet>380</a>        feats.exceptions(<span class="bool-val">true</span>);
+<a href=#381 id=381 data-nosnippet>381</a>        feats
 <a href=#382 id=382 data-nosnippet>382</a>    }
 <a href=#383 id=383 data-nosnippet>383</a>}
 <a href=#384 id=384 data-nosnippet>384</a>
-<a href=#385 id=385 data-nosnippet>385</a><span class="kw">impl </span>From&lt;LLVM&gt; <span class="kw">for </span>Engine {
-<a href=#386 id=386 data-nosnippet>386</a>    <span class="kw">fn </span>from(config: LLVM) -&gt; <span class="self">Self </span>{
-<a href=#387 id=387 data-nosnippet>387</a>        EngineBuilder::new(config).engine()
+<a href=#385 id=385 data-nosnippet>385</a><span class="kw">impl </span>Default <span class="kw">for </span>LLVM {
+<a href=#386 id=386 data-nosnippet>386</a>    <span class="kw">fn </span>default() -&gt; LLVM {
+<a href=#387 id=387 data-nosnippet>387</a>        <span class="self">Self</span>::new()
 <a href=#388 id=388 data-nosnippet>388</a>    }
-<a href=#389 id=389 data-nosnippet>389</a>}</code></pre></div></section></main></body></html>
+<a href=#389 id=389 data-nosnippet>389</a>}
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a><span class="kw">impl </span>From&lt;LLVM&gt; <span class="kw">for </span>Engine {
+<a href=#392 id=392 data-nosnippet>392</a>    <span class="kw">fn </span>from(config: LLVM) -&gt; <span class="self">Self </span>{
+<a href=#393 id=393 data-nosnippet>393</a>        EngineBuilder::new(config).engine()
+<a href=#394 id=394 data-nosnippet>394</a>    }
+<a href=#395 id=395 data-nosnippet>395</a>}</code></pre></div></section></main></body></html>
