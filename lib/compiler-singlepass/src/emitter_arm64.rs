@@ -537,17 +537,17 @@ impl EmitterARM64 for Assembler {
         match (sz, reg, addr) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                assert!(disp.is_multiple_of(8) && (disp < 0x8000));
                 dynasm!(self ; str X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                assert!(disp.is_multiple_of(4) && (disp < 0x4000));
                 dynasm!(self ; str W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x1) == 0 && (disp < 0x2000));
+                assert!(disp.is_multiple_of(2) && (disp < 0x2000));
                 dynasm!(self ; strh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
@@ -557,12 +557,12 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                assert!(disp.is_multiple_of(8) && (disp < 0x8000));
                 dynasm!(self ; str D(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                assert!(disp.is_multiple_of(4) && (disp < 0x4000));
                 dynasm!(self ; str S(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
@@ -2860,7 +2860,7 @@ pub fn gen_std_trampoline_arm64(
 
     // Move arguments to their locations.
     // `callee_vmctx` is already in the first argument register, so no need to move.
-    let mut caller_stack_offset: i32 = stack_return_slots as i32 * 8;
+    let mut caller_stack_offset = stack_return_slots as u32 * 8;
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
             Type::I32 | Type::F32 => Size::S32,
@@ -2884,17 +2884,8 @@ pub fn gen_std_trampoline_arm64(
                 #[allow(clippy::single_match)]
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        let sz = 1
-                            << match sz {
-                                Size::S8 => 0,
-                                Size::S16 => 1,
-                                Size::S32 => 2,
-                                Size::S64 => 3,
-                            };
                         // align first
-                        if sz > 1 && caller_stack_offset & (sz - 1) != 0 {
-                            caller_stack_offset = (caller_stack_offset + (sz - 1)) & !(sz - 1);
-                        }
+                        caller_stack_offset = caller_stack_offset.next_multiple_of(sz.bytes());
                     }
                     _ => (),
                 };
@@ -2907,17 +2898,11 @@ pub fn gen_std_trampoline_arm64(
                 a.emit_str(
                     sz,
                     Location::GPR(GPR::X16),
-                    Location::Memory(GPR::XzrSp, caller_stack_offset),
+                    Location::Memory(GPR::XzrSp, caller_stack_offset as _),
                 )?;
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        caller_stack_offset += 1
-                            << match sz {
-                                Size::S8 => 0,
-                                Size::S16 => 1,
-                                Size::S32 => 2,
-                                Size::S64 => 3,
-                            };
+                        caller_stack_offset += sz.bytes();
                     }
                     _ => {
                         caller_stack_offset += 8;
@@ -3025,9 +3010,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
                         CallingConvention::AppleAarch64 => match *ty {
                             Type::I32 | Type::F32 => Size::S32,
                             _ => {
-                                if stack_param_count & 7 != 0 {
-                                    stack_param_count = (stack_param_count + 7) & !7;
-                                };
+                                stack_param_count = stack_param_count.next_multiple_of(8);
                                 Size::S64
                             }
                         },
@@ -3151,17 +3134,13 @@ pub fn gen_import_call_trampoline_arm64(
         match calling_convention {
             _ => {
                 // Allocate stack space for arguments.
-                let stack_offset: i32 = if sig.params().len() > 7 {
+                let mut stack_offset: u32 = if sig.params().len() > 7 {
                     7 * 8
                 } else {
-                    (sig.params().len() as i32) * 8
+                    (sig.params().len() as u32) * 8
                 };
-                let stack_offset = if stack_offset & 15 != 0 {
-                    stack_offset + 8
-                } else {
-                    stack_offset
-                };
-                if stack_offset > 0 {
+                stack_offset = stack_offset.next_multiple_of(16);
+                if stack_offset != 0 {
                     if stack_offset < 0x1000 {
                         a.emit_sub(
                             Size::S64,
@@ -3198,13 +3177,15 @@ pub fn gen_import_call_trampoline_arm64(
                             a.emit_str(Size::S64, Location::GPR(*param_reg), loc)?;
                             loc
                         }
-                        _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 7) * 8) as i32),
+                        _ => {
+                            Location::Memory(GPR::XzrSp, (stack_offset + (i as u32 - 7) * 8) as i32)
+                        }
                     };
                     param_locations.push(loc);
                 }
 
                 // Copy arguments.
-                let mut caller_stack_offset: i32 = 0;
+                let mut caller_stack_offset: u32 = 0;
                 let mut argalloc = ArgumentRegisterAllocator::default();
                 argalloc.next(Type::I64, calling_convention).unwrap(); // skip VMContext
                 for (i, ty) in sig.params().iter().enumerate() {
@@ -3218,7 +3199,10 @@ pub fn gen_import_call_trampoline_arm64(
                             a.emit_str(
                                 Size::S64,
                                 Location::GPR(GPR::X16),
-                                Location::Memory(GPR::XzrSp, stack_offset + caller_stack_offset),
+                                Location::Memory(
+                                    GPR::XzrSp,
+                                    (stack_offset + caller_stack_offset) as i32,
+                                ),
                             )?;
                             caller_stack_offset += 8;
                             continue;
@@ -3257,7 +3241,7 @@ pub fn gen_import_call_trampoline_arm64(
     // for ldr, offset needs to be a multiple of 8, wich often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
     let offset =
-        if (offset > 0 && offset < 0xF8) || (offset > 0 && offset < 0x7FF8 && (offset & 7) == 0) {
+        if (offset > 0) && ((offset < 0xF8) || (offset < 0x7FF8 && offset.is_multiple_of(8))) {
             offset
         } else {
             a.emit_mov_imm(Location::GPR(GPR::X16), (offset as i64) as u64)?;
@@ -3272,7 +3256,7 @@ pub fn gen_import_call_trampoline_arm64(
     #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
-            if (offset & 7) == 0 {
+            if offset.is_multiple_of(8) {
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X16),
