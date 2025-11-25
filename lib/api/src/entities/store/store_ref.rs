@@ -47,9 +47,7 @@ impl StoreMut {
     /// Sets the unwind callback which will be invoked when the call finishes
     pub fn on_called<F>(&mut self, callback: F)
     where
-        F: FnOnce(
-                &mut StoreMut,
-            ) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
+        F: FnOnce(&mut Self) -> Result<OnCalledAction, Box<dyn std::error::Error + Send + Sync>>
             + Send
             + Sync
             + 'static,

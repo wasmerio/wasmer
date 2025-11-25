@@ -1597,7 +1597,7 @@ impl Linker {
         write_linker_state!(linker_state, self, group_state, ctx);
 
         let mut link_state = InProgressLinkState::default();
-        let env = FunctionEnvMut::as_ref(&ctx);
+        let env = FunctionEnvMut::as_ref(ctx);
         let mut store = ctx.as_store_mut();
 
         trace!("Loading module tree for requested module");
@@ -1979,7 +1979,7 @@ impl Linker {
 
         lock_instance_group_state!(guard, group_state, self, LinkError::InstanceGroupIsDead);
 
-        let env = FunctionEnvMut::as_ref(&ctx);
+        let env = FunctionEnvMut::as_ref(ctx);
         let mut store = ctx.as_store_mut();
         self.do_pending_link_operations_internal(group_state, &mut store, &env)
     }

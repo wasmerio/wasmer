@@ -302,16 +302,16 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
     pub fn as_ref(&self) -> BackendFunctionEnv<T> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => BackendFunctionEnv::Sys(f.as_ref()).into(),
+            Self::Sys(f) => BackendFunctionEnv::Sys(f.as_ref()),
             _ => unsupported_async_backend(),
         }
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> BackendAsyncFunctionEnvMut<T> {
+    pub fn as_mut(&mut self) -> Self {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => BackendAsyncFunctionEnvMut::Sys(f.as_mut()),
+            Self::Sys(f) => Self::Sys(f.as_mut()),
             _ => unsupported_async_backend(),
         }
     }

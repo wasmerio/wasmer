@@ -109,7 +109,7 @@ impl Store {
     pub(crate) fn try_make_mut(&self) -> Option<StoreMut> {
         self.inner.try_write_rc().map(|guard| StoreMut {
             inner: guard,
-            store_handle: crate::Store {
+            store_handle: Self {
                 id: self.id,
                 inner: self.inner.clone(),
             },

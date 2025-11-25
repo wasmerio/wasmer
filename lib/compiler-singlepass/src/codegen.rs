@@ -3617,11 +3617,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                     self.machine.emit_function_epilog()?;
 
                     // Make a copy of the return value in XMM0, as required by the SysV CC.
-                    if let Ok(&return_type) = self.signature.results().iter().exactly_one() {
-                        if return_type == Type::F32 || return_type == Type::F64 {
-                            self.machine.emit_function_return_float()?;
-                        }
-                    };
+                    if let Ok(&return_type) = self.signature.results().iter().exactly_one()
+                        && (return_type == Type::F32 || return_type == Type::F64)
+                    {
+                        self.machine.emit_function_return_float()?;
+                    }
                     self.machine.emit_ret()?;
                 } else {
                     let released = &self.value_stack.clone()[frame.value_stack_depth_after()..];

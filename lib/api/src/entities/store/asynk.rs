@@ -34,9 +34,7 @@ pub trait AsAsyncStore {
     }
 
     /// Acquires a write lock on the store.
-    fn write_lock<'a>(
-        &'a self,
-    ) -> impl Future<Output = AsyncStoreWriteLock<'a>> + 'a {
+    fn write_lock<'a>(&'a self) -> impl Future<Output = AsyncStoreWriteLock<'a>> + 'a {
         AsyncStoreWriteLock::acquire(self.store_ref())
     }
 }

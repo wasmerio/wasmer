@@ -120,7 +120,7 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) -> Result<(), Errno> {
     // We extract the memory which will be passed to the thread
-    let func_env = FunctionEnvMut::as_ref(&ctx);
+    let func_env = FunctionEnvMut::as_ref(ctx);
     let mut store = ctx.as_store_mut();
     let env = func_env.as_ref(store);
     let tasks = env.tasks().clone();
@@ -283,7 +283,7 @@ fn call_module<M: MemorySize>(
     rewind_state: Option<(RewindState, RewindResultType)>,
 ) {
     let mut store_mut = store.as_mut();
-    let env = ctx.data(&mut store_mut);
+    let env = ctx.data(&store_mut);
     let tasks = env.tasks().clone();
 
     // If we need to rewind then do so

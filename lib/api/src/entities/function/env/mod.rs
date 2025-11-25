@@ -152,8 +152,8 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> AsyncFunctionEnvMut<T> {
-        AsyncFunctionEnvMut(self.0.as_mut())
+    pub fn as_mut(&mut self) -> Self {
+        Self(self.0.as_mut())
     }
 
     /// Creates an [`AsAsyncStore`] from this [`AsyncFunctionEnvMut`].

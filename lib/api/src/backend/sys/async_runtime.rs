@@ -12,7 +12,9 @@ use std::{
 use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
-use crate::{AsStoreMut, AsStoreRef, RuntimeError, Store, StoreContext, StoreMut, Value};
+use crate::{
+    AsStoreMut, AsStoreRef, DynamicCallResult, RuntimeError, Store, StoreContext, StoreMut, Value,
+};
 use wasmer_types::StoreId;
 
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
@@ -33,7 +35,7 @@ enum AsyncResume {
 }
 
 pub(crate) struct AsyncCallFuture<'a> {
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, DynamicCallResult>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = StoreContextInstaller> + 'a>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
@@ -148,7 +150,7 @@ impl Future for AsyncCallFuture<'_> {
             }
 
             // Start a store installation if not in progress already
-            if let None = self.pending_store_install {
+            if self.pending_store_install.is_none() {
                 self.pending_store_install =
                     Some(Box::pin(StoreContextInstaller::install(Store {
                         id: self.store.id,
@@ -200,12 +202,12 @@ impl StoreContextInstaller {
     async fn install(store: Store) -> Self {
         if let Some(wrapper) = unsafe { crate::StoreContext::try_get_current(store.id) } {
             // If we're already in the scope of this store, we can just reuse it.
-            StoreContextInstaller::FromThreadContext(wrapper)
+            Self::FromThreadContext(wrapper)
         } else {
             // Otherwise, need to acquire a new StoreMut.
             let store_mut = store.make_mut_async().await;
             let guard = crate::StoreContext::force_install(store_mut);
-            StoreContextInstaller::Installed(guard)
+            Self::Installed(guard)
         }
     }
 }

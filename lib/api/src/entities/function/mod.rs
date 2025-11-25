@@ -27,6 +27,13 @@ use crate::{
 #[cfg(feature = "sys")]
 use crate::backend::sys::async_runtime::{block_on_host_future, call_function_async};
 
+/// The return type from a dynamically-typed imported host function.
+pub type DynamicFunctionResult = Result<Vec<Value>, RuntimeError>;
+
+/// The return type from calling a dynamically typed exported function
+/// via [`Function::call`] or [`Function::call_async`].
+pub type DynamicCallResult = Result<Box<[Value]>, RuntimeError>;
+
 /// A WebAssembly `function` instance.
 ///
 /// A function instance is the runtime representation of a function.
@@ -56,7 +63,7 @@ impl Function {
     pub fn new<FT, F>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
+        F: Fn(&[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
     {
         Self(BackendFunction::new(store, ty, func))
     }
@@ -108,10 +115,7 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<T>, &[Value]) -> Result<Vec<Value>, RuntimeError>
-            + 'static
-            + Send
-            + Sync,
+        F: Fn(FunctionEnvMut<T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
     {
         Self(BackendFunction::new_with_env(store, env, ty, func))
     }
@@ -168,7 +172,7 @@ impl Function {
     where
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Fut + 'static,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+        Fut: Future<Output = DynamicFunctionResult> + 'static,
     {
         Self(BackendFunction::new_async(store, ty, func))
     }
@@ -184,7 +188,7 @@ impl Function {
     where
         FT: Into<FunctionType>,
         F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
-        Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+        Fut: Future<Output = DynamicFunctionResult> + 'static,
     {
         Self(BackendFunction::new_with_env_async(store, env, ty, func))
     }
@@ -315,11 +319,7 @@ impl Function {
     ///
     /// assert_eq!(sum.call(&mut store, &[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
-    pub fn call(
-        &self,
-        store: &mut impl AsStoreMut,
-        params: &[Value],
-    ) -> Result<Box<[Value]>, RuntimeError> {
+    pub fn call(&self, store: &mut impl AsStoreMut, params: &[Value]) -> DynamicCallResult {
         self.0.call(store, params)
     }
 
@@ -333,7 +333,7 @@ impl Function {
         &'a self,
         store: &'a impl AsAsyncStore,
         params: &'a [Value],
-    ) -> impl Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a {
+    ) -> impl Future<Output = DynamicCallResult> + 'a {
         let params_vec = params.to_vec();
         self.0.call_async(store, params_vec)
     }
@@ -344,7 +344,7 @@ impl Function {
         &self,
         store: &mut impl AsStoreMut,
         params: Vec<RawValue>,
-    ) -> Result<Box<[Value]>, RuntimeError> {
+    ) -> DynamicCallResult {
         self.0.call_raw(store, params)
     }
 

@@ -247,7 +247,7 @@ where
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self.store.try_make_mut() {
-            Some(mut store_mut) => self.func_env.as_ref(&mut store_mut).fmt(f),
+            Some(store_mut) => self.func_env.as_ref(&store_mut).fmt(f),
             None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
         }
     }
@@ -286,8 +286,8 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> AsyncFunctionEnvMut<T> {
-        AsyncFunctionEnvMut {
+    pub fn as_mut(&mut self) -> Self {
+        Self {
             store: Store {
                 id: self.store.id,
                 inner: self.store.inner.clone(),

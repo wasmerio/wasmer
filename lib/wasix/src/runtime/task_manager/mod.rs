@@ -386,7 +386,7 @@ impl dyn VirtualTaskManager {
 
         let mut store_guard = store.as_mut();
         let snapshot = capture_store_snapshot(&mut store_guard);
-        let env = ctx.data(&mut store_guard);
+        let env = ctx.data(&store_guard);
         let env_inner = env.inner();
         let handles = env_inner
             .static_module_instance_handles()

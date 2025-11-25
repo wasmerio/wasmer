@@ -1345,9 +1345,6 @@ pub fn rewind_ext<M: MemorySize>(
         .static_module_instance_handles()
         .and_then(|a| a.asyncify_start_rewind.clone())
     {
-        // Drop the function env to free up the borrowed store reference
-        drop(ctx);
-
         asyncify_start_rewind.call(store_mut, asyncify_data);
     } else {
         warn!(

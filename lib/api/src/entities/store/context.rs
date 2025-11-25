@@ -67,14 +67,14 @@ pub(crate) enum StoreInstallGuard<'a> {
 }
 
 thread_local! {
-    static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = RefCell::new(Vec::new());
+    static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const{ RefCell::new(Vec::new()) };
 }
 
 impl StoreContext {
     fn is_active(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
             let stack = cell.borrow();
-            stack.last().map_or(false, |ctx| ctx.id == id)
+            stack.last().is_some_and(|ctx| ctx.id == id)
         })
     }
 
@@ -92,7 +92,7 @@ impl StoreContext {
         let id = store_mut.objects().id();
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            stack.push(StoreContext {
+            stack.push(Self {
                 id,
                 borrow_count: 0,
                 store_mut: UnsafeCell::new(store_mut),
@@ -167,6 +167,7 @@ impl StoreContext {
     ///   * there is only one mutable reference alive, or
     ///   * all but one mutable reference are inaccessible and passed
     ///     into a function that lost the reference (e.g. into WASM code)
+    ///
     /// The intended, valid use-case for this method is from within
     /// imported function trampolines.
     pub(crate) unsafe fn get_current(id: StoreId) -> StoreMutWrapper {
