@@ -7,7 +7,7 @@ on:
 
 env:
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.88"
+  MSRV: "1.89"
 
 jobs:
   run_benchmark:
@@ -24,7 +24,7 @@ jobs:
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:

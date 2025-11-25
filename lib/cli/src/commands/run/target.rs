@@ -65,6 +65,7 @@ impl TargetOnDisk {
     }
 }
 
+#[allow(clippy::large_enum_variant)]
 #[derive(Debug, Clone)]
 pub enum ExecutableTarget {
     WebAssembly {

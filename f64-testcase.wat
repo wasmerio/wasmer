@@ -12,7 +12,7 @@
         (f64.min
           (f64.const 0x1.1ff8b184f99c5p+1020 (;=1.26388e+307;))
           (f64.const 0x1.1ff8b184f99c5p+1020 (;=1.26388e+307;))))
-          
+
       (local.set 0
         (i32.add
           (local.get 0)

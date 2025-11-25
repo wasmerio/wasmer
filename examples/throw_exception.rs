@@ -75,7 +75,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let log_wasm_value = {
         let log_count = log_count.clone();
         move |param: i32| {
-            println!("Logging from wasm: {}", param);
+            println!("Logging from wasm: {param}");
             log_count.fetch_add(1, std::sync::atomic::Ordering::SeqCst);
         }
     };
@@ -122,7 +122,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     // Here we go.
-    let f: TypedFunction<(), ()> = instance.exports.get_function("f")?.typed(&mut store)?;
+    let f: TypedFunction<(), ()> = instance.exports.get_function("f")?.typed(&store)?;
 
     println!("Calling `f` function...");
     let result = f.call(&mut store);
@@ -131,7 +131,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let err = result.unwrap_err();
     let exn = err.to_exception().expect("should be an exception");
     let values = exn.payload(&mut store);
-    println!("Caught exception with payload: {:?}", values);
+    println!("Caught exception with payload: {values:?}");
 
     assert_eq!(values, vec![Value::I32(69)]);
     assert_eq!(log_count.load(std::sync::atomic::Ordering::SeqCst), 2);

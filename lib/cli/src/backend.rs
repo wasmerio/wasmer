@@ -188,18 +188,17 @@ pub struct RuntimeOptions {
     #[clap(long)]
     enable_verifier: bool,
 
+    /// Debug directory, where IR and object files will be written to.
+    ///
+    /// Available for cranelift, LLVM and singlepass.
+    #[clap(long, alias = "llvm-debug-dir")]
+    compiler_debug_dir: Option<PathBuf>,
+
     /// Enable a profiler.
     ///
     /// Available for cranelift, LLVM and singlepass.
     #[clap(long, value_enum)]
     profiler: Option<Profiler>,
-
-    /// LLVM debug directory, where IR and object files will be written to.
-    ///
-    /// Only available for the LLVM compiler.
-    #[cfg(feature = "llvm")]
-    #[clap(long)]
-    llvm_debug_dir: Option<PathBuf>,
 
     /// Only available for the LLVM compiler. Enable the "pass-params" optimization, where the first (#0)
     /// global and the first (#0) memory passed between guest functions as explicit parameters.
@@ -475,15 +474,17 @@ impl RuntimeOptions {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
+                    use wasmer_compiler_cranelift::CraneliftCallbacks;
+
+                    debug_dir.push("cranelift");
+                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
+                }
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
             BackendType::LLVM => {
-                use std::{fmt, fs::File, io::Write};
-
-                use wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
-                };
+                use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
 
@@ -495,109 +496,9 @@ impl RuntimeOptions {
                     config.num_threads(num_threads);
                 }
 
-                struct Callbacks {
-                    debug_dir: PathBuf,
-                }
-                impl Callbacks {
-                    fn new(debug_dir: PathBuf) -> Result<Self> {
-                        // Create the debug dir in case it doesn't exist
-                        std::fs::create_dir_all(&debug_dir)?;
-                        Ok(Self { debug_dir })
-                    }
-                }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
-                fn types_to_signature(types: &[Type]) -> String {
-                    types
-                        .iter()
-                        .map(|ty| match ty {
-                            Type::I32 => "i".to_string(),
-                            Type::I64 => "I".to_string(),
-                            Type::F32 => "f".to_string(),
-                            Type::F64 => "F".to_string(),
-                            Type::V128 => "v".to_string(),
-                            Type::ExternRef => "e".to_string(),
-                            Type::FuncRef => "r".to_string(),
-                            Type::ExceptionRef => "x".to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join("")
-                }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
-                fn function_kind_to_filename(kind: &CompiledKind) -> String {
-                    match kind {
-                        CompiledKind::Local(local_index) => {
-                            format!("function_{}", local_index.index())
-                        }
-                        CompiledKind::FunctionCallTrampoline(func_type) => format!(
-                            "trampoline_call_{}_{}",
-                            types_to_signature(func_type.params()),
-                            types_to_signature(func_type.results())
-                        ),
-                        CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
-                            "trampoline_dynamic_{}_{}",
-                            types_to_signature(func_type.params()),
-                            types_to_signature(func_type.results())
-                        ),
-                        CompiledKind::Module => "module".into(),
-                    }
-                }
-                impl LLVMCallbacks for Callbacks {
-                    fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.preopt.ll", function_kind_to_filename(kind)));
-                        module
-                            .print_to_file(&path)
-                            .expect("Error while dumping pre optimized LLVM IR");
-                    }
-                    fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.postopt.ll", function_kind_to_filename(kind)));
-                        module
-                            .print_to_file(&path)
-                            .expect("Error while dumping post optimized LLVM IR");
-                    }
-                    fn obj_memory_buffer(
-                        &self,
-                        kind: &CompiledKind,
-                        memory_buffer: &InkwellMemoryBuffer,
-                    ) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.o", function_kind_to_filename(kind)));
-                        let mem_buf_slice = memory_buffer.as_slice();
-                        let mut file = File::create(path)
-                            .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
-                    }
-                    fn asm_memory_buffer(
-                        &self,
-                        kind: &CompiledKind,
-                        asm_memory_buffer: &InkwellMemoryBuffer,
-                    ) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.s", function_kind_to_filename(kind)));
-                        let mem_buf_slice = asm_memory_buffer.as_slice();
-                        let mut file = File::create(path)
-                            .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
-                    }
-                }
-
-                impl fmt::Debug for Callbacks {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        write!(f, "LLVMCallbacks")
-                    }
-                }
-
-                if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
-                    config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
+                if let Some(mut debug_dir) = self.compiler_debug_dir.clone() {
+                    debug_dir.push("llvm");
+                    config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                 }
                 if self.enable_verifier {
                     config.enable_verifier();
@@ -705,6 +606,12 @@ impl BackendType {
                         Profiler::Perfmap => config.enable_perfmap(),
                     }
                 }
+                if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
+                    use wasmer_compiler_cranelift::CraneliftCallbacks;
+
+                    debug_dir.push("cranelift");
+                    config.callbacks(Some(CraneliftCallbacks::new(debug_dir)?));
+                }
                 let engine = wasmer_compiler::EngineBuilder::new(config)
                     .set_features(Some(features.clone()))
                     .set_target(Some(target.clone()))
@@ -714,118 +621,14 @@ impl BackendType {
             }
             #[cfg(feature = "llvm")]
             Self::LLVM => {
-                use std::{fmt, fs::File, io::Write};
-
-                use wasmer_compiler_llvm::{
-                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVM, LLVMCallbacks,
-                };
+                use wasmer_compiler_llvm::LLVMCallbacks;
                 use wasmer_types::entity::EntityRef;
 
                 let mut config = wasmer_compiler_llvm::LLVM::new();
 
-                struct Callbacks {
-                    debug_dir: PathBuf,
-                }
-                impl Callbacks {
-                    fn new(debug_dir: PathBuf) -> Result<Self> {
-                        // Create the debug dir in case it doesn't exist
-                        std::fs::create_dir_all(&debug_dir)?;
-                        Ok(Self { debug_dir })
-                    }
-                }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
-                fn types_to_signature(types: &[Type]) -> String {
-                    types
-                        .iter()
-                        .map(|ty| match ty {
-                            Type::I32 => "i".to_string(),
-                            Type::I64 => "I".to_string(),
-                            Type::F32 => "f".to_string(),
-                            Type::F64 => "F".to_string(),
-                            Type::V128 => "v".to_string(),
-                            Type::ExternRef => "e".to_string(),
-                            Type::FuncRef => "r".to_string(),
-                            Type::ExceptionRef => "x".to_string(),
-                        })
-                        .collect::<Vec<_>>()
-                        .join("")
-                }
-                // Converts a kind into a filename, that we will use to dump
-                // the contents of the IR object file to.
-                fn function_kind_to_filename(kind: &CompiledKind) -> String {
-                    match kind {
-                        CompiledKind::Local(local_index) => {
-                            format!("function_{}", local_index.index())
-                        }
-                        CompiledKind::FunctionCallTrampoline(func_type) => format!(
-                            "trampoline_call_{}_{}",
-                            types_to_signature(func_type.params()),
-                            types_to_signature(func_type.results())
-                        ),
-                        CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
-                            "trampoline_dynamic_{}_{}",
-                            types_to_signature(func_type.params()),
-                            types_to_signature(func_type.results())
-                        ),
-                        CompiledKind::Module => "module".into(),
-                    }
-                }
-                impl LLVMCallbacks for Callbacks {
-                    fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.preopt.ll", function_kind_to_filename(kind)));
-                        module
-                            .print_to_file(&path)
-                            .expect("Error while dumping pre optimized LLVM IR");
-                    }
-                    fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.postopt.ll", function_kind_to_filename(kind)));
-                        module
-                            .print_to_file(&path)
-                            .expect("Error while dumping post optimized LLVM IR");
-                    }
-                    fn obj_memory_buffer(
-                        &self,
-                        kind: &CompiledKind,
-                        memory_buffer: &InkwellMemoryBuffer,
-                    ) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.o", function_kind_to_filename(kind)));
-                        let mem_buf_slice = memory_buffer.as_slice();
-                        let mut file = File::create(path)
-                            .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
-                    }
-                    fn asm_memory_buffer(
-                        &self,
-                        kind: &CompiledKind,
-                        asm_memory_buffer: &InkwellMemoryBuffer,
-                    ) {
-                        let mut path = self.debug_dir.clone();
-                        path.push(format!("{}.s", function_kind_to_filename(kind)));
-                        let mem_buf_slice = asm_memory_buffer.as_slice();
-                        let mut file = File::create(path)
-                            .expect("Error while creating debug object file from LLVM IR");
-                        let mut pos = 0;
-                        while pos < mem_buf_slice.len() {
-                            pos += file.write(&mem_buf_slice[pos..]).unwrap();
-                        }
-                    }
-                }
-
-                impl fmt::Debug for Callbacks {
-                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                        write!(f, "LLVMCallbacks")
-                    }
-                }
-
-                if let Some(ref llvm_debug_dir) = runtime_opts.llvm_debug_dir {
-                    config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
+                if let Some(mut debug_dir) = runtime_opts.compiler_debug_dir.clone() {
+                    debug_dir.push("llvm");
+                    config.callbacks(Some(LLVMCallbacks::new(debug_dir)?));
                 }
                 if runtime_opts.enable_verifier {
                     config.enable_verifier();

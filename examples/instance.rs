@@ -64,7 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Calling `add_one` function...");
     let result = add_one.call(&mut store, 1)?;
 
-    println!("Results of `add_one`: {:?}", result);
+    println!("Results of `add_one`: {result:?}");
     assert_eq!(result, 2);
 
     Ok(())

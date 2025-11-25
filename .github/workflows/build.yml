@@ -3,7 +3,7 @@ name: Builds
 env:
   RUST_BACKTRACE: 1
   CARGO_REGISTRIES_CRATES_IO_PROTOCOL: git
-  MSRV: "1.84"
+  MSRV: "1.89"
 
 on:
   push:
@@ -51,7 +51,7 @@ jobs:
           - build: linux-arm64
             os: ubuntu-22.04-arm
             artifact_name: "wasmer-linux-aarch64"
-            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-aarch64.tar.xz"
+            #llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-aarch64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             use_sccache: false
             use_rustcache: false
@@ -63,7 +63,7 @@ jobs:
           - build: linux-x64
             os: ubuntu-22.04
             artifact_name: "wasmer-linux-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_linux"
             use_sccache: false
             build_wasm: true
@@ -73,7 +73,7 @@ jobs:
             enable_wamr: true
           - build: macos-x64
             os: macos-13
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz"
             artifact_name: "wasmer-darwin-amd64"
             cross_compilation_artifact_name: "cross_compiled_from_mac"
             use_sccache: false
@@ -88,7 +88,7 @@ jobs:
             artifact_name: "wasmer-darwin-arm64"
             use_sccache: false
             build_wasm: false
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz"
             enable_llvm: true
             enable_v8: true
             enable_wasmi: true
@@ -96,7 +96,7 @@ jobs:
           - build: windows-x64
             os: windows-2022
             artifact_name: "wasmer-windows-amd64"
-            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-windows-amd64.tar.xz"
+            llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz"
             cross_compilation_artifact_name: "cross_compiled_from_win"
             build_wasm: false
             use_sccache: false
@@ -121,12 +121,12 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
       TARGET: ${{ matrix.target }}
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Set up base deps on musl
         if: startsWith(matrix.build, 'linux-musl-x64')
         run: |
-          apk add bash mold make curl cmake ninja clang18 zstd-static llvm18-dev clang18-static llvm18-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
-          ln -s /usr/bin/clang-18 /usr/bin/clang
+          apk add bash mold make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static libxml2-dev libxml2-static xz-dev xz-static xz-libs libc++-dev libc++-static
+          ln -s /usr/bin/clang-21 /usr/bin/clang
       - name: Install Linux tools
         if: startsWith(matrix.build, 'linux-x64')
         run: |
@@ -185,7 +185,7 @@ jobs:
         shell: bash
         run: |
           LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
-          echo LLVM_SYS_180_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
+          echo LLVM_SYS_211_PREFIX="${LLVM_DIR}" >> $GITHUB_ENV
           echo LLVM_ENABLE=1 >> $GITHUB_ENV
         env:
           LLVM_DIR: .llvm
@@ -257,11 +257,11 @@ jobs:
       - name: Build C API headless
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make package-capi-headless
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make package-capi-headless
       - name: Build C API
         shell: bash
         run: |
-          LLVM_CONFIG_PATH=/usr/bin/llvm-config-18 make build-capi
+          LLVM_CONFIG_PATH=/usr/bin/llvm-config-21 make build-capi
       - name: Build Wasmer binary
         if: ${{ !startsWith(matrix.build, 'linux-x64') && !startsWith(matrix.build, 'linux-musl') }}
         shell: bash
@@ -286,9 +286,9 @@ jobs:
         run: |
           echo "#!/bin/bash" >> /usr/bin/llvm-config
           echo 'if [ "$1" = "--libs" ]; then' >> /usr/bin/llvm-config
-          echo 'llvm-config-18 "$@" "--link-static"' >> /usr/bin/llvm-config
+          echo 'llvm-config-21 "$@" "--link-static"' >> /usr/bin/llvm-config
           echo "else" >> /usr/bin/llvm-config
-          echo 'llvm-config-18 "$@"' >> /usr/bin/llvm-config
+          echo 'llvm-config-21 "$@"' >> /usr/bin/llvm-config
           echo 'fi' >> /usr/bin/llvm-config
           cat /usr/bin/llvm-config
           chmod +x /usr/bin/llvm-config
@@ -341,7 +341,7 @@ jobs:
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Windows-GNU linker
         shell: bash
         run: |
@@ -410,7 +410,7 @@ jobs:
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: aarch64-apple-darwin
@@ -444,7 +444,7 @@ jobs:
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: macos-13
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: x86_64-apple-darwin
@@ -474,7 +474,7 @@ jobs:
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
         with:
           target: riscv64gc-unknown-linux-gnu

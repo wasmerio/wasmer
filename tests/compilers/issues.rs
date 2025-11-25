@@ -1,6 +1,9 @@
 //! This file is mainly to assure specific issues are working well
+use std::env;
+
 use anyhow::{Context, Result};
 use itertools::Itertools;
+use tempfile::TempDir;
 use wasmer::FunctionEnv;
 use wasmer::*;
 
@@ -586,4 +589,27 @@ fn huge_number_of_arguments_fn(
     }
 
     Ok(())
+}
+
+#[compiler_test(issues)]
+fn compiler_debug_dir_test(mut config: crate::Config) {
+    let temp = TempDir::new().expect("temp folder creation failed");
+    unsafe {
+        env::set_var(
+            "WASMER_COMPILER_DEBUG_DIR",
+            temp.path()
+                .as_os_str()
+                .to_str()
+                .expect("path must be valid"),
+        );
+    }
+    let store = config.store();
+
+    let mut wat = include_str!("../wast/spec/fac.wast").to_string();
+    wat.truncate(
+        wat.find("(assert_return")
+            .expect("assert expected in the test"),
+    );
+
+    assert!(Module::new(&store, wat).is_ok());
 }

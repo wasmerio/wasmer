@@ -1,5 +1,5 @@
 use std::{
-    fs::{File, OpenOptions, ReadDir, read_dir},
+    fs::{self, File, OpenOptions, ReadDir, read_dir},
     future::Future,
     io::{self, Read, SeekFrom},
     path::{Path, PathBuf},
@@ -8,6 +8,9 @@ use std::{
     task::{Context, Poll},
 };
 
+use anyhow::{Context as _, anyhow};
+use fs_extra::dir::{self, copy};
+use tempfile::TempDir;
 use tokio::runtime::Handle;
 use virtual_fs::{
     AsyncRead, AsyncSeek, AsyncWrite, AsyncWriteExt, FileSystem, Pipe, ReadBuf,
@@ -61,6 +64,7 @@ pub struct WasiTest<'a> {
 }
 
 // TODO: add `test_fs` here to sandbox better
+const TEMP_ROOT: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../tmp/");
 const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-wast/wasi/");
 
 fn get_stdio_output(rx: &mpsc::Receiver<Vec<u8>>) -> anyhow::Result<String> {
@@ -200,24 +204,37 @@ impl<'a> WasiTest<'a> {
 
         match filesystem_kind {
             WasiFileSystemKind::Host => {
-                let fs = host_fs::FileSystem::new(Handle::current(), PathBuf::from(BASE_TEST_DIR))
-                    .unwrap();
+                // Use a temporary folder, otherwise other file systems will spot the artifacts of this FS.
+                let mut source = PathBuf::from(BASE_TEST_DIR);
+                source.push("test_fs");
+
+                fs::create_dir_all(TEMP_ROOT)
+                    .with_context(|| anyhow!("cannot create root tmp folder for WASI tests"))?;
+
+                let root_dir = TempDir::with_prefix_in("host_fs_copy-", TEMP_ROOT)
+                    .with_context(|| anyhow!("cannot create temporary directory"))?;
+                copy(source.as_path(), root_dir.path(), &dir::CopyOptions::new())
+                    .with_context(|| anyhow!("cannot copy to the temporary directory"))?;
+                let base_dir = root_dir.path().to_path_buf();
+                host_temp_dirs_to_not_drop.push(root_dir);
+
+                let fs = host_fs::FileSystem::new(Handle::current(), base_dir.clone()).unwrap();
 
                 for (alias, real_dir) in &self.mapped_dirs {
-                    let mut dir = PathBuf::from(BASE_TEST_DIR);
+                    let mut dir = base_dir.clone();
                     dir.push(real_dir);
                     builder.add_map_dir(alias, dir)?;
                 }
 
                 // due to the structure of our code, all preopen dirs must be mapped now
                 for dir in &self.dirs {
-                    let mut new_dir = PathBuf::from(BASE_TEST_DIR);
+                    let mut new_dir = base_dir.clone();
                     new_dir.push(dir);
                     builder.add_map_dir(dir, new_dir)?;
                 }
 
                 for alias in &self.temp_dirs {
-                    let temp_dir = tempfile::tempdir_in(PathBuf::from(BASE_TEST_DIR))?;
+                    let temp_dir = tempfile::tempdir_in(&base_dir)?;
                     builder.add_map_dir(alias, temp_dir.path())?;
                     host_temp_dirs_to_not_drop.push(temp_dir);
                 }
