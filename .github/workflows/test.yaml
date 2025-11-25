@@ -1149,5 +1149,6 @@ jobs:
     uses: wasmerio/wasmer-integration-tests/.github/workflows/integration-test-workflow.yaml@main
     with:
       fetch_artifact: "wasmer-cli-linux-x64"
+      registry: wasmer.io
     secrets:
-      token: ${{ secrets.WAPM_DEV_TOKEN }}
+      token: ${{ secrets.PROD_BACKEND_CIUSER_TOKEN }}
