@@ -267,9 +267,9 @@ pub enum BackendAsyncFunctionEnvHandle<'a, T> {
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-/// Internally, a [`StoreMutGuard`] is used, so the store handle from this
-/// type can be used to invoke [`Function::call`](crate::Function::call)
-/// while outside a store's context.
+/// Internally, a [`StoreMutGuard`](crate::StoreMutGuard) is used, so the
+/// store handle from this type can be used to invoke
+/// [`Function::call`](crate::Function::call) while outside a store's context.
 #[non_exhaustive]
 pub enum BackendAsyncFunctionEnvHandleMut<'a, T> {
     #[cfg(feature = "sys")]

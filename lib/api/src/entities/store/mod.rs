@@ -91,6 +91,21 @@ impl Store {
         }
     }
 
+    /// Clones the [`Store`]. This is a cheap operation that internally
+    /// acquires a new [`Rc`](std::rc::Rc) handle.
+    ///
+    /// This is a dangerous (but safe) operation because, with multiple
+    /// clones of the same store, it's possible (and rather easy) to
+    /// run into deadlock situations. [`Store::as_ref`] and [`Store::as_mut`]
+    /// artificially borrow the [`Store`] instance to prevent deadlocks.
+    /// Having a second clone of the store around disables this mechanism.
+    pub fn dangerous_clone(&self) -> Self {
+        Self {
+            id: self.id,
+            inner: self.inner.clone(),
+        }
+    }
+
     /// Creates a new [`StoreRef`] if the store is available for reading.
     pub(crate) fn try_make_ref(&self) -> Option<StoreRef> {
         self.inner
@@ -132,18 +147,96 @@ impl Store {
     /// Builds an [`AsStoreRef`] handle to this store, provided
     /// the store is not locked for writing. Panics otherwise.
     pub fn as_ref<'a>(&'a self) -> impl AsStoreRef + 'a {
-        StoreRefGuard {
+        // Note: only the FromContext variant of StoreRefGuard can cause panics,
+        // so this is safe.
+        StoreRefGuard::Owned {
             inner: self.try_make_ref().expect("Store is locked for writing"),
             marker: std::marker::PhantomData,
+        }
+    }
+
+    /// Builds an [`AsStoreRef`] handle to this store if it's not
+    /// currently locked for writing. If the store is locked,
+    /// tries to acquire a reference through the store context.
+    /// Panics if neither is possible.
+    ///
+    /// This is dangerous because it can potentially acquire
+    /// a handle to the current store context. When the context is about
+    /// to be uninstalled, it checks for existing handles (to prevent
+    /// undefined behavior) and panics if there are live handles. Hence,
+    /// the return value from this function *must* be dropped before the
+    /// store context is uninstalled, which can happen at any of these times:
+    ///   * When the call to a module's start function finishes during
+    ///     instantiation
+    ///   * When a synchronous call to a WASM function returns
+    ///   * When an asynchronous WASM function suspends
+    ///
+    /// # Safety
+    /// Calling this function potentially allows mutable and const references
+    /// to the same store to exist at the same time, violating Rust's aliasing
+    /// rules. Therefore, the caller must make sure no [`AsStoreMut`] referencing
+    /// this store is in scope while the returned reference is alive.
+    pub unsafe fn dangerous_ref_from_context<'a>(&'a self) -> impl AsStoreRef + 'a {
+        if let Some(store_ref) = self.try_make_ref() {
+            StoreRefGuard::Owned {
+                inner: store_ref,
+                marker: std::marker::PhantomData,
+            }
+        } else if let Some(from_context) =
+            unsafe { context::StoreContext::try_get_current(self.id) }
+        {
+            StoreRefGuard::FromContext {
+                inner: from_context,
+            }
+        } else {
+            panic!("Store is locked for writing but not installed in the store context")
         }
     }
 
     /// Builds an [`AsStoreMut`] handle to this store, provided
     /// the store is not locked. Panics if the store is already locked.
     pub fn as_mut<'a>(&'a mut self) -> impl AsStoreMut + 'a {
-        StoreMutGuard {
+        StoreMutGuard::Owned {
             inner: Some(self.try_make_mut().expect("Store is locked")),
             marker: std::marker::PhantomData,
+        }
+    }
+
+    /// Builds an [`AsStoreMut`] handle to this store if it's not
+    /// currently locked. If the store is locked, tries to acquire
+    /// a reference through the store context. Panics if neither is
+    /// possible.
+    ///
+    /// This is dangerous because it can potentially acquire
+    /// a handle to the current store context. When the context is about
+    /// to be uninstalled, it checks for existing handles (to prevent
+    /// undefined behavior) and panics if there are live handles. Hence,
+    /// the return value from this function *must* be dropped before the
+    /// store context is uninstalled, which can happen at any of these times:
+    ///   * When the call to a module's start function finishes during
+    ///     instantiation
+    ///   * When a synchronous call to a WASM function returns
+    ///   * When an asynchronous WASM function suspends
+    ///
+    /// # Safety
+    /// Calling this function potentially allows multiple mutable references
+    /// to the same store to exist at the same time, violating Rust's aliasing
+    /// rules. Therefore, the caller must make sure no [`AsStoreMut`] referencing
+    /// this store is in scope while the returned reference is alive.
+    pub unsafe fn dangerous_mut_from_context<'a>(&'a self) -> impl AsStoreMut + 'a {
+        if let Some(store_mut) = self.try_make_mut() {
+            StoreMutGuard::Owned {
+                inner: Some(store_mut),
+                marker: std::marker::PhantomData,
+            }
+        } else if let Some(from_context) =
+            unsafe { context::StoreContext::try_get_current(self.id) }
+        {
+            StoreMutGuard::FromContext {
+                inner: from_context,
+            }
+        } else {
+            panic!("Store is locked for writing but not installed in the store context")
         }
     }
 
@@ -258,14 +351,22 @@ impl DerefMut for StoreEngineMut<'_> {
 }
 
 /// The immutable counter-part to [`StoreMutGuard`].
-pub struct StoreRefGuard<'a> {
-    pub(crate) inner: StoreRef,
-    pub(crate) marker: std::marker::PhantomData<&'a ()>,
+pub(crate) enum StoreRefGuard<'a> {
+    Owned {
+        inner: StoreRef,
+        marker: std::marker::PhantomData<&'a ()>,
+    },
+    FromContext {
+        inner: context::StoreMutWrapper,
+    },
 }
 
 impl AsStoreRef for StoreRefGuard<'_> {
     fn as_ref(&self) -> &StoreInner {
-        self.inner.as_ref()
+        match self {
+            Self::Owned { inner, .. } => inner.as_ref(),
+            Self::FromContext { inner } => inner.as_ref().as_ref(),
+        }
     }
 }
 
@@ -275,37 +376,51 @@ impl AsStoreRef for StoreRefGuard<'_> {
 /// using this value to invoke [`Function::call`](crate::Function::call).
 // TODO: can we put the value back after the function returns? We should be able to
 // TODO: what would the API look like?
-pub struct StoreMutGuard<'a> {
-    pub(crate) inner: Option<StoreMut>,
-    pub(crate) marker: std::marker::PhantomData<&'a ()>,
+pub(crate) enum StoreMutGuard<'a> {
+    Owned {
+        inner: Option<StoreMut>,
+        marker: std::marker::PhantomData<&'a ()>,
+    },
+    FromContext {
+        inner: context::StoreMutWrapper,
+    },
 }
 
 impl AsStoreRef for StoreMutGuard<'_> {
     fn as_ref(&self) -> &StoreInner {
-        self.inner
-            .as_ref()
-            .expect("StoreMutGuard is taken")
-            .as_ref()
+        match self {
+            Self::Owned { inner, .. } => inner.as_ref().expect("StoreMutGuard is taken").as_ref(),
+            Self::FromContext { inner } => inner.as_ref().as_ref(),
+        }
     }
 }
 
 impl AsStoreMut for StoreMutGuard<'_> {
     fn as_mut(&mut self) -> &mut StoreInner {
-        self.inner
-            .as_mut()
-            .expect("StoreMutGuard is taken")
-            .as_mut()
+        match self {
+            Self::Owned { inner, .. } => inner.as_mut().expect("StoreMutGuard is taken").as_mut(),
+            Self::FromContext { inner } => inner.as_mut().as_mut(),
+        }
     }
 
     fn reborrow_mut(&mut self) -> &mut StoreMut {
-        self.inner.as_mut().expect("StoreMutGuard is taken")
+        match self {
+            Self::Owned { inner, .. } => inner.as_mut().expect("StoreMutGuard is taken"),
+            Self::FromContext { inner } => inner.as_mut(),
+        }
     }
 
     fn take(&mut self) -> Option<StoreMut> {
-        self.inner.take()
+        match self {
+            Self::Owned { inner, .. } => inner.take(),
+            Self::FromContext { inner } => None,
+        }
     }
 
     fn put_back(&mut self, store_mut: StoreMut) {
-        assert!(self.inner.replace(store_mut).is_none());
+        match self {
+            Self::Owned { inner, .. } => assert!(inner.replace(store_mut).is_none()),
+            Self::FromContext { inner: _ } => panic!("Cannot put back into FromContext store"),
+        }
     }
 }

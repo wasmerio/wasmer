@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
     AsAsyncStore, AsyncStoreReadLock, AsyncStoreWriteLock, Store, StoreContext, StoreMut,
-    StoreMutGuard, StoreMutWrapper,
+    StoreMutWrapper,
     store::{AsStoreMut, AsStoreRef, StoreRef},
 };
 
@@ -230,9 +230,9 @@ pub struct AsyncFunctionEnvHandle<'a, T> {
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-/// Internally, a [`StoreMutGuard`] is used, so the store handle from this
-/// type can be used to invoke [`Function::call`](crate::Function::call)
-/// while outside a store's context.
+/// Internally, a [`StoreMutGuard`](crate::StoreMutGuard) is used, so the
+/// store handle from this type can be used to invoke
+/// [`Function::call`](crate::Function::call) while outside a store's context.
 pub struct AsyncFunctionEnvHandleMut<'a, T> {
     write_lock: AsyncStoreWriteLock<'a>,
     pub(crate) func_env: FunctionEnv<T>,
