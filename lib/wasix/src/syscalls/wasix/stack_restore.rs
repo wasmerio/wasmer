@@ -46,8 +46,11 @@ pub fn stack_restore<M: MemorySize>(
             let tid = ctx.data().tid();
 
             let rewind_result = bincode::serialize(&val).unwrap().into();
+            let env = ctx.as_ref();
+            let store = ctx.as_store_mut();
             let ret = rewind_ext::<M>(
-                &mut ctx,
+                store,
+                WasiFunctionEnv { env },
                 None, // we do not restore the thread memory as `longjmp`` is not meant to do this
                 rewind_stack,
                 store_data,

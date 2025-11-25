@@ -108,8 +108,11 @@ pub fn proc_fork<M: MemorySize>(
             // Carry on as if the fork had taken place (which basically means
             // it prevents to be the new process with the old one suspended)
             // Rewind the stack and carry on
+            let env = ctx.as_ref();
+            let store = ctx.as_store_mut();
             match rewind::<M, _>(
-                ctx,
+                store,
+                WasiFunctionEnv { env },
                 Some(memory_stack.freeze()),
                 rewind_stack.freeze(),
                 store_data,
@@ -176,10 +179,9 @@ pub fn proc_fork<M: MemorySize>(
                 {
                     trace!("rewinding child");
                     let mut store_mut = store.as_mut();
-                    let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
-                    let (data, mut store) = ctx.data_and_store_mut();
                     match rewind::<M, _>(
-                        ctx,
+                        &mut store_mut,
+                        ctx.clone(),
                         Some(child_memory_stack),
                         child_rewind_stack,
                         store_data.clone(),
@@ -220,8 +222,11 @@ pub fn proc_fork<M: MemorySize>(
         };
 
         // Rewind the stack and carry on
+        let env = ctx.as_ref();
+        let store = ctx.as_store_mut();
         match rewind::<M, _>(
-            ctx,
+            store,
+            WasiFunctionEnv { env },
             Some(memory_stack),
             rewind_stack,
             store_data,
@@ -253,9 +258,9 @@ fn run<M: MemorySize>(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
-        let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
         let res = rewind_ext::<M>(
-            &mut ctx,
+            &mut store_mut,
+            ctx.clone(),
             Some(rewind_state.memory_stack),
             rewind_state.rewind_stack,
             rewind_state.store_data,

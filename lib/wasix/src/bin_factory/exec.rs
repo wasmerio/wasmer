@@ -274,35 +274,34 @@ fn call_module(
 
     // If we need to rewind then do so
     if let Some((rewind_state, rewind_result)) = rewind_state {
-        let mut ctx = ctx.env.clone().into_mut(&mut store_mut);
         if rewind_state.is_64bit {
             let res = rewind_ext::<Memory64>(
-                &mut ctx,
+                &mut store_mut,
+                ctx.clone(),
                 Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
             );
             if res != Errno::Success {
-                ctx.data().blocking_on_exit(Some(res.into()));
-                let env = WasiFunctionEnv { env: ctx.as_ref() };
+                ctx.data(&store_mut).blocking_on_exit(Some(res.into()));
                 drop(store_mut);
-                unsafe { run_recycle(recycle, env, store) };
+                unsafe { run_recycle(recycle, ctx, store) };
                 return;
             }
         } else {
             let res = rewind_ext::<Memory32>(
-                &mut ctx,
+                &mut store_mut,
+                ctx.clone(),
                 Some(rewind_state.memory_stack),
                 rewind_state.rewind_stack,
                 rewind_state.store_data,
                 rewind_result,
             );
             if res != Errno::Success {
-                ctx.data().blocking_on_exit(Some(res.into()));
-                let env = WasiFunctionEnv { env: ctx.as_ref() };
+                ctx.data(&store_mut).blocking_on_exit(Some(res.into()));
                 drop(store_mut);
-                unsafe { run_recycle(recycle, env, store) };
+                unsafe { run_recycle(recycle, ctx, store) };
                 return;
             }
         };
@@ -472,11 +471,11 @@ fn resume_vfork(
         let rewind_stack = vfork.rewind_stack.freeze();
         let store_data = vfork.store_data;
 
-        let ctx = ctx.env.clone().into_mut(store);
         // Now rewind the previous stack and carry on from where we did the vfork
         let rewind_result = if vfork.is_64bit {
             crate::syscalls::rewind::<Memory64, _>(
-                ctx,
+                store,
+                ctx.clone(),
                 None,
                 rewind_stack,
                 store_data,
@@ -487,7 +486,8 @@ fn resume_vfork(
             )
         } else {
             crate::syscalls::rewind::<Memory32, _>(
-                ctx,
+                store,
+                ctx.clone(),
                 None,
                 rewind_stack,
                 store_data,

@@ -1,4 +1,4 @@
-use crate::{WasiEnv, WasiRuntimeError, journal::SnapshotTrigger};
+use crate::{WasiEnv, WasiFunctionEnv, WasiRuntimeError, journal::SnapshotTrigger};
 #[cfg(feature = "journal")]
 use crate::{WasiResult, journal::JournalEffector, syscalls::do_checkpoint_from_outside, unwind};
 use serde::{Deserialize, Serialize};
@@ -320,8 +320,11 @@ impl WasiProcessInner {
                 }
 
                 // Rewind the stack and carry on
+                let env = ctx.as_ref();
+                let store = ctx.as_store_mut();
                 return match rewind_ext::<M>(
-                    &mut ctx,
+                    store,
+                    WasiFunctionEnv { env },
                     Some(memory_stack),
                     rewind_stack,
                     store_data,

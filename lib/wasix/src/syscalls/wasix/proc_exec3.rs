@@ -209,8 +209,11 @@ pub fn proc_exec3<M: MemorySize>(
                 let store_data = vfork.store_data;
                 unwind::<M, _>(ctx, move |mut ctx, _, _| {
                     // Rewind the stack
+                    let env = ctx.as_ref();
+                    let store = ctx.as_store_mut();
                     match rewind::<M, _>(
-                        ctx,
+                        store,
+                        WasiFunctionEnv { env },
                         None,
                         rewind_stack,
                         store_data,

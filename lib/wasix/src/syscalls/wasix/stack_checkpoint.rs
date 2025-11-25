@@ -126,8 +126,11 @@ pub fn stack_checkpoint<M: MemorySize>(
         // Rewind the stack and carry on
         let pid = ctx.data().pid();
         let tid = ctx.data().tid();
+        let env = ctx.as_ref();
+        let store = ctx.as_store_mut();
         match rewind::<M, _>(
-            ctx,
+            store,
+            WasiFunctionEnv { env },
             Some(memory_stack_corrected.freeze()),
             rewind_stack.freeze(),
             store_data,
