@@ -782,7 +782,11 @@ impl WasiProcess {
                     }
                 } else {
                     // Calculate time until this signal should fire
-                    let time_remaining = Duration::from_nanos((interval_nanos - elapsed) as u64);
+                    // Use try_from to safely handle the u128 -> u64 conversion
+                    let remaining_nanos = interval_nanos - elapsed;
+                    let time_remaining = u64::try_from(remaining_nanos)
+                        .map(Duration::from_nanos)
+                        .unwrap_or(Duration::MAX);
                     next_signal_time = Some(match next_signal_time {
                         Some(current_min) => current_min.min(time_remaining),
                         None => time_remaining,

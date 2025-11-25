@@ -11,8 +11,6 @@ int main(void) {
   alarm(1);
   printf("Calling sleep\n");
   sleep(2);
-  printf("Calling sleep\n");
-  sleep(2);
 
   // We waited long enough and should have called handle_alarm by now
   // If we reach this point, the SIGALRM got lost.
