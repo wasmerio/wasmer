@@ -263,6 +263,7 @@ Wasmer has an amazing community of developers and contributors. Welcome, please 
 
 - [Wasmer Community Discord](https://discord.gg/rWkMNStrEW)
 - [Wasmer on Twitter](https://twitter.com/wasmerio)
+- [Wasmer on LinkedIn](https://www.linkedin.com/company/wasmerio)
 
 --------
 
