@@ -3,8 +3,8 @@ pub mod reference_types {
 
     use anyhow::Result;
     use macro_wasmer_universal_test::universal_test;
-    use std::sync::atomic::{AtomicBool, Ordering};
     use std::sync::Arc;
+    use std::sync::atomic::{AtomicBool, Ordering};
     #[cfg(feature = "js")]
     use wasm_bindgen_test::*;
     use wasmer::*;

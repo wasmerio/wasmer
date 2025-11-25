@@ -1,5 +1,5 @@
-use proc_macro2::TokenStream;
 use proc_macro_error2::abort;
+use proc_macro2::TokenStream;
 use quote::quote;
 use syn::{Data, DeriveInput, Fields, Member, Meta, MetaList, NestedMeta};
 
@@ -9,10 +9,10 @@ fn check_repr(input: &DeriveInput) {
         .attrs
         .iter()
         .filter_map(|attr| {
-            if let Meta::List(MetaList { path, nested, .. }) = attr.parse_meta().unwrap() {
-                if path.is_ident("repr") {
-                    return Some(nested.into_iter().collect::<Vec<_>>());
-                }
+            if let Meta::List(MetaList { path, nested, .. }) = attr.parse_meta().unwrap()
+                && path.is_ident("repr")
+            {
+                return Some(nested.into_iter().collect::<Vec<_>>());
             }
             None
         })
@@ -21,10 +21,10 @@ fn check_repr(input: &DeriveInput) {
     // We require either repr(C) or repr(transparent) to ensure fields are in
     // source code order.
     for meta in reprs {
-        if let NestedMeta::Meta(Meta::Path(path)) = meta {
-            if path.is_ident("C") || path.is_ident("transparent") {
-                return;
-            }
+        if let NestedMeta::Meta(Meta::Path(path)) = meta
+            && (path.is_ident("C") || path.is_ident("transparent"))
+        {
+            return;
         }
     }
 

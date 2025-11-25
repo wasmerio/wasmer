@@ -8,16 +8,46 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 
 ## **Unreleased**
 
+## 6.1.0 - 08/10/2025
+
+This release adds:
+
+* The dynamic linker which, paired with [wasixcc](https://github.com/wasix-org/wasixcc),
+  can load DL modules at runtime
+* New WASIX syscalls for reflection, dynamic function invocation and closure creation;
+  this makes WASIX compatible with libffi
+* Better support for the Exception Handling proposal in the LLVM backend
+* The `--build-remote` flag for `wasmer deploy`, which lets you build packages in the
+  cloud rather than locally
+* And many more stability fixes and improvements.
 
 ## Added
 
+  - [#5763](https://github.com/wasmerio/wasmer/pull/5763) chore(lib/vm): update `corosensei` to `0.3.0` to support AddressSanitizer
+  - [#5783](https://github.com/wasmerio/wasmer/pull/5783) chore(cli): package unpack command: add shortform -u
+  - [#5773](https://github.com/wasmerio/wasmer/pull/5773) feat(cli): Add loading spinner when compiling modules in TTY
+  - [#5775](https://github.com/wasmerio/wasmer/pull/5775) Add `/dev/shm` to the root filesystem
 
 ## Changed
 
+  - [#5784](https://github.com/wasmerio/wasmer/pull/5784) Use wasmerignore for bundling and gitignore for remote builds
+  - [#5774](https://github.com/wasmerio/wasmer/pull/5774) SDK cleanup
+  - [#5770](https://github.com/wasmerio/wasmer/pull/5770) Make table methods don’t fail in the browser
+  - [#5776](https://github.com/wasmerio/wasmer/pull/5776) chore(cli): Provide fallback login instructions in login command
+  - [#5769](https://github.com/wasmerio/wasmer/pull/5769) Promote async-trait to a workspace dependency
+  - [#5743](https://github.com/wasmerio/wasmer/pull/5743) CLI: wasmer deploy --build-remote
+  - [#5526](https://github.com/wasmerio/wasmer/pull/5526) feat(wasix): Improve module loading performance and API correctness
+
 ## Fixed
 
-
-
+  - [#5789](https://github.com/wasmerio/wasmer/pull/5789) fix(cli): Improve behaviour for deployments without wasmer.toml
+  - [#5761](https://github.com/wasmerio/wasmer/pull/5761) Fix deadlocks in Selector
+  - [#5780](https://github.com/wasmerio/wasmer/pull/5780) Fix/eh nested catch ref
+  - [#5779](https://github.com/wasmerio/wasmer/pull/5779) Linker: fix dlsym'ing functions from the main modules when there are …
+  - [#5757](https://github.com/wasmerio/wasmer/pull/5757) Fix order of arguments when spawning processes from WASI
+  - [#5756](https://github.com/wasmerio/wasmer/pull/5756) Fix stalling issue when using shared libraries
+  - [#5745](https://github.com/wasmerio/wasmer/pull/5745) fix(wasix): Linker must re-use the same Engine
+  - [#5752](https://github.com/wasmerio/wasmer/pull/5752) LLVM: Fix compilation breaking for modules with function names that have sp…
 
 ## 6.1.0-rc.5 - 16/09/2025
 This release includes better support for the Exception Handling proposal in LLVM,

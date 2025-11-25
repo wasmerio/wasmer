@@ -1,7 +1,8 @@
 use crate::abi::Abi;
 use crate::error::{err, err_nt};
-use crate::translator::intrinsics::{type_to_llvm, Intrinsics};
+use crate::translator::intrinsics::{Intrinsics, type_to_llvm};
 use inkwell::{
+    AddressSpace,
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
     context::Context,
@@ -10,7 +11,6 @@ use inkwell::{
         BasicValue, BasicValueEnum, CallSiteValue, FloatValue, FunctionValue, IntValue,
         PointerValue, VectorValue,
     },
-    AddressSpace,
 };
 use wasmer_types::{CompileError, FunctionType as FuncSig, Type};
 use wasmer_vm::VMOffsets;
@@ -438,7 +438,7 @@ impl Abi for X86_64SystemV {
                 }
             };
 
-        if let Some(basic_value) = call_site.try_as_basic_value().left() {
+        if let Some(basic_value) = call_site.try_as_basic_value().basic() {
             if func_sig.results().len() > 1 {
                 if basic_value.get_type() == intrinsics.i64_ty.as_basic_type_enum() {
                     assert!(func_sig.results().len() == 2);
@@ -548,12 +548,10 @@ impl Abi for X86_64SystemV {
             {
                 let sret_ty = call_site
                     .try_as_basic_value()
-                    .right()
-                    .unwrap()
+                    .unwrap_instruction()
                     .get_operand(0)
                     .unwrap()
-                    .left()
-                    .unwrap();
+                    .unwrap_value();
                 let sret = sret_ty.into_pointer_value();
                 // re-build the llvm-type struct holding the return values
                 let llvm_results: Vec<_> = func_sig
@@ -637,9 +635,11 @@ impl Abi for X86_64SystemV {
             let high = err!(builder.build_int_z_extend(high, intrinsics.i64_ty, ""));
             let high =
                 err!(builder.build_left_shift(high, intrinsics.i64_ty.const_int(32, false), ""));
-            err_nt!(builder
-                .build_or(low, high, "")
-                .map(|v| v.as_basic_value_enum()))
+            err_nt!(
+                builder
+                    .build_or(low, high, "")
+                    .map(|v| v.as_basic_value_enum())
+            )
         };
 
         let pack_f32s = |first: BasicValueEnum<'ctx>,
@@ -655,9 +655,11 @@ impl Abi for X86_64SystemV {
                 intrinsics.i32_zero,
                 ""
             ));
-            err_nt!(builder
-                .build_insert_element(vec, second, intrinsics.i32_ty.const_int(1, false), "")
-                .map(|v| v.as_basic_value_enum()))
+            err_nt!(
+                builder
+                    .build_insert_element(vec, second, intrinsics.i32_ty.const_int(1, false), "")
+                    .map(|v| v.as_basic_value_enum())
+            )
         };
 
         let build_struct = |ty: StructType<'ctx>, values: &[BasicValueEnum<'ctx>]| {

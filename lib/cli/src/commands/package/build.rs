@@ -1,7 +1,7 @@
 use std::path::PathBuf;
 
 use anyhow::Context;
-use dialoguer::console::{style, Emoji};
+use dialoguer::console::{Emoji, style};
 use indicatif::ProgressBar;
 use sha2::Digest;
 use wasmer_config::package::PackageHash;

@@ -28,10 +28,10 @@ pub fn futex_wake<M: MemorySize>(
         let mut guard = state.futexs.lock().unwrap();
         if let Some(futex) = guard.futexes.get_mut(&pointer) {
             let first = futex.wakers.keys().copied().next();
-            if let Some(id) = first {
-                if let Some(Some(w)) = futex.wakers.remove(&id) {
-                    w.wake();
-                }
+            if let Some(id) = first
+                && let Some(Some(w)) = futex.wakers.remove(&id)
+            {
+                w.wake();
             }
             if futex.wakers.is_empty() {
                 guard.futexes.remove(&pointer);

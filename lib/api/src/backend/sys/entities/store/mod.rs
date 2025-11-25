@@ -1,8 +1,8 @@
 //! Data types, functions and traits for `sys` runtime's `Store` implementation.
-use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use crate::BackendStore;
-use wasmer_vm::init_traps;
+use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
 use wasmer_vm::TrapHandlerFn;
+use wasmer_vm::init_traps;
 pub use wasmer_vm::{StoreHandle, StoreObjects};
 
 mod obj;

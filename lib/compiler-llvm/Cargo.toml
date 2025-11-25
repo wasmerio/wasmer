@@ -14,12 +14,12 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0-rc.5", features = [
+wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = [
 	"translator",
 	"compiler",
 ] }
-wasmer-vm = { path = "../vm", version = "=6.1.0-rc.5" }
-wasmer-types = { path = "../types", version = "=6.1.0-rc.5" }
+wasmer-vm = { path = "../vm", version = "=6.1.0" }
+wasmer-types = { path = "../types", version = "=6.1.0" }
 target-lexicon = { workspace = true, default-features = false }
 smallvec.workspace = true
 object = { workspace = true, features = ["read"] }
@@ -30,12 +30,13 @@ rayon.workspace = true
 phf = { version = "0.11.2", features = ["macros"] }
 tracing = { workspace = true, features = ["log"] }
 
+
 [dependencies.inkwell]
 package = "inkwell"
-version = "0.5.0"
+version = "0.7.0"
 default-features = false
 features = [
-	"llvm18-0-prefer-static",
+	"llvm21-1-prefer-static",
 	"target-x86",
 	"target-aarch64",
 	"target-riscv",

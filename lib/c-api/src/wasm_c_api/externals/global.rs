@@ -21,7 +21,7 @@ impl wasm_global_t {
     }
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_new(
     store: Option<&mut wasm_store_t>,
     global_type: Option<&wasm_globaltype_t>,
@@ -29,7 +29,7 @@ pub unsafe extern "C" fn wasm_global_new(
 ) -> Option<Box<wasm_global_t>> {
     let global_type = global_type?;
     let store = store?;
-    let mut store_mut = store.inner.store_mut();
+    let mut store_mut = unsafe { store.inner.store_mut() };
     let val = val?;
 
     let global_type = &global_type.inner().global_type;
@@ -44,40 +44,38 @@ pub unsafe extern "C" fn wasm_global_new(
     }))
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_delete(_global: Option<Box<wasm_global_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_global_t> {
     // do shallow copy
     Box::new(global.clone())
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_get(
     global: &mut wasm_global_t,
     // own
     out: &mut wasm_val_t,
 ) {
-    let value = global
-        .extern_
-        .global()
-        .get(&mut global.extern_.store.store_mut());
+    let wasm_global = global.extern_.global();
+    let mut store_mut = unsafe { global.extern_.store.store_mut() };
+    let value = wasm_global.get(&mut store_mut);
     *out = value.try_into().unwrap();
 }
 
 /// Note: This function returns nothing by design but it can raise an
 /// error if setting a new value fails.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
     let value: Value = val.try_into().unwrap();
-    c_try!(global
-        .extern_
-        .global()
-        .set(&mut global.extern_.store.store_mut(), value); otherwise ());
+    let wasm_global = global.extern_.global();
+    let mut store_mut = unsafe { global.extern_.store.store_mut() };
+    c_try!(wasm_global.set(&mut store_mut, value); otherwise ());
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_same(
     wasm_global1: &wasm_global_t,
     wasm_global2: &wasm_global_t,
@@ -85,13 +83,14 @@ pub unsafe extern "C" fn wasm_global_same(
     wasm_global1.extern_.global() == wasm_global2.extern_.global()
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_global_type(
     global: Option<&wasm_global_t>,
 ) -> Option<Box<wasm_globaltype_t>> {
     let global = global?;
+    let store_ref = unsafe { global.extern_.store.store() };
     Some(Box::new(wasm_globaltype_t::new(
-        global.extern_.global().ty(&global.extern_.store.store()),
+        global.extern_.global().ty(&store_ref),
     )))
 }
 
@@ -102,7 +101,11 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
-    #[cfg_attr(coverage, ignore)]
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_set_host_global_immutable() {
         (assert_c! {
@@ -135,7 +138,11 @@ mod tests {
         .success();
     }
 
-    #[cfg_attr(coverage, ignore)]
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_set_guest_global_immutable() {
         (assert_c! {

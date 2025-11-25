@@ -8,9 +8,9 @@ use wasm_bindgen_futures::JsFuture;
 use web_sys::{RequestInit, RequestMode, Window, WorkerGlobalScope};
 
 use crate::{
+    VirtualTaskManager, WasiThreadError,
     http::{HttpClient, HttpRequest, HttpRequestOptions, HttpResponse},
     utils::web::js_error,
-    VirtualTaskManager, WasiThreadError,
 };
 
 #[derive(Debug, Default, Clone)]

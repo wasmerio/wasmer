@@ -1,7 +1,7 @@
 pub(crate) mod inner;
 pub(crate) use inner::*;
 
-use crate::{macros::backend::match_rt, AsStoreMut, AsStoreRef, StoreMut, StoreRef};
+use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 #[derive(Debug, derive_more::From)]
@@ -46,7 +46,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<T>
+    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
     where
         T: Any + Send + 'static + Sized,
     {
@@ -80,7 +80,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         self.0.data_and_store_mut()
     }
 }

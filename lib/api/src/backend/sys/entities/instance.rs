@@ -1,8 +1,8 @@
 //! Data types, functions and traits for `sys` runtime's `Instance` implementation.
 
 use crate::{
-    error::InstantiationError, exports::Exports, imports::Imports, module::Module,
-    store::AsStoreMut, Extern,
+    Extern, error::InstantiationError, exports::Exports, imports::Imports, module::Module,
+    store::AsStoreMut,
 };
 use wasmer_vm::{StoreHandle, VMInstance};
 
@@ -12,22 +12,6 @@ use super::store::Store;
 /// A WebAssembly `instance` in the `sys` runtime.
 pub struct Instance {
     _handle: StoreHandle<VMInstance>,
-}
-
-#[cfg(test)]
-mod send_test {
-    use super::*;
-
-    // Only here to statically ensure that `Instance` is `Send`.
-    // Will fail to compile otherwise.
-    #[allow(dead_code)]
-    fn instance_is_send(inst: Instance) {
-        fn is_send(t: impl Send) {
-            let _ = t;
-        }
-
-        is_send(inst);
-    }
 }
 
 impl From<wasmer_compiler::InstantiationError> for InstantiationError {
@@ -103,5 +87,21 @@ impl crate::BackendInstance {
             Self::Sys(s) => s,
             _ => panic!("Not a `sys` instance"),
         }
+    }
+}
+
+#[cfg(test)]
+mod send_test {
+    use super::*;
+
+    // Only here to statically ensure that `Instance` is `Send`.
+    // Will fail to compile otherwise.
+    #[allow(dead_code)]
+    fn instance_is_send(inst: Instance) {
+        fn is_send(t: impl Send) {
+            let _ = t;
+        }
+
+        is_send(inst);
     }
 }

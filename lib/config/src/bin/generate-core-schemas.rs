@@ -43,11 +43,12 @@ mod codegen {
         let mut map = IndexMap::new();
 
         fn add_schema<T: schemars::JsonSchema>(map: &mut IndexMap<String, String>, name: &str) {
-            let gen =
-                schemars::gen::SchemaGenerator::new(schemars::gen::SchemaSettings::draft2019_09());
+            let r#gen = schemars::r#gen::SchemaGenerator::new(
+                schemars::r#gen::SchemaSettings::draft2019_09(),
+            );
             map.insert(
                 format!("{name}.schema.json"),
-                serde_json::to_string_pretty(&gen.into_root_schema_for::<T>()).unwrap(),
+                serde_json::to_string_pretty(&r#gen.into_root_schema_for::<T>()).unwrap(),
             );
         }
         add_schema::<wasmer_config::app::AppConfigV1>(&mut map, "AppConfigV1");

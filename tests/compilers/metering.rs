@@ -2,8 +2,8 @@ use anyhow::Result;
 use wasmer_middlewares::Metering;
 
 use std::sync::Arc;
-use wasmer::wasmparser::Operator;
 use wasmer::FunctionEnv;
+use wasmer::wasmparser::Operator;
 use wasmer::*;
 
 fn cost_always_one(_: &Operator) -> u64 {
@@ -26,8 +26,7 @@ fn run_add_with_limit(mut config: crate::Config, limit: u64) -> Result<()> {
     let module = Module::new(&store, wat).unwrap();
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
     f.call(&mut store, 4, 6)?;
     Ok(())
 }
@@ -58,7 +57,7 @@ fn run_loop(mut config: crate::Config, limit: u64, iter_count: i32) -> Result<()
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<i32, ()> = instance.exports.get_typed_function(&mut store, "test")?;
+    let f: TypedFunction<i32, ()> = instance.exports.get_typed_function(&store, "test")?;
     f.call(&mut store, iter_count)?;
     Ok(())
 }
@@ -163,7 +162,7 @@ fn complex_loop(mut config: crate::Config) -> Result<()> {
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add_to")?;
+        instance.exports.get_typed_function(&store, "add_to")?;
 
     // FIXME: Since now a metering error is signaled with an `unreachable`, it is impossible to verify
     // the error type. Fix this later.

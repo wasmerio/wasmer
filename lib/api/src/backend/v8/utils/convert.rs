@@ -2,11 +2,11 @@ use wasmer_types::{ExternType, FunctionType, Mutability, Type};
 
 /// Utilities to convert between `v8` and `wasmer` values
 use crate::{
+    BackendFunction, Function, Value,
     v8::{
         bindings::{self, *},
         function,
     },
-    BackendFunction, Function, Value,
 };
 
 pub trait IntoCApiValue {
@@ -17,41 +17,41 @@ pub trait IntoCApiValue {
 impl IntoCApiValue for Value {
     fn into_cv(self) -> wasm_val_t {
         match self {
-            Value::I32(val) => wasm_val_t {
+            Self::I32(val) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_I32 as _,
                 of: wasm_val_t__bindgen_ty_1 { i32_: val },
             },
-            Value::I64(val) => wasm_val_t {
+            Self::I64(val) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_I64 as _,
                 of: wasm_val_t__bindgen_ty_1 { i64_: val },
             },
-            Value::F32(val) => wasm_val_t {
+            Self::F32(val) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_F32 as _,
                 of: wasm_val_t__bindgen_ty_1 { f32_: val },
             },
-            Value::F64(val) => wasm_val_t {
+            Self::F64(val) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_F64 as _,
                 of: wasm_val_t__bindgen_ty_1 { f64_: val },
             },
-            Value::FuncRef(Some(val)) => wasm_val_t {
+            Self::FuncRef(Some(val)) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_FUNCREF as _,
                 of: wasm_val_t__bindgen_ty_1 {
                     ref_: unsafe { wasm_func_as_ref(val.as_v8().handle) },
                 },
             },
-            Value::FuncRef(None) => wasm_val_t {
+            Self::FuncRef(None) => wasm_val_t {
                 kind: bindings::wasm_valkind_enum_WASM_FUNCREF as _,
                 of: wasm_val_t__bindgen_ty_1 {
                     ref_: unsafe { wasm_func_as_ref(std::ptr::null_mut()) },
                 },
             },
-            Value::ExternRef(_) => panic!(
+            Self::ExternRef(_) => panic!(
                 "Creating host values from guest ExternRefs is not currently supported in V8."
             ),
-            Value::ExceptionRef(_) => {
+            Self::ExceptionRef(_) => {
                 panic!("Creating host values from guest V128s is not currently supported in V8.")
             }
-            Value::V128(_) => {
+            Self::V128(_) => {
                 panic!("Creating host values from guest V128s is not currently supported in V8.")
             }
         }
@@ -110,14 +110,14 @@ pub trait IntoCApiType {
 impl IntoCApiType for Type {
     fn into_ct(self) -> wasm_valkind_t {
         match self as _ {
-            Type::I32 => bindings::wasm_valkind_enum_WASM_I32 as _,
-            Type::I64 => bindings::wasm_valkind_enum_WASM_I64 as _,
-            Type::F32 => bindings::wasm_valkind_enum_WASM_F32 as _,
-            Type::F64 => bindings::wasm_valkind_enum_WASM_F64 as _,
-            Type::FuncRef => bindings::wasm_valkind_enum_WASM_FUNCREF as _,
-            Type::ExternRef => bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
-            Type::V128 => panic!("v8 currently does not support V128 types"),
-            Type::ExceptionRef => panic!("v8 currently does not support exnrefs"),
+            Self::I32 => bindings::wasm_valkind_enum_WASM_I32 as _,
+            Self::I64 => bindings::wasm_valkind_enum_WASM_I64 as _,
+            Self::F32 => bindings::wasm_valkind_enum_WASM_F32 as _,
+            Self::F64 => bindings::wasm_valkind_enum_WASM_F64 as _,
+            Self::FuncRef => bindings::wasm_valkind_enum_WASM_FUNCREF as _,
+            Self::ExternRef => bindings::wasm_valkind_enum_WASM_EXTERNREF as _,
+            Self::V128 => panic!("v8 currently does not support V128 types"),
+            Self::ExceptionRef => panic!("v8 currently does not support exnrefs"),
         }
     }
 }
@@ -150,13 +150,13 @@ pub trait IntoWasmerExternType {
 
 impl IntoWasmerExternType for wasm_externtype_t {
     unsafe fn into_wextt(mut self) -> Result<ExternType, String> {
-        (&self as *const wasm_externtype_t).into_wextt()
+        unsafe { (&self as *const Self).into_wextt() }
     }
 }
 
 impl IntoWasmerExternType for *mut wasm_externtype_t {
     unsafe fn into_wextt(self) -> Result<ExternType, String> {
-        (self as *const wasm_externtype_t).into_wextt()
+        unsafe { (self as *const wasm_externtype_t).into_wextt() }
     }
 }
 

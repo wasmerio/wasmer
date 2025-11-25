@@ -2,8 +2,8 @@
 use std::{path::Path, sync::Arc};
 
 use crate::{
-    backend::v8::bindings::*, v8::utils::convert::IntoWasmerExternType, AsEngineRef, BackendModule,
-    IntoBytes, Store,
+    AsEngineRef, BackendModule, IntoBytes, Store, backend::v8::bindings::*,
+    v8::utils::convert::IntoWasmerExternType,
 };
 
 use bytes::Bytes;
@@ -49,20 +49,20 @@ impl ModuleHandle {
         let inner = unsafe { wasm_module_new(store.as_v8().inner, &bytes as *const _) };
 
         if inner.is_null() {
-            return Err(CompileError::Validate(format!(
-                "Failed to create V8 module: null module reference returned from V8"
-            )));
+            return Err(CompileError::Validate(
+                "Failed to create V8 module: null module reference returned from V8".to_string(),
+            ));
         }
 
         let inner = unsafe { wasm_module_share(inner) };
 
         if inner.is_null() {
-            return Err(CompileError::Validate(format!(
-                "Failed to create V8 module: null module reference returned from V8"
-            )));
+            return Err(CompileError::Validate(
+                "Failed to create V8 module: null module reference returned from V8".to_string(),
+            ));
         }
 
-        Ok(ModuleHandle {
+        Ok(Self {
             v8_shared_module_handle: inner,
             orig_store: store,
         })
@@ -78,20 +78,21 @@ impl ModuleHandle {
         let store = Store::new(engine.clone());
         let inner = unsafe { wasm_module_deserialize(store.as_v8().inner, &bytes as *const _) };
         if inner.is_null() {
-            return Err(CompileError::Validate(format!(
+            return Err(CompileError::Validate(
                 "Failed to deserialize V8 module: null module reference returned from V8"
-            )));
+                    .to_string(),
+            ));
         }
 
         let inner = unsafe { wasm_module_share(inner) };
 
         if inner.is_null() {
-            return Err(CompileError::Validate(format!(
-                "Failed to create V8 module: null module reference returned from V8"
-            )));
+            return Err(CompileError::Validate(
+                "Failed to create V8 module: null module reference returned from V8".to_string(),
+            ));
         }
 
-        Ok(ModuleHandle {
+        Ok(Self {
             v8_shared_module_handle: inner,
             orig_store: store,
         })
@@ -151,6 +152,7 @@ impl Module {
         unsafe { Self::from_binary_unchecked(engine, binary) }
     }
 
+    #[allow(clippy::arc_with_non_send_sync)]
     #[tracing::instrument(skip(engine, binary))]
     pub(crate) unsafe fn from_binary_unchecked(
         engine: &impl AsEngineRef,
@@ -212,6 +214,7 @@ impl Module {
         Ok(data.into())
     }
 
+    #[allow(clippy::arc_with_non_send_sync)]
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
@@ -235,7 +238,7 @@ impl Module {
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        Self::deserialize_unchecked(engine, bytes)
+        unsafe { Self::deserialize_unchecked(engine, bytes) }
     }
 
     pub unsafe fn deserialize_from_file_unchecked(
@@ -243,7 +246,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize_unchecked(engine, bytes)
+        unsafe { Self::deserialize_unchecked(engine, bytes) }
     }
 
     pub unsafe fn deserialize_from_file(
@@ -251,7 +254,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {

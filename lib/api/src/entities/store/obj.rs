@@ -1,6 +1,6 @@
 use wasmer_types::StoreId;
 
-use crate::{macros::backend::match_rt, BackendStore};
+use crate::{BackendStore, macros::backend::match_rt};
 
 /// Set of objects managed by a context.
 #[derive(Debug)]
@@ -37,16 +37,16 @@ impl StoreObjects {
     pub fn same(a: &Self, b: &Self) -> bool {
         match (a, b) {
             #[cfg(feature = "sys")]
-            (Self::Sys(ref a), Self::Sys(ref b)) => a.id() == b.id(),
+            (Self::Sys(a), Self::Sys(b)) => a.id() == b.id(),
             #[cfg(feature = "wamr")]
-            (Self::Wamr(ref a), Self::Wamr(ref b)) => a.id() == b.id(),
+            (Self::Wamr(a), Self::Wamr(b)) => a.id() == b.id(),
             #[cfg(feature = "v8")]
-            (Self::V8(ref a), Self::V8(ref b)) => a.id() == b.id(),
+            (Self::V8(a), Self::V8(b)) => a.id() == b.id(),
             #[cfg(feature = "js")]
-            (Self::Js(ref a), Self::Js(ref b)) => a.id() == b.id(),
+            (Self::Js(a), Self::Js(b)) => a.id() == b.id(),
 
             #[cfg(feature = "jsc")]
-            (Self::Jsc(ref a), Self::Jsc(ref b)) => a.id() == b.id(),
+            (Self::Jsc(a), Self::Jsc(b)) => a.id() == b.id(),
 
             _ => panic!(
                 "Incompatible `StoreObjects` instance: {}, {}!",

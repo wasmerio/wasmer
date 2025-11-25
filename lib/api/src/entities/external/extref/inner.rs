@@ -1,9 +1,9 @@
 use std::any::Any;
 
+use crate::StoreRef;
 use crate::entities::store::{AsStoreMut, AsStoreRef};
 use crate::macros::backend::{gen_rt_ty, match_rt};
 use crate::vm::VMExternRef;
-use crate::StoreRef;
 
 gen_rt_ty!(ExternRef @derives derive_more::From, Debug, Clone ; @path external);
 
@@ -80,47 +80,47 @@ impl BackendExternRef {
     ) -> Self {
         match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
-            crate::BackendStore::Sys(_) => Self::Sys(
+            crate::BackendStore::Sys(_) => Self::Sys(unsafe {
                 crate::backend::sys::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_sys(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "wamr")]
-            crate::BackendStore::Wamr(_) => Self::Wamr(
+            crate::BackendStore::Wamr(_) => Self::Wamr(unsafe {
                 crate::backend::wamr::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_wamr(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "wasmi")]
-            crate::BackendStore::Wasmi(_) => Self::Wasmi(
+            crate::BackendStore::Wasmi(_) => Self::Wasmi(unsafe {
                 crate::backend::wasmi::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_wasmi(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "v8")]
-            crate::BackendStore::V8(_) => Self::V8(
+            crate::BackendStore::V8(_) => Self::V8(unsafe {
                 crate::backend::v8::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_v8(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "js")]
-            crate::BackendStore::Js(_) => Self::Js(
+            crate::BackendStore::Js(_) => Self::Js(unsafe {
                 crate::backend::js::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_js(),
-                ),
-            ),
+                )
+            }),
             #[cfg(feature = "jsc")]
-            crate::BackendStore::Jsc(_) => Self::Jsc(
+            crate::BackendStore::Jsc(_) => Self::Jsc(unsafe {
                 crate::backend::jsc::entities::external::ExternRef::from_vm_externref(
                     store,
                     vm_externref.into_jsc(),
-                ),
-            ),
+                )
+            }),
         }
     }
 

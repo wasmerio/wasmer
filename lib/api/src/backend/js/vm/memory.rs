@@ -42,12 +42,12 @@ impl VMMemory {
     }
 
     /// Attempts to clone this memory (if its clonable)
-    pub(crate) fn try_clone(&self) -> Result<VMMemory, MemoryError> {
+    pub(crate) fn try_clone(&self) -> Result<Self, MemoryError> {
         Ok(self.clone())
     }
 
     /// Copies this memory to a new memory
-    pub fn copy(&mut self) -> Result<VMMemory, wasmer_types::MemoryError> {
+    pub fn copy(&mut self) -> Result<Self, wasmer_types::MemoryError> {
         let new_memory = crate::js::memory::Memory::js_memory_from_type(&self.ty)?;
 
         let src = crate::js::memory::MemoryView::new_raw(&self.memory);
@@ -80,21 +80,21 @@ impl VMMemory {
         }
 
         src.copy_to_memory(amount as u64, &dst).map_err(|err| {
-            wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {}", err))
+            wasmer_types::MemoryError::Generic(format!("failed to copy the memory - {err}"))
         })?;
 
         trace!("memory copy finished (size={})", dst.size().bytes().0);
 
         Ok(Self {
             memory: JsHandle::new(new_memory),
-            ty: self.ty.clone(),
+            ty: self.ty,
         })
     }
 }
 
 impl From<VMMemory> for JsValue {
     fn from(value: VMMemory) -> Self {
-        JsValue::from(value.memory)
+        Self::from(value.memory)
     }
 }
 

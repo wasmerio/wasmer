@@ -44,7 +44,7 @@ fn run_mode(src: &'static str, mode: &'static str) {
 
 #[test]
 #[ignore] // ignored by default because it needs to essentially run `cargo clean` to work correctly
-          // and that's really, really slow
+// and that's really, really slow
 fn compile_test() {
     run_mode("compile-fail", "compile-fail");
 }

@@ -1,9 +1,12 @@
 use std::{
     error::Error,
-    ffi::{c_char, CStr},
+    ffi::{CStr, c_char},
 };
 
-use crate::{wamr::bindings::*, AsStoreMut};
+use crate::{
+    AsStoreMut,
+    wamr::{bindings::*, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -52,19 +55,29 @@ impl Trap {
         }
     }
 
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
+    }
+
     pub unsafe fn into_wasm_trap(self, store: &mut impl AsStoreMut) -> *mut wasm_trap_t {
         match self.inner {
             InnerTrap::CApi(t) => t,
             InnerTrap::User(err) => {
                 let err_ptr = Box::leak(Box::new(err));
-                let mut data = std::mem::zeroed();
+                let mut data = unsafe { std::mem::zeroed() };
                 // let x = format!("")
-                let s1 = format!("🐛{:p}", err_ptr);
+                let s1 = format!("🐛{err_ptr:p}");
                 let _s = s1.into_bytes().into_boxed_slice();
-                wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _);
+                unsafe { wasm_byte_vec_new(&mut data, _s.len(), _s.as_ptr() as _) };
                 std::mem::forget(_s);
                 let store = store.as_store_mut();
-                wasm_trap_new(store.inner.store.as_wamr().inner, &mut data)
+                unsafe { wasm_trap_new(store.inner.store.as_wamr().inner, &data) }
             }
         }
     }
@@ -89,16 +102,13 @@ impl From<*mut wasm_trap_t> for Trap {
                 .unwrap()
         };
 
-        println!("{message}");
-
         if message.starts_with("Exception: 🐛") {
             let ptr_str = message.replace("Exception: 🐛", "");
             let ptr: Box<dyn Error + Send + Sync + 'static> = unsafe {
                 let r = ptr_str.trim_start_matches("0x");
-                std::ptr::read(
-                    (usize::from_str_radix(&r, 16).unwrap()
-                        as *const Box<dyn Error + Send + Sync + 'static>),
-                )
+                let raw_ptr = usize::from_str_radix(r, 16).unwrap()
+                    as *const Box<dyn Error + Send + Sync + 'static>;
+                std::ptr::read(raw_ptr)
             };
 
             Self {
@@ -124,18 +134,19 @@ impl std::error::Error for Trap {
 impl std::fmt::Display for Trap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "{}", e),
+            InnerTrap::User(e) => write!(f, "{e}"),
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
-                let mut out = unsafe {
+                let message = unsafe {
                     let mut vec: wasm_byte_vec_t = Default::default();
                     wasm_byte_vec_new_empty(&mut vec);
-                    &mut vec as *mut _
+                    let out = &mut vec as *mut _;
+                    wasm_trap_message(*value, out);
+                    let cstr = CStr::from_ptr((*out).data);
+                    cstr.to_str().unwrap().to_string()
                 };
-                unsafe { wasm_trap_message(*value, out) };
-                let cstr = unsafe { CStr::from_ptr((*out).data) };
-                write!(f, "wasm-c-api trap: {}", cstr.to_str().unwrap())
+                write!(f, "wasm-c-api trap: {message}")
             }
         }
     }
@@ -144,18 +155,19 @@ impl std::fmt::Display for Trap {
 impl std::fmt::Debug for Trap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match &self.inner {
-            InnerTrap::User(e) => write!(f, "{}", e),
+            InnerTrap::User(e) => write!(f, "{e}"),
             InnerTrap::CApi(value) => {
                 // let message: wasm_message_t;
                 // wasm_trap_message(value, &mut message);
-                let mut out = unsafe {
+                let message = unsafe {
                     let mut vec: wasm_byte_vec_t = Default::default();
                     wasm_byte_vec_new_empty(&mut vec);
-                    &mut vec as *mut _
+                    let out = &mut vec as *mut _;
+                    wasm_trap_message(*value, out);
+                    let cstr = CStr::from_ptr((*out).data);
+                    cstr.to_str().unwrap().to_string()
                 };
-                unsafe { wasm_trap_message(*value, out) };
-                let cstr = unsafe { CStr::from_ptr((*out).data) };
-                write!(f, "wasm-c-api trap: {}", cstr.to_str().unwrap())
+                write!(f, "wasm-c-api trap: {message}")
             }
         }
     }
@@ -167,6 +179,6 @@ impl From<Trap> for crate::RuntimeError {
             return trap.downcast::<Self>().unwrap();
         }
 
-        crate::RuntimeError::new_from_source(crate::BackendTrap::Wamr(trap), vec![], None)
+        Self::new_from_source(crate::BackendTrap::Wamr(trap), vec![], None)
     }
 }

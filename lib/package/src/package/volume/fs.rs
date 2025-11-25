@@ -1,5 +1,6 @@
 use std::{
     collections::{BTreeMap, BTreeSet},
+    fmt::Debug,
     fs::File,
     io::Read,
     path::{Path, PathBuf},
@@ -9,24 +10,22 @@ use anyhow::{Context, Error};
 use shared_buffer::OwnedBuffer;
 
 use webc::{
-    sanitize_path,
+    AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments, sanitize_path,
     v3::{
         self,
         write::{DirEntry, Directory, FileEntry},
     },
-    AbstractVolume, Metadata, PathSegment, PathSegments, Timestamps, ToPathSegments,
 };
 
-use crate::package::Strictness;
+use crate::package::{Strictness, WalkBuilderFactory};
 
 use super::WasmerPackageVolume;
 
 /// A lazily loaded volume in a Wasmer package.
 ///
 /// Note that it is the package resolver's role to interpret a package's
-/// [`crate::metadata::annotations::FileSystemMappings`]. A [`Volume`] contains
-/// directories as they were when the package was published.
-#[derive(Debug, Clone, PartialEq)]
+/// filesystem mappings. A volume contains directories as they were when the
+/// package was published.
 pub struct FsVolume {
     /// Name of the volume
     name: String,
@@ -39,6 +38,20 @@ pub struct FsVolume {
     mapped_directories: BTreeSet<PathBuf>,
     /// The base directory all [`PathSegments`] will be resolved relative to.
     base_dir: PathBuf,
+    /// The walker builder factory to use when reading directories.
+    walker_factory: WalkBuilderFactory,
+}
+
+impl Debug for FsVolume {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.debug_struct("FsVolume")
+            .field("name", &self.name)
+            .field("intermediate_directories", &self.intermediate_directories)
+            .field("metadata_files", &self.metadata_files)
+            .field("mapped_directories", &self.mapped_directories)
+            .field("base_dir", &self.base_dir)
+            .finish()
+    }
 }
 
 impl FsVolume {
@@ -76,12 +89,14 @@ impl FsVolume {
             base_dir,
             files,
             BTreeSet::new(),
+            crate::package::include_everything_walker(),
         ))
     }
 
     pub(crate) fn new_assets(
         manifest: &wasmer_config::package::Manifest,
         base_dir: &Path,
+        walker_factory: crate::package::WalkBuilderFactory,
     ) -> Result<BTreeMap<String, Self>, Error> {
         // Create asset volumes
         let dirs: BTreeSet<_> = manifest
@@ -116,6 +131,7 @@ impl FsVolume {
                     base_dir.to_path_buf(),
                     BTreeSet::new(),
                     dirs,
+                    walker_factory,
                 ),
             );
         }
@@ -128,6 +144,7 @@ impl FsVolume {
         base_dir: PathBuf,
         whitelisted_files: BTreeSet<PathBuf>,
         whitelisted_directories: BTreeSet<PathBuf>,
+        walker_factory: crate::package::WalkBuilderFactory,
     ) -> Self {
         let mut intermediate_directories: BTreeSet<PathBuf> = whitelisted_files
             .iter()
@@ -147,6 +164,7 @@ impl FsVolume {
             metadata_files: whitelisted_files,
             mapped_directories: whitelisted_directories,
             base_dir,
+            walker_factory,
         }
     }
 
@@ -155,6 +173,7 @@ impl FsVolume {
         base_dir: PathBuf,
         whitelisted_files: BTreeSet<PathBuf>,
         whitelisted_directories: BTreeSet<PathBuf>,
+        walker_factory: crate::package::WalkBuilderFactory,
     ) -> Self {
         FsVolume {
             name,
@@ -162,6 +181,7 @@ impl FsVolume {
             metadata_files: whitelisted_files,
             mapped_directories: whitelisted_directories,
             base_dir,
+            walker_factory,
         }
     }
 
@@ -214,12 +234,9 @@ impl FsVolume {
     ) -> Option<Vec<(PathSegment, Option<[u8; 32]>, Metadata)>> {
         let resolved = self.resolve(path)?;
 
-        let walker = ignore::WalkBuilder::new(&resolved)
-            .require_git(true)
-            .add_custom_ignore_filename(".wasmerignore")
-            .follow_links(false)
-            .max_depth(Some(1))
-            .build();
+        let mut walker_builder = self.walker_factory.create_walk_builder(&resolved);
+        walker_builder.max_depth(Some(1));
+        let walker = walker_builder.build();
 
         let mut entries = Vec::new();
 
@@ -316,7 +333,7 @@ impl FsVolume {
             Ok(root)
         } else {
             let paths: Vec<_> = self.mapped_directories.iter().cloned().collect();
-            directory_tree(paths, &self.base_dir)
+            directory_tree(paths, &self.base_dir, self.walker_factory)
         }
     }
 }
@@ -359,6 +376,7 @@ fn resolve(base_dir: &Path, path: &PathSegments) -> PathBuf {
 fn directory_tree(
     paths: impl IntoIterator<Item = PathBuf>,
     base_dir: &Path,
+    walker_factory: crate::package::WalkBuilderFactory,
 ) -> Result<Directory<'static>, Error> {
     let paths: Vec<_> = paths.into_iter().collect();
     let mut root = Directory::default();
@@ -373,7 +391,11 @@ fn directory_tree(
                 println!("Warning: {path:?} already exists. Overriding the old entry");
             }
         } else {
-            let dir = webc::v3::write::Directory::from_path_with_ignore(&path).map_err(|e| {
+            let dir = webc::v3::write::Directory::from_path_with_walker(
+                &path,
+                walker_factory.create_walk_builder(&path).build(),
+            )
+            .map_err(|e| {
                 Error::from(e).context(format!(
                     "Unable to add \"{}\" to the directory tree",
                     path.display()
@@ -483,12 +505,21 @@ mod tests {
 
         let manifest: Manifest = toml::from_str(wasmer_toml).unwrap();
 
-        let volume = FsVolume::new_assets(&manifest, temp.path()).unwrap();
+        let volume = FsVolume::new_assets(
+            &manifest,
+            temp.path(),
+            crate::package::wasmer_ignore_walker(),
+        )
+        .unwrap();
 
         let volume = &volume["/etc"];
 
         let entries = volume.read_dir(&PathSegments::ROOT).unwrap();
-        let expected = [PathSegment::parse("share").unwrap()];
+        let expected = [
+            PathSegment::parse(".hidden").unwrap(),
+            PathSegment::parse(".wasmerignore").unwrap(),
+            PathSegment::parse("share").unwrap(),
+        ];
 
         for i in 0..expected.len() {
             assert_eq!(entries[i].0, expected[i]);
@@ -509,24 +540,26 @@ mod tests {
         // Create a directory that will be used as the base directory
         let base_dir = temp.path().to_path_buf();
 
-        // Create a non-existent path that will cause `from_path_with_ignore` to fail
+        // Create a non-existent path that will cause `from_path_with_walker` to fail
         let non_existent_path = base_dir.join("non_existent_dir");
 
         // Try to create a directory tree with a non-existent path
-        let result = directory_tree(std::iter::once(non_existent_path.clone()), &base_dir);
+        let result = directory_tree(
+            std::iter::once(non_existent_path.clone()),
+            &base_dir,
+            crate::package::wasmer_ignore_walker(),
+        );
 
         // Verify that the error is propagated
         assert!(result.is_err());
         let error = result.unwrap_err();
         assert!(
             error.to_string().contains("Unable to add"),
-            "Error message should indicate failure to add path: {}",
-            error
+            "Error message should indicate failure to add path: {error}",
         );
         assert!(
             error.to_string().contains("non_existent_dir"),
-            "Error message should include the problematic path: {}",
-            error
+            "Error message should include the problematic path: {error}",
         );
     }
 }

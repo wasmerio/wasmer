@@ -108,20 +108,22 @@ enable-serde = [
 	"wasmer-wasix/enable-serde",
 ]
 
+tokio-subscriber = ["dep:console-subscriber", "tokio/tracing"]
+
 [dependencies]
 # Repo-local dependencies.
 
-wasmer = { version = "=6.1.0-rc.5", path = "../api", default-features = false }
-wasmer-compiler = { version = "=6.1.0-rc.5", path = "../compiler", features = [
+wasmer = { version = "=6.1.0", path = "../api", default-features = false }
+wasmer-compiler = { version = "=6.1.0", path = "../compiler", features = [
 	"compiler",
 ], optional = true }
-wasmer-compiler-cranelift = { version = "=6.1.0-rc.5", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "=6.1.0-rc.5", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "=6.1.0-rc.5", path = "../compiler-llvm", optional = true }
+wasmer-compiler-cranelift = { version = "=6.1.0", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "=6.1.0", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "=6.1.0", path = "../compiler-llvm", optional = true }
 wasmer-package.workspace = true
 
-wasmer-vm = { version = "=6.1.0-rc.5", path = "../vm", optional = true }
-wasmer-wasix = { path = "../wasix", version = "=0.601.0-rc.5", features = [
+wasmer-vm = { version = "=6.1.0", path = "../vm", optional = true }
+wasmer-wasix = { path = "../wasix", version = "=0.601.0", features = [
 	"logging",
 	"webc_runner_rt_wcgi",
 	"webc_runner_rt_dcgi",
@@ -130,22 +132,23 @@ wasmer-wasix = { path = "../wasix", version = "=0.601.0-rc.5", features = [
 	"ctrlc",
 	"sys",
 ], default-features = false }
-wasmer-wast = { version = "=6.1.0-rc.5", path = "../../tests/lib/wast", optional = true }
-wasmer-types = { version = "=6.1.0-rc.5", path = "../types", features = [
+wasmer-wast = { version = "=6.1.0", path = "../../tests/lib/wast", optional = true }
+wasmer-types = { version = "=6.1.0", path = "../types", features = [
 	"enable-serde",
 	"detect-wasm-features",
 ] }
-virtual-fs = { version = "0.601.0-rc.5", path = "../virtual-fs", default-features = false, features = [
+virtual-fs = { version = "0.601.0", path = "../virtual-fs", default-features = false, features = [
 	"host-fs",
 ] }
-virtual-net = { version = "0.601.0-rc.5", path = "../virtual-net" }
-virtual-mio = { version = "0.601.0-rc.5", path = "../virtual-io" }
+virtual-net = { version = "0.601.0", path = "../virtual-net" }
+virtual-mio = { version = "0.601.0", path = "../virtual-io" }
 
 # Wasmer-owned dependencies.
 
 webc.workspace = true
-wasmer-backend-api = { version = "=0.601.0-rc.5", path = "../backend-api" }
-wasmer-config = { version = "0.601.0-rc.5", path = "../config" }
+wasmer-backend-api = { version = "=0.601.0", path = "../backend-api" }
+wasmer-sdk = { path = "../sdk" }
+wasmer-config = { version = "0.601.0", path = "../config" }
 
 # Used by the mount command
 
@@ -158,7 +161,6 @@ time01 = { package = "time", version = "0.1.45", optional = true }
 # Third-party dependencies.
 
 http.workspace = true
-is-terminal = "0.4.7"
 colored = "2.0"
 anyhow.workspace = true
 bytesize.workspace = true
@@ -167,6 +169,7 @@ tempfile.workspace = true
 serde.workspace = true
 serde_json.workspace = true
 dirs = "4.0"
+path-clean = "1.0.1"
 target-lexicon = { workspace = true, features = ["std"] }
 indexmap.workspace = true
 walkdir = "2.3.2"
@@ -194,7 +197,7 @@ tracing-subscriber = { workspace = true, features = [
 	"fmt",
 	"json",
 ] }
-async-trait = "0.1.68"
+async-trait = { workspace = true }
 tokio = { workspace = true, features = ["macros", "rt-multi-thread"] }
 once_cell.workspace = true
 indicatif = "0.17.5"
@@ -213,7 +216,7 @@ serde_yaml.workspace = true
 base64.workspace = true
 # FIXME: 7.2 is not compatible with Rust 1.84
 comfy-table = "=7.1.4"
-
+git-version = "0.3.9"
 
 # Used by tuntap and connect
 futures-util.workspace = true
@@ -225,19 +228,21 @@ tokio-tungstenite = { workspace = true, features = [
 mac_address = { version = "1.1.5", optional = true }
 #tun-tap = { version = "0.1.4", features = ["tokio"], optional = true }
 
-clap_complete = "4.5.2"
-clap_mangen = "0.2.20"
+clap_complete = "4.5.59"
+clap_mangen = "0.2.31"
 zip = { version = "2.4", default-features = false, features = ["deflate"] }
 console = "0.15.8"
 dotenvy = "0.15.7"
 lzma-rs = "0.3.0"
 
+console-subscriber = { version = "0.4", optional = true }
+
 # NOTE: Must use different features for clap because the "color" feature does not
 # work on wasi due to the anstream dependency not compiling.
 [target.'cfg(not(target_family = "wasm"))'.dependencies]
-clap = { version = "4.4.0", features = ["derive", "env"] }
+clap = { version = "4.5.50", features = ["derive", "env"] }
 [target.'cfg(target_family = "wasm")'.dependencies]
-clap = { version = "4.4.0", default-features = false, features = [
+clap = { version = "4.5.50", default-features = false, features = [
 	"std",
 	"help",
 	"usage",

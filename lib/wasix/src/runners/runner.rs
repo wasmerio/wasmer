@@ -3,7 +3,7 @@ use std::sync::Arc;
 use anyhow::Error;
 use webc::metadata::Command;
 
-use crate::{bin_factory::BinaryPackage, Runtime};
+use crate::{Runtime, bin_factory::BinaryPackage};
 
 /// Trait that all runners have to implement
 pub trait Runner {

@@ -1,6 +1,6 @@
 [package]
 name = "virtual-mio"
-version = "0.601.0-rc.5"
+version = "0.601.0"
 description = "Wasmer Virtual IO Engine powered by mio"
 authors.workspace = true
 edition.workspace = true
@@ -12,13 +12,17 @@ rust-version.workspace = true
 [dependencies]
 thiserror.workspace = true
 bytes.workspace = true
-async-trait = { version = "^0.1" }
+async-trait = { workspace = true }
 tracing.workspace = true
 
 mio = { workspace = true, features = ["os-poll"], optional = true }
 socket2 = { workspace = true, optional = true }
 futures = { version = "0.3" }
 serde = { workspace = true, default-features = false, features = ["derive"] }
+parking = "2.2"
+
+[dev-dependencies]
+mio = { workspace = true, features = ["os-poll", "os-ext"] }
 
 [features]
 sys = ["mio", "socket2"]

@@ -5,7 +5,7 @@ use std::collections::{HashMap, HashSet};
 use std::convert::TryInto;
 use std::num::TryFromIntError;
 
-use wasmer_types::{entity::PrimaryMap, CompileError, SourceLoc};
+use wasmer_types::{CompileError, SourceLoc, entity::PrimaryMap};
 
 use wasmer_compiler::types::{
     address_map::{FunctionAddressMap, InstructionAddressMap},
@@ -30,6 +30,7 @@ pub struct CompiledFunction {
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
     pub compact_unwind_section_indices: Vec<SectionIndex>,
+    pub gcc_except_table_section_indices: Vec<SectionIndex>,
 }
 
 static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
@@ -78,13 +79,12 @@ static LIBCALLS_ELF: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
     "wasmer_vm_throw" => LibCall::Throw,
-    "wasmer_vm_rethrow" => LibCall::Rethrow,
     "wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "wasmer_vm_delete_exception" => LibCall::DeleteException,
-    "wasmer_vm_read_exception" => LibCall::ReadException,
-    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     "wasmer_eh_personality" => LibCall::EHPersonality,
     "wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
@@ -133,18 +133,18 @@ static LIBCALLS_MACHO: phf::Map<&'static str, LibCall> = phf::phf_map! {
     "_wasmer_vm_imported_memory32_atomic_wait64" => LibCall::ImportedMemory32AtomicWait64,
     "_wasmer_vm_memory32_atomic_notify" => LibCall::Memory32AtomicNotify,
     "_wasmer_vm_imported_memory32_atomic_notify" => LibCall::ImportedMemory32AtomicNotify,
+
     "_wasmer_vm_throw" => LibCall::Throw,
-    "_wasmer_vm_rethrow" => LibCall::Rethrow,
     "_wasmer_vm_alloc_exception" => LibCall::AllocException,
-    "_wasmer_vm_delete_exception" => LibCall::DeleteException,
-    "_wasmer_vm_read_exception" => LibCall::ReadException,
-    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
+    "_wasmer_vm_read_exnref" => LibCall::ReadExnRef,
+    "_wasmer_vm_exception_into_exnref" => LibCall::LibunwindExceptionIntoExnRef,
     // Note: on macOS+Mach-O the personality function *must* be called like this, otherwise LLVM
     // will generate things differently than "normal", wreaking havoc.
     //
     // todo: find out if it is a bug in LLVM or it is expected.
     "___gxx_personality_v0" => LibCall::EHPersonality,
     "_wasmer_eh_personality2" => LibCall::EHPersonality2,
+    "_wasmer_vm_dbg_usize" => LibCall::DebugUsize,
     "_wasmer_vm_dbg_str" => LibCall::DebugStr,
 };
 
@@ -166,7 +166,7 @@ where
         _ => {
             return Err(CompileError::UnsupportedTarget(format!(
                 "Unsupported binary format {binary_fmt:?}"
-            )))
+            )));
         }
     };
 
@@ -221,6 +221,12 @@ where
     // Add macos-specific unwind sections.
     let mut compact_unwind_section_indices = vec![];
 
+    // .gcc_except_table sections, which contain the actual LSDA data.
+    // We don't need the actual sections for anything (yet), but trampoline
+    // codegen checks custom section counts to verify there aren't any
+    // unexpected custom sections, so we do a bit of book-keeping here.
+    let mut gcc_except_table_section_indices = vec![];
+
     for section in obj.sections() {
         let index = section.index();
         if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND)
@@ -234,6 +240,11 @@ where
         } else if section.name().unwrap_or_default() == "__compact_unwind" {
             worklist.push(index);
             compact_unwind_section_indices.push(index);
+
+            elf_section_to_target(index);
+        } else if section.name().unwrap_or_default() == ".gcc_except_table" {
+            worklist.push(index);
+            gcc_except_table_section_indices.push(index);
 
             elf_section_to_target(index);
         }
@@ -526,7 +537,7 @@ where
                         _ => {
                             return Err(CompileError::Codegen(format!(
                                 "unknown relocation {reloc:?}",
-                            )))
+                            )));
                         }
                     }
                 }
@@ -561,7 +572,7 @@ where
                         _ => {
                             return Err(CompileError::Codegen(format!(
                                 "unknown relocation {reloc:?}"
-                            )))
+                            )));
                         }
                     }
                 }
@@ -605,6 +616,20 @@ where
                 || {
                     Err(CompileError::Codegen(format!(
                         "_compact_unwind section with index={index:?} was never loaded",
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
+
+    let gcc_except_table_section_indices = gcc_except_table_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".gcc_except_table section with index={index:?} was never loaded",
                     )))
                 },
                 |idx| Ok(*idx),
@@ -671,5 +696,6 @@ where
         custom_sections,
         eh_frame_section_indices,
         compact_unwind_section_indices,
+        gcc_except_table_section_indices,
     })
 }

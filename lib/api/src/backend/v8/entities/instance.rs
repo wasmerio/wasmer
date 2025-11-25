@@ -2,8 +2,8 @@
 use std::sync::Arc;
 
 use crate::{
-    backend::v8::bindings::*, v8::error::Trap, vm::VMExtern, AsStoreMut, AsStoreRef, Exports,
-    Extern, Imports, InstantiationError, Module,
+    AsStoreMut, AsStoreRef, Exports, Extern, Imports, InstantiationError, Module,
+    backend::v8::bindings::*, v8::error::Trap, vm::VMExtern,
 };
 
 use super::check_isolate;
@@ -15,6 +15,7 @@ unsafe impl Send for InstanceHandle {}
 unsafe impl Sync for InstanceHandle {}
 
 impl InstanceHandle {
+    #[allow(clippy::result_large_err, clippy::unnecessary_mut_passed)]
     fn new(
         store: *mut wasm_store_t,
         module: *mut wasm_shared_module_t,
@@ -46,7 +47,7 @@ impl InstanceHandle {
             return Err(InstantiationError::Start(trap.into()));
         }
 
-        Ok(InstanceHandle(instance))
+        Ok(Self(instance))
     }
 
     fn get_exports(&self, mut store: &mut impl AsStoreMut, module: &Module) -> Exports {
@@ -61,20 +62,19 @@ impl InstanceHandle {
             unsafe { std::slice::from_raw_parts(exports.data, exports.size) };
 
         let exports_ty = module.exports().collect::<Vec<_>>();
-        let exports = exports_ty
+        exports_ty
             .iter()
-            .zip(wasm_exports.into_iter())
+            .zip(wasm_exports.iter())
             .map(|(export_type, wasm_export)| {
                 let name = export_type.name();
                 let mut store = store.as_store_mut();
-                let extern_type = export_type.ty();
+                let _extern_type = export_type.ty();
                 // Annotation is here to prevent spurious IDE warnings.
 
                 let extern_ = Extern::from_vm_extern(&mut store, VMExtern::V8(*wasm_export));
                 (name.to_string(), extern_)
             })
-            .collect::<Exports>();
-        exports
+            .collect::<Exports>()
     }
 }
 impl Drop for InstanceHandle {
@@ -90,6 +90,7 @@ pub struct Instance {
 }
 
 impl Instance {
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new(
         store: &mut impl AsStoreMut,
         module: &Module,
@@ -98,18 +99,19 @@ impl Instance {
         check_isolate(store);
         let mut store = store.as_store_mut();
 
-        let externs = module
+        let externs: Vec<_> = module
             .imports()
             .map(|import_ty| {
                 imports
                     .get_export(import_ty.module(), import_ty.name())
-                    .expect(format!("Export {import_ty:?} not found").as_str())
+                    .unwrap_or_else(|| panic!("Export {import_ty:?} not found"))
             })
             .collect::<Vec<_>>();
 
-        return Self::new_by_index(&mut store, module, &externs);
+        Self::new_by_index(&mut store, module, &externs)
     }
 
+    #[allow(clippy::result_large_err)]
     pub(crate) fn new_by_index(
         store: &mut impl AsStoreMut,
         module: &Module,

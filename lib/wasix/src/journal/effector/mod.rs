@@ -13,11 +13,10 @@ pub(super) use wasmer_wasix_types::{
 };
 
 pub(super) use crate::{
-    mem_error_to_wasi,
+    WasiEnv, WasiThreadId, mem_error_to_wasi,
     os::task::process::WasiProcessInner,
-    syscalls::{fd_write_internal, FdWriteSource},
+    syscalls::{FdWriteSource, fd_write_internal},
     utils::map_snapshot_err,
-    WasiEnv, WasiThreadId,
 };
 
 use super::*;

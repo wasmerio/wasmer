@@ -360,11 +360,7 @@ impl Mutability {
 
 impl From<bool> for Mutability {
     fn from(value: bool) -> Self {
-        if value {
-            Self::Var
-        } else {
-            Self::Const
-        }
+        if value { Self::Var } else { Self::Const }
     }
 }
 
@@ -452,7 +448,7 @@ pub enum GlobalInit {
 
 // Tag Types
 
-/// The kind of a [`Tag`].
+/// The kind of a tag.
 ///
 /// Currently, tags can only express exceptions.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]

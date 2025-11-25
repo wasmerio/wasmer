@@ -3,8 +3,8 @@ pub mod package_loader;
 pub mod resolver;
 pub mod task_manager;
 
+use self::module_cache::CacheError;
 pub use self::task_manager::{SpawnType, VirtualTaskManager};
-use self::{module_cache::CacheError, task_manager::InlineWaker};
 use module_cache::HashedModuleData;
 use wasmer_config::package::SuggestedCompilerOptimizations;
 use wasmer_types::target::UserCompilerOptimizations as WasmerSuggestedCompilerOptimizations;
@@ -16,6 +16,7 @@ use std::{
 };
 
 use futures::future::BoxFuture;
+use virtual_mio::block_on;
 use virtual_net::{DynVirtualNetworking, VirtualNetworking};
 use wasmer::{CompileError, Engine, Module, RuntimeError};
 use wasmer_wasix_types::wasi::ExitCode;
@@ -23,6 +24,7 @@ use wasmer_wasix_types::wasi::ExitCode;
 #[cfg(feature = "journal")]
 use crate::journal::{DynJournal, DynReadableJournal};
 use crate::{
+    SpawnError, WasiTtyState,
     bin_factory::BinaryPackageCommand,
     http::{DynHttpClient, HttpClient},
     os::TtyBridge,
@@ -31,7 +33,6 @@ use crate::{
         package_loader::{PackageLoader, UnsupportedPackageLoader},
         resolver::{BackendSource, MultiSource, Source},
     },
-    SpawnError, WasiTtyState,
 };
 
 #[derive(Clone)]
@@ -133,7 +134,7 @@ where
                         module_hash: *data.hash(),
                         error,
                     })
-                })
+                });
             }
         };
 
@@ -144,7 +145,7 @@ where
 
     /// Sync version of [`Self::load_command_module`].
     fn load_command_module_sync(&self, cmd: &BinaryPackageCommand) -> Result<Module, SpawnError> {
-        InlineWaker::block_on(self.load_command_module(cmd))
+        block_on(self.load_command_module(cmd))
     }
 
     /// Load a WebAssembly module from raw bytes.
@@ -169,7 +170,7 @@ where
     )]
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
         #[allow(deprecated)]
-        InlineWaker::block_on(self.load_module(wasm))
+        block_on(self.load_module(wasm))
     }
 
     /// Load a WebAssembly module from pre-hashed data.
@@ -192,7 +193,7 @@ where
         wasm: HashedModuleData,
         engine: Option<&Engine>,
     ) -> Result<Module, SpawnError> {
-        InlineWaker::block_on(self.load_hashed_module(wasm, engine))
+        block_on(self.load_hashed_module(wasm, engine))
     }
 
     /// Callback thats invokes whenever the instance is tainted, tainting can occur
@@ -667,7 +668,7 @@ impl Runtime for OverriddenRuntime {
     fn load_module_sync(&self, wasm: &[u8]) -> Result<Module, SpawnError> {
         #[allow(deprecated)]
         if self.engine.is_some() || self.module_cache.is_some() {
-            InlineWaker::block_on(self.load_module(wasm))
+            block_on(self.load_module(wasm))
         } else {
             self.inner.load_module_sync(wasm)
         }
@@ -694,7 +695,7 @@ impl Runtime for OverriddenRuntime {
         engine: Option<&Engine>,
     ) -> Result<Module, SpawnError> {
         if self.engine.is_some() || self.module_cache.is_some() {
-            InlineWaker::block_on(self.load_hashed_module(wasm, engine))
+            block_on(self.load_hashed_module(wasm, engine))
         } else {
             self.inner.load_hashed_module_sync(wasm, engine)
         }

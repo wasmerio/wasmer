@@ -77,9 +77,11 @@ pub fn path_rename_internal(
     }
 
     // this is to be sure the source file is fetched from the filesystem if needed
-    wasi_try_ok!(state
-        .fs
-        .get_inode_at_path(inodes, source_fd, source_path, true));
+    wasi_try_ok!(
+        state
+            .fs
+            .get_inode_at_path(inodes, source_fd, source_path, true)
+    );
     // Create the destination inode if the file exists.
     let _ = state
         .fs
@@ -145,7 +147,7 @@ pub fn path_rename_internal(
     {
         let mut guard = source_entry.write();
         match guard.deref_mut() {
-            Kind::File { ref path, .. } => {
+            Kind::File { path, .. } => {
                 let result = {
                     let path_clone = path.clone();
                     drop(guard);
@@ -166,14 +168,14 @@ pub fn path_rename_internal(
                     }
                 } else {
                     let mut guard = source_entry.write();
-                    if let Kind::File { ref mut path, .. } = guard.deref_mut() {
+                    if let Kind::File { path, .. } = guard.deref_mut() {
                         *path = host_adjusted_target_path;
                     } else {
                         unreachable!()
                     }
                 }
             }
-            Kind::Dir { ref path, .. } => {
+            Kind::Dir { path, .. } => {
                 let cloned_path = path.clone();
                 let res = {
                     let state = state;
@@ -234,15 +236,11 @@ fn rename_inode_tree(inode: &InodeGuard, source_dir_path: &Path, target_dir_path
 
     let mut guard = inode.write();
     match guard.deref_mut() {
-        Kind::File { ref mut path, .. } => {
+        Kind::File { path, .. } => {
             *path = adjust_path(path, source_dir_path, target_dir_path);
             return;
         }
-        Kind::Dir {
-            ref mut path,
-            entries,
-            ..
-        } => {
+        Kind::Dir { path, entries, .. } => {
             *path = adjust_path(path, source_dir_path, target_dir_path);
             children = entries.values().cloned().collect::<Vec<_>>();
         }

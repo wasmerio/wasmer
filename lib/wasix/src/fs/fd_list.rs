@@ -88,7 +88,9 @@ impl FdList {
             // We're shorter than `after`, need to extend the list regardless of whether we have holes
             _ if self.fds.len() < after_or_equal as usize => {
                 if !self.insert(true, after_or_equal, fd) {
-                    panic!("Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough");
+                    panic!(
+                        "Internal error in FdList - expected {after_or_equal} to be unoccupied since the list wasn't long enough"
+                    );
                 }
                 after_or_equal
             }
@@ -200,7 +202,7 @@ impl FdList {
         self.first_free = None;
     }
 
-    pub fn iter(&self) -> FdListIterator {
+    pub fn iter(&self) -> FdListIterator<'_> {
         FdListIterator {
             fds_iterator: self.fds.iter(),
             idx: 0,
@@ -211,7 +213,7 @@ impl FdList {
         self.iter().map(|(key, _)| key)
     }
 
-    pub fn iter_mut(&mut self) -> FdListIteratorMut {
+    pub fn iter_mut(&mut self) -> FdListIteratorMut<'_> {
         FdListIteratorMut {
             fds_iterator: self.fds.iter_mut(),
             idx: 0,
@@ -291,15 +293,15 @@ mod tests {
     use std::{
         borrow::Cow,
         sync::{
-            atomic::{AtomicI32, AtomicU64},
             Arc, RwLock,
+            atomic::{AtomicI32, AtomicU64},
         },
     };
 
     use assert_panic::assert_panic;
     use wasmer_wasix_types::wasi::{Fdflags, Fdflagsext, Rights};
 
-    use crate::fs::{fd::FdInner, Inode, InodeGuard, InodeVal, Kind};
+    use crate::fs::{Inode, InodeGuard, InodeVal, Kind, fd::FdInner};
 
     use super::{Fd, FdList, WasiFd};
 

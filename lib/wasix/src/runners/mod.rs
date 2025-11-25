@@ -11,7 +11,7 @@ pub mod wcgi;
 
 #[cfg(any(feature = "webc_runner_rt_wcgi", feature = "webc_runner_rt_dproxy"))]
 mod body {
-    use http_body_util::{combinators::BoxBody, BodyExt, Full};
+    use http_body_util::{BodyExt, Full, combinators::BoxBody};
 
     pub type Body = BoxBody<bytes::Bytes, anyhow::Error>;
 
@@ -36,7 +36,7 @@ pub use self::body::*;
 pub use self::{
     runner::Runner,
     wasi_common::{
-        MappedCommand, MappedDirectory, MountedDirectory, MAPPED_CURRENT_DIR_DEFAULT_PATH,
+        MAPPED_CURRENT_DIR_DEFAULT_PATH, MappedCommand, MappedDirectory, MountedDirectory,
     },
 };
 

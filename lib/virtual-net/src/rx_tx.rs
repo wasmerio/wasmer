@@ -1,27 +1,22 @@
 use std::{
-    io,
     pin::Pin,
     sync::{Arc, Mutex},
     task::{Context, Poll, Waker},
 };
 
 use crate::Result;
-use futures_util::{future::BoxFuture, Future, Sink, SinkExt, Stream};
+use futures_util::{Future, Sink, SinkExt, Stream, future::BoxFuture};
 #[cfg(feature = "hyper")]
 use hyper_util::rt::tokio::TokioIo;
 use serde::Serialize;
 #[cfg(feature = "tokio-tungstenite")]
 use tokio::net::TcpStream;
-use tokio::{
-    io::AsyncWrite,
-    sync::{
-        mpsc::{self, error::TrySendError},
-        oneshot,
-    },
+use tokio::sync::{
+    mpsc::{self, error::TrySendError},
+    oneshot,
 };
-use virtual_mio::InlineWaker;
 
-use crate::{io_err_into_net_error, NetworkError};
+use crate::{NetworkError, io_err_into_net_error};
 
 #[derive(Debug, Clone, Default)]
 pub(crate) struct RemoteTxWakers {
@@ -37,26 +32,6 @@ impl RemoteTxWakers {
     pub fn wake(&self) {
         let mut guard = self.wakers.lock().unwrap();
         guard.drain(..).for_each(|w| w.wake());
-    }
-}
-
-#[derive(Debug, Default)]
-struct FailOnWrite {}
-impl AsyncWrite for FailOnWrite {
-    fn poll_write(
-        self: Pin<&mut Self>,
-        _cx: &mut Context<'_>,
-        _buf: &[u8],
-    ) -> Poll<io::Result<usize>> {
-        Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into()))
-    }
-
-    fn poll_flush(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into()))
-    }
-
-    fn poll_shutdown(self: Pin<&mut Self>, _cx: &mut Context<'_>) -> Poll<io::Result<()>> {
-        Poll::Ready(Err(io::ErrorKind::ConnectionAborted.into()))
     }
 }
 
@@ -363,8 +338,7 @@ where
                     }
                 };
 
-                let inline_waker = InlineWaker::new();
-                let waker = inline_waker.as_waker();
+                let waker = NoopWaker::new_waker();
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
@@ -418,8 +392,7 @@ where
                     }
                 };
 
-                let inline_waker = InlineWaker::new();
-                let waker = inline_waker.as_waker();
+                let waker = NoopWaker::new_waker();
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
@@ -476,8 +449,7 @@ where
                     }
                 };
 
-                let inline_waker = InlineWaker::new();
-                let waker = inline_waker.as_waker();
+                let waker = NoopWaker::new_waker();
                 let mut cx = Context::from_waker(&waker);
 
                 let mut job = Box::pin(async move {
@@ -568,7 +540,7 @@ where
                                         tracing::warn!("failed to deserialize message - {}", err);
                                         continue;
                                     }
-                                }
+                                };
                             }
                             format => {
                                 tracing::warn!("format not currently supported - {format:?}");
@@ -598,7 +570,7 @@ where
                                         tracing::warn!("failed to deserialize message - {}", err);
                                         continue;
                                     }
-                                }
+                                };
                             }
                             format => {
                                 tracing::warn!("format not currently supported - {format:?}");
@@ -620,4 +592,16 @@ where
             };
         }
     }
+}
+
+struct NoopWaker;
+
+impl NoopWaker {
+    fn new_waker() -> Waker {
+        Waker::from(Arc::new(Self))
+    }
+}
+
+impl std::task::Wake for NoopWaker {
+    fn wake(self: Arc<Self>) {}
 }

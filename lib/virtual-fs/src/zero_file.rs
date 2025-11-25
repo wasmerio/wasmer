@@ -56,7 +56,7 @@ impl AsyncRead for ZeroFile {
         _cx: &mut Context<'_>,
         buf: &mut tokio::io::ReadBuf<'_>,
     ) -> Poll<io::Result<()>> {
-        let zeros: Vec<u8> = iter::repeat(0).take(buf.remaining()).collect();
+        let zeros: Vec<u8> = iter::repeat_n(0, buf.remaining()).collect();
         buf.put_slice(&zeros[..]);
         Poll::Ready(Ok(()))
     }

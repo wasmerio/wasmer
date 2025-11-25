@@ -502,22 +502,25 @@ impl crate::FileOpener for FileSystem {
                 let inode_of_file = fs.storage.vacant_entry().key();
 
                 // We might be in optimized mode
-                let file = if let Some(offload) = fs.backing_offload.clone() {
-                    let file = OffloadedFile::new(fs.limiter.clone(), offload);
-                    Node::OffloadedFile(OffloadedFileNode {
-                        inode: inode_of_file,
-                        name: name_of_file,
-                        file,
-                        metadata,
-                    })
-                } else {
-                    let file = File::new(fs.limiter.clone());
-                    Node::File(FileNode {
-                        inode: inode_of_file,
-                        name: name_of_file,
-                        file,
-                        metadata,
-                    })
+                let file = match fs.backing_offload.clone() {
+                    Some(offload) => {
+                        let file = OffloadedFile::new(fs.limiter.clone(), offload);
+                        Node::OffloadedFile(OffloadedFileNode {
+                            inode: inode_of_file,
+                            name: name_of_file,
+                            file,
+                            metadata,
+                        })
+                    }
+                    _ => {
+                        let file = File::new(fs.limiter.clone());
+                        Node::File(FileNode {
+                            inode: inode_of_file,
+                            name: name_of_file,
+                            file,
+                            metadata,
+                        })
+                    }
                 };
 
                 // Creating the file in the storage.
@@ -554,11 +557,11 @@ impl crate::FileOpener for FileSystem {
 mod test_file_opener {
     use tokio::io::{AsyncReadExt, AsyncSeekExt, AsyncWriteExt};
 
-    use crate::{mem_fs::*, FileSystem as FS, FsError};
+    use crate::{FileSystem as FS, FsError, mem_fs::*};
     use std::io;
 
     macro_rules! path {
-        ($path:expr) => {
+        ($path:expr_2021) => {
             std::path::Path::new($path)
         };
     }

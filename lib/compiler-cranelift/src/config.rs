@@ -1,13 +1,53 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::{
-    isa::{lookup, TargetIsa},
-    settings::{self, Configurable},
     CodegenResult,
+    isa::{TargetIsa, lookup},
+    settings::{self, Configurable},
 };
-use std::num::NonZero;
-use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
+use std::{
+    fs::File,
+    io::{self, Write},
+    sync::Arc,
+};
+use std::{num::NonZero, path::PathBuf};
+use wasmer_compiler::{
+    Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
+    misc::{CompiledKind, function_kind_to_filename},
+};
 use wasmer_types::target::{Architecture, CpuFeature, Target};
+
+/// Callbacks to the different Cranelift compilation phases.
+#[derive(Debug, Clone)]
+pub struct CraneliftCallbacks {
+    debug_dir: PathBuf,
+}
+
+impl CraneliftCallbacks {
+    /// Creates a new instance of `CraneliftCallbacks` with the specified debug directory.
+    pub fn new(debug_dir: PathBuf) -> Result<Self, io::Error> {
+        // Create the debug dir in case it doesn't exist
+        std::fs::create_dir_all(&debug_dir)?;
+        Ok(Self { debug_dir })
+    }
+
+    /// Writes the pre-optimization intermediate representation to a debug file.
+    pub fn preopt_ir(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".preopt.clif"));
+        let mut file =
+            File::create(path).expect("Error while creating debug file from Cranelift IR");
+        file.write_all(mem_buffer).unwrap();
+    }
+
+    /// Writes the object file memory buffer to a debug file.
+    pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".o"));
+        let mut file =
+            File::create(path).expect("Error while creating debug file from Cranelift object");
+        file.write_all(mem_buffer).unwrap();
+    }
+}
 
 // Runtime Environment
 
@@ -41,6 +81,7 @@ pub struct Cranelift {
     pub num_threads: NonZero<usize>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+    pub(crate) callbacks: Option<CraneliftCallbacks>,
 }
 
 impl Cranelift {
@@ -55,6 +96,7 @@ impl Cranelift {
             num_threads: std::thread::available_parallelism().unwrap_or(NonZero::new(1).unwrap()),
             middlewares: vec![],
             enable_perfmap: false,
+            callbacks: None,
         }
     }
 
@@ -131,11 +173,11 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        builder.finish(self.flags(target))
+        builder.finish(self.flags())
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self, target: &Target) -> settings::Flags {
+    pub fn flags(&self) -> settings::Flags {
         let mut flags = settings::builder();
 
         // Enable probestack
@@ -143,12 +185,10 @@ impl Cranelift {
             .enable("enable_probestack")
             .expect("should be valid flag");
 
-        // Only inline probestack is supported on AArch64
-        if matches!(target.triple().architecture, Architecture::Aarch64(_)) {
-            flags
-                .set("probestack_strategy", "inline")
-                .expect("should be valid flag");
-        }
+        // Always use inline stack probes (otherwise the call to Probestack needs to be relocated).
+        flags
+            .set("probestack_strategy", "inline")
+            .expect("should be valid flag");
 
         if self.enable_pic {
             flags.enable("is_pic").expect("should be a valid flag");
@@ -160,6 +200,12 @@ impl Cranelift {
             .enable("use_colocated_libcalls")
             .expect("should be a valid flag");
 
+        // Allow Cranelift to implicitly spill multi-value returns via a hidden
+        // StructReturn argument when register results are exhausted.
+        flags
+            .enable("enable_multi_ret_implicit_sret")
+            .expect("should be a valid flag");
+
         // Invert cranelift's default-on verification to instead default off.
         let enable_verifier = if self.enable_verifier {
             "true"
@@ -168,9 +214,6 @@ impl Cranelift {
         };
         flags
             .set("enable_verifier", enable_verifier)
-            .expect("should be valid flag");
-        flags
-            .set("enable_safepoints", "true")
             .expect("should be valid flag");
 
         flags
@@ -194,6 +237,13 @@ impl Cranelift {
             .expect("should be valid flag");
 
         settings::Flags::new(flags)
+    }
+
+    /// Callbacks that will triggered in the different compilation
+    /// phases in Cranelift.
+    pub fn callbacks(&mut self, callbacks: Option<CraneliftCallbacks>) -> &mut Self {
+        self.callbacks = callbacks;
+        self
     }
 }
 

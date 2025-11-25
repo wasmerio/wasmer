@@ -7,10 +7,10 @@ pub use wasmer_types::MemoryError;
 use wasmer_types::{MemoryType, Pages, WASM_PAGE_SIZE};
 
 use crate::{
+    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
     shared::SharedMemory,
     vm::{VMExtern, VMExternMemory},
     wamr::{bindings::*, vm::VMMemory},
-    AsStoreMut, AsStoreRef, BackendMemory, MemoryAccessError,
 };
 
 pub(crate) mod view;
@@ -152,7 +152,7 @@ impl Memory {
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
     pub fn try_clone(&self, _store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        Ok(self.handle.clone())
+        Ok(self.handle)
     }
 
     /// Copying the memory will actually copy all the bytes in the memory to
@@ -280,26 +280,26 @@ impl<'a> MemoryBuffer<'a> {
 unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
     unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(packed)]
+        #[repr(C, packed)]
         struct Unaligned<T>(T);
-        let val = (*src as *const Unaligned<T>).read_volatile();
-        (*dst as *mut Unaligned<T>).write(val);
-        *src = src.add(std::mem::size_of::<T>());
-        *dst = dst.add(std::mem::size_of::<T>());
+        let val = unsafe { (*src as *const Unaligned<T>).read_volatile() };
+        unsafe { (*dst as *mut Unaligned<T>).write(val) };
+        *src = unsafe { src.add(std::mem::size_of::<T>()) };
+        *dst = unsafe { dst.add(std::mem::size_of::<T>()) };
         *len -= std::mem::size_of::<T>();
     }
 
     while len >= 8 {
-        copy_one::<u64>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u64>(&mut src, &mut dst, &mut len) };
     }
     if len >= 4 {
-        copy_one::<u32>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u32>(&mut src, &mut dst, &mut len) };
     }
     if len >= 2 {
-        copy_one::<u16>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u16>(&mut src, &mut dst, &mut len) };
     }
     if len >= 1 {
-        copy_one::<u8>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u8>(&mut src, &mut dst, &mut len) };
     }
 }
 
@@ -307,26 +307,26 @@ unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: us
 unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
     unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(packed)]
+        #[repr(C, packed)]
         struct Unaligned<T>(T);
-        let val = (*src as *const Unaligned<T>).read();
-        (*dst as *mut Unaligned<T>).write_volatile(val);
-        *src = src.add(std::mem::size_of::<T>());
-        *dst = dst.add(std::mem::size_of::<T>());
+        let val = unsafe { (*src as *const Unaligned<T>).read() };
+        unsafe { (*dst as *mut Unaligned<T>).write_volatile(val) };
+        *src = unsafe { src.add(std::mem::size_of::<T>()) };
+        *dst = unsafe { dst.add(std::mem::size_of::<T>()) };
         *len -= std::mem::size_of::<T>();
     }
 
     while len >= 8 {
-        copy_one::<u64>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u64>(&mut src, &mut dst, &mut len) };
     }
     if len >= 4 {
-        copy_one::<u32>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u32>(&mut src, &mut dst, &mut len) };
     }
     if len >= 2 {
-        copy_one::<u16>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u16>(&mut src, &mut dst, &mut len) };
     }
     if len >= 1 {
-        copy_one::<u8>(&mut src, &mut dst, &mut len);
+        unsafe { copy_one::<u8>(&mut src, &mut dst, &mut len) };
     }
 }
 
@@ -341,16 +341,16 @@ impl crate::Memory {
 
     /// Convert a reference to [`self`] into a reference to [`crate::backend::wamr::memory::Memory`].
     pub fn as_wamr(&self) -> &crate::backend::wamr::memory::Memory {
-        match self.0 {
-            BackendMemory::Wamr(ref s) => s,
+        match &self.0 {
+            BackendMemory::Wamr(s) => s,
             _ => panic!("Not a `wamr` memory!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference to [`crate::backend::wamr::memory::Memory`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::memory::Memory {
-        match self.0 {
-            BackendMemory::Wamr(ref mut s) => s,
+        match &mut self.0 {
+            BackendMemory::Wamr(s) => s,
             _ => panic!("Not a `wamr` memory!"),
         }
     }

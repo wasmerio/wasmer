@@ -13,7 +13,7 @@ use crate::machine::{
 use crate::machine_arm64::MachineARM64;
 use crate::machine_x64::MachineX86_64;
 #[cfg(feature = "unwind")]
-use crate::unwind::{create_systemv_cie, UnwindFrame};
+use crate::unwind::{UnwindFrame, create_systemv_cie};
 use enumset::EnumSet;
 #[cfg(feature = "unwind")]
 use gimli::write::{EhFrame, FrameTable, Writer};
@@ -21,13 +21,13 @@ use gimli::write::{EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
+    Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{Compilation, CompiledFunction, FunctionBody, UnwindInfo},
         module::CompileModuleInfo,
         section::SectionIndex,
     },
-    Compiler, CompilerConfig, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::target::{Architecture, CallingConvention, CpuFeature, Target};
@@ -84,7 +84,7 @@ impl Compiler for SinglepassCompiler {
             _ => {
                 return Err(CompileError::UnsupportedTarget(
                     target.triple().architecture.to_string(),
-                ))
+                ));
             }
         }
 
@@ -95,7 +95,7 @@ impl Compiler for SinglepassCompiler {
             _ => {
                 return Err(CompileError::UnsupportedTarget(
                     "Unsupported Calling convention for Singlepass compiler".to_string(),
-                ))
+                ));
             }
         };
 
@@ -126,6 +126,7 @@ impl Compiler for SinglepassCompiler {
         let table_styles = &compile_info.table_styles;
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut custom_sections: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
@@ -142,6 +143,7 @@ impl Compiler for SinglepassCompiler {
             .collect::<Result<Vec<_>, _>>()?
             .into_iter()
             .collect();
+        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
         let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -304,8 +306,8 @@ mod tests {
     use target_lexicon::triple;
     use wasmer_compiler::Features;
     use wasmer_types::{
-        target::{CpuFeature, Triple},
         MemoryStyle, TableStyle,
+        target::{CpuFeature, Triple},
     };
 
     fn dummy_compilation_ingredients<'a>() -> (
@@ -353,17 +355,23 @@ mod tests {
         let mut features =
             CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1;
         // simple test
-        assert!(compiler
-            .get_cpu_features_used(&features)
-            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        assert!(
+            compiler.get_cpu_features_used(&features).is_subset(
+                CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
+            )
+        );
         // check that an AVX build don't work on SSE4.2 only host
-        assert!(!compiler
-            .get_cpu_features_used(&features)
-            .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        assert!(
+            !compiler
+                .get_cpu_features_used(&features)
+                .is_subset(CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1)
+        );
         // check that having a host with AVX512 doesn't change anything
         features.insert_all(CpuFeature::AVX512DQ | CpuFeature::AVX512F);
-        assert!(compiler
-            .get_cpu_features_used(&features)
-            .is_subset(CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1));
+        assert!(
+            compiler.get_cpu_features_used(&features).is_subset(
+                CpuFeature::AVX | CpuFeature::SSE42 | CpuFeature::LZCNT | CpuFeature::BMI1
+            )
+        );
     }
 }

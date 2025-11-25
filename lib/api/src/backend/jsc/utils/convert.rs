@@ -1,7 +1,7 @@
 use rusty_jsc::{JSContext, JSValue};
 use wasmer_types::{ExternType, Type};
 
-use crate::{jsc::engine::IntoJSC, AsStoreMut, AsStoreRef, Extern, Function, Value};
+use crate::{AsStoreMut, AsStoreRef, Extern, Function, Value, jsc::engine::IntoJSC};
 
 /// Convert the given type to a [`JsValue`].
 pub trait AsJsc: Sized {
@@ -20,13 +20,13 @@ pub trait AsJsc: Sized {
 #[inline]
 pub fn jsc_value_to_wasmer(context: &JSContext, ty: &Type, js_val: &JSValue) -> Value {
     match ty {
-        Type::I32 => Value::I32(js_val.to_number(&context).unwrap() as _),
+        Type::I32 => Value::I32(js_val.to_number(context).unwrap() as _),
         Type::I64 => {
-            let number = if js_val.is_number(&context) {
-                js_val.to_number(&context).unwrap() as _
+            let number = if js_val.is_number(context) {
+                js_val.to_number(context).unwrap() as _
             } else {
                 js_val
-                    .to_string(&context)
+                    .to_string(context)
                     .unwrap()
                     .to_string()
                     .parse()
@@ -34,14 +34,14 @@ pub fn jsc_value_to_wasmer(context: &JSContext, ty: &Type, js_val: &JSValue) -> 
             };
             Value::I64(number)
         }
-        Type::F32 => Value::F32(js_val.to_number(&context).unwrap() as _),
-        Type::F64 => Value::F64(js_val.to_number(&context).unwrap()),
+        Type::F32 => Value::F32(js_val.to_number(context).unwrap() as _),
+        Type::F64 => Value::F64(js_val.to_number(context).unwrap()),
         Type::V128 => {
-            let number = if js_val.is_number(&context) {
-                js_val.to_number(&context).unwrap() as _
+            let number = if js_val.is_number(context) {
+                js_val.to_number(context).unwrap() as _
             } else {
                 js_val
-                    .to_string(&context)
+                    .to_string(context)
                     .unwrap()
                     .to_string()
                     .parse()
@@ -63,17 +63,17 @@ impl AsJsc for Value {
         let engine = store.as_store_ref();
         let context = engine.jsc().context();
         match self {
-            Self::I32(i) => JSValue::number(&context, *i as _),
+            Self::I32(i) => JSValue::number(context, *i as _),
             // JavascriptCore will fail with:
             // new WebAssembly.Global({value: "i64", mutable: false}, 3);
             // But will succeed with
             // new WebAssembly.Global({value: "i64", mutable: false}, "3");
-            Self::I64(i) => JSValue::string(&context, (*i).to_string()),
-            Self::F32(f) => JSValue::number(&context, *f as _),
-            Self::F64(f) => JSValue::number(&context, *f),
-            Self::V128(v) => JSValue::number(&context, *v as _),
+            Self::I64(i) => JSValue::string(context, (*i).to_string()),
+            Self::F32(f) => JSValue::number(context, *f as _),
+            Self::F64(f) => JSValue::number(context, *f),
+            Self::V128(v) => JSValue::number(context, *v as _),
             Self::FuncRef(Some(func)) => func.as_jsc().handle.function.clone().to_jsvalue(),
-            Self::FuncRef(None) => JSValue::null(&context),
+            Self::FuncRef(None) => JSValue::null(context),
             Self::ExternRef(_) => {
                 unimplemented!("ExternRefs are not yet supported in the JSC Function API",)
             }
@@ -119,7 +119,7 @@ impl AsJsc for Extern {
         let context = engine.jsc().context();
         match extern_type {
             ExternType::Function(function_type) => {
-                let obj_val = val.to_object(&context).unwrap();
+                let obj_val = val.to_object(context).unwrap();
                 Ok(Self::Function(Function::from_vm_extern(
                     store,
                     crate::vm::VMExternFunction::Jsc(
@@ -131,32 +131,32 @@ impl AsJsc for Extern {
                 )))
             }
             ExternType::Global(global_type) => {
-                let obj_val = val.to_object(&context).unwrap();
+                let obj_val = val.to_object(context).unwrap();
                 Ok(Self::Global(crate::Global::from_vm_extern(
                     store,
                     crate::vm::VMExternGlobal::Jsc(crate::backend::jsc::vm::VMExternGlobal::new(
                         obj_val,
-                        global_type.clone(),
+                        *global_type,
                     )),
                 )))
             }
             ExternType::Memory(memory_type) => {
-                let obj_val = val.to_object(&context).unwrap();
+                let obj_val = val.to_object(context).unwrap();
                 Ok(Self::Memory(crate::Memory::from_vm_extern(
                     store,
                     crate::vm::VMExternMemory::Jsc(crate::backend::jsc::vm::VMExternMemory::new(
                         obj_val,
-                        memory_type.clone(),
+                        *memory_type,
                     )),
                 )))
             }
             ExternType::Table(table_type) => {
-                let obj_val = val.to_object(&context).unwrap();
+                let obj_val = val.to_object(context).unwrap();
                 Ok(Self::Table(crate::Table::from_vm_extern(
                     store,
                     crate::vm::VMExternTable::Jsc(crate::backend::jsc::vm::VMExternTable::new(
                         obj_val,
-                        table_type.clone(),
+                        *table_type,
                     )),
                 )))
             }

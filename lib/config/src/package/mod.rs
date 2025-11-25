@@ -30,7 +30,7 @@ use std::{
 
 use indexmap::IndexMap;
 use semver::{Version, VersionReq};
-use serde::{de::Error as _, Deserialize, Serialize};
+use serde::{Deserialize, Serialize, de::Error as _};
 use thiserror::Error;
 
 /// The ABI is a hint to WebAssembly runtimes about what additional imports to
@@ -862,15 +862,14 @@ impl Manifest {
             }
         }
 
-        if let Some(package) = &self.package {
-            if let Some(entrypoint) = package.entrypoint.as_deref() {
-                if !commands.contains_key(entrypoint) {
-                    return Err(ValidationError::InvalidEntrypoint {
-                        entrypoint: entrypoint.to_string(),
-                        available_commands: commands.keys().map(ToString::to_string).collect(),
-                    });
-                }
-            }
+        if let Some(package) = &self.package
+            && let Some(entrypoint) = package.entrypoint.as_deref()
+            && !commands.contains_key(entrypoint)
+        {
+            return Err(ValidationError::InvalidEntrypoint {
+                entrypoint: entrypoint.to_string(),
+                available_commands: commands.keys().map(ToString::to_string).collect(),
+            });
         }
 
         Ok(())
@@ -967,7 +966,7 @@ pub enum ManifestError {
 #[non_exhaustive]
 pub enum ValidationError {
     #[error(
-        "missing ABI field on module, \"{module}\", used by command, \"{command}\"; an ABI of `wasi` is required",
+        "missing ABI field on module, \"{module}\", used by command, \"{command}\"; an ABI of `wasi` is required"
     )]
     MissingABI { command: String, module: String },
     #[error("missing module, \"{module}\", in manifest used by command, \"{command}\"")]
@@ -975,7 +974,9 @@ pub enum ValidationError {
         command: String,
         module: ModuleReference,
     },
-    #[error("The \"{command}\" command refers to a nonexistent dependency, \"{dependency}\" in \"{module_ref}\"")]
+    #[error(
+        "The \"{command}\" command refers to a nonexistent dependency, \"{dependency}\" in \"{module_ref}\""
+    )]
     MissingDependency {
         command: String,
         dependency: String,
@@ -996,7 +997,7 @@ pub enum ValidationError {
 mod tests {
     use std::fmt::Debug;
 
-    use serde::{de::DeserializeOwned, Deserialize};
+    use serde::{Deserialize, de::DeserializeOwned};
     use toml::toml;
 
     use super::*;

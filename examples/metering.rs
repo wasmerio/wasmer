@@ -18,14 +18,14 @@ use anyhow::bail;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::{
-    imports,
+    Instance, Module, Store, TypedFunction, imports,
     sys::{CompilerConfig, EngineBuilder},
-    wat2wasm, Instance, Module, Store, TypedFunction,
+    wat2wasm,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_middlewares::{
-    metering::{get_remaining_points, set_remaining_points, MeteringPoints},
     Metering,
+    metering::{MeteringPoints, get_remaining_points, set_remaining_points},
 };
 
 fn main() -> anyhow::Result<()> {
@@ -89,10 +89,8 @@ fn main() -> anyhow::Result<()> {
     //
     // Our module exports a single `add_one`  function. We want to
     // measure the cost of executing this function.
-    let add_one: TypedFunction<i32, i32> = instance
-        .exports
-        .get_function("add_one")?
-        .typed(&mut store)?;
+    let add_one: TypedFunction<i32, i32> =
+        instance.exports.get_function("add_one")?.typed(&store)?;
 
     println!("Calling `add_one` function once...");
     add_one.call(&mut store, 1)?;
@@ -109,10 +107,7 @@ fn main() -> anyhow::Result<()> {
         MeteringPoints::Remaining(6)
     );
 
-    println!(
-        "Remaining points after the first call: {:?}",
-        remaining_points_after_first_call
-    );
+    println!("Remaining points after the first call: {remaining_points_after_first_call:?}");
 
     println!("Calling `add_one` function twice...");
     add_one.call(&mut store, 1)?;
@@ -125,10 +120,7 @@ fn main() -> anyhow::Result<()> {
         MeteringPoints::Remaining(2)
     );
 
-    println!(
-        "Remaining points after the second call: {:?}",
-        remaining_points_after_second_call
-    );
+    println!("Remaining points after the second call: {remaining_points_after_second_call:?}");
 
     // Because calling our `add_one` function consumes 4 points,
     // calling it a third time will fail: we already consume 8
@@ -136,10 +128,7 @@ fn main() -> anyhow::Result<()> {
     println!("Calling `add_one` function a third time...");
     match add_one.call(&mut store, 1) {
         Ok(result) => {
-            bail!(
-                "Expected failure while calling `add_one`, found: {}",
-                result
-            );
+            bail!("Expected failure while calling `add_one`, found: {result}");
         }
         Err(_) => {
             println!("Calling `add_one` failed.");
@@ -164,7 +153,7 @@ fn main() -> anyhow::Result<()> {
     let remaining_points = get_remaining_points(&mut store, &instance);
     assert_eq!(remaining_points, MeteringPoints::Remaining(new_limit));
 
-    println!("Remaining points: {:?}", remaining_points);
+    println!("Remaining points: {remaining_points:?}");
 
     Ok(())
 }

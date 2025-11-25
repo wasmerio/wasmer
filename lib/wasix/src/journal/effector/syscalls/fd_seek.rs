@@ -21,12 +21,7 @@ impl JournalEffector {
     ) -> anyhow::Result<()> {
         crate::syscalls::fd_seek_internal(ctx, fd, offset, whence)?.map_err(|err| {
             anyhow::format_err!(
-                "journal restore error: failed to seek (fd={}, offset={}, whence={:?}) - {}",
-                fd,
-                offset,
-                whence,
-                err
-            )
+                "journal restore error: failed to seek (fd={fd}, offset={offset}, whence={whence:?}) - {err}")
         })?;
         Ok(())
     }

@@ -17,7 +17,7 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, Store, TypedFunction, Value};
+use wasmer::{Instance, Module, Store, TypedFunction, Value, imports, wat2wasm};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let args = [Value::I32(1), Value::I32(2)];
     let result = sum.call(&mut store, &args)?;
 
-    println!("Results: {:?}", result);
+    println!("Results: {result:?}");
     assert_eq!(result.to_vec(), vec![Value::I32(3)]);
 
     // That was fun. But what if we can get rid of the `Value`s? Well,
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `Rets`, respectively for the parameters and the results. If
     // those values don't match the exported function signature, an
     // error will be raised.
-    let sum_typed: TypedFunction<(i32, i32), i32> = sum.typed(&mut store)?;
+    let sum_typed: TypedFunction<(i32, i32), i32> = sum.typed(&store)?;
 
     println!("Calling `sum` function (natively)...");
     // Let's call the `sum` exported function. The parameters are
@@ -89,7 +89,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // result, in this case particular case, in a unit of type `i32`.
     let result = sum_typed.call(&mut store, 3, 4)?;
 
-    println!("Results: {:?}", result);
+    println!("Results: {result:?}");
     assert_eq!(result, 7);
 
     // Much nicer, isn't it?

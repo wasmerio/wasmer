@@ -76,7 +76,7 @@ fn main() {
 }
 
 #[cfg(target_os = "wasi")]
-#[no_mangle]
+#[unsafe(no_mangle)]
 fn second_entry() -> bool {
     let raw_fd = 5;
     let mut buffer = [0u8; 8];

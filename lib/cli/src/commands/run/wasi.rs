@@ -2,11 +2,11 @@ use std::{
     collections::{BTreeSet, HashMap},
     path::{Path, PathBuf},
     str::FromStr,
-    sync::{mpsc::Sender, Arc},
+    sync::{Arc, mpsc::Sender},
     time::Duration,
 };
 
-use anyhow::{bail, Context, Result};
+use anyhow::{Context, Result, bail};
 use bytes::Bytes;
 use clap::Parser;
 use tokio::runtime::Handle;
@@ -19,12 +19,14 @@ use wasmer_types::ModuleHash;
 #[cfg(feature = "journal")]
 use wasmer_wasix::journal::{LogFileJournal, SnapshotTrigger};
 use wasmer_wasix::{
+    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
+    WasiVersion,
     bin_factory::BinaryPackage,
     capabilities::Capabilities,
     default_fs_backing, get_wasi_versions,
     http::HttpClient,
     journal::{CompactingLogFileJournal, DynJournal, DynReadableJournal},
-    os::{tty_sys::SysTty, TtyBridge},
+    os::{TtyBridge, tty_sys::SysTty},
     rewind_ext,
     runners::MAPPED_CURRENT_DIR_DEFAULT_PATH,
     runners::{MappedCommand, MappedDirectory},
@@ -35,14 +37,12 @@ use wasmer_wasix::{
             BackendSource, FileSystemSource, InMemorySource, MultiSource, Source, WebSource,
         },
         task_manager::{
-            tokio::{RuntimeOrHandle, TokioTaskManager},
             VirtualTaskManagerExt,
+            tokio::{RuntimeOrHandle, TokioTaskManager},
         },
     },
     types::__WASI_STDIN_FILENO,
     wasmer_wasix_types::wasi::Errno,
-    PluggableRuntime, RewindState, Runtime, WasiEnv, WasiEnvBuilder, WasiError, WasiFunctionEnv,
-    WasiVersion,
 };
 
 use crate::{
@@ -51,8 +51,8 @@ use crate::{
 };
 
 use super::{
+    CliPackageSource, ExecutableTarget,
     capabilities::{self, PkgCapabilityCache},
-    ExecutableTarget, PackageSource,
 };
 
 const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
@@ -60,7 +60,7 @@ const WAPM_SOURCE_CACHE_TIMEOUT: Duration = Duration::from_secs(10 * 60);
 #[derive(Debug, Parser, Clone, Default)]
 /// WASI Options
 pub struct Wasi {
-    /// WASI pre-opened directory
+    /// WASI pre-opened directories
     #[clap(long = "dir", name = "DIR", group = "wasi")]
     pub(crate) pre_opened_directories: Vec<PathBuf>,
 
@@ -71,6 +71,11 @@ pub struct Wasi {
         value_parser=parse_mapdir,
     )]
     pub(crate) mapped_dirs: Vec<MappedDirectory>,
+
+    /// Set the module's initial CWD to this path; does not work with
+    /// WASI preview 1 modules.
+    #[clap(long = "cwd")]
+    pub(crate) cwd: Option<PathBuf>,
 
     /// Pass custom environment variables
     #[clap(
@@ -294,7 +299,7 @@ impl Wasi {
             uses.push(pkg);
         }
 
-        let builder = WasiEnv::builder(program_name)
+        let mut builder = WasiEnv::builder(program_name)
             .runtime(Arc::clone(&rt))
             .args(args)
             .envs(self.env_vars.clone())
@@ -314,7 +319,9 @@ impl Wasi {
             for dir in &self.pre_opened_directories {
                 let mapping = if dir == Path::new(".") {
                     if have_current_dir {
-                        bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
+                        bail!(
+                            "Cannot pre-open the current directory twice: --dir=. must only be specified once"
+                        );
                     }
                     have_current_dir = true;
 
@@ -370,7 +377,9 @@ impl Wasi {
 
                 let mapping = if guest == "." {
                     if have_current_dir {
-                        bail!("Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once");
+                        bail!(
+                            "Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
+                        );
                     }
                     have_current_dir = true;
 
@@ -401,16 +410,23 @@ impl Wasi {
                 }
             }
 
+            if let Some(cwd) = self.cwd.as_ref() {
+                if !cwd.starts_with("/") {
+                    bail!("The argument to --cwd must be an absolute path");
+                }
+                builder = builder.current_dir(cwd.clone());
+            }
+
             // Open the root of the new filesystem
-            let b = builder
+            builder = builder
                 .sandbox_fs(root_fs)
                 .preopen_dir(Path::new("/"))
                 .unwrap();
 
             if have_current_dir {
-                b.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
+                builder.map_dir(".", MAPPED_CURRENT_DIR_DEFAULT_PATH)?
             } else {
-                b.map_dir(".", "/")?
+                builder.map_dir(".", "/")?
             }
         };
 
@@ -479,9 +495,7 @@ impl Wasi {
         Ok(Vec::new())
     }
 
-    pub fn build_mapped_directories(
-        &self,
-    ) -> Result<(bool, bool, Vec<MappedDirectory>), anyhow::Error> {
+    pub fn build_mapped_directories(&self) -> Result<(bool, Vec<MappedDirectory>), anyhow::Error> {
         let mut mapped_dirs = Vec::new();
 
         // Process the --dirs flag and merge it with --mapdir.
@@ -489,7 +503,9 @@ impl Wasi {
         for dir in &self.pre_opened_directories {
             let mapping = if dir == Path::new(".") {
                 if have_current_dir {
-                    bail!("Cannot pre-open the current directory twice: --dir=. must only be specified once");
+                    bail!(
+                        "Cannot pre-open the current directory twice: --dir=. must only be specified once"
+                    );
                 }
                 have_current_dir = true;
 
@@ -545,7 +561,9 @@ impl Wasi {
 
             let mapping = if guest == "." {
                 if have_current_dir {
-                    bail!("Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once");
+                    bail!(
+                        "Cannot pre-open the current directory twice: '--mapdir=?:.' / '--dir=.' must only be specified once"
+                    );
                 }
                 have_current_dir = true;
 
@@ -562,9 +580,7 @@ impl Wasi {
             mapped_dirs.push(mapping);
         }
 
-        let is_tmp_mapped = mapped_dirs.iter().any(|d| d.guest == "/tmp");
-
-        Ok((have_current_dir, is_tmp_mapped, mapped_dirs))
+        Ok((have_current_dir, mapped_dirs))
     }
 
     pub fn build_mapped_commands(&self) -> Result<Vec<MappedCommand>, anyhow::Error> {
@@ -617,7 +633,7 @@ impl Wasi {
         pkg_cache_path: &Path,
         rt_or_handle: I,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Runtime + Send + Sync>
+    ) -> Result<impl Runtime + Send + Sync + use<I>>
     where
         I: Into<RuntimeOrHandle>,
     {
@@ -726,7 +742,7 @@ impl Wasi {
         &self,
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
-    ) -> Result<impl PackageLoader> {
+    ) -> Result<BuiltinPackageLoader> {
         let checkout_dir = env.cache_dir().join("checkouts");
         let tokens = tokens_by_authority(env)?;
 
@@ -743,7 +759,7 @@ impl Wasi {
         env: &WasmerEnv,
         client: Arc<dyn HttpClient + Send + Sync>,
         preferred_webc_version: webc::Version,
-    ) -> Result<impl Source + Send> {
+    ) -> Result<MultiSource> {
         let mut source = MultiSource::default();
 
         // Note: This should be first so our "preloaded" sources get a chance to
@@ -802,17 +818,17 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
     let config = env.config()?;
 
     for credentials in config.registry.tokens {
-        if let Ok(url) = Url::parse(&credentials.registry) {
-            if url.has_authority() {
-                tokens.insert(url.authority().to_string(), credentials.token);
-            }
+        if let Ok(url) = Url::parse(&credentials.registry)
+            && url.has_authority()
+        {
+            tokens.insert(url.authority().to_string(), credentials.token);
         }
     }
 
-    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token()) {
-        if current_registry.has_authority() {
-            tokens.insert(current_registry.authority().to_string(), token);
-        }
+    if let (Ok(current_registry), Some(token)) = (env.registry_endpoint(), env.token())
+        && current_registry.has_authority()
+    {
+        tokens.insert(current_registry.authority().to_string(), token);
     }
 
     // Note: The global wasmer.toml config file stores URLs for the GraphQL
@@ -829,10 +845,10 @@ fn tokens_by_authority(env: &WasmerEnv) -> Result<HashMap<String, String>> {
 
     let mut frontend_tokens = HashMap::new();
     for (hostname, token) in &tokens {
-        if let Some(frontend_url) = hostname.strip_prefix("registry.") {
-            if !tokens.contains_key(frontend_url) {
-                frontend_tokens.insert(frontend_url.to_string(), token.clone());
-            }
+        if let Some(frontend_url) = hostname.strip_prefix("registry.")
+            && !tokens.contains_key(frontend_url)
+        {
+            frontend_tokens.insert(frontend_url.to_string(), token.clone());
         }
     }
     tokens.extend(frontend_tokens);

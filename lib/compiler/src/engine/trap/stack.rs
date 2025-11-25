@@ -1,4 +1,4 @@
-use super::frame_info::{GlobalFrameInfo, FRAME_INFO};
+use super::frame_info::{FRAME_INFO, GlobalFrameInfo};
 use backtrace::Backtrace;
 use wasmer_types::{FrameInfo, TrapCode};
 use wasmer_vm::Trap;
@@ -30,7 +30,21 @@ pub fn get_trace_and_trapcode(trap: &Trap) -> (Vec<FrameInfo>, Option<TrapCode>)
             trap_code,
             backtrace,
         } => (wasm_trace(&info, None, backtrace), Some(*trap_code)),
+        // An uncaught exception
+        Trap::UncaughtException { backtrace, .. } => (
+            wasm_trace(&info, None, backtrace),
+            Some(TrapCode::UncaughtException),
+        ),
     }
+}
+
+/// Captures the current Wasm stack trace. Only useful when
+/// there are active Wasm frames on the stack, such as in
+/// libcalls or imported functions.
+pub fn wasm_trace_from_current_stack() -> Vec<FrameInfo> {
+    let info = FRAME_INFO.read().unwrap();
+    let backtrace = Backtrace::new_unresolved();
+    wasm_trace(&info, None, &backtrace)
 }
 
 fn wasm_trace(

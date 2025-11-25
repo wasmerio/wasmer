@@ -43,17 +43,18 @@ impl InterestGuard {
         &mut self,
         handler: Box<dyn InterestHandler + Send + Sync>,
     ) -> Result<(), Box<dyn InterestHandler + Send + Sync>> {
-        if let Some(selector) = self.selector.upgrade() {
-            selector.replace(self.token, handler);
-            Ok(())
-        } else {
-            Err(handler)
+        match self.selector.upgrade() {
+            Some(selector) => {
+                selector.replace(self.token, handler);
+                Ok(())
+            }
+            _ => Err(handler),
         }
     }
 
     pub fn interest(&mut self, interest: InterestType) {
         if let Some(selector) = self.selector.upgrade() {
-            selector.handle(self.token, |h| h.push_interest(interest));
+            selector.push_interest(self.token, interest);
         }
     }
 

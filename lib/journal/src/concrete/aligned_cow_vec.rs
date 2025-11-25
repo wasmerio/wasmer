@@ -5,10 +5,10 @@ use std::{
 };
 
 use rkyv::{
+    Archive, Archived,
     rancor::Fallible,
     ser::{Allocator, WriterExt},
     vec::{ArchivedVec, VecResolver},
-    Archive, Archived,
 };
 
 /// An aligned COW vector of bytes which avoids copying data

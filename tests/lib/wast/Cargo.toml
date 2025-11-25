@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "6.1.0-rc.5"
+version = "6.1.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR Apache-2.0 WITH LLVM-exception"
@@ -8,13 +8,13 @@ categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
 repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
-edition = "2018"
+edition = "2024"
 
 [dependencies]
-wasmer-types = { path = "../../../lib/types", version = "=6.1.0-rc.5" }
-wasmer-wasix = { path = "../../../lib/wasix", version = "=0.601.0-rc.5" }
-wasmer = { path = "../../../lib/api", version = "=6.1.0-rc.5", default-features = false }
-virtual-fs = { path = "../../../lib/virtual-fs", version = "0.601.0-rc.5" }
+wasmer-types = { path = "../../../lib/types", version = "=6.1.0" }
+wasmer-wasix = { path = "../../../lib/wasix", version = "=0.601.0" }
+wasmer = { path = "../../../lib/api", version = "=6.1.0", default-features = false }
+virtual-fs = { path = "../../../lib/virtual-fs", version = "0.601.0" }
 
 anyhow.workspace = true
 wast = "221.0.2"
@@ -26,6 +26,7 @@ tokio = { workspace = true, features = [
 	"io-util",
 	"rt",
 ], default-features = false }
+fs_extra.workspace = true
 
 [features]
 default = ["wat"]

@@ -9,11 +9,27 @@ use std::fs;
 use std::path::PathBuf;
 use std::process::Command;
 use test_generator::{
-    test_directory, test_directory_module, wasi_processor, wast_processor, with_test_module,
-    Testsuite,
+    Testsuite, test_directory, test_directory_module, wasi_processor, wast_processor,
+    with_test_module,
 };
 
 fn main() -> anyhow::Result<()> {
+    println!(
+        "cargo:rustc-env=CFG_TARGET_OS={}",
+        std::env::var("CARGO_CFG_TARGET_OS")
+            .expect("CARGO_CFG_TARGET_OS must be provided by cargo")
+    );
+    println!(
+        "cargo:rustc-env=CFG_TARGET_ARCH={}",
+        std::env::var("CARGO_CFG_TARGET_ARCH")
+            .expect("CARGO_CFG_TARGET_ARCH must be provided by cargo")
+    );
+    println!(
+        "cargo:rustc-env=CFG_TARGET_ENV={}",
+        std::env::var("CARGO_CFG_TARGET_ENV")
+            .expect("CARGO_CFG_TARGET_ENV must be provided by cargo")
+    );
+
     // As rerun-if-changed doesn't support globs, we use another crate
     // to check changes in directories.
     build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/unstable/*")

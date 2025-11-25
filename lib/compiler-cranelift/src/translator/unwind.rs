@@ -2,8 +2,10 @@
 //! module.
 
 #[cfg(feature = "unwind")]
-use cranelift_codegen::isa::unwind::{systemv::UnwindInfo as DwarfFDE, UnwindInfo};
-use cranelift_codegen::{isa, print_errors::pretty_error, Context};
+use cranelift_codegen::isa::unwind::{UnwindInfo, systemv::UnwindInfo as DwarfFDE};
+#[cfg(feature = "unwind")]
+use cranelift_codegen::print_errors::pretty_error;
+use cranelift_codegen::{Context, isa};
 use wasmer_compiler::types::unwind::CompiledFunctionUnwindInfo;
 use wasmer_types::CompileError;
 
@@ -62,8 +64,8 @@ pub(crate) fn compiled_function_unwind_info(
 #[cfg(not(feature = "unwind"))]
 /// Constructs unwind info object from Cranelift IR
 pub(crate) fn compiled_function_unwind_info(
-    isa: &dyn isa::TargetIsa,
-    context: &Context,
+    _isa: &dyn isa::TargetIsa,
+    _context: &Context,
 ) -> Result<CraneliftUnwindInfo, CompileError> {
     Ok(CraneliftUnwindInfo::None)
 }

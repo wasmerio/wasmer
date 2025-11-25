@@ -9,11 +9,11 @@ use crate::{
 use cranelift_codegen::{
     cursor::FuncCursor,
     ir::{
-        self,
+        self, AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
+        UserExternalName,
         condcodes::IntCC,
         immediates::{Offset32, Uimm64},
         types::*,
-        AbiParam, ArgumentPurpose, Function, InstBuilder, MemFlags, Signature,
     },
     isa::TargetFrontendConfig,
 };
@@ -21,15 +21,18 @@ use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::HeapType;
 use wasmer_types::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, MemoryStyle,
     ModuleInfo, SignatureIndex, TableIndex, TableStyle, Type as WasmerType, VMBuiltinFunctionIndex,
     VMOffsets, WasmError, WasmResult,
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
 };
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
-pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
-    ir::ExternalName::user(ir::UserExternalNameRef::from_u32(func_index.as_u32()))
+pub fn get_function_name(func: &mut Function, func_index: FunctionIndex) -> ir::ExternalName {
+    ir::ExternalName::user(
+        func.params
+            .ensure_user_func_name(UserExternalName::new(0, func_index.as_u32())),
+    )
 }
 
 /// The type of the `current_elements` field.
@@ -267,7 +270,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                     // dst
                     AbiParam::new(I32),
                     // value
-                    AbiParam::new(R64),
+                    AbiParam::new(self.reference_type()),
                     // len
                     AbiParam::new(I32),
                 ],
@@ -298,7 +301,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
                     AbiParam::new(I32),
                 ],
-                returns: vec![AbiParam::new(R64)],
+                returns: vec![AbiParam::new(self.reference_type())],
                 call_conv: self.target_config.default_call_conv,
             })
         });
@@ -326,7 +329,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                     AbiParam::new(I32),
                     AbiParam::new(I32),
                 ],
-                returns: vec![AbiParam::new(R64)],
+                returns: vec![AbiParam::new(self.reference_type())],
                 call_conv: self.target_config.default_call_conv,
             })
         });
@@ -361,7 +364,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
                     AbiParam::new(I32),
                     AbiParam::new(I32),
-                    AbiParam::new(R64),
+                    AbiParam::new(self.reference_type()),
                 ],
                 returns: vec![],
                 call_conv: self.target_config.default_call_conv,
@@ -397,7 +400,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 params: vec![
                     AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
                     // TODO: figure out what the representation of a Wasm value is
-                    AbiParam::new(R64),
+                    AbiParam::new(self.reference_type()),
                     AbiParam::new(I32),
                     AbiParam::new(I32),
                 ],
@@ -1052,22 +1055,20 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
             HeapType::Abstract { ty, .. } => match ty {
-                wasmer_compiler::wasmparser::AbstractHeapType::Func => {
-                    pos.ins().null(self.reference_type())
-                }
-                wasmer_compiler::wasmparser::AbstractHeapType::Extern => {
-                    pos.ins().null(self.reference_type())
+                wasmer_compiler::wasmparser::AbstractHeapType::Func
+                | wasmer_compiler::wasmparser::AbstractHeapType::Extern => {
+                    pos.ins().iconst(self.reference_type(), 0)
                 }
                 _ => {
                     return Err(WasmError::Unsupported(
                         "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                    ))
+                    ));
                 }
             },
             HeapType::Concrete(_) => {
                 return Err(WasmError::Unsupported(
                     "`ref.null T` that is not a `funcref` or an `externref`".into(),
-                ))
+                ));
             }
         })
     }
@@ -1077,17 +1078,9 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         mut pos: cranelift_codegen::cursor::FuncCursor,
         value: ir::Value,
     ) -> WasmResult<ir::Value> {
-        let bool_is_null = match pos.func.dfg.value_type(value) {
-            // `externref`
-            ty if ty.is_ref() => pos.ins().is_null(value),
-            // `funcref`
-            ty if ty == self.pointer_type() => {
-                pos.ins()
-                    .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0)
-            }
-            _ => unreachable!(),
-        };
-
+        let bool_is_null =
+            pos.ins()
+                .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0);
         Ok(pos.ins().uextend(ir::types::I32, bool_is_null))
     }
 
@@ -1262,7 +1255,8 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
     ) -> WasmResult<ir::FuncRef> {
         let sigidx = self.module.functions[index];
         let signature = func.import_signature(self.signatures[sigidx].clone());
-        let name = get_function_name(index);
+        let name = get_function_name(func, index);
+
         Ok(func.import_function(ir::ExtFuncData {
             name,
             signature,
@@ -1290,7 +1284,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
         // check if the funcref is null
         builder
             .ins()
-            .trapz(anyfunc_ptr, ir::TrapCode::IndirectCallToNull);
+            .trapz(anyfunc_ptr, crate::TRAP_INDIRECT_CALL_TO_NULL);
 
         let func_addr = builder.ins().load(
             pointer_type,
@@ -1327,7 +1321,7 @@ impl BaseFuncEnvironment for FuncEnvironment<'_> {
                 let cmp = builder
                     .ins()
                     .icmp(IntCC::Equal, callee_sig_id, caller_sig_id);
-                builder.ins().trapz(cmp, ir::TrapCode::BadSignature);
+                builder.ins().trapz(cmp, crate::TRAP_BAD_SIGNATURE);
             }
         }
 

@@ -1,5 +1,5 @@
 use futures::StreamExt;
-use wasmer_backend_api::{types::PackageVersionState, WasmerClient};
+use wasmer_backend_api::{WasmerClient, types::PackageVersionState};
 
 /// Different conditions that can be "awaited" when publishing a package.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, clap::ValueEnum)]

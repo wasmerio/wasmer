@@ -110,7 +110,7 @@ entity_impl!(LocalGlobalIndex);
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[rkyv(
-    derive(Debug, PartialOrd, Ord, PartialEq, Eq),
+    derive(Debug, PartialOrd, Ord, PartialEq, Eq, Hash),
     compare(PartialOrd, PartialEq)
 )]
 pub struct FunctionIndex(u32);

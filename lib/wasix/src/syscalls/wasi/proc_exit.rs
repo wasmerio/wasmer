@@ -26,7 +26,7 @@ pub fn proc_exit<M: MemorySize>(
         );
 
         // Prepare the child env for teardown by closing its FDs
-        InlineWaker::block_on(
+        block_on(
             unsafe { ctx.data().get_memory_and_wasi_state(&ctx, 0) }
                 .1
                 .fs

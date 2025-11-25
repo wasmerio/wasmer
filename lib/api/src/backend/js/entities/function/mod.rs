@@ -5,19 +5,19 @@ use std::marker::PhantomData;
 pub(crate) use typed::*;
 
 use js_sys::{Array, Function as JsFunction};
-use wasm_bindgen::{prelude::*, JsCast};
+use wasm_bindgen::{JsCast, prelude::*};
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    js::{
-        utils::convert::{js_value_to_wasmer, wasmer_value_to_js, AsJs as _},
-        vm::{function::VMFunction, VMFuncRef, VMFunctionCallback},
-    },
-    vm::{VMExtern, VMExternFunction},
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
     FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult,
     NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
     WithoutEnv,
+    js::{
+        utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
+        vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},
+    },
+    vm::{VMExtern, VMExternFunction},
 };
 
 use std::panic::{self, AssertUnwindSafe};
@@ -94,7 +94,7 @@ impl Function {
                     .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
                 let results = func(env, &wasm_arguments)?;
-                return Ok(wasmer_value_to_js(&results[0]));
+                Ok(wasmer_value_to_js(&results[0]))
             })
                 as Box<dyn FnMut(&Array) -> Result<JsValue, JsValue>>)
             .into_js_value(),
@@ -108,7 +108,7 @@ impl Function {
                     .map(|(i, param)| js_value_to_wasmer(param, &args.get(i as u32)))
                     .collect::<Vec<_>>();
                 let results = func(env, &wasm_arguments)?;
-                return Ok(wasmer_array_to_js_array(&results));
+                Ok(wasmer_array_to_js_array(&results))
             })
                 as Box<dyn FnMut(&Array) -> Result<Array, JsValue>>)
             .into_js_value(),
@@ -233,7 +233,7 @@ impl Function {
                             break;
                         }
                         Ok(wasmer_types::OnCalledAction::Trap(trap)) => {
-                            return Err(RuntimeError::user(trap))
+                            return Err(RuntimeError::user(trap));
                         }
                         Err(trap) => return Err(RuntimeError::user(trap)),
                     }
@@ -281,7 +281,9 @@ impl Function {
 
     #[track_caller]
     fn closures_unsupported_panic() -> ! {
-        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
+        unimplemented!(
+            "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
+        )
     }
 
     /// Checks whether this `Function` can be used with the given context.
@@ -383,15 +385,23 @@ macro_rules! impl_host_function {
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static,
             {
                 // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
-                let func: &Func = &*(&() as *const () as *const Func);
-                let mut store = StoreMut::from_raw(store_ptr as *mut _);
+                let func: &Func = unsafe { &*(&() as *const () as *const Func) };
+                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
 
                 let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                    func($( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                    func($(
+                        {
+                            let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
+                            FromToNativeWasmType::from_native(native)
+                        }
+                    ),* ).into_result()
                 }));
 
                 match result {
-                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                    Ok(Ok(result)) => {
+                        let c_struct = unsafe { result.into_c_struct(&mut store) };
+                        return c_struct;
+                    },
                     #[cfg(feature = "std")]
                     #[allow(deprecated)]
                     Ok(Err(trap)) => crate::backend::js::error::raise(Box::new(trap)),
@@ -423,22 +433,35 @@ macro_rules! impl_host_function {
                 T: Send + 'static,
                 Func: Fn(FunctionEnvMut<'_, T>, $( $x , )*) -> RetsAsResult + 'static,
             {
-                let mut store = StoreMut::from_raw(store_ptr as *mut _);
-                let mut store2 = StoreMut::from_raw(store_ptr as *mut _);
+                let mut store = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
+                let mut store2 = unsafe { StoreMut::from_raw(store_ptr as *mut _) };
 
                 let result = {
                     // let env: &Env = unsafe { &*(ptr as *const u8 as *const Env) };
-                    let func: &Func = &*(&() as *const () as *const Func);
+                    let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                     panic::catch_unwind(AssertUnwindSafe(|| {
                         let handle: crate::backend::js::store::StoreHandle<crate::backend::js::vm::VMFunctionEnvironment> =
-                          crate::backend::js::store::StoreHandle::from_internal(store2.objects_mut().id(), crate::backend::js::store::InternalStoreHandle::from_index(handle_index).unwrap());
+                          unsafe {
+                              crate::backend::js::store::StoreHandle::from_internal(
+                                  store2.objects_mut().id(),
+                                  crate::backend::js::store::InternalStoreHandle::from_index(handle_index).unwrap(),
+                              )
+                          };
                         let env: crate::backend::js::function::env::FunctionEnvMut<T> = crate::backend::js::function::env::FunctionEnv::from_handle(handle).into_mut(&mut store2);
-                        func(BackendFunctionEnvMut::Js(env).into(), $( FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x)) ),* ).into_result()
+                        func(BackendFunctionEnvMut::Js(env).into(), $(
+                            {
+                                let native = unsafe { NativeWasmTypeInto::from_abi(&mut store, $x) };
+                                FromToNativeWasmType::from_native(native)
+                            }
+                        ),* ).into_result()
                     }))
                 };
 
                 match result {
-                    Ok(Ok(result)) => return result.into_c_struct(&mut store),
+                    Ok(Ok(result)) => {
+                        let c_struct = unsafe { result.into_c_struct(&mut store) };
+                        return c_struct;
+                    },
                     #[allow(deprecated)]
                     #[cfg(feature = "std")]
                     Ok(Err(trap)) => crate::js::error::raise(Box::new(trap)),

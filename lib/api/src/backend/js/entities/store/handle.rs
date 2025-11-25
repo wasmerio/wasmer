@@ -2,7 +2,7 @@ use std::{marker::PhantomData, num::NonZeroUsize};
 
 use wasmer_types::StoreId;
 
-use super::{obj::StoreObject, StoreObjects};
+use super::{StoreObjects, obj::StoreObject};
 
 /// Handle to an object managed by a context.
 ///

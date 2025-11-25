@@ -11,11 +11,11 @@ use wasmer_types::{MemoryType, Pages};
 use wasmer_vm::{LinearMemory, MemoryError, StoreHandle, ThreadConditionsHandle, VMMemory};
 
 use crate::{
+    BackendMemory, MemoryAccessError,
     backend::sys::entities::{engine::NativeEngineExt, memory::MemoryView},
     entities::store::{AsStoreMut, AsStoreRef},
     location::{MemoryLocation, SharedMemoryOps},
     vm::{VMExtern, VMExternMemory},
-    BackendMemory, MemoryAccessError,
 };
 
 pub(crate) mod view;
@@ -147,12 +147,7 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         let count = self
             .upgrade()
             .ok_or(crate::AtomicsError::Unimplemented)?
-            .do_notify(
-                wasmer_vm::NotifyLocation {
-                    address: dst.address,
-                },
-                count,
-            );
+            .do_notify(dst.address, count);
         Ok(count)
     }
 
@@ -161,20 +156,25 @@ impl SharedMemoryOps for ThreadConditionsHandle {
         dst: MemoryLocation,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, crate::AtomicsError> {
-        self.upgrade()
-            .ok_or(crate::AtomicsError::Unimplemented)?
-            .do_wait(
-                wasmer_vm::NotifyLocation {
-                    address: dst.address,
-                },
-                timeout,
-            )
-            .map_err(|e| match e {
-                wasmer_vm::WaiterError::Unimplemented => crate::AtomicsError::Unimplemented,
-                wasmer_vm::WaiterError::TooManyWaiters => crate::AtomicsError::TooManyWaiters,
-                wasmer_vm::WaiterError::AtomicsDisabled => crate::AtomicsError::AtomicsDisabled,
-                _ => crate::AtomicsError::Unimplemented,
-            })
+        // Safety: `ExpectedValue::None` has no safety requirements.
+        unsafe {
+            self.upgrade()
+                .ok_or(crate::AtomicsError::Unimplemented)?
+                .do_wait(
+                    wasmer_vm::NotifyLocation {
+                        memory_base: std::ptr::null_mut(),
+                        address: dst.address,
+                    },
+                    wasmer_vm::ExpectedValue::None,
+                    timeout,
+                )
+                .map_err(|e| match e {
+                    wasmer_vm::WaiterError::Unimplemented => crate::AtomicsError::Unimplemented,
+                    wasmer_vm::WaiterError::TooManyWaiters => crate::AtomicsError::TooManyWaiters,
+                    wasmer_vm::WaiterError::AtomicsDisabled => crate::AtomicsError::AtomicsDisabled,
+                    _ => crate::AtomicsError::Unimplemented,
+                })
+        }
     }
 
     fn disable_atomics(&self) -> Result<(), MemoryError> {
@@ -284,52 +284,63 @@ impl MemoryBuffer<'_> {
 unsafe fn volatile_memcpy_read(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
     unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(packed)]
+        #[repr(C, packed)]
         struct Unaligned<T>(T);
-        let val = (*src as *const Unaligned<T>).read_volatile();
-        (*dst as *mut Unaligned<T>).write(val);
-        *src = src.add(mem::size_of::<T>());
-        *dst = dst.add(mem::size_of::<T>());
-        *len -= mem::size_of::<T>();
+
+        unsafe {
+            let val = (*src as *const Unaligned<T>).read_volatile();
+            (*dst as *mut Unaligned<T>).write(val);
+
+            *src = src.add(mem::size_of::<T>());
+            *dst = dst.add(mem::size_of::<T>());
+            *len -= mem::size_of::<T>();
+        }
     }
 
-    while len >= 8 {
-        copy_one::<u64>(&mut src, &mut dst, &mut len);
-    }
-    if len >= 4 {
-        copy_one::<u32>(&mut src, &mut dst, &mut len);
-    }
-    if len >= 2 {
-        copy_one::<u16>(&mut src, &mut dst, &mut len);
-    }
-    if len >= 1 {
-        copy_one::<u8>(&mut src, &mut dst, &mut len);
+    unsafe {
+        while len >= 8 {
+            copy_one::<u64>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 4 {
+            copy_one::<u32>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 2 {
+            copy_one::<u16>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 1 {
+            copy_one::<u8>(&mut src, &mut dst, &mut len);
+        }
     }
 }
 #[inline]
 unsafe fn volatile_memcpy_write(mut src: *const u8, mut dst: *mut u8, mut len: usize) {
     #[inline]
     unsafe fn copy_one<T>(src: &mut *const u8, dst: &mut *mut u8, len: &mut usize) {
-        #[repr(packed)]
+        #[repr(C, packed)]
         struct Unaligned<T>(T);
-        let val = (*src as *const Unaligned<T>).read();
-        (*dst as *mut Unaligned<T>).write_volatile(val);
-        *src = src.add(mem::size_of::<T>());
-        *dst = dst.add(mem::size_of::<T>());
-        *len -= mem::size_of::<T>();
+
+        unsafe {
+            let val = (*src as *const Unaligned<T>).read();
+            (*dst as *mut Unaligned<T>).write_volatile(val);
+            *src = src.add(mem::size_of::<T>());
+            *dst = dst.add(mem::size_of::<T>());
+            *len -= mem::size_of::<T>();
+        }
     }
 
-    while len >= 8 {
-        copy_one::<u64>(&mut src, &mut dst, &mut len);
-    }
-    if len >= 4 {
-        copy_one::<u32>(&mut src, &mut dst, &mut len);
-    }
-    if len >= 2 {
-        copy_one::<u16>(&mut src, &mut dst, &mut len);
-    }
-    if len >= 1 {
-        copy_one::<u8>(&mut src, &mut dst, &mut len);
+    unsafe {
+        while len >= 8 {
+            copy_one::<u64>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 4 {
+            copy_one::<u32>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 2 {
+            copy_one::<u16>(&mut src, &mut dst, &mut len);
+        }
+        if len >= 1 {
+            copy_one::<u8>(&mut src, &mut dst, &mut len);
+        }
     }
 }
 

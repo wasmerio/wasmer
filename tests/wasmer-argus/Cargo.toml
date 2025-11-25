@@ -19,15 +19,15 @@ cynic = "3.4.3"
 url.workspace = true
 futures = "0.3.30"
 tokio = { workspace = true, features = ["rt", "macros", "rt-multi-thread", "sync", "time", "fs"] }
-clap = {version = "4.4.11", features = ["derive", "string"]}
+clap = {workspace = true, features = ["derive", "string"]}
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["env-filter"] }
 serde.workspace = true
 serde_json.workspace = true
-wasmer = { version = "6.1.0-rc.5", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
+wasmer = { version = "6.1.0", path = "../../lib/api", features = ["core", "singlepass", "cranelift", "llvm"], optional = true }
 derive_more.workspace = true
 webc.workspace = true
-async-trait = "0.1.77"
+async-trait = { workspace = true }
 wasmer-backend-api = { path = "../../lib/backend-api" }
 shared-buffer.workspace = true
 

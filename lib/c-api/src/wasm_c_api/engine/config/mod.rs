@@ -121,7 +121,7 @@ pub(crate) struct wasmer_backend_config_t {
 /// #    .success();
 /// # }
 /// ```
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasmer_target_t>) {
     config.backend_config.target = Some(target);
 }
@@ -134,8 +134,8 @@ pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box
 ///
 /// # Example
 ///
-/// See the documentation of the [`metering`] module.
-#[no_mangle]
+/// See the documentation of the [`wasmer_middlewares::metering`] module.
+#[unsafe(no_mangle)]
 #[cfg(feature = "middlewares")]
 pub extern "C" fn wasm_config_push_middleware(
     config: &mut wasm_config_t,

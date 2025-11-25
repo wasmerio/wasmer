@@ -83,7 +83,7 @@ pub use tokio::io::{AsyncWrite, AsyncWriteExt};
 
 pub trait ClonableVirtualFile: VirtualFile + Clone {}
 
-pub use ops::{copy_reference, copy_reference_ext, create_dir_all};
+pub use ops::{copy_reference, copy_reference_ext, create_dir_all, walk};
 
 pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn readlink(&self, path: &Path) -> Result<PathBuf>;
@@ -98,10 +98,10 @@ pub trait FileSystem: fmt::Debug + Send + Sync + 'static + Upcastable {
     fn symlink_metadata(&self, path: &Path) -> Result<Metadata>;
     fn remove_file(&self, path: &Path) -> Result<()>;
 
-    fn new_open_options(&self) -> OpenOptions;
+    fn new_open_options(&self) -> OpenOptions<'_>;
 
     fn mount(&self, name: String, path: &Path, fs: Box<dyn FileSystem + Send + Sync>)
-        -> Result<()>;
+    -> Result<()>;
 }
 
 impl dyn FileSystem + 'static {
@@ -153,7 +153,7 @@ where
         (**self).remove_file(path)
     }
 
-    fn new_open_options(&self) -> OpenOptions {
+    fn new_open_options(&self) -> OpenOptions<'_> {
         (**self).new_open_options()
     }
 

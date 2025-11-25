@@ -6,12 +6,12 @@ use crate::{
     emitter_x64::*,
     location::{Location as AbstractLocation, Reg},
     machine::*,
-    unwind::{UnwindInstructions, UnwindOps},
-    x64_decl::{new_machine_state, ArgumentRegisterAllocator, X64Register, GPR, XMM},
+    unwind::{UnwindInstructions, UnwindOps, UnwindRegister},
+    x64_decl::{ArgumentRegisterAllocator, GPR, X64Register, XMM},
 };
-use dynasmrt::{x64::X64Relocation, DynasmError, VecAssembler};
+use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
-use gimli::{write::CallFrameInstruction, X86_64};
+use gimli::{X86_64, write::CallFrameInstruction};
 use std::ops::{Deref, DerefMut};
 use wasmer_compiler::{
     types::{
@@ -20,12 +20,12 @@ use wasmer_compiler::{
         relocation::{Relocation, RelocationKind, RelocationTarget},
         section::{CustomSection, CustomSectionProtection, SectionBody},
     },
-    wasmparser::{MemArg, ValType as WpType},
+    wasmparser::MemArg,
 };
 use wasmer_types::{
-    target::{CallingConvention, CpuFeature, Target},
     CompileError, FunctionIndex, FunctionType, SourceLoc, TrapCode, TrapInformation, Type,
     VMOffsets,
+    target::{CallingConvention, CpuFeature, Target},
 };
 
 type Assembler = VecAssembler<X64Relocation>;
@@ -35,27 +35,27 @@ pub struct AssemblerX64 {
     pub inner: Assembler,
     /// the simd instructions set on the target.
     /// Currently only supports SSE 4.2 and AVX
-    pub simd_arch: Option<CpuFeature>,
+    pub simd_arch: CpuFeature,
     /// Full Target cpu
     pub target: Option<Target>,
 }
 
 impl AssemblerX64 {
     fn new(baseaddr: usize, target: Option<Target>) -> Result<Self, CompileError> {
-        let simd_arch = if target.is_none() {
-            Some(CpuFeature::SSE42)
-        } else {
-            let target = target.as_ref().unwrap();
-            if target.cpu_features().contains(CpuFeature::AVX) {
-                Some(CpuFeature::AVX)
-            } else if target.cpu_features().contains(CpuFeature::SSE42) {
-                Some(CpuFeature::SSE42)
-            } else {
-                return Err(CompileError::UnsupportedTarget(
-                    "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
-                ));
-            }
-        };
+        let simd_arch = target.as_ref().map_or_else(
+            || Ok(CpuFeature::SSE42),
+            |target| {
+                if target.cpu_features().contains(CpuFeature::AVX) {
+                    Ok(CpuFeature::AVX)
+                } else if target.cpu_features().contains(CpuFeature::SSE42) {
+                    Ok(CpuFeature::SSE42)
+                } else {
+                    Err(CompileError::UnsupportedTarget(
+                        "x86_64 without AVX or SSE 4.2, use -m avx to enable".to_string(),
+                    ))
+                }
+            },
+        )?;
 
         Ok(Self {
             inner: Assembler::new(baseaddr),
@@ -85,51 +85,6 @@ impl DerefMut for AssemblerX64 {
 
 type Location = AbstractLocation<GPR, XMM>;
 
-#[cfg(feature = "unwind")]
-fn dwarf_index(reg: u16) -> gimli::Register {
-    static DWARF_GPR: [gimli::Register; 16] = [
-        X86_64::RAX,
-        X86_64::RDX,
-        X86_64::RCX,
-        X86_64::RBX,
-        X86_64::RSI,
-        X86_64::RDI,
-        X86_64::RBP,
-        X86_64::RSP,
-        X86_64::R8,
-        X86_64::R9,
-        X86_64::R10,
-        X86_64::R11,
-        X86_64::R12,
-        X86_64::R13,
-        X86_64::R14,
-        X86_64::R15,
-    ];
-    static DWARF_XMM: [gimli::Register; 16] = [
-        X86_64::XMM0,
-        X86_64::XMM1,
-        X86_64::XMM2,
-        X86_64::XMM3,
-        X86_64::XMM4,
-        X86_64::XMM5,
-        X86_64::XMM6,
-        X86_64::XMM7,
-        X86_64::XMM8,
-        X86_64::XMM9,
-        X86_64::XMM10,
-        X86_64::XMM11,
-        X86_64::XMM12,
-        X86_64::XMM13,
-        X86_64::XMM14,
-        X86_64::XMM15,
-    ];
-    match reg {
-        0..=15 => DWARF_GPR[reg as usize],
-        17..=24 => DWARF_XMM[reg as usize - 17],
-        _ => panic!("Unknown register index {reg}"),
-    }
-}
-
 pub struct MachineX86_64 {
     assembler: AssemblerX64,
     used_gprs: u32,
@@ -142,8 +97,12 @@ pub struct MachineX86_64 {
     /// The source location for the current operator.
     src_loc: u32,
     /// Vector of unwind operations with offset
-    unwind_ops: Vec<(usize, UnwindOps)>,
+    unwind_ops: Vec<(usize, UnwindOps<GPR, XMM>)>,
 }
+
+/// Get registers for first N function return values.
+/// NOTE: The register set must be disjoint from pick_gpr registers!
+pub(crate) const X86_64_RETURN_VALUE_REGISTERS: [GPR; 2] = [GPR::RAX, GPR::RDX];
 
 impl MachineX86_64 {
     pub fn new(target: Option<Target>) -> Result<Self, CompileError> {
@@ -682,7 +641,7 @@ impl MachineX86_64 {
             },
         )?;
 
-        self.jmp_on_different(retry)?;
+        self.assembler.emit_jmp(Condition::NotEqual, retry)?;
 
         self.assembler.emit_pop(Size::S64, Location::GPR(value))?;
         self.release_gpr(compare);
@@ -1923,13 +1882,82 @@ impl MachineX86_64 {
         self.used_simd &= !(1 << r.into_index());
         ret
     }
-    fn emit_unwind_op(&mut self, op: UnwindOps) -> Result<(), CompileError> {
+    fn emit_unwind_op(&mut self, op: UnwindOps<GPR, XMM>) -> Result<(), CompileError> {
         self.unwind_ops.push((self.get_offset().0, op));
         Ok(())
     }
     fn emit_illegal_op_internal(&mut self, trap: TrapCode) -> Result<(), CompileError> {
         let v = trap as u8;
         self.assembler.emit_ud1_payload(v)
+    }
+
+    // logic
+    fn location_xor(
+        &mut self,
+        size: Size,
+        source: Location,
+        dest: Location,
+        _flags: bool,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_xor(size, source, dest)
+    }
+    fn location_or(
+        &mut self,
+        size: Size,
+        source: Location,
+        dest: Location,
+        _flags: bool,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_or(size, source, dest)
+    }
+    fn load_address(
+        &mut self,
+        size: Size,
+        reg: Location,
+        mem: Location,
+    ) -> Result<(), CompileError> {
+        match reg {
+            Location::GPR(_) => {
+                match mem {
+                    Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
+                        // Memory moves with size < 32b do not zero upper bits.
+                        if size < Size::S32 {
+                            self.assembler.emit_xor(Size::S32, reg, reg)?;
+                        }
+                        self.assembler.emit_mov(size, mem, reg)?;
+                    }
+                    _ => codegen_error!("singlepass load_address unreachable"),
+                }
+            }
+            _ => codegen_error!("singlepass load_address unreachable"),
+        }
+        Ok(())
+    }
+
+    fn location_neg(
+        &mut self,
+        size_val: Size, // size of src
+        signed: bool,
+        source: Location,
+        size_op: Size,
+        dest: Location,
+    ) -> Result<(), CompileError> {
+        self.move_location_extend(size_val, signed, source, size_op, dest)?;
+        self.assembler.emit_neg(size_val, dest)
+    }
+
+    fn emit_relaxed_zero_extension(
+        &mut self,
+        sz_src: Size,
+        src: Location,
+        sz_dst: Size,
+        dst: Location,
+    ) -> Result<(), CompileError> {
+        if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
+            self.emit_relaxed_binop(AssemblerX64::emit_mov, sz_src, src, dst)
+        } else {
+            self.emit_relaxed_zx_sx(AssemblerX64::emit_movzx, sz_src, src, sz_dst, dst)
+        }
     }
 }
 
@@ -1938,12 +1966,6 @@ impl Machine for MachineX86_64 {
     type SIMD = XMM;
     fn assembler_get_offset(&self) -> Offset {
         self.assembler.get_offset()
-    }
-    fn index_from_gpr(&self, x: GPR) -> RegisterIndex {
-        RegisterIndex(x as usize)
-    }
-    fn index_from_simd(&self, x: XMM) -> RegisterIndex {
-        RegisterIndex(x as usize + 16)
     }
 
     fn get_vmctx_reg(&self) -> GPR {
@@ -2065,7 +2087,7 @@ impl Machine for MachineX86_64 {
     }
 
     fn push_used_simd(&mut self, used_xmms: &[XMM]) -> Result<usize, CompileError> {
-        self.adjust_stack((used_xmms.len() * 8) as u32)?;
+        self.extend_stack((used_xmms.len() * 8) as u32)?;
 
         for (i, r) in used_xmms.iter().enumerate() {
             self.move_location(
@@ -2162,29 +2184,22 @@ impl Machine for MachineX86_64 {
         value
     }
 
-    // Adjust stack for locals
-    fn adjust_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+    fn extend_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_sub(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    // restore stack
-    fn restore_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
+
+    fn truncate_stack(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
         self.assembler.emit_add(
             Size::S64,
             Location::Imm32(delta_stack_offset),
             Location::GPR(GPR::RSP),
         )
     }
-    fn pop_stack_locals(&mut self, delta_stack_offset: u32) -> Result<(), CompileError> {
-        self.assembler.emit_add(
-            Size::S64,
-            Location::Imm32(delta_stack_offset),
-            Location::GPR(GPR::RSP),
-        )
-    }
+
     // push a value on the stack for a native call
     fn move_location_for_native(
         &mut self,
@@ -2246,11 +2261,11 @@ impl Machine for MachineX86_64 {
         )?;
         match location {
             Location::GPR(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::GPR(x),
                 bp_neg_offset: stack_offset,
             }),
             Location::SIMD(x) => self.emit_unwind_op(UnwindOps::SaveRegister {
-                reg: x.to_dwarf(),
+                reg: UnwindRegister::FPR(x),
                 bp_neg_offset: stack_offset,
             }),
             _ => Ok(()),
@@ -2267,6 +2282,14 @@ impl Machine for MachineX86_64 {
         }
     }
 
+    /// Get registers for first N function call parameters.
+    fn get_param_registers(&self, calling_convention: CallingConvention) -> &'static [Self::GPR] {
+        match calling_convention {
+            CallingConvention::WindowsFastcall => &[GPR::RCX, GPR::RDX, GPR::R8, GPR::R9],
+            _ => &[GPR::RDI, GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9],
+        }
+    }
+
     // Get param location
     fn get_param_location(
         &self,
@@ -2275,58 +2298,49 @@ impl Machine for MachineX86_64 {
         stack_location: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
-        match calling_convention {
-            CallingConvention::WindowsFastcall => match idx {
-                0 => Location::GPR(GPR::RCX),
-                1 => Location::GPR(GPR::RDX),
-                2 => Location::GPR(GPR::R8),
-                3 => Location::GPR(GPR::R9),
-                _ => {
+        self.get_param_registers(calling_convention)
+            .get(idx)
+            .map_or_else(
+                || {
                     let loc = Location::Memory(GPR::RSP, *stack_location as i32);
                     *stack_location += 8;
                     loc
-                }
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::RDI),
-                1 => Location::GPR(GPR::RSI),
-                2 => Location::GPR(GPR::RDX),
-                3 => Location::GPR(GPR::RCX),
-                4 => Location::GPR(GPR::R8),
-                5 => Location::GPR(GPR::R9),
-                _ => {
-                    let loc = Location::Memory(GPR::RSP, *stack_location as i32);
-                    *stack_location += 8;
-                    loc
-                }
-            },
-        }
+                },
+                |reg| Location::GPR(*reg),
+            )
     }
     // Get call param location
     fn get_call_param_location(
         &self,
+        return_slots: usize,
         idx: usize,
         _sz: Size,
         _stack_location: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
+        let return_values_memory_size =
+            8 * return_slots.saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
         match calling_convention {
-            CallingConvention::WindowsFastcall => match idx {
-                0 => Location::GPR(GPR::RCX),
-                1 => Location::GPR(GPR::RDX),
-                2 => Location::GPR(GPR::R8),
-                3 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::RDI),
-                1 => Location::GPR(GPR::RSI),
-                2 => Location::GPR(GPR::RDX),
-                3 => Location::GPR(GPR::RCX),
-                4 => Location::GPR(GPR::R8),
-                5 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
-            },
+            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (32 + 16 + return_values_memory_size + (idx - register_params.len()) * 8)
+                            as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (16 + return_values_memory_size + (idx - register_params.len()) * 8) as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
         }
     }
     // Get simple param location
@@ -2335,25 +2349,66 @@ impl Machine for MachineX86_64 {
         idx: usize,
         calling_convention: CallingConvention,
     ) -> Location {
+        let register_params = self.get_param_registers(calling_convention);
         match calling_convention {
-            CallingConvention::WindowsFastcall => match idx {
-                0 => Location::GPR(GPR::RCX),
-                1 => Location::GPR(GPR::RDX),
-                2 => Location::GPR(GPR::R8),
-                3 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (32 + 16 + (idx - 4) * 8) as i32),
-            },
-            _ => match idx {
-                0 => Location::GPR(GPR::RDI),
-                1 => Location::GPR(GPR::RSI),
-                2 => Location::GPR(GPR::RDX),
-                3 => Location::GPR(GPR::RCX),
-                4 => Location::GPR(GPR::R8),
-                5 => Location::GPR(GPR::R9),
-                _ => Location::Memory(GPR::RBP, (16 + (idx - 6) * 8) as i32),
-            },
+            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
+                || {
+                    Location::Memory(
+                        GPR::RBP,
+                        (32 + 16 + (idx - register_params.len()) * 8) as i32,
+                    )
+                },
+                |reg| Location::GPR(*reg),
+            ),
+            _ => register_params.get(idx).map_or_else(
+                || Location::Memory(GPR::RBP, (16 + (idx - register_params.len()) * 8) as i32),
+                |reg| Location::GPR(*reg),
+            ),
         }
     }
+
+    /// Get return value location (to build a call, using SP for stack return values).
+    fn get_return_value_location(
+        &self,
+        idx: usize,
+        stack_location: &mut usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let stack_padding = match calling_convention {
+                    CallingConvention::WindowsFastcall => 32,
+                    _ => 0,
+                };
+                let loc = Location::Memory(GPR::RSP, *stack_location as i32 + stack_padding);
+                *stack_location += 8;
+                loc
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
+    /// Get return value location (from a call, using FP for stack return values).
+    fn get_call_return_value_location(
+        &self,
+        idx: usize,
+        calling_convention: CallingConvention,
+    ) -> Location {
+        X86_64_RETURN_VALUE_REGISTERS.get(idx).map_or_else(
+            || {
+                let stack_padding = match calling_convention {
+                    CallingConvention::WindowsFastcall => 32,
+                    _ => 0,
+                };
+                Location::Memory(
+                    GPR::RBP,
+                    (16 + stack_padding + (idx - X86_64_RETURN_VALUE_REGISTERS.len()) * 8) as i32,
+                )
+            },
+            |reg| Location::GPR(*reg),
+        )
+    }
+
     // move a location to another
     fn move_location(
         &mut self,
@@ -2433,7 +2488,9 @@ impl Machine for MachineX86_64 {
                     }
                 }
             },
-            _ => panic!(                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"            ),
+            _ => panic!(
+                "unimplemented move_location_extend({size_val:?}, {signed}, {source:?}, {size_op:?}, {dest:?}"
+            ),
         }?;
         if dst != dest {
             self.assembler.emit_mov(size_op, dst, dest)?;
@@ -2444,29 +2501,7 @@ impl Machine for MachineX86_64 {
         }
         Ok(())
     }
-    fn load_address(
-        &mut self,
-        size: Size,
-        reg: Location,
-        mem: Location,
-    ) -> Result<(), CompileError> {
-        match reg {
-            Location::GPR(_) => {
-                match mem {
-                    Location::Memory(_, _) | Location::Memory2(_, _, _, _) => {
-                        // Memory moves with size < 32b do not zero upper bits.
-                        if size < Size::S32 {
-                            self.assembler.emit_xor(Size::S32, reg, reg)?;
-                        }
-                        self.assembler.emit_mov(size, mem, reg)?;
-                    }
-                    _ => codegen_error!("singlepass load_address unreachable"),
-                }
-            }
-            _ => codegen_error!("singlepass load_address unreachable"),
-        }
-        Ok(())
-    }
+
     // Init the stack loc counter
     fn init_stack_loc(
         &mut self,
@@ -2497,10 +2532,6 @@ impl Machine for MachineX86_64 {
     fn pop_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_pop(Size::S64, location)
     }
-    // Create a new `MachineState` with default values.
-    fn new_machine_state(&self) -> MachineState {
-        new_machine_state()
-    }
 
     // assembler finalize
     fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
@@ -2528,27 +2559,6 @@ impl Machine for MachineX86_64 {
     fn emit_function_epilog(&mut self) -> Result<(), CompileError> {
         self.move_location(Size::S64, Location::GPR(GPR::RBP), Location::GPR(GPR::RSP))?;
         self.emit_pop(Size::S64, Location::GPR(GPR::RBP))
-    }
-
-    fn emit_function_return_value(
-        &mut self,
-        ty: WpType,
-        canonicalize: bool,
-        loc: Location,
-    ) -> Result<(), CompileError> {
-        if canonicalize {
-            self.canonicalize_nan(
-                match ty {
-                    WpType::F32 => Size::S32,
-                    WpType::F64 => Size::S64,
-                    _ => codegen_error!("singlepass emit_function_return_value unreachable"),
-                },
-                loc,
-                Location::GPR(GPR::RAX),
-            )
-        } else {
-            self.emit_relaxed_mov(Size::S64, loc, Location::GPR(GPR::RAX))
-        }
     }
 
     fn emit_function_return_float(&mut self) -> Result<(), CompileError> {
@@ -2644,7 +2654,7 @@ impl Machine for MachineX86_64 {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> GPR {
+    fn get_gpr_for_call(&self) -> GPR {
         GPR::RAX
     }
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
@@ -2652,12 +2662,6 @@ impl Machine for MachineX86_64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-    fn get_gpr_for_ret(&self) -> GPR {
-        GPR::RAX
-    }
-    fn get_simd_for_ret(&self) -> XMM {
-        XMM::XMM0
     }
 
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
@@ -2679,52 +2683,6 @@ impl Machine for MachineX86_64 {
     fn emit_call_location(&mut self, location: Location) -> Result<(), CompileError> {
         self.assembler.emit_call_location(location)
     }
-
-    fn location_address(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_lea(size, source, dest)
-    }
-    // logic
-    fn location_and(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_and(size, source, dest)
-    }
-    fn location_xor(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_xor(size, source, dest)
-    }
-    fn location_or(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_or(size, source, dest)
-    }
-    fn location_test(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_test(size, source, dest)
-    }
-    // math
     fn location_add(
         &mut self,
         size: Size,
@@ -2734,15 +2692,6 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.assembler.emit_add(size, source, dest)
     }
-    fn location_sub(
-        &mut self,
-        size: Size,
-        source: Location,
-        dest: Location,
-        _flags: bool,
-    ) -> Result<(), CompileError> {
-        self.assembler.emit_sub(size, source, dest)
-    }
     fn location_cmp(
         &mut self,
         size: Size,
@@ -2751,28 +2700,30 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.assembler.emit_cmp(size, source, dest)
     }
-    // (un)conditionnal jmp
-    // (un)conditionnal jmp
-    fn jmp_unconditionnal(&mut self, label: Label) -> Result<(), CompileError> {
+
+    // unconditional jmp
+    fn jmp_unconditional(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_jmp(Condition::None, label)
     }
-    fn jmp_on_equal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Equal, label)
-    }
-    fn jmp_on_different(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::NotEqual, label)
-    }
-    fn jmp_on_above(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Above, label)
-    }
-    fn jmp_on_aboveequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::AboveEqual, label)
-    }
-    fn jmp_on_belowequal(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::BelowEqual, label)
-    }
-    fn jmp_on_overflow(&mut self, label: Label) -> Result<(), CompileError> {
-        self.assembler.emit_jmp(Condition::Carry, label)
+
+    fn jmp_on_condition(
+        &mut self,
+        cond: UnsignedCondition,
+        size: Size,
+        loc_a: AbstractLocation<Self::GPR, Self::SIMD>,
+        loc_b: AbstractLocation<Self::GPR, Self::SIMD>,
+        label: Label,
+    ) -> Result<(), CompileError> {
+        self.assembler.emit_cmp(size, loc_b, loc_a)?;
+        let cond = match cond {
+            UnsignedCondition::Equal => Condition::Equal,
+            UnsignedCondition::NotEqual => Condition::NotEqual,
+            UnsignedCondition::Above => Condition::Above,
+            UnsignedCondition::AboveEqual => Condition::AboveEqual,
+            UnsignedCondition::Below => Condition::Below,
+            UnsignedCondition::BelowEqual => Condition::BelowEqual,
+        };
+        self.assembler.emit_jmp(cond, label)
     }
 
     // jmp table
@@ -2830,18 +2781,6 @@ impl Machine for MachineX86_64 {
         Ok(())
     }
 
-    fn location_neg(
-        &mut self,
-        size_val: Size, // size of src
-        signed: bool,
-        source: Location,
-        size_op: Size,
-        dest: Location,
-    ) -> Result<(), CompileError> {
-        self.move_location_extend(size_val, signed, source, size_op, dest)?;
-        self.assembler.emit_neg(size_val, dest)
-    }
-
     fn emit_imul_imm32(&mut self, size: Size, imm32: u32, gpr: GPR) -> Result<(), CompileError> {
         match size {
             Size::S64 => self.assembler.emit_imul_imm32_gpr64(imm32, gpr),
@@ -2868,19 +2807,7 @@ impl Machine for MachineX86_64 {
     ) -> Result<(), CompileError> {
         self.emit_relaxed_binop(AssemblerX64::emit_cmp, sz, src, dst)
     }
-    fn emit_relaxed_zero_extension(
-        &mut self,
-        sz_src: Size,
-        src: Location,
-        sz_dst: Size,
-        dst: Location,
-    ) -> Result<(), CompileError> {
-        if (sz_src == Size::S32 || sz_src == Size::S64) && sz_dst == Size::S64 {
-            self.emit_relaxed_binop(AssemblerX64::emit_mov, sz_src, src, dst)
-        } else {
-            self.emit_relaxed_zx_sx(AssemblerX64::emit_movzx, sz_src, src, sz_dst, dst)
-        }
-    }
+
     fn emit_relaxed_sign_extension(
         &mut self,
         sz_src: Size,
@@ -2921,7 +2848,6 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2966,7 +2892,6 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -2989,7 +2914,6 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -4590,7 +4514,6 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -4635,7 +4558,6 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         self.assembler
@@ -4658,7 +4580,6 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
         integer_division_by_zero: Label,
-        _integer_overflow: Label,
     ) -> Result<usize, CompileError> {
         // We assume that RAX and RDX are temporary registers here.
         let normal_path = self.assembler.get_label();
@@ -7839,15 +7760,21 @@ impl Machine for MachineX86_64 {
         // the cpu feature here is irrelevant
         let mut a = AssemblerX64::new(0, None)?;
 
-        // Calculate stack offset.
-        let mut stack_offset: u32 = 0;
-        for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) =
-                self.get_simple_param_location(1 + i, calling_convention)
-            {
-                stack_offset += 8;
-            }
-        }
+        // Calculate stack offset (+1 for the vmctx argument we are going to pass).
+        let stack_params = (0..sig.params().len() + 1)
+            .filter(|&i| {
+                self.get_param_registers(calling_convention)
+                    .get(i)
+                    .is_none()
+            })
+            .count();
+        let stack_return_slots = sig
+            .results()
+            .len()
+            .saturating_sub(X86_64_RETURN_VALUE_REGISTERS.len());
+
+        // Stack slots are not shared in between function params and return values.
+        let mut stack_offset = 8 * (stack_params + stack_return_slots) as u32;
         let stack_padding: u32 = match calling_convention {
             CallingConvention::WindowsFastcall => 32,
             _ => 0,
@@ -7884,16 +7811,16 @@ impl Machine for MachineX86_64 {
         // Move arguments to their locations.
         // `callee_vmctx` is already in the first argument register, so no need to move.
         {
-            let mut n_stack_args: usize = 0;
+            let mut n_stack_args = 0u32;
             for (i, _param) in sig.params().iter().enumerate() {
                 let src_loc = Location::Memory(GPR::R14, (i * 16) as _); // args_rets[i]
-                let dst_loc = self.get_simple_param_location(1 + i, calling_convention);
+                let dst_loc = self.get_param_registers(calling_convention).get(1 + i);
 
                 match dst_loc {
-                    Location::GPR(_) => {
-                        a.emit_mov(Size::S64, src_loc, dst_loc)?;
+                    Some(&gpr) => {
+                        a.emit_mov(Size::S64, src_loc, Location::GPR(gpr))?;
                     }
-                    Location::Memory(_, _) => {
+                    None => {
                         // This location is for reading arguments but we are writing arguments here.
                         // So recalculate it.
                         a.emit_mov(Size::S64, src_loc, Location::GPR(GPR::RAX))?;
@@ -7902,12 +7829,12 @@ impl Machine for MachineX86_64 {
                             Location::GPR(GPR::RAX),
                             Location::Memory(
                                 GPR::RSP,
-                                (stack_padding as usize + n_stack_args * 8) as _,
+                                (stack_padding + (n_stack_args + stack_return_slots as u32) * 8)
+                                    as _,
                             ),
                         )?;
                         n_stack_args += 1;
                     }
-                    _ => codegen_error!("singlepass gen_std_trampoline unreachable"),
                 }
             }
         }
@@ -7915,21 +7842,33 @@ impl Machine for MachineX86_64 {
         // Call.
         a.emit_call_location(Location::GPR(GPR::R15))?;
 
+        // Write return values.
+        let mut n_stack_return_slots: usize = 0;
+        for i in 0..sig.results().len() {
+            let src = if let Some(&reg) = X86_64_RETURN_VALUE_REGISTERS.get(i) {
+                Location::GPR(reg)
+            } else {
+                let loc = Location::GPR(GPR::R15);
+                a.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        GPR::RSP,
+                        (stack_padding + (n_stack_return_slots as u32 * 8)) as _,
+                    ),
+                    loc,
+                )?;
+                n_stack_return_slots += 1;
+                loc
+            };
+            a.emit_mov(Size::S64, src, Location::Memory(GPR::R14, (i * 16) as _))?;
+        }
+
         // Restore stack.
         a.emit_add(
             Size::S64,
             Location::Imm32(stack_offset + stack_padding),
             Location::GPR(GPR::RSP),
         )?;
-
-        // Write return value.
-        if !sig.results().is_empty() {
-            a.emit_mov(
-                Size::S64,
-                Location::GPR(GPR::RAX),
-                Location::Memory(GPR::R14, 0),
-            )?;
-        }
 
         // Restore callee-saved registers.
         a.emit_pop(Size::S64, Location::GPR(GPR::R14))?;
@@ -7939,6 +7878,7 @@ impl Machine for MachineX86_64 {
 
         let mut body = a.finalize().unwrap();
         body.shrink_to_fit();
+
         Ok(FunctionBody {
             body,
             unwind_info: None,
@@ -8264,7 +8204,7 @@ impl Machine for MachineX86_64 {
                 }
                 UnwindOps::SaveRegister { reg, bp_neg_offset } => instructions.push((
                     instruction_offset,
-                    CallFrameInstruction::Offset(dwarf_index(reg), -bp_neg_offset),
+                    CallFrameInstruction::Offset(reg.dwarf_index(), -bp_neg_offset),
                 )),
                 UnwindOps::Push2Regs { .. } => unimplemented!(),
             }

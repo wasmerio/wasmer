@@ -1,5 +1,5 @@
 //! Here we define the processors usable for each test genrator
-use crate::{extract_name, Test, Testsuite};
+use crate::{Test, Testsuite, extract_name};
 use std::path::PathBuf;
 
 /// Given a Testsuite and a path, process the path in case is a wast

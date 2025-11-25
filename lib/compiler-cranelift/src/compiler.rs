@@ -3,21 +3,23 @@
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 
+#[cfg(feature = "unwind")]
+use crate::translator::CraneliftUnwindInfo;
 use crate::{
     address_map::get_function_address_map,
     config::Cranelift,
-    func_environ::{get_function_name, FuncEnvironment},
+    func_environ::{FuncEnvironment, get_function_name},
     trampoline::{
-        make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
+        FunctionBuilderContext, make_trampoline_dynamic_function, make_trampoline_function_call,
     },
     translator::{
-        compiled_function_unwind_info, irlibcall_to_libcall, irreloc_to_relocationkind,
-        signature_to_cranelift_ir, CraneliftUnwindInfo, FuncTranslator,
+        FuncTranslator, compiled_function_unwind_info, irlibcall_to_libcall,
+        irreloc_to_relocationkind, signature_to_cranelift_ir,
     },
 };
 use cranelift_codegen::{
-    ir::{self, ExternalName, UserFuncName},
     Context, FinalizedMachReloc, FinalizedRelocTarget, MachTrap,
+    ir::{self, ExternalName, UserFuncName},
 };
 
 #[cfg(feature = "unwind")]
@@ -27,21 +29,25 @@ use gimli::write::{Address, EhFrame, FrameTable, Writer};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 
+#[cfg(feature = "unwind")]
+use wasmer_compiler::types::{section::SectionIndex, unwind::CompiledFunctionUnwindInfo};
 use wasmer_compiler::{
+    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
+    ModuleMiddlewareChain, ModuleTranslationState,
     types::{
         function::{
             Compilation, CompiledFunction, CompiledFunctionFrameInfo, FunctionBody, UnwindInfo,
         },
         module::CompileModuleInfo,
         relocation::{Relocation, RelocationTarget},
-        section::SectionIndex,
-        unwind::CompiledFunctionUnwindInfo,
     },
-    Compiler, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
 };
-use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::target::{CallingConvention, Target};
+#[cfg(feature = "unwind")]
+use wasmer_types::entity::EntityRef;
+use wasmer_types::entity::PrimaryMap;
+#[cfg(feature = "unwind")]
+use wasmer_types::target::CallingConvention;
+use wasmer_types::target::Target;
 use wasmer_types::{
     CompileError, FunctionIndex, LocalFunctionIndex, ModuleInfo, SignatureIndex, TrapCode,
     TrapInformation,
@@ -112,128 +118,9 @@ impl CraneliftCompiler {
             }
         };
 
-        let mut custom_sections = PrimaryMap::new();
-
-        #[cfg(not(feature = "rayon"))]
-        let mut func_translator = FuncTranslator::new();
-        #[cfg(not(feature = "rayon"))]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .into_iter()
-            .map(|(i, input)| {
-                let func_index = module.func_index(i);
-                let mut context = Context::new();
-                let mut func_env = FuncEnvironment::new(
-                    isa.frontend_config(),
-                    module,
-                    &signatures,
-                    &memory_styles,
-                    table_styles,
-                );
-                context.func.name = match get_function_name(func_index) {
-                    ExternalName::User(nameref) => {
-                        if context.func.params.user_named_funcs().is_valid(nameref) {
-                            let name = &context.func.params.user_named_funcs()[nameref];
-                            UserFuncName::User(name.clone())
-                        } else {
-                            UserFuncName::default()
-                        }
-                    }
-                    ExternalName::TestCase(testcase) => UserFuncName::Testcase(testcase),
-                    _ => UserFuncName::default(),
-                };
-                context.func.signature = signatures[module.functions[func_index]].clone();
-                // if generate_debug_info {
-                //     context.func.collect_debug_info();
-                // }
-                let mut reader =
-                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
-                reader.set_middleware_chain(
-                    self.config
-                        .middlewares
-                        .generate_function_middleware_chain(i),
-                );
-
-                func_translator.translate(
-                    module_translation_state,
-                    &mut reader,
-                    &mut context.func,
-                    &mut func_env,
-                    i,
-                )?;
-
-                let mut code_buf: Vec<u8> = Vec::new();
-                context
-                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
-                    .map_err(|error| CompileError::Codegen(error.inner.to_string()))?;
-
-                let result = context.compiled_code().unwrap();
-                let func_relocs = result
-                    .buffer
-                    .relocs()
-                    .into_iter()
-                    .map(|r| mach_reloc_to_reloc(module, r))
-                    .collect::<Vec<_>>();
-
-                let traps = result
-                    .buffer
-                    .traps()
-                    .into_iter()
-                    .map(mach_trap_to_trap)
-                    .collect::<Vec<_>>();
-
-                let (unwind_info, fde) = match compiled_function_unwind_info(&*isa, &context)? {
-                    #[cfg(feature = "unwind")]
-                    CraneliftUnwindInfo::Fde(fde) => {
-                        if dwarf_frametable.is_some() {
-                            let fde = fde.to_fde(Address::Symbol {
-                                // The symbol is the kind of relocation.
-                                // "0" is used for functions
-                                symbol: WriterRelocate::FUNCTION_SYMBOL,
-                                // We use the addend as a way to specify the
-                                // function index
-                                addend: i.index() as _,
-                            });
-                            // The unwind information is inserted into the dwarf section
-                            (Some(CompiledFunctionUnwindInfo::Dwarf), Some(fde))
-                        } else {
-                            (None, None)
-                        }
-                    }
-                    #[cfg(feature = "unwind")]
-                    other => (other.maybe_into_to_windows_unwind(), None),
-
-                    // This is a bit hacky, but necessary since gimli is not
-                    // available when the "unwind" feature is disabled.
-                    #[cfg(not(feature = "unwind"))]
-                    other => (other.maybe_into_to_windows_unwind(), None::<()>),
-                };
-
-                let range = reader.range();
-                let address_map = get_function_address_map(&context, range, code_buf.len());
-
-                Ok((
-                    CompiledFunction {
-                        body: FunctionBody {
-                            body: code_buf,
-                            unwind_info,
-                        },
-                        relocations: func_relocs,
-                        frame_info: CompiledFunctionFrameInfo { address_map, traps },
-                    },
-                    fde,
-                ))
-            })
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .unzip();
-        #[cfg(feature = "rayon")]
-        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
-            .map_init(FuncTranslator::new, |func_translator, (i, input)| {
+        let compile_function =
+            |func_translator: &mut FuncTranslator,
+             (i, input): (&LocalFunctionIndex, &FunctionBodyData)| {
                 let func_index = module.func_index(*i);
                 let mut context = Context::new();
                 let mut func_env = FuncEnvironment::new(
@@ -243,7 +130,7 @@ impl CraneliftCompiler {
                     memory_styles,
                     table_styles,
                 );
-                context.func.name = match get_function_name(func_index) {
+                context.func.name = match get_function_name(&mut context.func, func_index) {
                     ExternalName::User(nameref) => {
                         if context.func.params.user_named_funcs().is_valid(nameref) {
                             let name = &context.func.params.user_named_funcs()[nameref];
@@ -276,17 +163,37 @@ impl CraneliftCompiler {
                     *i,
                 )?;
 
-                let mut code_buf: Vec<u8> = Vec::new();
-                context
-                    .compile_and_emit(&*isa, &mut code_buf, &mut Default::default())
-                    .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    use wasmer_compiler::misc::CompiledKind;
 
-                let result = context.compiled_code().unwrap();
+                    callbacks.preopt_ir(
+                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        context.func.display().to_string().as_bytes(),
+                    );
+                }
+
+                let mut code_buf: Vec<u8> = Vec::new();
+                let mut ctrl_plane = Default::default();
+                let func_name_map = context.func.params.user_named_funcs().clone();
+                let result = context
+                    .compile(&*isa, &mut ctrl_plane)
+                    .map_err(|error| CompileError::Codegen(format!("{error:#?}")))?;
+                code_buf.extend_from_slice(result.code_buffer());
+
+                if let Some(callbacks) = self.config.callbacks.as_ref() {
+                    use wasmer_compiler::misc::CompiledKind;
+
+                    callbacks.obj_memory_buffer(
+                        &CompiledKind::Local(*i, compile_info.module.get_function_name(func_index)),
+                        &code_buf,
+                    );
+                }
+
                 let func_relocs = result
                     .buffer
                     .relocs()
                     .iter()
-                    .map(|r| mach_reloc_to_reloc(module, r))
+                    .map(|r| mach_reloc_to_reloc(module, &func_name_map, r))
                     .collect::<Vec<_>>();
 
                 let traps = result
@@ -337,11 +244,37 @@ impl CraneliftCompiler {
                     },
                     fde,
                 ))
+            };
+
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
+        let mut custom_sections = PrimaryMap::new();
+
+        #[cfg(not(feature = "rayon"))]
+        let mut func_translator = FuncTranslator::new();
+        #[cfg(not(feature = "rayon"))]
+        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
+        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+            .iter()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+            .into_iter()
+            .map(|(i, input)| compile_function(&mut func_translator, (&i, input)))
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .unzip();
+        #[cfg(feature = "rayon")]
+        #[cfg_attr(not(feature = "unwind"), allow(unused_variables))]
+        let (functions, fdes): (Vec<CompiledFunction>, Vec<_>) = function_body_inputs
+            .iter()
+            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
+            .par_iter()
+            .map_init(FuncTranslator::new, |func_translator, &(i, input)| {
+                compile_function(func_translator, (&i, input))
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .unzip();
 
+        #[cfg_attr(not(feature = "unwind"), allow(unused_mut))]
         let mut unwind_info = UnwindInfo::default();
 
         #[cfg(feature = "unwind")]
@@ -367,10 +300,10 @@ impl CraneliftCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|sig| make_trampoline_function_call(&*isa, &mut cx, sig))
+            .map(|sig| make_trampoline_function_call(&self.config().callbacks, &*isa, &mut cx, sig))
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
+            .collect();
         #[cfg(feature = "rayon")]
         let function_call_trampolines = module
             .signatures
@@ -378,11 +311,11 @@ impl CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, sig| {
-                make_trampoline_function_call(&*isa, cx, sig)
+                make_trampoline_function_call(&self.config().callbacks, &*isa, cx, sig)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
+            .collect();
 
         use wasmer_types::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
@@ -394,21 +327,35 @@ impl CraneliftCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_iter()
-            .map(|func_type| make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type))
+            .map(|func_type| {
+                make_trampoline_dynamic_function(
+                    &self.config().callbacks,
+                    &*isa,
+                    &offsets,
+                    &mut cx,
+                    &func_type,
+                )
+            })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+            .collect();
         #[cfg(feature = "rayon")]
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |cx, func_type| {
-                make_trampoline_dynamic_function(&*isa, &offsets, cx, func_type)
+                make_trampoline_dynamic_function(
+                    &self.config().callbacks,
+                    &*isa,
+                    &offsets,
+                    cx,
+                    func_type,
+                )
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+            .collect();
 
         let got = wasmer_compiler::types::function::GOT::empty();
 
@@ -480,7 +427,11 @@ impl Compiler for CraneliftCompiler {
     }
 }
 
-fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Relocation {
+fn mach_reloc_to_reloc(
+    module: &ModuleInfo,
+    func_index_map: &cranelift_entity::PrimaryMap<ir::UserExternalNameRef, ir::UserExternalName>,
+    reloc: &FinalizedMachReloc,
+) -> Relocation {
     let FinalizedMachReloc {
         offset,
         kind,
@@ -494,10 +445,11 @@ fn mach_reloc_to_reloc(module: &ModuleInfo, reloc: &FinalizedMachReloc) -> Reloc
         }
     };
     let reloc_target: RelocationTarget = if let ExternalName::User(extname_ref) = name {
+        let func_index = func_index_map[*extname_ref].index;
         //debug_assert_eq!(namespace, 0);
         RelocationTarget::LocalFunc(
             module
-                .local_func_index(FunctionIndex::from_u32(extname_ref.as_u32()))
+                .local_func_index(FunctionIndex::from_u32(func_index))
                 .expect("The provided function should be local"),
         )
     } else if let ExternalName::LibCall(libcall) = name {
@@ -523,23 +475,31 @@ fn mach_trap_to_trap(trap: &MachTrap) -> TrapInformation {
 
 /// Translates the Cranelift IR TrapCode into generic Trap Code
 fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
-    match trap {
-        ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
-        ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
-        ir::TrapCode::HeapMisaligned => TrapCode::UnalignedAtomic,
-        ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
-        ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
-        ir::TrapCode::BadSignature => TrapCode::BadSignature,
-        ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,
-        ir::TrapCode::IntegerDivisionByZero => TrapCode::IntegerDivisionByZero,
-        ir::TrapCode::BadConversionToInteger => TrapCode::BadConversionToInteger,
-        ir::TrapCode::UnreachableCodeReached => TrapCode::UnreachableCodeReached,
-        ir::TrapCode::Interrupt => unimplemented!("Interrupts not supported"),
-        ir::TrapCode::NullReference | ir::TrapCode::NullI31Ref => {
-            unimplemented!("Null reference not supported")
-        }
-        ir::TrapCode::User(_user_code) => unimplemented!("User trap code not supported"),
-        // ir::TrapCode::Interrupt => TrapCode::Interrupt,
-        // ir::TrapCode::User(user_code) => TrapCode::User(user_code),
+    if trap == ir::TrapCode::STACK_OVERFLOW {
+        TrapCode::StackOverflow
+    } else if trap == ir::TrapCode::HEAP_OUT_OF_BOUNDS {
+        TrapCode::HeapAccessOutOfBounds
+    } else if trap == crate::TRAP_HEAP_MISALIGNED {
+        TrapCode::UnalignedAtomic
+    } else if trap == crate::TRAP_TABLE_OUT_OF_BOUNDS {
+        TrapCode::TableAccessOutOfBounds
+    } else if trap == crate::TRAP_INDIRECT_CALL_TO_NULL {
+        TrapCode::IndirectCallToNull
+    } else if trap == crate::TRAP_BAD_SIGNATURE {
+        TrapCode::BadSignature
+    } else if trap == ir::TrapCode::INTEGER_OVERFLOW {
+        TrapCode::IntegerOverflow
+    } else if trap == ir::TrapCode::INTEGER_DIVISION_BY_ZERO {
+        TrapCode::IntegerDivisionByZero
+    } else if trap == ir::TrapCode::BAD_CONVERSION_TO_INTEGER {
+        TrapCode::BadConversionToInteger
+    } else if trap == crate::TRAP_UNREACHABLE {
+        TrapCode::UnreachableCodeReached
+    } else if trap == crate::TRAP_INTERRUPT {
+        unimplemented!("Interrupts not supported")
+    } else if trap == crate::TRAP_NULL_REFERENCE || trap == crate::TRAP_NULL_I31_REF {
+        unimplemented!("Null reference not supported")
+    } else {
+        unimplemented!("Trap code {trap:?} not supported")
     }
 }

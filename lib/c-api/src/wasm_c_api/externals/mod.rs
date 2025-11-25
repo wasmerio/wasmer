@@ -52,7 +52,7 @@ impl wasm_extern_t {
     }
 }
 
-// #[no_mangle]
+// #[unsafe(no_mangle)]
 // pub extern "C" fn wasm_extern_kind(e: &wasm_extern_t) -> wasm_externkind_t {
 //     (match e.inner {
 //         Extern::Function(_) => wasm_externkind_enum::WASM_EXTERN_FUNC,
@@ -64,7 +64,8 @@ impl wasm_extern_t {
 
 impl wasm_extern_t {
     pub(crate) unsafe fn ty(&self) -> ExternType {
-        self.inner.ty(&self.store.store())
+        let store_ref = unsafe { self.store.store() };
+        self.inner.ty(&store_ref)
     }
 }
 
@@ -77,55 +78,55 @@ impl From<wasm_extern_t> for Extern {
 wasm_declare_boxed_vec!(extern);
 
 /// Copy a `wasm_extern_t`.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_extern_copy(r#extern: &wasm_extern_t) -> Box<wasm_extern_t> {
     Box::new(r#extern.clone())
 }
 
 /// Delete an extern.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasm_extern_delete(_extern: Option<Box<wasm_extern_t>>) {}
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_func_as_extern(func: Option<&wasm_func_t>) -> Option<&wasm_extern_t> {
     Some(&func?.extern_)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_global_as_extern(global: Option<&wasm_global_t>) -> Option<&wasm_extern_t> {
     Some(&global?.extern_)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_memory_as_extern(memory: Option<&wasm_memory_t>) -> Option<&wasm_extern_t> {
     Some(&memory?.extern_)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_table_as_extern(table: Option<&wasm_table_t>) -> Option<&wasm_extern_t> {
     Some(&table?.extern_)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_extern_as_func(r#extern: Option<&wasm_extern_t>) -> Option<&wasm_func_t> {
     wasm_func_t::try_from(r#extern?)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_extern_as_global(
     r#extern: Option<&wasm_extern_t>,
 ) -> Option<&wasm_global_t> {
     wasm_global_t::try_from(r#extern?)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_extern_as_memory(
     r#extern: Option<&wasm_extern_t>,
 ) -> Option<&wasm_memory_t> {
     wasm_memory_t::try_from(r#extern?)
 }
 
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasm_extern_as_table(r#extern: Option<&wasm_extern_t>) -> Option<&wasm_table_t> {
     wasm_table_t::try_from(r#extern?)
 }
@@ -137,7 +138,11 @@ mod tests {
     #[cfg(target_os = "windows")]
     use wasmer_inline_c::assert_c;
 
-    #[cfg_attr(coverage, ignore)]
+    #[allow(
+        unexpected_cfgs,
+        reason = "tools like cargo-llvm-coverage pass --cfg coverage"
+    )]
+    #[cfg_attr(coverage_nightly, coverage(off))]
     #[test]
     fn test_extern_copy() {
         (assert_c! {

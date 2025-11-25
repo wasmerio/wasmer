@@ -53,7 +53,7 @@ pub struct wasmer_features_t {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_new() -> Box<wasmer_features_t> {
     Box::new(wasmer_features_t {
         inner: Features::new(),
@@ -65,7 +65,7 @@ pub extern "C" fn wasmer_features_new() -> Box<wasmer_features_t> {
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_delete(_features: Option<Box<wasmer_features_t>>) {}
 
 /// Configures whether the WebAssembly threads proposal will be enabled.
@@ -84,7 +84,7 @@ pub extern "C" fn wasmer_features_delete(_features: Option<Box<wasmer_features_t
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_threads(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -118,7 +118,7 @@ pub extern "C" fn wasmer_features_threads(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_reference_types(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -151,7 +151,7 @@ pub extern "C" fn wasmer_features_reference_types(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_simd(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -184,7 +184,7 @@ pub extern "C" fn wasmer_features_simd(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_bulk_memory(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -217,7 +217,7 @@ pub extern "C" fn wasmer_features_bulk_memory(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_multi_value(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -249,7 +249,7 @@ pub extern "C" fn wasmer_features_multi_value(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_tail_call(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -282,7 +282,7 @@ pub extern "C" fn wasmer_features_tail_call(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_module_linking(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -315,7 +315,7 @@ pub extern "C" fn wasmer_features_module_linking(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_multi_memory(
     features: Option<&mut wasmer_features_t>,
     enable: bool,
@@ -348,7 +348,7 @@ pub extern "C" fn wasmer_features_multi_memory(
 /// # Example
 ///
 /// See the module's documentation.
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_features_memory64(
     features: Option<&mut wasmer_features_t>,
     enable: bool,

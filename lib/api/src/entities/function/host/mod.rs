@@ -1,8 +1,8 @@
 mod imp;
 
 use crate::{
-    vm::{VMFunctionCallback, VMTrampoline},
     BackendKind, WasmTypeList,
+    vm::{VMFunctionCallback, VMTrampoline},
 };
 
 /// The `HostFunction` trait represents the set of functions that

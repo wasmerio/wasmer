@@ -1712,6 +1712,7 @@ type AppTemplate implements Node {
   demoUrl: String!
   repoUrl: String!
   branch: String
+  rootDir: String
   category: AppTemplateCategory!
   isPublic: Boolean!
   createdAt: DateTime!

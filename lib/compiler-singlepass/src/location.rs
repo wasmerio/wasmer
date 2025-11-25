@@ -1,4 +1,3 @@
-use crate::common_decl::RegisterIndex;
 use crate::machine::*;
 use std::fmt::Debug;
 use std::hash::Hash;
@@ -40,12 +39,12 @@ impl<R, S> MaybeImmediate for Location<R, S> {
 
 #[allow(unused)]
 pub trait Reg: Copy + Clone + Eq + PartialEq + Debug + Hash + Ord {
-    fn is_callee_save(self) -> bool;
-    fn is_reserved(self) -> bool;
     fn into_index(self) -> usize;
     fn from_index(i: usize) -> Result<Self, ()>;
     fn iterator() -> Iter<'static, Self>;
-    fn to_dwarf(self) -> u16;
+
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register;
 }
 
 #[allow(unused)]
@@ -69,10 +68,6 @@ pub trait Descriptor<R: Reg, S: Reg> {
 
 #[allow(unused)]
 pub trait CombinedRegister: Copy + Clone + Eq + PartialEq + Debug {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex;
-    /// Converts a DWARF regnum to CombinedRegister.
-    fn _from_dwarf_regnum(x: u16) -> Option<Self>;
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self;
     /// Convert from an SIMD register

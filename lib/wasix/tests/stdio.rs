@@ -1,10 +1,10 @@
 use virtual_fs::{AsyncReadExt, AsyncWriteExt};
-use virtual_mio::InlineWaker;
+use virtual_mio::block_on;
 use wasmer::Module;
 use wasmer_types::ModuleHash;
 use wasmer_wasix::{
-    runners::wasi::{RuntimeOrEngine, WasiRunner},
     Pipe,
+    runners::wasi::{RuntimeOrEngine, WasiRunner},
 };
 
 mod sys {
@@ -106,7 +106,7 @@ fn test_stdout() {
     }
 
     let mut stdout_str = String::new();
-    InlineWaker::block_on(stdout_rx.read_to_string(&mut stdout_str)).unwrap();
+    block_on(stdout_rx.read_to_string(&mut stdout_str)).unwrap();
     let stdout_as_str = stdout_str.as_str();
     assert_eq!(stdout_as_str, "hello world");
 }
@@ -153,9 +153,12 @@ fn test_env() {
     }
 
     let mut stdout_str = String::new();
-    InlineWaker::block_on(pipe_rx.read_to_string(&mut stdout_str)).unwrap();
+    block_on(pipe_rx.read_to_string(&mut stdout_str)).unwrap();
     let stdout_as_str = stdout_str.as_str();
-    assert_eq!(stdout_as_str, "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n");
+    assert_eq!(
+        stdout_as_str,
+        "Env vars:\nDOG=X\nTEST2=VALUE2\nTEST=VALUE\nDOG Ok(\"X\")\nDOG_TYPE Err(NotPresent)\nSET VAR Ok(\"HELLO\")\n"
+    );
 }
 
 fn test_stdin() {
@@ -177,7 +180,7 @@ fn test_stdin() {
 
     // Write to STDIN
     let buf = "Hello, stdin!\n".as_bytes().to_owned();
-    InlineWaker::block_on(pipe_tx.write_all(&buf[..])).unwrap();
+    block_on(pipe_tx.write_all(&buf[..])).unwrap();
 
     {
         let mut runner = WasiRunner::new();

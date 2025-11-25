@@ -20,8 +20,9 @@
 
 use std::str::FromStr;
 use wasmer::{
+    Module, RuntimeError, Store,
     sys::{CpuFeature, EngineBuilder},
-    wat2wasm, Module, RuntimeError, Store,
+    wat2wasm,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_types::target::{Target, Triple};
@@ -65,7 +66,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // Let's build the target.
     let target = Target::new(triple, cpu_feature);
-    println!("Chosen target: {:?}", target);
+    println!("Chosen target: {target:?}");
 
     // Define the engine that will drive everything.
     //

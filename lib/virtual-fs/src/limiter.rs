@@ -4,7 +4,7 @@ use crate::FsError;
 
 pub use self::tracked_vec::TrackedVec;
 
-/// Allows tracking and limiting the memory usage of a memfs [`FileSystem`].
+/// Allows tracking and limiting the memory usage of a memfs [`FileSystem`](crate::FileSystem).
 pub trait FsMemoryLimiter: Send + Sync + std::fmt::Debug {
     fn on_grow(&self, grown_bytes: usize) -> std::result::Result<(), FsError>;
     fn on_shrink(&self, shrunk_bytes: usize);

@@ -219,7 +219,9 @@ pub(super) async fn login_user(
             }
         } else {
             let bin_name = self::macros::bin_name!();
-            eprintln!("You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}.");
+            eprintln!(
+                "You are not logged in. Use the `--token` flag or log in (use `{bin_name} login`) to {msg}."
+            );
             anyhow::bail!("Stopping execution as the user is not logged in.")
         }
     }

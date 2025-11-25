@@ -1,7 +1,7 @@
 use std::time::Duration;
 
 use anyhow::Context;
-use futures::{future::BoxFuture, TryStreamExt};
+use futures::{TryStreamExt, future::BoxFuture};
 use std::convert::TryFrom;
 use tokio::runtime::Handle;
 

@@ -42,6 +42,6 @@ impl VMExternRef {
     /// # Safety
     /// `raw` must be a valid `VMExternRef` instance.
     pub unsafe fn from_raw(raw: RawValue) -> Option<Self> {
-        InternalStoreHandle::from_index(raw.externref).map(Self)
+        unsafe { InternalStoreHandle::from_index(raw.externref).map(Self) }
     }
 }

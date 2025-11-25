@@ -24,14 +24,14 @@ use crate::{
     heap::{HeapData, HeapStyle},
     translator::func_environ::FuncEnvironment,
 };
+use Reachability::*;
 use cranelift_codegen::{
     cursor::{Cursor, FuncCursor},
-    ir::{self, condcodes::IntCC, InstBuilder, RelSourceLoc},
+    ir::{self, InstBuilder, RelSourceLoc, condcodes::IntCC},
     ir::{Expr, Fact},
 };
 use cranelift_frontend::FunctionBuilder;
 use wasmer_types::WasmResult;
-use Reachability::*;
 
 /// Helper used to emit bounds checks (as necessary) and compute the native
 /// address of a heap access.
@@ -281,7 +281,7 @@ where
             let adjusted_index = builder.ins().uadd_overflow_trap(
                 index,
                 access_size_val,
-                ir::TrapCode::HeapOutOfBounds,
+                ir::TrapCode::HEAP_OUT_OF_BOUNDS,
             );
             if pcc {
                 builder.func.dfg.facts[adjusted_index] = Some(Fact::value_offset(
@@ -326,7 +326,7 @@ where
                 "static memories require the ability to use virtual memory"
             );
             env.before_unconditionally_trapping_memory_access(builder)?;
-            builder.ins().trap(ir::TrapCode::HeapOutOfBounds);
+            builder.ins().trap(ir::TrapCode::HEAP_OUT_OF_BOUNDS);
             Unreachable
         }
 
@@ -568,7 +568,7 @@ fn explicit_check_oob_condition_and_compute_addr(
 ) -> ir::Value {
     if !spectre_mitigations_enabled {
         pos.ins()
-            .trapnz(oob_condition, ir::TrapCode::HeapOutOfBounds);
+            .trapnz(oob_condition, ir::TrapCode::HEAP_OUT_OF_BOUNDS);
     }
 
     let mut addr = compute_addr(pos, heap, addr_ty, index, offset, pcc);

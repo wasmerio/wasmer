@@ -22,14 +22,14 @@ use std::mem;
 #[cfg(unix)]
 use std::mem::MaybeUninit;
 use std::ptr::{self, NonNull};
-use std::sync::atomic::{compiler_fence, AtomicPtr, AtomicUsize, Ordering};
+use std::sync::atomic::{AtomicPtr, AtomicUsize, Ordering, compiler_fence};
 use std::sync::{LazyLock, Once};
 use wasmer_types::TrapCode;
 
 /// Configuration for the runtime VM
 /// Currently only the stack size is configurable
 pub struct VMConfig {
-    /// Optionnal stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
+    /// Optional stack size (in byte) of the VM. Value lower than 8K will be rounded to 8K.
     pub wasm_stack_size: Option<usize>,
 }
 
@@ -92,48 +92,50 @@ cfg_if::cfg_if! {
 
 // Process an IllegalOpcode to see if it has a TrapCode payload
 unsafe fn process_illegal_op(addr: usize) -> Option<TrapCode> {
-    let mut val: Option<u8> = None;
-    if cfg!(target_arch = "x86_64") {
-        val = if read(addr as *mut u8) & 0xf0 == 0x40
-            && read((addr + 1) as *mut u8) == 0x0f
-            && read((addr + 2) as *mut u8) == 0xb9
-        {
-            Some(read((addr + 3) as *mut u8))
-        } else if read(addr as *mut u8) == 0x0f && read((addr + 1) as *mut u8) == 0xb9 {
-            Some(read((addr + 2) as *mut u8))
-        } else {
-            None
+    unsafe {
+        let mut val: Option<u8> = None;
+        if cfg!(target_arch = "x86_64") {
+            val = if read(addr as *mut u8) & 0xf0 == 0x40
+                && read((addr + 1) as *mut u8) == 0x0f
+                && read((addr + 2) as *mut u8) == 0xb9
+            {
+                Some(read((addr + 3) as *mut u8))
+            } else if read(addr as *mut u8) == 0x0f && read((addr + 1) as *mut u8) == 0xb9 {
+                Some(read((addr + 2) as *mut u8))
+            } else {
+                None
+            }
         }
-    }
-    if cfg!(target_arch = "aarch64") {
-        val = if read_unaligned(addr as *mut u32) & 0xffff0000 == 0 {
-            Some(read(addr as *mut u8))
-        } else {
-            None
+        if cfg!(target_arch = "aarch64") {
+            val = if read_unaligned(addr as *mut u32) & 0xffff0000 == 0 {
+                Some(read(addr as *mut u8))
+            } else {
+                None
+            }
         }
-    }
-    match val.and_then(|val| {
-        if val & MAGIC == MAGIC {
-            Some(val & 0xf)
-        } else {
-            None
+        match val.and_then(|val| {
+            if val & MAGIC == MAGIC {
+                Some(val & 0xf)
+            } else {
+                None
+            }
+        }) {
+            None => None,
+            Some(val) => match val {
+                0 => Some(TrapCode::StackOverflow),
+                1 => Some(TrapCode::HeapAccessOutOfBounds),
+                2 => Some(TrapCode::HeapMisaligned),
+                3 => Some(TrapCode::TableAccessOutOfBounds),
+                4 => Some(TrapCode::IndirectCallToNull),
+                5 => Some(TrapCode::BadSignature),
+                6 => Some(TrapCode::IntegerOverflow),
+                7 => Some(TrapCode::IntegerDivisionByZero),
+                8 => Some(TrapCode::BadConversionToInteger),
+                9 => Some(TrapCode::UnreachableCodeReached),
+                10 => Some(TrapCode::UnalignedAtomic),
+                _ => None,
+            },
         }
-    }) {
-        None => None,
-        Some(val) => match val {
-            0 => Some(TrapCode::StackOverflow),
-            1 => Some(TrapCode::HeapAccessOutOfBounds),
-            2 => Some(TrapCode::HeapMisaligned),
-            3 => Some(TrapCode::TableAccessOutOfBounds),
-            4 => Some(TrapCode::IndirectCallToNull),
-            5 => Some(TrapCode::BadSignature),
-            6 => Some(TrapCode::IntegerOverflow),
-            7 => Some(TrapCode::IntegerDivisionByZero),
-            8 => Some(TrapCode::BadConversionToInteger),
-            9 => Some(TrapCode::UnreachableCodeReached),
-            10 => Some(TrapCode::UnalignedAtomic),
-            _ => None,
-        },
     }
 }
 
@@ -144,7 +146,7 @@ cfg_if::cfg_if! {
         static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
-        unsafe fn platform_init() {
+        unsafe fn platform_init() { unsafe {
             let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32| {
                 let mut handler: libc::sigaction = mem::zeroed();
                 // The flags here are relatively careful, and they are...
@@ -199,7 +201,7 @@ cfg_if::cfg_if! {
                 use mach2::traps::*;
                 use mach2::mach_types::*;
 
-                extern "C" {
+                unsafe extern "C" {
                     fn task_set_exception_ports(
                         task: task_t,
                         exception_mask: exception_mask_t,
@@ -224,13 +226,13 @@ cfg_if::cfg_if! {
                     MACHINE_THREAD_STATE,
                 );
             }
-        }
+        }}
 
         unsafe extern "C" fn trap_handler(
             signum: libc::c_int,
             siginfo: *mut libc::siginfo_t,
             context: *mut libc::c_void,
-        ) {
+        ) { unsafe {
             let previous = match signum {
                 libc::SIGSEGV => &PREV_SIGSEGV,
                 libc::SIGBUS => &PREV_SIGBUS,
@@ -291,7 +293,7 @@ cfg_if::cfg_if! {
                     previous.sa_sigaction
                 )(signum)
             }
-        }
+        }}
 
         unsafe fn get_pc_sp(context: &ucontext_t) -> (usize, usize) {
             let (pc, sp);
@@ -315,8 +317,9 @@ cfg_if::cfg_if! {
                     pc = context.uc_mcontext.mc_rip as usize;
                     sp = context.uc_mcontext.mc_rsp as usize;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
-                    pc = (*context.uc_mcontext).__ss.__rip as usize;
-                    sp = (*context.uc_mcontext).__ss.__rsp as usize;
+                    let mcontext = unsafe { &*context.uc_mcontext };
+                    pc = mcontext.__ss.__rip as usize;
+                    sp = mcontext.__ss.__rsp as usize;
                 } else if #[cfg(all(
                         any(target_os = "linux", target_os = "android"),
                         target_arch = "aarch64",
@@ -336,8 +339,9 @@ cfg_if::cfg_if! {
                     pc = context.uc_mcontext.__gregs[libc::REG_PC] as usize;
                     sp = context.uc_mcontext.__gregs[libc::REG_SP] as usize;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))] {
-                    pc = (*context.uc_mcontext).__ss.__pc as usize;
-                    sp = (*context.uc_mcontext).__ss.__sp as usize;
+                    let mcontext = unsafe { &*context.uc_mcontext };
+                    pc = mcontext.__ss.__pc as usize;
+                    sp = mcontext.__ss.__sp as usize;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
                     pc = context.uc_mcontext.mc_gpregs.gp_elr as usize;
                     sp = context.uc_mcontext.mc_gpregs.gp_sp as usize;
@@ -375,11 +379,12 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.gregs[libc::REG_EDX as usize] = edx as i32;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "x86_64"))] {
                     let TrapHandlerRegs { rip, rsp, rbp, rdi, rsi } = regs;
-                    (*context.uc_mcontext).__ss.__rip = rip;
-                    (*context.uc_mcontext).__ss.__rsp = rsp;
-                    (*context.uc_mcontext).__ss.__rbp = rbp;
-                    (*context.uc_mcontext).__ss.__rdi = rdi;
-                    (*context.uc_mcontext).__ss.__rsi = rsi;
+                    let mcontext = unsafe { &mut *context.uc_mcontext };
+                    mcontext.__ss.__rip = rip;
+                    mcontext.__ss.__rsp = rsp;
+                    mcontext.__ss.__rbp = rbp;
+                    mcontext.__ss.__rdi = rdi;
+                    mcontext.__ss.__rsi = rsi;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "x86"))] {
                     let TrapHandlerRegs { eip, esp, ebp, ecx, edx } = regs;
                     context.uc_mcontext.mc_eip = eip as libc::register_t;
@@ -450,12 +455,13 @@ cfg_if::cfg_if! {
                     context.uc_mcontext.__gregs[libc::REG_S0] = s0 as libc::c_ulong;
                 } else if #[cfg(all(target_vendor = "apple", target_arch = "aarch64"))] {
                     let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
-                    (*context.uc_mcontext).__ss.__pc = pc;
-                    (*context.uc_mcontext).__ss.__sp = sp;
-                    (*context.uc_mcontext).__ss.__x[0] = x0;
-                    (*context.uc_mcontext).__ss.__x[1] = x1;
-                    (*context.uc_mcontext).__ss.__fp = x29;
-                    (*context.uc_mcontext).__ss.__lr = lr;
+                    let mcontext = unsafe { &mut *context.uc_mcontext };
+                    mcontext.__ss.__pc = pc;
+                    mcontext.__ss.__sp = sp;
+                    mcontext.__ss.__x[0] = x0;
+                    mcontext.__ss.__x[1] = x1;
+                    mcontext.__ss.__fp = x29;
+                    mcontext.__ss.__lr = lr;
                 } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
                     let TrapHandlerRegs { pc, sp, x0, x1, x29, lr } = regs;
                     context.uc_mcontext.mc_gpregs.gp_elr = pc as libc::register_t;
@@ -494,73 +500,78 @@ cfg_if::cfg_if! {
         };
 
         unsafe fn platform_init() {
-            // our trap handler needs to go first, so that we can recover from
-            // wasm faults and continue execution, so pass `1` as a true value
-            // here.
-            if AddVectoredExceptionHandler(1, Some(exception_handler)).is_null() {
-                panic!("failed to add exception handler: {}", io::Error::last_os_error());
+            unsafe {
+                // our trap handler needs to go first, so that we can recover from
+                // wasm faults and continue execution, so pass `1` as a true value
+                // here.
+                let handler = AddVectoredExceptionHandler(1, Some(exception_handler));
+                if handler.is_null() {
+                    panic!("failed to add exception handler: {}", io::Error::last_os_error());
+                }
             }
         }
 
         unsafe extern "system" fn exception_handler(
             exception_info: *mut EXCEPTION_POINTERS
         ) -> i32 {
-            // Check the kind of exception, since we only handle a subset within
-            // wasm code. If anything else happens we want to defer to whatever
-            // the rest of the system wants to do for this exception.
-            let record = &*(*exception_info).ExceptionRecord;
-            if record.ExceptionCode != EXCEPTION_ACCESS_VIOLATION &&
-                record.ExceptionCode != EXCEPTION_ILLEGAL_INSTRUCTION &&
-                record.ExceptionCode != EXCEPTION_STACK_OVERFLOW &&
-                record.ExceptionCode != EXCEPTION_INT_DIVIDE_BY_ZERO &&
-                record.ExceptionCode != EXCEPTION_INT_OVERFLOW
-            {
-                return EXCEPTION_CONTINUE_SEARCH;
-            }
-
-            // FIXME: this is what the previous C++ did to make sure that TLS
-            // works by the time we execute this trap handling code. This isn't
-            // exactly super easy to call from Rust though and it's not clear we
-            // necessarily need to do so. Leaving this here in case we need this
-            // in the future, but for now we can probably wait until we see a
-            // strange fault before figuring out how to reimplement this in
-            // Rust.
-            //
-            // if (!NtCurrentTeb()->Reserved1[sThreadLocalArrayPointerIndex]) {
-            //     return EXCEPTION_CONTINUE_SEARCH;
-            // }
-
-            let context = &mut *(*exception_info).ContextRecord;
-            let (pc, sp) = get_pc_sp(context);
-
-            // We try to get the fault address associated to this exception.
-            let maybe_fault_address = match record.ExceptionCode {
-                EXCEPTION_ACCESS_VIOLATION => Some(record.ExceptionInformation[1]),
-                EXCEPTION_STACK_OVERFLOW => Some(sp),
-                _ => None,
-            };
-            let trap_code = match record.ExceptionCode {
-                // check if it was cased by a UD and if the Trap info is a payload to it
-                EXCEPTION_ILLEGAL_INSTRUCTION => {
-                    process_illegal_op(pc)
+            unsafe {
+                // Check the kind of exception, since we only handle a subset within
+                // wasm code. If anything else happens we want to defer to whatever
+                // the rest of the system wants to do for this exception.
+                let record = &*(*exception_info).ExceptionRecord;
+                if record.ExceptionCode != EXCEPTION_ACCESS_VIOLATION &&
+                    record.ExceptionCode != EXCEPTION_ILLEGAL_INSTRUCTION &&
+                    record.ExceptionCode != EXCEPTION_STACK_OVERFLOW &&
+                    record.ExceptionCode != EXCEPTION_INT_DIVIDE_BY_ZERO &&
+                    record.ExceptionCode != EXCEPTION_INT_OVERFLOW
+                {
+                    return EXCEPTION_CONTINUE_SEARCH;
                 }
-                _ => None,
-            };
-            // This is basically the same as the unix version above, only with a
-            // few parameters tweaked here and there.
-            let handled = TrapHandlerContext::handle_trap(
-                pc,
-                sp,
-                maybe_fault_address,
-                trap_code,
-                |regs| update_context(context, regs),
-                |handler| handler(exception_info),
-            );
 
-            if handled {
-                EXCEPTION_CONTINUE_EXECUTION
-            } else {
-                EXCEPTION_CONTINUE_SEARCH
+                // FIXME: this is what the previous C++ did to make sure that TLS
+                // works by the time we execute this trap handling code. This isn't
+                // exactly super easy to call from Rust though and it's not clear we
+                // necessarily need to do so. Leaving this here in case we need this
+                // in the future, but for now we can probably wait until we see a
+                // strange fault before figuring out how to reimplement this in
+                // Rust.
+                //
+                // if (!NtCurrentTeb()->Reserved1[sThreadLocalArrayPointerIndex]) {
+                //     return EXCEPTION_CONTINUE_SEARCH;
+                // }
+
+                let context = &mut *(*exception_info).ContextRecord;
+                let (pc, sp) = get_pc_sp(context);
+
+                // We try to get the fault address associated to this exception.
+                let maybe_fault_address = match record.ExceptionCode {
+                    EXCEPTION_ACCESS_VIOLATION => Some(record.ExceptionInformation[1]),
+                    EXCEPTION_STACK_OVERFLOW => Some(sp),
+                    _ => None,
+                };
+                let trap_code = match record.ExceptionCode {
+                    // check if it was cased by a UD and if the Trap info is a payload to it
+                    EXCEPTION_ILLEGAL_INSTRUCTION => {
+                        process_illegal_op(pc)
+                    }
+                    _ => None,
+                };
+                // This is basically the same as the unix version above, only with a
+                // few parameters tweaked here and there.
+                let handled = TrapHandlerContext::handle_trap(
+                    pc,
+                    sp,
+                    maybe_fault_address,
+                    trap_code,
+                    |regs| update_context(context, regs),
+                    |handler| handler(exception_info),
+                );
+
+                if handled {
+                    EXCEPTION_CONTINUE_EXECUTION
+                } else {
+                    EXCEPTION_CONTINUE_SEARCH
+                }
             }
         }
 
@@ -632,7 +643,7 @@ pub fn init_traps() {
 /// Additionally no Rust destructors may be on the stack.
 /// They will be skipped and not executed.
 pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
-    unwind_with(UnwindReason::UserTrap(data))
+    unsafe { unwind_with(UnwindReason::UserTrap(data)) }
 }
 
 /// Raises a trap from inside library code immediately.
@@ -647,7 +658,7 @@ pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
 /// Additionally no Rust destructors may be on the stack.
 /// They will be skipped and not executed.
 pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
-    unwind_with(UnwindReason::LibTrap(trap))
+    unsafe { unwind_with(UnwindReason::LibTrap(trap)) }
 }
 
 /// Carries a Rust panic across wasm code and resumes the panic on the other
@@ -659,7 +670,7 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 /// have been previously called and not returned. Additionally no Rust destructors may be on the
 /// stack. They will be skipped and not executed.
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
-    unwind_with(UnwindReason::Panic(payload))
+    unsafe { unwind_with(UnwindReason::Panic(payload)) }
 }
 
 /// Call the wasm function pointed to by `callee`.
@@ -685,16 +696,18 @@ pub unsafe fn wasmer_call_trampoline(
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_handler, config, move || {
-        mem::transmute::<
-            unsafe extern "C" fn(
-                *mut VMContext,
-                *const VMFunctionBody,
-                *mut wasmer_types::RawValue,
-            ),
-            extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
-        >(trampoline)(vmctx, callee, values_vec);
-    })
+    unsafe {
+        catch_traps(trap_handler, config, move || {
+            mem::transmute::<
+                unsafe extern "C" fn(
+                    *mut VMContext,
+                    *const VMFunctionBody,
+                    *mut wasmer_types::RawValue,
+                ),
+                extern "C" fn(VMFunctionContext, *const VMFunctionBody, *mut u8),
+            >(trampoline)(vmctx, callee, values_vec);
+        })
+    }
 }
 
 /// Catches any wasm traps that happen within the execution of `closure`,
@@ -811,28 +824,30 @@ impl TrapHandlerContext {
         mut update_regs: impl FnMut(TrapHandlerRegs),
         call_handler: impl Fn(&TrapHandlerFn<'static>) -> bool,
     ) -> bool {
-        let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
-        if ptr.is_null() {
-            return false;
-        }
+        unsafe {
+            let ptr = TRAP_HANDLER.with(|ptr| ptr.load(Ordering::Relaxed));
+            if ptr.is_null() {
+                return false;
+            }
 
-        let ctx = &*ptr;
+            let ctx = &*ptr;
 
-        // Check if this trap is handled by a custom trap handler.
-        if let Some(trap_handler) = ctx.custom_trap {
-            if call_handler(&*trap_handler) {
+            // Check if this trap is handled by a custom trap handler.
+            if let Some(trap_handler) = ctx.custom_trap
+                && call_handler(&*trap_handler)
+            {
                 return true;
             }
-        }
 
-        (ctx.handle_trap)(
-            ctx.inner,
-            pc,
-            sp,
-            maybe_fault_address,
-            trap_code,
-            &mut update_regs,
-        )
+            (ctx.handle_trap)(
+                ctx.inner,
+                pc,
+                sp,
+                maybe_fault_address,
+                trap_code,
+                &mut update_regs,
+            )
+        }
     }
 }
 
@@ -845,46 +860,48 @@ impl<T> TrapHandlerContextInner<T> {
         trap_code: Option<TrapCode>,
         update_regs: &mut dyn FnMut(TrapHandlerRegs),
     ) -> bool {
-        // Check if this trap occurred while executing on the Wasm stack. We can
-        // only recover from traps if that is the case.
-        if !self.coro_trap_handler.stack_ptr_in_bounds(sp) {
-            return false;
+        unsafe {
+            // Check if this trap occurred while executing on the Wasm stack. We can
+            // only recover from traps if that is the case.
+            if !self.coro_trap_handler.stack_ptr_in_bounds(sp) {
+                return false;
+            }
+
+            let signal_trap = trap_code.or_else(|| {
+                maybe_fault_address.map(|addr| {
+                    if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
+                        TrapCode::StackOverflow
+                    } else {
+                        TrapCode::HeapAccessOutOfBounds
+                    }
+                })
+            });
+
+            // Don't try to generate a backtrace for stack overflows: unwinding
+            // information is often not precise enough to properly describe what is
+            // happenning during a function prologue, which can lead the unwinder to
+            // read invalid memory addresses.
+            //
+            // See: https://github.com/rust-lang/backtrace-rs/pull/357
+            let backtrace = if signal_trap == Some(TrapCode::StackOverflow) {
+                Backtrace::from(vec![])
+            } else {
+                Backtrace::new_unresolved()
+            };
+
+            // Set up the register state for exception return to force the
+            // coroutine to return to its caller with UnwindReason::WasmTrap.
+            let unwind = UnwindReason::WasmTrap {
+                backtrace,
+                signal_trap,
+                pc,
+            };
+            let regs = self
+                .coro_trap_handler
+                .setup_trap_handler(move || Err(unwind));
+            update_regs(regs);
+            true
         }
-
-        let signal_trap = trap_code.or_else(|| {
-            maybe_fault_address.map(|addr| {
-                if self.coro_trap_handler.stack_ptr_in_bounds(addr) {
-                    TrapCode::StackOverflow
-                } else {
-                    TrapCode::HeapAccessOutOfBounds
-                }
-            })
-        });
-
-        // Don't try to generate a backtrace for stack overflows: unwinding
-        // information is often not precise enough to properly describe what is
-        // happenning during a function prologue, which can lead the unwinder to
-        // read invalid memory addresses.
-        //
-        // See: https://github.com/rust-lang/backtrace-rs/pull/357
-        let backtrace = if signal_trap == Some(TrapCode::StackOverflow) {
-            Backtrace::from(vec![])
-        } else {
-            Backtrace::new_unresolved()
-        };
-
-        // Set up the register state for exception return to force the
-        // coroutine to return to its caller with UnwindReason::WasmTrap.
-        let unwind = UnwindReason::WasmTrap {
-            backtrace,
-            signal_trap,
-            pc,
-        };
-        let regs = self
-            .coro_trap_handler
-            .setup_trap_handler(move || Err(unwind));
-        update_regs(regs);
-        true
     }
 }
 
@@ -919,14 +936,16 @@ impl UnwindReason {
 }
 
 unsafe fn unwind_with(reason: UnwindReason) -> ! {
-    let yielder = YIELDER
-        .with(|cell| cell.replace(None))
-        .expect("not running on Wasm stack");
+    unsafe {
+        let yielder = YIELDER
+            .with(|cell| cell.replace(None))
+            .expect("not running on Wasm stack");
 
-    yielder.as_ref().suspend(reason);
+        yielder.as_ref().suspend(reason);
 
-    // on_wasm_stack will forcibly reset the coroutine stack after yielding.
-    unreachable!();
+        // on_wasm_stack will forcibly reset the coroutine stack after yielding.
+        unreachable!();
+    }
 }
 
 /// Runs the given function on a separate stack so that its stack usage can be
@@ -1061,53 +1080,55 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
     }
 
     unsafe fn init_sigstack() -> Tls {
-        // Check to see if the existing sigaltstack, if it exists, is big
-        // enough. If so we don't need to allocate our own.
-        let mut old_stack = mem::zeroed();
-        let r = libc::sigaltstack(ptr::null(), &mut old_stack);
-        assert_eq!(r, 0, "learning about sigaltstack failed");
-        if old_stack.ss_flags & libc::SS_DISABLE == 0 && old_stack.ss_size >= MIN_STACK_SIZE {
-            return Tls::BigEnough;
-        }
+        unsafe {
+            // Check to see if the existing sigaltstack, if it exists, is big
+            // enough. If so we don't need to allocate our own.
+            let mut old_stack = mem::zeroed();
+            let r = libc::sigaltstack(ptr::null(), &mut old_stack);
+            assert_eq!(r, 0, "learning about sigaltstack failed");
+            if old_stack.ss_flags & libc::SS_DISABLE == 0 && old_stack.ss_size >= MIN_STACK_SIZE {
+                return Tls::BigEnough;
+            }
 
-        // ... but failing that we need to allocate our own, so do all that
-        // here.
-        let page_size: usize = region::page::size();
-        let guard_size = page_size;
-        let alloc_size = guard_size + MIN_STACK_SIZE;
+            // ... but failing that we need to allocate our own, so do all that
+            // here.
+            let page_size: usize = region::page::size();
+            let guard_size = page_size;
+            let alloc_size = guard_size + MIN_STACK_SIZE;
 
-        let ptr = libc::mmap(
-            null_mut(),
-            alloc_size,
-            libc::PROT_NONE,
-            libc::MAP_PRIVATE | libc::MAP_ANON,
-            -1,
-            0,
-        );
-        if ptr == libc::MAP_FAILED {
-            return Tls::OutOfMemory;
-        }
+            let ptr = libc::mmap(
+                null_mut(),
+                alloc_size,
+                libc::PROT_NONE,
+                libc::MAP_PRIVATE | libc::MAP_ANON,
+                -1,
+                0,
+            );
+            if ptr == libc::MAP_FAILED {
+                return Tls::OutOfMemory;
+            }
 
-        // Prepare the stack with readable/writable memory and then register it
-        // with `sigaltstack`.
-        let stack_ptr = (ptr as usize + guard_size) as *mut libc::c_void;
-        let r = libc::mprotect(
-            stack_ptr,
-            MIN_STACK_SIZE,
-            libc::PROT_READ | libc::PROT_WRITE,
-        );
-        assert_eq!(r, 0, "mprotect to configure memory for sigaltstack failed");
-        let new_stack = libc::stack_t {
-            ss_sp: stack_ptr,
-            ss_flags: 0,
-            ss_size: MIN_STACK_SIZE,
-        };
-        let r = libc::sigaltstack(&new_stack, ptr::null_mut());
-        assert_eq!(r, 0, "registering new sigaltstack failed");
+            // Prepare the stack with readable/writable memory and then register it
+            // with `sigaltstack`.
+            let stack_ptr = (ptr as usize + guard_size) as *mut libc::c_void;
+            let r = libc::mprotect(
+                stack_ptr,
+                MIN_STACK_SIZE,
+                libc::PROT_READ | libc::PROT_WRITE,
+            );
+            assert_eq!(r, 0, "mprotect to configure memory for sigaltstack failed");
+            let new_stack = libc::stack_t {
+                ss_sp: stack_ptr,
+                ss_flags: 0,
+                ss_size: MIN_STACK_SIZE,
+            };
+            let r = libc::sigaltstack(&new_stack, ptr::null_mut());
+            assert_eq!(r, 0, "registering new sigaltstack failed");
 
-        Tls::Allocated {
-            mmap_ptr: ptr,
-            mmap_size: alloc_size,
+            Tls::Allocated {
+                mmap_ptr: ptr,
+                mmap_size: alloc_size,
+            }
         }
     }
 

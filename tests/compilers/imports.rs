@@ -5,8 +5,8 @@
 use anyhow::Result;
 use std::convert::Infallible;
 use std::sync::{
-    atomic::{AtomicUsize, Ordering::SeqCst},
     Arc,
+    atomic::{AtomicUsize, Ordering::SeqCst},
 };
 use wasmer::FunctionEnv;
 use wasmer::Type as ValueType;
@@ -366,7 +366,7 @@ fn static_function_that_fails(config: crate::Config) -> Result<()> {
         Err(InstantiationError::Start(runtime_error)) => {
             assert_eq!(runtime_error.message(), "oops")
         }
-        _ => assert!(false),
+        _ => panic!(),
     }
 
     Ok(())
@@ -419,7 +419,7 @@ fn dynamic_function_with_env_wasmer_env_init_works(config: crate::Config) -> Res
     )?;
     let memory = instance.exports.get_memory("memory")?;
     env.as_mut(&mut store).memory = Some(memory.clone());
-    let f: TypedFunction<(), ()> = instance.exports.get_typed_function(&mut store, "main")?;
+    let f: TypedFunction<(), ()> = instance.exports.get_typed_function(&store, "main")?;
     f.call(&mut store)?;
     Ok(())
 }
@@ -457,14 +457,14 @@ fn multi_use_host_fn_manages_memory_correctly(config: crate::Config) -> Result<(
     let instance1 = Instance::new(&mut store, &module, &imports)?;
     let instance2 = Instance::new(&mut store, &module, &imports)?;
     {
-        let f1: TypedFunction<(), ()> = instance1.exports.get_typed_function(&mut store, "main")?;
+        let f1: TypedFunction<(), ()> = instance1.exports.get_typed_function(&store, "main")?;
         let memory = instance1.exports.get_memory("memory")?;
         env.as_mut(&mut store).memory = Some(memory.clone());
         f1.call(&mut store)?;
     }
     drop(instance1);
     {
-        let f2: TypedFunction<(), ()> = instance2.exports.get_typed_function(&mut store, "main")?;
+        let f2: TypedFunction<(), ()> = instance2.exports.get_typed_function(&store, "main")?;
         let memory = instance2.exports.get_memory("memory")?;
         env.as_mut(&mut store).memory = Some(memory.clone());
         f2.call(&mut store)?;
@@ -506,9 +506,8 @@ fn instance_local_memory_lifetime(config: crate::Config) -> Result<()> {
     };
     let instance = Instance::new(&mut store, &module, &imports)?;
     let set_at: TypedFunction<(i32, i32), ()> =
-        instance.exports.get_typed_function(&mut store, "set_at")?;
-    let get_at: TypedFunction<i32, i32> =
-        instance.exports.get_typed_function(&mut store, "get_at")?;
+        instance.exports.get_typed_function(&store, "set_at")?;
+    let get_at: TypedFunction<i32, i32> = instance.exports.get_typed_function(&store, "get_at")?;
     set_at.call(&mut store, 200, 123)?;
     assert_eq!(get_at.call(&mut store, 200)?, 123);
 

@@ -3,19 +3,21 @@ pub use crate::{
     location::{Multiplier, Reg},
     machine::{Label, Offset},
 };
-use crate::{codegen_error, common_decl::Size, location::Location as AbstractLocation};
-use dynasm::dynasm;
+use crate::{
+    codegen_error, common_decl::Size, location::Location as AbstractLocation,
+    machine_arm64::ARM64_RETURN_VALUE_REGISTERS,
+};
 pub use dynasmrt::aarch64::{encode_logical_immediate_32bit, encode_logical_immediate_64bit};
 use dynasmrt::{
-    aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
-    VecAssembler,
+    AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
+    aarch64::Aarch64Relocation,
 };
 use wasmer_compiler::types::{
     function::FunctionBody,
     section::{CustomSection, CustomSectionProtection, SectionBody},
 };
 use wasmer_types::{
-    target::CallingConvention, CompileError, FunctionIndex, FunctionType, Type, VMOffsets,
+    CompileError, FunctionIndex, FunctionType, Type, VMOffsets, target::CallingConvention,
 };
 
 type Assembler = VecAssembler<Aarch64Relocation>;
@@ -25,7 +27,7 @@ type Assembler = VecAssembler<Aarch64Relocation>;
 /// `target_arch`, but it sees the `target_arch` of the proc-macro itself, which
 /// is always equal to host, even when cross-compiling.
 macro_rules! dynasm {
-    ($a:expr ; $($tt:tt)*) => {
+    ($a:expr_2021 ; $($tt:tt)*) => {
         dynasm::dynasm!(
             $a
             ; .arch aarch64
@@ -235,7 +237,7 @@ pub trait EmitterARM64 {
         dst: Location,
     ) -> Result<(), CompileError>;
 
-    fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CompileError>;
     fn emit_tst(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError>;
 
     fn emit_lsl(
@@ -351,7 +353,7 @@ pub trait EmitterARM64 {
     fn emit_load_label(&mut self, reg: GPR, label: Label) -> Result<(), CompileError>;
     fn emit_b_label(&mut self, label: Label) -> Result<(), CompileError>;
     fn emit_cbz_label(&mut self, sz: Size, reg: Location, label: Label)
-        -> Result<(), CompileError>;
+    -> Result<(), CompileError>;
     fn emit_cbnz_label(
         &mut self,
         sz: Size,
@@ -535,17 +537,17 @@ impl EmitterARM64 for Assembler {
         match (sz, reg, addr) {
             (Size::S64, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                assert!(disp.is_multiple_of(8) && (disp < 0x8000));
                 dynasm!(self ; str X(reg), [X(addr), disp]);
             }
             (Size::S32, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                assert!(disp.is_multiple_of(4) && (disp < 0x4000));
                 dynasm!(self ; str W(reg), [X(addr), disp]);
             }
             (Size::S16, Location::GPR(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x1) == 0 && (disp < 0x2000));
+                assert!(disp.is_multiple_of(2) && (disp < 0x2000));
                 dynasm!(self ; strh W(reg), [X(addr), disp]);
             }
             (Size::S8, Location::GPR(reg), Location::Memory(addr, disp)) => {
@@ -555,12 +557,12 @@ impl EmitterARM64 for Assembler {
             }
             (Size::S64, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x7) == 0 && (disp < 0x8000));
+                assert!(disp.is_multiple_of(8) && (disp < 0x8000));
                 dynasm!(self ; str D(reg), [X(addr), disp]);
             }
             (Size::S32, Location::SIMD(reg), Location::Memory(addr, disp)) => {
                 let disp = disp as u32;
-                assert!((disp & 0x3) == 0 && (disp < 0x4000));
+                assert!(disp.is_multiple_of(4) && (disp < 0x4000));
                 dynasm!(self ; str S(reg), [X(addr), disp]);
             }
             (Size::S64, Location::GPR(reg), Location::Memory2(addr, r2, mult, offs)) => {
@@ -1414,8 +1416,13 @@ impl EmitterARM64 for Assembler {
         Ok(())
     }
 
-    fn emit_cmp(&mut self, sz: Size, src: Location, dst: Location) -> Result<(), CompileError> {
-        match (sz, src, dst) {
+    /// Emit a CMP instruction that compares `left` against `right`.
+    ///
+    /// Note: callers sometimes pass operands in the opposite order compared
+    /// to other binary operators. This function performs the comparison as
+    /// provided (i.e. it emits `cmp left, right` semantics).
+    fn emit_cmp(&mut self, sz: Size, left: Location, right: Location) -> Result<(), CompileError> {
+        match (sz, left, right) {
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
                 dynasm!(self ; cmp X(dst), X(src));
             }
@@ -1446,7 +1453,7 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; cmp WSP(dst), imm as u32);
             }
-            _ => codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, src, dst),
+            _ => codegen_error!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right),
         }
         Ok(())
     }
@@ -1504,29 +1511,25 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; lsl W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsl X(dst), X(src1), imm as u32);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 if imm > 63 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsl X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsl W(dst), W(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm > 31 {
                     codegen_error!("singlepass LSL with incompatible imm {}", imm);
                 }
@@ -1564,29 +1567,25 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; asr W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr X(dst), X(src1), imm as u32);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; asr W(dst), W(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ASR with incompatible imm {}", imm);
                 }
@@ -1624,29 +1623,25 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; lsr W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr X(dst), X(src1), imm as u32);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; lsr W(dst), W(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass LSR with incompatible imm {}", imm);
                 }
@@ -1673,8 +1668,7 @@ impl EmitterARM64 for Assembler {
             (Size::S64, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; ror X(dst), X(src1), X(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 let imm = imm as u32;
 
                 if imm == 0 || imm > 63 {
@@ -1682,8 +1676,7 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm);
             }
-            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm64(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm64(imm), Location::GPR(dst)) => {
                 let imm = imm as u32;
 
                 if imm == 0 || imm > 63 {
@@ -1691,8 +1684,7 @@ impl EmitterARM64 for Assembler {
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm32(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm32(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -1701,15 +1693,13 @@ impl EmitterARM64 for Assembler {
             (Size::S32, Location::GPR(src1), Location::GPR(src2), Location::GPR(dst)) => {
                 dynasm!(self ; ror W(dst), W(src1), W(src2));
             }
-            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S64, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S64, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 63 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
                 dynasm!(self ; ror X(dst), X(src1), imm as u32);
             }
-            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst))
-            | (Size::S32, Location::Imm8(imm), Location::GPR(src1), Location::GPR(dst)) => {
+            (Size::S32, Location::GPR(src1), Location::Imm8(imm), Location::GPR(dst)) => {
                 if imm == 0 || imm > 31 {
                     codegen_error!("singlepass ROR with incompatible imm {}", imm);
                 }
@@ -1924,7 +1914,7 @@ impl EmitterARM64 for Assembler {
                 dynasm!(self ; sdiv X(dst), X(src1), X(src2));
             }
             _ => codegen_error!(
-                "singlepass can't emit UDIV {:?} {:?} {:?} {:?}",
+                "singlepass can't emit SDIV {:?} {:?} {:?} {:?}",
                 sz,
                 src1,
                 src2,
@@ -2850,18 +2840,27 @@ pub fn gen_std_trampoline_arm64(
     );
 
     let stack_args = sig.params().len().saturating_sub(7); //1st arg is ctx, not an actual arg
-    let mut stack_offset = stack_args as u32 * 8;
-    if stack_args > 0 {
-        if stack_offset % 16 != 0 {
+    let stack_return_slots = sig
+        .results()
+        .len()
+        .saturating_sub(ARM64_RETURN_VALUE_REGISTERS.len());
+    let mut stack_offset = (stack_args + stack_return_slots) as u32 * 8;
+    if stack_offset > 0 {
+        if !stack_offset.is_multiple_of(16) {
             stack_offset += 8;
-            assert!(stack_offset % 16 == 0);
+            assert!(stack_offset.is_multiple_of(16));
         }
-        dynasm!(a ; sub sp, sp, stack_offset);
+        if stack_offset < 0x1000 {
+            dynasm!(a ; sub sp, sp, stack_offset);
+        } else {
+            a.emit_mov_imm(Location::GPR(GPR::X26), stack_offset as u64)?;
+            dynasm!(a ; sub sp, sp, x26);
+        }
     }
 
     // Move arguments to their locations.
     // `callee_vmctx` is already in the first argument register, so no need to move.
-    let mut caller_stack_offset: i32 = 0;
+    let mut caller_stack_offset = stack_return_slots as u32 * 8;
     for (i, param) in sig.params().iter().enumerate() {
         let sz = match *param {
             Type::I32 | Type::F32 => Size::S32,
@@ -2885,17 +2884,8 @@ pub fn gen_std_trampoline_arm64(
                 #[allow(clippy::single_match)]
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        let sz = 1
-                            << match sz {
-                                Size::S8 => 0,
-                                Size::S16 => 1,
-                                Size::S32 => 2,
-                                Size::S64 => 3,
-                            };
                         // align first
-                        if sz > 1 && caller_stack_offset & (sz - 1) != 0 {
-                            caller_stack_offset = (caller_stack_offset + (sz - 1)) & !(sz - 1);
-                        }
+                        caller_stack_offset = caller_stack_offset.next_multiple_of(sz.bytes());
                     }
                     _ => (),
                 };
@@ -2908,17 +2898,11 @@ pub fn gen_std_trampoline_arm64(
                 a.emit_str(
                     sz,
                     Location::GPR(GPR::X16),
-                    Location::Memory(GPR::XzrSp, caller_stack_offset),
+                    Location::Memory(GPR::XzrSp, caller_stack_offset as _),
                 )?;
                 match calling_convention {
                     CallingConvention::AppleAarch64 => {
-                        caller_stack_offset += 1
-                            << match sz {
-                                Size::S8 => 0,
-                                Size::S16 => 1,
-                                Size::S32 => 2,
-                                Size::S64 => 3,
-                            };
+                        caller_stack_offset += sz.bytes();
                     }
                     _ => {
                         caller_stack_offset += 8;
@@ -2930,18 +2914,41 @@ pub fn gen_std_trampoline_arm64(
 
     dynasm!(a  ; blr X(fptr));
 
-    // Write return value.
-    if !sig.results().is_empty() {
-        a.emit_str(Size::S64, Location::GPR(GPR::X0), Location::Memory(args, 0))?;
+    // Write return values.
+    let mut n_stack_return_slots: usize = 0;
+    for i in 0..sig.results().len() {
+        let src = if let Some(&reg) = ARM64_RETURN_VALUE_REGISTERS.get(i) {
+            reg
+        } else {
+            let loc = GPR::X16;
+            a.emit_ldr(
+                Size::S64,
+                Location::GPR(GPR::X16),
+                Location::Memory(GPR::XzrSp, (n_stack_return_slots as u32 * 8) as _),
+            )?;
+            n_stack_return_slots += 1;
+            loc
+        };
+        a.emit_str(
+            Size::S64,
+            Location::GPR(src),
+            Location::Memory(args, (i * 16) as _),
+        )?;
     }
 
     // Restore stack.
     dynasm!(a
         ; ldp X(fptr), X(args), [x29, 16]
         ; ldp x29, x30, [x29]
-        ; add sp, sp, 32 + stack_offset as u32
-        ; ret
     );
+    let restored_stack_offset = 32 + stack_offset;
+    if restored_stack_offset < 0x1000 {
+        dynasm!(a; add sp, sp, restored_stack_offset);
+    } else {
+        a.emit_mov_imm(Location::GPR(GPR::X26), restored_stack_offset as u64)?;
+        dynasm!(a; add sp, sp, x26);
+    }
+    dynasm!(a; ret);
 
     let mut body = a.finalize().unwrap();
     body.shrink_to_fit();
@@ -3003,9 +3010,7 @@ pub fn gen_std_dynamic_import_trampoline_arm64(
                         CallingConvention::AppleAarch64 => match *ty {
                             Type::I32 | Type::F32 => Size::S32,
                             _ => {
-                                if stack_param_count & 7 != 0 {
-                                    stack_param_count = (stack_param_count + 7) & !7;
-                                };
+                                stack_param_count = stack_param_count.next_multiple_of(8);
                                 Size::S64
                             }
                         },
@@ -3129,17 +3134,13 @@ pub fn gen_import_call_trampoline_arm64(
         match calling_convention {
             _ => {
                 // Allocate stack space for arguments.
-                let stack_offset: i32 = if sig.params().len() > 7 {
+                let mut stack_offset: u32 = if sig.params().len() > 7 {
                     7 * 8
                 } else {
-                    (sig.params().len() as i32) * 8
+                    (sig.params().len() as u32) * 8
                 };
-                let stack_offset = if stack_offset & 15 != 0 {
-                    stack_offset + 8
-                } else {
-                    stack_offset
-                };
-                if stack_offset > 0 {
+                stack_offset = stack_offset.next_multiple_of(16);
+                if stack_offset != 0 {
                     if stack_offset < 0x1000 {
                         a.emit_sub(
                             Size::S64,
@@ -3169,22 +3170,22 @@ pub fn gen_import_call_trampoline_arm64(
                     GPR::X7,
                 ];
                 let mut param_locations = vec![];
-                /* Clippy is wrong about using `i` to index `PARAM_REGS` here. */
-                #[allow(clippy::needless_range_loop)]
-                for i in 0..sig.params().len() {
+                for (i, param_reg) in PARAM_REGS.iter().enumerate().take(sig.params().len()) {
                     let loc = match i {
                         0..=6 => {
                             let loc = Location::Memory(GPR::XzrSp, (i * 8) as i32);
-                            a.emit_str(Size::S64, Location::GPR(PARAM_REGS[i]), loc)?;
+                            a.emit_str(Size::S64, Location::GPR(*param_reg), loc)?;
                             loc
                         }
-                        _ => Location::Memory(GPR::XzrSp, stack_offset + ((i - 7) * 8) as i32),
+                        _ => {
+                            Location::Memory(GPR::XzrSp, (stack_offset + (i as u32 - 7) * 8) as i32)
+                        }
                     };
                     param_locations.push(loc);
                 }
 
                 // Copy arguments.
-                let mut caller_stack_offset: i32 = 0;
+                let mut caller_stack_offset: u32 = 0;
                 let mut argalloc = ArgumentRegisterAllocator::default();
                 argalloc.next(Type::I64, calling_convention).unwrap(); // skip VMContext
                 for (i, ty) in sig.params().iter().enumerate() {
@@ -3198,7 +3199,10 @@ pub fn gen_import_call_trampoline_arm64(
                             a.emit_str(
                                 Size::S64,
                                 Location::GPR(GPR::X16),
-                                Location::Memory(GPR::XzrSp, stack_offset + caller_stack_offset),
+                                Location::Memory(
+                                    GPR::XzrSp,
+                                    (stack_offset + caller_stack_offset) as i32,
+                                ),
                             )?;
                             caller_stack_offset += 8;
                             continue;
@@ -3237,7 +3241,7 @@ pub fn gen_import_call_trampoline_arm64(
     // for ldr, offset needs to be a multiple of 8, wich often is not
     // so use ldur, but then offset is limited to -255 .. +255. It will be positive here
     let offset =
-        if (offset > 0 && offset < 0xF8) || (offset > 0 && offset < 0x7FF8 && (offset & 7) == 0) {
+        if (offset > 0) && ((offset < 0xF8) || (offset < 0x7FF8 && offset.is_multiple_of(8))) {
             offset
         } else {
             a.emit_mov_imm(Location::GPR(GPR::X16), (offset as i64) as u64)?;
@@ -3252,7 +3256,7 @@ pub fn gen_import_call_trampoline_arm64(
     #[allow(clippy::match_single_binding)]
     match calling_convention {
         _ => {
-            if (offset & 7) == 0 {
+            if offset.is_multiple_of(8) {
                 a.emit_ldr(
                     Size::S64,
                     Location::GPR(GPR::X16),

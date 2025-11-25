@@ -47,9 +47,9 @@ use tokio::io::AsyncWrite;
 pub use bytes::Bytes;
 pub use bytes::BytesMut;
 use serde::{Deserialize, Serialize};
-pub use virtual_mio::{handler_into_waker, InterestHandler};
 #[cfg(feature = "host-net")]
 pub use virtual_mio::{InterestGuard, InterestHandlerWaker, InterestType};
+pub use virtual_mio::{InterestHandler, handler_into_waker};
 
 pub type Result<T> = std::result::Result<T, NetworkError>;
 
@@ -656,7 +656,7 @@ impl<'a> AsyncRead for Box<dyn VirtualTcpSocket + Sync + 'a> {
             return Poll::Ready(Err(net_error_into_io_err(err)));
         }
         let buf_unsafe = unsafe { buf.unfilled_mut() };
-        match this.try_recv(buf_unsafe) {
+        match this.try_recv(buf_unsafe, false) {
             Ok(ret) => {
                 unsafe { buf.assume_init(ret) };
                 buf.set_filled(ret);

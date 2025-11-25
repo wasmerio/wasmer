@@ -2,6 +2,7 @@
 use wasmer_types::{GlobalType, Mutability};
 
 use crate::{
+    AsStoreMut, AsStoreRef, RuntimeError, Value,
     vm::{VMExtern, VMExternGlobal},
     wasmi::{
         bindings::{
@@ -12,7 +13,6 @@ use crate::{
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},
         vm::VMGlobal,
     },
-    AsStoreMut, AsStoreRef, RuntimeError, Value,
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]

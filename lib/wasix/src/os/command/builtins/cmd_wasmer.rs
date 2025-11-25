@@ -1,21 +1,22 @@
 use std::{any::Any, path::PathBuf, sync::Arc};
 
 use crate::{
+    SpawnError,
     bin_factory::spawn_exec_wasm,
     os::task::{OwnedTaskStatus, TaskJoinHandle},
-    runtime::{module_cache::HashedModuleData, task_manager::InlineWaker},
-    SpawnError,
+    runtime::module_cache::HashedModuleData,
 };
 use shared_buffer::OwnedBuffer;
 use virtual_fs::{AsyncReadExt, FileSystem};
+use virtual_mio::block_on;
 use wasmer::FunctionEnvMut;
 use wasmer_package::utils::from_bytes;
 use wasmer_wasix_types::wasi::Errno;
 
 use crate::{
-    bin_factory::{spawn_exec, BinaryPackage},
-    syscalls::stderr_write,
     Runtime, WasiEnv,
+    bin_factory::{BinaryPackage, spawn_exec},
+    syscalls::stderr_write,
 };
 
 const HELP: &str = r#"USAGE:
@@ -54,7 +55,7 @@ impl CmdWasmer {
 #[derive(Debug, Clone)]
 enum Executable {
     Wasm(OwnedBuffer),
-    BinaryPackage(BinaryPackage),
+    BinaryPackage(Box<BinaryPackage>),
 }
 
 impl CmdWasmer {
@@ -102,12 +103,12 @@ impl CmdWasmer {
                         .await
                         .unwrap();
 
-                    Executable::BinaryPackage(pkg)
+                    Executable::BinaryPackage(Box::new(pkg))
                 } else {
                     Executable::Wasm(OwnedBuffer::from_bytes(bytes))
                 }
             } else if let Ok(pkg) = self.get_package(&what).await {
-                Executable::BinaryPackage(pkg)
+                Executable::BinaryPackage(Box::new(pkg))
             } else {
                 let _ = unsafe { stderr_write(parent_ctx, HELP_RUN.as_bytes()) }.await;
                 let handle =
@@ -125,18 +126,23 @@ impl CmdWasmer {
                                 package_id: binary.id.clone(),
                             })?;
 
-                    let cmd = binary
-                        .get_command(cmd_name)
-                        .ok_or_else(|| SpawnError::NotFound {
-                            message: format!("{cmd_name} command in package: {}", binary.id),
-                        })?;
-
-                    env.prepare_spawn(cmd);
+                    {
+                        let cmd =
+                            binary
+                                .get_command(cmd_name)
+                                .ok_or_else(|| SpawnError::NotFound {
+                                    message: format!(
+                                        "{cmd_name} command in package: {}",
+                                        binary.id
+                                    ),
+                                })?;
+                        env.prepare_spawn(cmd);
+                    }
 
                     env.use_package_async(&binary).await.unwrap();
 
                     // Now run the module
-                    spawn_exec(binary, name, env, &self.runtime).await
+                    spawn_exec(*binary, name, env, &self.runtime).await
                 }
                 Executable::Wasm(bytes) => {
                     let data = HashedModuleData::new(bytes);
@@ -213,6 +219,6 @@ impl VirtualCommand for CmdWasmer {
             }
         };
 
-        InlineWaker::block_on(fut)
+        block_on(fut)
     }
 }

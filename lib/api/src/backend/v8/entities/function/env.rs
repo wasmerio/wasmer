@@ -1,9 +1,9 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
+    StoreMut,
     store::{AsStoreMut, AsStoreRef, StoreRef},
     v8::{store::StoreHandle, vm::VMFunctionEnvironment},
-    StoreMut,
 };
 
 #[derive(Debug)]
@@ -208,6 +208,6 @@ impl<'a, T> From<FunctionEnvMut<'a, T>> for crate::FunctionEnvMut<'a, T> {
 
 impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
     fn from(value: FunctionEnv<T>) -> Self {
-        crate::FunctionEnv(crate::BackendFunctionEnv::V8(value))
+        Self(crate::BackendFunctionEnv::V8(value))
     }
 }

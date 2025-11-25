@@ -1,7 +1,7 @@
 //! Data types, functions and traits for `wamr`'s `Module` implementation.
 use std::{path::Path, sync::Arc};
 
-use crate::{backend::wamr::bindings::*, AsEngineRef, BackendModule, IntoBytes};
+use crate::{AsEngineRef, BackendModule, IntoBytes, backend::wamr::bindings::*};
 
 use bytes::Bytes;
 use wasmer_types::{
@@ -13,6 +13,9 @@ pub(crate) struct ModuleHandle {
     pub(crate) inner: *mut wasm_module_t,
     pub(crate) store: std::sync::Mutex<crate::store::Store>,
 }
+
+unsafe impl Send for ModuleHandle {}
+unsafe impl Sync for ModuleHandle {}
 
 impl PartialEq for ModuleHandle {
     fn eq(&self, other: &Self) -> bool {
@@ -40,10 +43,10 @@ impl ModuleHandle {
         let store = std::sync::Mutex::new(store);
 
         if inner.is_null() {
-            return Err(CompileError::Validate(format!("module is null")));
+            return Err(CompileError::Validate("module is null".to_string()));
         }
 
-        Ok(ModuleHandle { inner, store })
+        Ok(Self { inner, store })
     }
 }
 impl Drop for ModuleHandle {
@@ -118,24 +121,23 @@ impl Module {
     }
 
     pub fn serialize(&self) -> Result<Bytes, SerializeError> {
-        return self.raw_bytes.clone().ok_or(SerializeError::Generic(
+        self.raw_bytes.clone().ok_or(SerializeError::Generic(
             "Not able to serialize module".to_string(),
-        ));
+        ))
     }
 
     pub unsafe fn deserialize_unchecked(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub unsafe fn deserialize(
         engine: &impl AsEngineRef,
         bytes: impl IntoBytes,
     ) -> Result<Self, DeserializeError> {
-        return Self::from_binary(engine, &bytes.into_bytes())
-            .map_err(|e| DeserializeError::Compiler(e));
+        Self::from_binary(engine, &bytes.into_bytes()).map_err(DeserializeError::Compiler)
     }
 
     pub unsafe fn deserialize_from_file_unchecked(
@@ -143,7 +145,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize_unchecked(engine, bytes)
+        unsafe { Self::deserialize_unchecked(engine, bytes) }
     }
 
     pub unsafe fn deserialize_from_file(
@@ -151,7 +153,7 @@ impl Module {
         path: impl AsRef<Path>,
     ) -> Result<Self, DeserializeError> {
         let bytes = std::fs::read(path.as_ref())?;
-        Self::deserialize(engine, bytes)
+        unsafe { Self::deserialize(engine, bytes) }
     }
 
     pub fn set_name(&mut self, name: &str) -> bool {
@@ -190,16 +192,16 @@ impl crate::Module {
 
     /// Convert a reference to [`self`] into a reference [`crate::backend::wamr::module::Module`].
     pub fn as_wamr(&self) -> &crate::backend::wamr::module::Module {
-        match self.0 {
-            BackendModule::Wamr(ref s) => s,
+        match &self.0 {
+            BackendModule::Wamr(s) => s,
             _ => panic!("Not a `wamr` module!"),
         }
     }
 
     /// Convert a mutable reference to [`self`] into a mutable reference [`crate::backend::wamr::module::Module`].
     pub fn as_wamr_mut(&mut self) -> &mut crate::backend::wamr::module::Module {
-        match self.0 {
-            BackendModule::Wamr(ref mut s) => s,
+        match &mut self.0 {
+            BackendModule::Wamr(s) => s,
             _ => panic!("Not a `wamr` module!"),
         }
     }

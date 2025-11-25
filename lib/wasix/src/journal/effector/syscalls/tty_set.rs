@@ -31,7 +31,7 @@ impl JournalEffector {
         state: WasiTtyState,
     ) -> anyhow::Result<()> {
         crate::syscalls::tty_set_internal(ctx, state).map_err(|err| {
-            anyhow::format_err!("journal restore error: failed to set tty - {}", err)
+            anyhow::format_err!("journal restore error: failed to set tty - {err}")
         })?;
         Ok(())
     }

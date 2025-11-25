@@ -55,7 +55,8 @@ impl std::str::FromStr for Tag {
 /// Parsed representation of a package identifier.
 ///
 /// Format:
-/// [https?://<domain>/][namespace/]name[@version]
+/// `https?://<domain>/namespace/name@version`
+/// where the registry, namespace, and version components are optional.
 #[derive(PartialEq, Eq, Clone, Debug, Hash)]
 pub struct NamedPackageIdent {
     pub registry: Option<String>,
@@ -133,7 +134,8 @@ impl NamedPackageIdent {
 
     /// Build the ident for a package.
     ///
-    /// Format: [NAMESPACE/]NAME[@tag]
+    /// Format: `NAMESPACE/NAME@tag`
+    /// where the namespace and tag components are optional.
     pub fn build_identifier(&self) -> String {
         let mut ident = if let Some(ns) = &self.namespace {
             format!("{}/{}", ns, self.name)
@@ -302,8 +304,8 @@ impl schemars::JsonSchema for NamedPackageIdent {
         "NamedPackageIdent".to_string()
     }
 
-    fn json_schema(gen: &mut schemars::gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(gen)
+    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
+        String::json_schema(r#gen)
     }
 }
 
@@ -464,20 +466,28 @@ mod tests {
 
     #[test]
     fn test_named_package_ident_matches_id() {
-        assert!(NamedPackageIdent::from_str("ns/name")
-            .unwrap()
-            .matches_id(&NamedPackageId::try_new("ns/name", "0.1.0").unwrap()));
+        assert!(
+            NamedPackageIdent::from_str("ns/name")
+                .unwrap()
+                .matches_id(&NamedPackageId::try_new("ns/name", "0.1.0").unwrap())
+        );
 
-        assert!(NamedPackageIdent::from_str("ns/name")
-            .unwrap()
-            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+        assert!(
+            NamedPackageIdent::from_str("ns/name")
+                .unwrap()
+                .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap())
+        );
 
-        assert!(NamedPackageIdent::from_str("ns/name@1")
-            .unwrap()
-            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+        assert!(
+            NamedPackageIdent::from_str("ns/name@1")
+                .unwrap()
+                .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap())
+        );
 
-        assert!(!NamedPackageIdent::from_str("ns/name@2")
-            .unwrap()
-            .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap()));
+        assert!(
+            !NamedPackageIdent::from_str("ns/name@2")
+                .unwrap()
+                .matches_id(&NamedPackageId::try_new("ns/name", "1.0.1").unwrap())
+        );
     }
 }

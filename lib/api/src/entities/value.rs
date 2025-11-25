@@ -1,9 +1,9 @@
 use wasmer_types::{RawValue, Type};
 
 use crate::{
-    entities::{ExceptionRef, ExternRef, Function},
-    vm::{VMExceptionRef, VMExternRef, VMFuncRef},
     AsStoreRef, Tag,
+    entities::{Exception, ExternRef, Function},
+    vm::{VMExceptionRef, VMExternRef, VMFuncRef},
 };
 
 /// WebAssembly computations manipulate values of basic value types:
@@ -41,7 +41,7 @@ pub enum Value {
     FuncRef(Option<Function>),
 
     /// A nullable first-class reference to a WebAssembly exception.
-    ExceptionRef(Option<ExceptionRef>),
+    ExceptionRef(Option<Exception>),
 }
 
 macro_rules! accessors {
@@ -97,7 +97,7 @@ impl Value {
             Self::F64(f64) => RawValue { f64 },
             Self::V128(u128) => RawValue { u128 },
             Self::ExceptionRef(Some(ref f)) => f.vm_exceptionref().into_raw(),
-            Self::ExceptionRef(None) => RawValue { funcref: 0 },
+            Self::ExceptionRef(None) => RawValue { exnref: 0 },
             Self::FuncRef(Some(ref f)) => f.vm_funcref(store).into_raw(),
             Self::FuncRef(None) => RawValue { funcref: 0 },
             Self::ExternRef(Some(ref e)) => e.vm_externref().into_raw(),
@@ -115,126 +115,136 @@ impl Value {
         raw: RawValue,
     ) -> Self {
         match ty {
-            Type::I32 => Self::I32(raw.i32),
-            Type::I64 => Self::I64(raw.i64),
-            Type::F32 => Self::F32(raw.f32),
-            Type::F64 => Self::F64(raw.f64),
-            Type::V128 => Self::V128(raw.u128),
+            Type::I32 => Self::I32(unsafe { raw.i32 }),
+            Type::I64 => Self::I64(unsafe { raw.i64 }),
+            Type::F32 => Self::F32(unsafe { raw.f32 }),
+            Type::F64 => Self::F64(unsafe { raw.f64 }),
+            Type::V128 => Self::V128(unsafe { raw.u128 }),
             Type::FuncRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
-                crate::BackendStore::Sys(_) => Self::FuncRef(
-                    crate::backend::sys::vm::VMFuncRef::from_raw(raw)
-                        .map(VMFuncRef::Sys)
-                        .map(|f| Function::from_vm_funcref(store, f)),
-                ),
+                crate::BackendStore::Sys(_) => Self::FuncRef({
+                    unsafe { crate::backend::sys::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys) }
+                        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
+                }),
                 #[cfg(feature = "wamr")]
-                crate::BackendStore::Wamr(_) => Self::FuncRef(
-                    crate::backend::wamr::vm::VMFuncRef::from_raw(raw)
-                        .map(VMFuncRef::Wamr)
-                        .map(|f| Function::from_vm_funcref(store, f)),
-                ),
+                crate::BackendStore::Wamr(_) => Self::FuncRef({
+                    unsafe {
+                        crate::backend::wamr::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wamr)
+                    }
+                    .map(|f| unsafe { Function::from_vm_funcref(store, f) })
+                }),
                 #[cfg(feature = "wasmi")]
-                crate::BackendStore::Wasmi(_) => Self::FuncRef(
-                    crate::backend::wasmi::vm::VMFuncRef::from_raw(raw)
-                        .map(VMFuncRef::Wasmi)
-                        .map(|f| Function::from_vm_funcref(store, f)),
-                ),
+                crate::BackendStore::Wasmi(_) => Self::FuncRef({
+                    unsafe {
+                        crate::backend::wasmi::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Wasmi)
+                    }
+                    .map(|f| unsafe { Function::from_vm_funcref(store, f) })
+                }),
 
                 #[cfg(feature = "v8")]
-                crate::BackendStore::V8(_) => Self::FuncRef(
-                    crate::backend::v8::vm::VMFuncRef::from_raw(raw)
-                        .map(VMFuncRef::V8)
-                        .map(|f| Function::from_vm_funcref(store, f)),
-                ),
+                crate::BackendStore::V8(_) => Self::FuncRef({
+                    unsafe { crate::backend::v8::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::V8) }
+                        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
+                }),
                 #[cfg(feature = "js")]
-                crate::BackendStore::Js(_) => Self::FuncRef(
-                    crate::backend::js::vm::VMFuncRef::from_raw(raw)
-                        .map(VMFuncRef::Js)
-                        .map(|f| Function::from_vm_funcref(store, f)),
-                ),
+                crate::BackendStore::Js(_) => Self::FuncRef({
+                    unsafe { crate::backend::js::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Js) }
+                        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
+                }),
                 #[cfg(feature = "jsc")]
-                crate::BackendStore::Jsc(_) => Self::FuncRef(
-                    crate::backend::jsc::vm::VMFuncRef::from_raw(raw)
-                        .map(VMFuncRef::Jsc)
-                        .map(|f| Function::from_vm_funcref(store, f)),
-                ),
+                crate::BackendStore::Jsc(_) => Self::FuncRef({
+                    unsafe { crate::backend::jsc::vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Jsc) }
+                        .map(|f| unsafe { Function::from_vm_funcref(store, f) })
+                }),
             },
             Type::ExternRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
-                crate::BackendStore::Sys(_) => Self::ExternRef(
-                    crate::backend::sys::vm::VMExternRef::from_raw(raw)
-                        .map(VMExternRef::Sys)
-                        .map(|f| ExternRef::from_vm_externref(store, f)),
-                ),
+                crate::BackendStore::Sys(_) => Self::ExternRef({
+                    unsafe {
+                        crate::backend::sys::vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
+                    }
+                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
+                }),
                 #[cfg(feature = "wamr")]
-                crate::BackendStore::Wamr(_) => Self::ExternRef(
-                    crate::backend::wamr::vm::VMExternRef::from_raw(raw)
-                        .map(VMExternRef::Wamr)
-                        .map(|f| ExternRef::from_vm_externref(store, f)),
-                ),
+                crate::BackendStore::Wamr(_) => Self::ExternRef({
+                    unsafe {
+                        crate::backend::wamr::vm::VMExternRef::from_raw(raw).map(VMExternRef::Wamr)
+                    }
+                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
+                }),
                 #[cfg(feature = "wasmi")]
-                crate::BackendStore::Wasmi(_) => Self::ExternRef(
-                    crate::backend::wasmi::vm::VMExternRef::from_raw(raw)
-                        .map(VMExternRef::Wasmi)
-                        .map(|f| ExternRef::from_vm_externref(store, f)),
-                ),
+                crate::BackendStore::Wasmi(_) => Self::ExternRef({
+                    unsafe {
+                        crate::backend::wasmi::vm::VMExternRef::from_raw(raw)
+                            .map(VMExternRef::Wasmi)
+                    }
+                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
+                }),
 
                 #[cfg(feature = "v8")]
-                crate::BackendStore::V8(_) => Self::ExternRef(
-                    crate::backend::v8::vm::VMExternRef::from_raw(raw)
-                        .map(VMExternRef::V8)
-                        .map(|f| ExternRef::from_vm_externref(store, f)),
-                ),
+                crate::BackendStore::V8(_) => Self::ExternRef({
+                    unsafe {
+                        crate::backend::v8::vm::VMExternRef::from_raw(raw).map(VMExternRef::V8)
+                    }
+                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
+                }),
                 #[cfg(feature = "js")]
-                crate::BackendStore::Js(_) => Self::ExternRef(
-                    crate::backend::js::vm::VMExternRef::from_raw(raw)
-                        .map(VMExternRef::Js)
-                        .map(|f| ExternRef::from_vm_externref(store, f)),
-                ),
+                crate::BackendStore::Js(_) => Self::ExternRef({
+                    unsafe {
+                        crate::backend::js::vm::VMExternRef::from_raw(raw).map(VMExternRef::Js)
+                    }
+                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
+                }),
                 #[cfg(feature = "jsc")]
-                crate::BackendStore::Jsc(_) => Self::ExternRef(
-                    crate::backend::jsc::vm::VMExternRef::from_raw(raw)
-                        .map(VMExternRef::Jsc)
-                        .map(|f| ExternRef::from_vm_externref(store, f)),
-                ),
+                crate::BackendStore::Jsc(_) => Self::ExternRef({
+                    unsafe {
+                        crate::backend::jsc::vm::VMExternRef::from_raw(raw).map(VMExternRef::Jsc)
+                    }
+                    .map(|f| unsafe { ExternRef::from_vm_externref(store, f) })
+                }),
             },
             Type::ExceptionRef => match store.as_store_ref().inner.store {
                 #[cfg(feature = "sys")]
                 crate::BackendStore::Sys(_) => Self::ExceptionRef(
-                    crate::backend::sys::vm::VMExceptionRef::from_raw(raw)
-                        .map(VMExceptionRef::Sys)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                    unsafe {
+                        crate::backend::sys::vm::VMExceptionRef::from_raw(
+                            store.as_store_ref().objects().id(),
+                            raw,
+                        )
+                    }
+                    .map(VMExceptionRef::Sys)
+                    .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "wamr")]
                 crate::BackendStore::Wamr(_) => Self::ExceptionRef(
-                    crate::backend::wamr::vm::VMExceptionRef::from_raw(raw)
+                    unsafe { crate::backend::wamr::vm::VMExceptionRef::from_raw(raw) }
                         .map(VMExceptionRef::Wamr)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "wasmi")]
                 crate::BackendStore::Wasmi(_) => Self::ExceptionRef(
-                    crate::backend::wasmi::vm::VMExceptionRef::from_raw(raw)
+                    unsafe { crate::backend::wasmi::vm::VMExceptionRef::from_raw(raw) }
                         .map(VMExceptionRef::Wasmi)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
 
                 #[cfg(feature = "v8")]
                 crate::BackendStore::V8(_) => Self::ExceptionRef(
-                    crate::backend::v8::vm::VMExceptionRef::from_raw(raw)
+                    unsafe { crate::backend::v8::vm::VMExceptionRef::from_raw(raw) }
                         .map(VMExceptionRef::V8)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "js")]
                 crate::BackendStore::Js(_) => Self::ExceptionRef(
-                    crate::backend::js::vm::VMExceptionRef::from_raw(raw)
+                    unsafe { crate::backend::js::vm::VMExceptionRef::from_raw(raw) }
                         .map(VMExceptionRef::Js)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
                 #[cfg(feature = "jsc")]
                 crate::BackendStore::Jsc(_) => Self::ExceptionRef(
-                    crate::backend::jsc::vm::VMExceptionRef::from_raw(raw)
+                    unsafe { crate::backend::jsc::vm::VMExceptionRef::from_raw(raw) }
                         .map(VMExceptionRef::Jsc)
-                        .map(|f| ExceptionRef::from_vm_exceptionref(store, f)),
+                        .map(Exception::from_vm_exceptionref),
                 ),
             },
         }
@@ -387,14 +397,14 @@ impl From<Option<ExternRef>> for Value {
     }
 }
 
-impl From<ExceptionRef> for Value {
-    fn from(val: ExceptionRef) -> Self {
+impl From<Exception> for Value {
+    fn from(val: Exception) -> Self {
         Self::ExceptionRef(Some(val))
     }
 }
 
-impl From<Option<ExceptionRef>> for Value {
-    fn from(val: Option<ExceptionRef>) -> Self {
+impl From<Option<Exception>> for Value {
+    fn from(val: Option<Exception>) -> Self {
         Self::ExceptionRef(val)
     }
 }
@@ -477,7 +487,7 @@ impl TryFrom<Value> for Option<ExternRef> {
     }
 }
 
-impl TryFrom<Value> for Option<ExceptionRef> {
+impl TryFrom<Value> for Option<Exception> {
     type Error = &'static str;
 
     fn try_from(value: Value) -> Result<Self, Self::Error> {

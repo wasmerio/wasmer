@@ -1,12 +1,10 @@
 //! X64 structures.
 
 #![allow(clippy::upper_case_acronyms)]
-use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use crate::location::CombinedRegister;
 use crate::location::Reg as AbstractReg;
-use std::collections::BTreeMap;
 use std::slice::Iter;
-use wasmer_types::{target::CallingConvention, CompileError, Type};
+use wasmer_types::{CompileError, Type, target::CallingConvention};
 
 /// General-purpose registers.
 #[repr(u8)]
@@ -66,16 +64,6 @@ impl From<XMM> for u8 {
 }
 
 impl AbstractReg for GPR {
-    fn is_callee_save(self) -> bool {
-        const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, true, true, true, false, false, false, false, false, false, true,
-            true, true, true,
-        ];
-        IS_CALLEE_SAVE[self as usize]
-    }
-    fn is_reserved(self) -> bool {
-        self == GPR::RSP || self == GPR::RBP || self == GPR::R10 || self == GPR::R15
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -106,39 +94,32 @@ impl AbstractReg for GPR {
         ];
         GPRS.iter()
     }
-    fn to_dwarf(self) -> u16 {
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::X86_64;
+
         match self {
-            GPR::RAX => 0,
-            GPR::RDX => 1,
-            GPR::RCX => 2,
-            GPR::RBX => 3,
-            GPR::RSI => 4,
-            GPR::RDI => 5,
-            GPR::RBP => 6,
-            GPR::RSP => 7,
-            GPR::R8 => 8,
-            GPR::R9 => 9,
-            GPR::R10 => 10,
-            GPR::R11 => 11,
-            GPR::R12 => 12,
-            GPR::R13 => 13,
-            GPR::R14 => 14,
-            GPR::R15 => 15,
+            GPR::RAX => X86_64::RAX,
+            GPR::RCX => X86_64::RCX,
+            GPR::RDX => X86_64::RDX,
+            GPR::RBX => X86_64::RBX,
+            GPR::RSP => X86_64::RSP,
+            GPR::RBP => X86_64::RBP,
+            GPR::RSI => X86_64::RSI,
+            GPR::RDI => X86_64::RDI,
+            GPR::R8 => X86_64::R8,
+            GPR::R9 => X86_64::R9,
+            GPR::R10 => X86_64::R10,
+            GPR::R11 => X86_64::R11,
+            GPR::R12 => X86_64::R12,
+            GPR::R13 => X86_64::R13,
+            GPR::R14 => X86_64::R14,
+            GPR::R15 => X86_64::R15,
         }
     }
 }
 
 impl AbstractReg for XMM {
-    fn is_callee_save(self) -> bool {
-        const IS_CALLEE_SAVE: [bool; 16] = [
-            false, false, false, false, false, false, false, false, true, true, true, true, true,
-            true, true, true,
-        ];
-        IS_CALLEE_SAVE[self as usize]
-    }
-    fn is_reserved(self) -> bool {
-        false
-    }
     fn into_index(self) -> usize {
         self as usize
     }
@@ -169,8 +150,28 @@ impl AbstractReg for XMM {
         ];
         XMMS.iter()
     }
-    fn to_dwarf(self) -> u16 {
-        self.into_index() as u16 + 17
+    #[cfg(feature = "unwind")]
+    fn to_dwarf(self) -> gimli::Register {
+        use gimli::X86_64;
+
+        match self {
+            XMM::XMM0 => X86_64::XMM0,
+            XMM::XMM1 => X86_64::XMM1,
+            XMM::XMM2 => X86_64::XMM2,
+            XMM::XMM3 => X86_64::XMM3,
+            XMM::XMM4 => X86_64::XMM4,
+            XMM::XMM5 => X86_64::XMM5,
+            XMM::XMM6 => X86_64::XMM6,
+            XMM::XMM7 => X86_64::XMM7,
+            XMM::XMM8 => X86_64::XMM8,
+            XMM::XMM9 => X86_64::XMM9,
+            XMM::XMM10 => X86_64::XMM10,
+            XMM::XMM11 => X86_64::XMM11,
+            XMM::XMM12 => X86_64::XMM12,
+            XMM::XMM13 => X86_64::XMM13,
+            XMM::XMM14 => X86_64::XMM14,
+            XMM::XMM15 => X86_64::XMM15,
+        }
     }
 }
 
@@ -184,13 +185,6 @@ pub enum X64Register {
 }
 
 impl CombinedRegister for X64Register {
-    /// Returns the index of the register.
-    fn to_index(&self) -> RegisterIndex {
-        match *self {
-            X64Register::GPR(x) => RegisterIndex(x as usize),
-            X64Register::XMM(x) => RegisterIndex(x as usize + 16),
-        }
-    }
     /// Convert from a GPR register
     fn from_gpr(x: u16) -> Self {
         X64Register::GPR(GPR::from_index(x as usize).unwrap())
@@ -199,6 +193,7 @@ impl CombinedRegister for X64Register {
     fn from_simd(x: u16) -> Self {
         X64Register::XMM(XMM::from_index(x as usize).unwrap())
     }
+
     /* x86_64-abi-0.99.pdf
      * Register Name                    | Number | Abbreviation
      * General Purpose Register RAX     | 0      | %rax
@@ -232,32 +227,6 @@ impl CombinedRegister for X64Register {
      * x87 Control Word                 | 65     | %fcw
      * x87 Status Word                  | 66     | %fsw
      */
-    /// Converts a DWARF regnum to X64Register.
-    fn _from_dwarf_regnum(x: u16) -> Option<X64Register> {
-        static DWARF_REGS: [GPR; 16] = [
-            GPR::RAX,
-            GPR::RDX,
-            GPR::RCX,
-            GPR::RBX,
-            GPR::RSI,
-            GPR::RDI,
-            GPR::RBP,
-            GPR::RSP,
-            GPR::R8,
-            GPR::R9,
-            GPR::R10,
-            GPR::R11,
-            GPR::R12,
-            GPR::R13,
-            GPR::R14,
-            GPR::R15,
-        ];
-        Some(match x {
-            0..=15 => X64Register::GPR(DWARF_REGS[x as usize]),
-            17..=24 => X64Register::XMM(XMM::from_index(x as usize - 17).unwrap()),
-            _ => return None,
-        })
-    }
 }
 
 /// An allocator that allocates registers for function arguments according to the System V ABI.
@@ -301,7 +270,7 @@ impl ArgumentRegisterAllocator {
                     _ => {
                         return Err(CompileError::Codegen(format!(
                             "No register available for {calling_convention:?} and type {ty}"
-                        )))
+                        )));
                     }
                 }
             }
@@ -340,23 +309,12 @@ impl ArgumentRegisterAllocator {
                     _ => {
                         return Err(CompileError::Codegen(format!(
                             "No register available for {calling_convention:?} and type {ty}"
-                        )))
+                        )));
                     }
                 }
             }
         };
 
         Ok(ret)
-    }
-}
-
-/// Create a new `MachineState` with default values.
-pub fn new_machine_state() -> MachineState {
-    MachineState {
-        stack_values: vec![],
-        register_values: vec![MachineValue::Undefined; 16 + 8],
-        prev_frame: BTreeMap::new(),
-        wasm_stack: vec![],
-        wasm_inst_offset: usize::MAX,
     }
 }

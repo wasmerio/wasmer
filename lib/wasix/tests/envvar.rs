@@ -20,7 +20,9 @@ fn main() {
         println!("{e}");
     }
 
-    env::set_var("WASI_ENVVAR_TEST", "HELLO");
+    unsafe {
+        env::set_var("WASI_ENVVAR_TEST", "HELLO");
+    }
 
     println!("DOG {:?}", get_env_var("DOG"));
     println!("DOG_TYPE {:?}", get_env_var("DOG_TYPE"));

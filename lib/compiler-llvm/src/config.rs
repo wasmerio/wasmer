@@ -1,17 +1,21 @@
 use crate::compiler::LLVMCompiler;
+pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
     TargetTriple,
 };
-pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
+use std::fs::File;
+use std::io::{self, Write};
+use std::path::PathBuf;
 use std::sync::Arc;
 use std::{fmt::Debug, num::NonZero};
 use target_lexicon::BinaryFormat;
+use wasmer_compiler::misc::{CompiledKind, function_kind_to_filename};
 use wasmer_compiler::{Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware};
 use wasmer_types::{
+    Features,
     target::{Architecture, OperatingSystem, Target, Triple},
-    Features, FunctionType, LocalFunctionIndex,
 };
 
 /// The InkWell ModuleInfo type
@@ -20,25 +24,50 @@ pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
 /// The InkWell MemoryBuffer type
 pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
 
-/// The compiled function kind, used for debugging in the `LLVMCallbacks`.
+/// Callbacks to the different LLVM compilation phases.
 #[derive(Debug, Clone)]
-pub enum CompiledKind {
-    // A locally-defined function in the Wasm file.
-    Local(LocalFunctionIndex),
-    // A function call trampoline for a given signature.
-    FunctionCallTrampoline(FunctionType),
-    // A dynamic function trampoline for a given signature.
-    DynamicFunctionTrampoline(FunctionType),
-    // An entire Wasm module.
-    Module,
+pub struct LLVMCallbacks {
+    debug_dir: PathBuf,
 }
 
-/// Callbacks to the different LLVM compilation phases.
-pub trait LLVMCallbacks: Debug + Send + Sync {
-    fn preopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
-    fn postopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
-    fn obj_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
-    fn asm_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
+impl LLVMCallbacks {
+    pub fn new(debug_dir: PathBuf) -> Result<Self, io::Error> {
+        // Create the debug dir in case it doesn't exist
+        std::fs::create_dir_all(&debug_dir)?;
+        Ok(Self { debug_dir })
+    }
+
+    pub fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".preopt.ll"));
+        module
+            .print_to_file(&path)
+            .expect("Error while dumping pre optimized LLVM IR");
+    }
+    pub fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".postopt.ll"));
+        module
+            .print_to_file(&path)
+            .expect("Error while dumping post optimized LLVM IR");
+    }
+    pub fn obj_memory_buffer(&self, kind: &CompiledKind, memory_buffer: &InkwellMemoryBuffer) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".o"));
+        let mem_buf_slice = memory_buffer.as_slice();
+        let mut file =
+            File::create(path).expect("Error while creating debug object file from LLVM IR");
+        file.write_all(mem_buf_slice).unwrap();
+    }
+
+    pub fn asm_memory_buffer(&self, kind: &CompiledKind, asm_memory_buffer: &InkwellMemoryBuffer) {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".s"));
+        let mem_buf_slice = asm_memory_buffer.as_slice();
+        let mut file =
+            File::create(path).expect("Error while creating debug assembly file from LLVM IR");
+        file.write_all(mem_buf_slice).unwrap();
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -49,7 +78,7 @@ pub struct LLVM {
     pub(crate) enable_perfmap: bool,
     pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
-    pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
+    pub(crate) callbacks: Option<LLVMCallbacks>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     /// Number of threads to use when compiling a module.
@@ -94,7 +123,7 @@ impl LLVM {
 
     /// Callbacks that will triggered in the different compilation
     /// phases in LLVM.
-    pub fn callbacks(&mut self, callbacks: Option<Arc<dyn LLVMCallbacks>>) -> &mut Self {
+    pub fn callbacks(&mut self, callbacks: Option<LLVMCallbacks>) -> &mut Self {
         self.callbacks = callbacks;
         self
     }
@@ -129,21 +158,22 @@ impl LLVM {
     }
 
     pub(crate) fn target_operating_system(&self, target: &Target) -> OperatingSystem {
-        if target.triple().operating_system == OperatingSystem::Darwin && !self.is_pic {
-            // LLVM detects static relocation + darwin + 64-bit and
-            // force-enables PIC because MachO doesn't support that
-            // combination. They don't check whether they're targeting
-            // MachO, they check whether the OS is set to Darwin.
-            //
-            // Since both linux and darwin use SysV ABI, this should work.
-            //  but not in the case of Aarch64, there the ABI is slightly different
-            #[allow(clippy::match_single_binding)]
-            match target.triple().architecture {
-                Architecture::Aarch64(_) => OperatingSystem::Darwin,
-                _ => OperatingSystem::Linux,
+        match target.triple().operating_system {
+            OperatingSystem::Darwin(deployment) if !self.is_pic => {
+                // LLVM detects static relocation + darwin + 64-bit and
+                // force-enables PIC because MachO doesn't support that
+                // combination. They don't check whether they're targeting
+                // MachO, they check whether the OS is set to Darwin.
+                //
+                // Since both linux and darwin use SysV ABI, this should work.
+                //  but not in the case of Aarch64, there the ABI is slightly different
+                #[allow(clippy::match_single_binding)]
+                match target.triple().architecture {
+                    Architecture::Aarch64(_) => OperatingSystem::Darwin(deployment),
+                    _ => OperatingSystem::Linux,
+                }
             }
-        } else {
-            target.triple().operating_system
+            other => other,
         }
     }
 
@@ -152,7 +182,7 @@ impl LLVM {
             target.triple().binary_format
         } else {
             match self.target_operating_system(target) {
-                OperatingSystem::Darwin => target_lexicon::BinaryFormat::Macho,
+                OperatingSystem::Darwin(_) => target_lexicon::BinaryFormat::Macho,
                 _ => target_lexicon::BinaryFormat::Elf,
             }
         }
@@ -286,10 +316,15 @@ impl LLVM {
 
                 let my_target_machine: MyTargetMachine = std::mem::transmute(llvm_target_machine);
 
-                *((my_target_machine.target_machine as *mut u8).offset(0x410) as *mut u64) = 5;
+                #[cfg(target_arch = "riscv64")]
+                let target_machine_ptr = my_target_machine.target_machine as *mut u8;
+                #[cfg(not(target_arch = "riscv64"))]
+                let target_machine_ptr = my_target_machine.target_machine as *mut i8;
+
+                *(target_machine_ptr.offset(0x410) as *mut u64) = 5;
                 std::ptr::copy_nonoverlapping(
                     c"lp64d".as_ptr(),
-                    (my_target_machine.target_machine as *mut i8).offset(0x418),
+                    target_machine_ptr.offset(0x418),
                     6,
                 );
 

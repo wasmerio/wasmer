@@ -2,85 +2,97 @@
 use std::any::Any;
 
 use wasmer_types::{TagType, Type};
-use wasmer_vm::StoreHandle;
+use wasmer_vm::{StoreHandle, StoreId};
 
 use crate::{
-    sys::vm::{VMException, VMExceptionRef},
-    AsStoreMut, AsStoreRef, Tag, Value,
+    AsStoreMut, AsStoreRef, BackendTag, Tag, Value,
+    sys::vm::{VMExceptionObj, VMExceptionRef},
 };
 
 #[derive(Debug, Clone, PartialEq, Eq)]
-/// A WebAssembly `exception` in the `sys` runtime.
+/// A WebAssembly `exnref` in the `sys` runtime.
 pub(crate) struct Exception {
-    pub(crate) handle: VMException,
+    exnref: wasmer_vm::VMExceptionRef,
 }
-
-unsafe impl Send for Exception {}
-unsafe impl Sync for Exception {}
 
 impl Exception {
-    /// Create a new [`Exception`].
-    pub fn new(store: &mut impl AsStoreMut, tag: Tag, payload: &[Value]) -> Self {
-        todo!()
-    }
-}
-
-#[derive(Debug, Clone)]
-#[repr(transparent)]
-/// A WebAssembly `extern ref` in the `sys` runtime.
-pub(crate) struct ExceptionRef {
-    handle: StoreHandle<wasmer_vm::VMExceptionObj>,
-}
-
-impl ExceptionRef {
-    /// Make a new extern reference
-    pub fn new<T>(store: &mut impl AsStoreMut, value: T) -> Self
-    where
-        T: Any + Send + Sync + 'static + Sized,
-    {
-        Self {
-            handle: crate::backend::sys::store::StoreHandle::new(
-                store.objects_mut().as_sys_mut(),
-                wasmer_vm::VMExceptionObj::new(value),
-            ),
+    /// Creates a new exception with the given tag and payload, and also creates
+    /// a reference to it, returning the reference.
+    #[allow(irrefutable_let_patterns)]
+    pub fn new(store: &mut impl AsStoreMut, tag: &crate::sys::tag::Tag, payload: &[Value]) -> Self {
+        if !tag.is_from_store(store) {
+            panic!("cannot create Exception with Tag from another Store");
         }
-    }
 
-    /// Try to downcast to the given value.
-    pub fn downcast<'a, T>(&self, store: &'a impl AsStoreRef) -> Option<&'a T>
-    where
-        T: Any + Send + Sync + 'static + Sized,
-    {
-        self.handle
-            .get(store.as_store_ref().objects().as_sys())
-            .as_ref()
-            .downcast_ref::<T>()
-    }
+        let store_objects = store.as_store_ref().objects().as_sys();
+        let store_id = store_objects.id();
 
-    /// Create a [`VMExceptionRef`] from [`Self`].
-    pub(crate) fn vm_exceptionref(&self) -> VMExceptionRef {
-        wasmer_vm::VMExceptionRef(self.handle.internal_handle())
-    }
+        let tag_ty = tag.handle.get(store_objects).signature.params();
 
-    /// Create an instance of [`Self`] from a [`VMExceptionRef`].
-    pub(crate) unsafe fn from_vm_exceptionref(
-        store: &mut impl AsStoreMut,
-        vm_exceptionref: VMExceptionRef,
-    ) -> Self {
-        Self {
-            handle: StoreHandle::from_internal(store.objects_mut().id(), vm_exceptionref.0),
+        if tag_ty.len() != payload.len() {
+            panic!("payload length mismatch");
         }
+
+        let values = payload
+            .iter()
+            .enumerate()
+            .map(|(i, v)| {
+                if v.ty() != tag_ty[i] {
+                    panic!("payload type mismatch");
+                }
+                v.as_raw(store)
+            })
+            .collect::<Vec<_>>()
+            .into_boxed_slice();
+
+        let ctx = store.objects_mut().as_sys_mut();
+        let exception = wasmer_vm::VMExceptionObj::new(tag.handle.internal_handle(), values);
+        let exn_handle = wasmer_vm::StoreHandle::new(ctx, exception);
+        let exnref = wasmer_vm::VMExceptionRef(exn_handle);
+
+        Self { exnref }
     }
 
-    /// Checks whether this `ExceptionRef` can be used with the given context.
-    ///
-    /// Primitive (`i32`, `i64`, etc) and null funcref/exceptionref values are not
-    /// tied to a context and can be freely shared between contexts.
-    ///
-    /// exceptionref and funcref values are tied to a context and can only be used
-    /// with that context.
+    pub fn exnref(&self) -> wasmer_vm::VMExceptionRef {
+        self.exnref.clone()
+    }
+
+    pub fn from_exnref(exnref: wasmer_vm::VMExceptionRef) -> Self {
+        Self { exnref }
+    }
+
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.as_store_ref().objects().id()
+        self.exnref.0.store_id() == store.as_store_ref().objects().id()
+    }
+
+    pub fn tag(&self, store: &impl AsStoreRef) -> crate::sys::tag::Tag {
+        if !self.is_from_store(store) {
+            panic!("Exception is from another Store");
+        }
+        let ctx = store.as_store_ref().objects().as_sys();
+        let exception = self.exnref.0.get(ctx);
+        let tag_handle = exception.tag();
+        crate::sys::tag::Tag {
+            handle: unsafe { StoreHandle::from_internal(ctx.id(), tag_handle) },
+        }
+    }
+
+    pub fn payload(&self, store: &mut impl AsStoreMut) -> Vec<Value> {
+        if !self.is_from_store(store) {
+            panic!("Exception is from another Store");
+        }
+        let ctx = store.as_store_ref().objects().as_sys();
+        let exception = self.exnref.0.get(ctx);
+        let params_ty = exception.tag().get(ctx).signature.params().to_vec();
+        let payload_ptr = exception.payload();
+
+        assert_eq!(params_ty.len(), payload_ptr.len());
+
+        params_ty
+            .iter()
+            .zip(unsafe { payload_ptr.as_ref().iter() })
+            .map(|(ty, raw)| unsafe { Value::from_raw(store, *ty, *raw) })
+            .collect()
     }
 }
 

@@ -9,8 +9,8 @@ use tracing_test::traced_test;
 #[cfg(feature = "remote")]
 use crate::RemoteNetworkingServer;
 use crate::{
-    host::LocalNetworking, meta::FrameSerializationFormat, VirtualConnectedSocketExt,
-    VirtualTcpListenerExt,
+    VirtualConnectedSocketExt, VirtualTcpListenerExt, host::LocalNetworking,
+    meta::FrameSerializationFormat,
 };
 use tokio::io::{AsyncReadExt, AsyncWriteExt};
 
@@ -440,7 +440,7 @@ async fn test_google_epoll() {
         let mut done = false;
         for n in 0.. {
             let mut buf: [MaybeUninit<u8>; 4096] = [MaybeUninit::uninit(); 4096];
-            match socket.try_recv(&mut buf) {
+            match socket.try_recv(&mut buf, false) {
                 Ok(0) => {
                     done = true;
                     break;
@@ -467,7 +467,9 @@ async fn test_google_epoll() {
     }
 
     if false_interest > 20 {
-        panic!("too many false positives on the epoll ({false_interest}), something has likely gone wrong")
+        panic!(
+            "too many false positives on the epoll ({false_interest}), something has likely gone wrong"
+        )
     }
 
     tracing::info!("done");

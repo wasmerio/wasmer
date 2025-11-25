@@ -398,10 +398,10 @@ impl Rule {
 
     /// Returns allowed ports for the specified `domain` if this rule is a DNS rule
     pub fn port_spec_of_domain(&mut self, domain: impl AsRef<str>) -> Option<PortSpec> {
-        if let Rule::DNS(rule) = self {
-            if rule.allows(domain) {
-                return Some(rule.allowed_ports());
-            }
+        if let Rule::DNS(rule) = self
+            && rule.allows(domain)
+        {
+            return Some(rule.allowed_ports());
         }
 
         None
@@ -676,7 +676,7 @@ impl Ruleset {
     pub fn allows_socket(&self, addr: impl Into<SocketAddr>, dir: Direction) -> bool {
         let addr = addr.into();
 
-        let is_allowed = {
+        {
             let ruleset = self.rules.read().unwrap();
 
             let is_blacklisted = ruleset.iter().any(|r| r.blocks_socket(addr, dir));
@@ -685,16 +685,14 @@ impl Ruleset {
             }
 
             ruleset.iter().any(|r| r.allows_socket(addr, dir))
-        };
-
-        is_allowed
+        }
     }
 
     /// Returns `true` if at least one rule allows querying the specific `domain` and no rule blocks it
     pub fn allows_domain(&self, domain: impl AsRef<str>) -> bool {
         let domain = domain.as_ref();
 
-        let is_allowed = {
+        {
             let ruleset = self.rules.read().unwrap();
 
             let is_blacklisted = ruleset.iter().any(|r| r.blocks_domain(domain));
@@ -703,9 +701,7 @@ impl Ruleset {
             }
 
             ruleset.iter().any(|r| r.allows_domain(domain))
-        };
-
-        is_allowed
+        }
     }
 
     /// Expands the DNS rule that allows the specified `domain` into a list of IP based

@@ -142,44 +142,19 @@ impl VMBuiltinFunctionIndex {
         Self(29)
     }
 
-    /// Returns an index for wasm's imported `throw` builtin function.
-    pub const fn get_imported_throw_index() -> Self {
-        Self(30)
-    }
-
-    /// Returns an index for wasm's imported `rethrow` builtin function.
-    pub const fn get_imported_rethrow_index() -> Self {
-        Self(31)
-    }
-
-    /// Returns an index for wasm's imported `alloc_exception` builtin function.
-    pub const fn get_imported_alloc_exception_index() -> Self {
-        Self(32)
-    }
-
-    /// Returns an index for wasm's imported `delete_exception` builtin function.
-    pub const fn get_imported_delete_exception_index() -> Self {
-        Self(33)
-    }
-
-    /// Returns an index for wasm's imported `read_exception` builtin function.
-    pub const fn get_imported_read_exception_index() -> Self {
-        Self(34)
-    }
-
     /// Returns an index for wasm's imported `debug_usize` builtin function.
     pub const fn get_imported_debug_usize_index() -> Self {
-        Self(35)
+        Self(30)
     }
 
     /// Returns an index for wasm's imported `debug_str` builtin function.
     pub const fn get_imported_debug_str_index() -> Self {
-        Self(36)
+        Self(31)
     }
 
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        37
+        32
     }
 
     /// Return the index as an u32 number.
@@ -850,7 +825,7 @@ mod tests {
     #[test]
     fn alignment() {
         fn is_aligned(x: u32) -> bool {
-            x % 16 == 0
+            x.is_multiple_of(16)
         }
         assert!(is_aligned(align(0, 16)));
         assert!(is_aligned(align(32, 16)));

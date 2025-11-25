@@ -21,9 +21,11 @@ pub fn port_route_list<M: MemorySize>(
     let mut env = ctx.data();
     let mut memory = unsafe { env.memory_view(&ctx) };
     let ref_nroutes = nroutes_ptr.deref(&memory);
-    let max_routes: usize = wasi_try_ok!(wasi_try_mem_ok!(ref_nroutes.read())
-        .try_into()
-        .map_err(|_| Errno::Inval));
+    let max_routes: usize = wasi_try_ok!(
+        wasi_try_mem_ok!(ref_nroutes.read())
+            .try_into()
+            .map_err(|_| Errno::Inval)
+    );
     Span::current().record("max_routes", max_routes);
     let ref_routes =
         wasi_try_mem_ok!(routes_ptr.slice(&memory, wasi_try_ok!(to_offset::<M>(max_routes))));

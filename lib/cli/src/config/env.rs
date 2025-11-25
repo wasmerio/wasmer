@@ -22,8 +22,7 @@ pub struct WasmerEnv {
     #[clap(long, env = "WASMER_CACHE_DIR", default_value = super::DEFAULT_WASMER_CACHE_DIR.as_os_str())]
     pub(crate) cache_dir: PathBuf,
 
-    /// The registry to fetch packages from (inferred from the environment by
-    /// default)
+    /// Change the current registry
     #[clap(long, env = "WASMER_REGISTRY")]
     pub(crate) registry: Option<UserRegistry>,
 
@@ -150,8 +149,7 @@ impl WasmerEnv {
             Ok(Self::APP_DOMAIN_DEV.to_string())
         } else {
             anyhow::bail!(
-                "could not determine app domain for backend url '{}': unknown backend",
-                domain
+                "could not determine app domain for backend url '{domain}': unknown backend"
             );
         }
     }
@@ -179,7 +177,9 @@ impl WasmerEnv {
     pub fn client(&self) -> Result<WasmerClient, anyhow::Error> {
         let client = self.client_unauthennticated()?;
         if client.auth_token().is_none() {
-            anyhow::bail!("no token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var");
+            anyhow::bail!(
+                "no token provided - run 'wasmer login', specify --token=XXX, or set the WASMER_TOKEN env var"
+            );
         }
 
         Ok(client)

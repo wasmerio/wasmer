@@ -5,7 +5,7 @@ use crate::{
 };
 use anyhow::Context;
 use colored::Colorize;
-use is_terminal::IsTerminal;
+use std::io::IsTerminal as _;
 use std::path::{Path, PathBuf};
 use wasmer_backend_api::WasmerClient;
 use wasmer_config::package::{Manifest, PackageHash};
@@ -65,12 +65,11 @@ impl PackagePush {
             return Ok(owner.clone());
         }
 
-        if let Some(pkg) = &manifest.package {
-            if let Some(ns) = &pkg.name {
-                if let Some(first) = ns.split('/').next() {
-                    return Ok(first.to_string());
-                }
-            }
+        if let Some(pkg) = &manifest.package
+            && let Some(ns) = &pkg.name
+            && let Some(first) = ns.split('/').next()
+        {
+            return Ok(first.to_string());
         }
 
         if self.non_interactive {
@@ -93,12 +92,11 @@ impl PackagePush {
             return Ok(Some(name.clone()));
         }
 
-        if let Some(pkg) = &manifest.package {
-            if let Some(ns) = &pkg.name {
-                if let Some(name) = ns.split('/').nth(1) {
-                    return Ok(Some(name.to_string()));
-                }
-            }
+        if let Some(pkg) = &manifest.package
+            && let Some(ns) = &pkg.name
+            && let Some(name) = ns.split('/').nth(1)
+        {
+            return Ok(Some(name.to_string()));
         }
 
         Ok(None)
@@ -153,7 +151,9 @@ impl PackagePush {
                 if r.success {
                     r.package_webc.unwrap().id
                 } else {
-                    anyhow::bail!("An unidentified error occurred while publishing the package. (response had success: false)")
+                    anyhow::bail!(
+                        "An unidentified error occurred while publishing the package. (response had success: false)"
+                    )
                 }
             }
             None => anyhow::bail!("An unidentified error occurred while publishing the package."), // <- This is extremely bad..
@@ -184,7 +184,9 @@ impl PackagePush {
         let name = self.get_name(manifest).await?;
 
         let private = self.get_privacy(manifest);
-        tracing::info!("If published, package privacy is {private}, namespace is {namespace} and name is {name:?}");
+        tracing::info!(
+            "If published, package privacy is {private}, namespace is {namespace} and name is {name:?}"
+        );
 
         let pb = make_spinner!(
             self.quiet,

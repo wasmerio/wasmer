@@ -7,7 +7,7 @@ use std::{
     time::Duration,
 };
 
-use super::{super::PackageSource, PkgCapabilityCache};
+use super::{super::CliPackageSource, PkgCapabilityCache};
 use anyhow::Context;
 use colored::Colorize;
 use dialoguer::theme::ColorfulTheme;

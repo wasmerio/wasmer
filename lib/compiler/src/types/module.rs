@@ -10,7 +10,7 @@ use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasmer_types::{
-    entity::PrimaryMap, Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle,
+    Features, MemoryIndex, MemoryStyle, ModuleInfo, TableIndex, TableStyle, entity::PrimaryMap,
 };
 
 /// The required info for compiling a module.

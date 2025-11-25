@@ -2,8 +2,8 @@ use std::{
     collections::HashMap,
     pin::Pin,
     sync::{
-        atomic::{AtomicU32, Ordering},
         Arc,
+        atomic::{AtomicU32, Ordering},
     },
     task::{Context, Poll, Waker},
     time::Duration,
@@ -12,7 +12,7 @@ use std::{
 use futures::{Future, FutureExt};
 use wasmer_wasix_types::wasi::Snapshot0Clockid;
 
-use crate::{syscalls::platform_clock_time_get, VirtualTaskManager, WasiProcess};
+use crate::{VirtualTaskManager, WasiProcess, syscalls::platform_clock_time_get};
 
 use super::process::LockableWasiProcessInner;
 
@@ -90,12 +90,12 @@ impl Future for CpuBackoffToken {
 
         // Registering the waker will unregister any previous wakers
         // so that we don't go into an endless memory growth situation
-        if let Some(waker_id) = self.waker_id.take() {
-            if inner.backoff.cpu_backoff_wakers.remove(&waker_id).is_none() {
-                // if we did not remove the waker, then someone else did
-                // which means we were woken and should exit the backoff phase
-                return Poll::Ready(());
-            }
+        if let Some(waker_id) = self.waker_id.take()
+            && inner.backoff.cpu_backoff_wakers.remove(&waker_id).is_none()
+        {
+            // if we did not remove the waker, then someone else did
+            // which means we were woken and should exit the backoff phase
+            return Poll::Ready(());
         }
 
         // Register ourselves as a waker to be woken

@@ -15,7 +15,7 @@ version.workspace = true
 [dependencies]
 memoffset.workspace = true
 dashmap.workspace = true
-wasmer-types = { path = "../types", version = "=6.1.0-rc.5" }
+wasmer-types = { path = "../types", version = "=6.1.0" }
 libc.workspace = true
 indexmap.workspace = true
 thiserror.workspace = true
@@ -28,6 +28,7 @@ scopeguard = "1.1.0"
 region.workspace = true
 corosensei = { version = "0.3.0" }
 fnv = "1.0.3"
+parking_lot.workspace = true
 # - Optional shared dependencies.
 tracing = { workspace = true, optional = true }
 crossbeam-queue = "0.3.8"

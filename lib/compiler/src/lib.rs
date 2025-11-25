@@ -53,6 +53,8 @@ mod engine;
 mod traits;
 
 #[cfg(any(feature = "std", feature = "core"))]
+pub mod misc;
+#[cfg(any(feature = "std", feature = "core"))]
 pub mod object;
 #[cfg(any(feature = "std", feature = "core"))]
 pub mod serialize;
@@ -80,10 +82,10 @@ pub use crate::compiler::{Compiler, CompilerConfig};
 mod translator;
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type, wptype_to_type,
     FunctionBinaryReader, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
     MiddlewareReaderState, ModuleEnvironment, ModuleMiddleware, ModuleMiddlewareChain,
-    ModuleTranslationState,
+    ModuleTranslationState, from_binaryreadererror_wasmerror, translate_module, wpheaptype_to_type,
+    wptype_to_type,
 };
 
 pub use wasmer_types::{Addend, CodeOffset, Features};

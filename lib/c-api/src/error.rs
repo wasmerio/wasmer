@@ -87,7 +87,7 @@ pub(crate) fn take_last_error() -> Option<String> {
 ///
 /// See this module's documentation to get a complete example.
 // TODO(Amanieu): This should use size_t
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub extern "C" fn wasmer_last_error_length() -> c_int {
     LAST_ERROR.with(|prev| match *prev.borrow() {
         Some(ref err) => err.len() as c_int + 1,
@@ -118,7 +118,7 @@ pub extern "C" fn wasmer_last_error_length() -> c_int {
 ///
 /// See this module's documentation to get a complete example.
 // TODO(Amanieu): This should use size_t
-#[no_mangle]
+#[unsafe(no_mangle)]
 pub unsafe extern "C" fn wasmer_last_error_message(
     buffer: Option<NonNull<c_char>>,
     length: c_int,
@@ -142,13 +142,15 @@ pub unsafe extern "C" fn wasmer_last_error_message(
         return -1;
     }
 
-    let buffer = slice::from_raw_parts_mut(buffer.cast::<u8>().as_ptr(), length);
+    let buffer = unsafe { slice::from_raw_parts_mut(buffer.cast::<u8>().as_ptr(), length) };
 
-    ptr::copy_nonoverlapping(
-        error_message.as_ptr(),
-        buffer.as_mut_ptr(),
-        error_message.len(),
-    );
+    unsafe {
+        ptr::copy_nonoverlapping(
+            error_message.as_ptr(),
+            buffer.as_mut_ptr(),
+            error_message.len(),
+        );
+    }
 
     // Add a trailing null so people using the string as a `char *` don't
     // accidentally read into garbage.

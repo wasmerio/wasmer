@@ -1,9 +1,12 @@
 use std::error::Error;
 
 use js_sys::Reflect;
-use wasm_bindgen::{prelude::*, JsValue};
+use wasm_bindgen::{JsValue, prelude::*};
 
-use crate::RuntimeError;
+use crate::{
+    RuntimeError,
+    js::{exception::Exception, vm::VMExceptionRef},
+};
 
 #[derive(Debug)]
 enum InnerTrap {
@@ -50,6 +53,16 @@ impl Trap {
             _ => false,
         }
     }
+
+    /// Returns true if the `Trap` is an exception
+    pub fn is_exception(&self) -> bool {
+        false
+    }
+
+    /// If the `Trap` is an uncaught exception, returns it.
+    pub fn to_exception_ref(&self) -> Option<VMExceptionRef> {
+        None
+    }
 }
 
 #[wasm_bindgen]
@@ -81,13 +94,13 @@ impl From<JsValue> for RuntimeError {
     fn from(value: JsValue) -> Self {
         // We try to downcast the error and see if it's an instance of Trap
         // instead, so we don't need to re-wrap it.
-        if let Some(obj) = value.dyn_ref() {
-            if let Some(trap) = downcast_from_ptr(obj) {
-                return trap.into();
-            }
+        if let Some(obj) = value.dyn_ref()
+            && let Some(trap) = downcast_from_ptr(obj)
+        {
+            return trap.into();
         }
 
-        RuntimeError::from(Trap {
+        Self::from(Trap {
             inner: InnerTrap::Js(value.into()),
         })
     }
@@ -111,10 +124,7 @@ fn downcast_from_ptr(value: &JsValue) -> Option<Trap> {
         .and_then(|v: JsValue| v.dyn_into())
         .ok();
 
-    if marker_func.is_none() {
-        // We couldn't find the marker, so it's something else.
-        return None;
-    }
+    marker_func.as_ref()?;
 
     // Safety: The marker function exists, therefore it's safe to convert back
     // to a Trap.
@@ -150,27 +160,27 @@ impl From<JsValue> for JsTrap {
     fn from(value: JsValue) -> Self {
         // Let's try some easy special cases first
         if let Some(error) = value.dyn_ref::<js_sys::Error>() {
-            return JsTrap::Message(error.message().into());
+            return Self::Message(error.message().into());
         }
 
         if let Some(s) = value.as_string() {
-            return JsTrap::Message(s);
+            return Self::Message(s);
         }
 
         // Otherwise, we'll try to stringify the error and hope for the best
         if let Some(obj) = value.dyn_ref::<js_sys::Object>() {
-            return JsTrap::Message(obj.to_string().into());
+            return Self::Message(obj.to_string().into());
         }
 
-        JsTrap::Unknown
+        Self::Unknown
     }
 }
 
 impl std::fmt::Display for JsTrap {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         match self {
-            JsTrap::Message(m) => write!(f, "{m}"),
-            JsTrap::Unknown => write!(f, "unknown"),
+            Self::Message(m) => write!(f, "{m}"),
+            Self::Unknown => write!(f, "unknown"),
         }
     }
 }
@@ -195,13 +205,13 @@ impl From<Trap> for RuntimeError {
             return trap.downcast::<Self>().unwrap();
         }
 
-        RuntimeError::new_from_source(crate::BackendTrap::Js(trap), vec![], None)
+        Self::new_from_source(crate::BackendTrap::Js(trap), vec![], None)
     }
 }
 
 impl From<RuntimeError> for wasm_bindgen::JsValue {
     fn from(value: RuntimeError) -> Self {
-        wasm_bindgen::JsValue::from(value.to_string())
+        Self::from(value.to_string())
     }
 }
 

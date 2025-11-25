@@ -1,8 +1,8 @@
 use anyhow::Result;
 
 use std::sync::Arc;
-use wasmer::wasmparser::Operator;
 use wasmer::FunctionEnv;
+use wasmer::wasmparser::Operator;
 use wasmer::{sys::*, *};
 
 #[derive(Debug)]
@@ -106,8 +106,7 @@ fn middleware_basic(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
     let result = f.call(&mut store, 4, 6)?;
     assert_eq!(result, 24);
     Ok(())
@@ -130,8 +129,7 @@ fn middleware_one_to_multi(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
     let result = f.call(&mut store, 4, 6)?;
     assert_eq!(result, 25);
     Ok(())
@@ -155,9 +153,8 @@ fn middleware_multi_to_one(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> = instance
-        .exports
-        .get_typed_function(&mut store, "testfunc")?;
+    let f: TypedFunction<(i32, i32), i32> =
+        instance.exports.get_typed_function(&store, "testfunc")?;
     let result = f.call(&mut store, 10, 20)?;
     assert_eq!(result, 10);
     Ok(())
@@ -180,8 +177,7 @@ fn middleware_chain_order_1(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
     let result = f.call(&mut store, 4, 6)?;
     assert_eq!(result, 24);
     Ok(())
@@ -204,8 +200,7 @@ fn middleware_chain_order_2(mut config: crate::Config) -> Result<()> {
 
     let instance = Instance::new(&mut store, &module, &import_object)?;
 
-    let f: TypedFunction<(i32, i32), i32> =
-        instance.exports.get_typed_function(&mut store, "add")?;
+    let f: TypedFunction<(i32, i32), i32> = instance.exports.get_typed_function(&store, "add")?;
     let result = f.call(&mut store, 4, 6)?;
     assert_eq!(result, 48);
     Ok(())

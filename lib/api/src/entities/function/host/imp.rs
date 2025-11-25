@@ -1,8 +1,8 @@
 use crate::{
-    utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     AsStoreMut, AsStoreRef, BackendFunctionEnv, BackendFunctionEnvMut, FunctionEnvMut,
     FunctionType, HostFunction, RuntimeError, StoreInner, StoreMut, StoreRef, Value, WithEnv,
     WithoutEnv,
+    utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
 };
 
 use std::panic::{self, AssertUnwindSafe};

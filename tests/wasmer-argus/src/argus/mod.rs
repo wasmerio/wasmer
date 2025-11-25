@@ -9,14 +9,14 @@ use reqwest::header::CONTENT_TYPE;
 use std::{fs::OpenOptions, io::Write as _, ops::AddAssign, path::Path, sync::Arc, time::Duration};
 use tokio::{
     sync::{
-        mpsc::{self, UnboundedSender},
         Mutex, Semaphore,
+        mpsc::{self, UnboundedSender},
     },
     task::JoinSet,
 };
 use tracing::*;
 use url::Url;
-use wasmer_backend_api::{types::PackageVersionWithPackage, WasmerClient};
+use wasmer_backend_api::{WasmerClient, types::PackageVersionWithPackage};
 
 #[derive(Debug, Clone)]
 pub struct Argus {

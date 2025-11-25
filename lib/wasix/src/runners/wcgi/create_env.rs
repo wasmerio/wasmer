@@ -1,11 +1,11 @@
 use virtual_fs::Pipe;
 
 use crate::{
-    capabilities::Capabilities, http::HttpClientCapabilityV1,
-    runners::wcgi::callbacks::CreateEnvResult, WasiEnvBuilder,
+    WasiEnvBuilder, capabilities::Capabilities, http::HttpClientCapabilityV1,
+    runners::wcgi::callbacks::CreateEnvResult,
 };
 
-use super::{callbacks::CreateEnvConfig, RecycleEnvConfig};
+use super::{RecycleEnvConfig, callbacks::CreateEnvConfig};
 
 pub(crate) async fn default_recycle_env(mut conf: RecycleEnvConfig) {
     tracing::debug!("Destroying the WebAssembly instance");

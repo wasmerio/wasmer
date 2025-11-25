@@ -3,7 +3,7 @@
 use wasmer_compiler::types::symbols::{Symbol, SymbolRegistry};
 use wasmer_types::ModuleInfo;
 
-use super::{generate_c, CStatement, CType};
+use super::{CStatement, CType, generate_c};
 
 /// Helper functions to simplify the usage of the static artifact.
 fn gen_helper_functions(atom_name: &str, module_name: &str) -> String {

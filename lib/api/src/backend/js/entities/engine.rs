@@ -1,4 +1,4 @@
-use wasmer_types::{target::Target, Features};
+use wasmer_types::{Features, target::Target};
 
 /// The engine for the JavaScript runtime.
 #[derive(Clone, Debug)]
@@ -31,13 +31,13 @@ impl Engine {
 
 impl Default for Engine {
     fn default() -> Self {
-        Engine
+        Self
     }
 }
 
 /// Returns the default engine for the JS engine
 pub(crate) fn default_engine() -> Engine {
-    Engine::default()
+    Engine
 }
 
 impl crate::Engine {
@@ -71,11 +71,11 @@ impl crate::Engine {
     }
 }
 
-impl Into<crate::Engine> for Engine {
-    fn into(self) -> crate::Engine {
-        crate::Engine {
-            be: crate::BackendEngine::Js(self),
-            id: crate::Engine::atomic_next_engine_id(),
+impl From<Engine> for crate::Engine {
+    fn from(val: Engine) -> Self {
+        Self {
+            be: crate::BackendEngine::Js(val),
+            id: Self::atomic_next_engine_id(),
         }
     }
 }

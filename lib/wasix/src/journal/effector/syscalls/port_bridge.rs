@@ -30,11 +30,7 @@ impl JournalEffector {
             .unwrap_or_else(|err| Err(err.to_string()))
             .map_err(|err| {
                 anyhow::format_err!(
-                    "journal restore error: failed to bridge the network file descriptor (network={}, security={:?}) - {}",
-                    network,
-                    security,
-                    err
-                )
+                    "journal restore error: failed to bridge the network file descriptor (network={network}, security={security:?}) - {err}")
             })?;
         Ok(())
     }

@@ -63,13 +63,13 @@ impl WasmMmap {
             })?;
         let prev_pages = self.size;
 
-        if let Some(maximum) = conf.maximum {
-            if new_pages > maximum {
-                return Err(MemoryError::CouldNotGrow {
-                    current: self.size,
-                    attempted_delta: delta,
-                });
-            }
+        if let Some(maximum) = conf.maximum
+            && new_pages > maximum
+        {
+            return Err(MemoryError::CouldNotGrow {
+                current: self.size,
+                attempted_delta: delta,
+            });
         }
 
         // Wasm linear memories are never allowed to grow beyond what is
@@ -226,7 +226,7 @@ impl VMOwnedMemory {
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Self::new_internal(memory, style, Some(vm_memory_location))
+        unsafe { Self::new_internal(memory, style, Some(vm_memory_location)) }
     }
 
     /// Build a `Memory` with either self-owned or VM owned metadata.
@@ -281,7 +281,7 @@ impl VMOwnedMemory {
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
                     let mut ptr = mem_loc;
-                    let md = ptr.as_mut();
+                    let md = unsafe { ptr.as_mut() };
                     md.base = base_ptr;
                     md.current_length = mem_length;
                 }
@@ -412,7 +412,8 @@ impl VMSharedMemory {
         style: &MemoryStyle,
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
-        Ok(VMOwnedMemory::from_definition(memory, style, vm_memory_location)?.to_shared())
+        let owned = unsafe { VMOwnedMemory::from_definition(memory, style, vm_memory_location)? };
+        Ok(owned.to_shared())
     }
 
     /// Copies this memory to a new memory
@@ -487,15 +488,29 @@ impl LinearMemory for VMSharedMemory {
         Ok(Box::new(forked))
     }
 
-    fn do_wait(
+    unsafe fn do_wait(
         &mut self,
-        dst: wasmer_vm::NotifyLocation,
+        dst: u32,
+        expected: wasmer_vm::ExpectedValue,
         timeout: Option<std::time::Duration>,
     ) -> Result<u32, WaiterError> {
-        self.conditions.do_wait(dst, timeout)
+        unsafe {
+            let dst = wasmer_vm::NotifyLocation {
+                address: dst,
+                memory_base: self
+                    .mmap
+                    .read()
+                    .unwrap()
+                    .vm_memory_definition
+                    .as_ptr()
+                    .as_ref()
+                    .base,
+            };
+            self.conditions.do_wait(dst, expected, timeout)
+        }
     }
 
-    fn do_notify(&mut self, dst: wasmer_vm::NotifyLocation, count: u32) -> u32 {
+    fn do_notify(&mut self, dst: u32, count: u32) -> u32 {
         self.conditions.do_notify(dst, count)
     }
 }
@@ -570,7 +585,7 @@ impl LinearMemory for VMMemory {
 
     /// Initialize memory with data
     unsafe fn initialize_with_data(&self, start: usize, data: &[u8]) -> Result<(), Trap> {
-        self.0.initialize_with_data(start, data)
+        unsafe { self.0.initialize_with_data(start, data) }
     }
 
     /// Copies this memory to a new memory
@@ -611,17 +626,13 @@ impl VMMemory {
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
         Ok(if memory.shared {
-            Self(Box::new(VMSharedMemory::from_definition(
-                memory,
-                style,
-                vm_memory_location,
-            )?))
+            let shared =
+                unsafe { VMSharedMemory::from_definition(memory, style, vm_memory_location)? };
+            Self(Box::new(shared))
         } else {
-            Self(Box::new(VMOwnedMemory::from_definition(
-                memory,
-                style,
-                vm_memory_location,
-            )?))
+            let owned =
+                unsafe { VMOwnedMemory::from_definition(memory, style, vm_memory_location)? };
+            Self(Box::new(owned))
         })
     }
 
@@ -649,7 +660,7 @@ pub unsafe fn initialize_memory_with_data(
     start: usize,
     data: &[u8],
 ) -> Result<(), Trap> {
-    let mem_slice = std::slice::from_raw_parts_mut(memory.base, memory.current_length);
+    let mem_slice = unsafe { std::slice::from_raw_parts_mut(memory.base, memory.current_length) };
     let end = start + data.len();
     let to_init = &mut mem_slice[start..end];
     to_init.copy_from_slice(data);

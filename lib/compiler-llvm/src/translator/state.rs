@@ -50,38 +50,35 @@ pub enum IfElseState {
 impl<'ctx> ControlFrame<'ctx> {
     pub fn code_after(&self) -> &BasicBlock<'ctx> {
         match self {
-            ControlFrame::Block { ref next, .. }
-            | ControlFrame::Loop { ref next, .. }
-            | ControlFrame::Landingpad { ref next, .. }
-            | ControlFrame::IfElse { ref next, .. } => next,
+            ControlFrame::Block { next, .. }
+            | ControlFrame::Loop { next, .. }
+            | ControlFrame::Landingpad { next, .. }
+            | ControlFrame::IfElse { next, .. } => next,
         }
     }
 
     pub fn br_dest(&self) -> &BasicBlock<'ctx> {
         match self {
-            ControlFrame::Block { ref next, .. }
-            | ControlFrame::IfElse { ref next, .. }
-            | ControlFrame::Landingpad { ref next, .. } => next,
-            ControlFrame::Loop { ref body, .. } => body,
+            ControlFrame::Block { next, .. }
+            | ControlFrame::IfElse { next, .. }
+            | ControlFrame::Landingpad { next, .. } => next,
+            ControlFrame::Loop { body, .. } => body,
         }
     }
 
     pub fn phis(&self) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Block { ref phis, .. } | ControlFrame::Loop { ref phis, .. } => {
-                phis.as_slice()
+            ControlFrame::Block { phis, .. } | ControlFrame::Loop { phis, .. } => phis.as_slice(),
+            ControlFrame::IfElse { next_phis, .. } | ControlFrame::Landingpad { next_phis, .. } => {
+                next_phis.as_slice()
             }
-            ControlFrame::IfElse { ref next_phis, .. }
-            | ControlFrame::Landingpad { ref next_phis, .. } => next_phis.as_slice(),
         }
     }
 
     /// PHI nodes for stack values in the loop body.
     pub fn loop_body_phis(&self) -> &[PhiValue<'ctx>] {
         match self {
-            ControlFrame::Loop {
-                ref loop_body_phis, ..
-            } => loop_body_phis.as_slice(),
+            ControlFrame::Loop { loop_body_phis, .. } => loop_body_phis.as_slice(),
             _ => &[],
         }
     }
@@ -223,8 +220,9 @@ pub struct TagCatchInfo<'ctx> {
     pub tag: u32,
     // The catch block
     pub catch_block: BasicBlock<'ctx>,
-    // The PHI node to receive the exception object
-    pub wasmer_exc_phi: Option<PhiValue<'ctx>>,
+    // The PHI node to receive the exnref, if needed; catch_all
+    // blocks don't need the exnref.
+    pub exnref_phi: Option<PhiValue<'ctx>>,
 }
 
 #[derive(Debug)]

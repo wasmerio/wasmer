@@ -1,4 +1,4 @@
-use crate::{syscalls::__asyncify_light, VIRTUAL_ROOT_FD};
+use crate::{VIRTUAL_ROOT_FD, syscalls::__asyncify_light};
 
 use super::*;
 
@@ -41,12 +41,7 @@ impl JournalEffector {
                 crate::syscalls::path_rename_internal(ctx, old_fd, old_path, new_fd, new_path)?;
             if ret != Errno::Success {
                 bail!(
-                    "journal restore error: failed to rename path (old_fd={}, old_path={}, new_fd={}, new_path={}) - {}",
-                    old_fd,
-                    old_path,
-                    new_fd,
-                    new_path,
-                    ret
+                    "journal restore error: failed to rename path (old_fd={old_fd}, old_path={old_path}, new_fd={new_fd}, new_path={new_path}) - {ret}"
                 );
             }
         }

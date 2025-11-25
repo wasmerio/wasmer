@@ -6,7 +6,7 @@ use std::{
 };
 
 use anyhow::{Context, Error};
-use futures::{future::BoxFuture, StreamExt, TryStreamExt};
+use futures::{StreamExt, TryStreamExt, future::BoxFuture};
 use once_cell::sync::OnceCell;
 use petgraph::visit::EdgeRef;
 use virtual_fs::{FileSystem, OverlayFileSystem, UnionFileSystem, WebcVolumeFileSystem};
@@ -235,15 +235,14 @@ fn extract_suggested_compiler_opts_from_atom_metadata(
     if let Some(sco) = atom_metadata
         .annotations
         .get(SuggestedCompilerOptimizations::KEY)
-    {
-        if let Some((_, v)) = sco.as_map().and_then(|v| {
+        && let Some((_, v)) = sco.as_map().and_then(|v| {
             v.iter().find(|(k, _)| {
                 k.as_text()
                     .is_some_and(|v| v == SuggestedCompilerOptimizations::PASS_PARAMS_KEY)
             })
-        }) {
-            ret.pass_params = v.as_bool()
-        }
+        })
+    {
+        ret.pass_params = v.as_bool()
     }
 
     ret
@@ -673,7 +672,7 @@ where
         self.inner.remove_file(&path)
     }
 
-    fn new_open_options(&self) -> virtual_fs::OpenOptions {
+    fn new_open_options(&self) -> virtual_fs::OpenOptions<'_> {
         virtual_fs::OpenOptions::new(self)
     }
 
