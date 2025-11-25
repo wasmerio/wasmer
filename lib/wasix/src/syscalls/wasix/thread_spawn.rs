@@ -213,6 +213,12 @@ fn call_module_internal<M: MemorySize>(
 
     let exit_code = handle_thread_result(env, store, thread_result)?;
 
+    // If the thread exited with a non-zero exit code, set the thread's status
+    // before calling on_exit to ensure the exit code is properly propagated
+    if let Some(code) = exit_code {
+        env.data(store).thread.set_status_finished(Ok(code));
+    }
+
     // Clean up the environment on exit
     env.on_exit(store, exit_code);
     Ok(())
