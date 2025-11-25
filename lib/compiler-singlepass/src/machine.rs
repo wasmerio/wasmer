@@ -60,8 +60,6 @@ pub struct TrapTable {
 // all machine seems to have a page this size, so not per arch for now
 pub const NATIVE_PAGE_SIZE: usize = 4096;
 
-pub struct MachineStackOffset(pub usize);
-
 #[allow(dead_code)]
 pub enum UnsignedCondition {
     Equal,
@@ -100,10 +98,10 @@ pub trait Machine {
     fn reserve_unused_temp_gpr(&mut self, gpr: Self::GPR) -> Self::GPR;
     /// reserve a GPR
     fn reserve_gpr(&mut self, gpr: Self::GPR);
-    /// Push used gpr to the stack. Return the bytes taken on the stack
-    fn push_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<usize, CompileError>;
-    /// Pop used gpr to the stack
-    fn pop_used_gpr(&mut self, grps: &[Self::GPR]) -> Result<(), CompileError>;
+    /// Push used gpr to the stack. Return the bytes taken on the stack.
+    fn push_used_gpr(&mut self, gprs: &[Self::GPR]) -> Result<usize, CompileError>;
+    /// Pop used gpr from the stack.
+    fn pop_used_gpr(&mut self, gprs: &[Self::GPR]) -> Result<(), CompileError>;
     /// Picks an unused SIMD register.
     ///
     /// This method does not mark the register as used
@@ -283,8 +281,8 @@ pub trait Machine {
     /// emit a label
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError>;
 
-    /// get the gpr use for call. like RAX on x86_64
-    fn get_grp_for_call(&self) -> Self::GPR;
+    /// get the gpr used for call. like RAX on x86_64
+    fn get_gpr_for_call(&self) -> Self::GPR;
     /// Emit a call using the value in register
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError>;
     /// Emit a call to a label
@@ -301,10 +299,6 @@ pub trait Machine {
         &mut self,
         location: Location<Self::GPR, Self::SIMD>,
     ) -> Result<(), CompileError>;
-    /// get the gpr for the return of generic values
-    fn get_gpr_for_ret(&self) -> Self::GPR;
-    /// get the simd for the return of float/double values
-    fn get_simd_for_ret(&self) -> Self::SIMD;
 
     /// Emit a debug breakpoint
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError>;

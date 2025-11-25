@@ -2558,7 +2558,7 @@ impl Machine for MachineRiscv {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> Self::GPR {
+    fn get_gpr_for_call(&self) -> Self::GPR {
         GPR::X1
     }
     fn emit_call_register(&mut self, register: Self::GPR) -> Result<(), CompileError> {
@@ -2584,7 +2584,7 @@ impl Machine for MachineRiscv {
             &mut temps,
             ImmType::None,
             true,
-            Some(self.get_grp_for_call()),
+            Some(self.get_gpr_for_call()),
         )?;
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
@@ -2594,12 +2594,6 @@ impl Machine for MachineRiscv {
             self.release_gpr(r);
         }
         Ok(())
-    }
-    fn get_gpr_for_ret(&self) -> Self::GPR {
-        GPR::X10
-    }
-    fn get_simd_for_ret(&self) -> Self::SIMD {
-        FPR::F10
     }
     fn emit_debug_breakpoint(&mut self) -> Result<(), CompileError> {
         self.assembler.emit_brk()

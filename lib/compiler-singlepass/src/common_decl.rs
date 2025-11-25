@@ -7,12 +7,10 @@ pub enum Size {
 }
 
 impl Size {
-    #[allow(dead_code)]
     pub fn bits(&self) -> u32 {
         8 * self.bytes()
     }
 
-    #[allow(dead_code)]
     pub fn bytes(&self) -> u32 {
         match self {
             Size::S8 => 1,
