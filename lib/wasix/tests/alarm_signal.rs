@@ -16,16 +16,16 @@ mod sys {
 }
 
 /// Tests that SIGALRM fires during thread_sleep.
-/// 
+///
 /// This test creates a WAT module that:
 /// 1. Registers a signal handler using callback_signal
 /// 2. Sets up SIGALRM to fire after 100ms using proc_raise_interval
 /// 3. Calls thread_sleep for 2 seconds
-/// 
+///
 /// Expected behavior:
 /// - The alarm should fire after 100ms, calling the signal handler
 /// - The signal handler calls proc_exit(0) to indicate success
-/// 
+///
 /// Bug behavior (what this test is meant to catch):
 /// - The alarm never fires
 /// - thread_sleep completes after 2 seconds
@@ -110,22 +110,25 @@ fn test_alarm_signal() {
         Err(err) => {
             // Check if this is an exit error
             let exit_code = err.chain().find_map(|e| {
-                if let Some(WasiError::Exit(code)) = e.downcast_ref::<WasiError>() {
-                    Some(*code)
-                } else {
-                    None
-                }
+                e.downcast_ref::<WasiError>().and_then(|w| {
+                    if let WasiError::Exit(code) = w {
+                        Some(*code)
+                    } else {
+                        None
+                    }
+                })
             });
-            
+
             match exit_code {
-                Some(code) if code.raw() == 0 => {
-                    // Success! Exit code 0 means the signal handler was called
-                }
-                Some(code) if code.raw() == 1 => {
-                    panic!("ALARM SIGNAL BUG: The alarm did not fire! The thread_sleep completed without the signal handler being called. Exit code: {}", code.raw());
-                }
                 Some(code) => {
-                    panic!("Unexpected exit code: {}", code.raw());
+                    let raw_code = code.raw();
+                    if raw_code == 0 {
+                        // Success! Exit code 0 means the signal handler was called
+                    } else if raw_code == 1 {
+                        panic!("ALARM SIGNAL BUG: The alarm did not fire! The thread_sleep completed without the signal handler being called. Exit code: {}", raw_code);
+                    } else {
+                        panic!("Unexpected exit code: {}", raw_code);
+                    }
                 }
                 None => {
                     panic!("Unexpected error (not a WasiError::Exit): {:?}", err);
