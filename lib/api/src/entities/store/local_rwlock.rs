@@ -152,6 +152,22 @@ impl<T> LocalRwLock<T> {
             None
         }
     }
+
+    /// Attempts to consume the lock if there are no active or waiting
+    /// readers or writers, and returns the inner value if successful.
+    pub fn consume(self) -> Result<T, Self> {
+        if self.inner.state.get() == LockState::Unlocked
+            && self.inner.read_waiters.borrow().is_empty()
+            && self.inner.write_waiters.borrow().is_empty()
+        {
+            match Rc::try_unwrap(self.inner) {
+                Ok(inner) => Ok(inner.value.into_inner()),
+                Err(rc) => Err(Self { inner: rc }),
+            }
+        } else {
+            Err(self)
+        }
+    }
 }
 
 impl<T> Clone for LocalRwLock<T> {

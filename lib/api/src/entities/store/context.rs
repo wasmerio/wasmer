@@ -1,15 +1,17 @@
 //! Thread-local storage for storing the current store context,
-//! i.e. the currently active `StoreMut`(s). When a function is
-//! called, an owned `StoreMut` value must be placed in the
-//! store context, so it can be retrieved later when needed
-//! (mainly when calling imported functions). We maintain a
-//! stack because it is technically possible to have nested
-//! `Function::call` invocations that use different stores,
-//! such as:
+//! i.e. the currently active `Store`(s). When a function is
+//! called, a pointer to the [`StoreInner`] in placed inside
+//! the store context so it can be retrieved when needed.
+//! This lets code that needs access to the store get it with
+//! just the store ID.
+//!
+//! We maintain a stack because it is technically possible to
+//! have nested `Function::call` invocations that use different
+//! stores, such as:
 //!     call(store1, func1) -> wasm code -> imported func ->
 //!     call(store2, func2)
 //!
-//! Also note that this stack is maintained by both function
+//! Note that this stack is maintained by both function
 //! calls and the async_runtime to reflect the exact WASM
 //! functions running on a given thread at any moment in
 //! time. If a function suspends, its store context is
@@ -30,7 +32,9 @@ use std::{
     mem::MaybeUninit,
 };
 
-use super::{AsStoreMut, AsStoreRef, StoreMut};
+use crate::LocalWriteGuardRc;
+
+use super::{AsStoreMut, AsStoreRef, StoreInner, StoreMut, StoreRef};
 
 use wasmer_types::StoreId;
 
@@ -47,22 +51,19 @@ pub(crate) struct StoreContext {
     // keep track of how many borrows there are so we don't drop
     // it prematurely.
     borrow_count: u32,
-    store_mut: UnsafeCell<StoreMut>,
+    store_ptr: UnsafeCell<*mut StoreInner>,
 }
 
-pub(crate) struct StoreMutWrapper {
-    store_mut: *mut StoreMut,
+pub(crate) struct StorePtrWrapper {
+    store_mut: *mut StoreInner,
 }
 
 pub(crate) struct ForcedStoreInstallGuard {
-    store_id: Option<StoreId>,
+    store_id: StoreId,
 }
 
-pub(crate) enum StoreInstallGuard<'a> {
-    Installed {
-        store_id: StoreId,
-        store_mut: &'a mut dyn AsStoreMut,
-    },
+pub(crate) enum StoreInstallGuard {
+    Installed(StoreId),
     NotInstalled,
 }
 
@@ -79,86 +80,44 @@ impl StoreContext {
     }
 
     fn is_suspended(id: StoreId) -> bool {
-        STORE_CONTEXT_STACK.with(|cell| {
-            let stack = cell.borrow();
-            stack.iter().rev().skip(1).any(|ctx| ctx.id == id)
-        })
+        !Self::is_active(id)
+            && STORE_CONTEXT_STACK.with(|cell| {
+                let stack = cell.borrow();
+                stack.iter().rev().skip(1).any(|ctx| ctx.id == id)
+            })
     }
 
-    fn install(store_mut: StoreMut) {
-        // No need to scan through the list, only one StoreMut
-        // can be active at any time because of the RwLock in
-        // Store.
-        let id = store_mut.objects().id();
+    fn install(store_ptr: *mut StoreInner) {
+        let id = unsafe { *store_ptr }.objects().id();
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             stack.push(StoreContext {
                 id,
                 borrow_count: 0,
-                store_mut: UnsafeCell::new(store_mut),
+                store_ptr: UnsafeCell::new(store_mut),
             });
         })
     }
 
-    /// Install the given [`StoreMut`] as the current store context.
-    /// This function can only be used when the caller has a [`StoreMut`],
-    /// which itself is proof that the store is not already active.
-    pub(crate) fn force_install(store_mut: StoreMut) -> ForcedStoreInstallGuard {
-        let id = store_mut.objects().id();
-        Self::install(store_mut);
-        tracing::trace!(
-            "Force-installed store context for store id {}\n{}",
-            id,
-            std::backtrace::Backtrace::capture()
-        );
+    /// # Safety
+    /// The pointer must be dereferenceable and remain valid until the
+    /// store context is uninstalled.
+    pub(crate) unsafe fn force_install(store_ptr: *mut StoreInner) -> ForcedStoreInstallGuard {
+        let id = unsafe { *store_ptr }.objects().id();
+        Self::install(store_ptr);
         ForcedStoreInstallGuard { store_id: Some(id) }
     }
 
-    /// Ensure that a store context with the given id is installed.
-    /// Returns true if the [`StoreMut`] was taken out of the provided
-    /// [`AsStoreMut`] and installed, false if it was already active.
-    /// This function takes care of the problem of initial
-    /// [`Function::call`](crate::Function::call) needing to install the
-    /// store context vs nested calls having only a reference to the
-    /// store and needing to reuse the existing context.
-    pub(crate) fn ensure_installed<'a>(
-        store_mut: &'a mut impl AsStoreMut,
-    ) -> StoreInstallGuard<'a> {
-        let store_id = store_mut.objects().id();
+    /// # Safety
+    /// The pointer must be dereferenceable and remain valid until the
+    /// store context is uninstalled.
+    pub(crate) unsafe fn ensure_installed<'a>(store_ptr: *mut StoreInner) -> StoreInstallGuard {
+        let store_id = unsafe { *store_ptr }.objects().id();
         if Self::is_active(store_id) {
             StoreInstallGuard::NotInstalled
         } else {
-            let Some(store_mut_instance) = store_mut.take() else {
-                if Self::is_suspended(store_id) {
-                    // Impossible because you can't have two writable locks on the Store
-                    unreachable!(
-                        "Cannot install store context recursively. \
-                        This should be impossible; please open an issue \
-                        describing how you ran into this panic at
-                        https://github.com/wasmerio/wasmer/issues/new/choose"
-                    );
-                }
-                // Document the expected usage of Function::call here in case someone
-                // does too many weird things since, without doing weird things, the
-                // only way for embedder code to gain access to an AsStoreMut is by
-                // going through Store::as_mut anyway.
-                panic!(
-                    "Failed to install store context because the provided AsStoreMut \
-                    implementation does not own its StoreMut. The usual cause of this \
-                    error is Function::call or Module::instantiate not being called \
-                    with the output from Store::as_mut."
-                );
-            };
-            Self::install(store_mut_instance);
-            tracing::trace!(
-                "Installed store context for store id {}\n{}",
-                store_id,
-                std::backtrace::Backtrace::capture()
-            );
-            StoreInstallGuard::Installed {
-                store_id,
-                store_mut,
-            }
+            Self::install(store_ptr);
+            StoreInstallGuard::Installed(store_id)
         }
     }
 
@@ -169,7 +128,7 @@ impl StoreContext {
     ///     into a function that lost the reference (e.g. into WASM code)
     /// The intended, valid use-case for this method is from within
     /// imported function trampolines.
-    pub(crate) unsafe fn get_current(id: StoreId) -> StoreMutWrapper {
+    pub(crate) unsafe fn get_current(id: StoreId) -> StorePtrWrapper {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
@@ -177,14 +136,8 @@ impl StoreContext {
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
             top.borrow_count += 1;
-            tracing::trace!(
-                "Acquired mutable borrow for store id {}, current borrow count {}\n{}",
-                id,
-                top.borrow_count,
-                std::backtrace::Backtrace::capture()
-            );
-            StoreMutWrapper {
-                store_mut: top.store_mut.get(),
+            StorePtrWrapper {
+                store_mut: top.store_ptr.get(),
             }
         })
     }
@@ -194,25 +147,19 @@ impl StoreContext {
     /// the store context is changed in any way (via installing or uninstalling
     /// a store context). The caller must ensure that the store context
     /// remains unchanged for the entire lifetime of the returned reference.
-    pub(crate) unsafe fn get_current_transient(id: StoreId) -> *mut StoreMut {
+    pub(crate) unsafe fn get_current_transient(id: StoreId) -> *mut StoreInner {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack
                 .last_mut()
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
-            tracing::trace!(
-                "Acquired transient mutable borrow for store id {}, current borrow count {}\n{}",
-                id,
-                top.borrow_count,
-                std::backtrace::Backtrace::capture()
-            );
-            unsafe { top.store_mut.get() }
+            unsafe { top.store_ptr.get() }
         })
     }
 
-    /// Safety: See [`get_current`].
-    pub(crate) unsafe fn try_get_current(id: StoreId) -> Option<StoreMutWrapper> {
+    /// Safety: See [`Self::get_current`].
+    pub(crate) unsafe fn try_get_current(id: StoreId) -> Option<StorePtrWrapper> {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack.last_mut()?;
@@ -220,34 +167,28 @@ impl StoreContext {
                 return None;
             }
             top.borrow_count += 1;
-            tracing::trace!(
-                "Acquired mutable borrow for store id {}, current borrow count {}\n{}",
-                id,
-                top.borrow_count,
-                std::backtrace::Backtrace::capture()
-            );
-            Some(StoreMutWrapper {
-                store_mut: top.store_mut.get(),
+            Some(StorePtrWrapper {
+                store_mut: top.store_ptr.get(),
             })
         })
     }
 }
 
-impl StoreMutWrapper {
-    pub(crate) fn as_ref(&self) -> &StoreMut {
+impl StorePtrWrapper {
+    pub(crate) fn as_ref(&self) -> StoreRef<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
-        unsafe { self.store_mut.as_ref().unwrap() }
+        unsafe { self.store_mut.as_ref().unwrap().as_store_ref() }
     }
 
-    pub(crate) fn as_mut(&mut self) -> &mut StoreMut {
+    pub(crate) fn as_mut(&mut self) -> StoreMut<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
-        unsafe { self.store_mut.as_mut().unwrap() }
+        unsafe { self.store_mut.as_mut().unwrap().as_store_mut() }
     }
 }
 
-impl Drop for StoreMutWrapper {
+impl Drop for StorePtrWrapper {
     fn drop(&mut self) {
         let id = self.as_mut().objects().id();
         STORE_CONTEXT_STACK.with(|cell| {
@@ -257,23 +198,13 @@ impl Drop for StoreMutWrapper {
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context reinstall");
             top.borrow_count -= 1;
-            tracing::trace!(
-                "Dropped mutable borrow for store id {}, current borrow count {}\n{}",
-                id,
-                top.borrow_count,
-                std::backtrace::Backtrace::capture()
-            );
         })
     }
 }
 
-impl Drop for StoreInstallGuard<'_> {
+impl Drop for StoreInstallGuard {
     fn drop(&mut self) {
-        if let StoreInstallGuard::Installed {
-            store_id,
-            store_mut,
-        } = self
-        {
+        if let StoreInstallGuard::Installed(store_id) = self {
             STORE_CONTEXT_STACK.with(|cell| {
                 let mut stack = cell.borrow_mut();
                 let top = stack.pop().expect("Store context stack underflow");
@@ -282,47 +213,21 @@ impl Drop for StoreInstallGuard<'_> {
                     top.borrow_count, 0,
                     "Cannot uninstall store context while it is still borrowed"
                 );
-                store_mut.put_back(top.store_mut.into_inner());
-                tracing::trace!(
-                    "Uninstalled store context for store id {}\n{}",
-                    *store_id,
-                    std::backtrace::Backtrace::capture()
-                );
             })
         }
-    }
-}
-
-impl ForcedStoreInstallGuard {
-    // Need to do this via mutable ref for the Drop impl
-    fn uninstall_by_ref(&mut self) -> StoreMut {
-        if let Some(store_id) = self.store_id.take() {
-            STORE_CONTEXT_STACK.with(|cell| {
-                let mut stack = cell.borrow_mut();
-                let top = stack.pop().expect("Store context stack underflow");
-                assert_eq!(top.id, store_id, "Mismatched store context uninstall");
-                assert_eq!(
-                    top.borrow_count, 0,
-                    "Cannot uninstall store context while it is still borrowed"
-                );
-                top.store_mut.into_inner()
-            })
-        } else {
-            unreachable!("ForcedStoreInstallGuard already uninstalled")
-        }
-    }
-
-    // However, the public API will take self by value to
-    // prevent double-uninstalling
-    pub(crate) fn uninstall(mut self) -> StoreMut {
-        self.uninstall_by_ref()
     }
 }
 
 impl Drop for ForcedStoreInstallGuard {
     fn drop(&mut self) {
-        if self.store_id.is_some() {
-            self.uninstall_by_ref();
-        }
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack.pop().expect("Store context stack underflow");
+            assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
+            assert_eq!(
+                top.borrow_count, 0,
+                "Cannot uninstall store context while it is still borrowed"
+            );
+        })
     }
 }

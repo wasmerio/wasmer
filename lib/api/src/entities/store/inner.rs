@@ -1,5 +1,5 @@
 use crate::{
-    AsStoreMut,
+    AsStoreMut, AsStoreRef, StoreRef,
     entities::{
         engine::{AsEngineRef, Engine},
         store::{StoreMut, StoreObjects},
@@ -13,8 +13,7 @@ use wasmer_vm::TrapHandlerFn;
 /// We require the context to have a fixed memory address for its lifetime since
 /// various bits of the VM have raw pointers that point back to it. Hence we
 /// wrap the actual context in a box.
-// TODO: make this private again
-pub struct StoreInner {
+pub(crate) struct StoreInner {
     pub(crate) objects: StoreObjects,
     pub(crate) store: BackendStore,
     pub(crate) on_called: Option<OnCalledHandler>,
@@ -30,11 +29,26 @@ impl std::fmt::Debug for StoreInner {
     }
 }
 
+impl AsStoreRef for StoreInner {
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        StoreRef { inner: self }
+    }
+}
+impl AsStoreMut for StoreInner {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        StoreMut { inner: self }
+    }
+
+    fn objects_mut(&mut self) -> &mut StoreObjects {
+        &mut self.objects
+    }
+}
+
 /// Call handler for a store.
 // TODO: better documentation!
 pub type OnCalledHandler = Box<
     dyn FnOnce(
-        &mut StoreMut,
+        StoreMut<'_>,
     )
         -> Result<wasmer_types::OnCalledAction, Box<dyn std::error::Error + Send + Sync>>,
 >;
