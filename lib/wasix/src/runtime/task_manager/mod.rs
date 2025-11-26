@@ -365,50 +365,22 @@ impl dyn VirtualTaskManager {
         // This poller will process any signals when the main working function is idle
         struct AsyncifyPollerOwned {
             thread: WasiThread,
-            env: WasiEnv,
             trigger: Pin<Box<AsyncifyFuture>>,
         }
         impl Future for AsyncifyPollerOwned {
             type Output = Result<Bytes, ExitCode>;
             fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
                 let work = self.trigger.as_mut();
-                if let Poll::Ready(res) = work.poll(cx) {
-                    return Poll::Ready(Ok(res));
-                }
-
-                if let Some(forced_exit) = self.thread.try_join() {
+                Poll::Ready(if let Poll::Ready(res) = work.poll(cx) {
+                    Ok(res)
+                } else if let Some(forced_exit) = self.thread.try_join() {
                     return Poll::Ready(Err(forced_exit.unwrap_or_else(|err| {
                         tracing::debug!("exit runtime error - {}", err);
                         Errno::Child.into()
                     })));
-                }
-
-                // Check for signal intervals (like alarms) that have elapsed and trigger them
-                let (_, next_signal_time) = self.env.process.trigger_elapsed_signals();
-
-                // If there's a pending signal interval, schedule a wake-up for when it fires
-                if let Some(wait_time) = next_signal_time {
-                    let waker = cx.waker().clone();
-                    let tasks = self.env.tasks().clone();
-                    let tasks_for_sleep = tasks.clone();
-                    // Note: We ignore errors from task_shared since failing to schedule a wake-up
-                    // just means we might not wake up on time, but will eventually wake up anyway
-                    let _ = tasks.task_shared(Box::new(move || {
-                        Box::pin(async move {
-                            tasks_for_sleep.sleep_now(wait_time).await;
-                            waker.wake();
-                        })
-                    }));
-                }
-
-                // Check if signals have been triggered
-                if self.thread.has_signals_or_subscribe(cx.waker()) {
-                    // Signals detected - we need to wake up to process them
-                    // The actual signal handling will happen when the WASM resumes
-                    cx.waker().wake_by_ref();
-                }
-
-                Poll::Pending
+                } else {
+                    return Poll::Pending;
+                })
             }
         }
 
@@ -424,7 +396,6 @@ impl dyn VirtualTaskManager {
         let env = env.clone();
 
         let thread_inner = thread.clone();
-        let env_inner_clone = env.clone();
         self.task_wasm(
             TaskWasm::new(
                 Box::new(move |props| {
@@ -451,7 +422,6 @@ impl dyn VirtualTaskManager {
                 Box::pin(async move {
                     let mut poller = AsyncifyPollerOwned {
                         thread: thread_inner,
-                        env: env_inner_clone,
                         trigger,
                     };
                     let res = Pin::new(&mut poller).await;

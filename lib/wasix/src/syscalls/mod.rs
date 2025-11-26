@@ -389,25 +389,6 @@ where
                 Errno::Child.into()
             }))));
         }
-
-        // Check for signal intervals (like alarms) that have elapsed and trigger them
-        let (triggered_intervals, next_signal_time) = env.process.trigger_elapsed_signals();
-
-        // If there's a pending signal interval, schedule a wake-up for when it fires
-        if let Some(wait_time) = next_signal_time {
-            let waker = cx.waker().clone();
-            let tasks = env.tasks().clone();
-            let tasks_for_sleep = tasks.clone();
-            // Note: We ignore errors from task_shared since failing to schedule a wake-up
-            // just means we might not wake up on time, but will eventually wake up anyway
-            let _ = tasks.task_shared(Box::new(move || {
-                Box::pin(async move {
-                    tasks_for_sleep.sleep_now(wait_time).await;
-                    waker.wake();
-                })
-            }));
-        }
-
         if env.thread.has_signals_or_subscribe(cx.waker()) {
             let has_exit = {
                 let signals = env.thread.signals().lock().unwrap();
