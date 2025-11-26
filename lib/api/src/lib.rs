@@ -441,7 +441,7 @@ macro_rules! cfg_compiler {
     feature = "jsc"
 )))]
 compile_error!(
-    "wasmer requires enabling at least one backend feature: `sys`, `wamr`, `wasmi`, `v8`, `js`, or `jsc`."
+    "wasmer requires enabling at least one backend feature: `singlepass`, `cranelift`, `llvm`, `wamr`, `wasmi`, `v8`, `js`, or `jsc`."
 );
 
 #[cfg(all(

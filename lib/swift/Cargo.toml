@@ -33,5 +33,5 @@ wasmer-package.workspace = true
 uniffi = { version = "0.27", features = ["build"] }
 
 [package.metadata.docs.rs]
-features = ["wasmer/sys", "wasmer/compiler"]
+features = ["wasmer/sys", "wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]

@@ -606,10 +606,10 @@ build-capi-jsc:
 build-capi-headless:
 ifeq ($(CARGO_TARGET_FLAG),)
 	CARGO_TARGET_DIR=target/headless RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build --target $(HOST_TARGET) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner --locked
+		--no-default-features --features compiler-headless,wasi,webc_runner,wasmer-api/cranelift --locked
 else
 	CARGO_TARGET_DIR=target/headless RUSTFLAGS="${RUSTFLAGS} -C panic=abort -C link-dead-code -C lto -O -C embed-bitcode=yes" $(CARGO_BINARY) build $(CARGO_TARGET_FLAG) --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features compiler-headless,wasi,webc_runner --locked
+		--no-default-features --features compiler-headless,wasi,webc_runner,wasmer-api/cranelift --locked
 endif
 
 build-capi-headless-ios:

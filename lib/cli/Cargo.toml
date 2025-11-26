@@ -319,3 +319,4 @@ bin-dir = "bin/{ bin }.exe"
 
 [package.metadata.docs.rs]
 rustc-args = ["--cfg", "docsrs"]
+features = ["wasmer/cranelift"]

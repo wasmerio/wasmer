@@ -28,6 +28,7 @@ tracing-subscriber = { workspace = true, features = ["fmt"] }
 tracing.workspace = true
 
 [package.metadata.docs.rs]
+features = ["wasmer/cranelift"]
 rustc-args = ["--cfg", "docsrs"]
 
 [features]
