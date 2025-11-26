@@ -3,7 +3,11 @@
 
 //! Module for System V ABI unwind registry.
 
-use core::sync::atomic::{AtomicUsize, Ordering::Relaxed};
+use core::sync::atomic::{
+    AtomicBool, AtomicUsize,
+    Ordering::{self, Relaxed},
+};
+use std::sync::Once;
 
 use crate::types::unwind::CompiledFunctionUnwindInfoReference;
 
@@ -145,6 +149,12 @@ impl UnwindRegistry {
 
     #[allow(clippy::cast_ptr_alignment)]
     unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
+        // Register atexit handler that will tell use if exit has been called.
+        static INIT: Once = Once::new();
+        INIT.call_once(|| unsafe {
+            libc::atexit(atexit_handler);
+        });
+
         #[cfg(all(target_os = "macos", target_arch = "aarch64"))]
         {
             // Special call for macOS on aarch64 to register the `.eh_frame` section.
@@ -243,8 +253,21 @@ impl UnwindRegistry {
     }
 }
 
+static EXIT_CALLED: AtomicBool = AtomicBool::new(false);
+
+extern "C" fn atexit_handler() {
+    EXIT_CALLED.store(true, Ordering::SeqCst);
+}
+
 impl Drop for UnwindRegistry {
     fn drop(&mut self) {
+        // We don't want to deregister frames in UnwindRegistry::Drop as that could be called during
+        // program shutdown and can collide with release_registered_frames and lead to
+        // crashes.
+        if EXIT_CALLED.load(Ordering::SeqCst) {
+            return;
+        }
+
         if self.published {
             unsafe {
                 // libgcc stores the frame entries as a linked list in decreasing sort order
