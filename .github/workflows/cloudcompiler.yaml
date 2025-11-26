@@ -23,7 +23,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
-          target: ${{ matrix.target }}
       - name: Install wasm32-wasip1 target
         shell: bash
         run: |

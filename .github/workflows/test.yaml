@@ -999,7 +999,6 @@ jobs:
         uses: dtolnay/rust-toolchain@stable
         with:
           toolchain: ${{ env.MSRV }}
-          target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Cache
@@ -1103,7 +1102,7 @@ jobs:
           #   if: false # matrix.build != 'macos-arm'
           #   shell: bash
           #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer
           #     export WASMER_DIR=`pwd`/package && make test-integration-cli-ci
           #   env:
           #     TARGET: ${{ matrix.target }}
@@ -1123,7 +1122,7 @@ jobs:
           # - name: Test CLI integration (WAMR) 
           #   shell: bash
           #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer
           #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wamr-ci
           #   env:
           #     TARGET: ${{ matrix.target }}
@@ -1135,7 +1134,7 @@ jobs:
           # - name: Test CLI integration (WASMI) 
           #   shell: bash
           #   run: |
-          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer${{ matrix.exe }}
+          #     export WASMER_PATH=`pwd`/target/${{ matrix.target }}/release/wasmer
           #     export WASMER_DIR=`pwd`/package && make test-integration-cli-wasmi-ci
           #   env:
           #     TARGET: ${{ matrix.target }}
