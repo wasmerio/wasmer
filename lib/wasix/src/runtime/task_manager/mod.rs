@@ -390,10 +390,12 @@ impl dyn VirtualTaskManager {
                 if let Some(wait_time) = next_signal_time {
                     let waker = cx.waker().clone();
                     let tasks = self.env.tasks().clone();
-                    let sleep_tasks = tasks.clone();
+                    let tasks_for_sleep = tasks.clone();
+                    // Note: We ignore errors from task_shared since failing to schedule a wake-up
+                    // just means we might not wake up on time, but will eventually wake up anyway
                     let _ = tasks.task_shared(Box::new(move || {
                         Box::pin(async move {
-                            sleep_tasks.sleep_now(wait_time).await;
+                            tasks_for_sleep.sleep_now(wait_time).await;
                             waker.wake();
                         })
                     }));
