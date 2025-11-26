@@ -163,7 +163,7 @@ cfg_if::cfg_if! {
                 // crash while handling the signal, and fall through to the
                 // Breakpad handler by testing handlingSegFault.
                 handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
-                handler.sa_sigaction = trap_handler as usize;
+                handler.sa_sigaction = trap_handler as *const() as usize;
                 libc::sigemptyset(&mut handler.sa_mask);
                 if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
                     panic!(
