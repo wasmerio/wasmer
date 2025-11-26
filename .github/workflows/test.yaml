@@ -648,7 +648,7 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Install LLVM (macOS Apple Silicon)
+      - name: Install LLVM (macOS Intel)
         if: matrix.metadata.os == 'macos-15-intel' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
@@ -885,7 +885,7 @@ jobs:
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
-      - name: Install LLVM (macOS Apple Silicon)
+      - name: Install LLVM (macOS Intel)
         if: matrix.metadata.os == 'macos-15-intel' && !matrix.metadata.llvm_url
         run: |
           brew install llvm

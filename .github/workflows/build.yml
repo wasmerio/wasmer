@@ -165,7 +165,7 @@ jobs:
           target: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
         if: ${{ matrix.use_sccache != true && matrix.use_rustcache != false }}
-      - name: Install LLVM (macOS Apple Silicon)
+      - name: Install LLVM (macOS Intel)
         if: matrix.os == 'macos-15-intel' && !matrix.llvm_url
         run: |
           brew install llvm
