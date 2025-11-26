@@ -57,12 +57,13 @@ impl Clone for Greenthread {
     }
 }
 
-fn greenthread_new(
-    mut env: FunctionEnvMut<GreenEnv>,
+async fn greenthread_new(
+    env: AsyncFunctionEnvMut<GreenEnv>,
     entrypoint_data: u32,
 ) -> core::result::Result<u32, RuntimeError> {
-    let async_store = env.as_async_store();
-    let data = env.data_mut();
+    let async_store = env.as_store_async();
+    let mut env_write = env.write().await;
+    let data = env_write.data_mut();
     let new_greenthread_id = data
         .next_free_id
         .fetch_add(1, std::sync::atomic::Ordering::SeqCst);
@@ -80,7 +81,7 @@ fn greenthread_new(
         .unwrap()
         .insert(new_greenthread_id, new_greenthread);
 
-    let spawner = env.data().spawner.as_ref().expect("spawner set").clone();
+    let spawner = data.spawner.as_ref().expect("spawner set").clone();
     spawner
         .spawn_local(async move {
             receiver.await.unwrap();
@@ -143,12 +144,11 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
     let mut store = Store::default();
     let module = Module::new(&store.engine(), wat)?;
 
-    let mut store_mut = store.as_mut();
-    let env = FunctionEnv::new(&mut store_mut, GreenEnv::new());
+    let env = FunctionEnv::new(&mut store, GreenEnv::new());
 
     // log(ptr, len)
     let log_fn = Function::new_with_env(
-        &mut store_mut,
+        &mut store,
         &env,
         FunctionType::new(vec![Type::I32, Type::I32], vec![]),
         |mut env: FunctionEnvMut<GreenEnv>, params: &[Value]| {
@@ -167,10 +167,10 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         },
     );
 
-    let greenthread_new = Function::new_typed_with_env(&mut store_mut, &env, greenthread_new);
+    let greenthread_new = Function::new_typed_with_env_async(&mut store, &env, greenthread_new);
 
     let greenthread_switch =
-        Function::new_typed_with_env_async(&mut store_mut, &env, greenthread_switch);
+        Function::new_typed_with_env_async(&mut store, &env, greenthread_switch);
 
     let import_object = imports! {
         "test" => {
@@ -180,13 +180,13 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         }
     };
 
-    let instance = Instance::new(&mut store_mut, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     let entrypoint = instance.exports.get_function("entrypoint")?.clone();
-    env.as_mut(&mut store_mut).entrypoint = Some(entrypoint);
+    env.as_mut(&mut store).entrypoint = Some(entrypoint);
 
     let memory = instance.exports.get_memory("memory")?.clone();
-    env.as_mut(&mut store_mut).memory = Some(memory);
+    env.as_mut(&mut store).memory = Some(memory);
 
     let main_fn = instance.exports.get_function("_main")?;
 
@@ -195,7 +195,7 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         resumer: None,
     };
 
-    env.as_mut(&mut store_mut)
+    env.as_mut(&mut store)
         .greenthreads
         .write()
         .unwrap()
@@ -203,16 +203,16 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
 
     let mut localpool = futures::executor::LocalPool::new();
     let local_spawner = localpool.spawner();
-    env.as_mut(&mut store_mut).spawner = Some(local_spawner);
+    env.as_mut(&mut store).spawner = Some(local_spawner);
 
-    drop(store_mut);
+    let store_async = store.into_async();
 
     localpool
-        .run_until(main_fn.call_async(&store, &[]))
+        .run_until(main_fn.call_async(&store_async, &[]))
         .unwrap();
 
-    let mut store_mut = store.as_mut();
-    return Ok(env.as_ref(&mut store_mut).logs.clone());
+    let mut store = store_async.into_store().ok().unwrap();
+    return Ok(env.as_ref(&mut store).logs.clone());
 }
 
 #[cfg(not(target_arch = "wasm32"))]

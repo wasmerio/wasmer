@@ -11,7 +11,6 @@ use wasm_bindgen_test::wasm_bindgen_test;
 )]
 fn typed_host_function_closure_panics() -> Result<(), String> {
     let mut store = Store::default();
-    let mut store = store.as_mut();
     let state = 3;
 
     Function::new_typed(&mut store, move |_: i32| {
@@ -28,7 +27,6 @@ fn typed_host_function_closure_panics() -> Result<(), String> {
 )]
 fn typed_with_env_host_function_closure_panics() -> Result<(), String> {
     let mut store = Store::default();
-    let mut store = store.as_mut();
     let env: i32 = 4;
     let env = FunctionEnv::new(&mut store, env);
     let state = 3;
@@ -67,8 +65,7 @@ fn non_typed_functions_and_closures_with_no_env_work() -> anyhow::Result<()> {
                (local.get 3))
               (local.get 4)))
 )"#;
-    let module = Module::new(&store.engine(), wat).unwrap();
-    let mut store = store.as_mut();
+    let module = Module::new(&store, wat).unwrap();
     let env: i32 = 10;
     let env = FunctionEnv::new(&mut store, env);
     let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
@@ -137,10 +134,8 @@ fn holochain_typed_function() -> anyhow::Result<()> {
     )?;
     let mut store = Store::default();
     struct MyEnv {}
-    let module = Module::new(&store.engine(), wasm_bytes)?;
-
-    let mut store = store.as_mut();
     let env = FunctionEnv::new(&mut store, MyEnv {});
+    let module = Module::new(&store, wasm_bytes)?;
 
     // Define some context data that the host function closure will use
     static STATIC_CONTEXT_VAL2: i32 = 1234;

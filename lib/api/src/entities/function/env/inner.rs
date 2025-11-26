@@ -1,5 +1,5 @@
 use crate::{
-    AsAsyncStore, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
+    AsStoreAsync, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
     macros::backend::match_rt,
 };
 use std::{any::Any, marker::PhantomData};
@@ -307,11 +307,11 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
         }
     }
 
-    /// Creates an [`AsAsyncStore`] from this [`BackendAsyncFunctionEnvMut`].
-    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
+    /// Creates an [`AsStoreAsync`] from this [`BackendAsyncFunctionEnvMut`].
+    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => f.as_async_store(),
+            Self::Sys(f) => f.as_store_async(),
             _ => unsupported_async_backend(),
         }
     }

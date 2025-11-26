@@ -37,7 +37,7 @@ impl StoreAsync {
 /// Note that, while this trait can easily be implemented for a lot
 /// of types (including [`StoreMut`]), implementations are left
 /// out on purpose to help avoid common deadlock scenarios.
-pub trait AsAsyncStore {
+pub trait AsStoreAsync {
     /// Returns a reference to the inner store.
     fn store_ref(&self) -> &StoreAsync;
 
@@ -66,7 +66,7 @@ pub trait AsAsyncStore {
     }
 }
 
-impl AsAsyncStore for StoreAsync {
+impl AsStoreAsync for StoreAsync {
     fn store_ref(&self) -> &StoreAsync {
         self
     }
@@ -78,7 +78,7 @@ pub(crate) enum AsyncStoreReadLockInner {
 }
 
 /// A read lock on a store that can be used in concurrent contexts;
-/// mostly useful in conjunction with [`AsAsyncStore`].
+/// mostly useful in conjunction with [`AsStoreAsync`].
 pub struct AsyncStoreReadLock<'a> {
     pub(crate) inner: AsyncStoreReadLockInner,
     _marker: PhantomData<&'a ()>,
@@ -120,7 +120,7 @@ pub(crate) enum AsyncStoreWriteLockInner {
 }
 
 /// A write lock on a store that can be used in concurrent contexts;
-/// mostly useful in conjunction with [`AsAsyncStore`].
+/// mostly useful in conjunction with [`AsStoreAsync`].
 pub struct AsyncStoreWriteLock<'a> {
     pub(crate) inner: AsyncStoreWriteLockInner,
     _marker: PhantomData<&'a ()>,
@@ -165,6 +165,11 @@ impl AsStoreMut for AsyncStoreWriteLock<'_> {
     }
 
     fn objects_mut(&mut self) -> &mut super::StoreObjects {
-        todo!()
+        match &mut self.inner {
+            AsyncStoreWriteLockInner::Owned(guard) => &mut guard.objects,
+            AsyncStoreWriteLockInner::FromStoreContext(wrapper) => {
+                &mut wrapper.as_mut().inner.objects
+            }
+        }
     }
 }

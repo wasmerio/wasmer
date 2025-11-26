@@ -1,7 +1,7 @@
 //! Defines the [`Store`] data type and various useful traits and data types to interact with a
 //! store.
 
-/// Defines the [`AsAsyncStore`] trait and its supporting types.
+/// Defines the [`AsStoreAsync`] trait and its supporting types.
 mod async_;
 pub use async_::*;
 

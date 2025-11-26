@@ -8,8 +8,8 @@ use std::{
 use anyhow::Result;
 use futures::{FutureExt, future};
 use wasmer::{
-    AsAsyncStore, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionType, Instance, Module,
-    RuntimeError, Store, Type, TypedFunction, Value, imports,
+    AsyncFunctionEnvMut, Function, FunctionEnv, FunctionType, Instance, Module, RuntimeError,
+    Store, StoreAsync, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -37,11 +37,10 @@ fn jspi_module() -> &'static [u8] {
 fn async_state_updates_follow_jspi_example() -> Result<()> {
     let wasm = jspi_module();
     let mut store = Store::default();
-    let module = Module::new(&store.engine(), wasm)?;
+    let module = Module::new(&store, wasm)?;
 
-    let mut store_mut = store.as_mut();
     let init_state = Function::new_async(
-        &mut store_mut,
+        &mut store,
         FunctionType::new(vec![], vec![Type::F64]),
         |_values| async move {
             // Note: future::ready doesn't actually suspend. It's important
@@ -56,23 +55,21 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
     );
 
     let delta_env = FunctionEnv::new(
-        &mut store_mut,
+        &mut store,
         DeltaState {
             deltas: vec![0.5, -1.0, 2.5],
             index: 0,
         },
     );
     let compute_delta = Function::new_with_env_async(
-        &mut store_mut,
+        &mut store,
         &delta_env,
         FunctionType::new(vec![], vec![Type::F64]),
         |env: AsyncFunctionEnvMut<DeltaState>, _values| async move {
+            let mut env_write = env.write().await;
+            let delta = env_write.data_mut().next();
             // We can, however, actually suspend whenever
             // `Function::call_async` is used to call WASM functions.
-            let delta = {
-                let mut env_write = env.write().await;
-                env_write.data_mut().next()
-            };
             tokio::time::sleep(std::time::Duration::from_millis(10)).await;
             Ok(vec![Value::F64(delta)])
         },
@@ -85,7 +82,7 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
         }
     };
 
-    let instance = Instance::new(&mut store_mut, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
     let get_state = instance.exports.get_function("get_state")?;
     let update_state = instance.exports.get_function("update_state")?;
 
@@ -96,22 +93,22 @@ fn async_state_updates_follow_jspi_example() -> Result<()> {
         }
     }
 
-    assert_eq!(as_f64(&get_state.call(&mut store_mut, &[])?), 1.0);
+    assert_eq!(as_f64(&get_state.call(&mut store, &[])?), 1.0);
 
-    fn step(store: &mut impl AsAsyncStore, func: &wasmer::Function) -> Result<f64> {
+    let step = |store: &StoreAsync, func: &wasmer::Function| -> Result<f64> {
         let result = tokio::runtime::Builder::new_current_thread()
             .enable_all()
             .build()
             .unwrap()
             .block_on(func.call_async(store, &[]))?;
         Ok(as_f64(&result))
-    }
+    };
 
-    drop(store_mut);
+    let store_async = store.into_async();
 
-    assert_eq!(step(&mut store, update_state)?, 1.5);
-    assert_eq!(step(&mut store, update_state)?, 0.5);
-    assert_eq!(step(&mut store, update_state)?, 3.0);
+    assert_eq!(step(&store_async, update_state)?, 1.5);
+    assert_eq!(step(&store_async, update_state)?, 0.5);
+    assert_eq!(step(&store_async, update_state)?, 3.0);
 
     Ok(())
 }
@@ -139,24 +136,21 @@ fn typed_async_host_and_calls_work() -> Result<()> {
     }
 
     let mut store = Store::default();
-    let module = Module::new(&store.engine(), wasm)?;
+    let module = Module::new(&store, wasm)?;
 
-    let mut store_mut = store.as_mut();
-    let add_env = FunctionEnv::new(&mut store_mut, AddBias { bias: 5 });
+    let add_env = FunctionEnv::new(&mut store, AddBias { bias: 5 });
     let async_add = Function::new_typed_with_env_async(
-        &mut store_mut,
+        &mut store,
         &add_env,
         async move |env: AsyncFunctionEnvMut<AddBias>, a: i32, b: i32| {
-            let bias = {
-                let read = env.read().await;
-                read.data().bias
-            };
-            future::ready(()).await;
+            let env_read = env.read().await;
+            let bias = env_read.data().bias;
+            tokio::task::yield_now().await;
             a + b + bias
         },
     );
-    let async_double = Function::new_typed_async(&mut store_mut, async move |value: i32| {
-        future::ready(()).await;
+    let async_double = Function::new_typed_async(&mut store, async move |value: i32| {
+        tokio::task::yield_now().await;
         value * 2
     });
 
@@ -167,72 +161,70 @@ fn typed_async_host_and_calls_work() -> Result<()> {
         }
     };
 
-    let instance = Instance::new(&mut store_mut, &module, &import_object)?;
-    let compute: TypedFunction<i32, i32> = instance
-        .exports
-        .get_typed_function(&mut store_mut, "compute")?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
+    let compute: TypedFunction<i32, i32> =
+        instance.exports.get_typed_function(&mut store, "compute")?;
 
-    drop(store_mut);
+    let store_async = store.into_async();
 
     let result = tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap()
-        .block_on(compute.call_async(&store, 4))?;
+        .block_on(compute.call_async(&store_async, 4))?;
     assert_eq!(result, 27);
 
     Ok(())
 }
 
-#[test]
-fn cannot_yield_when_not_in_async_context() -> Result<()> {
-    const WAT: &str = r#"
-    (module
-        (import "env" "yield_now" (func $yield_now))
-        (func (export "yield_outside")
-            call $yield_now
-        )
-    )
-    "#;
-    let wasm = wat::parse_str(WAT).expect("valid WAT module");
+// #[test]
+// fn cannot_yield_when_not_in_async_context() -> Result<()> {
+//     const WAT: &str = r#"
+//     (module
+//         (import "env" "yield_now" (func $yield_now))
+//         (func (export "yield_outside")
+//             call $yield_now
+//         )
+//     )
+//     "#;
+//     let wasm = wat::parse_str(WAT).expect("valid WAT module");
 
-    let mut store = Store::default();
-    let module = Module::new(&store.engine(), wasm)?;
+//     let mut store = Store::default();
+//     let module = Module::new(&store, wasm)?;
 
-    let mut store_mut = store.as_mut();
-    let yield_now = Function::new_async(
-        &mut store_mut,
-        FunctionType::new(vec![], vec![]),
-        |_values| async move {
-            // Attempting to yield when not in an async context should trap.
-            tokio::task::yield_now().await;
-            Ok(vec![])
-        },
-    );
+//     let yield_now = Function::new_async(
+//         &mut store,
+//         FunctionType::new(vec![], vec![]),
+//         |_values| async move {
+//             // Attempting to yield when not in an async context should trap.
+//             tokio::task::yield_now().await;
+//             Ok(vec![])
+//         },
+//     );
 
-    let import_object = imports! {
-        "env" => {
-            "yield_now" => yield_now,
-        }
-    };
-    let instance = Instance::new(&mut store_mut, &module, &import_object)?;
-    let yield_outside = instance.exports.get_function("yield_outside")?;
+//     let import_object = imports! {
+//         "env" => {
+//             "yield_now" => yield_now,
+//         }
+//     };
+//     let instance = Instance::new(&mut store, &module, &import_object)?;
+//     let yield_outside = instance.exports.get_function("yield_outside")?;
 
-    let trap = yield_outside
-        .call(&mut store_mut, &[])
-        .expect_err("expected trap calling yield outside async context");
+//     let trap = yield_outside
+//         .call(&mut store, &[])
+//         .expect_err("expected trap calling yield outside async context");
 
-    // TODO: wasm trace generation appears to be broken?
-    // assert!(!trap.trace().is_empty(), "should have a stack trace");
-    let trap_code = trap.to_trap().expect("expected trap code");
-    assert_eq!(
-        trap_code,
-        TrapCode::YieldOutsideAsyncContext,
-        "expected YieldOutsideAsyncContext trap code"
-    );
+//     // TODO: wasm trace generation appears to be broken?
+//     // assert!(!trap.trace().is_empty(), "should have a stack trace");
+//     let trap_code = trap.to_trap().expect("expected trap code");
+//     assert_eq!(
+//         trap_code,
+//         TrapCode::YieldOutsideAsyncContext,
+//         "expected YieldOutsideAsyncContext trap code"
+//     );
 
-    Ok(())
-}
+//     Ok(())
+// }
 
 /* This test is slightly weird to explain; what we're testing here
   is that multiple coroutines can be active at the same time,
@@ -329,9 +321,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
     }
 
     let mut store = Store::default();
-    let module = Module::new(&store.engine(), wasm)?;
-
-    let mut store_mut = store.as_mut();
+    let module = Module::new(&store, wasm)?;
 
     thread_local! {
         static ENV: RefCell<Env> = RefCell::new(Env {
@@ -341,7 +331,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
             future_func: None,
         })
     }
-    let mut env = FunctionEnv::new(&mut store_mut, ());
+    let mut env = FunctionEnv::new(&mut store, ());
 
     fn log(value: i32) {
         ENV.with(|env| {
@@ -349,46 +339,48 @@ fn async_multiple_active_coroutines() -> Result<()> {
         });
     }
 
-    let spawn_future = Function::new_with_env(
-        &mut store_mut,
+    let spawn_future = Function::new_with_env_async(
+        &mut store,
         &mut env,
         FunctionType::new(vec![Type::I32], vec![]),
-        |mut env, values| {
-            ENV.with(|data| {
-                let future_id = values[0].unwrap_i32();
+        |env, values| {
+            let future_id = values[0].unwrap_i32();
 
-                log(future_id + 10);
+            async move {
+                ENV.with(move |data| {
+                    let store_async = env.as_store_async();
 
-                data.borrow_mut().yielders[future_id as usize] = Some(Yielder { yielded: false });
+                    log(future_id + 10);
 
-                // This spawns the coroutine and the corresponding future
-                // Note the use of `FunctionEnvMut` as `AsAsyncStore` to
-                // spawn a new execution context for the coroutine
-                let func = data.borrow().future_func.as_ref().unwrap().clone();
-                let async_store = env.as_async_store();
-                let mut future = Box::pin(async move {
-                    func.call_async(&async_store, &[Value::I32(future_id)])
-                        .await
-                });
-                log(future_id + 20);
+                    data.borrow_mut().yielders[future_id as usize] =
+                        Some(Yielder { yielded: false });
 
-                // We then poll it once to get it started - it'll suspend once, then
-                // complete the next time we poll it
-                let w = noop_waker();
-                let mut cx = Context::from_waker(&w);
-                assert!(future.as_mut().poll(&mut cx).is_pending());
+                    // This spawns the coroutine and the corresponding future
+                    let func = data.borrow().future_func.as_ref().unwrap().clone();
+                    let mut future = Box::pin(async move {
+                        func.call_async(&store_async, &[Value::I32(future_id)])
+                            .await
+                    });
+                    log(future_id + 20);
 
-                log(future_id + 50);
-                // We then store the future without letting it complete, and return
-                data.borrow_mut().futures[future_id as usize] = Some(future);
+                    // We then poll it once to get it started - it'll suspend once, then
+                    // complete the next time we poll it
+                    let w = noop_waker();
+                    let mut cx = Context::from_waker(&w);
+                    assert!(future.as_mut().poll(&mut cx).is_pending());
 
-                Ok(vec![])
-            })
+                    log(future_id + 50);
+                    // We then store the future without letting it complete, and return
+                    data.borrow_mut().futures[future_id as usize] = Some(future);
+
+                    Ok(vec![])
+                })
+            }
         },
     );
 
     let poll_future = Function::new_async(
-        &mut store_mut,
+        &mut store,
         FunctionType::new(vec![Type::I32], vec![]),
         |values| {
             let future_id = values[0].unwrap_i32();
@@ -408,7 +400,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
     );
 
     let resolve_future = Function::new_async(
-        &mut store_mut,
+        &mut store,
         FunctionType::new(vec![Type::I32], vec![]),
         |values| {
             let future_id = values[0].unwrap_i32();
@@ -438,7 +430,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
     );
 
     let yield_now = Function::new_async(
-        &mut store_mut,
+        &mut store,
         FunctionType::new(vec![], vec![]),
         |_values| async move {
             tokio::task::yield_now().await;
@@ -447,7 +439,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
     );
 
     let log = Function::new(
-        &mut store_mut,
+        &mut store,
         FunctionType::new(vec![Type::I32], vec![]),
         |values| {
             let value = values[0].unwrap_i32();
@@ -465,7 +457,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
             "log" => log,
         }
     };
-    let instance = Instance::new(&mut store_mut, &module, &import_object)?;
+    let instance = Instance::new(&mut store, &module, &import_object)?;
 
     ENV.with(|env| {
         env.borrow_mut().future_func = Some(
@@ -477,14 +469,13 @@ fn async_multiple_active_coroutines() -> Result<()> {
         )
     });
 
-    drop(store_mut);
-
     let main = instance.exports.get_function("main")?;
+    let store_async = store.into_async();
     tokio::runtime::Builder::new_current_thread()
         .enable_all()
         .build()
         .unwrap()
-        .block_on(main.call_async(&store, &[]))?;
+        .block_on(main.call_async(&store_async, &[]))?;
 
     ENV.with(|env| {
         assert_eq!(

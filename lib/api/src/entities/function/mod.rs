@@ -18,7 +18,7 @@ use std::{future::Future, pin::Pin};
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    AsAsyncStore, AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
+    AsStoreAsync, AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
     TypedFunction, Value, WasmTypeList,
     error::RuntimeError,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
@@ -331,7 +331,7 @@ impl Function {
     /// the Wasm instance according to the JSPI proposal.
     pub fn call_async<'a>(
         &'a self,
-        store: &'a impl AsAsyncStore,
+        store: &'a impl AsStoreAsync,
         params: &'a [Value],
     ) -> impl Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a {
         let params_vec = params.to_vec();

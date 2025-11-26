@@ -1,7 +1,7 @@
 pub(crate) mod inner;
 pub(crate) use inner::*;
 
-use crate::{AsAsyncStore, AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
+use crate::{AsStoreAsync, AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 #[derive(Debug, derive_more::From)]
@@ -146,9 +146,9 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvMut(self.0.as_mut())
     }
 
-    /// Creates an [`AsAsyncStore`] from this [`AsyncFunctionEnvMut`].
-    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
-        self.0.as_async_store()
+    /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`].
+    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
+        self.0.as_store_async()
     }
 }
 

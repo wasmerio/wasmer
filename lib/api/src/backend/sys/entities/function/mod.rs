@@ -4,7 +4,7 @@ pub(crate) mod env;
 pub(crate) mod typed;
 
 use crate::{
-    AsAsyncStore, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, BackendFunction, FunctionEnv,
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, BackendFunction, FunctionEnv,
     FunctionEnvMut, FunctionType, HostFunction, RuntimeError, StoreContext, StoreInner, Value,
     WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
@@ -579,7 +579,7 @@ impl Function {
 
     pub(crate) fn call_async<'a>(
         &self,
-        store: &'a impl AsAsyncStore,
+        store: &'a impl AsStoreAsync,
         params: Vec<Value>,
     ) -> Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>> + 'a>> {
         let function = self.clone();

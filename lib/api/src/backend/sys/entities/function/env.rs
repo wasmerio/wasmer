@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
-    AsAsyncStore, AsyncStoreReadLock, AsyncStoreWriteLock, Store, StoreAsync, StoreContext,
+    AsStoreAsync, AsyncStoreReadLock, AsyncStoreWriteLock, Store, StoreAsync, StoreContext,
     StoreMut,
     store::{AsStoreMut, AsStoreRef, StoreRef},
 };
@@ -282,8 +282,8 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         }
     }
 
-    /// Creates an [`AsAsyncStore`] from this [`AsyncFunctionEnvMut`].
-    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
+    /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`].
+    pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
         StoreAsync {
             id: self.store.id,
             inner: self.store.inner.clone(),

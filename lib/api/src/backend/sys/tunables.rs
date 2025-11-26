@@ -285,9 +285,7 @@ mod tests {
         engine.set_tunables(tunables);
         let mut store = Store::new(engine);
         //let mut store = Store::new(compiler);
-        let module = Module::new(&store.engine(), wasm_bytes)?;
-
-        let mut store = store.as_mut();
+        let module = Module::new(&store, wasm_bytes)?;
         let import_object = imports! {};
         let instance = Instance::new(&mut store, &module, &import_object)?;
 
@@ -466,9 +464,7 @@ mod tests {
         let mut engine = Engine::new(compiler.into(), Default::default(), Default::default());
         engine.set_tunables(tunables);
         let mut store = Store::new(engine);
-        let module = Module::new(&store.engine(), wasm_bytes)?;
-
-        let mut store = store.as_mut();
+        let module = Module::new(&store, wasm_bytes)?;
         let import_object = imports! {};
         let instance = Instance::new(&mut store, &module, &import_object)?;
 

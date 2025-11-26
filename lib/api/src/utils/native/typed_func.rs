@@ -8,7 +8,7 @@
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
 use crate::{
-    AsAsyncStore, AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto,
+    AsStoreAsync, AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto,
     RuntimeError, WasmTypeList, store::AsStoreRef,
 };
 use std::future::Future;
@@ -84,7 +84,7 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call_async<'a>(
                 &'a self,
-                store: &'a impl AsAsyncStore,
+                store: &'a impl AsStoreAsync,
                 $( $x: $x, )*
             ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
             where

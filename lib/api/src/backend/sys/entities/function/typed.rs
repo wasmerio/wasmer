@@ -1,5 +1,5 @@
 use crate::backend::sys::engine::NativeEngineExt;
-use crate::store::{AsAsyncStore, AsStoreMut, AsStoreRef};
+use crate::store::{AsStoreAsync, AsStoreMut, AsStoreRef};
 use crate::{
     FromToNativeWasmType, NativeWasmTypeInto, RuntimeError, StoreContext, TypedFunction, Value,
     WasmTypeList,
@@ -116,7 +116,7 @@ macro_rules! impl_native_traits {
             #[allow(clippy::too_many_arguments)]
             pub fn call_async_sys<'a>(
                 &'a self,
-                store: &'a impl AsAsyncStore,
+                store: &'a impl AsStoreAsync,
                 $( $x: $x, )*
             ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
             where
