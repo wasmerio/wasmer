@@ -196,7 +196,7 @@ impl NativeWasmType for ExternRef {
 impl NativeWasmTypeInto for Option<ExternRef> {
     #[inline]
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
-        match store.as_ref().store {
+        match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMExternRef::from_raw(RawValue { externref: abi }).map(VMExternRef::Sys)
@@ -242,7 +242,7 @@ impl NativeWasmTypeInto for Option<ExternRef> {
 
     #[inline]
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        match store.as_ref().store {
+        match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMExternRef::from_raw(raw).map(VMExternRef::Sys)
@@ -290,7 +290,7 @@ impl NativeWasmType for Function {
 impl NativeWasmTypeInto for Option<Function> {
     #[inline]
     unsafe fn from_abi(store: &mut impl AsStoreMut, abi: Self::Abi) -> Self {
-        match store.as_ref().store {
+        match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMFuncRef::from_raw(RawValue { funcref: abi }).map(VMFuncRef::Sys)
@@ -338,7 +338,7 @@ impl NativeWasmTypeInto for Option<Function> {
 
     #[inline]
     unsafe fn from_raw(store: &mut impl AsStoreMut, raw: RawValue) -> Self {
-        match store.as_ref().store {
+        match store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => unsafe {
                 wasmer_vm::VMFuncRef::from_raw(raw).map(VMFuncRef::Sys)

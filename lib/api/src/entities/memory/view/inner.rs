@@ -19,7 +19,7 @@ impl<'a> BackendMemoryView<'a> {
     #[inline]
     #[allow(clippy::needless_return)]
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        match &store.as_ref().store {
+        match &store.as_store_ref().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::memory::view::MemoryView::new(
@@ -119,7 +119,6 @@ impl<'a> BackendMemoryView<'a> {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///

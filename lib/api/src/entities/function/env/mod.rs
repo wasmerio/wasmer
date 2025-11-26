@@ -79,35 +79,25 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         self.0.as_mut()
     }
 
-    /// Borrows a new mutable reference to the attached Store
-    pub fn as_store_mut(&mut self) -> &mut StoreMut {
-        self.reborrow_mut()
-    }
-
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         self.0.data_and_store_mut()
-    }
-
-    /// Creates an [`AsAsyncStore`] from this [`FunctionEnvMut`].
-    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
-        self.0.as_async_store()
     }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        self.0.as_ref()
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        self.0.as_store_ref()
     }
 }
 
 impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
-        self.0.as_mut()
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        self.0.as_store_mut()
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
-        self.0.reborrow_mut()
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        self.0.objects_mut()
     }
 }
 
@@ -175,8 +165,8 @@ impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
 }
 
 impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        AsStoreRef::as_ref(&self.0)
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        AsStoreRef::as_store_ref(&self.0)
     }
 }
 
@@ -193,25 +183,17 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
 }
 
 impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        AsStoreRef::as_ref(&self.0)
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        AsStoreRef::as_store_ref(&self.0)
     }
 }
 
 impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
-        AsStoreMut::as_mut(&mut self.0)
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        AsStoreMut::as_store_mut(&mut self.0)
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
-        AsStoreMut::reborrow_mut(&mut self.0)
-    }
-
-    fn take(&mut self) -> Option<StoreMut> {
-        AsStoreMut::take(&mut self.0)
-    }
-
-    fn put_back(&mut self, store_mut: StoreMut) {
-        AsStoreMut::put_back(&mut self.0, store_mut);
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        AsStoreMut::objects_mut(&mut self.0)
     }
 }

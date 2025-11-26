@@ -38,6 +38,20 @@ use super::{AsStoreMut, AsStoreRef, StoreInner, StoreMut, StoreRef};
 
 use wasmer_types::StoreId;
 
+enum StoreContextEntry {
+    Sync(*mut StoreInner),
+    Async(LocalWriteGuardRc<StoreInner>),
+}
+
+impl StoreContextEntry {
+    fn as_ptr(&self) -> *mut StoreInner {
+        match self {
+            StoreContextEntry::Sync(ptr) => *ptr,
+            StoreContextEntry::Async(guard) => &**guard as *const _ as *mut _,
+        }
+    }
+}
+
 pub(crate) struct StoreContext {
     id: StoreId,
 
@@ -51,11 +65,21 @@ pub(crate) struct StoreContext {
     // keep track of how many borrows there are so we don't drop
     // it prematurely.
     borrow_count: u32,
-    store_ptr: UnsafeCell<*mut StoreInner>,
+    entry: UnsafeCell<StoreContextEntry>,
 }
 
 pub(crate) struct StorePtrWrapper {
-    store_mut: *mut StoreInner,
+    store_ptr: *mut StoreInner,
+}
+
+pub(crate) struct AsyncStoreGuardWrapper {
+    pub(crate) guard: *mut LocalWriteGuardRc<StoreInner>,
+}
+
+pub(crate) enum GetAsyncStoreGuardResult {
+    Ok(AsyncStoreGuardWrapper),
+    NotInstalled,
+    NotAsync,
 }
 
 pub(crate) struct ForcedStoreInstallGuard {
@@ -87,36 +111,35 @@ impl StoreContext {
             })
     }
 
-    fn install(store_ptr: *mut StoreInner) {
-        let id = unsafe { *store_ptr }.objects().id();
+    fn install(id: StoreId, entry: StoreContextEntry) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             stack.push(StoreContext {
                 id,
                 borrow_count: 0,
-                store_ptr: UnsafeCell::new(store_mut),
+                entry: UnsafeCell::new(entry),
             });
         })
     }
 
-    /// # Safety
-    /// The pointer must be dereferenceable and remain valid until the
-    /// store context is uninstalled.
-    pub(crate) unsafe fn force_install(store_ptr: *mut StoreInner) -> ForcedStoreInstallGuard {
-        let id = unsafe { *store_ptr }.objects().id();
-        Self::install(store_ptr);
-        ForcedStoreInstallGuard { store_id: Some(id) }
+    /// The write guard ensures this is the only reference to the store,
+    /// so installation can never fail.
+    pub(crate) fn install_async(guard: LocalWriteGuardRc<StoreInner>) -> ForcedStoreInstallGuard {
+        let store_id = guard.objects.id();
+        Self::install(store_id, StoreContextEntry::Async(guard));
+        ForcedStoreInstallGuard { store_id }
     }
 
+    /// Install the store context as sync if it is not already installed.
     /// # Safety
     /// The pointer must be dereferenceable and remain valid until the
     /// store context is uninstalled.
     pub(crate) unsafe fn ensure_installed<'a>(store_ptr: *mut StoreInner) -> StoreInstallGuard {
-        let store_id = unsafe { *store_ptr }.objects().id();
+        let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
         if Self::is_active(store_id) {
             StoreInstallGuard::NotInstalled
         } else {
-            Self::install(store_ptr);
+            Self::install(store_id, StoreContextEntry::Sync(store_ptr));
             StoreInstallGuard::Installed(store_id)
         }
     }
@@ -137,7 +160,7 @@ impl StoreContext {
             assert_eq!(top.id, id, "Mismatched store context access");
             top.borrow_count += 1;
             StorePtrWrapper {
-                store_mut: top.store_ptr.get(),
+                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
             }
         })
     }
@@ -154,7 +177,7 @@ impl StoreContext {
                 .last_mut()
                 .expect("No store context installed on this thread");
             assert_eq!(top.id, id, "Mismatched store context access");
-            unsafe { top.store_ptr.get() }
+            unsafe { top.entry.get().as_mut().unwrap().as_ptr() }
         })
     }
 
@@ -168,8 +191,30 @@ impl StoreContext {
             }
             top.borrow_count += 1;
             Some(StorePtrWrapper {
-                store_mut: top.store_ptr.get(),
+                store_ptr: unsafe { top.entry.get().as_mut().unwrap().as_ptr() },
             })
+        })
+    }
+
+    /// Safety: See [`Self::get_current`].
+    pub(crate) unsafe fn try_get_current_async(id: StoreId) -> GetAsyncStoreGuardResult {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let Some(top) = stack.last_mut() else {
+                return GetAsyncStoreGuardResult::NotInstalled;
+            };
+            if top.id != id {
+                return GetAsyncStoreGuardResult::NotInstalled;
+            }
+            match unsafe { top.entry.get().as_mut().unwrap() } {
+                StoreContextEntry::Async(guard) => {
+                    top.borrow_count += 1;
+                    GetAsyncStoreGuardResult::Ok(AsyncStoreGuardWrapper {
+                        guard: guard as *mut _,
+                    })
+                }
+                StoreContextEntry::Sync(_) => GetAsyncStoreGuardResult::NotAsync,
+            }
         })
     }
 }
@@ -178,19 +223,33 @@ impl StorePtrWrapper {
     pub(crate) fn as_ref(&self) -> StoreRef<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
-        unsafe { self.store_mut.as_ref().unwrap().as_store_ref() }
+        unsafe { self.store_ptr.as_ref().unwrap().as_store_ref() }
     }
 
     pub(crate) fn as_mut(&mut self) -> StoreMut<'_> {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
-        unsafe { self.store_mut.as_mut().unwrap().as_store_mut() }
+        unsafe { self.store_ptr.as_mut().unwrap().as_store_mut() }
     }
 }
 
 impl Drop for StorePtrWrapper {
     fn drop(&mut self) {
-        let id = self.as_mut().objects().id();
+        let id = self.as_mut().objects_mut().id();
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack
+                .last_mut()
+                .expect("No store context installed on this thread");
+            assert_eq!(top.id, id, "Mismatched store context reinstall");
+            top.borrow_count -= 1;
+        })
+    }
+}
+
+impl Drop for AsyncStoreGuardWrapper {
+    fn drop(&mut self) {
+        let id = unsafe { self.guard.as_ref().unwrap().objects.id() };
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let top = stack

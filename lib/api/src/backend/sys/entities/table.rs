@@ -65,6 +65,7 @@ impl Table {
         init: Value,
     ) -> Result<Self, RuntimeError> {
         let item = value_to_table_element(&mut store, init)?;
+        let mut store = store.as_store_mut();
         let tunables = store.engine().tunables();
         let style = tunables.table_style(&ty);
         let mut table = tunables
@@ -82,11 +83,17 @@ impl Table {
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> TableType {
-        *self.handle.get(store.objects().as_sys()).ty()
+        *self
+            .handle
+            .get(store.as_store_ref().objects().as_sys())
+            .ty()
     }
 
     pub(crate) fn get(&self, store: &mut impl AsStoreMut, index: u32) -> Option<Value> {
-        let item = self.handle.get(store.objects().as_sys()).get(index)?;
+        let item = self
+            .handle
+            .get(store.as_store_ref().objects().as_sys())
+            .get(index)?;
         Some(value_from_table_element(store, item))
     }
 
@@ -105,7 +112,9 @@ impl Table {
     }
 
     pub(crate) fn size(&self, store: &impl AsStoreRef) -> u32 {
-        self.handle.get(store.objects().as_sys()).size()
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .size()
     }
 
     pub(crate) fn grow(
@@ -153,14 +162,17 @@ impl Table {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternTable) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.objects().id(), vm_extern.into_sys())
+                StoreHandle::from_internal(
+                    store.as_store_ref().objects().id(),
+                    vm_extern.into_sys(),
+                )
             },
         }
     }
 
     /// Checks whether this `Table` can be used with the given context.
     pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.objects().id()
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

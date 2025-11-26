@@ -27,7 +27,6 @@ impl BackendGlobal {
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -46,7 +45,6 @@ impl BackendGlobal {
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
@@ -65,7 +63,7 @@ impl BackendGlobal {
         val: Value,
         mutability: Mutability,
     ) -> Result<Self, RuntimeError> {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Ok(Self::Sys(
                 crate::backend::sys::global::Global::from_value(store, val, mutability)?,
@@ -101,7 +99,6 @@ impl BackendGlobal {
     /// ```
     /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let c = Global::new(&mut store, Value::I32(1));
     /// let v = Global::new_mut(&mut store, Value::I64(1));
@@ -123,7 +120,6 @@ impl BackendGlobal {
     /// ```
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -143,7 +139,6 @@ impl BackendGlobal {
     /// ```
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new_mut(&mut store, Value::I32(1));
     ///
@@ -161,7 +156,6 @@ impl BackendGlobal {
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -173,7 +167,6 @@ impl BackendGlobal {
     /// ```should_panic
     /// # use wasmer::{Global, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let g = Global::new(&mut store, Value::I32(1));
     ///
@@ -189,7 +182,7 @@ impl BackendGlobal {
 
     #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternGlobal) -> Self {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::global::Global::from_vm_extern(store, vm_extern),

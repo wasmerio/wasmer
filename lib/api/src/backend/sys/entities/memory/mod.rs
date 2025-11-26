@@ -32,12 +32,13 @@ pub struct Memory {
 
 impl Memory {
     pub(crate) fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
+        let mut store = store.as_store_mut();
         let tunables = store.engine().tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 
         Ok(Self {
-            handle: StoreHandle::new(store.objects_mut().as_sys_mut(), memory),
+            handle: StoreHandle::new(store.as_store_mut().objects_mut().as_sys_mut(), memory),
         })
     }
 
@@ -47,11 +48,15 @@ impl Memory {
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> MemoryType {
-        self.handle.get(store.objects().as_sys()).ty()
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .ty()
     }
 
     pub(crate) fn size(&self, store: &impl AsStoreRef) -> Pages {
-        self.handle.get(store.objects().as_sys()).size()
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .size()
     }
 
     pub(crate) fn grow<IntoPages>(
@@ -79,7 +84,7 @@ impl Memory {
 
     pub(crate) fn reset(&self, store: &mut impl AsStoreMut) -> Result<(), MemoryError> {
         self.handle
-            .get_mut(store.objects_mut().as_sys_mut())
+            .get_mut(store.as_store_mut().objects_mut().as_sys_mut())
             .reset()?;
         Ok(())
     }
@@ -87,20 +92,23 @@ impl Memory {
     pub(crate) fn from_vm_extern(store: &impl AsStoreRef, vm_extern: VMExternMemory) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.objects().id(), vm_extern.into_sys())
+                StoreHandle::from_internal(
+                    store.as_store_ref().objects().id(),
+                    vm_extern.into_sys(),
+                )
             },
         }
     }
 
     /// Checks whether this `Memory` can be used with the given context.
     pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.objects().id()
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     /// Cloning memory will create another reference to the same memory that
     /// can be put into a new store
     pub(crate) fn try_clone(&self, store: &impl AsStoreRef) -> Result<VMMemory, MemoryError> {
-        let mem = self.handle.get(store.objects().as_sys());
+        let mem = self.handle.get(store.as_store_ref().objects().as_sys());
         let cloned = mem.try_clone()?;
         Ok(cloned.into())
     }
@@ -119,7 +127,7 @@ impl Memory {
         &self,
         store: &impl AsStoreRef,
     ) -> Option<crate::memory::shared::SharedMemory> {
-        let mem = self.handle.get(store.objects().as_sys());
+        let mem = self.handle.get(store.as_store_ref().objects().as_sys());
         let conds = mem.thread_conditions()?.downgrade();
 
         Some(crate::memory::shared::SharedMemory::new(

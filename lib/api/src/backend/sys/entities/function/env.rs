@@ -1,8 +1,8 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
-    AsAsyncStore, AsyncStoreReadLock, AsyncStoreWriteLock, Store, StoreContext, StoreMut,
-    StoreMutGuard, StoreMutWrapper,
+    AsAsyncStore, AsyncStoreReadLock, AsyncStoreWriteLock, Store, StoreAsync, StoreContext,
+    StoreMut,
     store::{AsStoreMut, AsStoreRef, StoreRef},
 };
 
@@ -17,31 +17,16 @@ pub struct FunctionEnv<T> {
     marker: PhantomData<T>,
 }
 
-impl<T> FunctionEnv<T> {
+impl<T: Any + Send + 'static + Sized> FunctionEnv<T> {
     /// Make a new FunctionEnv
-    pub fn new(store: &mut impl AsStoreMut, value: T) -> Self
-    where
-        T: Any + Send + 'static + Sized,
-    {
+    pub fn new(store: &mut impl AsStoreMut, value: T) -> Self {
         Self {
             handle: StoreHandle::new(
-                store.objects_mut().as_sys_mut(),
+                store.as_store_mut().objects_mut().as_sys_mut(),
                 VMFunctionEnvironment::new(value),
             ),
             marker: PhantomData,
         }
-    }
-
-    /// Get the data as reference
-    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
-    where
-        T: Any + 'static + Sized,
-    {
-        self.handle
-            .get(store.objects().as_sys())
-            .as_ref()
-            .downcast_ref::<T>()
-            .unwrap()
     }
 
     #[allow(dead_code)] // This function is only used in js
@@ -52,27 +37,32 @@ impl<T> FunctionEnv<T> {
         }
     }
 
+    /// Convert it into a `FunctionEnvMut`
+    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T> {
+        FunctionEnvMut {
+            store_mut: store.as_store_mut(),
+            func_env: self,
+        }
+    }
+}
+
+impl<T: Any + 'static + Sized> FunctionEnv<T> {
+    /// Get the data as reference
+    pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T {
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .as_ref()
+            .downcast_ref::<T>()
+            .unwrap()
+    }
+
     /// Get the data as mutable
-    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T
-    where
-        T: Any + 'static + Sized,
-    {
+    pub fn as_mut<'a>(&self, store: &'a mut impl AsStoreMut) -> &'a mut T {
         self.handle
             .get_mut(store.objects_mut().as_sys_mut())
             .as_mut()
             .downcast_mut::<T>()
             .unwrap()
-    }
-
-    /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
-    where
-        T: Any + 'static + Sized,
-    {
-        FunctionEnvMut {
-            store_mut: store.reborrow_mut(),
-            func_env: self,
-        }
     }
 }
 
@@ -128,7 +118,7 @@ impl<T> Clone for FunctionEnv<T> {
 
 /// A temporary handle to a [`FunctionEnv`].
 pub struct FunctionEnvMut<'a, T: 'a> {
-    pub(crate) store_mut: &'a mut StoreMut,
+    pub(crate) store_mut: StoreMut<'a>,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
@@ -160,44 +150,40 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     /// Borrows a new mutable reference
     pub fn as_mut(&mut self) -> FunctionEnvMut<'_, T> {
         FunctionEnvMut {
-            store_mut: self.store_mut.reborrow_mut(),
+            store_mut: self.store_mut.as_store_mut(),
             func_env: self.func_env.clone(),
         }
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
         // stored in a specific vec of Store, separate from the other objects
         // and not really directly accessible with the StoreMut
         let data = unsafe { &mut *data };
-        (data, self.store_mut.reborrow_mut())
-    }
-
-    /// Creates an [`AsAsyncStore`] from this [`FunctionEnvMut`].
-    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
-        Store {
-            id: self.store_mut.store_handle.id,
-            inner: self.store_mut.store_handle.inner.clone(),
-        }
+        (data, self.store_mut.as_store_mut())
     }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        self.store_mut.as_ref()
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        StoreRef {
+            inner: self.store_mut.inner,
+        }
     }
 }
 
 impl<T> AsStoreMut for FunctionEnvMut<'_, T> {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
-        self.store_mut.as_mut()
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        StoreMut {
+            inner: self.store_mut.inner,
+        }
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
-        self.store_mut.reborrow_mut()
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        self.store_mut.objects_mut()
     }
 }
 
@@ -216,7 +202,7 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
 /// A temporary handle to a [`FunctionEnv`], suitable for use
 /// in async imports.
 pub struct AsyncFunctionEnvMut<T> {
-    pub(crate) store: Store,
+    pub(crate) store: StoreAsync,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
@@ -246,8 +232,8 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.store.try_make_mut() {
-            Some(mut store_mut) => self.func_env.as_ref(&mut store_mut).fmt(f),
+        match self.store.inner.try_read_rc() {
+            Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
             None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
         }
     }
@@ -288,7 +274,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// Borrows a new mutable reference
     pub fn as_mut(&mut self) -> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvMut {
-            store: Store {
+            store: StoreAsync {
                 id: self.store.id,
                 inner: self.store.inner.clone(),
             },
@@ -298,7 +284,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
 
     /// Creates an [`AsAsyncStore`] from this [`AsyncFunctionEnvMut`].
     pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
-        Store {
+        StoreAsync {
             id: self.store.id,
             inner: self.store.inner.clone(),
         }
@@ -318,8 +304,8 @@ impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
 }
 
 impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        AsStoreRef::as_ref(&self.read_lock)
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        AsStoreRef::as_store_ref(&self.read_lock)
     }
 }
 
@@ -343,25 +329,17 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
 }
 
 impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        AsStoreRef::as_ref(&self.write_lock)
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        AsStoreRef::as_store_ref(&self.write_lock)
     }
 }
 
 impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
-        AsStoreMut::as_mut(&mut self.write_lock)
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        AsStoreMut::as_store_mut(&mut self.write_lock)
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
-        AsStoreMut::reborrow_mut(&mut self.write_lock)
-    }
-
-    fn take(&mut self) -> Option<StoreMut> {
-        AsStoreMut::take(&mut self.write_lock)
-    }
-
-    fn put_back(&mut self, store_mut: StoreMut) {
-        AsStoreMut::put_back(&mut self.write_lock, store_mut);
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        AsStoreMut::objects_mut(&mut self.write_lock)
     }
 }

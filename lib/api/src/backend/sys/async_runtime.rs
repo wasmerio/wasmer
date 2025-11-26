@@ -12,14 +12,17 @@ use std::{
 use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
-use crate::{AsStoreMut, AsStoreRef, RuntimeError, Store, StoreContext, StoreMut, Value};
+use crate::{
+    AsStoreMut, AsStoreRef, LocalWriteGuardRc, RuntimeError, Store, StoreAsync, StoreContext,
+    StoreInner, StoreMut, StoreRef, Value,
+};
 use wasmer_types::StoreId;
 
 type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
 
 pub(crate) fn call_function_async<'a>(
     function: SysFunction,
-    store: Store,
+    store: StoreAsync,
     params: Vec<Value>,
 ) -> AsyncCallFuture<'a> {
     AsyncCallFuture::new(function, store, params)
@@ -40,7 +43,7 @@ pub(crate) struct AsyncCallFuture<'a> {
     result: Option<Result<Box<[Value]>, RuntimeError>>,
 
     // Store handle we can use to lock the store down
-    store: Store,
+    store: StoreAsync,
 
     // Use Rc<RefCell<...>> to make sure that the future is !Send and !Sync
     _marker: PhantomData<Rc<RefCell<&'a mut ()>>>,
@@ -59,47 +62,49 @@ struct AsyncCallStoreMut {
 }
 
 impl AsStoreRef for AsyncCallStoreMut {
-    fn as_ref(&self) -> &crate::StoreInner {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         // Safety: This is only used with Function::call, which doesn't store
         // the returned reference anywhere, including when calling into WASM
         // code.
         unsafe {
-            StoreContext::get_current_transient(self.store_id)
-                .as_ref()
-                .unwrap()
-                .as_ref()
+            StoreRef {
+                inner: StoreContext::get_current_transient(self.store_id)
+                    .as_ref()
+                    .unwrap(),
+            }
         }
     }
 }
 
 impl AsStoreMut for AsyncCallStoreMut {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
         // Safety: This is only used with Function::call, which doesn't store
         // the returned reference anywhere, including when calling into WASM
         // code.
         unsafe {
-            StoreContext::get_current_transient(self.store_id)
-                .as_mut()
-                .unwrap()
-                .as_mut()
+            StoreMut {
+                inner: StoreContext::get_current_transient(self.store_id)
+                    .as_mut()
+                    .unwrap(),
+            }
         }
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
         // Safety: This is only used with Function::call, which doesn't store
         // the returned reference anywhere, including when calling into WASM
         // code.
         unsafe {
-            StoreContext::get_current_transient(self.store_id)
+            &mut StoreContext::get_current_transient(self.store_id)
                 .as_mut()
                 .unwrap()
-                .reborrow_mut()
+                .objects
         }
     }
 }
 
 impl<'a> AsyncCallFuture<'a> {
-    pub(crate) fn new(function: SysFunction, store: crate::Store, params: Vec<Value>) -> Self {
+    pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
         let coroutine =
             Coroutine::new(move |yielder: &Yielder<AsyncResume, AsyncYield>, resume| {
@@ -150,7 +155,7 @@ impl Future for AsyncCallFuture<'_> {
             // Start a store installation if not in progress already
             if let None = self.pending_store_install {
                 self.pending_store_install =
-                    Some(Box::pin(StoreContextInstaller::install(Store {
+                    Some(Box::pin(StoreContextInstaller::install(StoreAsync {
                         id: self.store.id,
                         inner: self.store.inner.clone(),
                     })));
@@ -192,20 +197,28 @@ impl Future for AsyncCallFuture<'_> {
 }
 
 enum StoreContextInstaller {
-    FromThreadContext(crate::StoreMutWrapper),
+    FromThreadContext(crate::AsyncStoreGuardWrapper),
     Installed(crate::ForcedStoreInstallGuard),
 }
 
 impl StoreContextInstaller {
-    async fn install(store: Store) -> Self {
-        if let Some(wrapper) = unsafe { crate::StoreContext::try_get_current(store.id) } {
-            // If we're already in the scope of this store, we can just reuse it.
-            StoreContextInstaller::FromThreadContext(wrapper)
-        } else {
-            // Otherwise, need to acquire a new StoreMut.
-            let store_mut = store.make_mut_async().await;
-            let guard = crate::StoreContext::force_install(store_mut);
-            StoreContextInstaller::Installed(guard)
+    async fn install(store: StoreAsync) -> Self {
+        match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
+            crate::GetAsyncStoreGuardResult::NotAsync => {
+                // If the store was installed as a sync store, panic - this
+                // should be impossible
+                unreachable!("Sync store context installed in async call")
+            }
+            crate::GetAsyncStoreGuardResult::Ok(wrapper) => {
+                // If we're already in the scope of this store, we can just reuse it.
+                StoreContextInstaller::FromThreadContext(wrapper)
+            }
+            crate::GetAsyncStoreGuardResult::NotInstalled => {
+                // Otherwise, need to acquire a new StoreMut.
+                let store_guard = store.inner.write_rc().await;
+                let install_guard = unsafe { crate::StoreContext::install_async(store_guard) };
+                StoreContextInstaller::Installed(install_guard)
+            }
         }
     }
 }

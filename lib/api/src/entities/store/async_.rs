@@ -1,20 +1,33 @@
 use std::marker::PhantomData;
 
 use crate::{
-    AsStoreMut, AsStoreRef, LocalReadGuardRc, LocalRwLock, LocalWriteGuardRc, StoreContext,
+    AsStoreMut, AsStoreRef, LocalReadGuardRc, LocalRwLock, LocalWriteGuardRc, Store, StoreContext,
     StoreInner, StoreMut, StorePtrWrapper, StoreRef,
 };
 
 use wasmer_types::StoreId;
 
+/// A store that can be used to invoke
+/// [`Function::call_async`](crate::Function::call_async).
 pub struct StoreAsync {
     pub(crate) id: StoreId,
     pub(crate) inner: LocalRwLock<StoreInner>,
 }
 
 impl StoreAsync {
+    /// Transform this [`StoreAsync`] back into a [`Store`]
+    /// if there are no coroutines running or waiting to run
+    /// against it.
     pub fn into_store(self) -> Result<Store, Self> {
-        todo!()
+        match self.inner.consume() {
+            Ok(unwrapped) => Ok(Store {
+                inner: Box::new(unwrapped),
+            }),
+            Err(lock) => Err(Self {
+                id: self.id,
+                inner: lock,
+            }),
+        }
     }
 }
 
@@ -48,9 +61,7 @@ pub trait AsAsyncStore {
     }
 
     /// Acquires a write lock on the store.
-    fn write_lock<'a>(
-        &'a self,
-    ) -> impl Future<Output = AsyncStoreWriteLock<'a>> + 'a {
+    fn write_lock<'a>(&'a self) -> impl Future<Output = AsyncStoreWriteLock<'a>> + 'a {
         AsyncStoreWriteLock::acquire(self.store_ref())
     }
 }
@@ -126,9 +137,9 @@ impl<'a> AsyncStoreWriteLock<'a> {
             None => {
                 // Drop the option before awaiting, since the value isn't Send
                 drop(store_context);
-                let store_mut = store.inner.write_rc().await;
+                let store_guard = store.inner.write_rc().await;
                 Self {
-                    inner: AsyncStoreWriteLockInner::Owned(store_mut),
+                    inner: AsyncStoreWriteLockInner::Owned(store_guard),
                     _marker: PhantomData,
                 }
             }

@@ -45,7 +45,7 @@ impl BackendFunction {
         FT: Into<FunctionType>,
         F: Fn(&[Value]) -> Result<Vec<Value>, RuntimeError> + 'static + Send + Sync,
     {
-        let env = FunctionEnv::new(store, ());
+        let env = FunctionEnv::new(&mut store.as_store_mut(), ());
         let wrapped_func = move |_env: FunctionEnvMut<()>,
                                  args: &[Value]|
               -> Result<Vec<Value>, RuntimeError> { func(args) };
@@ -65,7 +65,6 @@ impl BackendFunction {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
@@ -81,7 +80,6 @@ impl BackendFunction {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
@@ -105,7 +103,7 @@ impl BackendFunction {
             + Send
             + Sync,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_with_env(
@@ -153,7 +151,7 @@ impl BackendFunction {
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 Self::Sys(crate::backend::sys::entities::function::Function::new_typed(store, func))
@@ -193,7 +191,6 @@ impl BackendFunction {
     /// ```
     /// # use wasmer::{Store, Function, FunctionEnv, FunctionEnvMut};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -213,7 +210,7 @@ impl BackendFunction {
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_typed_with_env(
@@ -261,7 +258,7 @@ impl BackendFunction {
         F: Fn(&[Value]) -> Fut + 'static,
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_async(store, ty, func),
@@ -291,7 +288,7 @@ impl BackendFunction {
         F: Fn(AsyncFunctionEnvMut<T>, &[Value]) -> Fut + 'static,
         Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_with_env_async(
@@ -318,7 +315,7 @@ impl BackendFunction {
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_typed_async(store, func),
@@ -347,7 +344,7 @@ impl BackendFunction {
         Args: WasmTypeList + 'static,
         Rets: WasmTypeList + 'static,
     {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::new_typed_with_env_async(
@@ -374,7 +371,6 @@ impl BackendFunction {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -400,7 +396,6 @@ impl BackendFunction {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -423,7 +418,6 @@ impl BackendFunction {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -453,6 +447,7 @@ impl BackendFunction {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -461,9 +456,7 @@ impl BackendFunction {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -536,7 +529,7 @@ impl BackendFunction {
 
     #[inline]
     pub(crate) unsafe fn from_vm_funcref(store: &mut impl AsStoreMut, funcref: VMFuncRef) -> Self {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(unsafe {
                 crate::backend::sys::entities::function::Function::from_vm_funcref(
@@ -591,6 +584,7 @@ impl BackendFunction {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -599,9 +593,7 @@ impl BackendFunction {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -620,6 +612,7 @@ impl BackendFunction {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -628,9 +621,7 @@ impl BackendFunction {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -647,6 +638,7 @@ impl BackendFunction {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -655,9 +647,7 @@ impl BackendFunction {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -705,7 +695,7 @@ impl BackendFunction {
     }
 
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::function::Function::from_vm_extern(store, vm_extern),

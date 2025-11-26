@@ -32,7 +32,7 @@ pub trait AsEngineRef {
     ///
     /// NOTE: this function will return [`None`] if the [`AsEngineRef`] implementor is not an
     /// actual [`crate::Store`].
-    fn maybe_as_store(&self) -> Option<&StoreRef> {
+    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
         None
     }
 }
@@ -54,7 +54,7 @@ where
         (**self).as_engine_ref()
     }
 
-    fn maybe_as_store(&self) -> Option<&StoreRef> {
+    fn maybe_as_store(&self) -> Option<StoreRef<'_>> {
         (**self).maybe_as_store()
     }
 }

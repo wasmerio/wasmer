@@ -41,7 +41,7 @@ impl Tag {
             kind: wasmer_types::TagKind::Exception,
             params: self
                 .handle
-                .get(store.objects().as_sys())
+                .get(store.as_store_ref().objects().as_sys())
                 .signature
                 .params()
                 .into(),
@@ -58,7 +58,7 @@ impl Tag {
 
     /// Check whether or not the [`Tag`] is from the given store.
     pub fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.objects().id()
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {

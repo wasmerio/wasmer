@@ -62,7 +62,7 @@ macro_rules! impl_native_traits {
                 $(
                     let [<p_ $x>] = $x;
                 )*
-                match store.as_mut().store {
+                match store.as_store_mut().inner.store {
                     #[cfg(feature = "sys")]
                     BackendStore::Sys(_) => self.call_sys(store, $([<p_ $x>]),*),
                     #[cfg(feature = "wamr")]
@@ -95,7 +95,7 @@ macro_rules! impl_native_traits {
                 )*
                 async move {
                     let read_lock = store.read_lock().await;
-                    match read_lock.as_ref().store {
+                    match read_lock.as_store_ref().inner.store {
                         #[cfg(feature = "sys")]
                         BackendStore::Sys(_) => {
                             drop(read_lock);
@@ -120,7 +120,7 @@ macro_rules! impl_native_traits {
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call_raw(&self, store: &mut impl AsStoreMut, mut params_list: Vec<RawValue> ) -> Result<Rets, RuntimeError> {
-                match store.as_mut().store {
+                match store.as_store_mut().inner.store {
                     #[cfg(feature = "sys")]
                     BackendStore::Sys(_) => self.call_raw_sys(store, params_list),
                     #[cfg(feature = "wamr")]

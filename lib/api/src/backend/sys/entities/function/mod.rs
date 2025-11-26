@@ -61,7 +61,7 @@ impl Function {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
-        let store_id = store.objects().id();
+        let store_id = store.objects_mut().id();
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
@@ -70,7 +70,7 @@ impl Function {
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
-                        store,
+                        &mut store,
                         *ty,
                         values_vec.add(i).read_unaligned(),
                     ));
@@ -101,7 +101,11 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_index = store.engine().as_sys().register_signature(&function_type);
+        let type_index = store
+            .as_store_ref()
+            .engine()
+            .as_sys()
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -149,25 +153,35 @@ impl Function {
         let function_type = ty.into();
         let func_ty = function_type.clone();
         let func_env = env.clone().into_sys();
-        let store_id = store.objects().id();
+        let store_id = store.objects_mut().id();
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
-                let mut store_wrapper = StoreContext::get_current(store_id);
-                let mut store = store_wrapper.as_mut();
+                let mut store_wrapper = match StoreContext::try_get_current_async(store_id) {
+                    crate::GetAsyncStoreGuardResult::Ok(wrapper) => wrapper,
+                    _ => panic!(
+                        "Sync store context encountered when attempting to \
+                        invoke async imported function"
+                    ),
+                };
+                let mut store_write_guard = store_wrapper.guard.as_mut().unwrap();
+                let mut store = StoreMut {
+                    inner: &mut **store_write_guard,
+                };
+                let id = store.as_store_ref().objects().id();
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
-                        store,
+                        &mut store,
                         *ty,
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
                 let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
                     env::AsyncFunctionEnvMut {
-                        store: crate::Store {
-                            id: store.store_handle.id,
-                            inner: store.store_handle.inner.clone(),
+                        store: crate::StoreAsync {
+                            id,
+                            inner: crate::LocalWriteGuardRc::lock_handle(store_write_guard),
                         },
                         func_env: func_env.clone(),
                     },
@@ -190,7 +204,11 @@ impl Function {
         host_data.address = host_data.ctx.func_body_ptr() as *const VMFunctionBody;
 
         let func_ptr = std::ptr::null() as VMFunctionCallback;
-        let type_index = store.engine().as_sys().register_signature(&function_type);
+        let type_index = store
+            .as_store_ref()
+            .engine()
+            .as_sys()
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -223,13 +241,17 @@ impl Function {
         let env = FunctionEnv::new(store, ());
         let func_ptr = func.function_callback_sys().into_sys();
         let host_data = Box::new(StaticFunction {
-            store_id: store.objects().id(),
+            store_id: store.objects_mut().id(),
             env,
             func,
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let type_index = store.engine().as_sys().register_signature(&function_type);
+        let type_index = store
+            .as_store_ref()
+            .engine()
+            .as_sys()
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -277,12 +299,13 @@ impl Function {
                 };
                 let mut store_mut_wrapper =
                     unsafe { StoreContext::get_current(sys_env.store_id()) };
-                let store_mut = store_mut_wrapper.as_mut();
+                let mut store_mut = store_mut_wrapper.as_mut();
                 let args_sig = args_sig.clone();
                 let results_sig = results_sig.clone();
                 let func = func.clone();
                 let args =
-                    match typed_args_from_values::<Args>(store_mut, args_sig.as_ref(), values) {
+                    match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+                    {
                         Ok(args) => args,
                         Err(err) => return Box::pin(async { Err(err) }),
                     };
@@ -292,7 +315,7 @@ impl Function {
                     let typed_result = future.await?;
                     let mut store_mut = env_mut.write().await;
                     typed_results_to_values::<Rets>(
-                        store_mut.reborrow_mut(),
+                        &mut store_mut.as_store_mut(),
                         results_sig.as_ref(),
                         typed_result,
                     )
@@ -329,12 +352,13 @@ impl Function {
                 };
                 let mut store_mut_wrapper =
                     unsafe { StoreContext::get_current(sys_env.store_id()) };
-                let store_mut = store_mut_wrapper.as_mut();
+                let mut store_mut = store_mut_wrapper.as_mut();
                 let args_sig = args_sig.clone();
                 let results_sig = results_sig.clone();
                 let func = func.clone();
                 let args =
-                    match typed_args_from_values::<Args>(store_mut, args_sig.as_ref(), values) {
+                    match typed_args_from_values::<Args>(&mut store_mut, args_sig.as_ref(), values)
+                    {
                         Ok(args) => args,
                         Err(err) => return Box::pin(async { Err(err) }),
                     };
@@ -347,7 +371,7 @@ impl Function {
                     let typed_result = future.await?;
                     let mut store_mut = env_mut_clone.write().await;
                     typed_results_to_values::<Rets>(
-                        store_mut.reborrow_mut(),
+                        &mut store_mut.as_store_mut(),
                         results_sig.as_ref(),
                         typed_result,
                     )
@@ -368,13 +392,17 @@ impl Function {
     {
         let func_ptr = func.function_callback_sys().into_sys();
         let host_data = Box::new(StaticFunction {
-            store_id: store.objects().id(),
+            store_id: store.objects_mut().id(),
             env: env.as_sys().clone().into(),
             func,
         });
         let function_type = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
 
-        let type_index = store.engine().as_sys().register_signature(&function_type);
+        let type_index = store
+            .as_store_ref()
+            .engine()
+            .as_sys()
+            .register_signature(&function_type);
         let vmctx = VMFunctionContext {
             host_env: host_data.as_ref() as *const _ as *mut c_void,
         };
@@ -399,7 +427,10 @@ impl Function {
     }
 
     pub(crate) fn ty(&self, store: &impl AsStoreRef) -> FunctionType {
-        self.handle.get(store.objects().as_sys()).signature.clone()
+        self.handle
+            .get(store.as_store_ref().objects().as_sys())
+            .signature
+            .clone()
     }
 
     fn call_wasm(
@@ -465,35 +496,29 @@ impl Function {
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
         let result = {
-            let vm_function = self.handle.get(store.as_mut().objects.as_sys());
-            let anyfunc = vm_function.anyfunc.as_ptr();
-            let config = store.engine().tunables().vmconfig().clone();
-            let signal_handler = store.signal_handler();
-
-            // Install the store into the store context
-            let store_id = store.objects().id();
-            let store_install_guard = StoreContext::ensure_installed(store);
+            // Safety: the store context is uninstalled before we return, and the
+            // store mut is valid for the duration of the call.
+            let store_install_guard =
+                unsafe { StoreContext::ensure_installed(store.as_store_mut().inner as *mut _) };
 
             let mut r;
             // TODO: This loop is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
             loop {
+                let storeref = store.as_store_ref();
+                let vm_function = self.handle.get(storeref.objects().as_sys());
+                let config = storeref.engine().tunables().vmconfig();
                 r = unsafe {
                     wasmer_call_trampoline(
-                        signal_handler,
-                        &config,
-                        anyfunc.as_ref().vmctx,
+                        store.as_store_ref().signal_handler(),
+                        config,
+                        vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,
-                        anyfunc.as_ref().func_ptr,
+                        vm_function.anyfunc.as_ptr().as_ref().func_ptr,
                         params.as_mut_ptr() as *mut u8,
                     )
                 };
-
-                // The `store` parameter potentially doesn't have its StoreMut anymore;
-                // so borrow another reference from the store context which owns the
-                // StoreMut at this point anyway.
-                let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
-                let mut store_mut = store_wrapper.as_mut();
-                if let Some(callback) = store_mut.as_mut().on_called.take() {
+                let store_mut = store.as_store_mut();
+                if let Some(callback) = store_mut.inner.on_called.take() {
                     match callback(store_mut) {
                         Ok(wasmer_types::OnCalledAction::InvokeAgain) => {
                             continue;
@@ -541,7 +566,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
-                .get(store.objects().as_sys())
+                .get(store.objects_mut().as_sys())
                 .anyfunc
                 .as_ptr()
                 .as_ref()
@@ -571,7 +596,7 @@ impl Function {
     ) -> Result<Box<[Value]>, RuntimeError> {
         let trampoline = unsafe {
             self.handle
-                .get(store.objects().as_sys())
+                .get(store.objects_mut().as_sys())
                 .anyfunc
                 .as_ptr()
                 .as_ref()
@@ -583,7 +608,7 @@ impl Function {
     }
 
     pub(crate) fn vm_funcref(&self, store: &impl AsStoreRef) -> VMFuncRef {
-        let vm_function = self.handle.get(store.objects().as_sys());
+        let vm_function = self.handle.get(store.as_store_ref().objects().as_sys());
         if vm_function.kind == VMFunctionKind::Dynamic {
             panic!("dynamic functions cannot be used in tables or as funcrefs");
         }
@@ -594,6 +619,7 @@ impl Function {
         let signature = {
             let anyfunc = unsafe { funcref.0.as_ref() };
             store
+                .as_store_mut()
                 .engine()
                 .as_sys()
                 .lookup_signature(anyfunc.type_index)
@@ -615,14 +641,14 @@ impl Function {
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternFunction) -> Self {
         Self {
             handle: unsafe {
-                StoreHandle::from_internal(store.objects().id(), vm_extern.into_sys())
+                StoreHandle::from_internal(store.objects_mut().id(), vm_extern.into_sys())
             },
         }
     }
 
     /// Checks whether this `Function` can be used with the given store.
     pub(crate) fn is_from_store(&self, store: &impl AsStoreRef) -> bool {
-        self.handle.store_id() == store.objects().id()
+        self.handle.store_id() == store.as_store_ref().objects().id()
     }
 
     pub(crate) fn to_vm_extern(&self) -> VMExtern {
@@ -808,7 +834,7 @@ where
                     let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
                     let mut store = store_wrapper.as_mut().unwrap();
                     wasmer_vm::libcalls::throw(
-                        store.objects().as_sys(),
+                        store.objects.as_sys(),
                         exception.vm_exceptionref().as_sys().to_u32_exnref(),
                     )
                 }
@@ -901,7 +927,7 @@ macro_rules! impl_host_function {
                         let mut store = store_wrapper.as_mut();
                         $(
                             let $x = unsafe {
-                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(store, $x))
+                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
                         to_invocation_result((env.func)($($x),* ).into_result())
@@ -927,7 +953,7 @@ macro_rules! impl_host_function {
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
                         wasmer_vm::libcalls::throw(
-                            store.objects().as_sys(),
+                            store.objects.as_sys(),
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
                     }
@@ -991,7 +1017,7 @@ macro_rules! impl_host_function {
                         let mut store = store_wrapper.as_mut();
                         $(
                             let $x = unsafe {
-                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(store, $x))
+                                FromToNativeWasmType::from_native(NativeWasmTypeInto::from_abi(&mut store, $x))
                             };
                         )*
                         let f_env = crate::backend::sys::function::env::FunctionEnvMut {
@@ -1021,7 +1047,7 @@ macro_rules! impl_host_function {
                         let mut store_wrapper = StoreContext::get_current_transient(env.store_id);
                         let mut store = store_wrapper.as_mut().unwrap();
                         wasmer_vm::libcalls::throw(
-                            store.objects().as_sys(),
+                            store.objects.as_sys(),
                             exception.vm_exceptionref().as_sys().to_u32_exnref()
                         )
                     }

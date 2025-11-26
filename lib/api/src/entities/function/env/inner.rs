@@ -54,7 +54,7 @@ impl<T> BackendFunctionEnv<T> {
     where
         T: Any + Send + 'static + Sized,
     {
-        match store.as_mut().store {
+        match store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::function::env::FunctionEnv::new(store, value),
@@ -199,40 +199,31 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, &mut StoreMut) {
+    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         match_rt!(on self => f {
             f.data_and_store_mut()
         })
     }
-
-    /// Creates an [`AsAsyncStore`] from this [`BackendAsyncFunctionEnvMut`].
-    pub fn as_async_store(&mut self) -> impl AsAsyncStore + 'static {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.as_async_store(),
-            _ => unsupported_async_backend(),
-        }
-    }
 }
 
 impl<T> AsStoreRef for BackendFunctionEnvMut<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
-        match_rt!(on self => f {
-            f.as_ref()
+    fn as_store_ref(&self) -> StoreRef<'_> {
+        match_rt!(on self => s {
+            s.as_store_ref()
         })
     }
 }
 
 impl<T> AsStoreMut for BackendFunctionEnvMut<'_, T> {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
-        match_rt!(on self => f {
-            f.as_mut()
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
+        match_rt!(on self => s {
+            s.as_store_mut()
         })
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
-        match_rt!(on self => f {
-            f.reborrow_mut()
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
+        match_rt!(on self => s {
+            s.objects_mut()
         })
     }
 }
@@ -347,10 +338,10 @@ impl<T: 'static> BackendAsyncFunctionEnvHandle<'_, T> {
 }
 
 impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandle<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => AsStoreRef::as_ref(f),
+            Self::Sys(f) => AsStoreRef::as_store_ref(f),
             _ => unsupported_async_backend(),
         }
     }
@@ -377,44 +368,28 @@ impl<T: 'static> BackendAsyncFunctionEnvHandleMut<'_, T> {
 }
 
 impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandleMut<'_, T> {
-    fn as_ref(&self) -> &crate::StoreInner {
+    fn as_store_ref(&self) -> StoreRef<'_> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => AsStoreRef::as_ref(f),
+            Self::Sys(f) => AsStoreRef::as_store_ref(f),
             _ => unsupported_async_backend(),
         }
     }
 }
 
 impl<T: 'static> AsStoreMut for BackendAsyncFunctionEnvHandleMut<'_, T> {
-    fn as_mut(&mut self) -> &mut crate::StoreInner {
+    fn as_store_mut(&mut self) -> StoreMut<'_> {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => AsStoreMut::as_mut(f),
+            Self::Sys(f) => AsStoreMut::as_store_mut(f),
             _ => unsupported_async_backend(),
         }
     }
 
-    fn reborrow_mut(&mut self) -> &mut StoreMut {
+    fn objects_mut(&mut self) -> &mut crate::StoreObjects {
         match self {
             #[cfg(feature = "sys")]
-            Self::Sys(f) => f.reborrow_mut(),
-            _ => unsupported_async_backend(),
-        }
-    }
-
-    fn take(&mut self) -> Option<StoreMut> {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.take(),
-            _ => unsupported_async_backend(),
-        }
-    }
-
-    fn put_back(&mut self, store_mut: StoreMut) {
-        match self {
-            #[cfg(feature = "sys")]
-            Self::Sys(f) => f.put_back(store_mut),
+            Self::Sys(f) => AsStoreMut::objects_mut(f),
             _ => unsupported_async_backend(),
         }
     }

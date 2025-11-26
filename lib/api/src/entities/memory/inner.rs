@@ -23,13 +23,12 @@ impl BackendMemory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     /// ```
     #[inline]
     pub fn new(store: &mut impl AsStoreMut, ty: MemoryType) -> Result<Self, MemoryError> {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Ok(Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new(store, ty)?,
@@ -60,7 +59,7 @@ impl BackendMemory {
     /// Create a memory object from an existing memory and attaches it to the store
     #[inline]
     pub fn new_from_existing(new_store: &mut impl AsStoreMut, memory: VMMemory) -> Self {
-        match new_store.as_mut().store {
+        match new_store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::new_from_existing(
@@ -113,7 +112,6 @@ impl BackendMemory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let mt = MemoryType::new(1, None, false);
     /// let m = Memory::new(&mut store, mt).unwrap();
@@ -142,7 +140,6 @@ impl BackendMemory {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, Some(3), false)).unwrap();
     /// let p = m.grow(&mut store, 2).unwrap();
@@ -160,7 +157,6 @@ impl BackendMemory {
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, Some(1), false)).unwrap();
@@ -255,7 +251,7 @@ impl BackendMemory {
 
     #[inline]
     pub(crate) fn from_vm_extern(store: &mut impl AsStoreMut, vm_extern: VMExternMemory) -> Self {
-        match &store.as_mut().store {
+        match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(s) => Self::Sys(
                 crate::backend::sys::entities::memory::Memory::from_vm_extern(store, vm_extern),

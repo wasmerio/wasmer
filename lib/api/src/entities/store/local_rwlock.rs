@@ -242,10 +242,8 @@ impl<T> LocalRwLockInner<T> {
             // No writers waiting, wake all readers (they can share the lock)
             drop(write_waiters); // Release borrow before borrowing read_waiters
             let mut read_waiters = self.read_waiters.borrow_mut();
-            for waker_slot in read_waiters.drain(..) {
-                if let Some(waker) = waker_slot {
-                    waker.wake();
-                }
+            for waker in read_waiters.drain(..).flatten() {
+                waker.wake();
             }
         }
     }
@@ -380,6 +378,15 @@ pub struct LocalReadGuardRc<T> {
     inner: Rc<LocalRwLockInner<T>>,
 }
 
+impl<T> LocalReadGuardRc<T> {
+    /// Rebuild a handle to the lock from this [`LocalReadGuardRc`].
+    pub fn lock_handle(me: &Self) -> LocalRwLock<T> {
+        LocalRwLock {
+            inner: me.inner.clone(),
+        }
+    }
+}
+
 impl<T> Deref for LocalReadGuardRc<T> {
     type Target = T;
 
@@ -397,6 +404,15 @@ impl<T> Drop for LocalReadGuardRc<T> {
 /// A write guard with a `'static` lifetime, holding an `Rc` to the lock.
 pub struct LocalWriteGuardRc<T> {
     inner: Rc<LocalRwLockInner<T>>,
+}
+
+impl<T> LocalWriteGuardRc<T> {
+    /// Rebuild a handle to the lock from this [`LocalWriteGuardRc`].
+    pub fn lock_handle(me: &Self) -> LocalRwLock<T> {
+        LocalRwLock {
+            inner: me.inner.clone(),
+        }
+    }
 }
 
 impl<T> Deref for LocalWriteGuardRc<T> {

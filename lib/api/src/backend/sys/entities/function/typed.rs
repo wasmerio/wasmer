@@ -22,7 +22,7 @@ macro_rules! impl_native_traits {
                 let anyfunc = unsafe {
                     *self.func.as_sys()
                         .handle
-                        .get(store.objects().as_sys())
+                        .get(store.as_store_ref().objects().as_sys())
                         .anyfunc
                         .as_ptr()
                         .as_ref()
@@ -50,32 +50,27 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
-                let config = store.engine().tunables().vmconfig().clone();
-                let signal_handler = store.signal_handler();
-
                 // Install the store into the store context
-                let store_id = store.objects().id();
-                let store_install_guard = StoreContext::ensure_installed(store);
+                let store_install_guard = unsafe {
+                    StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
+                };
 
                 let mut r;
                 loop {
+                    let storeref = store.as_store_ref();
+                    let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(
-                            signal_handler,
-                            &config,
+                            store.as_store_ref().signal_handler(),
+                            config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
                             args_rets.as_mut_ptr() as *mut u8,
                         )
                     };
-
-                    // The `store` parameter potentially doesn't have its StoreMut anymore;
-                    // so borrow another reference from the store context which owns the
-                    // StoreMut at this point anyway.
-                    let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
-                    let mut store_mut = store_wrapper.as_mut();
-                    if let Some(callback) = store_mut.as_mut().on_called.take() {
+                    let store_mut = store.as_store_mut();
+                    if let Some(callback) = store_mut.inner.on_called.take() {
                         match callback(store_mut) {
                             Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }
                             Ok(wasmer_types::OnCalledAction::Finish) => { break; }
@@ -156,7 +151,7 @@ macro_rules! impl_native_traits {
                 let anyfunc = unsafe {
                     *self.func.as_sys()
                         .handle
-                        .get(store.objects().as_sys())
+                        .get(store.as_store_ref().objects().as_sys())
                         .anyfunc
                         .as_ptr()
                         .as_ref()
@@ -177,32 +172,27 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
-                let config = store.engine().tunables().vmconfig().clone();
-                let signal_handler = store.signal_handler();
-
                 // Install the store into the store context
-                let store_id = store.objects().id();
-                let store_install_guard = StoreContext::ensure_installed(store);
+                let store_install_guard = unsafe {
+                    StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
+                };
 
                 let mut r;
                 loop {
+                    let storeref = store.as_store_ref();
+                    let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
                         wasmer_vm::wasmer_call_trampoline(
-                            signal_handler,
-                            &config,
+                            store.as_store_ref().signal_handler(),
+                            config,
                             anyfunc.vmctx,
                             anyfunc.call_trampoline,
                             anyfunc.func_ptr,
                             args_rets.as_mut_ptr() as *mut u8,
                         )
                     };
-
-                    // The `store` parameter potentially doesn't have its StoreMut anymore;
-                    // so borrow another reference from the store context which owns the
-                    // StoreMut at this point anyway.
-                    let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
-                    let mut store_mut = store_wrapper.as_mut();
-                    if let Some(callback) = store_mut.as_mut().on_called.take() {
+                    let store_mut = store.as_store_mut();
+                    if let Some(callback) = store_mut.inner.on_called.take() {
                         // TODO: OnCalledAction is needed for asyncify. It will be refactored with https://github.com/wasmerio/wasmer/issues/3451
                         match callback(store_mut) {
                             Ok(wasmer_types::OnCalledAction::InvokeAgain) => { continue; }

@@ -127,6 +127,8 @@ impl Store {
         self.inner.objects.id()
     }
 
+    /// Transforms this store into a [`StoreAsync`] which can be used
+    /// to invoke [`Function::call_async`](crate::Function::call_async).
     pub fn into_async(self) -> StoreAsync {
         StoreAsync {
             id: self.id(),

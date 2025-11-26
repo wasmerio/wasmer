@@ -31,9 +31,8 @@ impl Instance {
     /// # use wasmer::FunctionEnv;
     /// # fn main() -> anyhow::Result<()> {
     /// let mut store = Store::default();
-    /// let module = Module::new(&store.engine(), "(module)")?;
-    /// let mut store = store.as_mut();
     /// let env = FunctionEnv::new(&mut store, ());
+    /// let module = Module::new(&store, "(module)")?;
     /// let imports = imports!{
     ///   "host" => {
     ///     "var" => Global::new(&mut store, Value::I32(2))
@@ -57,7 +56,7 @@ impl Instance {
         module: &Module,
         imports: &Imports,
     ) -> Result<Self, InstantiationError> {
-        let (_inner, exports) = match &store.as_mut().store {
+        let (_inner, exports) = match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 let (i, e) = crate::backend::sys::instance::Instance::new(store, module, imports)?;
@@ -116,7 +115,7 @@ impl Instance {
         module: &Module,
         externs: &[Extern],
     ) -> Result<Self, InstantiationError> {
-        let (_inner, exports) = match &store.as_mut().store {
+        let (_inner, exports) = match &store.as_store_mut().inner.store {
             #[cfg(feature = "sys")]
             crate::BackendStore::Sys(_) => {
                 let (i, e) =

@@ -165,9 +165,11 @@ impl Module {
                 return Err(InstantiationError::DifferentStores);
             }
         }
-        let signal_handler = store.signal_handler();
-        let (engine, objects) = store.engine_and_objects_mut();
-        let config = engine.tunables().vmconfig().clone();
+        let signal_handler = store.as_store_ref().signal_handler();
+        let mut store_mut = store.as_store_mut();
+        let store_ptr = store_mut.inner as *mut _;
+        let (engine, objects) = store_mut.engine_and_objects_mut();
+        let config = engine.tunables().vmconfig();
         unsafe {
             let mut instance_handle = self.artifact.instantiate(
                 engine.tunables(),
@@ -179,7 +181,7 @@ impl Module {
             )?;
 
             let store_id = objects.id();
-            let store_install_guard = StoreContext::ensure_installed(store);
+            let store_install_guard = StoreContext::ensure_installed(store_ptr);
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
@@ -187,7 +189,7 @@ impl Module {
             // as some of the Instance elements may have placed in other
             // instance tables.
             self.artifact
-                .finish_instantiation(&config, signal_handler, &mut instance_handle)?;
+                .finish_instantiation(config, signal_handler, &mut instance_handle)?;
 
             drop(store_install_guard);
 

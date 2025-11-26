@@ -23,9 +23,15 @@ pub struct MemoryView<'a> {
 
 impl<'a> MemoryView<'a> {
     pub(crate) fn new(memory: &Memory, store: &'a (impl AsStoreRef + ?Sized)) -> Self {
-        let size = memory.handle.get(store.objects().as_sys()).size();
+        let size = memory
+            .handle
+            .get(store.as_store_ref().objects().as_sys())
+            .size();
 
-        let definition = memory.handle.get(store.objects().as_sys()).vmmemory();
+        let definition = memory
+            .handle
+            .get(store.as_store_ref().objects().as_sys())
+            .vmmemory();
         let def = unsafe { definition.as_ref() };
 
         Self {
@@ -86,7 +92,6 @@ impl<'a> MemoryView<'a> {
     /// ```
     /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// #
     /// let m = Memory::new(&mut store, MemoryType::new(1, None, false)).unwrap();
     ///
