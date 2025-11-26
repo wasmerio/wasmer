@@ -33,7 +33,7 @@ tracing = { workspace = true, features = ["log"] }
 
 [dependencies.inkwell]
 package = "inkwell"
-version = "0.7.0"
+git = "https://github.com/TheDan64/inkwell.git"
 default-features = false
 features = [
 	"llvm21-1-prefer-static",
