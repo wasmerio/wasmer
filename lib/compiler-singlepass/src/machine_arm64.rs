@@ -2247,9 +2247,6 @@ impl Machine for MachineARM64 {
             .emit_mov(Size::S64, Location::GPR(GPR::X0), Location::SIMD(NEON::V0))
     }
 
-    fn arch_supports_canonicalize_nan(&self) -> bool {
-        self.assembler.arch_supports_canonicalize_nan()
-    }
     fn canonicalize_nan(
         &mut self,
         sz: Size,
@@ -2318,10 +2315,6 @@ impl Machine for MachineARM64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-
-    fn arch_requires_indirect_call_trampoline(&self) -> bool {
-        self.assembler.arch_requires_indirect_call_trampoline()
     }
 
     fn arch_emit_indirect_call_with_trampoline(
@@ -7378,7 +7371,6 @@ impl Machine for MachineARM64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,
@@ -7434,7 +7426,6 @@ impl Machine for MachineARM64 {
         heap_access_oob: Label,
         unaligned_atomic: Label,
     ) -> Result<(), CompileError> {
-        let canonicalize = canonicalize && self.arch_supports_canonicalize_nan();
         self.memory_op(
             target_addr,
             memarg,
