@@ -35,6 +35,15 @@ impl<R, S> MaybeImmediate for Location<R, S> {
             _ => None,
         }
     }
+
+    fn imm_value_scalar(&self) -> Option<i64> {
+        match *self {
+            Location::Imm8(imm) => Some(imm as _),
+            Location::Imm32(imm) => Some(imm as _),
+            Location::Imm64(imm) => Some(imm as _),
+            _ => None,
+        }
+    }
 }
 
 #[allow(unused)]
