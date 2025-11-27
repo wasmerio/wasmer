@@ -71,7 +71,8 @@ jobs:
           echo '/opt/llvm-21/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_211_PREFIX=/opt/llvm-21' >> $GITHUB_ENV
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
@@ -536,7 +537,7 @@ jobs:
             },
             {
               build: macos-x64,
-              os: macos-13,
+              os: macos-15-intel,
               target: x86_64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz",
@@ -599,7 +600,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-13'
+        if: matrix.metadata.os == 'macos-15-intel'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -648,8 +649,8 @@ jobs:
           mkdir -p package
           mkdir -p package/winsdk
           cp -r /tmp/winsdk/* package/winsdk
-      - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
+      - name: Install LLVM (macOS Intel)
+        if: matrix.metadata.os == 'macos-15-intel' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
       - name: Install LLVM
@@ -691,7 +692,8 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: ls -R $CARGO_ROOT_DIR
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
@@ -816,7 +818,7 @@ jobs:
             },
             {
               build: macos-x64,
-              os: macos-13,
+              os: macos-15-intel,
               target: x86_64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-amd64.tar.xz",
@@ -877,7 +879,7 @@ jobs:
           # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
           brew install gnu-tar zstd
           echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
-        if: matrix.metadata.os == 'macos-13'
+        if: matrix.metadata.os == 'macos-15-intel'
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -885,8 +887,8 @@ jobs:
           target: ${{ matrix.metadata.target }}
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
-      - name: Install LLVM (macOS Apple Silicon)
-        if: matrix.metadata.os == 'macos-13' && !matrix.metadata.llvm_url
+      - name: Install LLVM (macOS Intel)
+        if: matrix.metadata.os == 'macos-15-intel' && !matrix.metadata.llvm_url
         run: |
           brew install llvm
           echo "/opt/homebrew/opt/llvm/bin" >> GITHUB_PATH
@@ -920,7 +922,8 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
@@ -954,7 +957,7 @@ jobs:
             target: x86_64-unknown-linux-gnu
             llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
           - build: macos-x64
-            os: macos-13
+            os: macos-15-intel
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
@@ -1003,7 +1006,8 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
