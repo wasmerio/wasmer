@@ -44,7 +44,7 @@ mod codegen {
 
         fn add_schema<T: schemars::JsonSchema>(map: &mut IndexMap<String, String>, name: &str) {
             let generator =
-                schemars::SchemaGenerator::new(schemars::r#gen::SchemaSettings::draft2019_09());
+                schemars::SchemaGenerator::new(schemars::generate::SchemaSettings::draft2019_09());
             map.insert(
                 format!("{name}.schema.json"),
                 serde_json::to_string_pretty(&generator.into_root_schema_for::<T>()).unwrap(),
