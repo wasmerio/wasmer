@@ -158,8 +158,8 @@ tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = { version = "0.2" }
 socket2 = { version = "0.6.1", features = ["all"] }
 pretty_assertions = "1.4.0"
-base64 = "0.22.0"
-time = { version = "0.3.36", default-features = false }
+base64 = "0.22.1"
+time = { version = "0.3.44", default-features = false }
 url = "2.5"
 thiserror = "2.0.17"
 target-lexicon = { version = "0.13.3", default-features = false }
