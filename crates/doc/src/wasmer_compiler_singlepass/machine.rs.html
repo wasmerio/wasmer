@@ -196,12 +196,12 @@
 <a href=#196 id=196 data-nosnippet>196</a>        stack_offset: <span class="kw-2">&amp;mut </span>usize,
 <a href=#197 id=197 data-nosnippet>197</a>        calling_convention: CallingConvention,
 <a href=#198 id=198 data-nosnippet>198</a>    ) -&gt; Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;;
-<a href=#199 id=199 data-nosnippet>199</a>    <span class="doccomment">/// Get simple param location
+<a href=#199 id=199 data-nosnippet>199</a>    <span class="doccomment">/// Get param location (idx must point to an argument that is passed in a GPR).
 <a href=#200 id=200 data-nosnippet>200</a>    </span><span class="kw">fn </span>get_simple_param_location(
 <a href=#201 id=201 data-nosnippet>201</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
 <a href=#202 id=202 data-nosnippet>202</a>        idx: usize,
 <a href=#203 id=203 data-nosnippet>203</a>        calling_convention: CallingConvention,
-<a href=#204 id=204 data-nosnippet>204</a>    ) -&gt; Location&lt;<span class="self">Self</span>::GPR, <span class="self">Self</span>::SIMD&gt;;
+<a href=#204 id=204 data-nosnippet>204</a>    ) -&gt; <span class="self">Self</span>::GPR;
 <a href=#205 id=205 data-nosnippet>205</a>    <span class="doccomment">/// Get return value location (to build a call, using SP for stack return values).
 <a href=#206 id=206 data-nosnippet>206</a>    </span><span class="kw">fn </span>get_return_value_location(
 <a href=#207 id=207 data-nosnippet>207</a>        <span class="kw-2">&amp;</span><span class="self">self</span>,
