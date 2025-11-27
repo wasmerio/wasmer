@@ -242,12 +242,16 @@ impl FromStr for CronExpression {
 }
 
 impl schemars::JsonSchema for JobTrigger {
-    fn schema_name() -> String {
-        "JobTrigger".to_owned()
+    fn schema_id() -> Cow<'static, str> {
+        Cow::Borrowed("JobTrigger")
     }
 
-    fn json_schema(r#gen: &mut schemars::r#gen::SchemaGenerator) -> schemars::schema::Schema {
-        String::json_schema(r#gen)
+    fn json_schema(generator: &mut schemars::SchemaGenerator) -> schemars::Schema {
+        String::json_schema(generator)
+    }
+
+    fn schema_name() -> Cow<'static, str> {
+        Self::schema_id()
     }
 }
 
