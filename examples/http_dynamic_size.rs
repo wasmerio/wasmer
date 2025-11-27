@@ -39,7 +39,8 @@ fn http_get(mut ctx: FunctionEnvMut<ExampleEnv>, url: u32, url_len: u32) -> u32 
         // Get request
         let response = ureq::get(&address).call().unwrap();
         let capacity = match response
-            .header("Content-Length")
+            .headers()
+            .get("Content-Length")
             .map(|it| it.parse::<usize>())
         {
             Some(Ok(len)) => len,

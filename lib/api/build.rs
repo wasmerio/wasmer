@@ -43,10 +43,13 @@ fn build_wamr() {
         let _ = std::fs::remove_dir_all(&zip_dir);
 
         // Fetch & extract wasm-micro-runtime source
-        let zip = ureq::get(WAMR_ZIP).call().expect("failed to download wamr");
-        let mut zip_data = Vec::new();
-        zip.into_reader()
-            .read_to_end(&mut zip_data)
+        let zip_data = ureq::get(WAMR_ZIP)
+            .call()
+            .expect("failed to download wamr")
+            .body_mut()
+            .with_config()
+            .limit(50 * 1024 * 1024) // 50MB
+            .read_to_vec()
             .expect("failed to download wamr");
         std::fs::create_dir_all(&zip_dir)
             .expect("Failed to create temporary zip extraction directory");
@@ -273,11 +276,13 @@ fn build_v8() {
     let crate_root = env::var("CARGO_MANIFEST_DIR").unwrap();
     let v8_header_path = PathBuf::from(&crate_root).join("third-party").join("wee8");
 
-    let tar = ureq::get(url).call().expect("failed to download v8");
-
-    let mut tar_data = Vec::new();
-    tar.into_reader()
-        .read_to_end(&mut tar_data)
+    let tar_data = ureq::get(url)
+        .call()
+        .expect("failed to download v8")
+        .body_mut()
+        .with_config()
+        .limit(50 * 1024 * 1024) // 50MB
+        .read_to_vec()
         .expect("failed to download v8 lib");
 
     let tar = xz::read::XzDecoder::new(tar_data.as_slice());
