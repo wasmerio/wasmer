@@ -1787,22 +1787,13 @@ impl Machine for MachineARM64 {
             ),
         }
     }
-    // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
+
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        let register_params = self.get_param_registers(calling_convention);
-        register_params.get(idx).map_or_else(
-            || {
-                Location::Memory(
-                    GPR::X29,
-                    (16 * 2 + (idx - register_params.len()) * 8) as i32,
-                )
-            },
-            |reg| Location::GPR(*reg),
-        )
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
 
     fn get_return_value_location(

@@ -196,12 +196,12 @@ pub trait Machine {
         stack_offset: &mut usize,
         calling_convention: CallingConvention,
     ) -> Location<Self::GPR, Self::SIMD>;
-    /// Get simple param location
+    /// Get param location (idx must point to an argument that is passed in a GPR).
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location<Self::GPR, Self::SIMD>;
+    ) -> Self::GPR;
     /// Get return value location (to build a call, using SP for stack return values).
     fn get_return_value_location(
         &self,
