@@ -9,8 +9,8 @@ use crate::{
     },
 };
 use object::{
-    FileFlags, RelocationEncoding, RelocationKind, SectionKind, SymbolFlags, SymbolKind,
-    SymbolScope, elf, macho,
+    FileFlags, RelocationEncoding, RelocationFlags, RelocationKind, SectionKind, SymbolFlags,
+    SymbolKind, SymbolScope, elf, macho,
     write::{
         Object, Relocation, StandardSection, StandardSegment, Symbol as ObjSymbol, SymbolId,
         SymbolSection,
@@ -314,128 +314,108 @@ pub fn emit_compilation(
         for r in relocations {
             let relocation_address = section_offset + r.offset as u64;
 
-            let (relocation_kind, relocation_encoding, relocation_size) = match r.kind {
-                Reloc::Abs4 => (RelocationKind::Absolute, RelocationEncoding::Generic, 32),
-                Reloc::Abs8 => (RelocationKind::Absolute, RelocationEncoding::Generic, 64),
-                Reloc::X86PCRel4 => (RelocationKind::Relative, RelocationEncoding::Generic, 32),
-                Reloc::X86CallPCRel4 => {
-                    (RelocationKind::Relative, RelocationEncoding::X86Branch, 32)
-                }
-                Reloc::X86CallPLTRel4 => (
-                    RelocationKind::PltRelative,
-                    RelocationEncoding::X86Branch,
-                    32,
-                ),
-                Reloc::X86GOTPCRel4 => {
-                    (RelocationKind::GotRelative, RelocationEncoding::Generic, 32)
-                }
-                Reloc::Arm64Call => (
-                    match obj.format() {
-                        object::BinaryFormat::Elf => RelocationKind::Elf(elf::R_AARCH64_CALL26),
-                        object::BinaryFormat::MachO => RelocationKind::MachO {
-                            value: macho::ARM64_RELOC_BRANCH26,
-                            relative: true,
-                        },
-                        fmt => panic!("unsupported binary format {fmt:?}"),
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::ElfX86_64TlsGd => (
-                    RelocationKind::Elf(elf::R_X86_64_TLSGD),
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocBranch26 => (
-                    RelocationKind::MachO {
-                        value: macho::ARM64_RELOC_BRANCH26,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocUnsigned => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_UNSIGNED,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocSubtractor => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_SUBTRACTOR,
-                        relative: false,
-                    },
-                    RelocationEncoding::Generic,
-                    64,
-                ),
-                Reloc::MachoArm64RelocPage21 => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_PAGE21,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
+            let relocation_flags = match r.kind {
+                Reloc::Abs4 => RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: 32,
+                },
 
-                Reloc::MachoArm64RelocPageoff12 => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_PAGEOFF12,
-                        relative: false,
+                Reloc::Abs8 => RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: 64,
+                },
+                Reloc::X86PCRel4 => RelocationFlags::Generic {
+                    kind: RelocationKind::Relative,
+                    encoding: RelocationEncoding::Generic,
+                    size: 32,
+                },
+                Reloc::X86CallPCRel4 => RelocationFlags::Generic {
+                    kind: RelocationKind::Relative,
+                    encoding: RelocationEncoding::X86Branch,
+                    size: 32,
+                },
+                Reloc::X86CallPLTRel4 => RelocationFlags::Generic {
+                    kind: RelocationKind::PltRelative,
+                    encoding: RelocationEncoding::X86Branch,
+                    size: 32,
+                },
+                Reloc::X86GOTPCRel4 => RelocationFlags::Generic {
+                    kind: RelocationKind::GotRelative,
+                    encoding: RelocationEncoding::Generic,
+                    size: 32,
+                },
+                Reloc::Arm64Call => match obj.format() {
+                    object::BinaryFormat::Elf => RelocationFlags::Elf {
+                        r_type: elf::R_AARCH64_CALL26,
                     },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocGotLoadPage21 => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_GOT_LOAD_PAGE21,
-                        relative: true,
+                    object::BinaryFormat::MachO => RelocationFlags::MachO {
+                        r_type: macho::ARM64_RELOC_BRANCH26,
+                        r_pcrel: true,
+                        r_length: 32,
                     },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocGotLoadPageoff12 => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocPointerToGot => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_POINTER_TO_GOT,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocTlvpLoadPage21 => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_TLVP_LOAD_PAGE21,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocTlvpLoadPageoff12 => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12,
-                        relative: true,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
-                Reloc::MachoArm64RelocAddend => (
-                    RelocationKind::MachO {
-                        value: object::macho::ARM64_RELOC_ADDEND,
-                        relative: false,
-                    },
-                    RelocationEncoding::Generic,
-                    32,
-                ),
+                    fmt => panic!("unsupported binary format {fmt:?}"),
+                },
+                Reloc::ElfX86_64TlsGd => RelocationFlags::Elf {
+                    r_type: elf::R_X86_64_TLSGD,
+                },
+                Reloc::MachoArm64RelocBranch26 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_BRANCH26,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
 
+                Reloc::MachoArm64RelocUnsigned => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_UNSIGNED,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocSubtractor => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_SUBTRACTOR,
+                    r_pcrel: false,
+                    r_length: 64,
+                },
+                Reloc::MachoArm64RelocPage21 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_PAGE21,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocPageoff12 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_PAGEOFF12,
+                    r_pcrel: false,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocGotLoadPage21 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_GOT_LOAD_PAGE21,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocGotLoadPageoff12 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_GOT_LOAD_PAGEOFF12,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocPointerToGot => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_POINTER_TO_GOT,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocTlvpLoadPage21 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_TLVP_LOAD_PAGE21,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocTlvpLoadPageoff12 => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_TLVP_LOAD_PAGEOFF12,
+                    r_pcrel: true,
+                    r_length: 32,
+                },
+                Reloc::MachoArm64RelocAddend => RelocationFlags::MachO {
+                    r_type: macho::ARM64_RELOC_ADDEND,
+                    r_pcrel: false,
+                    r_length: 32,
+                },
                 other => {
                     return Err(ObjectError::UnsupportedArchitecture(format!(
                         "{} (relocation: {})",
@@ -451,9 +431,7 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: relocation_size,
-                            kind: relocation_kind,
-                            encoding: relocation_encoding,
+                            flags: relocation_flags,
                             symbol: *target_symbol,
                             addend: r.addend,
                         },
@@ -486,9 +464,7 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: relocation_size,
-                            kind: relocation_kind,
-                            encoding: relocation_encoding,
+                            flags: relocation_flags,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -501,9 +477,7 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: relocation_size,
-                            kind: relocation_kind,
-                            encoding: relocation_encoding,
+                            flags: relocation_flags,
                             symbol: *target_symbol,
                             addend: r.addend,
                         },
@@ -694,9 +668,11 @@ impl ObjectMetadataBuilder {
             Relocation {
                 offset: self.function_pointers_start_offset()
                     + self.pointer_bytes() * (index as u64),
-                size: self.pointer_width.bits(),
-                kind: RelocationKind::Absolute,
-                encoding: RelocationEncoding::Generic,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: self.pointer_width.bits(),
+                },
                 symbol: symbol_id,
                 addend: 0,
             },
@@ -716,9 +692,11 @@ impl ObjectMetadataBuilder {
             section_id,
             Relocation {
                 offset: self.trampolines_start_offset() + self.pointer_bytes() * (index as u64),
-                size: self.pointer_width.bits(),
-                kind: RelocationKind::Absolute,
-                encoding: RelocationEncoding::Generic,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: self.pointer_width.bits(),
+                },
                 symbol: symbol_id,
                 addend: 0,
             },
@@ -739,9 +717,11 @@ impl ObjectMetadataBuilder {
             Relocation {
                 offset: self.dynamic_function_trampoline_pointers_start_offset()
                     + self.pointer_bytes() * (index as u64),
-                size: self.pointer_width.bits(),
-                kind: RelocationKind::Absolute,
-                encoding: RelocationEncoding::Generic,
+                flags: RelocationFlags::Generic {
+                    kind: RelocationKind::Absolute,
+                    encoding: RelocationEncoding::Generic,
+                    size: self.pointer_width.bits(),
+                },
                 symbol: symbol_id,
                 addend: 0,
             },
