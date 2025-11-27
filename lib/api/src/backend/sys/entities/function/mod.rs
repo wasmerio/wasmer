@@ -5,14 +5,14 @@ pub(crate) mod typed;
 
 use crate::{
     AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, BackendFunction, FunctionEnv,
-    FunctionEnvMut, FunctionType, HostFunction, RuntimeError, StoreContext, StoreInner, Value,
-    WithEnv, WithoutEnv,
+    FunctionEnvMut, FunctionType, HostFunction, RuntimeError, StoreAsync, StoreContext, StoreInner,
+    Value, WithEnv, WithoutEnv,
     backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
     entities::{
         function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
         store::{AsStoreMut, AsStoreRef, StoreMut},
     },
-    sys::async_runtime::AsyncRuntimeError,
+    sys::{async_runtime::AsyncRuntimeError, function::env::AsyncFunctionEnvMutStore},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
 };
@@ -156,33 +156,43 @@ impl Function {
         let store_id = store.objects_mut().id();
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
-                let mut store_wrapper = match StoreContext::try_get_current_async(store_id) {
-                    crate::GetAsyncStoreGuardResult::Ok(wrapper) => wrapper,
-                    _ => panic!(
-                        "Sync store context encountered when attempting to \
-                        invoke async imported function"
-                    ),
+                let mut context = StoreContext::try_get_current_async(store_id);
+                let mut store_mut = match &mut context {
+                    crate::GetAsyncStoreGuardResult::Ok(wrapper) => StoreMut {
+                        inner: &mut **wrapper.guard.as_mut().unwrap(),
+                    },
+                    crate::GetAsyncStoreGuardResult::NotAsync(ptr) => ptr.as_mut(),
+                    crate::GetAsyncStoreGuardResult::NotInstalled => {
+                        panic!("No store context installed on this thread")
+                    }
                 };
-                let mut store_write_guard = store_wrapper.guard.as_mut().unwrap();
-                let mut store = StoreMut {
-                    inner: &mut **store_write_guard,
-                };
-                let id = store.as_store_ref().objects().id();
+                let id = store_mut.as_store_ref().objects().id();
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
-                        &mut store,
+                        &mut store_mut,
                         *ty,
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
+                let store_async = match context {
+                    crate::GetAsyncStoreGuardResult::Ok(wrapper) => {
+                        AsyncFunctionEnvMutStore::Async(StoreAsync {
+                            id,
+                            inner: crate::LocalRwLockWriteGuard::lock_handle(
+                                wrapper.guard.as_mut().unwrap(),
+                            ),
+                        })
+                    }
+                    crate::GetAsyncStoreGuardResult::NotAsync(ptr) => {
+                        AsyncFunctionEnvMutStore::Sync(ptr)
+                    }
+                    crate::GetAsyncStoreGuardResult::NotInstalled => unreachable!(),
+                };
                 let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
                     env::AsyncFunctionEnvMut {
-                        store: crate::StoreAsync {
-                            id,
-                            inner: crate::LocalRwLockWriteGuard::lock_handle(store_write_guard),
-                        },
+                        store: store_async,
                         func_env: func_env.clone(),
                     },
                 ));

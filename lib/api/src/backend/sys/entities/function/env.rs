@@ -2,7 +2,7 @@ use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 use crate::{
     AsStoreAsync, AsyncStoreReadLock, AsyncStoreWriteLock, Store, StoreAsync, StoreContext,
-    StoreMut,
+    StoreInner, StoreMut, StorePtrWrapper,
     store::{AsStoreMut, AsStoreRef, StoreRef},
 };
 
@@ -165,6 +165,22 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         let data = unsafe { &mut *data };
         (data, self.store_mut.as_store_mut())
     }
+
+    pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
+        let id = self.store_mut.inner.objects.id();
+
+        // Safety: we don't keep the guard around, it's just used to
+        // build a safe lock handle.
+        match unsafe { StoreContext::try_get_current_async(id) } {
+            crate::GetAsyncStoreGuardResult::Ok(guard) => Some(StoreAsync {
+                id,
+                inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
+                    guard.guard.as_ref().unwrap()
+                }),
+            }),
+            _ => None,
+        }
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {
@@ -202,8 +218,17 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
 /// A shared handle to a [`FunctionEnv`], suitable for use
 /// in async imports.
 pub struct AsyncFunctionEnvMut<T> {
-    pub(crate) store: StoreAsync,
+    pub(crate) store: AsyncFunctionEnvMutStore,
     pub(crate) func_env: FunctionEnv<T>,
+}
+
+// We need to let async functions that *don't suspend* run
+// in a sync context. To that end, `AsyncFunctionEnvMut`
+// must be able to be constructed without an actual
+// StoreAsync instance, hence this enum.
+pub(crate) enum AsyncFunctionEnvMutStore {
+    Async(StoreAsync),
+    Sync(StorePtrWrapper),
 }
 
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
@@ -223,22 +248,35 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.store.inner.try_read() {
-            Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
-            None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
+        match &self.store {
+            AsyncFunctionEnvMutStore::Sync(ptr) => self.func_env.as_ref(&ptr.as_ref()).fmt(f),
+            AsyncFunctionEnvMutStore::Async(store) => match store.inner.try_read() {
+                Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
+                None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
+            },
         }
     }
 }
 
 impl<T: 'static> AsyncFunctionEnvMut<T> {
     pub(crate) fn store_id(&self) -> StoreId {
-        self.store.id
+        match &self.store {
+            AsyncFunctionEnvMutStore::Sync(ptr) => ptr.as_ref().objects().id(),
+            AsyncFunctionEnvMutStore::Async(store) => store.id,
+        }
     }
 
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
     pub async fn read<'a>(&'a self) -> AsyncFunctionEnvHandle<'a, T> {
-        let read_lock = self.store.read_lock().await;
+        let read_lock = match &self.store {
+            AsyncFunctionEnvMutStore::Sync(ptr) => AsyncStoreReadLock {
+                inner: crate::AsyncStoreReadLockInner::FromStoreContext(ptr.clone()),
+                _marker: PhantomData,
+            },
+            AsyncFunctionEnvMutStore::Async(store) => store.read_lock().await,
+        };
+
         AsyncFunctionEnvHandle {
             read_lock,
             func_env: self.func_env.clone(),
@@ -248,7 +286,14 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// Waits for a store lock and returns a mutable handle to the
     /// function environment.
     pub async fn write<'a>(&'a self) -> AsyncFunctionEnvHandleMut<'a, T> {
-        let write_lock = self.store.write_lock().await;
+        let write_lock = match &self.store {
+            AsyncFunctionEnvMutStore::Sync(ptr) => AsyncStoreWriteLock {
+                inner: crate::AsyncStoreWriteLockInner::FromStoreContext(ptr.clone()),
+                _marker: PhantomData,
+            },
+            AsyncFunctionEnvMutStore::Async(store) => store.write_lock().await,
+        };
+
         AsyncFunctionEnvHandleMut {
             write_lock,
             func_env: self.func_env.clone(),
@@ -261,21 +306,41 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 
     /// Borrows a new mutable reference
-    pub fn as_mut(&mut self) -> AsyncFunctionEnvMut<T> {
-        AsyncFunctionEnvMut {
-            store: StoreAsync {
-                id: self.store.id,
-                inner: self.store.inner.clone(),
-            },
-            func_env: self.func_env.clone(),
-        }
+    pub fn as_mut(&mut self) -> Self {
+        self.clone()
     }
 
     /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`].
     pub fn as_store_async(&self) -> impl AsStoreAsync + 'static {
-        StoreAsync {
-            id: self.store.id,
-            inner: self.store.inner.clone(),
+        match &self.store {
+            AsyncFunctionEnvMutStore::Sync(_) => {
+                panic!("Cannot build a StoreAsync within a sync context")
+            }
+            AsyncFunctionEnvMutStore::Async(store) => StoreAsync {
+                id: store.id,
+                inner: store.inner.clone(),
+            },
+        }
+    }
+}
+
+impl<T> Clone for AsyncFunctionEnvMut<T> {
+    fn clone(&self) -> Self {
+        Self {
+            store: self.store.clone(),
+            func_env: self.func_env.clone(),
+        }
+    }
+}
+
+impl Clone for AsyncFunctionEnvMutStore {
+    fn clone(&self) -> Self {
+        match self {
+            Self::Async(store) => Self::Async(StoreAsync {
+                id: store.id,
+                inner: store.inner.clone(),
+            }),
+            Self::Sync(ptr) => Self::Sync(ptr.clone()),
         }
     }
 }

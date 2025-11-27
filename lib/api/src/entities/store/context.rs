@@ -100,8 +100,8 @@ pub(crate) struct AsyncStoreGuardWrapper {
 
 pub(crate) enum GetAsyncStoreGuardResult {
     Ok(AsyncStoreGuardWrapper),
+    NotAsync(StorePtrWrapper),
     NotInstalled,
-    NotAsync,
 }
 
 pub(crate) struct ForcedStoreInstallGuard {
@@ -231,14 +231,16 @@ impl StoreContext {
             if top.id != id {
                 return GetAsyncStoreGuardResult::NotInstalled;
             }
+            top.borrow_count += 1;
             match unsafe { top.entry.get().as_mut().unwrap() } {
                 StoreContextEntry::Async(guard) => {
-                    top.borrow_count += 1;
                     GetAsyncStoreGuardResult::Ok(AsyncStoreGuardWrapper {
                         guard: guard as *mut _,
                     })
                 }
-                StoreContextEntry::Sync(_) => GetAsyncStoreGuardResult::NotAsync,
+                StoreContextEntry::Sync(ptr) => {
+                    GetAsyncStoreGuardResult::NotAsync(StorePtrWrapper { store_ptr: *ptr })
+                }
             }
         })
     }
@@ -255,6 +257,25 @@ impl StorePtrWrapper {
         // Safety: the store_mut is always initialized unless the StoreMutWrapper
         // is dropped, at which point it's impossible to call this function
         unsafe { self.store_ptr.as_mut().unwrap().as_store_mut() }
+    }
+}
+
+impl Clone for StorePtrWrapper {
+    fn clone(&self) -> Self {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack
+                .last_mut()
+                .expect("No store context installed on this thread");
+            match unsafe { top.entry.get().as_ref().unwrap() } {
+                StoreContextEntry::Sync(ptr) if *ptr == self.store_ptr => (),
+                _ => panic!("Mismatched store context access"),
+            }
+            top.borrow_count += 1;
+            StorePtrWrapper {
+                store_ptr: self.store_ptr,
+            }
+        })
     }
 }
 

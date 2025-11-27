@@ -76,7 +76,7 @@ pub(crate) enum AsyncStoreReadLockInner {
 /// A read lock on an async store.
 pub struct AsyncStoreReadLock<'a> {
     pub(crate) inner: AsyncStoreReadLockInner,
-    _marker: PhantomData<&'a ()>,
+    pub(crate) _marker: PhantomData<&'a ()>,
 }
 
 impl<'a> AsyncStoreReadLock<'a> {
@@ -117,7 +117,7 @@ pub(crate) enum AsyncStoreWriteLockInner {
 /// A write lock on an async store.
 pub struct AsyncStoreWriteLock<'a> {
     pub(crate) inner: AsyncStoreWriteLockInner,
-    _marker: PhantomData<&'a ()>,
+    pub(crate) _marker: PhantomData<&'a ()>,
 }
 
 impl<'a> AsyncStoreWriteLock<'a> {

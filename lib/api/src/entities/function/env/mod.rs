@@ -83,6 +83,12 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut<'_>) {
         self.0.data_and_store_mut()
     }
+
+    /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`] if the current
+    /// context is async.
+    pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
+        self.0.as_store_async()
+    }
 }
 
 impl<T> AsStoreRef for FunctionEnvMut<'_, T> {

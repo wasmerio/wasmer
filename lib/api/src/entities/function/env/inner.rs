@@ -199,6 +199,16 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
             f.data_and_store_mut()
         })
     }
+
+    /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`] if the current
+    /// context is async.
+    pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => f.as_store_async(),
+            _ => unsupported_async_backend(),
+        }
+    }
 }
 
 impl<T> AsStoreRef for BackendFunctionEnvMut<'_, T> {

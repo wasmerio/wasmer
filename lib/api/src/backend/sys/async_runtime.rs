@@ -200,10 +200,20 @@ enum StoreContextInstaller {
 impl StoreContextInstaller {
     async fn install(store: StoreAsync) -> Self {
         match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
-            crate::GetAsyncStoreGuardResult::NotAsync => {
-                // If the store was installed as a sync store, panic - this
-                // should be impossible
-                unreachable!("Sync store context installed in async call")
+            crate::GetAsyncStoreGuardResult::NotAsync(_) => {
+                // This async call is being polled from inside a sync call, such as:
+                //   call() -> imported function (sync or async) -> call_async().poll()
+                // In this case, we can never progress.
+                //
+                // If the imported function is async, suspending here will cause a
+                // YieldOutsideAsyncContext trap to be raised.
+                //
+                // If the imported function is sync and you're hoping to drive this
+                // future to completion (maybe using an inline blocker), may God have
+                // mercy on you. Also, I *think* that's impossible given the way this
+                // crate's public API is currently set up.
+                tracing::warn!("Async function polled from sync context; suspending forever");
+                futures::future::pending().await
             }
             crate::GetAsyncStoreGuardResult::Ok(wrapper) => {
                 // If we're already in the scope of this store, we can just reuse it.
@@ -311,10 +321,9 @@ impl CoroutineContext {
 fn run_immediate(
     future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 ) -> Result<Vec<Value>, AsyncRuntimeError> {
-    let mut future = Box::pin(future);
     let waker = futures::task::noop_waker();
-
     let mut cx = Context::from_waker(&waker);
+    let mut future = Box::pin(future);
     match future.as_mut().poll(&mut cx) {
         Poll::Ready(result) => result.map_err(AsyncRuntimeError::RuntimeError),
         Poll::Pending => Err(AsyncRuntimeError::YieldOutsideAsyncContext),
