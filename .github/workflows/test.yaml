@@ -71,7 +71,8 @@ jobs:
           echo '/opt/llvm-21/bin' >> $GITHUB_PATH
           echo 'LLVM_SYS_211_PREFIX=/opt/llvm-21' >> $GITHUB_ENV
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
@@ -691,7 +692,8 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build == 'windows-x64' }}
         run: ls -R $CARGO_ROOT_DIR
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
@@ -920,7 +922,8 @@ jobs:
           EOF
         if: matrix.metadata.target
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
@@ -1003,7 +1006,8 @@ jobs:
       - name: Install Nextest
         uses: taiki-e/install-action@nextest
       - name: Cache
-        uses: whywaita/actions-cache-s3@v3
+        # TODO: v3 is unable to Restore the cache for some reason
+        uses: whywaita/actions-cache-s3@v2
         with:
           path: |
             ~/.cargo/*
