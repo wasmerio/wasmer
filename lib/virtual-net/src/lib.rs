@@ -1,4 +1,4 @@
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 #![allow(clippy::multiple_bound_locations)]
 #[cfg(feature = "remote")]
 pub mod client;
