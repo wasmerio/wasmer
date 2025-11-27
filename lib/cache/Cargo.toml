@@ -20,7 +20,7 @@ blake3.workspace = true
 
 [dev-dependencies]
 criterion = { workspace = true, default-features = false }
-clap.workspace = true
+clap = { workspace = true, default-features = true }
 clap_builder.workspace = true
 clap_derive.workspace = true
 clap_lex.workspace = true
