@@ -65,18 +65,18 @@ impl Function {
         let wrapper = move |values_vec: *mut RawValue| -> HostCallOutcome {
             unsafe {
                 let mut store_wrapper = unsafe { StoreContext::get_current(store_id) };
-                let mut store = store_wrapper.as_mut();
+                let mut store_mut = store_wrapper.as_mut();
                 let mut args = Vec::with_capacity(func_ty.params().len());
 
                 for (i, ty) in func_ty.params().iter().enumerate() {
                     args.push(Value::from_raw(
-                        &mut store,
+                        &mut store_mut,
                         *ty,
                         values_vec.add(i).read_unaligned(),
                     ));
                 }
                 let env = env::FunctionEnvMut {
-                    store_mut: store,
+                    store_mut,
                     func_env: func_env.clone(),
                 }
                 .into();
@@ -95,7 +95,7 @@ impl Function {
                 store_id,
             },
         });
-        host_data.address = host_data.ctx.func_body_ptr() as *const VMFunctionBody;
+        host_data.address = host_data.ctx.func_body_ptr();
 
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
@@ -181,7 +181,7 @@ impl Function {
                     env::AsyncFunctionEnvMut {
                         store: crate::StoreAsync {
                             id,
-                            inner: crate::LocalWriteGuardRc::lock_handle(store_write_guard),
+                            inner: crate::LocalRwLockWriteGuard::lock_handle(store_write_guard),
                         },
                         func_env: func_env.clone(),
                     },
@@ -827,17 +827,15 @@ where
         match result {
             Ok(InvocationResult::Success(())) => {}
             Ok(InvocationResult::Exception(exception)) => unsafe {
-                unsafe {
-                    // Note: can't acquire a proper ref-counted context ref here, since we can switch
-                    // away from the WASM stack at any time.
-                    // Safety: The pointer is only used for the duration of the call to `throw`.
-                    let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
-                    let mut store = store_wrapper.as_mut().unwrap();
-                    wasmer_vm::libcalls::throw(
-                        store.objects.as_sys(),
-                        exception.vm_exceptionref().as_sys().to_u32_exnref(),
-                    )
-                }
+                // Note: can't acquire a proper ref-counted context ref here, since we can switch
+                // away from the WASM stack at any time.
+                // Safety: The pointer is only used for the duration of the call to `throw`.
+                let mut store_wrapper = StoreContext::get_current_transient(this.ctx.store_id);
+                let mut store = store_wrapper.as_mut().unwrap();
+                wasmer_vm::libcalls::throw(
+                    store.objects.as_sys(),
+                    exception.vm_exceptionref().as_sys().to_u32_exnref(),
+                )
             },
             Ok(InvocationResult::Trap(trap)) => unsafe { raise_user_trap(trap) },
             Ok(InvocationResult::YieldOutsideAsyncContext) => unsafe {

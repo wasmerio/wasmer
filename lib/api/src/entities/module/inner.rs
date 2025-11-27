@@ -440,7 +440,6 @@ impl BackendModule {
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// let module = Module::deserialize_from_file(&store, path)?;
     /// # Ok(())
     /// # }
@@ -528,7 +527,6 @@ impl BackendModule {
     /// # use wasmer::*;
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// let module = Module::deserialize_from_file_unchecked(&store, path)?;
     /// # Ok(())
     /// # }
@@ -609,7 +607,7 @@ impl BackendModule {
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
     /// let wat = "(module $moduleName)";
-    /// let module = Module::new(&store.engine(), wat)?;
+    /// let module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), Some("moduleName"));
     /// # Ok(())
     /// # }
@@ -635,7 +633,7 @@ impl BackendModule {
     /// # fn main() -> anyhow::Result<()> {
     /// # let mut store = Store::default();
     /// let wat = "(module)";
-    /// let mut module = Module::new(&store.engine(), wat)?;
+    /// let mut module = Module::new(&store, wat)?;
     /// assert_eq!(module.name(), None);
     /// module.set_name("foo");
     /// assert_eq!(module.name(), Some("foo"));
@@ -664,7 +662,7 @@ impl BackendModule {
     ///     (import "host" "func1" (func))
     ///     (import "host" "func2" (func))
     /// )"#;
-    /// let module = Module::new(&store.engine(), wat)?;
+    /// let module = Module::new(&store, wat)?;
     /// for import in module.imports() {
     ///     assert_eq!(import.module(), "host");
     ///     assert!(import.name().contains("func"));
@@ -695,7 +693,7 @@ impl BackendModule {
     ///     (func (export "namedfunc"))
     ///     (memory (export "namedmemory") 1)
     /// )"#;
-    /// let module = Module::new(&store.engine(), wat)?;
+    /// let module = Module::new(&store, wat)?;
     /// for export_ in module.exports() {
     ///     assert!(export_.name().contains("named"));
     ///     export_.ty();

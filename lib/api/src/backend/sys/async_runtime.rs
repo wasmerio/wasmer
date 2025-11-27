@@ -13,7 +13,7 @@ use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreMut, AsStoreRef, LocalWriteGuardRc, RuntimeError, Store, StoreAsync, StoreContext,
+    AsStoreMut, AsStoreRef, LocalRwLockWriteGuard, RuntimeError, Store, StoreAsync, StoreContext,
     StoreInner, StoreMut, StoreRef, Value,
 };
 use wasmer_types::StoreId;
@@ -44,9 +44,6 @@ pub(crate) struct AsyncCallFuture<'a> {
 
     // Store handle we can use to lock the store down
     store: StoreAsync,
-
-    // Use Rc<RefCell<...>> to make sure that the future is !Send and !Sync
-    _marker: PhantomData<Rc<RefCell<&'a mut ()>>>,
 }
 
 // We can't use any of the existing AsStoreMut types here, since we keep
@@ -127,7 +124,6 @@ impl<'a> AsyncCallFuture<'a> {
             next_resume: Some(AsyncResume::Start),
             result: None,
             store,
-            _marker: PhantomData,
         }
     }
 }
@@ -215,7 +211,7 @@ impl StoreContextInstaller {
             }
             crate::GetAsyncStoreGuardResult::NotInstalled => {
                 // Otherwise, need to acquire a new StoreMut.
-                let store_guard = store.inner.write_rc().await;
+                let store_guard = store.inner.write().await;
                 let install_guard = unsafe { crate::StoreContext::install_async(store_guard) };
                 StoreContextInstaller::Installed(install_guard)
             }
@@ -238,30 +234,11 @@ where
                 // If there is no async context or we haven't entered it,
                 // we can still directly run a future that doesn't block
                 // inline.
-                // Note, there can be an async context without an active
-                // coroutine in the following scenario:
-                //   call_async -> wasm code -> imported function ->
-                //   call (non-async) -> wasm_code -> imported async function
                 run_immediate(future)
             }
-            Some(context) => {
-                let ctx_ref = unsafe { context.as_ref().expect("valid context pointer") };
-
-                // Leave the coroutine context since we're yielding back to the
-                // parent stack, and will be inactive until the future is ready.
-                ctx_ref.leave();
-
-                // Now we can yield back to the runtime while we wait
-                let result = ctx_ref
-                    .block_on_future(Box::pin(future))
-                    .map_err(AsyncRuntimeError::RuntimeError);
-
-                // Once the future is ready, we borrow again and restore the current
-                // coroutine.
-                ctx_ref.enter();
-
-                result
-            }
+            Some(context) => unsafe { context.as_ref().expect("valid context pointer") }
+                .block_on_future(Box::pin(future))
+                .map_err(AsyncRuntimeError::RuntimeError),
         }
     })
 }
@@ -313,28 +290,30 @@ impl CoroutineContext {
     }
 
     fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
+        // Leave the coroutine context since we're yielding back to the
+        // parent stack, and will be inactive until the future is ready.
+        self.leave();
+
         let yielder = unsafe { self.yielder.as_ref().expect("yielder pointer valid") };
-        match yielder.suspend(AsyncYield(future)) {
+        let result = match yielder.suspend(AsyncYield(future)) {
             AsyncResume::HostFutureReady(result) => result,
             AsyncResume::Start => unreachable!("coroutine resumed without start"),
-        }
+        };
+
+        // Once the future is ready, we restore the current coroutine
+        // context.
+        self.enter();
+
+        result
     }
 }
 
 fn run_immediate(
     future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
 ) -> Result<Vec<Value>, AsyncRuntimeError> {
-    fn noop_raw_waker() -> RawWaker {
-        fn no_op(_: *const ()) {}
-        fn clone(_: *const ()) -> RawWaker {
-            noop_raw_waker()
-        }
-        let vtable = &RawWakerVTable::new(clone, no_op, no_op, no_op);
-        RawWaker::new(ptr::null(), vtable)
-    }
-
     let mut future = Box::pin(future);
-    let waker = unsafe { Waker::from_raw(noop_raw_waker()) };
+    let waker = futures::task::noop_waker();
+
     let mut cx = Context::from_waker(&waker);
     match future.as_mut().poll(&mut cx) {
         Poll::Ready(result) => result.map_err(AsyncRuntimeError::RuntimeError),

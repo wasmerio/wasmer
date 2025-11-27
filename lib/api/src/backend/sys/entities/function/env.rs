@@ -199,7 +199,7 @@ impl<T> From<FunctionEnv<T>> for crate::FunctionEnv<T> {
     }
 }
 
-/// A temporary handle to a [`FunctionEnv`], suitable for use
+/// A shared handle to a [`FunctionEnv`], suitable for use
 /// in async imports.
 pub struct AsyncFunctionEnvMut<T> {
     pub(crate) store: StoreAsync,
@@ -210,21 +210,12 @@ pub struct AsyncFunctionEnvMut<T> {
 pub struct AsyncFunctionEnvHandle<'a, T> {
     read_lock: AsyncStoreReadLock<'a>,
     pub(crate) func_env: FunctionEnv<T>,
-
-    // This type needs to be !Send
-    _marker: PhantomData<*const &'a ()>,
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-/// Internally, a [`StoreMutGuard`] is used, so the store handle from this
-/// type can be used to invoke [`Function::call`](crate::Function::call)
-/// while outside a store's context.
 pub struct AsyncFunctionEnvHandleMut<'a, T> {
     write_lock: AsyncStoreWriteLock<'a>,
     pub(crate) func_env: FunctionEnv<T>,
-
-    // This type needs to be !Send
-    _marker: PhantomData<*const ()>,
 }
 
 impl<T> Debug for AsyncFunctionEnvMut<T>
@@ -232,7 +223,7 @@ where
     T: Send + Debug + 'static,
 {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        match self.store.inner.try_read_rc() {
+        match self.store.inner.try_read() {
             Some(read_lock) => self.func_env.as_ref(&read_lock).fmt(f),
             None => write!(f, "AsyncFunctionEnvMut {{ <STORE LOCKED> }}"),
         }
@@ -251,7 +242,6 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvHandle {
             read_lock,
             func_env: self.func_env.clone(),
-            _marker: PhantomData,
         }
     }
 
@@ -262,7 +252,6 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
         AsyncFunctionEnvHandleMut {
             write_lock,
             func_env: self.func_env.clone(),
-            _marker: PhantomData,
         }
     }
 

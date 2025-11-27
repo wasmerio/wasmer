@@ -1,9 +1,31 @@
 //! Thread-local storage for storing the current store context,
-//! i.e. the currently active `Store`(s). When a function is
-//! called, a pointer to the [`StoreInner`] in placed inside
-//! the store context so it can be retrieved when needed.
+//! i.e. the currently active [`Store`](crate::Store)(s). When
+//! a function is called, a pointer to the [`StoreInner`] in placed
+//! inside the store context so it can be retrieved when needed.
 //! This lets code that needs access to the store get it with
 //! just the store ID.
+//!
+//! The currently active store context can be a sync or async
+//! context.
+//!
+//! For sync contexts, we just store a raw pointer
+//! to the `StoreInner`, which is owned by the embedder's stack.
+//!
+//! For async contexts, we store a write guard taken from the
+//! [`StoreAsync`](crate::StoreAsync); This achieves two goals:
+//!   * Makes the [`StoreAsync`](crate::StoreAsync) available
+//!     to whoever needs it, including when code needs to spawn
+//!     new coroutines
+//!   * Makes sure a write lock is held on the store as long as
+//!     the context is active, preventing other tasks from
+//!     accessing the store concurrently.
+//!
+//! Because async contexts can't be entered recursively (you
+//! can't take a write lock twice, you have to use the existing
+//! one), all code in this crate takes care to check for an
+//! active store context first before trying to enter one. This
+//! gives rise to the enums with cases for temporary locks vs
+//! store context pointers, such as [`AsyncStoreReadLockInner`].
 //!
 //! We maintain a stack because it is technically possible to
 //! have nested `Function::call` invocations that use different
@@ -32,7 +54,7 @@ use std::{
     mem::MaybeUninit,
 };
 
-use crate::LocalWriteGuardRc;
+use crate::LocalRwLockWriteGuard;
 
 use super::{AsStoreMut, AsStoreRef, StoreInner, StoreMut, StoreRef};
 
@@ -40,7 +62,7 @@ use wasmer_types::StoreId;
 
 enum StoreContextEntry {
     Sync(*mut StoreInner),
-    Async(LocalWriteGuardRc<StoreInner>),
+    Async(LocalRwLockWriteGuard<StoreInner>),
 }
 
 impl StoreContextEntry {
@@ -73,7 +95,7 @@ pub(crate) struct StorePtrWrapper {
 }
 
 pub(crate) struct AsyncStoreGuardWrapper {
-    pub(crate) guard: *mut LocalWriteGuardRc<StoreInner>,
+    pub(crate) guard: *mut LocalRwLockWriteGuard<StoreInner>,
 }
 
 pub(crate) enum GetAsyncStoreGuardResult {
@@ -124,13 +146,16 @@ impl StoreContext {
 
     /// The write guard ensures this is the only reference to the store,
     /// so installation can never fail.
-    pub(crate) fn install_async(guard: LocalWriteGuardRc<StoreInner>) -> ForcedStoreInstallGuard {
+    pub(crate) fn install_async(
+        guard: LocalRwLockWriteGuard<StoreInner>,
+    ) -> ForcedStoreInstallGuard {
         let store_id = guard.objects.id();
         Self::install(store_id, StoreContextEntry::Async(guard));
         ForcedStoreInstallGuard { store_id }
     }
 
     /// Install the store context as sync if it is not already installed.
+    ///
     /// # Safety
     /// The pointer must be dereferenceable and remain valid until the
     /// store context is uninstalled.
@@ -145,7 +170,7 @@ impl StoreContext {
     }
 
     /// Safety: This method lets you borrow multiple mutable references
-    /// to the currently active StoreMut. The caller must ensure that:
+    /// to the currently active store context. The caller must ensure that:
     ///   * there is only one mutable reference alive, or
     ///   * all but one mutable reference are inaccessible and passed
     ///     into a function that lost the reference (e.g. into WASM code)
@@ -169,7 +194,7 @@ impl StoreContext {
     /// the pointer returned from this function will become invalid if
     /// the store context is changed in any way (via installing or uninstalling
     /// a store context). The caller must ensure that the store context
-    /// remains unchanged for the entire lifetime of the returned reference.
+    /// remains unchanged as long as the pointer is being accessed.
     pub(crate) unsafe fn get_current_transient(id: StoreId) -> *mut StoreInner {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();

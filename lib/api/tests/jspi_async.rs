@@ -365,7 +365,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
 
                     // We then poll it once to get it started - it'll suspend once, then
                     // complete the next time we poll it
-                    let w = noop_waker();
+                    let w = futures::task::noop_waker();
                     let mut cx = Context::from_waker(&w);
                     assert!(future.as_mut().poll(&mut cx).is_pending());
 
@@ -413,7 +413,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
                         .take()
                         .unwrap();
 
-                    let w = noop_waker();
+                    let w = futures::task::noop_waker();
                     let mut cx = Context::from_waker(&w);
                     let Poll::Ready(result) = future.as_mut().poll(&mut cx) else {
                         panic!("expected future to be ready");
@@ -494,16 +494,4 @@ fn async_multiple_active_coroutines() -> Result<()> {
     });
 
     Ok(())
-}
-
-fn noop_waker() -> Waker {
-    fn noop_raw_waker() -> RawWaker {
-        fn no_op(_: *const ()) {}
-        fn clone(_: *const ()) -> RawWaker {
-            noop_raw_waker()
-        }
-        let vtable = &RawWakerVTable::new(clone, no_op, no_op, no_op);
-        RawWaker::new(std::ptr::null(), vtable)
-    }
-    unsafe { Waker::from_raw(noop_raw_waker()) }
 }

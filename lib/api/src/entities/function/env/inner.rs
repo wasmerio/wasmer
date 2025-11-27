@@ -85,11 +85,6 @@ impl<T> BackendFunctionEnv<T> {
         }
     }
 
-    //#[allow(dead_code)] // This function is only used in js
-    //pub(crate) fn from_handle(handle: StoreHandle<VMFunctionEnvironment>) -> Self {
-    //    todo!()
-    //}
-
     /// Get the data as reference
     pub fn as_ref<'a>(&self, store: &'a impl AsStoreRef) -> &'a T
     where
@@ -239,7 +234,7 @@ where
     }
 }
 
-/// A temporary handle to a [`FunctionEnv`], suitable for use
+/// A shared handle to a [`FunctionEnv`], suitable for use
 /// in async imports.
 #[derive(derive_more::From)]
 #[non_exhaustive]
@@ -258,9 +253,6 @@ pub enum BackendAsyncFunctionEnvHandle<'a, T> {
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-/// Internally, a [`StoreMutGuard`] is used, so the store handle from this
-/// type can be used to invoke [`Function::call`](crate::Function::call)
-/// while outside a store's context.
 #[non_exhaustive]
 pub enum BackendAsyncFunctionEnvHandleMut<'a, T> {
     #[cfg(feature = "sys")]

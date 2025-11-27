@@ -6962,7 +6962,6 @@ name = "wasmer"
 version = "6.1.0"
 dependencies = [
  "anyhow",
- "async-lock",
  "bindgen",
  "bytes",
  "cfg-if",

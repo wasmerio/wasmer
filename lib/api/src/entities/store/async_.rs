@@ -1,8 +1,8 @@
 use std::marker::PhantomData;
 
 use crate::{
-    AsStoreMut, AsStoreRef, LocalReadGuardRc, LocalRwLock, LocalWriteGuardRc, Store, StoreContext,
-    StoreInner, StoreMut, StorePtrWrapper, StoreRef,
+    AsStoreMut, AsStoreRef, LocalRwLock, LocalRwLockReadGuard, LocalRwLockWriteGuard, Store,
+    StoreContext, StoreInner, StoreMut, StorePtrWrapper, StoreRef,
 };
 
 use wasmer_types::StoreId;
@@ -33,10 +33,6 @@ impl StoreAsync {
 
 /// A trait for types that can be used with
 /// [`Function::call_async`](crate::Function::call_async).
-///
-/// Note that, while this trait can easily be implemented for a lot
-/// of types (including [`StoreMut`]), implementations are left
-/// out on purpose to help avoid common deadlock scenarios.
 pub trait AsStoreAsync {
     /// Returns a reference to the inner store.
     fn store_ref(&self) -> &StoreAsync;
@@ -73,12 +69,11 @@ impl AsStoreAsync for StoreAsync {
 }
 
 pub(crate) enum AsyncStoreReadLockInner {
-    Owned(LocalReadGuardRc<StoreInner>),
+    Owned(LocalRwLockReadGuard<StoreInner>),
     FromStoreContext(StorePtrWrapper),
 }
 
-/// A read lock on a store that can be used in concurrent contexts;
-/// mostly useful in conjunction with [`AsStoreAsync`].
+/// A read lock on an async store.
 pub struct AsyncStoreReadLock<'a> {
     pub(crate) inner: AsyncStoreReadLockInner,
     _marker: PhantomData<&'a ()>,
@@ -95,7 +90,7 @@ impl<'a> AsyncStoreReadLock<'a> {
             None => {
                 // Drop the option before awaiting, since the value isn't Send
                 drop(store_context);
-                let store_ref = store.inner.read_rc().await;
+                let store_ref = store.inner.read().await;
                 Self {
                     inner: AsyncStoreReadLockInner::Owned(store_ref),
                     _marker: PhantomData,
@@ -115,12 +110,11 @@ impl AsStoreRef for AsyncStoreReadLock<'_> {
 }
 
 pub(crate) enum AsyncStoreWriteLockInner {
-    Owned(LocalWriteGuardRc<StoreInner>),
+    Owned(LocalRwLockWriteGuard<StoreInner>),
     FromStoreContext(StorePtrWrapper),
 }
 
-/// A write lock on a store that can be used in concurrent contexts;
-/// mostly useful in conjunction with [`AsStoreAsync`].
+/// A write lock on an async store.
 pub struct AsyncStoreWriteLock<'a> {
     pub(crate) inner: AsyncStoreWriteLockInner,
     _marker: PhantomData<&'a ()>,
@@ -137,7 +131,7 @@ impl<'a> AsyncStoreWriteLock<'a> {
             None => {
                 // Drop the option before awaiting, since the value isn't Send
                 drop(store_context);
-                let store_guard = store.inner.write_rc().await;
+                let store_guard = store.inner.write().await;
                 Self {
                     inner: AsyncStoreWriteLockInner::Owned(store_guard),
                     _marker: PhantomData,

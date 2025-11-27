@@ -21,8 +21,7 @@ use thiserror::Error;
 /// # (module
 /// #   (global $one (export "glob") f32 (f32.const 1)))
 /// # "#.as_bytes()).unwrap();
-/// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-/// # let mut store = store.as_mut();
+/// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
 /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 /// #
@@ -36,8 +35,7 @@ use thiserror::Error;
 /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
 /// # let mut store = Store::default();
 /// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
-/// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-/// # let mut store = store.as_mut();
+/// # let module = Module::new(&store, wasm_bytes).unwrap();
 /// # let import_object = imports! {};
 /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
 /// #

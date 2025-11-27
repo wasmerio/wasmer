@@ -74,7 +74,6 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
@@ -90,7 +89,6 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionType, Type, Store, Value};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
@@ -136,7 +134,6 @@ impl Function {
     /// ```
     /// # use wasmer::{Store, Function, FunctionEnv, FunctionEnvMut};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -158,7 +155,11 @@ impl Function {
         Self(BackendFunction::new_typed_with_env(store, env, func))
     }
 
-    /// Creates a new async host `Function` (dynamic) with the provided signature.
+    /// Creates a new async host `Function` (dynamic) with the provided
+    /// signature.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Self::new_typed_async`] for less runtime overhead.
     ///
     /// The provided closure returns a future that resolves to the function results.
     /// When invoked synchronously (via [`Function::call`]) the future will run to
@@ -173,8 +174,14 @@ impl Function {
         Self(BackendFunction::new_async(store, ty, func))
     }
 
-    /// Creates a new async host `Function` (dynamic) with the provided signature
-    /// and environment.
+    /// Creates a new async host `Function` (dynamic) with the provided
+    /// signature and environment.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Self::new_typed_with_env_async`] for less runtime overhead.
+    ///
+    /// Takes an [`AsyncFunctionEnvMut`] that is passed into func. If
+    /// that is not required, [`Self::new_async`] might be an option as well.
     pub fn new_with_env_async<FT, F, Fut, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -223,7 +230,6 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -246,7 +252,6 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -268,7 +273,6 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionEnv, FunctionEnvMut, Store, Type};
     /// # let mut store = Store::default();
-    /// # let mut store = store.as_mut();
     /// # let env = FunctionEnv::new(&mut store, ());
     /// #
     /// fn sum(_env: FunctionEnvMut<()>, a: i32, b: i32) -> i32 {
@@ -297,6 +301,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -305,9 +310,7 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -365,6 +368,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -373,9 +377,7 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -394,6 +396,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -402,9 +405,7 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #
@@ -421,6 +422,7 @@ impl Function {
     /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, TypedFunction, Value};
     /// # use wasmer::FunctionEnv;
     /// # let mut store = Store::default();
+    /// # let env = FunctionEnv::new(&mut store, ());
     /// # let wasm_bytes = wat2wasm(r#"
     /// # (module
     /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
@@ -429,9 +431,7 @@ impl Function {
     /// #     i32.add
     /// #   ))
     /// # "#.as_bytes()).unwrap();
-    /// # let module = Module::new(&store.engine(), wasm_bytes).unwrap();
-    /// # let mut store = store.as_mut();
-    /// # let env = FunctionEnv::new(&mut store, ());
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
     /// # let import_object = imports! {};
     /// # let instance = Instance::new(&mut store, &module, &import_object).unwrap();
     /// #

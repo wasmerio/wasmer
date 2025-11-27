@@ -5,7 +5,8 @@
 //! and is `!Send + !Sync`, making it more efficient when thread safety is not needed.
 //!
 //! Like `async_lock::RwLock`, it provides `read_rc()` and `write_rc()` methods
-//! that return guards with `'static` lifetimes by holding an `Rc` to the lock.
+//! that allow callers to asynchronously wait for the lock to become available,
+//! and return guards with `'static` lifetimes by holding an `Rc` to the lock.
 
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::future::Future;
@@ -15,15 +16,7 @@ use std::pin::Pin;
 use std::rc::Rc;
 use std::task::{Context, Poll, Waker};
 
-/// A single-threaded async-aware read-write lock.
-///
-/// This lock allows multiple concurrent readers or a single writer.
-/// When a lock is not available, tasks will wait asynchronously rather
-/// than blocking or panicking.
-///
-/// Unlike `std::sync::RwLock` or `async_lock::RwLock`, this implementation
-/// is not `Send` or `Sync`, making it suitable only for single-threaded
-/// async runtimes. The benefit is zero atomic operations.
+/// The main lock type.
 pub struct LocalRwLock<T> {
     inner: Rc<LocalRwLockInner<T>>,
 }
@@ -55,86 +48,30 @@ impl<T> LocalRwLock<T> {
         }
     }
 
-    /// Attempts to acquire a read lock without waiting.
-    ///
-    /// Returns `Some(guard)` if the lock was acquired, or `None` if a writer
-    /// currently holds the lock.
-    pub fn try_read(&self) -> Option<LocalReadGuard<'_, T>> {
-        if self.inner.try_read() {
-            Some(LocalReadGuard {
-                inner: &self.inner,
-                _marker: PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-
-    /// Attempts to acquire a write lock without waiting.
-    ///
-    /// Returns `Some(guard)` if the lock was acquired, or `None` if any
-    /// readers or writers currently hold the lock.
-    pub fn try_write(&self) -> Option<LocalWriteGuard<'_, T>> {
-        if self.inner.try_write() {
-            Some(LocalWriteGuard {
-                inner: &self.inner,
-                _marker: PhantomData,
-            })
-        } else {
-            None
-        }
-    }
-
     /// Acquires a read lock, waiting asynchronously if necessary.
     ///
-    /// Returns a future that resolves to a read guard.
-    pub fn read(&self) -> ReadFuture<'_, T> {
+    /// The returned guard holds an `Rc` clone, allowing it to have a `'static` lifetime.
+    pub fn read(&self) -> ReadFuture<T> {
         ReadFuture {
-            inner: &self.inner,
+            inner: self.inner.clone(),
             waiter_index: Cell::new(None),
-            _marker: PhantomData,
         }
     }
 
     /// Acquires a write lock, waiting asynchronously if necessary.
     ///
-    /// Returns a future that resolves to a write guard.
-    pub fn write(&self) -> WriteFuture<'_, T> {
+    /// The returned guard holds an `Rc` clone, allowing it to have a `'static` lifetime.
+    pub fn write(&self) -> WriteFuture<T> {
         WriteFuture {
-            inner: &self.inner,
-            waiter_index: Cell::new(None),
-            _marker: PhantomData,
-        }
-    }
-
-    /// Acquires a read lock with a `'static` lifetime, waiting asynchronously if necessary.
-    ///
-    /// This is similar to `read()`, but the returned guard holds an `Rc` clone,
-    /// allowing it to have a `'static` lifetime.
-    pub async fn read_rc(&self) -> LocalReadGuardRc<T> {
-        ReadRcFuture {
             inner: self.inner.clone(),
             waiter_index: Cell::new(None),
         }
-        .await
-    }
-
-    /// Acquires a write lock with a `'static` lifetime, waiting asynchronously if necessary.
-    ///
-    /// This is similar to `write()`, but the returned guard holds an `Rc` clone,
-    /// allowing it to have a `'static` lifetime.
-    pub async fn write_rc(&self) -> LocalWriteGuardRc<T> {
-        WriteRcFuture {
-            inner: self.inner.clone(),
-            waiter_index: Cell::new(None),
-        }
-        .await
     }
 
     /// Attempts to acquire a read lock with a `'static` lifetime without waiting.
-    pub fn try_read_rc(&self) -> Option<LocalReadGuardRc<T>> {
+    pub fn try_read(&self) -> Option<LocalRwLockReadGuard<T>> {
         if self.inner.try_read() {
-            Some(LocalReadGuardRc {
+            Some(LocalRwLockReadGuard {
                 inner: self.inner.clone(),
             })
         } else {
@@ -143,9 +80,9 @@ impl<T> LocalRwLock<T> {
     }
 
     /// Attempts to acquire a write lock with a `'static` lifetime without waiting.
-    pub fn try_write_rc(&self) -> Option<LocalWriteGuardRc<T>> {
+    pub fn try_write(&self) -> Option<LocalRwLockWriteGuard<T>> {
         if self.inner.try_write() {
-            Some(LocalWriteGuardRc {
+            Some(LocalRwLockWriteGuard {
                 inner: self.inner.clone(),
             })
         } else {
@@ -323,62 +260,14 @@ impl<T> LocalRwLockInner<T> {
     }
 }
 
-// Guards with borrowed lifetime
-
-/// A read guard with a borrowed lifetime.
-pub struct LocalReadGuard<'a, T> {
-    inner: &'a LocalRwLockInner<T>,
-    _marker: PhantomData<&'a T>,
-}
-
-impl<T> Deref for LocalReadGuard<'_, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        unsafe { &*self.inner.value.get() }
-    }
-}
-
-impl<T> Drop for LocalReadGuard<'_, T> {
-    fn drop(&mut self) {
-        self.inner.release_read();
-    }
-}
-
-/// A write guard with a borrowed lifetime.
-pub struct LocalWriteGuard<'a, T> {
-    inner: &'a LocalRwLockInner<T>,
-    _marker: PhantomData<&'a mut T>,
-}
-
-impl<T> Deref for LocalWriteGuard<'_, T> {
-    type Target = T;
-
-    fn deref(&self) -> &T {
-        unsafe { &*self.inner.value.get() }
-    }
-}
-
-impl<T> DerefMut for LocalWriteGuard<'_, T> {
-    fn deref_mut(&mut self) -> &mut T {
-        unsafe { &mut *self.inner.value.get() }
-    }
-}
-
-impl<T> Drop for LocalWriteGuard<'_, T> {
-    fn drop(&mut self) {
-        self.inner.release_write();
-    }
-}
-
 // Guards with 'static lifetime (Rc-like)
 
 /// A read guard with a `'static` lifetime, holding an `Rc` to the lock.
-pub struct LocalReadGuardRc<T> {
+pub struct LocalRwLockReadGuard<T> {
     inner: Rc<LocalRwLockInner<T>>,
 }
 
-impl<T> LocalReadGuardRc<T> {
+impl<T> LocalRwLockReadGuard<T> {
     /// Rebuild a handle to the lock from this [`LocalReadGuardRc`].
     pub fn lock_handle(me: &Self) -> LocalRwLock<T> {
         LocalRwLock {
@@ -387,7 +276,7 @@ impl<T> LocalReadGuardRc<T> {
     }
 }
 
-impl<T> Deref for LocalReadGuardRc<T> {
+impl<T> Deref for LocalRwLockReadGuard<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -395,18 +284,18 @@ impl<T> Deref for LocalReadGuardRc<T> {
     }
 }
 
-impl<T> Drop for LocalReadGuardRc<T> {
+impl<T> Drop for LocalRwLockReadGuard<T> {
     fn drop(&mut self) {
         self.inner.release_read();
     }
 }
 
 /// A write guard with a `'static` lifetime, holding an `Rc` to the lock.
-pub struct LocalWriteGuardRc<T> {
+pub struct LocalRwLockWriteGuard<T> {
     inner: Rc<LocalRwLockInner<T>>,
 }
 
-impl<T> LocalWriteGuardRc<T> {
+impl<T> LocalRwLockWriteGuard<T> {
     /// Rebuild a handle to the lock from this [`LocalWriteGuardRc`].
     pub fn lock_handle(me: &Self) -> LocalRwLock<T> {
         LocalRwLock {
@@ -415,7 +304,7 @@ impl<T> LocalWriteGuardRc<T> {
     }
 }
 
-impl<T> Deref for LocalWriteGuardRc<T> {
+impl<T> Deref for LocalRwLockWriteGuard<T> {
     type Target = T;
 
     fn deref(&self) -> &T {
@@ -423,13 +312,13 @@ impl<T> Deref for LocalWriteGuardRc<T> {
     }
 }
 
-impl<T> DerefMut for LocalWriteGuardRc<T> {
+impl<T> DerefMut for LocalRwLockWriteGuard<T> {
     fn deref_mut(&mut self) -> &mut T {
         unsafe { &mut *self.inner.value.get() }
     }
 }
 
-impl<T> Drop for LocalWriteGuardRc<T> {
+impl<T> Drop for LocalRwLockWriteGuard<T> {
     fn drop(&mut self) {
         self.inner.release_write();
     }
@@ -437,78 +326,14 @@ impl<T> Drop for LocalWriteGuardRc<T> {
 
 // Futures
 
-/// Future returned by `read()`.
-pub struct ReadFuture<'a, T> {
-    inner: &'a LocalRwLockInner<T>,
-    waiter_index: Cell<Option<usize>>,
-    _marker: PhantomData<&'a T>,
-}
-
-impl<'a, T> Future for ReadFuture<'a, T> {
-    type Output = LocalReadGuard<'a, T>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self
-            .inner
-            .poll_lock(&self.waiter_index, cx, |inner| inner.try_read(), false)
-            .is_ready()
-        {
-            Poll::Ready(LocalReadGuard {
-                inner: self.inner,
-                _marker: PhantomData,
-            })
-        } else {
-            Poll::Pending
-        }
-    }
-}
-
-impl<'a, T> Drop for ReadFuture<'a, T> {
-    fn drop(&mut self) {
-        self.inner.cleanup_waiter(&self.waiter_index, false);
-    }
-}
-
-/// Future returned by `write()`.
-pub struct WriteFuture<'a, T> {
-    inner: &'a LocalRwLockInner<T>,
-    waiter_index: Cell<Option<usize>>,
-    _marker: PhantomData<&'a mut T>,
-}
-
-impl<'a, T> Future for WriteFuture<'a, T> {
-    type Output = LocalWriteGuard<'a, T>;
-
-    fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
-        if self
-            .inner
-            .poll_lock(&self.waiter_index, cx, |inner| inner.try_write(), true)
-            .is_ready()
-        {
-            Poll::Ready(LocalWriteGuard {
-                inner: self.inner,
-                _marker: PhantomData,
-            })
-        } else {
-            Poll::Pending
-        }
-    }
-}
-
-impl<'a, T> Drop for WriteFuture<'a, T> {
-    fn drop(&mut self) {
-        self.inner.cleanup_waiter(&self.waiter_index, true);
-    }
-}
-
 /// Future returned by `read_rc()`.
-pub struct ReadRcFuture<T> {
+pub struct ReadFuture<T> {
     inner: Rc<LocalRwLockInner<T>>,
     waiter_index: Cell<Option<usize>>,
 }
 
-impl<T> Future for ReadRcFuture<T> {
-    type Output = LocalReadGuardRc<T>;
+impl<T> Future for ReadFuture<T> {
+    type Output = LocalRwLockReadGuard<T>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self
@@ -516,7 +341,7 @@ impl<T> Future for ReadRcFuture<T> {
             .poll_lock(&self.waiter_index, cx, |inner| inner.try_read(), false)
             .is_ready()
         {
-            Poll::Ready(LocalReadGuardRc {
+            Poll::Ready(LocalRwLockReadGuard {
                 inner: self.inner.clone(),
             })
         } else {
@@ -525,20 +350,20 @@ impl<T> Future for ReadRcFuture<T> {
     }
 }
 
-impl<T> Drop for ReadRcFuture<T> {
+impl<T> Drop for ReadFuture<T> {
     fn drop(&mut self) {
         self.inner.cleanup_waiter(&self.waiter_index, false);
     }
 }
 
 /// Future returned by `write_rc()`.
-pub struct WriteRcFuture<T> {
+pub struct WriteFuture<T> {
     inner: Rc<LocalRwLockInner<T>>,
     waiter_index: Cell<Option<usize>>,
 }
 
-impl<T> Future for WriteRcFuture<T> {
-    type Output = LocalWriteGuardRc<T>;
+impl<T> Future for WriteFuture<T> {
+    type Output = LocalRwLockWriteGuard<T>;
 
     fn poll(self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         if self
@@ -546,7 +371,7 @@ impl<T> Future for WriteRcFuture<T> {
             .poll_lock(&self.waiter_index, cx, |inner| inner.try_write(), true)
             .is_ready()
         {
-            Poll::Ready(LocalWriteGuardRc {
+            Poll::Ready(LocalRwLockWriteGuard {
                 inner: self.inner.clone(),
             })
         } else {
@@ -555,15 +380,11 @@ impl<T> Future for WriteRcFuture<T> {
     }
 }
 
-impl<T> Drop for WriteRcFuture<T> {
+impl<T> Drop for WriteFuture<T> {
     fn drop(&mut self) {
         self.inner.cleanup_waiter(&self.waiter_index, true);
     }
 }
-
-// Note: LocalRwLock is NOT Send or Sync because it uses Rc and RefCell.
-// This is intentional - it's designed for single-threaded async contexts only.
-// The Rc<LocalRwLockInner<T>> automatically makes the type !Send + !Sync.
 
 #[cfg(test)]
 mod tests {
@@ -637,16 +458,16 @@ mod tests {
         let lock = LocalRwLock::new(42);
 
         // Try read_rc
-        let guard = lock.try_read_rc().unwrap();
+        let guard = lock.try_read().unwrap();
         assert_eq!(*guard, 42);
         drop(guard);
 
         // Try write_rc
-        let mut guard = lock.try_write_rc().unwrap();
+        let mut guard = lock.try_write().unwrap();
         *guard = 100;
         drop(guard);
 
-        let guard = lock.try_read_rc().unwrap();
+        let guard = lock.try_read().unwrap();
         assert_eq!(*guard, 100);
     }
 

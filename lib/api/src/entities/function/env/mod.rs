@@ -110,7 +110,7 @@ where
     }
 }
 
-/// A temporary handle to a [`FunctionEnv`], suitable for use
+/// A shared handle to a [`FunctionEnv`], suitable for use
 /// in async imports.
 pub struct AsyncFunctionEnvMut<T>(pub(crate) BackendAsyncFunctionEnvMut<T>);
 
@@ -118,9 +118,6 @@ pub struct AsyncFunctionEnvMut<T>(pub(crate) BackendAsyncFunctionEnvMut<T>);
 pub struct AsyncFunctionEnvHandle<'a, T>(pub(crate) BackendAsyncFunctionEnvHandle<'a, T>);
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-/// Internally, a [`StoreMutGuard`] is used, so the store handle from this
-/// type can be used to invoke [`Function::call`](crate::Function::call)
-/// while outside a store's context.
 pub struct AsyncFunctionEnvHandleMut<'a, T>(pub(crate) BackendAsyncFunctionEnvHandleMut<'a, T>);
 
 impl<T: 'static> AsyncFunctionEnvMut<T> {

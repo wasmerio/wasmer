@@ -251,6 +251,16 @@ impl BackendFunction {
         }
     }
 
+    /// Creates a new async host `Function` (dynamic) with the provided
+    /// signature.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Self::new_typed_async`] for less runtime overhead.
+    ///
+    /// The provided closure returns a future that resolves to the function results.
+    /// When invoked synchronously (via [`Function::call`]) the future will run to
+    /// completion immediately, provided it doesn't suspend. When invoked through
+    /// [`Function::call_async`], the future may suspend and resume as needed.
     #[inline]
     pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
@@ -276,6 +286,14 @@ impl BackendFunction {
         }
     }
 
+    /// Creates a new async host `Function` (dynamic) with the provided
+    /// signature and environment.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Self::new_typed_with_env_async`] for less runtime overhead.
+    ///
+    /// Takes an [`AsyncFunctionEnvMut`] that is passed into func. If
+    /// that is not required, [`Self::new_async`] might be an option as well.
     #[inline]
     pub fn new_with_env_async<FT, F, Fut, T: 'static>(
         store: &mut impl AsStoreMut,
@@ -308,6 +326,10 @@ impl BackendFunction {
         }
     }
 
+    /// Creates a new async host `Function` from a native typed function.
+    ///
+    /// The future can return either the raw result tuple or any type that implements
+    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E>`).
     #[inline]
     pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
@@ -333,6 +355,7 @@ impl BackendFunction {
         }
     }
 
+    /// Creates a new async host `Function` with an environment from a typed function.
     #[inline]
     pub fn new_typed_with_env_async<T: 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
