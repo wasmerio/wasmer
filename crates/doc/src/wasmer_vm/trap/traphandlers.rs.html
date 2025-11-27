@@ -163,7 +163,7 @@
 <a href=#163 id=163 data-nosnippet>163</a>                // crash while handling the signal, and fall through to the
 <a href=#164 id=164 data-nosnippet>164</a>                // Breakpad handler by testing handlingSegFault.
 <a href=#165 id=165 data-nosnippet>165</a>                </span>handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
-<a href=#166 id=166 data-nosnippet>166</a>                handler.sa_sigaction = trap_handler <span class="kw">as </span>usize;
+<a href=#166 id=166 data-nosnippet>166</a>                handler.sa_sigaction = trap_handler <span class="kw">as </span><span class="kw-2">*const </span>() <span class="kw">as </span>usize;
 <a href=#167 id=167 data-nosnippet>167</a>                libc::sigemptyset(<span class="kw-2">&amp;mut </span>handler.sa_mask);
 <a href=#168 id=168 data-nosnippet>168</a>                <span class="kw">if </span>libc::sigaction(signal, <span class="kw-2">&amp;</span>handler, slot.as_mut_ptr()) != <span class="number">0 </span>{
 <a href=#169 id=169 data-nosnippet>169</a>                    <span class="macro">panic!</span>(
