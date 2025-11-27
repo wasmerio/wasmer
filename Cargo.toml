@@ -314,7 +314,7 @@ env_logger = { version = "0.11.5", default-features = false }
 termios = "0.3"
 terminal_size = "0.4.3"
 tracing-wasm = "0.2"
-insta = "1.21.1"
+insta = "1.44.2"
 md5 = "0.8.0"
 syn = { version = "2", default-features = false }
 proc-macro2 = "1"
