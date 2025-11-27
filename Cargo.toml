@@ -165,7 +165,7 @@ thiserror = "2.0.17"
 target-lexicon = { version = "0.13.3", default-features = false }
 object = "0.38.0"
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
-wasm-encoder = { version = "0.235.0", default-features = false, features = [
+wasm-encoder = { version = "0.242.0", default-features = false, features = [
 	"std",
 ] }
 ignore = "0.4"
