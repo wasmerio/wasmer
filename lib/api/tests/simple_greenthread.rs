@@ -211,8 +211,13 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
         .run_until(main_fn.call_async(&store_async, &[]))
         .unwrap();
 
-    let mut store = store_async.into_store().ok().unwrap();
-    return Ok(env.as_ref(&mut store).logs.clone());
+    // If there are no more clones of it, StoreAsync can also be
+    // turned back into a store. We need to drop the local pool
+    // first to drop the futures and their references to the store.
+    drop(localpool);
+
+    let store = store_async.into_store().ok().unwrap();
+    return Ok(env.as_ref(&store).logs.clone());
 }
 
 #[cfg(not(target_arch = "wasm32"))]

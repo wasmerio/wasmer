@@ -144,6 +144,14 @@ impl StoreContext {
         })
     }
 
+    /// Returns true if there are no active store context entries.
+    pub(crate) fn is_empty() -> bool {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let stack = cell.borrow();
+            stack.is_empty()
+        })
+    }
+
     /// The write guard ensures this is the only reference to the store,
     /// so installation can never fail.
     pub(crate) fn install_async(

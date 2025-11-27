@@ -16,8 +16,7 @@ pub struct StoreAsync {
 
 impl StoreAsync {
     /// Transform this [`StoreAsync`] back into a [`Store`]
-    /// if there are no coroutines running or waiting to run
-    /// against it.
+    /// if this is the only clone of it and is unlocked.
     pub fn into_store(self) -> Result<Store, Self> {
         match self.inner.consume() {
             Ok(unwrapped) => Ok(Store {
@@ -27,6 +26,37 @@ impl StoreAsync {
                 id: self.id,
                 inner: lock,
             }),
+        }
+    }
+
+    /// Acquire a read lock on the store. Panics if the store is
+    /// locked for writing.
+    pub fn read<'a>(&'a self) -> AsyncStoreReadLock<'a> {
+        if !StoreContext::is_empty() {
+            panic!("This method cannot be called from inside imported functions");
+        }
+
+        let store_ref = self
+            .inner
+            .try_read()
+            .expect("StoreAsync is locked for write");
+        AsyncStoreReadLock {
+            inner: AsyncStoreReadLockInner::Owned(store_ref),
+            _marker: PhantomData,
+        }
+    }
+
+    /// Acquire a write lock on the store. Panics if the store is
+    /// locked.
+    pub fn write<'a>(&'a self) -> AsyncStoreWriteLock<'a> {
+        if !StoreContext::is_empty() {
+            panic!("This method cannot be called from inside imported functions");
+        }
+
+        let store_guard = self.inner.try_write().expect("StoreAsync is locked");
+        AsyncStoreWriteLock {
+            inner: AsyncStoreWriteLockInner::Owned(store_guard),
+            _marker: PhantomData,
         }
     }
 }
