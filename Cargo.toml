@@ -271,7 +271,7 @@ parking = "2.2"
 hyper-tungstenite = "0.13"
 ipnet = "2.10.1"
 iprange = "0.6.7"
-smoltcp = { version = "0.8", default-features = false }
+smoltcp = { version = "0.12.0", default-features = false }
 tokio-serde = "0.9"
 tokio-util = "0.7.8"
 corosensei = "0.3.0"
