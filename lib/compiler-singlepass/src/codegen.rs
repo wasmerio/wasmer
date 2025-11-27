@@ -529,8 +529,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
-            self.machine
-                .get_simple_param_location(0, calling_convention),
+            Location::GPR(
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            ),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
@@ -765,8 +767,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.move_location(
                 Size::S64,
                 Location::GPR(self.machine.get_vmctx_reg()),
-                self.machine
-                    .get_simple_param_location(0, calling_convention),
+                Location::GPR(
+                    self.machine
+                        .get_simple_param_location(0, calling_convention),
+                ),
             )?; // vmctx
         }
 
@@ -2399,8 +2403,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                                     gpr_for_call,
                                     vmcaller_checked_anyfunc_vmctx as i32,
                                 ),
-                                this.machine
-                                    .get_simple_param_location(0, calling_convention),
+                                Location::GPR(
+                                    this.machine
+                                        .get_simple_param_location(0, calling_convention),
+                                ),
                             )?;
 
                             this.machine.emit_call_location(Location::Memory(
