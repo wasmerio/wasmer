@@ -15,6 +15,20 @@ pub struct StoreAsync {
 }
 
 impl StoreAsync {
+    pub(crate) fn from_context(id: StoreId) -> Option<Self> {
+        // Safety: we don't keep the guard around, it's just used to
+        // build a safe lock handle.
+        match unsafe { StoreContext::try_get_current_async(id) } {
+            crate::GetAsyncStoreGuardResult::Ok(guard) => Some(StoreAsync {
+                id,
+                inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
+                    guard.guard.as_ref().unwrap()
+                }),
+            }),
+            _ => None,
+        }
+    }
+
     /// Transform this [`StoreAsync`] back into a [`Store`]
     /// if this is the only clone of it and is unlocked.
     pub fn into_store(self) -> Result<Store, Self> {

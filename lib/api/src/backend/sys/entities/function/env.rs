@@ -166,20 +166,13 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         (data, self.store_mut.as_store_mut())
     }
 
+    /// Returns a [`StoreAsync`] if the current
+    /// context is asynchronous. The store will be locked since
+    /// it's already active in the current context, but can be used
+    /// to spawn new coroutines via
+    /// [`Function::call_async`](crate::Function::call_async).
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
-        let id = self.store_mut.inner.objects.id();
-
-        // Safety: we don't keep the guard around, it's just used to
-        // build a safe lock handle.
-        match unsafe { StoreContext::try_get_current_async(id) } {
-            crate::GetAsyncStoreGuardResult::Ok(guard) => Some(StoreAsync {
-                id,
-                inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
-                    guard.guard.as_ref().unwrap()
-                }),
-            }),
-            _ => None,
-        }
+        self.store_mut.as_store_async()
     }
 }
 
