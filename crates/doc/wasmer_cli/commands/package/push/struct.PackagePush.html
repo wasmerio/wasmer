@@ -34,7 +34,7 @@ for each individual query to the registry during the publish flow.</p>
     client: &amp;<a class="struct" href="../../../../wasmer_backend_api/client/struct.WasmerClient.html" title="struct wasmer_backend_api::client::WasmerClient">WasmerClient</a>,
     namespace: &amp;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.str.html">str</a>,
     name: <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/string/struct.String.html" title="struct alloc::string::String">String</a>&gt;,
-    package: &amp;<a class="struct" href="../../../../wasmer_package/package/package/struct.Package.html" title="struct wasmer_package::package::package::Package">Package</a>,
+    package: &amp;Package,
     package_hash: &amp;<a class="enum" href="../../../../wasmer_config/package/package_hash/enum.PackageHash.html" title="enum wasmer_config::package::package_hash::PackageHash">PackageHash</a>,
     private: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.bool.html">bool</a>,
 ) -&gt; <a class="type" href="https://docs.rs/anyhow/1.0.100/anyhow/type.Result.html" title="type anyhow::Result">Result</a>&lt;<a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.unit.html">()</a>&gt;</h4></section><section id="method.push" class="method"><a class="src rightside" href="../../../../src/wasmer_cli/commands/package/push.rs.html#168-224">Source</a><h4 class="code-header">pub async fn <a href="#method.push" class="fn">push</a>(

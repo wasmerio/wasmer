@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"enum":["CompiledKind"],"fn":["function_kind_to_filename","sanitize_filename","types_to_signature"]};
+window.SIDEBAR_ITEMS = {"enum":["CompiledKind"],"fn":["function_kind_to_filename","sanitize_filename","save_assembly_to_file","types_to_signature"]};
