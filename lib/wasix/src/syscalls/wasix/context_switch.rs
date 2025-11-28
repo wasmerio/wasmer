@@ -12,18 +12,18 @@ use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, OnceLock, RwLock};
 use thiserror::Error;
 use wasmer::{
-    AsStoreMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory, Module,
-    RuntimeError, Store, Value, imports,
+    AsStoreMut, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance,
+    Memory, Module, RuntimeError, Store, Value, imports,
 };
 use wasmer::{StoreMut, Tag, Type};
-
+// TODO: combine context_switch and inner_context_switch
 /// Switch to another context
 #[instrument(level = "trace", skip(ctx))]
 pub fn context_switch(
-    mut ctx: FunctionEnvMut<WasiEnv>,
+    mut ctx: AsyncFunctionEnvMut<WasiEnv>,
     target_context_id: u64,
-) -> impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<> {
-    inner_context_switch(ctx, target_context_id).future()
+) -> impl Future<Output = Result<Errno, RuntimeError>> + 'static + use<> {
+    inner_context_switch(ctx, target_context_id)
 }
 
 enum MaybeLater<
@@ -49,26 +49,27 @@ impl<F: Future<Output = T> + Send + 'static, T: Send + 'static> MaybeLater<F, T>
 /// The order of operations in here is quite delicate, so be careful when
 /// modifying this function. It's important to not leave the env in
 /// an inconsistent state.
-fn inner_context_switch(
-    mut ctx: FunctionEnvMut<WasiEnv>,
+async fn inner_context_switch(
+    mut ctx: AsyncFunctionEnvMut<WasiEnv>,
     target_context_id: u64,
-) -> MaybeLater<impl Future<Output = Result<Errno, RuntimeError>> + Send + 'static + use<>> {
-    // TODO: Should we call do_pending_operations here?
-    match WasiEnv::do_pending_operations(&mut ctx) {
-        Ok(()) => {}
-        Err(e) => {
-            return Now(Err(RuntimeError::user(Box::new(e))));
-        }
-    }
-
-    let (data) = ctx.data_mut();
+) -> Result<Errno, RuntimeError> {
+    // // TODO: Should we call do_pending_operations here?
+    // match WasiEnv::do_pending_operations(&mut ctx) {
+    //     Ok(()) => {}
+    //     Err(e) => {
+    //         return Now(Err(RuntimeError::user(Box::new(e))));
+    //     }
+    // }
+    let mut write_lock = ctx.write().await;
+    // let (data) = ctx.();
+    let data = write_lock.data_mut();
 
     // Verify that we are in an async context
     let contexts = match &data.context_switching_context {
         Some(c) => c,
         None => {
             tracing::trace!("Context switching is not enabled");
-            return Now(Ok(Errno::Again));
+            return Ok(Errno::Again);
         }
     };
 
@@ -78,7 +79,7 @@ fn inner_context_switch(
     // If switching to self, do nothing
     if own_context_id == target_context_id {
         tracing::trace!("Switching context {own_context_id} to itself, which is a no-op");
-        return Now(Ok(Errno::Success));
+        return Ok(Errno::Success);
     }
 
     // Try to unblock the target and put our unblock function into the env, if successful
@@ -88,7 +89,7 @@ fn inner_context_switch(
             tracing::trace!(
                 "Context {own_context_id} tried to switch to context {target_context_id} but it does not exist or is not suspended"
             );
-            return Now(Ok(Errno::Inval));
+            return Ok(Errno::Inval);
         }
         Err(ContextSwitchError::OwnContextAlreadyBlocked) => {
             // This should never happen, because the active context should never have an unblock function (as it is not suspended)
@@ -104,10 +105,10 @@ fn inner_context_switch(
             tracing::trace!(
                 "Context {own_context_id} tried to switch to context {target_context_id} but it could not be unblocked (perhaps it exited?)"
             );
-            return Now(Ok(Errno::Inval));
+            return Ok(Errno::Inval);
         }
     };
 
     // Wait until we are unblocked again
-    Later(wait_for_unblock.map(|v| v.map(|_| Errno::Success)))
+    wait_for_unblock.map(|v| v.map(|_| Errno::Success)).await
 }
