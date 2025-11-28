@@ -59,6 +59,15 @@ pub fn context_create<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
+    // TODO: Unify this check with the one below for context_switching_context
+    let mut async_store = match ctx.as_store_async() {
+        Some(c) => c,
+        None => {
+            tracing::trace!("The current store is not async");
+            return Ok(Errno::Again);
+        }
+    };
+
     let (data, mut store) = ctx.data_and_store_mut();
 
     // Verify that we are in an async context
@@ -78,18 +87,13 @@ pub fn context_create<M: MemorySize>(
         }
     };
 
-    // Clone necessary arcs for the entrypoint future
-    // SAFETY: Will be made safe with the proper wasmer async API
-    let mut unsafe_static_store =
-        unsafe { std::mem::transmute::<StoreMut<'_>, StoreMut<'static>>(store.as_store_mut()) };
-
     // Create the new context
     let new_context_id = contexts.new_context(|new_context_id| {
         // Sync part (not needed for now, but will make it easier to work with more complex entrypoints later)
         async move {
             // Call the entrypoint function
-            let result = typechecked_entrypoint
-                .call_async(&mut unsafe_static_store, &[])
+            let result: Result<Box<[Value]>, RuntimeError> = typechecked_entrypoint
+                .call_async(&mut async_store, &[])
                 .await;
 
             // If that function returns, we need to resume the main context with an error
