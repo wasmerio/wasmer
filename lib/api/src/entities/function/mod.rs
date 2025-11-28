@@ -331,6 +331,7 @@ impl Function {
     /// coroutine stack. Host functions created with [`Function::new_async`] may
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
+    #[must_use("This function spawns a future that must be awaited to produce results")]
     pub fn call_async<'a>(
         &'a self,
         store: &'a impl AsStoreAsync,
