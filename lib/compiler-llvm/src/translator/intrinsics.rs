@@ -104,6 +104,16 @@ pub struct Intrinsics<'ctx> {
     pub cmp_f32x4: FunctionValue<'ctx>,
     pub cmp_f64x2: FunctionValue<'ctx>,
 
+    pub minimum_f32: FunctionValue<'ctx>,
+    pub minimum_f64: FunctionValue<'ctx>,
+    pub minimum_f32x4: FunctionValue<'ctx>,
+    pub minimum_f64x2: FunctionValue<'ctx>,
+
+    pub maximum_f32: FunctionValue<'ctx>,
+    pub maximum_f64: FunctionValue<'ctx>,
+    pub maximum_f32x4: FunctionValue<'ctx>,
+    pub maximum_f64x2: FunctionValue<'ctx>,
+
     pub ceil_f32: FunctionValue<'ctx>,
     pub ceil_f64: FunctionValue<'ctx>,
     pub ceil_f32x4: FunctionValue<'ctx>,
@@ -621,6 +631,32 @@ impl<'ctx> Intrinsics<'ctx> {
             cmp_f64x2: module.add_function(
                 "llvm.experimental.constrained.fcmp.v2f64",
                 ret_i1x2_take_f64x2_f64x2_md_md,
+                None,
+            ),
+
+            minimum_f32: module.add_function("llvm.minimum.f32", ret_f32_take_f32_f32, None),
+            minimum_f64: module.add_function("llvm.minimum.f64", ret_f64_take_f64_f64, None),
+            minimum_f32x4: module.add_function(
+                "llvm.minimum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            minimum_f64x2: module.add_function(
+                "llvm.minimum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
+
+            maximum_f32: module.add_function("llvm.maximum.f32", ret_f32_take_f32_f32, None),
+            maximum_f64: module.add_function("llvm.maximum.f64", ret_f64_take_f64_f64, None),
+            maximum_f32x4: module.add_function(
+                "llvm.maximum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            maximum_f64x2: module.add_function(
+                "llvm.maximum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
                 None,
             ),
 

@@ -21,13 +21,13 @@ toml.workspace = true
 thiserror.workspace = true
 semver = { workspace = true, features = ["serde"] }
 indexmap = { workspace = true, features = ["serde"] }
-derive_builder = "0.12.0"
+derive_builder.workspace = true
 bytesize = { workspace = true, features = ["serde"] }
-schemars = { version = "0.8.16", features = ["url", "indexmap2"] }
+schemars = { workspace = true, features = ["url", "indexmap2"] }
 url = { workspace = true, features = ["serde"] }
 hex.workspace = true
 ciborium.workspace = true
-saffron = { version = "0.1.0", features = ["std"] }
+saffron = { workspace = true, features = ["std"] }
 
 [dev-dependencies]
 pretty_assertions.workspace = true

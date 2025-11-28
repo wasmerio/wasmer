@@ -2346,28 +2346,13 @@ impl Machine for MachineX86_64 {
             ),
         }
     }
-    // Get simple param location
+
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        let register_params = self.get_param_registers(calling_convention);
-        match calling_convention {
-            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
-                || {
-                    Location::Memory(
-                        GPR::RBP,
-                        (32 + 16 + (idx - register_params.len()) * 8) as i32,
-                    )
-                },
-                |reg| Location::GPR(*reg),
-            ),
-            _ => register_params.get(idx).map_or_else(
-                || Location::Memory(GPR::RBP, (16 + (idx - register_params.len()) * 8) as i32),
-                |reg| Location::GPR(*reg),
-            ),
-        }
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
 
     /// Get return value location (to build a call, using SP for stack return values).
@@ -7808,12 +7793,12 @@ impl Machine for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            self.get_simple_param_location(1, calling_convention),
+            Location::GPR(self.get_simple_param_location(1, calling_convention)),
             Location::GPR(GPR::R15),
         )?; // func_ptr
         a.emit_mov(
             Size::S64,
-            self.get_simple_param_location(2, calling_convention),
+            Location::GPR(self.get_simple_param_location(2, calling_convention)),
             Location::GPR(GPR::R14),
         )?; // args_rets
 

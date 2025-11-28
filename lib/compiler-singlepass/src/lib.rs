@@ -9,7 +9,7 @@
 //! runtime performance.
 
 #![allow(clippy::unnecessary_cast)]
-#![cfg_attr(docsrs, feature(doc_cfg, doc_auto_cfg))]
+#![cfg_attr(docsrs, feature(doc_cfg))]
 
 mod address_map;
 mod arm64_decl;

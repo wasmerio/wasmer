@@ -304,20 +304,15 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         locs: &[LocationWithCanonicalization<M>],
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
-
         for (loc, _) in locs.iter().rev() {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, self.stack_offset)?;
                 self.stack_offset -= 8;
-                delta_stack_offset += 8;
+                self.machine
+                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
         }
 
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.truncate_stack(delta_stack_offset as u32)?;
-        }
         Ok(())
     }
 
@@ -325,7 +320,6 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         &mut self,
         stack_depth: usize,
     ) -> Result<(), CompileError> {
-        let mut delta_stack_offset: usize = 0;
         let mut stack_offset = self.stack_offset;
         let locs = &self.value_stack[stack_depth..];
 
@@ -333,14 +327,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             if let Location::Memory(..) = *loc {
                 self.check_location_on_stack(loc, stack_offset)?;
                 stack_offset -= 8;
-                delta_stack_offset += 8;
+                self.machine
+                    .truncate_stack(self.machine.round_stack_adjust(8) as u32)?;
             }
         }
 
-        let delta_stack_offset = self.machine.round_stack_adjust(delta_stack_offset);
-        if delta_stack_offset != 0 {
-            self.machine.truncate_stack(delta_stack_offset as u32)?;
-        }
         Ok(())
     }
 
@@ -541,8 +532,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // Load vmctx into it's GPR.
         self.machine.move_location(
             Size::S64,
-            self.machine
-                .get_simple_param_location(0, calling_convention),
+            Location::GPR(
+                self.machine
+                    .get_simple_param_location(0, calling_convention),
+            ),
             Location::GPR(self.machine.get_vmctx_reg()),
         )?;
 
@@ -777,8 +770,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             self.machine.move_location(
                 Size::S64,
                 Location::GPR(self.machine.get_vmctx_reg()),
-                self.machine
-                    .get_simple_param_location(0, calling_convention),
+                Location::GPR(
+                    self.machine
+                        .get_simple_param_location(0, calling_convention),
+                ),
             )?; // vmctx
         }
 
@@ -2421,8 +2416,10 @@ impl<'a, M: Machine> FuncGen<'a, M> {
                                     gpr_for_call,
                                     vmcaller_checked_anyfunc_vmctx as i32,
                                 ),
-                                this.machine
-                                    .get_simple_param_location(0, calling_convention),
+                                Location::GPR(
+                                    this.machine
+                                        .get_simple_param_location(0, calling_convention),
+                                ),
                             )?;
 
                             this.machine.emit_call_location(Location::Memory(
