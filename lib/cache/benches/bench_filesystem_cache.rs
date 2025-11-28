@@ -1,5 +1,5 @@
 #![allow(unused_imports)]
-use criterion::{Criterion, black_box, criterion_group, criterion_main};
+use criterion::{Criterion, criterion_group, criterion_main};
 use rand::distr::Alphanumeric;
 use rand::{Rng, rng};
 use tempfile::TempDir;
