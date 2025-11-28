@@ -1,17 +1,17 @@
 [package]
 name = "wasix-axum"
 version = "0.1.0"
-edition = "2024"
+edition.workspace = true
 
 [dependencies]
-axum = { version = "=0.6.9", features = ["tokio", "json"] }
+axum = { workspace = true, features = ["tokio", "json"] }
 serde.workspace = true
 tracing.workspace = true
 tracing-subscriber = { workspace = true, features = ["fmt"] }
 
 # NOTE: We need to pin and replace some dependencies to achieve wasix compatibility.
 tokio = { workspace = true, default-features = false, features = ["full"] }
-parking_lot = { version = "=0.12.1", features = ["nightly"] }
+parking_lot = { workspace = true, features = ["nightly"] }
 
 [patch.crates-io]
 tokio = { git = "https://github.com/wasix-org/tokio.git", branch = "wasix-1.24.2" }

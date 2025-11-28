@@ -28,13 +28,13 @@ wasmer-middlewares = { version = "=6.1.0", path = "lib/middlewares", optional = 
 
 # Third party dependencies
 
-cfg-if = "1.0"
-tokio = { version = "1.39", features = [
+cfg-if.workspace = true
+tokio = { workspace = true, features = [
 	"rt",
 	"rt-multi-thread",
 	"macros",
 ], optional = true }
-crossbeam-queue = "0.3.8"
+crossbeam-queue.workspace = true
 
 [workspace]
 members = [
@@ -153,35 +153,183 @@ mio = "1"
 # MIO 1.0 starts at tokio version 1.39, hence the minimum requirement.
 tokio = { version = "1.39.0", default-features = false }
 tokio-tungstenite = { version = "0.24.0" }
-tracing = { version = "0.1" }
-tracing-subscriber = { version = "0.3" }
+tracing = { version = "0.1", default-features = false }
+tracing-subscriber = { version = "0.3", default-features = false }
 tracing-test = { version = "0.2" }
 socket2 = { version = "0.5.7", features = ["all"] }
 pretty_assertions = "1.4.0"
 base64 = "0.22.0"
-time = "0.3.36"
+time = { version = "0.3.36", default-features = false }
 url = "2.5"
 thiserror = "1"
 target-lexicon = { version = "0.13.3", default-features = false }
-object = { version = "0.32.0", default-features = true }
+object = "0.32.0"
 derive_more = { version = "2.0.1", features = ["debug", "display"] }
 wasm-encoder = { version = "0.235.0", default-features = false, features = [
 	"std",
 ] }
 ignore = "0.4"
-parking_lot = "0.12"
-clap = { version = "=4.5.50" }
+parking_lot = "=0.12.1"
+clap = { version = "=4.5.50", default-features = false }
 clap_builder = { version = "=4.5.50" }
 clap_derive = { version = "=4.5.49" }
 clap_lex = { version = "=0.7.6" }
 fs_extra = {version = "1.3.0"}
+inkwell = {version = "0.7.0", default-features = false}
+phf = "0.11.2"
+dynasm = "4.0.0"
+dynasmrt = "4.0.0"
+cc = "1.0"
+regex = "1.11"
+rustc_version = "0.4"
+cranelift-entity = { version = "=0.126.0", default-features = false }
+cranelift-codegen = { version = "=0.126.0", default-features = false }
+cranelift-frontend = { version = "=0.126.0", default-features = false }
+xxhash-rust = { version = "0.8.10", default-features = false }
+macho-unwind-info = "0.5.0"
+windows-sys = { version = "0.59", default-features = false }
+leb128 = "0.2"
+self_cell = "1.0"
+build-deps = "0.1.4"
+glob = "0.3"
+criterion = { version = "0.5", default-features = false }
+serial_test = { version = "2.0", default-features = false }
+ureq = "2.10.1"
+gumdrop = "0.8"
+wast = "221.0.2"
+axum = { version = "=0.6.9", default-features = false }
+trybuild = "1.0.11"
+cynic = { version = "3.7.2", default-features = false }
+futures = "0.3.30"
+indicatif = "0.17.8"
+libfuzzer-sys = "0.4.0"
+wasm-smith = "0.4.4"
+wasmprinter = "0.2"
+wasm-bindgen-test = "0.3.0"
+wat = "1.0"
+serde-wasm-bindgen = "0.6.5"
+js-sys = "0.3.77"
+wasm-bindgen = "0.2.100"
+rusty_jsc = "0.1.0"
+paste = "1.0.15"
+rustc-demangle = "0.1"
+cmake = "0.1.50"
+which = "7.0.0"
+xz = "0.1.0"
+zip = { version = "2.4", default-features = false }
+bindgen = { version = "0.72.1", default-features = false }
+harsh = "0.2.2"
+merge-streams = "0.1.2"
+pin-project-lite = "0.2.10"
+serde_path_to_error = "0.1.14"
+async-tungstenite = "0.28.0"
+graphql-ws-client = "0.11.0"
+uuid = { version = "1", default-features = false }
+typetag = "0.1"
+field-offset = "0.3.3"
+cbindgen = { version = "0.29", default-features = false }
+inline-c = "0.1.7"
+wasmer-inline-c = "0.1.1"
+walkdir = "2.3.2"
+rand = "0.9.1"
+colored = "2.0"
+dirs = "4.0"
+path-clean = "1.0.1"
+cargo_metadata = "0.15.2"
+dialoguer = "0.11.0"
+pathdiff = "0.2.1"
+normpath = "=1.1.1"
+opener = "0.6.1"
+wasm-coredump-builder = "0.1.11"
+comfy-table = "=7.1.4"
+git-version = "0.3.9"
+humantime = "2.1.0"
+interfaces = "0.0.9"
+mac_address = "1.1.5"
+clap_complete = "4.5.59"
+clap_mangen = "0.2.31"
+console = "0.15.8"
+console-subscriber = "0.4"
+dotenvy = "0.15.7"
+lzma-rs = "0.3.0"
+assert_cmd = "2.0.11"
+predicates = "3.0.3"
+derive_builder = "0.12.0"
+saffron = "0.1.0"
+schemars = "0.8.16"
+compiletest_rs = "0.6"
+bincode = "1.3"
+lz4_flex = "0.11"
+hexdump = "0.1.2"
+uniffi = "0.27"
+dunce = "1.0.4"
+filetime = "0.2.18"
+replace_with = "0.1.7"
+slab = "0.4"
+web-time = "1.1"
+parking = "2.2"
+hyper-tungstenite = "0.13"
+ipnet = "2.10.1"
+iprange = "0.6.7"
+smoltcp = { version = "0.8", default-features = false }
+tokio-serde = "0.9"
+tokio-util = "0.7.8"
+corosensei = "0.3.0"
+crossbeam-queue = "0.3.8"
+fnv = "1.0.3"
+scopeguard = "1.1.0"
+rustversion = "1.0"
+libunwind = "1.3.3"
+mach2 = "0.4.2"
+bitflags = "1.2"
+wai-bindgen-wasmer-impl = "0.2.2"
+wai-bindgen-rust = { version = "0.2.1", default-features = false }
+wai-bindgen-gen-core = { version = "0.2.1", default-features = false }
+wai-bindgen-gen-rust-wasm = { version = "0.2.1", default-features = false }
+wai-bindgen-gen-rust = { version = "0.2.1", default-features = false }
+wai-parser = "0.2.1"
+bus = "2.4.1"
+chrono = { version = "^0.4.38", default-features = false }
+cooked-waker = "^5"
+crossbeam-channel = "0.5.15"
+heapless = "0.8"
+linked_hash_set = { version = "0.1" }
+petgraph = "0.7.0"
+pin-project = "1.0.12"
+pin-utils = "0.1.0"
+rusty_pool = "0.7.0"
+serde_derive = "^1"
+tokio-stream = "0.1"
+tower = "0.4.13"
+tower-http = "0.5.0"
+urlencoding = "^2"
+waker-fn = "1.1"
+wasm-bindgen-futures = "0.4.37"
+wcgi = "0.3.0"
+wcgi-host = "0.3.0"
+web-sys = "0.3.64"
+weezl = "^0.1"
+assert-panic = "1.0.1"
+env_logger = { version = "0.11.5", default-features = false }
+termios = "0.3"
+terminal_size = "0.3.0"
+tracing-wasm = "0.2"
+insta = "1.21.1"
+md5 = "0.7.0"
+syn = { version = "2", default-features = false }
+proc-macro2 = "1"
+proc-macro-error2 = "2.0.1"
+quote = "1.0.20"
+test-log = { version = "0.2", default-features = false }
+wasmi_c_api_impl = "0.40.0"
+unix_mode = "0.1.3"
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
-build-deps = "0.1.4"
-anyhow = "1.0"
-glob = "0.3"
-rustc_version = "0.4"
+build-deps.workspace = true
+anyhow.workspace = true
+glob.workspace = true
+rustc_version.workspace = true
 
 [dev-dependencies]
 wasmer = { version = "=6.1.0", path = "lib/api", features = [
@@ -189,20 +337,20 @@ wasmer = { version = "=6.1.0", path = "lib/api", features = [
 	"singlepass",
 	"sys",
 ] }
-anyhow = "1.0"
+anyhow.workspace = true
 clap.workspace = true
 clap_builder.workspace = true
 clap_derive.workspace = true
 clap_lex.workspace = true
-criterion = { version = "0.5", features = ["csv_output"] }
-serial_test = { version = "2.0", default-features = false }
+criterion = { workspace = true, features = ["csv_output"] }
+serial_test = { workspace = true, default-features = false }
 compiler-test-derive = { path = "tests/lib/compiler-test-derive" }
-tempfile = "3.6.0"
-ureq = "2.6"
+tempfile.workspace = true
+ureq.workspace = true
 # For logging tests using the `RUST_LOG=debug` when testing
-test-log = { version = "0.2", default-features = false, features = ["trace"] }
-tracing = { version = "0.1", default-features = false, features = ["log"] }
-tracing-subscriber = { version = "0.3", default-features = false, features = [
+test-log = { workspace = true, default-features = false, features = ["trace"] }
+tracing = { workspace = true, default-features = false, features = ["log"] }
+tracing-subscriber = { workspace = true, default-features = false, features = [
 	"env-filter",
 	"fmt",
 ] }
