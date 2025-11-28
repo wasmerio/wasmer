@@ -1,7 +1,7 @@
 #![allow(unused_imports)]
 use criterion::{Criterion, black_box, criterion_group, criterion_main};
-use rand::distributions::Alphanumeric;
-use rand::{Rng, thread_rng};
+use rand::distr::Alphanumeric;
+use rand::{Rng, rng};
 use tempfile::TempDir;
 use wasmer::{Module, Store};
 use wasmer_cache::Cache;
