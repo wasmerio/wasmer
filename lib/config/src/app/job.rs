@@ -381,7 +381,7 @@ action:
       VAR1: Value
     capabilities:
       memory:
-        limit: 1000.0 MB
+        limit: 953.7 MiB
     volumes:
     - name: vol
       mount: /path/to/volume"#;
