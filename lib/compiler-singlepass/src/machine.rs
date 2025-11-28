@@ -6,7 +6,10 @@ use crate::{
     unwind::UnwindInstructions,
 };
 use dynasmrt::{AssemblyOffset, DynamicLabel};
-use std::{collections::BTreeMap, fmt::Debug};
+use std::{
+    collections::{BTreeMap, HashMap},
+    fmt::Debug,
+};
 use wasmer_compiler::{
     types::{
         address_map::InstructionAddressMap,
@@ -64,6 +67,32 @@ pub enum UnsignedCondition {
     AboveEqual,
     Below,
     BelowEqual,
+}
+
+#[derive(Debug, Clone)]
+pub enum AssemblyComment {
+    FunctionPrologue,
+    InitializeLocals,
+    TrapHandlersTable,
+    RedZone,
+    FunctionBody,
+}
+
+impl std::fmt::Display for AssemblyComment {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        match self {
+            AssemblyComment::FunctionPrologue => write!(f, "function prologue"),
+            AssemblyComment::InitializeLocals => write!(f, "initialize locals"),
+            AssemblyComment::TrapHandlersTable => write!(f, "trap handlers table"),
+            AssemblyComment::RedZone => write!(f, "red zone"),
+            AssemblyComment::FunctionBody => write!(f, "body"),
+        }
+    }
+}
+
+pub(crate) struct FinalizedAssembly {
+    pub(crate) body: Vec<u8>,
+    pub(crate) assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 #[allow(unused)]
@@ -246,7 +275,10 @@ pub trait Machine {
     ) -> Result<(), CompileError>;
 
     /// Finalize the assembler
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError>;
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError>;
 
     /// get_offset of Assembler
     fn get_offset(&self) -> Offset;

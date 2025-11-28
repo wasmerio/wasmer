@@ -7186,10 +7186,12 @@ dependencies = [
  "shared-buffer",
  "smallvec",
  "target-lexicon 0.13.3",
+ "tempfile",
  "thiserror 1.0.69",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.224.1",
+ "which",
  "windows-sys 0.59.0",
  "xxhash-rust",
 ]
@@ -7972,11 +7974,10 @@ checksum = "a751b3277700db47d3e574514de2eced5e54dc8a5436a3bf7a0b248b2cee16f3"
 
 [[package]]
 name = "which"
-version = "7.0.3"
+version = "8.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "24d643ce3fd3e5b54854602a080f34fb10ab75e0b813ee32d00ca2b44fa74762"
+checksum = "d3fabb953106c3c8eea8306e4393700d7657561cb43122571b172bbfb7c7ba1d"
 dependencies = [
- "either",
  "env_home",
  "rustix 1.1.2",
  "winsafe",

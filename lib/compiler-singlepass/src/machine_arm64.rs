@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{AArch64, write::CallFrameInstruction};
@@ -2180,9 +2182,15 @@ impl Machine for MachineARM64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 

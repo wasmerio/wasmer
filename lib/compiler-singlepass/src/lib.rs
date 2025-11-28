@@ -31,4 +31,4 @@ mod unwind_winx64;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;
-pub use crate::config::Singlepass;
+pub use {crate::config::Singlepass, crate::config::SinglepassCallbacks};
