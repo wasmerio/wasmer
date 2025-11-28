@@ -19,7 +19,7 @@ impl StoreAsync {
         // Safety: we don't keep the guard around, it's just used to
         // build a safe lock handle.
         match unsafe { StoreContext::try_get_current_async(id) } {
-            crate::GetAsyncStoreGuardResult::Ok(guard) => Some(StoreAsync {
+            crate::GetAsyncStoreGuardResult::Ok(guard) => Some(Self {
                 id,
                 inner: crate::LocalRwLockWriteGuard::lock_handle(unsafe {
                     guard.guard.as_ref().unwrap()
@@ -147,7 +147,7 @@ impl<'a> AsyncStoreReadLock<'a> {
 impl AsStoreRef for AsyncStoreReadLock<'_> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match &self.inner {
-            AsyncStoreReadLockInner::Owned(guard) => StoreRef { inner: &*guard },
+            AsyncStoreReadLockInner::Owned(guard) => StoreRef { inner: guard },
             AsyncStoreReadLockInner::FromStoreContext(wrapper) => wrapper.as_ref(),
         }
     }
@@ -188,7 +188,7 @@ impl<'a> AsyncStoreWriteLock<'a> {
 impl AsStoreRef for AsyncStoreWriteLock<'_> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match &self.inner {
-            AsyncStoreWriteLockInner::Owned(guard) => StoreRef { inner: &*guard },
+            AsyncStoreWriteLockInner::Owned(guard) => StoreRef { inner: guard },
             AsyncStoreWriteLockInner::FromStoreContext(wrapper) => wrapper.as_ref(),
         }
     }

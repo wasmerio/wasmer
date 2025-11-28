@@ -320,7 +320,7 @@ fn async_multiple_active_coroutines() -> Result<()> {
 
     struct Env {
         log: Vec<i32>,
-        futures: [Option<Pin<Box<dyn Future<Output = Result<Box<[Value]>, RuntimeError>>>>>; 4],
+        futures: [Option<Pin<Box<dyn Future<Output = DynamicCallResult>>>>; 4],
         yielders: [Option<Yielder>; 4],
         future_func: Option<Function>,
     }

@@ -170,10 +170,8 @@ impl<T> LocalRwLockInner<T> {
 
         if has_writers {
             // If there are waiting writers, only wake them (they need exclusive access)
-            for waker_slot in write_waiters.drain(..) {
-                if let Some(waker) = waker_slot {
-                    waker.wake();
-                }
+            for waker in write_waiters.drain(..).flatten() {
+                waker.wake();
             }
         } else {
             // No writers waiting, wake all readers (they can share the lock)

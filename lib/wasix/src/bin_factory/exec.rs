@@ -18,7 +18,7 @@ use crate::{
 };
 use tracing::*;
 use virtual_mio::block_on;
-use wasmer::{Function, Memory32, Memory64, Module, RuntimeError, Store, Value};
+use wasmer::{DynamicCallResult, Function, Memory32, Memory64, Module, RuntimeError, Store};
 use wasmer_wasix_types::wasi::Errno;
 
 use super::{BinaryPackage, BinaryPackageCommand};
@@ -397,8 +397,8 @@ fn resume_vfork(
     ctx: &WasiFunctionEnv,
     store: &mut Store,
     start: &Function,
-    call_ret: &Result<Box<[Value]>, RuntimeError>,
-) -> Result<Option<Result<Box<[Value]>, RuntimeError>>, Errno> {
+    call_ret: &DynamicCallResult,
+) -> Result<Option<DynamicCallResult>, Errno> {
     let (err, code) = match call_ret {
         Ok(_) => (None, wasmer_wasix_types::wasi::ExitCode::from(0u16)),
         Err(err) => match err.downcast_ref::<WasiError>() {

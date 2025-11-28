@@ -139,7 +139,7 @@ macro_rules! impl_native_traits {
 
                     let results = func.call_async(store, &params_values).await?;
                     let mut write = store.write_lock().await;
-                    convert_results::<Rets>(&mut write, func_ty, results)
+                    convert_results::<Rets>(&mut write, func_ty, &results)
                 }
             }
 
@@ -274,7 +274,7 @@ impl_native_traits!(
 fn convert_results<Rets>(
     store: &mut impl AsStoreMut,
     ty: FunctionType,
-    results: Box<[Value]>,
+    results: &[Value],
 ) -> Result<Rets, RuntimeError>
 where
     Rets: WasmTypeList,

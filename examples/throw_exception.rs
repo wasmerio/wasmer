@@ -1,8 +1,8 @@
 use std::sync::{Arc, atomic::AtomicUsize};
 
 use wasmer::{
-    Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module, RuntimeError, Store,
-    Type, TypedFunction, Value, imports, sys::Target, wat2wasm,
+    DynamicFunctionResult, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
+    RuntimeError, Store, Type, TypedFunction, Value, imports, sys::Target, wat2wasm,
 };
 use wasmer_types::Features;
 
@@ -83,10 +83,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Both Function::new_with_env and Function::new_typed_with_env can throw
     // exceptions if they return a Result with a RuntimeError.
-    fn throw1(
-        mut env: FunctionEnvMut<MyEnv>,
-        _params: &[Value],
-    ) -> Result<Vec<Value>, RuntimeError> {
+    fn throw1(mut env: FunctionEnvMut<MyEnv>, _params: &[Value]) -> DynamicFunctionResult {
         println!("Throwing exception 1");
 
         // To "throw" an exception from native code, we create a new one and

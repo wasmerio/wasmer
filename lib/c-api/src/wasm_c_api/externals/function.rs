@@ -8,7 +8,9 @@ use libc::c_void;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
 use std::sync::{Arc, Mutex};
-use wasmer_api::{Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value};
+use wasmer_api::{
+    DynamicFunctionResult, Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value,
+};
 
 #[derive(Clone)]
 #[allow(non_camel_case_types)]
@@ -57,7 +59,7 @@ pub unsafe extern "C" fn wasm_func_new(
     let num_rets = func_sig.results().len();
     let inner_callback = move |mut _env: FunctionEnvMut<'_, FunctionCEnv>,
                                args: &[Value]|
-          -> Result<Vec<Value>, RuntimeError> {
+          -> DynamicFunctionResult {
         let processed_args: wasm_val_vec_t = args
             .iter()
             .map(TryInto::try_into)
@@ -134,40 +136,39 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
             }
         }
     }
-    let inner_callback = move |env: FunctionEnvMut<'_, WrapperEnv>,
-                               args: &[Value]|
-          -> Result<Vec<Value>, RuntimeError> {
-        let processed_args: wasm_val_vec_t = args
-            .iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<wasm_val_t>, _>>()
-            .expect("Argument conversion failed")
+    let inner_callback =
+        move |env: FunctionEnvMut<'_, WrapperEnv>, args: &[Value]| -> DynamicFunctionResult {
+            let processed_args: wasm_val_vec_t = args
+                .iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<wasm_val_t>, _>>()
+                .expect("Argument conversion failed")
+                .into();
+
+            let mut results: wasm_val_vec_t = vec![
+                wasm_val_t {
+                    kind: wasm_valkind_enum::WASM_I64 as _,
+                    of: wasm_val_inner { int64_t: 0 },
+                };
+                num_rets
+            ]
             .into();
 
-        let mut results: wasm_val_vec_t = vec![
-            wasm_val_t {
-                kind: wasm_valkind_enum::WASM_I64 as _,
-                of: wasm_val_inner { int64_t: 0 },
-            };
-            num_rets
-        ]
-        .into();
+            let trap = unsafe { callback(env.data().env.as_ptr(), &processed_args, &mut results) };
 
-        let trap = unsafe { callback(env.data().env.as_ptr(), &processed_args, &mut results) };
+            if let Some(trap) = trap {
+                return Err(trap.inner);
+            }
 
-        if let Some(trap) = trap {
-            return Err(trap.inner);
-        }
+            let processed_results = results
+                .take()
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<Value>, _>>()
+                .expect("Result conversion failed");
 
-        let processed_results = results
-            .take()
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Value>, _>>()
-            .expect("Result conversion failed");
-
-        Ok(processed_results)
-    };
+            Ok(processed_results)
+        };
     let env = FunctionEnv::new(
         &mut store_mut,
         WrapperEnv {

@@ -68,8 +68,8 @@ enum StoreContextEntry {
 impl StoreContextEntry {
     fn as_ptr(&self) -> *mut StoreInner {
         match self {
-            StoreContextEntry::Sync(ptr) => *ptr,
-            StoreContextEntry::Async(guard) => &**guard as *const _ as *mut _,
+            Self::Sync(ptr) => *ptr,
+            Self::Async(guard) => &**guard as *const _ as *mut _,
         }
     }
 }
@@ -114,14 +114,14 @@ pub(crate) enum StoreInstallGuard {
 }
 
 thread_local! {
-    static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = RefCell::new(Vec::new());
+    static STORE_CONTEXT_STACK: RefCell<Vec<StoreContext>> = const { RefCell::new(Vec::new()) };
 }
 
 impl StoreContext {
     fn is_active(id: StoreId) -> bool {
         STORE_CONTEXT_STACK.with(|cell| {
             let stack = cell.borrow();
-            stack.last().map_or(false, |ctx| ctx.id == id)
+            stack.last().is_some_and(|ctx| ctx.id == id)
         })
     }
 
@@ -136,7 +136,7 @@ impl StoreContext {
     fn install(id: StoreId, entry: StoreContextEntry) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            stack.push(StoreContext {
+            stack.push(Self {
                 id,
                 borrow_count: 0,
                 entry: UnsafeCell::new(entry),
@@ -167,7 +167,7 @@ impl StoreContext {
     /// # Safety
     /// The pointer must be dereferenceable and remain valid until the
     /// store context is uninstalled.
-    pub(crate) unsafe fn ensure_installed<'a>(store_ptr: *mut StoreInner) -> StoreInstallGuard {
+    pub(crate) unsafe fn ensure_installed(store_ptr: *mut StoreInner) -> StoreInstallGuard {
         let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
         if Self::is_active(store_id) {
             StoreInstallGuard::NotInstalled
@@ -182,6 +182,7 @@ impl StoreContext {
     ///   * there is only one mutable reference alive, or
     ///   * all but one mutable reference are inaccessible and passed
     ///     into a function that lost the reference (e.g. into WASM code)
+    ///
     /// The intended, valid use-case for this method is from within
     /// imported function trampolines.
     pub(crate) unsafe fn get_current(id: StoreId) -> StorePtrWrapper {
@@ -280,7 +281,7 @@ impl Clone for StorePtrWrapper {
                 _ => panic!("Mismatched store context access"),
             }
             top.borrow_count += 1;
-            StorePtrWrapper {
+            Self {
                 store_ptr: self.store_ptr,
             }
         })
@@ -317,7 +318,7 @@ impl Drop for AsyncStoreGuardWrapper {
 
 impl Drop for StoreInstallGuard {
     fn drop(&mut self) {
-        if let StoreInstallGuard::Installed(store_id) = self {
+        if let Self::Installed(store_id) = self {
             STORE_CONTEXT_STACK.with(|cell| {
                 let mut stack = cell.borrow_mut();
                 let top = stack.pop().expect("Store context stack underflow");

@@ -13,12 +13,12 @@ use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreMut, AsStoreRef, LocalRwLockWriteGuard, RuntimeError, Store, StoreAsync, StoreContext,
-    StoreInner, StoreMut, StoreRef, Value,
+    AsStoreMut, AsStoreRef, DynamicCallResult, DynamicFunctionResult, LocalRwLockWriteGuard,
+    RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
 };
 use wasmer_types::StoreId;
 
-type HostFuture = Pin<Box<dyn Future<Output = Result<Vec<Value>, RuntimeError>> + 'static>>;
+type HostFuture = Pin<Box<dyn Future<Output = DynamicFunctionResult> + 'static>>;
 
 pub(crate) fn call_function_async<'a>(
     function: SysFunction,
@@ -32,15 +32,15 @@ struct AsyncYield(HostFuture);
 
 enum AsyncResume {
     Start,
-    HostFutureReady(Result<Vec<Value>, RuntimeError>),
+    HostFutureReady(DynamicFunctionResult),
 }
 
 pub(crate) struct AsyncCallFuture<'a> {
-    coroutine: Option<Coroutine<AsyncResume, AsyncYield, Result<Box<[Value]>, RuntimeError>>>,
+    coroutine: Option<Coroutine<AsyncResume, AsyncYield, DynamicCallResult>>,
     pending_store_install: Option<Pin<Box<dyn Future<Output = StoreContextInstaller> + 'a>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
-    result: Option<Result<Box<[Value]>, RuntimeError>>,
+    result: Option<DynamicCallResult>,
 
     // Store handle we can use to lock the store down
     store: StoreAsync,
@@ -129,7 +129,7 @@ impl<'a> AsyncCallFuture<'a> {
 }
 
 impl Future for AsyncCallFuture<'_> {
-    type Output = Result<Box<[Value]>, RuntimeError>;
+    type Output = DynamicCallResult;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
         loop {
@@ -149,7 +149,7 @@ impl Future for AsyncCallFuture<'_> {
             }
 
             // Start a store installation if not in progress already
-            if let None = self.pending_store_install {
+            if self.pending_store_install.is_none() {
                 self.pending_store_install =
                     Some(Box::pin(StoreContextInstaller::install(StoreAsync {
                         id: self.store.id,
@@ -217,13 +217,13 @@ impl StoreContextInstaller {
             }
             crate::GetAsyncStoreGuardResult::Ok(wrapper) => {
                 // If we're already in the scope of this store, we can just reuse it.
-                StoreContextInstaller::FromThreadContext(wrapper)
+                Self::FromThreadContext(wrapper)
             }
             crate::GetAsyncStoreGuardResult::NotInstalled => {
                 // Otherwise, need to acquire a new StoreMut.
                 let store_guard = store.inner.write().await;
                 let install_guard = unsafe { crate::StoreContext::install_async(store_guard) };
-                StoreContextInstaller::Installed(install_guard)
+                Self::Installed(install_guard)
             }
         }
     }
@@ -236,7 +236,7 @@ pub enum AsyncRuntimeError {
 
 pub(crate) fn block_on_host_future<Fut>(future: Fut) -> Result<Vec<Value>, AsyncRuntimeError>
 where
-    Fut: Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    Fut: Future<Output = DynamicFunctionResult> + 'static,
 {
     CURRENT_CONTEXT.with(|cell| {
         match CoroutineContext::get_current() {
@@ -299,7 +299,7 @@ impl CoroutineContext {
         CURRENT_CONTEXT.with(|cell| cell.borrow().last().copied())
     }
 
-    fn block_on_future(&self, future: HostFuture) -> Result<Vec<Value>, RuntimeError> {
+    fn block_on_future(&self, future: HostFuture) -> DynamicFunctionResult {
         // Leave the coroutine context since we're yielding back to the
         // parent stack, and will be inactive until the future is ready.
         self.leave();
@@ -319,7 +319,7 @@ impl CoroutineContext {
 }
 
 fn run_immediate(
-    future: impl Future<Output = Result<Vec<Value>, RuntimeError>> + 'static,
+    future: impl Future<Output = DynamicFunctionResult> + 'static,
 ) -> Result<Vec<Value>, AsyncRuntimeError> {
     let waker = futures::task::noop_waker();
     let mut cx = Context::from_waker(&waker);

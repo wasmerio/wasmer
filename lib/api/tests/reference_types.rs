@@ -82,10 +82,7 @@ pub mod reference_types {
 )"#;
         let module = Module::new(&store, wat)?;
         let env = FunctionEnv::new(&mut store, ());
-        fn func_ref_call(
-            mut env: FunctionEnvMut<()>,
-            values: &[Value],
-        ) -> Result<Vec<Value>, RuntimeError> {
+        fn func_ref_call(mut env: FunctionEnvMut<()>, values: &[Value]) -> DynamicFunctionResult {
             // TODO: look into `Box<[Value]>` being returned breakage
             let f = values[0].unwrap_funcref().as_ref().unwrap();
             let f: TypedFunction<(i32, i32), i32> = f.typed(&env)?;
