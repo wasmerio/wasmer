@@ -352,7 +352,7 @@ mod tests {
                     env: Some([("VAR1".to_owned(), "Value".to_owned())].into()),
                     capabilities: Some(super::ExecutableJobCompatibilityMapV1 {
                         memory: Some(crate::app::AppConfigCapabilityMemoryV1 {
-                            limit: Some(bytesize::ByteSize::gb(1)),
+                            limit: Some(bytesize::ByteSize::gib(1)),
                         }),
                         other: Default::default(),
                     }),
@@ -381,7 +381,7 @@ action:
       VAR1: Value
     capabilities:
       memory:
-        limit: 953.7 MiB
+        limit: 1.0 GiB
     volumes:
     - name: vol
       mount: /path/to/volume"#;
