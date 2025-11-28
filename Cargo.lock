@@ -7041,10 +7041,12 @@ dependencies = [
  "shared-buffer",
  "smallvec",
  "target-lexicon 0.13.3",
+ "tempfile",
  "thiserror 2.0.17",
  "wasmer-types",
  "wasmer-vm",
  "wasmparser 0.224.1",
+ "which",
  "windows-sys 0.61.2",
  "xxhash-rust",
 ]

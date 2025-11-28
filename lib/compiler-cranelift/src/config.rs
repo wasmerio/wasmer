@@ -5,6 +5,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use std::{
+    collections::HashMap,
     fs::File,
     io::{self, Write},
     sync::Arc,
@@ -12,7 +13,7 @@ use std::{
 use std::{num::NonZero, path::PathBuf};
 use wasmer_compiler::{
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
-    misc::{CompiledKind, function_kind_to_filename},
+    misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::target::{Architecture, CpuFeature, Target};
 
@@ -46,6 +47,18 @@ impl CraneliftCallbacks {
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift object");
         file.write_all(mem_buffer).unwrap();
+    }
+
+    /// Writes the assembly memory buffer to a debug file.
+    pub fn asm_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        arch: Architecture,
+        mem_buffer: &[u8],
+    ) -> Result<(), wasmer_types::CompileError> {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".s"));
+        save_assembly_to_file(arch, path, mem_buffer, HashMap::<usize, String>::new())
     }
 }
 
