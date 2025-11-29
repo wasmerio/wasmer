@@ -13,8 +13,9 @@ use corosensei::{Coroutine, CoroutineResult, Yielder};
 
 use super::entities::function::Function as SysFunction;
 use crate::{
-    AsStoreMut, AsStoreRef, DynamicCallResult, DynamicFunctionResult, LocalRwLockWriteGuard,
-    RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut, StoreRef, Value,
+    AsStoreMut, AsStoreRef, DynamicCallResult, DynamicFunctionResult, ForcedStoreInstallGuard,
+    LocalRwLockWriteGuard, RuntimeError, Store, StoreAsync, StoreContext, StoreInner, StoreMut,
+    StoreRef, Value,
 };
 use wasmer_types::StoreId;
 
@@ -37,7 +38,7 @@ enum AsyncResume {
 
 pub(crate) struct AsyncCallFuture {
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, DynamicCallResult>>,
-    pending_store_install: Option<Pin<Box<dyn Future<Output = StoreContextInstaller>>>>,
+    pending_store_install: Option<Pin<Box<dyn Future<Output = ForcedStoreInstallGuard>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
     result: Option<DynamicCallResult>,
@@ -150,11 +151,10 @@ impl Future for AsyncCallFuture {
 
             // Start a store installation if not in progress already
             if self.pending_store_install.is_none() {
-                self.pending_store_install =
-                    Some(Box::pin(StoreContextInstaller::install(StoreAsync {
-                        id: self.store.id,
-                        inner: self.store.inner.clone(),
-                    })));
+                self.pending_store_install = Some(Box::pin(install_store_context(StoreAsync {
+                    id: self.store.id,
+                    inner: self.store.inner.clone(),
+                })));
             }
 
             // Acquiring a store lock should be the last step before resuming
@@ -192,42 +192,34 @@ impl Future for AsyncCallFuture {
     }
 }
 
-enum StoreContextInstaller {
-    FromThreadContext(crate::AsyncStoreGuardWrapper),
-    Installed(crate::ForcedStoreInstallGuard),
-}
-
-impl StoreContextInstaller {
-    async fn install(store: StoreAsync) -> Self {
-        match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
-            crate::GetAsyncStoreGuardResult::NotInstalled => {
-                // We always need to acquire a new write lock on the store.
-                let store_guard = store.inner.write().await;
-                let install_guard = unsafe { crate::StoreContext::install_async(store_guard) };
-                Self::Installed(install_guard)
-            }
-            _ => {
-                // If we're already in a store context, it is unsafe to reuse
-                // the existing store ref since it'll also be accessible from
-                // the imported function that tried to poll us, which is a
-                // double mutable borrow.
-                // Note to people who discover this code: this *would* be safe
-                // if we had a separate variation of call_async that just
-                // used the existing coroutine context instead of spawning a
-                // new coroutine. However, the current call_async always spawns
-                // a new coroutine, so we can't allow this; every coroutine
-                // needs to own its write lock on the store to make sure there
-                // are no overlapping mutable borrows. If this is something
-                // you're interested in, feel free to open a GitHub issue outlining
-                // your use-case.
-                panic!(
-                    "Function::call_async futures cannot be polled recursively \
+async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
+    match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
+        crate::GetAsyncStoreGuardResult::NotInstalled => {
+            // We always need to acquire a new write lock on the store.
+            let store_guard = store.inner.write().await;
+            unsafe { crate::StoreContext::install_async(store_guard) }
+        }
+        _ => {
+            // If we're already in a store context, it is unsafe to reuse
+            // the existing store ref since it'll also be accessible from
+            // the imported function that tried to poll us, which is a
+            // double mutable borrow.
+            // Note to people who discover this code: this *would* be safe
+            // if we had a separate variation of call_async that just
+            // used the existing coroutine context instead of spawning a
+            // new coroutine. However, the current call_async always spawns
+            // a new coroutine, so we can't allow this; every coroutine
+            // needs to own its write lock on the store to make sure there
+            // are no overlapping mutable borrows. If this is something
+            // you're interested in, feel free to open a GitHub issue outlining
+            // your use-case.
+            panic!(
+                "Function::call_async futures cannot be polled recursively \
                     from within another imported function. If you need to await \
                     a recursive call_async, consider spawning the future into \
                     your async runtime and awaiting the resulting task; \
                     e.g. tokio::task::spawn(func.call_async(...)).await"
-                );
-            }
+            );
         }
     }
 }

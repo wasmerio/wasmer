@@ -225,14 +225,14 @@ pub(crate) enum AsyncFunctionEnvMutStore {
 }
 
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-pub struct AsyncFunctionEnvHandle<'a, T> {
-    read_lock: AsyncStoreReadLock<'a>,
+pub struct AsyncFunctionEnvHandle<T> {
+    read_lock: AsyncStoreReadLock,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-pub struct AsyncFunctionEnvHandleMut<'a, T> {
-    write_lock: AsyncStoreWriteLock<'a>,
+pub struct AsyncFunctionEnvHandleMut<T> {
+    write_lock: AsyncStoreWriteLock,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
@@ -261,13 +261,12 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
 
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
-    pub async fn read<'a>(&'a self) -> AsyncFunctionEnvHandle<'a, T> {
+    pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {
         let read_lock = match &self.store {
-            AsyncFunctionEnvMutStore::Sync(ptr) => AsyncStoreReadLock {
-                inner: crate::AsyncStoreReadLockInner::FromStoreContext(ptr.clone()),
-                _marker: PhantomData,
-            },
             AsyncFunctionEnvMutStore::Async(store) => store.read_lock().await,
+
+            // We can never acquire a store lock in a sync context
+            AsyncFunctionEnvMutStore::Sync(_) => futures::future::pending().await,
         };
 
         AsyncFunctionEnvHandle {
@@ -278,13 +277,12 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
 
     /// Waits for a store lock and returns a mutable handle to the
     /// function environment.
-    pub async fn write<'a>(&'a self) -> AsyncFunctionEnvHandleMut<'a, T> {
+    pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
         let write_lock = match &self.store {
-            AsyncFunctionEnvMutStore::Sync(ptr) => AsyncStoreWriteLock {
-                inner: crate::AsyncStoreWriteLockInner::FromStoreContext(ptr.clone()),
-                _marker: PhantomData,
-            },
             AsyncFunctionEnvMutStore::Async(store) => store.write_lock().await,
+
+            // We can never acquire a store lock in a sync context
+            AsyncFunctionEnvMutStore::Sync(_) => futures::future::pending().await,
         };
 
         AsyncFunctionEnvHandleMut {
@@ -338,7 +336,7 @@ impl Clone for AsyncFunctionEnvMutStore {
     }
 }
 
-impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.func_env.as_ref(&self.read_lock)
@@ -350,13 +348,13 @@ impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         AsStoreRef::as_store_ref(&self.read_lock)
     }
 }
 
-impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.func_env.as_mut(&mut self.write_lock)
@@ -375,13 +373,13 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         AsStoreRef::as_store_ref(&self.write_lock)
     }
 }
 
-impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         AsStoreMut::as_store_mut(&mut self.write_lock)
     }

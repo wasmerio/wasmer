@@ -45,7 +45,7 @@ impl StoreAsync {
 
     /// Acquire a read lock on the store. Panics if the store is
     /// locked for writing.
-    pub fn read<'a>(&'a self) -> AsyncStoreReadLock<'a> {
+    pub fn read(&self) -> AsyncStoreReadLock {
         if !StoreContext::is_empty() {
             panic!("This method cannot be called from inside imported functions");
         }
@@ -54,24 +54,18 @@ impl StoreAsync {
             .inner
             .try_read()
             .expect("StoreAsync is locked for write");
-        AsyncStoreReadLock {
-            inner: AsyncStoreReadLockInner::Owned(store_ref),
-            _marker: PhantomData,
-        }
+        AsyncStoreReadLock { inner: store_ref }
     }
 
     /// Acquire a write lock on the store. Panics if the store is
     /// locked.
-    pub fn write<'a>(&'a self) -> AsyncStoreWriteLock<'a> {
+    pub fn write(self) -> AsyncStoreWriteLock {
         if !StoreContext::is_empty() {
             panic!("This method cannot be called from inside imported functions");
         }
 
         let store_guard = self.inner.try_write().expect("StoreAsync is locked");
-        AsyncStoreWriteLock {
-            inner: AsyncStoreWriteLockInner::Owned(store_guard),
-            _marker: PhantomData,
-        }
+        AsyncStoreWriteLock { inner: store_guard }
     }
 }
 
@@ -96,12 +90,12 @@ pub trait AsStoreAsync {
     }
 
     /// Acquires a read lock on the store.
-    fn read_lock<'a>(&'a self) -> impl Future<Output = AsyncStoreReadLock<'a>> + 'a {
+    fn read_lock(&self) -> impl Future<Output = AsyncStoreReadLock> {
         AsyncStoreReadLock::acquire(self.store_ref())
     }
 
     /// Acquires a write lock on the store.
-    fn write_lock<'a>(&'a self) -> impl Future<Output = AsyncStoreWriteLock<'a>> + 'a {
+    fn write_lock(&self) -> impl Future<Output = AsyncStoreWriteLock> {
         AsyncStoreWriteLock::acquire(self.store_ref())
     }
 }
@@ -112,102 +106,50 @@ impl AsStoreAsync for StoreAsync {
     }
 }
 
-pub(crate) enum AsyncStoreReadLockInner {
-    Owned(LocalRwLockReadGuard<StoreInner>),
-    FromStoreContext(StorePtrWrapper),
-}
-
 /// A read lock on an async store.
-pub struct AsyncStoreReadLock<'a> {
-    pub(crate) inner: AsyncStoreReadLockInner,
-    pub(crate) _marker: PhantomData<&'a ()>,
+pub struct AsyncStoreReadLock {
+    pub(crate) inner: LocalRwLockReadGuard<StoreInner>,
 }
 
-impl<'a> AsyncStoreReadLock<'a> {
-    pub(crate) async fn acquire(store: &'a StoreAsync) -> Self {
-        let store_context = unsafe { StoreContext::try_get_current(store.id) };
-        match store_context {
-            Some(store_mut_wrapper) => Self {
-                inner: AsyncStoreReadLockInner::FromStoreContext(store_mut_wrapper),
-                _marker: PhantomData,
-            },
-            None => {
-                // Drop the option before awaiting, since the value isn't Send
-                drop(store_context);
-                let store_ref = store.inner.read().await;
-                Self {
-                    inner: AsyncStoreReadLockInner::Owned(store_ref),
-                    _marker: PhantomData,
-                }
-            }
-        }
+impl AsyncStoreReadLock {
+    pub(crate) async fn acquire(store: &StoreAsync) -> Self {
+        let store_ref = store.inner.read().await;
+        Self { inner: store_ref }
     }
 }
 
-impl AsStoreRef for AsyncStoreReadLock<'_> {
+impl AsStoreRef for AsyncStoreReadLock {
     fn as_store_ref(&self) -> StoreRef<'_> {
-        match &self.inner {
-            AsyncStoreReadLockInner::Owned(guard) => StoreRef { inner: guard },
-            AsyncStoreReadLockInner::FromStoreContext(wrapper) => wrapper.as_ref(),
-        }
+        StoreRef { inner: &self.inner }
     }
-}
-
-pub(crate) enum AsyncStoreWriteLockInner {
-    Owned(LocalRwLockWriteGuard<StoreInner>),
-    FromStoreContext(StorePtrWrapper),
 }
 
 /// A write lock on an async store.
-pub struct AsyncStoreWriteLock<'a> {
-    pub(crate) inner: AsyncStoreWriteLockInner,
-    pub(crate) _marker: PhantomData<&'a ()>,
+pub struct AsyncStoreWriteLock {
+    pub(crate) inner: LocalRwLockWriteGuard<StoreInner>,
 }
 
-impl<'a> AsyncStoreWriteLock<'a> {
-    pub(crate) async fn acquire(store: &'a StoreAsync) -> Self {
-        let store_context = unsafe { StoreContext::try_get_current(store.id) };
-        match store_context {
-            Some(store_mut_wrapper) => Self {
-                inner: AsyncStoreWriteLockInner::FromStoreContext(store_mut_wrapper),
-                _marker: PhantomData,
-            },
-            None => {
-                // Drop the option before awaiting, since the value isn't Send
-                drop(store_context);
-                let store_guard = store.inner.write().await;
-                Self {
-                    inner: AsyncStoreWriteLockInner::Owned(store_guard),
-                    _marker: PhantomData,
-                }
-            }
-        }
+impl AsyncStoreWriteLock {
+    pub(crate) async fn acquire(store: &StoreAsync) -> Self {
+        let store_guard = store.inner.write().await;
+        Self { inner: store_guard }
     }
 }
 
-impl AsStoreRef for AsyncStoreWriteLock<'_> {
+impl AsStoreRef for AsyncStoreWriteLock {
     fn as_store_ref(&self) -> StoreRef<'_> {
-        match &self.inner {
-            AsyncStoreWriteLockInner::Owned(guard) => StoreRef { inner: guard },
-            AsyncStoreWriteLockInner::FromStoreContext(wrapper) => wrapper.as_ref(),
-        }
+        StoreRef { inner: &self.inner }
     }
 }
 
-impl AsStoreMut for AsyncStoreWriteLock<'_> {
+impl AsStoreMut for AsyncStoreWriteLock {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
-        match &mut self.inner {
-            AsyncStoreWriteLockInner::Owned(guard) => StoreMut { inner: &mut *guard },
-            AsyncStoreWriteLockInner::FromStoreContext(wrapper) => wrapper.as_mut(),
+        StoreMut {
+            inner: &mut self.inner,
         }
     }
 
     fn objects_mut(&mut self) -> &mut super::StoreObjects {
-        match &mut self.inner {
-            AsyncStoreWriteLockInner::Owned(guard) => &mut guard.objects,
-            AsyncStoreWriteLockInner::FromStoreContext(wrapper) => {
-                &mut wrapper.as_mut().inner.objects
-            }
-        }
+        &mut self.inner.objects
     }
 }

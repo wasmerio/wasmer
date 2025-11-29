@@ -121,21 +121,21 @@ where
 pub struct AsyncFunctionEnvMut<T>(pub(crate) BackendAsyncFunctionEnvMut<T>);
 
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-pub struct AsyncFunctionEnvHandle<'a, T>(pub(crate) BackendAsyncFunctionEnvHandle<'a, T>);
+pub struct AsyncFunctionEnvHandle<T>(pub(crate) BackendAsyncFunctionEnvHandle<T>);
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-pub struct AsyncFunctionEnvHandleMut<'a, T>(pub(crate) BackendAsyncFunctionEnvHandleMut<'a, T>);
+pub struct AsyncFunctionEnvHandleMut<T>(pub(crate) BackendAsyncFunctionEnvHandleMut<T>);
 
 impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
-    pub async fn read<'a>(&'a self) -> AsyncFunctionEnvHandle<'a, T> {
+    pub async fn read(&self) -> AsyncFunctionEnvHandle<T> {
         AsyncFunctionEnvHandle(self.0.read().await)
     }
 
     /// Waits for a store lock and returns a mutable handle to the
     /// function environment.
-    pub async fn write<'a>(&'a self) -> AsyncFunctionEnvHandleMut<'a, T> {
+    pub async fn write(&self) -> AsyncFunctionEnvHandleMut<T> {
         AsyncFunctionEnvHandleMut(self.0.write().await)
     }
 
@@ -155,7 +155,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 }
 
-impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         self.0.data()
@@ -167,13 +167,13 @@ impl<T: 'static> AsyncFunctionEnvHandle<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         AsStoreRef::as_store_ref(&self.0)
     }
 }
 
-impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         self.0.data_mut()
@@ -185,13 +185,13 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         AsStoreRef::as_store_ref(&self.0)
     }
 }
 
-impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         AsStoreMut::as_store_mut(&mut self.0)
     }

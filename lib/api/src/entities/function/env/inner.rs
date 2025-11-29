@@ -256,24 +256,24 @@ pub enum BackendAsyncFunctionEnvMut<T> {
 
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
 #[non_exhaustive]
-pub enum BackendAsyncFunctionEnvHandle<'a, T> {
+pub enum BackendAsyncFunctionEnvHandle<T> {
     #[cfg(feature = "sys")]
     /// The function environment handle for the `sys` runtime.
-    Sys(crate::backend::sys::function::env::AsyncFunctionEnvHandle<'a, T>),
+    Sys(crate::backend::sys::function::env::AsyncFunctionEnvHandle<T>),
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
 #[non_exhaustive]
-pub enum BackendAsyncFunctionEnvHandleMut<'a, T> {
+pub enum BackendAsyncFunctionEnvHandleMut<T> {
     #[cfg(feature = "sys")]
     /// The function environment handle for the `sys` runtime.
-    Sys(crate::backend::sys::function::env::AsyncFunctionEnvHandleMut<'a, T>),
+    Sys(crate::backend::sys::function::env::AsyncFunctionEnvHandleMut<T>),
 }
 
 impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
-    pub async fn read<'a>(&'a self) -> BackendAsyncFunctionEnvHandle<'a, T> {
+    pub async fn read(&self) -> BackendAsyncFunctionEnvHandle<T> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => BackendAsyncFunctionEnvHandle::Sys(f.read().await),
@@ -283,7 +283,7 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
 
     /// Waits for a store lock and returns a mutable handle to the
     /// function environment.
-    pub async fn write<'a>(&'a self) -> BackendAsyncFunctionEnvHandleMut<'a, T> {
+    pub async fn write(&self) -> BackendAsyncFunctionEnvHandleMut<T> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => BackendAsyncFunctionEnvHandleMut::Sys(f.write().await),
@@ -319,7 +319,7 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
     }
 }
 
-impl<T: 'static> BackendAsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> BackendAsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
         match self {
@@ -339,7 +339,7 @@ impl<T: 'static> BackendAsyncFunctionEnvHandle<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandle<'_, T> {
+impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandle<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match self {
             #[cfg(feature = "sys")]
@@ -349,7 +349,7 @@ impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandle<'_, T> {
     }
 }
 
-impl<T: 'static> BackendAsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         match self {
@@ -369,7 +369,7 @@ impl<T: 'static> BackendAsyncFunctionEnvHandleMut<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandleMut<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match self {
             #[cfg(feature = "sys")]
@@ -379,7 +379,7 @@ impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandleMut<'_, T> {
     }
 }
 
-impl<T: 'static> AsStoreMut for BackendAsyncFunctionEnvHandleMut<'_, T> {
+impl<T: 'static> AsStoreMut for BackendAsyncFunctionEnvHandleMut<T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         match self {
             #[cfg(feature = "sys")]
