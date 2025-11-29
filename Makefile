@@ -155,19 +155,19 @@ else ifneq ($(filter 1 true,$(ENABLE_LLVM)),)
 	LLVM_VERSION := $(shell llvm-config --version)
 	compilers += llvm
 	# … or try to autodetect LLVM from `llvm-config-<version>`.
-else ifneq (, $(shell which llvm-config-18 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config-18 --version)
+else ifneq (, $(shell which llvm-config-21 2>/dev/null))
+	LLVM_VERSION := $(shell llvm-config-21 --version)
 	compilers += llvm
-	# need force LLVM_SYS_180_PREFIX, or llvm_sys will not build in the case
-	export LLVM_SYS_180_PREFIX = $(shell llvm-config-18 --prefix)
+	# need force LLVM_SYS_211_PREFIX, or llvm_sys will not build in the case
+	export LLVM_SYS_211_PREFIX = $(shell llvm-config-21 --prefix)
 else ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
-	ifneq (, $(findstring 18,$(LLVM_VERSION)))
+	ifneq (, $(findstring 21,$(LLVM_VERSION)))
 		compilers += llvm
-		export LLVM_SYS_180_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 18,$(LLVM_VERSION)))
+		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
+	else ifneq (, $(findstring 21,$(LLVM_VERSION)))
 		compilers += llvm
-		export LLVM_SYS_180_PREFIX = $(shell llvm-config --prefix)
+		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
 	endif
 endif
 
@@ -542,10 +542,10 @@ test-build-docs-rs-ci:
 		fi; \
 		printf "*** Building doc for package with manifest $$manifest_path and features $$features ***\n\n"; \
 		if [ -z "$$features" ]; then \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2025-09-27 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --locked || exit 1; \
 		else \
 			printf "Following features are inferred from Cargo.toml: $$features\n\n\n"; \
-			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly-2025-09-27 doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
+			RUSTDOCFLAGS="--cfg=docsrs" $(CARGO_BINARY) +nightly doc $(CARGO_TARGET_FLAG) --manifest-path "$$manifest_path" --no-deps --features "$$features" --locked || exit 1; \
 		fi; \
 	done
 

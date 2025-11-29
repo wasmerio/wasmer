@@ -15,7 +15,7 @@ jobs:
     name: Documentation
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v5
+      - uses: actions/checkout@v6
       - name: Install Rust
         uses: dtolnay/rust-toolchain@stable
         with:
@@ -27,10 +27,10 @@ jobs:
           mkdir ${{ env.LLVM_DIR }}
           tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_180_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
+          echo "LLVM_SYS_211_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: ${{ github.workspace }}/llvm-18
-          LLVM_URL: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-linux-amd64.tar.xz"
+          LLVM_DIR: ${{ github.workspace }}/llvm-21
+          LLVM_URL: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-linux-amd64.tar.xz"
       - name: Build & package documentation
         run: make package-docs
       - name: Publish documentation

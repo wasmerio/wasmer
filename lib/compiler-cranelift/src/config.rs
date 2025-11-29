@@ -5,6 +5,7 @@ use cranelift_codegen::{
     settings::{self, Configurable},
 };
 use std::{
+    collections::HashMap,
     fs::File,
     io::{self, Write},
     sync::Arc,
@@ -12,7 +13,7 @@ use std::{
 use std::{num::NonZero, path::PathBuf};
 use wasmer_compiler::{
     Compiler, CompilerConfig, Engine, EngineBuilder, ModuleMiddleware,
-    misc::{CompiledKind, function_kind_to_filename},
+    misc::{CompiledKind, function_kind_to_filename, save_assembly_to_file},
 };
 use wasmer_types::target::{Architecture, CpuFeature, Target};
 
@@ -33,7 +34,7 @@ impl CraneliftCallbacks {
     /// Writes the pre-optimization intermediate representation to a debug file.
     pub fn preopt_ir(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.preopt.clif", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".preopt.clif"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift IR");
         file.write_all(mem_buffer).unwrap();
@@ -42,10 +43,22 @@ impl CraneliftCallbacks {
     /// Writes the object file memory buffer to a debug file.
     pub fn obj_memory_buffer(&self, kind: &CompiledKind, mem_buffer: &[u8]) {
         let mut path = self.debug_dir.clone();
-        path.push(format!("{}.o", function_kind_to_filename(kind)));
+        path.push(function_kind_to_filename(kind, ".o"));
         let mut file =
             File::create(path).expect("Error while creating debug file from Cranelift object");
         file.write_all(mem_buffer).unwrap();
+    }
+
+    /// Writes the assembly memory buffer to a debug file.
+    pub fn asm_memory_buffer(
+        &self,
+        kind: &CompiledKind,
+        arch: Architecture,
+        mem_buffer: &[u8],
+    ) -> Result<(), wasmer_types::CompileError> {
+        let mut path = self.debug_dir.clone();
+        path.push(function_kind_to_filename(kind, ".s"));
+        save_assembly_to_file(arch, path, mem_buffer, HashMap::<usize, String>::new())
     }
 }
 
@@ -214,9 +227,6 @@ impl Cranelift {
         };
         flags
             .set("enable_verifier", enable_verifier)
-            .expect("should be valid flag");
-        flags
-            .set("enable_safepoints", "true")
             .expect("should be valid flag");
 
         flags

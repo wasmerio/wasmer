@@ -14,6 +14,7 @@ use cranelift_codegen::{
 };
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext};
 use std::{cmp, mem};
+use target_lexicon::Architecture;
 use wasmer_compiler::{misc::CompiledKind, types::function::FunctionBody};
 use wasmer_types::{CompileError, FunctionType, VMOffsets};
 
@@ -21,6 +22,7 @@ use wasmer_types::{CompileError, FunctionType, VMOffsets};
 pub fn make_trampoline_dynamic_function(
     callbacks: &Option<CraneliftCallbacks>,
     isa: &dyn TargetIsa,
+    arch: Architecture,
     offsets: &VMOffsets,
     fn_builder_ctx: &mut FunctionBuilderContext,
     func_type: &FunctionType,
@@ -125,6 +127,11 @@ pub fn make_trampoline_dynamic_function(
             &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
             &code_buf,
         );
+        callbacks.asm_memory_buffer(
+            &CompiledKind::DynamicFunctionTrampoline(func_type.clone()),
+            arch,
+            &code_buf,
+        )?;
     }
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
