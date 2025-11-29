@@ -275,7 +275,6 @@ iprange = "0.6.7"
 smoltcp = { version = "0.8", default-features = false }
 tokio-serde = "0.9"
 tokio-util = "0.7.8"
-corosensei = "0.3.0"
 crossbeam-queue = "0.3.8"
 fnv = "1.0.3"
 scopeguard = "1.1.0"
