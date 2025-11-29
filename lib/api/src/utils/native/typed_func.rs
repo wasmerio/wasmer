@@ -82,24 +82,26 @@ macro_rules! impl_native_traits {
             /// Call the typed func asynchronously.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
-            pub fn call_async<'a>(
-                &'a self,
-                store: &'a impl AsStoreAsync,
+            pub fn call_async(
+                &self,
+                store: &impl AsStoreAsync,
                 $( $x: $x, )*
-            ) -> impl Future<Output = Result<Rets, RuntimeError>> + 'a
+            ) -> impl Future<Output = Result<Rets, RuntimeError>> + Sized + 'static
             where
-                $( $x: FromToNativeWasmType, )*
+                $( $x: FromToNativeWasmType + 'static, )*
             {
                 $(
                     let [<p_ $x>] = $x;
                 )*
+                let store = store.store();
+                let func = self.func.clone();
                 async move {
                     let read_lock = store.read_lock().await;
                     match read_lock.as_store_ref().inner.store {
                         #[cfg(feature = "sys")]
                         BackendStore::Sys(_) => {
                             drop(read_lock);
-                            self.call_async_sys(store, $([<p_ $x>]),*).await
+                            Self::call_async_sys_internal(func, store, $([<p_ $x>]),*).await
                         }
                         #[cfg(feature = "wamr")]
                         BackendStore::Wamr(_) => async_backend_error(),

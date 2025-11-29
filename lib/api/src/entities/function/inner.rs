@@ -503,11 +503,11 @@ impl BackendFunction {
         })
     }
 
-    pub fn call_async<'a>(
-        &'a self,
-        store: &'a impl AsStoreAsync,
+    pub fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
         params: Vec<Value>,
-    ) -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'static>> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.call_async(store, params),

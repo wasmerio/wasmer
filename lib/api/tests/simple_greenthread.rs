@@ -86,7 +86,7 @@ async fn greenthread_new(
         .spawn_local(async move {
             receiver.await.unwrap();
             let resumer = function
-                .call_async(&async_store, &[Value::I32(entrypoint_data as i32)])
+                .call_async(&async_store, vec![Value::I32(entrypoint_data as i32)])
                 .await;
             panic!("Greenthread function returned {:?}", resumer);
         })
@@ -208,7 +208,7 @@ fn run_greenthread_test(wat: &[u8]) -> Result<Vec<String>> {
     let store_async = store.into_async();
 
     localpool
-        .run_until(main_fn.call_async(&store_async, &[]))
+        .run_until(main_fn.call_async(&store_async, vec![]))
         .unwrap();
 
     // If there are no more clones of it, StoreAsync can also be

@@ -20,11 +20,11 @@ use wasmer_types::StoreId;
 
 type HostFuture = Pin<Box<dyn Future<Output = DynamicFunctionResult> + 'static>>;
 
-pub(crate) fn call_function_async<'a>(
+pub(crate) fn call_function_async(
     function: SysFunction,
     store: StoreAsync,
     params: Vec<Value>,
-) -> AsyncCallFuture<'a> {
+) -> AsyncCallFuture {
     AsyncCallFuture::new(function, store, params)
 }
 
@@ -35,9 +35,9 @@ enum AsyncResume {
     HostFutureReady(DynamicFunctionResult),
 }
 
-pub(crate) struct AsyncCallFuture<'a> {
+pub(crate) struct AsyncCallFuture {
     coroutine: Option<Coroutine<AsyncResume, AsyncYield, DynamicCallResult>>,
-    pending_store_install: Option<Pin<Box<dyn Future<Output = StoreContextInstaller> + 'a>>>,
+    pending_store_install: Option<Pin<Box<dyn Future<Output = StoreContextInstaller>>>>,
     pending_future: Option<HostFuture>,
     next_resume: Option<AsyncResume>,
     result: Option<DynamicCallResult>,
@@ -100,7 +100,7 @@ impl AsStoreMut for AsyncCallStoreMut {
     }
 }
 
-impl<'a> AsyncCallFuture<'a> {
+impl AsyncCallFuture {
     pub(crate) fn new(function: SysFunction, store: StoreAsync, params: Vec<Value>) -> Self {
         let store_id = store.id;
         let coroutine =
@@ -128,7 +128,7 @@ impl<'a> AsyncCallFuture<'a> {
     }
 }
 
-impl Future for AsyncCallFuture<'_> {
+impl Future for AsyncCallFuture {
     type Output = DynamicCallResult;
 
     fn poll(mut self: Pin<&mut Self>, cx: &mut Context<'_>) -> Poll<Self::Output> {
@@ -200,30 +200,33 @@ enum StoreContextInstaller {
 impl StoreContextInstaller {
     async fn install(store: StoreAsync) -> Self {
         match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
-            crate::GetAsyncStoreGuardResult::NotAsync(_) => {
-                // This async call is being polled from inside a sync call, such as:
-                //   call() -> imported function (sync or async) -> call_async().poll()
-                // In this case, we can never progress.
-                //
-                // If the imported function is async, suspending here will cause a
-                // YieldOutsideAsyncContext trap to be raised.
-                //
-                // If the imported function is sync and you're hoping to drive this
-                // future to completion (maybe using an inline blocker), may God have
-                // mercy on you. Also, I *think* that's impossible given the way this
-                // crate's public API is currently set up.
-                tracing::warn!("Async function polled from sync context; suspending forever");
-                futures::future::pending().await
-            }
-            crate::GetAsyncStoreGuardResult::Ok(wrapper) => {
-                // If we're already in the scope of this store, we can just reuse it.
-                Self::FromThreadContext(wrapper)
-            }
             crate::GetAsyncStoreGuardResult::NotInstalled => {
-                // Otherwise, need to acquire a new StoreMut.
+                // We always need to acquire a new write lock on the store.
                 let store_guard = store.inner.write().await;
                 let install_guard = unsafe { crate::StoreContext::install_async(store_guard) };
                 Self::Installed(install_guard)
+            }
+            _ => {
+                // If we're already in a store context, it is unsafe to reuse
+                // the existing store ref since it'll also be accessible from
+                // the imported function that tried to poll us, which is a
+                // double mutable borrow.
+                // Note to people who discover this code: this *would* be safe
+                // if we had a separate variation of call_async that just
+                // used the existing coroutine context instead of spawning a
+                // new coroutine. However, the current call_async always spawns
+                // a new coroutine, so we can't allow this; every coroutine
+                // needs to own its write lock on the store to make sure there
+                // are no overlapping mutable borrows. If this is something
+                // you're interested in, feel free to open a GitHub issue outlining
+                // your use-case.
+                panic!(
+                    "Function::call_async futures cannot be polled recursively \
+                    from within another imported function. If you need to await \
+                    a recursive call_async, consider spawning the future into \
+                    your async runtime and awaiting the resulting task; \
+                    e.g. tokio::task::spawn(func.call_async(...)).await"
+                );
             }
         }
     }

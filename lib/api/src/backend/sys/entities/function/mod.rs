@@ -576,11 +576,11 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn call_async<'a>(
+    pub(crate) fn call_async(
         &self,
-        store: &'a impl AsStoreAsync,
+        store: &impl AsStoreAsync,
         params: Vec<Value>,
-    ) -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'a>> {
+    ) -> Pin<Box<dyn Future<Output = DynamicCallResult> + 'static>> {
         let function = self.clone();
         let store = store.store();
         Box::pin(call_function_async(function, store, params))

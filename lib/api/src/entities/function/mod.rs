@@ -24,9 +24,6 @@ use crate::{
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
 
-#[cfg(feature = "sys")]
-use crate::backend::sys::async_runtime::{block_on_host_future, call_function_async};
-
 /// The return type from dynamic imported functions.
 pub type DynamicFunctionResult = Result<Vec<Value>, RuntimeError>;
 
@@ -331,14 +328,13 @@ impl Function {
     /// coroutine stack. Host functions created with [`Function::new_async`] may
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
-    #[must_use("This function spawns a future that must be awaited to produce results")]
-    pub fn call_async<'a>(
-        &'a self,
-        store: &'a impl AsStoreAsync,
-        params: &'a [Value],
-    ) -> impl Future<Output = DynamicCallResult> + 'a {
-        let params_vec = params.to_vec();
-        self.0.call_async(store, params_vec)
+    #[must_use = "This function spawns a future that must be awaited to produce results"]
+    pub fn call_async(
+        &self,
+        store: &impl AsStoreAsync,
+        params: Vec<Value>,
+    ) -> impl Future<Output = DynamicCallResult> + 'static {
+        self.0.call_async(store, params)
     }
 
     #[doc(hidden)]
