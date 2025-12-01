@@ -17,6 +17,7 @@ use wasmer::{
 use wasmer::{StoreMut, Tag, Type};
 
 /// Return the function corresponding to the given entrypoint index if it exists and has the signature `() -> ()`
+// TODO: Use a typed function
 pub fn lookup_typechecked_entrypoint(
     data: &WasiEnv,
     mut store: &mut StoreMut<'_>,
