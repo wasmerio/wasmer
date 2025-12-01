@@ -11,7 +11,7 @@ int counter = 0;
 
 void test1(void) {
   counter += 1;
-  wasix_context_switch(context_main_context);
+  wasix_context_switch(wasix_context_main);
 }
 
 // Required because switching with the real main currently segfaults

@@ -15,7 +15,7 @@ void test1(void) {
   while (1) {
     wasix_context_switch(context2);
     if (stop == 1) {
-      wasix_context_switch(context_main_context);
+      wasix_context_switch(wasix_context_main);
     }
     counter++;
     printf("%s", message);
