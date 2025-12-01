@@ -109,6 +109,9 @@ async fn inner_context_switch(
         }
     };
 
+    // Drop the write lock before awaiting, as that would cause a deadlock
+    drop(write_lock);
+
     // Wait until we are unblocked again
     wait_for_unblock.map(|v| v.map(|_| Errno::Success)).await
 }
