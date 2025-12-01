@@ -64,3 +64,75 @@ fn test_switching_to_a_deleted_context() {
 fn test_switching_threads() {
     test_with_wasixcc("switching_in_threads").unwrap();
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_multiple_contexts() {
+    test_with_wasixcc("multiple_contexts").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_error_handling() {
+    test_with_wasixcc("error_handling").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_nested_switches() {
+    test_with_wasixcc("nested_switches").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_state_preservation() {
+    test_with_wasixcc("state_preservation").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_main_context_id() {
+    test_with_wasixcc("main_context_id").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_self_switching() {
+    test_with_wasixcc("self_switching").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_cleanup_order() {
+    test_with_wasixcc("cleanup_order").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_deep_recursion() {
+    test_with_wasixcc("deep_recursion").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_rapid_switching() {
+    test_with_wasixcc("rapid_switching").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_heap_allocations() {
+    test_with_wasixcc("heap_allocations").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_many_contexts() {
+    test_with_wasixcc("many_contexts").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_file_io_switching() {
+    test_with_wasixcc("file_io_switching").unwrap();
+}
