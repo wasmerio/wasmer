@@ -92,13 +92,13 @@ pub(crate) struct StorePtrWrapper {
 }
 
 #[cfg(feature = "experimental-async")]
-pub(crate) struct AsyncStoreGuardWrapper {
+pub(crate) struct StoreAsyncGuardWrapper {
     pub(crate) guard: *mut LocalRwLockWriteGuard<StoreInner>,
 }
 
 #[cfg(feature = "experimental-async")]
-pub(crate) enum GetAsyncStoreGuardResult {
-    Ok(AsyncStoreGuardWrapper),
+pub(crate) enum GetStoreAsyncGuardResult {
+    Ok(StoreAsyncGuardWrapper),
     NotAsync(StorePtrWrapper),
     NotInstalled,
 }
@@ -232,24 +232,24 @@ impl StoreContext {
 
     /// Safety: See [`Self::get_current`].
     #[cfg(feature = "experimental-async")]
-    pub(crate) unsafe fn try_get_current_async(id: StoreId) -> GetAsyncStoreGuardResult {
+    pub(crate) unsafe fn try_get_current_async(id: StoreId) -> GetStoreAsyncGuardResult {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
             let Some(top) = stack.last_mut() else {
-                return GetAsyncStoreGuardResult::NotInstalled;
+                return GetStoreAsyncGuardResult::NotInstalled;
             };
             if top.id != id {
-                return GetAsyncStoreGuardResult::NotInstalled;
+                return GetStoreAsyncGuardResult::NotInstalled;
             }
             top.borrow_count += 1;
             match unsafe { top.entry.get().as_mut().unwrap() } {
                 StoreContextEntry::Async(guard) => {
-                    GetAsyncStoreGuardResult::Ok(AsyncStoreGuardWrapper {
+                    GetStoreAsyncGuardResult::Ok(StoreAsyncGuardWrapper {
                         guard: guard as *mut _,
                     })
                 }
                 StoreContextEntry::Sync(ptr) => {
-                    GetAsyncStoreGuardResult::NotAsync(StorePtrWrapper { store_ptr: *ptr })
+                    GetStoreAsyncGuardResult::NotAsync(StorePtrWrapper { store_ptr: *ptr })
                 }
             }
         })
@@ -304,7 +304,7 @@ impl Drop for StorePtrWrapper {
 }
 
 #[cfg(feature = "experimental-async")]
-impl Drop for AsyncStoreGuardWrapper {
+impl Drop for StoreAsyncGuardWrapper {
     fn drop(&mut self) {
         let id = unsafe { self.guard.as_ref().unwrap().objects.id() };
         STORE_CONTEXT_STACK.with(|cell| {

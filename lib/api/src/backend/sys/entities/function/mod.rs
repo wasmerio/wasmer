@@ -159,11 +159,11 @@ impl Function {
             unsafe {
                 let mut context = StoreContext::try_get_current_async(store_id);
                 let mut store_mut = match &mut context {
-                    crate::GetAsyncStoreGuardResult::Ok(wrapper) => StoreMut {
+                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => StoreMut {
                         inner: wrapper.guard.as_mut().unwrap(),
                     },
-                    crate::GetAsyncStoreGuardResult::NotAsync(ptr) => ptr.as_mut(),
-                    crate::GetAsyncStoreGuardResult::NotInstalled => {
+                    crate::GetStoreAsyncGuardResult::NotAsync(ptr) => ptr.as_mut(),
+                    crate::GetStoreAsyncGuardResult::NotInstalled => {
                         panic!("No store context installed on this thread")
                     }
                 };
@@ -178,7 +178,7 @@ impl Function {
                     ));
                 }
                 let store_async = match context {
-                    crate::GetAsyncStoreGuardResult::Ok(wrapper) => {
+                    crate::GetStoreAsyncGuardResult::Ok(wrapper) => {
                         AsyncFunctionEnvMutStore::Async(StoreAsync {
                             id,
                             inner: crate::LocalRwLockWriteGuard::lock_handle(
@@ -186,10 +186,10 @@ impl Function {
                             ),
                         })
                     }
-                    crate::GetAsyncStoreGuardResult::NotAsync(ptr) => {
+                    crate::GetStoreAsyncGuardResult::NotAsync(ptr) => {
                         AsyncFunctionEnvMutStore::Sync(ptr)
                     }
-                    crate::GetAsyncStoreGuardResult::NotInstalled => unreachable!(),
+                    crate::GetStoreAsyncGuardResult::NotInstalled => unreachable!(),
                 };
                 let env = crate::AsyncFunctionEnvMut(crate::BackendAsyncFunctionEnvMut::Sys(
                     env::AsyncFunctionEnvMut {

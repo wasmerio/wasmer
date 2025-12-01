@@ -1,7 +1,7 @@
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 #[cfg(feature = "experimental-async")]
-use crate::{AsStoreAsync, AsyncStoreReadLock, AsyncStoreWriteLock, StoreAsync};
+use crate::{AsStoreAsync, StoreAsync, StoreAsyncReadLock, StoreAsyncWriteLock};
 use crate::{
     Store, StoreContext, StoreInner, StoreMut, StorePtrWrapper,
     store::{AsStoreMut, AsStoreRef, StoreRef},
@@ -231,14 +231,14 @@ pub(crate) enum AsyncFunctionEnvMutStore {
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvHandle<T> {
-    read_lock: AsyncStoreReadLock,
+    read_lock: StoreAsyncReadLock,
     pub(crate) func_env: FunctionEnv<T>,
 }
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
 #[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvHandleMut<T> {
-    write_lock: AsyncStoreWriteLock,
+    write_lock: StoreAsyncWriteLock,
     pub(crate) func_env: FunctionEnv<T>,
 }
 

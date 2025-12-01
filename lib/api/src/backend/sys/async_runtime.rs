@@ -194,7 +194,7 @@ impl Future for AsyncCallFuture {
 
 async fn install_store_context(store: StoreAsync) -> ForcedStoreInstallGuard {
     match unsafe { crate::StoreContext::try_get_current_async(store.id) } {
-        crate::GetAsyncStoreGuardResult::NotInstalled => {
+        crate::GetStoreAsyncGuardResult::NotInstalled => {
             // We always need to acquire a new write lock on the store.
             let store_guard = store.inner.write().await;
             unsafe { crate::StoreContext::install_async(store_guard) }
