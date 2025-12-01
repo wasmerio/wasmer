@@ -1,4 +1,3 @@
-// TODO: Move file out of thread folder
 use crate::{
     WasiFunctionEnv,
     utils::thread_local_executor::{
@@ -17,7 +16,7 @@ use std::{
     },
 };
 use thiserror::Error;
-use wasmer::RuntimeError;
+use wasmer::{AsStoreRef, RuntimeError, Store};
 
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingContext {
@@ -67,10 +66,10 @@ impl ContextSwitchingContext {
     /// This call blocks until the entrypoint returns, or it or any of the contexts it spawns traps
     pub(crate) fn run_main_context(
         ctx: &WasiFunctionEnv,
-        mut store: &mut (impl wasmer::AsStoreMut + 'static),
+        mut store: Store,
         entrypoint: wasmer::Function,
         params: Vec<wasmer::Value>,
-    ) -> Result<Box<[wasmer::Value]>, RuntimeError> {
+    ) -> (Store, Result<Box<[wasmer::Value]>, RuntimeError>) {
         // Create a new executor
         let mut local_executor = ThreadLocalExecutor::new();
 
@@ -85,16 +84,19 @@ impl ContextSwitchingContext {
             );
         }
 
+        let store_async = store.into_async();
         // Run function with the spawner
-        let result = local_executor.run_until(entrypoint.call_async(&mut *store, &params));
+        let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
 
         // Remove the spawner again
+        let mut store = store_async.into_store().ok().unwrap();
+
         let env = ctx.data_mut(&mut store);
         env.context_switching_context.take().expect(
             "Failed to remove wasix context switching context from WASI env after main context finished, this should never happen",
         );
 
-        result
+        (store, result)
     }
 
     /// Get the ID of the currently active context

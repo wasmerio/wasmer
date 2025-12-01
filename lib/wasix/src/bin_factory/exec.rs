@@ -185,31 +185,30 @@ pub fn run_exec(props: TaskWasmRunProperties) {
     let recycle = props.recycle;
 
     // Perform the initialization
-    let ctx = {
-        // If this module exports an _initialize function, run that first.
-        if let Ok(initialize) = ctx
-            .data(&store)
-            .inner()
-            .main_module_instance_handles()
-            .instance
-            .exports
-            .get_function("_initialize")
-        {
-            let initialize = initialize.clone();
+    // If this module exports an _initialize function, run that first.
+    if let Ok(initialize) = ctx
+        .data(&store)
+        .inner()
+        .main_module_instance_handles()
+        .instance
+        .exports
+        .get_function("_initialize")
+        .cloned()
+    {
+        // TODO: The call to initialize for the main module does not yet run in an context-switching environment.
+        //       The call to initialize for dlopen'ed modules does run in an context-switching environment.
+        //       This should be made consistent.
+        // TODO: Or document that the context-switching environment only starts with main
+        let result = initialize.call(&mut store, &[]);
 
-            if let Err(err) =
-                ContextSwitchingContext::run_main_context(&ctx, &mut store, initialize, vec![])
-            {
-                thread.thread.set_status_finished(Err(err.into()));
-                ctx.data(&store)
-                    .blocking_on_exit(Some(Errno::Noexec.into()));
-                unsafe { run_recycle(recycle, ctx, store) };
-                return;
-            }
+        if let Err(err) = result {
+            thread.thread.set_status_finished(Err(err.into()));
+            ctx.data(&store)
+                .blocking_on_exit(Some(Errno::Noexec.into()));
+            unsafe { run_recycle(recycle, ctx, store) };
+            return;
         }
-
-        WasiFunctionEnv { env: ctx.env }
-    };
+    }
 
     // Bootstrap the process
     // Unsafe: The bootstrap must be executed in the same thread that runs the
@@ -292,86 +291,86 @@ fn call_module(
     }
 
     // Invoke the start function
-    let ret = {
-        // Call the module
-        let Some(start) = get_start(&ctx, &store) else {
-            debug!("wasi[{}]::exec-failed: missing _start function", pid);
-            ctx.data(&store)
-                .blocking_on_exit(Some(Errno::Noexec.into()));
-            unsafe { run_recycle(recycle, ctx, store) };
-            return;
-        };
+    // Call the module
+    let Some(start) = get_start(&ctx, &store) else {
+        debug!("wasi[{}]::exec-failed: missing _start function", pid);
+        ctx.data(&store)
+            .blocking_on_exit(Some(Errno::Noexec.into()));
+        unsafe { run_recycle(recycle, ctx, store) };
+        return;
+    };
 
-        let mut call_ret =
-            ContextSwitchingContext::run_main_context(&ctx, &mut store, start.clone(), vec![]);
+    let (mut store, mut call_ret) =
+        ContextSwitchingContext::run_main_context(&ctx, store, start.clone(), vec![]);
 
-        loop {
-            // Technically, it's an error for a vfork to return from main, but anyway...
-            match resume_vfork(&ctx, &mut store, &start, &call_ret) {
-                // A vfork was resumed, there may be another, so loop back
-                Ok(Some(ret)) => call_ret = ret,
+    loop {
+        // Technically, it's an error for a vfork to return from main, but anyway...
+        // TODO: Then we should probably just trap immediately when that happens...
+        //       this code is complex enough as it is
+        match resume_vfork(&ctx, &mut store, &start, &call_ret) {
+            // A vfork was resumed, there may be another, so loop back
+            Ok(Some(ret)) => call_ret = ret,
 
-                // An error was encountered when restoring from the vfork, report it
-                Err(e) => {
-                    call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
-                    break;
-                }
-
-                // No vfork, keep the call_ret value
-                Ok(None) => break,
+            // An error was encountered when restoring from the vfork, report it
+            Err(e) => {
+                call_ret = Err(RuntimeError::user(Box::new(WasiError::Exit(e.into()))));
+                break;
             }
+
+            // No vfork, keep the call_ret value
+            Ok(None) => break,
         }
+    }
 
-        if let Err(err) = call_ret {
-            match err.downcast::<WasiError>() {
-                Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
-                Ok(WasiError::ThreadExit) => Ok(Errno::Success),
-                Ok(WasiError::Exit(code)) => {
-                    runtime.on_taint(TaintReason::NonZeroExitCode(code));
-                    Err(WasiError::Exit(code).into())
-                }
-                Ok(WasiError::DeepSleep(deep)) => {
-                    // Create the callback that will be invoked when the thread respawns after a deep sleep
-                    let rewind = deep.rewind;
-                    let respawn = {
-                        move |ctx, store, rewind_result| {
-                            // Call the thread
-                            call_module(
-                                ctx,
-                                store,
-                                handle,
-                                Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
-                                recycle,
-                            );
-                        }
-                    };
-
-                    // Spawns the WASM process after a trigger
-                    if let Err(err) = unsafe {
-                        tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
-                    } {
-                        debug!("failed to go into deep sleep - {}", err);
+    let ret = if let Err(err) = call_ret {
+        match err.downcast::<WasiError>() {
+            Ok(WasiError::Exit(code)) if code.is_success() => Ok(Errno::Success),
+            Ok(WasiError::ThreadExit) => Ok(Errno::Success),
+            Ok(WasiError::Exit(code)) => {
+                runtime.on_taint(TaintReason::NonZeroExitCode(code));
+                Err(WasiError::Exit(code).into())
+            }
+            Ok(WasiError::DeepSleep(deep)) => {
+                // Create the callback that will be invoked when the thread respawns after a deep sleep
+                let rewind = deep.rewind;
+                let respawn = {
+                    move |ctx, store, rewind_result| {
+                        // Call the thread
+                        call_module(
+                            ctx,
+                            store,
+                            handle,
+                            Some((rewind, RewindResultType::RewindWithResult(rewind_result))),
+                            recycle,
+                        );
                     }
-                    return;
+                };
+
+                // Spawns the WASM process after a trigger
+                if let Err(err) = unsafe {
+                    tasks.resume_wasm_after_poller(Box::new(respawn), ctx, store, deep.trigger)
+                } {
+                    debug!("failed to go into deep sleep - {}", err);
                 }
-                Ok(WasiError::UnknownWasiVersion) => {
-                    debug!("failed as wasi version is unknown");
-                    runtime.on_taint(TaintReason::UnknownWasiVersion);
-                    Ok(Errno::Noexec)
-                }
-                Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
-                    debug!("failed as a needed DL symbol could not be resolved");
-                    runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
-                    Err(WasiError::DlSymbolResolutionFailed(symbol).into())
-                }
-                Err(err) => {
-                    runtime.on_taint(TaintReason::RuntimeError(err.clone()));
-                    Err(WasiRuntimeError::from(err))
-                }
+                return;
             }
-        } else {
-            Ok(Errno::Success)
+            Ok(WasiError::UnknownWasiVersion) => {
+                debug!("failed as wasi version is unknown");
+                runtime.on_taint(TaintReason::UnknownWasiVersion);
+                Ok(Errno::Noexec)
+            }
+            Ok(WasiError::DlSymbolResolutionFailed(symbol)) => {
+                debug!("failed as a needed DL symbol could not be resolved");
+                runtime.on_taint(TaintReason::DlSymbolResolutionFailed(symbol.clone()));
+                Err(WasiError::DlSymbolResolutionFailed(symbol).into())
+            }
+            Err(err) => {
+                runtime.on_taint(TaintReason::RuntimeError(err.clone()));
+                Err(WasiRuntimeError::from(err))
+            }
         }
+    } else {
+        Ok(Errno::Success)
     };
 
     let code = if let Err(err) = &ret {
