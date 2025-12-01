@@ -226,7 +226,7 @@ jobs:
           WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
 
   test_build_jsc:
-    name: JSC build
+    name: JSC
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -446,7 +446,7 @@ jobs:
             {
               key: capi,
               build-cmd: "make build-capi && make package-capi",
-              name: "Build C-API",
+              name: "C-API",
             },
             {
               key: wasmer,
