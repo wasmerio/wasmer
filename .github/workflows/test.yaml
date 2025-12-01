@@ -107,7 +107,7 @@ jobs:
           log-level: error
 
   test_nodejs:
-    name: Test on NodeJS
+    name: NodeJS
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -127,7 +127,7 @@ jobs:
           make test-js
 
   test_wasi_fyi:
-    name: Test wasi-fyi
+    name: Wasi-fyi
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -161,7 +161,7 @@ jobs:
       #     make test-js-core
 
   test_wasix:
-    name: Test WASIX
+    name: WASIX
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -226,7 +226,7 @@ jobs:
           WASI_SDK=~/wasi-sdk WASIX_SYSROOT=$(pwd)/sysroot/wasix-sysroot/sysroot make test-wasix
 
   test_build_jsc:
-    name: Test JSC build
+    name: JSC build
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -344,7 +344,7 @@ jobs:
         run: ${{ matrix.build-what.build-cmd }}
 
   test_build_docs_rs:
-    name: Test build docs rs
+    name: Build docs.rs
     runs-on: ubuntu-22.04
     steps:
       - uses: actions/checkout@v6
@@ -385,12 +385,12 @@ jobs:
             {
               key: capi,
               build-cmd: "make build-capi && make package-capi",
-              name: "Build C-API",
+              name: "C-API",
             },
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Build wasmer-cli",
+              name: "Wasmer-cli",
             },
           ]
     steps:
@@ -787,7 +787,7 @@ jobs:
         stage:
           [
             {
-              description: "WAST all compilers",
+              description: "WAST (all compilers)",
               make: "test-stage-0-wast",
             },
             {
@@ -795,15 +795,15 @@ jobs:
               make: "test-stage-1-test-all",
             },
             {
-              description: "cranelift on no-std",
+              description: "Cranelift on no-std",
               make: "test-stage-2-test-compiler-cranelift-nostd",
             },
             {
-              description: "singlepass on no-std",
+              description: "Singlepass on no-std",
               make: "test-stage-3-test-compiler-singlepass-nostd",
             },
             {
-              description: "wasmer-cli",
+              description: "Wasmer-cli",
               make: "test-stage-4-wasmer-cli",
             },
             {
