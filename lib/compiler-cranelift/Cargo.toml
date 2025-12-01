@@ -14,21 +14,21 @@ rust-version.workspace = true
 version.workspace = true
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "=6.1.0", features = [
+wasmer-compiler = { path = "../compiler", version = "=6.1.0", default-features = false, features = [
 	"translator",
 	"compiler",
-], default-features = false }
+] }
 wasmer-types = { path = "../types", version = "=6.1.0", default-features = false, features = [
 	"std",
 ] }
 
-cranelift-entity = { version = "=0.124.2", default-features = false }
-cranelift-codegen = { version = "=0.124.2", default-features = false, features = [
+cranelift-entity = { workspace = true }
+cranelift-codegen = { workspace = true, features = [
 	"x86",
 	"arm64",
 	"riscv64",
 ] }
-cranelift-frontend = { version = "=0.124.2", default-features = false }
+cranelift-frontend = { workspace = true }
 
 itertools.workspace = true
 tracing.workspace = true
@@ -37,11 +37,10 @@ rayon = { workspace = true, optional = true }
 more-asserts.workspace = true
 gimli = { workspace = true, optional = true }
 smallvec.workspace = true
-target-lexicon = { workspace = true, default-features = false }
+target-lexicon = { workspace = true }
 
 [dev-dependencies]
-cranelift-codegen = { version = "=0.124.2", features = ["all-arch"] }
-wat = "1.216.0"
+cranelift-codegen = { workspace = true, features = ["all-arch"] }
 
 [badges]
 maintenance = { status = "actively-developed" }

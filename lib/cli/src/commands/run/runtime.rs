@@ -173,7 +173,8 @@ impl<R: wasmer_wasix::Runtime + Send + Sync> wasmer_wasix::Runtime for Monitorin
 
         self.progress.reset();
         if self.progress.is_hidden() {
-            self.progress.set_draw_target(indicatif::ProgressDrawTarget::stderr());
+            self.progress
+                .set_draw_target(indicatif::ProgressDrawTarget::stderr());
         }
         self.progress.set_message(progress_msg);
 

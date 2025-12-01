@@ -12,7 +12,10 @@ use crate::{
 use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{X86_64, write::CallFrameInstruction};
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 use wasmer_compiler::{
     types::{
         address_map::InstructionAddressMap,
@@ -2343,28 +2346,13 @@ impl Machine for MachineX86_64 {
             ),
         }
     }
-    // Get simple param location
+
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        let register_params = self.get_param_registers(calling_convention);
-        match calling_convention {
-            CallingConvention::WindowsFastcall => register_params.get(idx).map_or_else(
-                || {
-                    Location::Memory(
-                        GPR::RBP,
-                        (32 + 16 + (idx - register_params.len()) * 8) as i32,
-                    )
-                },
-                |reg| Location::GPR(*reg),
-            ),
-            _ => register_params.get(idx).map_or_else(
-                || Location::Memory(GPR::RBP, (16 + (idx - register_params.len()) * 8) as i32),
-                |reg| Location::GPR(*reg),
-            ),
-        }
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
 
     /// Get return value location (to build a call, using SP for stack return values).
@@ -2534,9 +2522,15 @@ impl Machine for MachineX86_64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 
@@ -2654,7 +2648,7 @@ impl Machine for MachineX86_64 {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> GPR {
+    fn get_gpr_for_call(&self) -> GPR {
         GPR::RAX
     }
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
@@ -2662,12 +2656,6 @@ impl Machine for MachineX86_64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-    fn get_gpr_for_ret(&self) -> GPR {
-        GPR::RAX
-    }
-    fn get_simd_for_ret(&self) -> XMM {
-        XMM::XMM0
     }
 
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
@@ -7805,12 +7793,12 @@ impl Machine for MachineX86_64 {
         // Arguments
         a.emit_mov(
             Size::S64,
-            self.get_simple_param_location(1, calling_convention),
+            Location::GPR(self.get_simple_param_location(1, calling_convention)),
             Location::GPR(GPR::R15),
         )?; // func_ptr
         a.emit_mov(
             Size::S64,
-            self.get_simple_param_location(2, calling_convention),
+            Location::GPR(self.get_simple_param_location(2, calling_convention)),
             Location::GPR(GPR::R14),
         )?; // args_rets
 

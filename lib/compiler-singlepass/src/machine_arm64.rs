@@ -1,3 +1,5 @@
+use std::collections::HashMap;
+
 use dynasmrt::{VecAssembler, aarch64::Aarch64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{AArch64, write::CallFrameInstruction};
@@ -1074,12 +1076,7 @@ impl MachineARM64 {
         if offset < 0 {
             return false;
         }
-        let shift = match size {
-            Size::S8 => 0,
-            Size::S16 => 1,
-            Size::S32 => 2,
-            Size::S64 => 3,
-        };
+        let shift = size.bytes().trailing_zeros() as i32;
         if offset >= 0x1000 << shift {
             return false;
         }
@@ -1467,7 +1464,7 @@ impl Machine for MachineARM64 {
     }
 
     fn push_used_simd(&mut self, used_neons: &[NEON]) -> Result<usize, CompileError> {
-        let stack_adjust = if used_neons.len() & 1 == 1 {
+        let stack_adjust = if used_neons.len() % 2 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
             (used_neons.len() * 8) as u32
@@ -1491,7 +1488,7 @@ impl Machine for MachineARM64 {
                 Location::Memory(GPR::XzrSp, (i * 8) as i32),
             )?;
         }
-        let stack_adjust = if used_neons.len() & 1 == 1 {
+        let stack_adjust = if used_neons.len() % 2 == 1 {
             (used_neons.len() * 8) as u32 + 8
         } else {
             (used_neons.len() * 8) as u32
@@ -1731,17 +1728,9 @@ impl Machine for MachineARM64 {
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
                 || {
-                    let sz = 1
-                        << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
                     // align first
-                    if sz > 1 && *stack_args & (sz - 1) != 0 {
-                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
-                    }
+                    let sz = sz.bytes() as usize;
+                    *stack_args = (*stack_args).next_multiple_of(sz);
                     let loc = Location::Memory(GPR::XzrSp, *stack_args as i32);
                     *stack_args += sz;
                     loc
@@ -1775,17 +1764,9 @@ impl Machine for MachineARM64 {
         match calling_convention {
             CallingConvention::AppleAarch64 => register_params.get(idx).map_or_else(
                 || {
-                    let sz = 1
-                        << match sz {
-                            Size::S8 => 0,
-                            Size::S16 => 1,
-                            Size::S32 => 2,
-                            Size::S64 => 3,
-                        };
+                    let sz = sz.bytes() as usize;
                     // align first
-                    if sz > 1 && *stack_args & (sz - 1) != 0 {
-                        *stack_args = (*stack_args + (sz - 1)) & !(sz - 1);
-                    }
+                    *stack_args = (*stack_args).next_multiple_of(sz);
                     let loc = Location::Memory(
                         GPR::X29,
                         16 * 2 + return_values_memory_size + *stack_args as i32,
@@ -1808,22 +1789,13 @@ impl Machine for MachineARM64 {
             ),
         }
     }
-    // Get simple param location, Will not be accurate for Apple calling convention on "stack" arguments
+
     fn get_simple_param_location(
         &self,
         idx: usize,
         calling_convention: CallingConvention,
-    ) -> Location {
-        let register_params = self.get_param_registers(calling_convention);
-        register_params.get(idx).map_or_else(
-            || {
-                Location::Memory(
-                    GPR::X29,
-                    (16 * 2 + (idx - register_params.len()) * 8) as i32,
-                )
-            },
-            |reg| Location::GPR(*reg),
-        )
+    ) -> Self::GPR {
+        self.get_param_registers(calling_convention)[idx]
     }
 
     fn get_return_value_location(
@@ -2210,9 +2182,15 @@ impl Machine for MachineARM64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 
@@ -2331,7 +2309,7 @@ impl Machine for MachineARM64 {
     fn emit_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_label(label)
     }
-    fn get_grp_for_call(&self) -> GPR {
+    fn get_gpr_for_call(&self) -> GPR {
         GPR::X27
     }
     fn emit_call_register(&mut self, reg: GPR) -> Result<(), CompileError> {
@@ -2339,12 +2317,6 @@ impl Machine for MachineARM64 {
     }
     fn emit_call_label(&mut self, label: Label) -> Result<(), CompileError> {
         self.assembler.emit_call_label(label)
-    }
-    fn get_gpr_for_ret(&self) -> GPR {
-        GPR::X0
-    }
-    fn get_simd_for_ret(&self) -> NEON {
-        NEON::V0
     }
 
     fn arch_requires_indirect_call_trampoline(&self) -> bool {
@@ -2371,7 +2343,7 @@ impl Machine for MachineARM64 {
             &mut temps,
             ImmType::None,
             true,
-            Some(GPR::X27),
+            Some(self.get_gpr_for_call()),
         )?;
         match loc {
             Location::GPR(reg) => self.assembler.emit_call_register(reg),
