@@ -404,7 +404,7 @@ jobs:
           docker build -t wasmer/aarch64 ${GITHUB_WORKSPACE}/.github/cross-linux-aarch64/
         env:
           CROSS_DOCKER_IN_DOCKER: true
-      - name: Build ${{ matrix.build-what.key }}
+      - name: ${{ matrix.build-what.key }}
         run: |
           ${{ matrix.build-what.build-cmd }}
         env:
@@ -718,7 +718,7 @@ jobs:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
           CARGO_TARGET: ${{ matrix.metadata.target }}
-      - name: Test C-API (v8)
+      - name: C-API (v8)
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
         if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}
