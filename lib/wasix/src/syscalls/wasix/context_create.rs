@@ -101,6 +101,7 @@ pub fn context_create<M: MemorySize>(
             result.map_or_else(
                 |e| e,
                 |v| {
+                    // TODO: Proper error type
                     RuntimeError::user(
                 format!(
                     "Context {new_context_id} returned a value ({v:?}). This is not allowed for now"
