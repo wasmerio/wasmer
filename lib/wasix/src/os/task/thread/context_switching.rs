@@ -16,7 +16,7 @@ use std::{
     },
 };
 use thiserror::Error;
-use wasmer::{AsStoreRef, RuntimeError, Store};
+use wasmer::{RuntimeError, Store};
 
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingContext {
@@ -139,6 +139,10 @@ impl ContextSwitchingContext {
             .insert(target_context_id, unblocker)
     }
 
+    /// Unblock the target context and suspend own context
+    ///
+    /// If this function succeeds, you MUST await the returned future
+    #[must_use]
     pub(crate) fn switch(
         &self,
         target_context_id: u64,
