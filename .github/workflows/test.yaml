@@ -277,7 +277,7 @@ jobs:
           ]
         metadata: [
             { build: linux-x64, os: ubuntu-22.04 },
-            { build: macos-arm, os: macos-14 },
+            { build: macos-arm, os: depot-macos-14 },
             #{
             #  build: windows-x64,
             #  os: windows-2022,
@@ -546,7 +546,7 @@ jobs:
             },
             {
               build: macos-arm,
-              os: macos-14,
+              os: depot-macos-14,
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
@@ -582,6 +582,8 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v6
+      - name: Set up Depot CLI
+        uses: depot/setup-action@v1
       - name: Set up libstdc++ on Linux
         if: matrix.metadata.build == 'linux-x64'
         run: |
@@ -826,7 +828,7 @@ jobs:
             },
             {
               build: macos-arm,
-              os: macos-14,
+              os: depot-macos-14,
               target: aarch64-apple-darwin,
               exe: "",
               llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
@@ -908,7 +910,7 @@ jobs:
         env:
           LLVM_DIR: .llvm
       - name: Add `brew` libs to `RUSTFLAGS`
-        if: matrix.metadata.os == 'macos-14'
+        if: matrix.metadata.os == 'macos-14' || matrix.metadata.os == 'depot-macos-14'
         shell: bash
         run: |
           echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
@@ -962,7 +964,7 @@ jobs:
             target: x86_64-apple-darwin
           # we only build the integration-test CLI, we don't run tests
           - build: macos-arm
-            os: macos-14
+            os: depot-macos-14
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
