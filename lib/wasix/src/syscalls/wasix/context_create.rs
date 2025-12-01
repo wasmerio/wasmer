@@ -1,20 +1,7 @@
-use super::*;
-use crate::os::task::thread::context_switching::{ContextCanceled, ContextSwitchingContext};
-use crate::syscalls::*;
-use crate::utils::thread_local_executor::ThreadLocalSpawnerError;
-use core::panic;
-use futures::TryFutureExt;
-use futures::channel::oneshot::{Receiver, Sender};
-use futures::task::LocalSpawnExt;
-use futures::{FutureExt, channel::oneshot};
-use std::collections::BTreeMap;
-use std::sync::atomic::AtomicU32;
-use std::sync::{Arc, OnceLock, RwLock};
-use wasmer::{
-    AsStoreMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory, Module,
-    RuntimeError, Store, Value, imports,
-};
-use wasmer::{StoreMut, Tag, Type};
+use crate::{WasiEnv, WasiError};
+use tracing::instrument;
+use wasmer::{Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, Value, WasmPtr};
+use wasmer_wasix_types::wasi::Errno;
 
 /// Return the function corresponding to the given entrypoint index if it exists and has the signature `() -> ()`
 // TODO: Use a typed function

@@ -1,21 +1,10 @@
-use super::*;
-use crate::os::task::thread::context_switching::ContextSwitchError;
-use crate::syscalls::*;
+use crate::{WasiEnv, os::task::thread::context_switching::ContextSwitchError};
 use MaybeLater::{Later, Now};
-use anyhow::Result;
-use core::panic;
-use futures::TryFutureExt;
-use futures::task::LocalSpawnExt;
-use futures::{FutureExt, channel::oneshot};
-use std::collections::BTreeMap;
-use std::sync::atomic::AtomicU32;
-use std::sync::{Arc, OnceLock, RwLock};
-use thiserror::Error;
-use wasmer::{
-    AsStoreMut, AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance,
-    Memory, Module, RuntimeError, Store, Value, imports,
-};
-use wasmer::{StoreMut, Tag, Type};
+use futures::FutureExt;
+use tracing::instrument;
+use wasmer::{AsyncFunctionEnvMut, RuntimeError};
+use wasmer_wasix_types::wasi::Errno;
+
 // TODO: combine context_switch and inner_context_switch
 /// Suspend the active context and resume another
 ///
