@@ -506,22 +506,22 @@ jobs:
             {
               key: capi,
               build-cmd: "make build-capi && make build-capi-headless && make package-capi && make tar-capi",
-              name: "Build and test C-API",
+              name: "C-API",
             },
             {
               key: capi-v8,
               build-cmd: "make test-capi-v8",
-              name: "Build and test C-API with v8",
+              name: "C-API with v8",
             },
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Build wasmer-cli",
+              name: "wasmer-cli",
             },
             {
               key: "api-feats",
               build-cmd: "make check-api-features",
-              name: "Check wasmer API with all sys features enabled",
+              name: "Check API (all sys features)",
             },
           ]
         metadata: [
@@ -787,27 +787,27 @@ jobs:
         stage:
           [
             {
-              description: "Run wast test suite for all compilers",
+              description: "WAST test (all compilers)",
               make: "test-stage-0-wast",
             },
             {
-              description: "Unit-test packages on std",
+              description: "Packages on std",
               make: "test-stage-1-test-all",
             },
             {
-              description: "Unit-test cranelift on no-std",
+              description: "cranelift on no-std",
               make: "test-stage-2-test-compiler-cranelift-nostd",
             },
             {
-              description: "Unit-test singlepass on no-std",
+              description: "singlepass on no-std",
               make: "test-stage-3-test-compiler-singlepass-nostd",
             },
             {
-              description: "Unit-test wasmer-cli",
+              description: "wasmer-cli",
               make: "test-stage-4-wasmer-cli",
             },
             {
-              description: "Unit-test examples",
+              description: "Examples",
               make: "test-stage-5-test-examples",
             },
           ]
