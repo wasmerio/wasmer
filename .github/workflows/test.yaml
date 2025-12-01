@@ -549,7 +549,7 @@ jobs:
               os: depot-macos-14,
               target: aarch64-apple-darwin,
               exe: "",
-              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/18.x/llvm-darwin-aarch64.tar.xz",
+              llvm_url: "https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-darwin-aarch64.tar.xz",
               supports_v8: true,
             },
             {
