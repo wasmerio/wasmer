@@ -137,7 +137,7 @@ impl Store {
     pub fn into_async(self) -> StoreAsync {
         StoreAsync {
             id: self.id(),
-            inner: LocalRwLock::new(*self.inner),
+            inner: LocalRwLock::new(self.inner),
         }
     }
 }

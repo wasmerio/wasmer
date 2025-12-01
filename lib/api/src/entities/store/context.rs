@@ -58,7 +58,7 @@ enum StoreContextEntry {
     Sync(*mut StoreInner),
 
     #[cfg(feature = "experimental-async")]
-    Async(LocalRwLockWriteGuard<StoreInner>),
+    Async(LocalRwLockWriteGuard<Box<StoreInner>>),
 }
 
 impl StoreContextEntry {
@@ -66,7 +66,7 @@ impl StoreContextEntry {
         match self {
             Self::Sync(ptr) => *ptr,
             #[cfg(feature = "experimental-async")]
-            Self::Async(guard) => &**guard as *const _ as *mut _,
+            Self::Async(guard) => &***guard as *const _ as *mut _,
         }
     }
 }
@@ -93,7 +93,7 @@ pub(crate) struct StorePtrWrapper {
 
 #[cfg(feature = "experimental-async")]
 pub(crate) struct StoreAsyncGuardWrapper {
-    pub(crate) guard: *mut LocalRwLockWriteGuard<StoreInner>,
+    pub(crate) guard: *mut LocalRwLockWriteGuard<Box<StoreInner>>,
 }
 
 #[cfg(feature = "experimental-async")]
@@ -155,7 +155,7 @@ impl StoreContext {
     /// so installation can never fail.
     #[cfg(feature = "experimental-async")]
     pub(crate) fn install_async(
-        guard: LocalRwLockWriteGuard<StoreInner>,
+        guard: LocalRwLockWriteGuard<Box<StoreInner>>,
     ) -> ForcedStoreInstallGuard {
         let store_id = guard.objects.id();
         Self::install(store_id, StoreContextEntry::Async(guard));

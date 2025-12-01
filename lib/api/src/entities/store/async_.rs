@@ -11,7 +11,8 @@ use wasmer_types::StoreId;
 /// [`Function::call_async`](crate::Function::call_async).
 pub struct StoreAsync {
     pub(crate) id: StoreId,
-    pub(crate) inner: LocalRwLock<StoreInner>,
+    // We use a box inside the RW lock because the StoreInner shouldn't be moved
+    pub(crate) inner: LocalRwLock<Box<StoreInner>>,
 }
 
 impl StoreAsync {
@@ -33,9 +34,7 @@ impl StoreAsync {
     /// if this is the only clone of it and is unlocked.
     pub fn into_store(self) -> Result<Store, Self> {
         match self.inner.consume() {
-            Ok(unwrapped) => Ok(Store {
-                inner: Box::new(unwrapped),
-            }),
+            Ok(unwrapped) => Ok(Store { inner: unwrapped }),
             Err(lock) => Err(Self {
                 id: self.id,
                 inner: lock,
@@ -114,7 +113,7 @@ impl AsStoreAsync for StoreAsync {
 
 /// A read lock on an async store.
 pub struct StoreAsyncReadLock {
-    pub(crate) inner: LocalRwLockReadGuard<StoreInner>,
+    pub(crate) inner: LocalRwLockReadGuard<Box<StoreInner>>,
 }
 
 impl StoreAsyncReadLock {
@@ -132,7 +131,7 @@ impl AsStoreRef for StoreAsyncReadLock {
 
 /// A write lock on an async store.
 pub struct StoreAsyncWriteLock {
-    pub(crate) inner: LocalRwLockWriteGuard<StoreInner>,
+    pub(crate) inner: LocalRwLockWriteGuard<Box<StoreInner>>,
 }
 
 impl StoreAsyncWriteLock {
