@@ -187,12 +187,6 @@ fn test_pending_file_operations() {
 
 #[cfg(target_os = "linux")]
 #[test]
-fn test_deep_call_stack_switching() {
-    test_with_wasixcc("deep_call_stack_switching").unwrap();
-}
-
-#[cfg(target_os = "linux")]
-#[test]
 fn test_recursive_host_calls() {
     test_with_wasixcc("recursive_host_calls").unwrap();
 }
@@ -213,4 +207,58 @@ fn test_nested_host_call_switch() {
 #[test]
 fn test_active_context_id() {
     test_with_wasixcc("active_context_id").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_wrong_entrypoint() {
+    test_with_wasixcc("wrong_entrypoint").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_switch_to_never_resumed() {
+    test_with_wasixcc("switch_to_never_resumed").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_function_args_preserved() {
+    test_with_wasixcc("function_args_preserved").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_correct_context_activated() {
+    test_with_wasixcc("correct_context_activated").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_switch_from_recursion() {
+    test_with_wasixcc("switch_from_recursion").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_global_ctx_ids() {
+    test_with_wasixcc("global_ctx_ids").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_shared_recursion() {
+    test_with_wasixcc("shared_recursion").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_mutual_recursion() {
+    test_with_wasixcc("mutual_recursion").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_three_way_recursion() {
+    test_with_wasixcc("three_way_recursion").unwrap();
 }
