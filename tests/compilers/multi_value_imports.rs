@@ -36,14 +36,7 @@ macro_rules! mvr_test {
 
             #[compiler_test(multi_value_imports)]
             fn native(config: crate::Config) -> anyhow::Result<()> {
-                #[derive(Clone)]
-                pub struct Env {
-                    memory: Option<Memory>,
-                }
-
                 let mut store = config.store();
-                let env = Env { memory: None };
-                let mut env = FunctionEnv::new(&mut store, env);
                 let module = get_module(&store)?;
                 let imports = imports! {
                     "host" => {
@@ -74,7 +67,7 @@ macro_rules! mvr_test {
                         "callback_fn" => callback_fn
                     }
                 };
-                let instance = Instance::new(& mut store, &module, &imports)?;
+                let instance = Instance::new(&mut store, &module, &imports)?;
                 let expected_value = vec![ $( <$result_type>::expected_val(1) ),* ].into_boxed_slice();
                 assert_eq!(instance.exports.get_function("test_call")?.call(&mut store, &[Value::I32(1)])?,
                            expected_value);
