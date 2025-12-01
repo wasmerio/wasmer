@@ -787,7 +787,7 @@ jobs:
         stage:
           [
             {
-              description: "WAST test (all compilers)",
+              description: "WAST tests (all comp.)",
               make: "test-stage-0-wast",
             },
             {
