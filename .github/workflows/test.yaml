@@ -557,8 +557,7 @@ jobs:
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              # For now, disable LLVM in `windows-x64.`
-              # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
+              llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz',
               supports_v8: false,
             },
             {
@@ -836,8 +835,7 @@ jobs:
               os: windows-2022,
               target: x86_64-pc-windows-msvc,
               exe: ".exe",
-              # For now, disable LLVM in `windows-x64.`
-              # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
+              llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
             },
             {
               build: linux-musl,
@@ -971,8 +969,7 @@ jobs:
           - build: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
-            # For now, disable LLVM in `windows-x64.`
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/21.x/llvm-windows-amd64.tar.xz'
 
     container: ${{ matrix.container }}
     env:
