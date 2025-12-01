@@ -1,24 +1,26 @@
-// Test that active_context_id is updated correctly during context switches
-// This is a simple test to verify the implementation bug where
-// current_context_id is not updated when switching to a target context
+// Test that wasix_context_main always returns the main context ID
+// regardless of which context is currently active
 #include <assert.h>
 #include <stdio.h>
 #include <wasix/context.h>
 
 wasix_context_id_t ctx1, ctx2;
+wasix_context_id_t main_ctx_id;
 int phase = 0;
 
 void context1_fn(void) {
   phase = 1;
 
-  // When ctx1 is running, wasix_context_main should return ctx1's ID
-  wasix_context_id_t active_id = wasix_context_main;
-  fprintf(stderr, "Phase 1: active context ID in ctx1 = %llu (expected %llu)\n",
-          (unsigned long long)active_id, (unsigned long long)ctx1);
+  // wasix_context_main should always return the main context's ID,
+  // even when running in ctx1
+  wasix_context_id_t main_id = wasix_context_main;
+  fprintf(stderr,
+          "Phase 1: wasix_context_main in ctx1 = %llu (expected %llu)\n",
+          (unsigned long long)main_id, (unsigned long long)main_ctx_id);
 
-  // This assertion should pass - the active context should be ctx1
-  assert(active_id == ctx1 &&
-         "Active context should be ctx1 when running in ctx1");
+  // This assertion verifies that wasix_context_main returns the main context
+  assert(main_id == main_ctx_id &&
+         "wasix_context_main should return main context ID even in ctx1");
 
   wasix_context_switch(ctx2);
 
@@ -29,21 +31,26 @@ void context1_fn(void) {
 void context2_fn(void) {
   phase = 2;
 
-  // When ctx2 is running, wasix_context_main should return ctx2's ID
-  wasix_context_id_t active_id = wasix_context_main;
-  fprintf(stderr, "Phase 2: active context ID in ctx2 = %llu (expected %llu)\n",
-          (unsigned long long)active_id, (unsigned long long)ctx2);
+  // wasix_context_main should always return the main context's ID,
+  // even when running in ctx2
+  wasix_context_id_t main_id = wasix_context_main;
+  fprintf(stderr,
+          "Phase 2: wasix_context_main in ctx2 = %llu (expected %llu)\n",
+          (unsigned long long)main_id, (unsigned long long)main_ctx_id);
 
-  // This assertion exposes the bug - active context is still ctx1 instead of
-  // ctx2
-  assert(active_id == ctx2 &&
-         "Active context should be ctx2 when running in ctx2");
+  // This assertion verifies that wasix_context_main returns the main context
+  assert(main_id == main_ctx_id &&
+         "wasix_context_main should return main context ID even in ctx2");
 
   wasix_context_switch(ctx1);
 }
 
 int main() {
   int ret;
+
+  // Store the main context ID for comparison in other contexts
+  main_ctx_id = wasix_context_main;
+  fprintf(stderr, "Main context ID = %llu\n", (unsigned long long)main_ctx_id);
 
   ret = wasix_context_create(&ctx1, context1_fn);
   assert(ret == 0 && "Failed to create context 1");
@@ -58,6 +65,6 @@ int main() {
   wasix_context_destroy(ctx1);
   wasix_context_destroy(ctx2);
 
-  fprintf(stderr, "Active context ID test passed\n");
+  fprintf(stderr, "wasix_context_main test passed\n");
   return 0;
 }
