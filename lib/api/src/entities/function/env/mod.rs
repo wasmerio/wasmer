@@ -1,7 +1,9 @@
 pub(crate) mod inner;
 pub(crate) use inner::*;
 
-use crate::{AsStoreAsync, AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
+#[cfg(feature = "experimental-async")]
+use crate::AsStoreAsync;
+use crate::{AsStoreMut, AsStoreRef, StoreMut, StoreRef, macros::backend::match_rt};
 use std::{any::Any, fmt::Debug, marker::PhantomData};
 
 #[derive(Debug, derive_more::From)]
@@ -84,8 +86,9 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
         self.0.data_and_store_mut()
     }
 
-    /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`] if the current
+    /// Creates an [`AsStoreAsync`] from this [`FunctionEnvMut`] if the current
     /// context is async.
+    #[cfg(feature = "experimental-async")]
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         self.0.as_store_async()
     }
@@ -118,14 +121,18 @@ where
 
 /// A shared handle to a [`FunctionEnv`], suitable for use
 /// in async imports.
+#[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvMut<T>(pub(crate) BackendAsyncFunctionEnvMut<T>);
 
 /// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
+#[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvHandle<T>(pub(crate) BackendAsyncFunctionEnvHandle<T>);
 
 /// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
+#[cfg(feature = "experimental-async")]
 pub struct AsyncFunctionEnvHandleMut<T>(pub(crate) BackendAsyncFunctionEnvHandleMut<T>);
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvMut<T> {
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
@@ -155,6 +162,7 @@ impl<T: 'static> AsyncFunctionEnvMut<T> {
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
@@ -167,12 +175,14 @@ impl<T: 'static> AsyncFunctionEnvHandle<T> {
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandle<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         AsStoreRef::as_store_ref(&self.0)
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
@@ -185,12 +195,14 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsStoreRef for AsyncFunctionEnvHandleMut<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         AsStoreRef::as_store_ref(&self.0)
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsStoreMut for AsyncFunctionEnvHandleMut<T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         AsStoreMut::as_store_mut(&mut self.0)

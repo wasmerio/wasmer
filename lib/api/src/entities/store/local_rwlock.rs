@@ -266,7 +266,7 @@ pub struct LocalRwLockReadGuard<T> {
 }
 
 impl<T> LocalRwLockReadGuard<T> {
-    /// Rebuild a handle to the lock from this [`LocalReadGuardRc`].
+    /// Rebuild a handle to the lock from this [`LocalRwLockReadGuard`].
     pub fn lock_handle(me: &Self) -> LocalRwLock<T> {
         LocalRwLock {
             inner: me.inner.clone(),
@@ -294,7 +294,7 @@ pub struct LocalRwLockWriteGuard<T> {
 }
 
 impl<T> LocalRwLockWriteGuard<T> {
-    /// Rebuild a handle to the lock from this [`LocalWriteGuardRc`].
+    /// Rebuild a handle to the lock from this [`LocalRwLockWriteGuard`].
     pub fn lock_handle(me: &Self) -> LocalRwLock<T> {
         LocalRwLock {
             inner: me.inner.clone(),

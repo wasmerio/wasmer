@@ -1,10 +1,9 @@
 use std::ops::{Deref, DerefMut};
 
 use super::{StoreObjects, inner::StoreInner};
-use crate::{
-    AsStoreAsync, StoreAsync,
-    entities::engine::{AsEngineRef, Engine, EngineRef},
-};
+use crate::entities::engine::{AsEngineRef, Engine, EngineRef};
+#[cfg(feature = "experimental-async")]
+use crate::{AsStoreAsync, StoreAsync};
 use wasmer_types::{ExternType, OnCalledAction};
 //use wasmer_vm::{StoreObjects, TrapHandlerFn};
 
@@ -99,6 +98,7 @@ pub trait AsStoreRef {
     /// it's already active in the current context, but can be used
     /// to spawn new coroutines via
     /// [`Function::call_async`](crate::Function::call_async).
+    #[cfg(feature = "experimental-async")]
     fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         let id = self.as_store_ref().inner.objects.id();
         StoreAsync::from_context(id)

@@ -1,3 +1,5 @@
+#![cfg(feature = "experimental-async")]
+
 use std::collections::BTreeMap;
 use std::sync::atomic::AtomicU32;
 use std::sync::{Arc, RwLock};

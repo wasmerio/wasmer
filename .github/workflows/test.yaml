@@ -519,6 +519,11 @@ jobs:
               name: "Build wasmer-cli",
             },
             {
+              key: "check",
+              build-cmd: "make check",
+              name: "Check wasmer API with all sys features enabled",
+            },
+            {
               key: "api-feats",
               build-cmd: "make check-api-features",
               name: "Check wasmer API with all sys features enabled",

@@ -1,5 +1,7 @@
+#[cfg(feature = "experimental-async")]
+use crate::AsStoreAsync;
 use crate::{
-    AsStoreAsync, AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
+    AsStoreMut, AsStoreRef, FunctionEnv, FunctionEnvMut, StoreMut, StoreRef,
     macros::backend::match_rt,
 };
 use std::{any::Any, marker::PhantomData};
@@ -200,12 +202,16 @@ impl<T: Send + 'static> BackendFunctionEnvMut<'_, T> {
         })
     }
 
-    /// Creates an [`AsStoreAsync`] from this [`AsyncFunctionEnvMut`] if the current
+    /// Creates an [`AsStoreAsync`] from this [`BackendFunctionEnvMut`] if the current
     /// context is async.
+    #[cfg(feature = "experimental-async")]
     pub fn as_store_async(&self) -> Option<impl AsStoreAsync + 'static> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.as_store_async(),
+            #[cfg(feature = "sys")]
+            _ => unsupported_async_backend(),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend::<Option<crate::StoreAsync>>(),
         }
     }
@@ -248,6 +254,7 @@ where
 /// in async imports.
 #[derive(derive_more::From)]
 #[non_exhaustive]
+#[cfg(feature = "experimental-async")]
 pub enum BackendAsyncFunctionEnvMut<T> {
     #[cfg(feature = "sys")]
     /// The function environment for the `sys` runtime.
@@ -257,8 +264,9 @@ pub enum BackendAsyncFunctionEnvMut<T> {
     Unsupported(PhantomData<T>),
 }
 
-/// A read-only handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
+/// A read-only handle to the [`FunctionEnv`] in an [`BackendAsyncFunctionEnvMut`].
 #[non_exhaustive]
+#[cfg(feature = "experimental-async")]
 pub enum BackendAsyncFunctionEnvHandle<T> {
     #[cfg(feature = "sys")]
     /// The function environment handle for the `sys` runtime.
@@ -268,8 +276,8 @@ pub enum BackendAsyncFunctionEnvHandle<T> {
     Unsupported(PhantomData<T>),
 }
 
-/// A mutable handle to the [`FunctionEnv`] in an [`AsyncFunctionEnvMut`].
-#[non_exhaustive]
+/// A mutable handle to the [`FunctionEnv`] in an [`BackendAsyncFunctionEnvMut`].
+#[cfg(feature = "experimental-async")]
 pub enum BackendAsyncFunctionEnvHandleMut<T> {
     #[cfg(feature = "sys")]
     /// The function environment handle for the `sys` runtime.
@@ -279,6 +287,7 @@ pub enum BackendAsyncFunctionEnvHandleMut<T> {
     Unsupported(PhantomData<T>),
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
     /// Waits for a store lock and returns a read-only handle to the
     /// function environment.
@@ -323,11 +332,13 @@ impl<T: 'static> BackendAsyncFunctionEnvMut<T> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.as_store_async(),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend::<crate::StoreAsync>(),
         }
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> BackendAsyncFunctionEnvHandle<T> {
     /// Returns a reference to the host state in this function environment.
     pub fn data(&self) -> &T {
@@ -343,27 +354,32 @@ impl<T: 'static> BackendAsyncFunctionEnvHandle<T> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.data_and_store(),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend::<(&T, &StoreRef)>(),
         }
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandle<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => AsStoreRef::as_store_ref(f),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend(),
         }
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
     /// Returns a mutable reference to the host state in this function environment.
     pub fn data_mut(&mut self) -> &mut T {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.data_mut(),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend(),
         }
     }
@@ -373,26 +389,31 @@ impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => f.data_and_store_mut(),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend::<(&mut T, &mut crate::StoreMut)>(),
         }
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsStoreRef for BackendAsyncFunctionEnvHandleMut<T> {
     fn as_store_ref(&self) -> StoreRef<'_> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => AsStoreRef::as_store_ref(f),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend(),
         }
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl<T: 'static> AsStoreMut for BackendAsyncFunctionEnvHandleMut<T> {
     fn as_store_mut(&mut self) -> StoreMut<'_> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => AsStoreMut::as_store_mut(f),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend(),
         }
     }
@@ -401,11 +422,13 @@ impl<T: 'static> AsStoreMut for BackendAsyncFunctionEnvHandleMut<T> {
         match self {
             #[cfg(feature = "sys")]
             Self::Sys(f) => AsStoreMut::objects_mut(f),
+            #[cfg(not(feature = "sys"))]
             _ => unsupported_async_backend(),
         }
     }
 }
 
+#[cfg(feature = "experimental-async")]
 fn unsupported_async_backend<T>() -> T {
     panic!("async functions are only supported with the `sys` backend");
 }

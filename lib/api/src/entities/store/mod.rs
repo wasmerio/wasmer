@@ -2,7 +2,9 @@
 //! store.
 
 /// Defines the [`AsStoreAsync`] trait and its supporting types.
+#[cfg(feature = "experimental-async")]
 mod async_;
+#[cfg(feature = "experimental-async")]
 pub use async_::*;
 
 /// Defines the [`StoreContext`] type.
@@ -15,7 +17,9 @@ mod inner;
 mod store_ref;
 
 /// Single-threaded async-aware RwLock.
+#[cfg(feature = "experimental-async")]
 mod local_rwlock;
+#[cfg(feature = "experimental-async")]
 pub(crate) use local_rwlock::*;
 
 use std::{
@@ -127,6 +131,7 @@ impl Store {
         self.inner.objects.id()
     }
 
+    #[cfg(feature = "experimental-async")]
     /// Transforms this store into a [`StoreAsync`] which can be used
     /// to invoke [`Function::call_async`](crate::Function::call_async).
     pub fn into_async(self) -> StoreAsync {

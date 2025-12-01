@@ -1,9 +1,11 @@
 use crate::backend::sys::engine::NativeEngineExt;
-use crate::store::{AsStoreAsync, AsStoreMut, AsStoreRef};
 use crate::{
-    FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, StoreAsync, StoreContext,
-    TypedFunction, Value, WasmTypeList,
+    FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError, StoreContext, TypedFunction,
+    Value, WasmTypeList,
+    store::{AsStoreMut, AsStoreRef},
 };
+#[cfg(feature = "experimental-async")]
+use crate::{StoreAsync, store::AsStoreAsync};
 use std::future::Future;
 use wasmer_types::{FunctionType, RawValue, Type};
 
@@ -113,6 +115,7 @@ macro_rules! impl_native_traits {
 
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
+            #[cfg(feature = "experimental-async")]
             pub(crate) fn call_async_sys(
                 &self,
                 store: &impl AsStoreAsync,
@@ -129,6 +132,7 @@ macro_rules! impl_native_traits {
             /// Call the typed func asynchronously.
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
+            #[cfg(feature = "experimental-async")]
             pub(crate) fn call_async_sys_internal(
                 func: Function,
                 store: StoreAsync,

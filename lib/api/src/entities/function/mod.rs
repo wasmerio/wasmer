@@ -10,16 +10,20 @@ pub use host::*;
 pub(crate) mod env;
 pub use env::*;
 
+#[cfg(feature = "experimental-async")]
 pub(crate) mod async_host;
+#[cfg(feature = "experimental-async")]
 pub use async_host::{AsyncFunctionEnv, AsyncHostFunction};
 
 use std::{future::Future, pin::Pin};
 
 use wasmer_types::{FunctionType, RawValue};
 
+#[cfg(feature = "experimental-async")]
+use crate::AsStoreAsync;
 use crate::{
-    AsStoreAsync, AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef,
-    TypedFunction, Value, WasmTypeList,
+    AsStoreMut, AsStoreRef, ExportError, Exportable, Extern, StoreMut, StoreRef, TypedFunction,
+    Value, WasmTypeList,
     error::RuntimeError,
     vm::{VMExtern, VMExternFunction, VMFuncRef},
 };
@@ -165,6 +169,7 @@ impl Function {
     /// When invoked synchronously (via [`Function::call`]) the future will run to
     /// completion immediately, provided it doesn't suspend. When invoked through
     /// [`Function::call_async`], the future may suspend and resume as needed.
+    #[cfg(feature = "experimental-async")]
     pub fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
@@ -182,6 +187,7 @@ impl Function {
     ///
     /// Takes an [`AsyncFunctionEnvMut`] that is passed into func. If
     /// that is not required, [`Self::new_async`] might be an option as well.
+    #[cfg(feature = "experimental-async")]
     pub fn new_with_env_async<FT, F, Fut, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -199,7 +205,8 @@ impl Function {
     /// Creates a new async host `Function` from a native typed function.
     ///
     /// The future can return either the raw result tuple or any type that implements
-    /// [`IntoResult`] for the result tuple (e.g. `Result<Rets, E>`).
+    /// [`IntoResult`](crate::IntoResult) for the result tuple (e.g. `Result<Rets, E>`).
+    #[cfg(feature = "experimental-async")]
     pub fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         Rets: WasmTypeList + 'static,
@@ -210,6 +217,7 @@ impl Function {
     }
 
     /// Creates a new async host `Function` with an environment from a typed function.
+    #[cfg(feature = "experimental-async")]
     pub fn new_typed_with_env_async<T: 'static, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -329,6 +337,7 @@ impl Function {
     /// suspend execution by awaiting futures, and their completion will resume
     /// the Wasm instance according to the JSPI proposal.
     #[must_use = "This function spawns a future that must be awaited to produce results"]
+    #[cfg(feature = "experimental-async")]
     pub fn call_async(
         &self,
         store: &impl AsStoreAsync,

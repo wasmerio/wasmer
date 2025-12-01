@@ -1,5 +1,6 @@
 //! Data types, functions and traits for the `sys` runtime.
 
+#[cfg(feature = "experimental-async")]
 pub(crate) mod async_runtime;
 pub(crate) mod entities;
 pub(crate) mod error;

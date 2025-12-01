@@ -20,13 +20,6 @@
 //!     the context is active, preventing other tasks from
 //!     accessing the store concurrently.
 //!
-//! Because async contexts can't be entered recursively (you
-//! can't take a write lock twice, you have to use the existing
-//! one), all code in this crate takes care to check for an
-//! active store context first before trying to enter one. This
-//! gives rise to the enums with cases for temporary locks vs
-//! store context pointers, such as [`AsyncStoreReadLockInner`].
-//!
 //! We maintain a stack because it is technically possible to
 //! have nested `Function::call` invocations that use different
 //! stores, such as:
@@ -54,6 +47,7 @@ use std::{
     mem::MaybeUninit,
 };
 
+#[cfg(feature = "experimental-async")]
 use crate::LocalRwLockWriteGuard;
 
 use super::{AsStoreMut, AsStoreRef, StoreInner, StoreMut, StoreRef};
@@ -62,6 +56,8 @@ use wasmer_types::StoreId;
 
 enum StoreContextEntry {
     Sync(*mut StoreInner),
+
+    #[cfg(feature = "experimental-async")]
     Async(LocalRwLockWriteGuard<StoreInner>),
 }
 
@@ -69,6 +65,7 @@ impl StoreContextEntry {
     fn as_ptr(&self) -> *mut StoreInner {
         match self {
             Self::Sync(ptr) => *ptr,
+            #[cfg(feature = "experimental-async")]
             Self::Async(guard) => &**guard as *const _ as *mut _,
         }
     }
@@ -94,10 +91,12 @@ pub(crate) struct StorePtrWrapper {
     store_ptr: *mut StoreInner,
 }
 
+#[cfg(feature = "experimental-async")]
 pub(crate) struct AsyncStoreGuardWrapper {
     pub(crate) guard: *mut LocalRwLockWriteGuard<StoreInner>,
 }
 
+#[cfg(feature = "experimental-async")]
 pub(crate) enum GetAsyncStoreGuardResult {
     Ok(AsyncStoreGuardWrapper),
     NotAsync(StorePtrWrapper),
@@ -154,6 +153,7 @@ impl StoreContext {
 
     /// The write guard ensures this is the only reference to the store,
     /// so installation can never fail.
+    #[cfg(feature = "experimental-async")]
     pub(crate) fn install_async(
         guard: LocalRwLockWriteGuard<StoreInner>,
     ) -> ForcedStoreInstallGuard {
@@ -231,6 +231,7 @@ impl StoreContext {
     }
 
     /// Safety: See [`Self::get_current`].
+    #[cfg(feature = "experimental-async")]
     pub(crate) unsafe fn try_get_current_async(id: StoreId) -> GetAsyncStoreGuardResult {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -302,6 +303,7 @@ impl Drop for StorePtrWrapper {
     }
 }
 
+#[cfg(feature = "experimental-async")]
 impl Drop for AsyncStoreGuardWrapper {
     fn drop(&mut self) {
         let id = unsafe { self.guard.as_ref().unwrap().objects.id() };

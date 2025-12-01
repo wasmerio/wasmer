@@ -3,16 +3,20 @@
 pub(crate) mod env;
 pub(crate) mod typed;
 
+#[cfg(feature = "experimental-async")]
 use crate::{
-    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, BackendFunction,
-    DynamicCallResult, DynamicFunctionResult, FunctionEnv, FunctionEnvMut, FunctionType,
-    HostFunction, RuntimeError, StoreAsync, StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
-    backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
-    entities::{
-        function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
-        store::{AsStoreMut, AsStoreRef, StoreMut},
+    AsStoreAsync, AsyncFunctionEnvMut, BackendAsyncFunctionEnvMut, StoreAsync,
+    entities::function::async_host::{AsyncFunctionEnv, AsyncHostFunction},
+    sys::{
+        async_runtime::{AsyncRuntimeError, block_on_host_future, call_function_async},
+        function::env::AsyncFunctionEnvMutStore,
     },
-    sys::{async_runtime::AsyncRuntimeError, function::env::AsyncFunctionEnvMutStore},
+};
+use crate::{
+    BackendFunction, DynamicCallResult, DynamicFunctionResult, FunctionEnv, FunctionEnvMut,
+    FunctionType, HostFunction, RuntimeError, StoreContext, StoreInner, Value, WithEnv, WithoutEnv,
+    backend::sys::{engine::NativeEngineExt, vm::VMFunctionCallback},
+    entities::store::{AsStoreMut, AsStoreRef, StoreMut},
     utils::{FromToNativeWasmType, IntoResult, NativeWasmTypeInto, WasmTypeList},
     vm::{VMExtern, VMExternFunction},
 };
@@ -28,8 +32,6 @@ use wasmer_vm::{
     VMFunctionKind, VMTrampoline, on_host_stack, raise_lib_trap, raise_user_trap, resume_panic,
     wasmer_call_trampoline,
 };
-
-use crate::backend::sys::async_runtime::{block_on_host_future, call_function_async};
 
 #[cfg_attr(feature = "artifact-size", derive(loupe::MemoryUsage))]
 #[derive(Debug, Clone, PartialEq, Eq)]
@@ -125,6 +127,7 @@ impl Function {
         }
     }
 
+    #[cfg(feature = "experimental-async")]
     pub(crate) fn new_async<FT, F, Fut>(store: &mut impl AsStoreMut, ty: FT, func: F) -> Self
     where
         FT: Into<FunctionType>,
@@ -136,6 +139,7 @@ impl Function {
         Self::new_with_env_async(store, &env, ty, wrapped)
     }
 
+    #[cfg(feature = "experimental-async")]
     pub(crate) fn new_with_env_async<FT, F, Fut, T: 'static>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -282,6 +286,7 @@ impl Function {
         }
     }
 
+    #[cfg(feature = "experimental-async")]
     pub(crate) fn new_typed_async<F, Args, Rets>(store: &mut impl AsStoreMut, func: F) -> Self
     where
         Args: WasmTypeList + 'static,
@@ -329,6 +334,7 @@ impl Function {
         )
     }
 
+    #[cfg(feature = "experimental-async")]
     pub(crate) fn new_typed_with_env_async<T, F, Args, Rets>(
         store: &mut impl AsStoreMut,
         env: &FunctionEnv<T>,
@@ -576,6 +582,7 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
+    #[cfg(feature = "experimental-async")]
     pub(crate) fn call_async(
         &self,
         store: &impl AsStoreAsync,
@@ -774,6 +781,7 @@ pub(crate) enum HostCallOutcome {
         func_ty: FunctionType,
         result: DynamicFunctionResult,
     },
+    #[cfg(feature = "experimental-async")]
     Future {
         func_ty: FunctionType,
         future: Pin<Box<dyn Future<Output = DynamicFunctionResult>>>,
@@ -801,6 +809,7 @@ where
                 HostCallOutcome::Ready { func_ty, result } => to_invocation_result(
                     finalize_dynamic_call(this.ctx.store_id, func_ty, values_vec, result),
                 ),
+                #[cfg(feature = "experimental-async")]
                 HostCallOutcome::Future { func_ty, future } => {
                     let awaited = block_on_host_future(future);
                     let result = match awaited {

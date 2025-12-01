@@ -60,12 +60,12 @@ wasmer-compiler = { path = "../compiler", version = "=6.1.0", optional = true }
 wasmer-derive = { path = "../derive", version = "=6.1.0" }
 wasmer-types = { path = "../types", version = "=6.1.0" }
 target-lexicon = { workspace = true, default-features = false }
-corosensei = { workspace = true, optional = true }
 # - Optional dependencies for `sys`.
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "=6.1.0", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "=6.1.0", optional = true }
 wasmer-compiler-llvm = { path = "../compiler-llvm", version = "=6.1.0", optional = true }
-futures = "0.3"
+corosensei = { workspace = true, optional = true }
+futures = { workspace = true, optional = true }
 
 wasm-bindgen = { workspace = true, optional = true }
 js-sys = { workspace = true, optional = true }
@@ -129,8 +129,11 @@ artifact-size = [
 ]
 
 # Features for `sys`.
-sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler", "dep:corosensei"]
+sys = ["std", "dep:wasmer-vm", "dep:wasmer-compiler"]
 sys-default = ["sys", "wat", "cranelift"]
+
+# Experimental concurrent execution support
+experimental-async = ["sys", "dep:futures", "dep:corosensei"]
 
 # - Compilers.
 compiler = [

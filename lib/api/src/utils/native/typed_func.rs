@@ -7,9 +7,11 @@
 //! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: TypedFunction<i32, i32> = add_one.native().unwrap();
 //! ```
+#[cfg(feature = "experimental-async")]
+use crate::AsStoreAsync;
 use crate::{
-    AsStoreAsync, AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto,
-    RuntimeError, WasmTypeList, store::AsStoreRef,
+    AsStoreMut, BackendStore, FromToNativeWasmType, Function, NativeWasmTypeInto, RuntimeError,
+    WasmTypeList, store::AsStoreRef,
 };
 use std::future::Future;
 use std::marker::PhantomData;
@@ -80,6 +82,7 @@ macro_rules! impl_native_traits {
             }
 
             /// Call the typed func asynchronously.
+            #[cfg(feature = "experimental-async")]
             #[allow(unused_mut)]
             #[allow(clippy::too_many_arguments)]
             pub fn call_async(

@@ -1,3 +1,5 @@
+#![cfg(feature = "experimental-async")]
+
 use std::sync::OnceLock;
 
 use anyhow::Result;
