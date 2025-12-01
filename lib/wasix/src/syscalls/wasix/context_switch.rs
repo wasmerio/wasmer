@@ -17,7 +17,15 @@ use wasmer::{
 };
 use wasmer::{StoreMut, Tag, Type};
 // TODO: combine context_switch and inner_context_switch
-/// Switch to another context
+/// Suspend the active context and resume another
+///
+/// The resumed context continues from where it was last suspended, or from its
+/// entrypoint if it has never been resumed.
+///
+/// Refer to the wasix-libc [`wasix/context.h`] header for authoritative
+/// documentation.
+///
+/// [`wasix/context.h`]: https://github.com/wasix-org/wasix-libc/blob/main/libc-bottom-half/headers/public/wasix/context.h
 #[instrument(level = "trace", skip(ctx))]
 pub fn context_switch(
     mut ctx: AsyncFunctionEnvMut<WasiEnv>,
