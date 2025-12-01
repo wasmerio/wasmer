@@ -570,7 +570,7 @@ jobs:
             {
               build: linux-musl,
               target: x86_64-unknown-linux-musl,
-              os: ubuntu-latest,
+              os: ubuntu-22.04,
               exe: "",
               container: "alpine:edge",
               supports_v8: false,
@@ -841,7 +841,7 @@ jobs:
             {
               build: linux-musl,
               target: x86_64-unknown-linux-musl,
-              os: ubuntu-latest,
+              os: ubuntu-22.04,
               exe: "",
               container: "alpine:edge",
             },
@@ -962,7 +962,7 @@ jobs:
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-latest
+            os: ubuntu-22.04
             container: alpine:edge
           - build: windows-x64
             os: windows-latest
