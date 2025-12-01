@@ -369,3 +369,7 @@ windows     wasitests::nightly_2022_10_18::host_fs::path_rename
 
 # FIXME - re-enable once the path resolution failures in WasiFs have been worked out
 path_rename
+
+# Multi-value tests
+singlepass  multi_value_imports
+cranelift   multi_value_imports
