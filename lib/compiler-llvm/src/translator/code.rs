@@ -24,7 +24,7 @@ use inkwell::{
 };
 use itertools::Itertools;
 use smallvec::SmallVec;
-use target_lexicon::BinaryFormat;
+use target_lexicon::{BinaryFormat, OperatingSystem, Triple};
 
 use crate::{
     abi::{Abi, G0M0FunctionKind, LocalFunctionG0M0params, get_abi},
@@ -103,6 +103,7 @@ impl FuncTranslator {
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
+        target: &Triple,
     ) -> Result<Module<'_>, CompileError> {
         // The function type, used for the callbacks.
         let func_index = wasm_module.func_index(*local_func_index);
@@ -150,7 +151,10 @@ impl FuncTranslator {
             func.add_attribute(*attr_loc, *attr);
         }
 
-        func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
+        if !matches!(target.operating_system, OperatingSystem::Windows) {
+            func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
+        }
+
         func.add_attribute(AttributeLoc::Function, intrinsics.uwtable);
         func.add_attribute(AttributeLoc::Function, intrinsics.frame_pointer);
 
@@ -404,6 +408,7 @@ impl FuncTranslator {
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
         symbol_registry: &dyn SymbolRegistry,
+        target: &Triple,
     ) -> Result<CompiledFunction, CompileError> {
         let module = self.translate_to_module(
             wasm_module,
@@ -414,6 +419,7 @@ impl FuncTranslator {
             memory_styles,
             table_styles,
             symbol_registry,
+            target,
         )?;
         let function = CompiledKind::Local(
             *local_func_index,
