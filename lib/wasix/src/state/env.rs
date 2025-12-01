@@ -184,6 +184,9 @@ pub struct WasiEnv {
     /// Tracks the active contexts of the WASIX context switching API
     ///
     /// This is `None` when the main function was not launched with context switching
+    ///
+    /// Should probably only be set by [`ContextSwitchingContext::run_main_context`]
+    // TODO: Rename to context_switching_environment
     pub(crate) context_switching_context: Option<ContextSwitchingContext>,
 }
 
