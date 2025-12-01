@@ -14,7 +14,15 @@ use wasmer::{
 };
 use wasmer::{StoreMut, Tag, Type};
 
-/// ### `context_delete()`
+/// Destroy a suspended or terminated context
+///
+/// After a successful call its identifier becomes invalid and its
+/// resources are released. Destroying an already deleted context is a no-op.
+///
+/// Refer to the wasix-libc [`wasix/context.h`] header for authoritative
+/// documentation.
+///
+/// [`wasix/context.h`]: https://github.com/wasix-org/wasix-libc/blob/main/libc-bottom-half/headers/public/wasix/context.h
 #[instrument(level = "trace", skip(ctx), ret)]
 pub fn context_destroy(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,

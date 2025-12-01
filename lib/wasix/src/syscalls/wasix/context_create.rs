@@ -51,6 +51,15 @@ pub fn lookup_typechecked_entrypoint(
     Ok(entrypoint)
 }
 
+/// Create a new context.
+///
+/// Creates a new context in the suspended state. On its first resumption,
+/// `entrypoint` is invoked within that context.
+///
+/// Refer to the wasix-libc [`wasix/context.h`] header for authoritative
+/// documentation.
+///
+/// [`wasix/context.h`]: https://github.com/wasix-org/wasix-libc/blob/main/libc-bottom-half/headers/public/wasix/context.h
 #[instrument(level = "trace", skip(ctx), ret)]
 pub fn context_create<M: MemorySize>(
     mut ctx: FunctionEnvMut<'_, WasiEnv>,
