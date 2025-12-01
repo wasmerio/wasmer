@@ -83,7 +83,7 @@ jobs:
             enable_wasmi: true
             enable_wamr: true
           - build: macos-arm64
-            os: macos-14
+            os: depot-macos-14
             target: aarch64-apple-darwin
             artifact_name: "wasmer-darwin-arm64"
             use_sccache: false
@@ -408,7 +408,7 @@ jobs:
   darwin_aarch64_jsc:
     name: macOS aarch64 (JSC)
     if: github.event_name != 'pull_request' || startsWith(github.head_ref, 'release-')
-    runs-on: macos-14
+    runs-on: depot-macos-14
     steps:
       - uses: actions/checkout@v6
       - uses: dtolnay/rust-toolchain@stable
