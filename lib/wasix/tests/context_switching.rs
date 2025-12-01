@@ -136,3 +136,39 @@ fn test_many_contexts() {
 fn test_file_io_switching() {
     test_with_wasixcc("file_io_switching").unwrap();
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_contexts_with_mutexes() {
+    test_with_wasixcc("contexts_with_mutexes").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_contexts_with_env_vars() {
+    test_with_wasixcc("contexts_with_env_vars").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_contexts_with_getcwd() {
+    test_with_wasixcc("contexts_with_getcwd").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_contexts_with_signals() {
+    test_with_wasixcc("contexts_with_signals").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_contexts_with_timers() {
+    test_with_wasixcc("contexts_with_timers").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_contexts_with_pipes() {
+    test_with_wasixcc("contexts_with_pipes").unwrap();
+}
