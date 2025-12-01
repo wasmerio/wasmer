@@ -93,7 +93,7 @@ pub fn context_create<M: MemorySize>(
         async move {
             // Call the entrypoint function
             let result: Result<Box<[Value]>, RuntimeError> = typechecked_entrypoint
-                .call_async(&mut async_store, &[])
+                .call_async(&mut async_store, vec![])
                 .await;
 
             // If that function returns, we need to resume the main context with an error

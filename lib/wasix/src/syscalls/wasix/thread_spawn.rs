@@ -186,9 +186,9 @@ pub fn thread_spawn_internal_using_layout<M: MemorySize>(
 // This function calls into the module
 fn call_module_internal<M: MemorySize>(
     ctx: &WasiFunctionEnv,
-    store: &mut Store,
+    mut store: Store,
     start_ptr_offset: M::Offset,
-) -> Result<(), DeepSleepWork> {
+) -> (Store, Result<(), DeepSleepWork>) {
     // We either call the reactor callback or the thread spawn callback
     //trace!("threading: invoking thread callback (reactor={})", reactor);
 
@@ -209,21 +209,24 @@ fn call_module_internal<M: MemorySize>(
         .try_into()
         .map_err(|_| Errno::Overflow)
         .unwrap();
-    let thread_result = ContextSwitchingContext::run_main_context(
+    let (mut store, thread_result) = ContextSwitchingContext::run_main_context(
         ctx,
         store,
         spawn,
         vec![Value::I32(tid_i32), Value::I32(start_pointer_i32)],
-    )
-    .map(|_| ());
+    );
+    let thread_result = thread_result.map(|_| ());
 
     trace!("callback finished (ret={:?})", thread_result);
 
-    let exit_code = handle_thread_result(ctx, store, thread_result)?;
+    let exit_code = match handle_thread_result(ctx, &mut store, thread_result) {
+        Ok(code) => code,
+        Err(deep_sleep) => return (store, Err(deep_sleep)),
+    };
 
     // Clean up the environment on exit
-    ctx.on_exit(store, exit_code);
-    Ok(())
+    ctx.on_exit(&mut store, exit_code);
+    (store, Ok(()))
 }
 
 fn handle_thread_result(
@@ -309,7 +312,7 @@ fn call_module<M: MemorySize>(
     }
 
     // Now invoke the module
-    let ret = call_module_internal::<M>(&ctx, &mut store, start_ptr_offset);
+    let (store, ret) = call_module_internal::<M>(&ctx, store, start_ptr_offset);
 
     // If it went to deep sleep then we need to handle that
     if let Err(deep) = ret {
