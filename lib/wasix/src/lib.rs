@@ -320,37 +320,6 @@ impl std::fmt::Display for WasiRuntimeErrorDisplay<'_> {
     }
 }
 
-#[allow(clippy::result_large_err)]
-pub(crate) fn run_wasi_func(
-    func: &wasmer::Function,
-    store: &mut impl AsStoreMut,
-    params: &[wasmer::Value],
-) -> Result<Box<[wasmer::Value]>, WasiRuntimeError> {
-    func.call(store, params).map_err(|err| {
-        if let Some(_werr) = err.downcast_ref::<WasiError>() {
-            let werr = err.downcast::<WasiError>().unwrap();
-            WasiRuntimeError::Wasi(werr)
-        } else {
-            WasiRuntimeError::Runtime(err)
-        }
-    })
-}
-
-/// Run a main function.
-///
-/// This is usually called "_start" in WASI modules.
-/// The function will not receive arguments or return values.
-///
-/// An exit code that is not 0 will be returned as a `WasiError::Exit`.
-#[allow(clippy::result_large_err)]
-pub(crate) fn run_wasi_func_start(
-    func: &wasmer::Function,
-    store: &mut impl AsStoreMut,
-) -> Result<(), WasiRuntimeError> {
-    run_wasi_func(func, store, &[])?;
-    Ok(())
-}
-
 #[derive(Debug)]
 pub struct WasiVFork {
     /// The unwound stack before the vfork occured
