@@ -1,18 +1,7 @@
-use super::*;
-use crate::syscalls::*;
-use anyhow::Result;
-use core::panic;
-use futures::TryFutureExt;
-use futures::task::LocalSpawnExt;
-use futures::{FutureExt, channel::oneshot};
-use std::collections::BTreeMap;
-use std::sync::atomic::AtomicU32;
-use std::sync::{Arc, OnceLock, RwLock};
-use wasmer::{
-    AsStoreMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Memory, Module,
-    RuntimeError, Store, Value, imports,
-};
-use wasmer::{StoreMut, Tag, Type};
+use crate::{WasiEnv, WasiError};
+use tracing::instrument;
+use wasmer::{FunctionEnvMut, MemoryView};
+use wasmer_wasix_types::wasi::Errno;
 
 /// Destroy a suspended or terminated context
 ///
