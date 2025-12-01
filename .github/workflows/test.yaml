@@ -260,19 +260,19 @@ jobs:
               key: wamr,
               lint-cmd: "make lint-wamr",
               build-cmd: "make test-wamr-api",
-              name: "API for wamr feature",
+              name: "API (wamr feature)",
             },
             {
               key: wasmi,
               lint-cmd: "make lint-wasmi",
               build-cmd: "make test-wasmi-api",
-              name: "API for wasmi feature",
+              name: "API (wasmi feature)",
             },
             {
               key: v8,
               lint-cmd: "make lint-v8",
               build-cmd: "make test-v8-api",
-              name: "API for v8 feature",
+              name: "API (v8 feature)",
             },
           ]
         metadata: [
