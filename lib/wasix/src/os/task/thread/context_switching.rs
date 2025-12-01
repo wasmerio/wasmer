@@ -87,6 +87,8 @@ impl ContextSwitchingContext {
         let store_async = store.into_async();
         // Run function with the spawner
         let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
+        // Drop the executor to ensure all spawned tasks are dropped, so we have no references to the StoreAsync left
+        drop(local_executor);
 
         // Remove the spawner again
         let mut store = store_async.into_store().ok().unwrap();
