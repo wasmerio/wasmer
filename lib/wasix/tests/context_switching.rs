@@ -172,3 +172,45 @@ fn test_contexts_with_timers() {
 fn test_contexts_with_pipes() {
     test_with_wasixcc("contexts_with_pipes").unwrap();
 }
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_complex_nested_operations() {
+    test_with_wasixcc("complex_nested_operations").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_pending_file_operations() {
+    test_with_wasixcc("pending_file_operations").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_deep_call_stack_switching() {
+    test_with_wasixcc("deep_call_stack_switching").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_recursive_host_calls() {
+    test_with_wasixcc("recursive_host_calls").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_malloc_during_switch() {
+    test_with_wasixcc("malloc_during_switch").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_nested_host_call_switch() {
+    test_with_wasixcc("nested_host_call_switch").unwrap();
+}
+
+#[cfg(target_os = "linux")]
+#[test]
+fn test_active_context_id() {
+    test_with_wasixcc("active_context_id").unwrap();
+}
