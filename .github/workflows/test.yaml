@@ -451,7 +451,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "Build wasmer-cli",
+              name: "Wasmer-cli",
             },
           ]
     steps:
@@ -516,7 +516,7 @@ jobs:
             {
               key: wasmer,
               build-cmd: "make build-wasmer && make package-wasmer && make tar-wasmer",
-              name: "wasmer-cli",
+              name: "Wasmer-cli",
             },
             {
               key: "api-feats",
