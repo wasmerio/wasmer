@@ -26,10 +26,14 @@ pub(crate) struct ContextSwitchingContext {
 
 #[derive(Debug)]
 struct ContextSwitchingContextInner {
-    /// TODO: Document these fields
+    /// List of the unblockers for all suspended contexts
     unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
+    /// The ID of the currently active context
     current_context_id: AtomicU64,
+    /// The next available context ID
     next_available_context_id: AtomicU64,
+    /// This spawner can be used to spawn tasks onto the thread-local executor
+    /// associated with this context switching environment
     spawner: ThreadLocalSpawner,
 }
 
