@@ -918,7 +918,7 @@ jobs:
         env:
           LLVM_DIR: .llvm
       - name: Add `brew` libs to `RUSTFLAGS`
-        if: matrix.metadata.os == 'macos-14'
+        if: matrix.metadata.os == 'macos-14' || matrix.metadata.os == 'depot-macos-14'
         shell: bash
         run: |
           echo "RUSTFLAGS=-L/opt/homebrew/lib" >> $GITHUB_ENV
