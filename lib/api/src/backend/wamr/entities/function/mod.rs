@@ -7,9 +7,10 @@ use std::{
 };
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
-    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
-    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap, DynamicCallResult,
+    DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult,
+    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
+    WithoutEnv,
     vm::{VMExtern, VMExternFunction},
     wamr::{
         bindings::*,
@@ -81,7 +82,7 @@ impl Function {
     ) -> Self
     where
         FT: Into<FunctionType>,
-        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + Send + Sync,
+        F: Fn(FunctionEnvMut<'_, T>, &[Value]) -> DynamicFunctionResult + 'static + Send + Sync,
     {
         let fn_ty: FunctionType = ty.into();
         let params = fn_ty.params();

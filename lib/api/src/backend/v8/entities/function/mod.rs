@@ -6,9 +6,10 @@ use std::{
 };
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap,
-    FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult, NativeWasmType,
-    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, BackendTrap, DynamicCallResult,
+    DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, IntoResult,
+    NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv,
+    WithoutEnv,
     v8::{
         bindings::*,
         utils::convert::{IntoCApiType, IntoCApiValue, IntoWasmerType, IntoWasmerValue},

@@ -10,9 +10,9 @@ use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
     AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnv, BackendFunctionEnvMut,
-    DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction,
-    HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut,
-    Value, WasmTypeList, WithEnv, WithoutEnv,
+    DynamicCallResult, DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut,
+    HostFunction, HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError,
+    StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
     js::{
         utils::convert::{AsJs as _, js_value_to_wasmer, wasmer_value_to_js},
         vm::{VMFuncRef, VMFunctionCallback, function::VMFunction},

@@ -9,9 +9,10 @@ use std::panic::{self, AssertUnwindSafe};
 use wasmer_types::{FunctionType, RawValue};
 
 use crate::{
-    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, FromToNativeWasmType,
-    FunctionEnv, FunctionEnvMut, HostFunction, HostFunctionKind, IntoResult, NativeWasmType,
-    NativeWasmTypeInto, RuntimeError, StoreMut, Value, WasmTypeList, WithEnv, WithoutEnv,
+    AsStoreMut, AsStoreRef, BackendFunction, BackendFunctionEnvMut, DynamicCallResult,
+    DynamicFunctionResult, FromToNativeWasmType, FunctionEnv, FunctionEnvMut, HostFunction,
+    HostFunctionKind, IntoResult, NativeWasmType, NativeWasmTypeInto, RuntimeError, StoreMut,
+    Value, WasmTypeList, WithEnv, WithoutEnv,
     jsc::{
         store::{InternalStoreHandle, StoreHandle},
         utils::convert::{AsJsc, jsc_value_to_wasmer},
@@ -287,7 +288,7 @@ impl std::fmt::Debug for Function {
 /// Represents a low-level Wasm static host function. See
 /// `super::Function::new` and `super::Function::new_env` to learn
 /// more.
-#[derive(Clone, Debug, Hash, PartialEq, Eq)]
+#[derive(Clone, Debug, Hash)]
 pub struct WasmFunction<Args = (), Rets = ()> {
     callback: JSObjectCallAsFunctionCallback,
     _phantom: PhantomData<(Args, Rets)>,

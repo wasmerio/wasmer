@@ -8,9 +8,7 @@ use libc::c_void;
 use std::convert::TryInto;
 use std::mem::MaybeUninit;
 use std::sync::{Arc, Mutex};
-use wasmer_api::{
-    DynamicFunctionResult, Extern, Function, FunctionEnv, FunctionEnvMut, RuntimeError, Value,
-};
+use wasmer_api::{DynamicFunctionResult, Extern, Function, FunctionEnv, FunctionEnvMut, Value};
 
 #[derive(Clone)]
 #[allow(non_camel_case_types)]
