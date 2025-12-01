@@ -570,9 +570,9 @@ jobs:
             {
               build: linux-musl,
               target: x86_64-unknown-linux-musl,
-              os: ubuntu-22.04,
+              os: ubuntu-latest,
               exe: "",
-              container: "alpine:latest",
+              container: "alpine:edge",
               supports_v8: false,
             },
           ]
@@ -593,10 +593,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.metadata.build == 'linux-musl'
         run: |
-          ./scripts/alpine-linux-install-deps.sh 
-          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
-          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-20" >> $GITHUB_ENV
-        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
+          ./scripts/alpine-linux-install-deps.sh
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -844,9 +841,9 @@ jobs:
             {
               build: linux-musl,
               target: x86_64-unknown-linux-musl,
-              os: ubuntu-22.04,
+              os: ubuntu-latest,
               exe: "",
-              container: "alpine:latest",
+              container: "alpine:edge",
             },
           ]
     container: ${{ matrix.metadata.container }}
@@ -865,9 +862,6 @@ jobs:
         if: matrix.metadata.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
-          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
-          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-20" >> $GITHUB_ENV
-        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - name: Install MSVC dev-cmd (Windows)
         uses: ilammy/msvc-dev-cmd@v1
         if: ${{ matrix.metadata.build == 'windows-x64' }}
@@ -968,8 +962,8 @@ jobs:
             target: aarch64-apple-darwin,
           - build: linux-musl
             target: x86_64-unknown-linux-musl
-            os: ubuntu-22.04
-            container: alpine:latest
+            os: ubuntu-latest
+            container: alpine:edge
           - build: windows-x64
             os: windows-latest
             target: x86_64-pc-windows-msvc
@@ -989,9 +983,6 @@ jobs:
         if: matrix.build == 'linux-musl'
         run: |
           ./scripts/alpine-linux-install-deps.sh
-          echo "ENABLE_LLVM=0" >> $GITHUB_ENV
-          echo "LLVM_CONFIG_PATH=/usr/bin/llvm-config-20" >> $GITHUB_ENV
-        # echo "RUSTFLAGS=-L/usr/lib64 -L/usr/lib" >> $GITHUB_ENV
       - uses: actions/download-artifact@v4
         id: download
         with:

@@ -4,4 +4,4 @@
 # This script is used by the CI!
 
 apk update
-apk add bash mold make curl cmake ninja clang20 zstd-static llvm20-dev clang20-static llvm20-static ncurses-static zlib-static tar
+apk add bash mold make curl cmake ninja clang21 zstd-static llvm21-dev clang21-static llvm21-static ncurses-static zlib-static tar
