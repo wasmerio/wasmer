@@ -7054,6 +7054,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
         let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
@@ -7173,6 +7174,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
         let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
@@ -7436,6 +7438,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
         let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
@@ -7555,6 +7558,7 @@ impl Machine for MachineX86_64 {
         loc_b: Location,
         ret: Location,
     ) -> Result<(), CompileError> {
+        // Canonicalize the result to differentiate arithmetic NaNs from canonical NaNs.
         let tmp1 = self.acquire_temp_simd().ok_or_else(|| {
             CompileError::Codegen("singlepass cannot acquire temp simd".to_owned())
         })?;
