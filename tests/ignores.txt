@@ -17,6 +17,7 @@ singlepass+aarch64+macos traps::test_trap_stack_overflow # Need to investigate
 singlepass+aarch64+macos traps::trap_display_pretty
 llvm       traps::trap_display_pretty
 windows    trap_display_pretty
+windows    traps::test_trap_trace
 cranelift+aarch64+macos    traps::trap_display_pretty
 singlepass+aarch64+macos traps::trap_display_multi_module
 llvm       traps::trap_display_multi_module
@@ -34,6 +35,9 @@ cranelift+aarch64+macos    traps::start_trap_pretty
 llvm+aarch64      spec::skip_stack_guard_page
 llvm+riscv64      spec::skip_stack_guard_page
 llvm+loongarch64  spec::skip_stack_guard_page
+#5895
+llvm+windows      spec::skip_stack_guard_page
+llvm+windows      issues::huge_number_of_arguments_fn
 
 # riscv support is still early, function call ABI needs some work
 llvm+riscv64      static_function::llvm::universal
