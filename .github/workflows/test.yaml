@@ -521,7 +521,7 @@ jobs:
             {
               key: "api-feats",
               build-cmd: "make check-api-features",
-              name: "API (all sys)",
+              name: "API (all sys features)",
             },
           ]
         metadata: [
