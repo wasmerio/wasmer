@@ -5,7 +5,7 @@ use crate::{
     os::task::{
         TaskJoinHandle,
         thread::{
-            RewindResultType, WasiThreadRunGuard, context_switching::ContextSwitchingContext,
+            RewindResultType, WasiThreadRunGuard, context_switching::ContextSwitchingEnvironment,
         },
     },
     runtime::{
@@ -301,7 +301,7 @@ fn call_module(
     };
 
     let (mut store, mut call_ret) =
-        ContextSwitchingContext::run_main_context(&ctx, store, start.clone(), vec![]);
+        ContextSwitchingEnvironment::run_main_context(&ctx, store, start.clone(), vec![]);
 
     loop {
         // Technically, it's an error for a vfork to return from main, but anyway...

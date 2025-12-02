@@ -30,7 +30,7 @@ pub async fn context_switch(
     let data = write_lock.data_mut();
 
     // Verify that we are in an async context
-    let contexts = match &data.context_switching_context {
+    let environment = match &data.context_switching_environment {
         Some(c) => c,
         None => {
             tracing::trace!("Context switching is not enabled");
@@ -39,7 +39,7 @@ pub async fn context_switch(
     };
 
     // Get own context ID
-    let active_context_id = contexts.active_context_id();
+    let active_context_id = environment.active_context_id();
 
     // If switching to self, do nothing
     if active_context_id == target_context_id {
@@ -50,7 +50,7 @@ pub async fn context_switch(
     // Try to unblock the target and get future to wait until we are unblocked again
     //
     // We must be careful not to return after this point without awaiting the resulting future
-    let wait_for_unblock = match contexts.switch(target_context_id) {
+    let wait_for_unblock = match environment.switch(target_context_id) {
         Ok(wait_for_unblock) => wait_for_unblock,
         Err(ContextSwitchError::SwitchTargetMissing) => {
             tracing::trace!(

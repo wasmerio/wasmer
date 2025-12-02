@@ -5,7 +5,7 @@ use super::*;
 use crate::journal::JournalEffector;
 use crate::{
     WasiThreadHandle,
-    os::task::thread::{WasiMemoryLayout, context_switching::ContextSwitchingContext},
+    os::task::thread::{WasiMemoryLayout, context_switching::ContextSwitchingEnvironment},
     runtime::{
         TaintReason,
         task_manager::{TaskWasm, TaskWasmRunProperties},
@@ -209,7 +209,7 @@ fn call_module_internal<M: MemorySize>(
         .try_into()
         .map_err(|_| Errno::Overflow)
         .unwrap();
-    let (mut store, thread_result) = ContextSwitchingContext::run_main_context(
+    let (mut store, thread_result) = ContextSwitchingEnvironment::run_main_context(
         ctx,
         store,
         spawn,

@@ -12,7 +12,7 @@ use crate::{
         process::{WasiProcess, WasiProcessId},
         thread::{
             WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId,
-            context_switching::ContextSwitchingContext,
+            context_switching::ContextSwitchingEnvironment,
         },
     },
     syscalls::platform_clock_time_get,
@@ -186,8 +186,7 @@ pub struct WasiEnv {
     /// This is `None` when the main function was not launched with context switching
     ///
     /// Should probably only be set by [`ContextSwitchingContext::run_main_context`]
-    // TODO: Rename to context_switching_environment
-    pub(crate) context_switching_context: Option<ContextSwitchingContext>,
+    pub(crate) context_switching_environment: Option<ContextSwitchingEnvironment>,
 }
 
 impl std::fmt::Debug for WasiEnv {
@@ -217,7 +216,7 @@ impl Clone for WasiEnv {
             replaying_journal: self.replaying_journal,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
-            context_switching_context: None,
+            context_switching_environment: None,
         }
     }
 }
@@ -259,7 +258,7 @@ impl WasiEnv {
             replaying_journal: false,
             skip_stdio_during_bootstrap: self.skip_stdio_during_bootstrap,
             disable_fs_cleanup: self.disable_fs_cleanup,
-            context_switching_context: None,
+            context_switching_environment: None,
         };
         Ok((new_env, handle))
     }
@@ -404,7 +403,7 @@ impl WasiEnv {
             bin_factory: init.bin_factory,
             capabilities: init.capabilities,
             disable_fs_cleanup: false,
-            context_switching_context: None,
+            context_switching_environment: None,
         };
         env.owned_handles.push(thread);
 
