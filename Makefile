@@ -165,7 +165,8 @@ else ifneq (, $(shell which llvm-config 2>/dev/null))
 	ifneq (, $(findstring 21,$(LLVM_VERSION)))
 		compilers += llvm
 		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
-	else ifneq (, $(findstring 21,$(LLVM_VERSION)))
+	else ifneq (, $(findstring 20,$(LLVM_VERSION)))
+		# alpine:latest (musl Linux target) provides LLVM 20 as the latest release
 		compilers += llvm
 		export LLVM_SYS_211_PREFIX = $(shell llvm-config --prefix)
 	endif
