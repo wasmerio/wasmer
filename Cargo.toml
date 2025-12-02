@@ -146,7 +146,7 @@ serde = { version = "1", default-features = false }
 serde_yaml = { version = "0.9.34" }
 serde_json = { version = "1" }
 bytecheck = { version = "0.8.2" }
-libc = { version = "^0.2", default-features = false }
+libc = { version = "0.2.178", default-features = false }
 gimli = { version = "0.32.3" }
 futures-util = { version = "0.3.31" }
 mio = "1"
