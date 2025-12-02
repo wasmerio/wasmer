@@ -18,6 +18,8 @@ use std::{
 use thiserror::Error;
 use wasmer::{RuntimeError, Store};
 
+/// The context-switching environment represents all state for WASIX context-switching
+/// on a single host thread.
 #[derive(Debug)]
 pub(crate) struct ContextSwitchingEnvironment {
     inner: Arc<ContextSwitchingEnvironmentInner>,
@@ -32,10 +34,11 @@ struct ContextSwitchingEnvironmentInner {
     /// The next available context ID
     next_available_context_id: AtomicU64,
     /// This spawner can be used to spawn tasks onto the thread-local executor
-    /// associated with this context switching environment
+    /// associated with this context-switching environment
     spawner: ThreadLocalSpawner,
 }
 
+/// Errors that can occur during a context switch
 #[derive(Debug, Error)]
 pub enum ContextSwitchError {
     #[error("Target context to switch to is missing")]
@@ -48,6 +51,13 @@ pub enum ContextSwitchError {
 
 const MAIN_CONTEXT_ID: u64 = 0;
 
+/// Contexts will trap with this error as a RuntimeError::user when they are canceled
+///
+/// If encountered in a host function you should do cleanup and return it unchanged
+///
+/// When it bubbles up to the start of the entrypoint function of a context, it will be
+/// handled by just letting the context exit silently. This is the only error that will
+/// not be propagated to the main context.
 #[derive(Error, Debug)]
 #[error("Context was canceled")]
 pub struct ContextCanceled();
@@ -64,9 +74,9 @@ impl ContextSwitchingEnvironment {
         }
     }
 
-    /// Run the main context function in a context switching context
+    /// Run the main context function in a context-switching environment
     ///
-    /// This call blocks until the entrypoint returns, or it or any of the contexts it spawns traps
+    /// This call blocks until the entrypoint returns or traps
     pub(crate) fn run_main_context(
         ctx: &WasiFunctionEnv,
         mut store: Store,
@@ -98,7 +108,7 @@ impl ContextSwitchingEnvironment {
 
         let env = ctx.data_mut(&mut store);
         env.context_switching_environment.take().expect(
-            "Failed to remove wasix context switching context from WASI env after main context finished, this should never happen",
+            "Failed to remove wasix context-switching environment from WASIX env after main context finished, this should never happen",
         );
 
         (store, result)
@@ -106,9 +116,7 @@ impl ContextSwitchingEnvironment {
 
     /// Get the ID of the currently active context
     pub(crate) fn active_context_id(&self) -> u64 {
-        self.inner
-            .current_context_id
-            .load(std::sync::atomic::Ordering::Relaxed)
+        self.inner.current_context_id.load(Ordering::Relaxed)
     }
 
     /// Get the id of the main context (0)
@@ -177,7 +185,7 @@ impl ContextSwitchingEnvironment {
 
             // Restore our own context ID
             let Some(inner) = Weak::upgrade(&weak_inner) else {
-                // The context switching context has been dropped, so we can't proceed
+                // The context-switching environment has been dropped, so we can't proceed
                 // TODO: Handle this properly
                 todo!();
             };
@@ -216,7 +224,7 @@ impl ContextSwitchingEnvironment {
         let new_context_id = self
             .inner
             .next_available_context_id
-            .fetch_add(1, std::sync::atomic::Ordering::Relaxed);
+            .fetch_add(1, Ordering::Relaxed);
 
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
@@ -240,7 +248,7 @@ impl ContextSwitchingEnvironment {
 
             // Set the current context ID
             let Some(inner) = Weak::upgrade(&weak_inner) else {
-                // The context switching context has been dropped, so we can't proceed
+                // The context-switching environment has been dropped, so we can't proceed
                 // TODO: Handle this properly
                 return;
             };
@@ -278,7 +286,7 @@ impl ContextSwitchingEnvironment {
 
             // Retrieve the main context
             let Some(inner) = Weak::upgrade(&weak_inner) else {
-                // The context switching context has been dropped, so we can't proceed
+                // The context-switching environment has been dropped, so we can't proceed
                 // TODO: Handle this properly
                 return;
             };
