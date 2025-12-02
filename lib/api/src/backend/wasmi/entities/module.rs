@@ -10,9 +10,9 @@ use crate::{
 
 use bytes::Bytes;
 use wasmer_types::{
-    CompileError, DeserializeError, ExportType, ExportsIterator, ExternType, FunctionType,
-    GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo, Mutability, Pages,
-    SerializeError, TableType, Type,
+    CompilationProgressCallback, CompileError, DeserializeError, ExportType, ExportsIterator,
+    ExternType, FunctionType, GlobalType, ImportType, ImportsIterator, MemoryType, ModuleInfo,
+    Mutability, Pages, SerializeError, TableType, Type,
 };
 pub(crate) struct ModuleHandle {
     pub(crate) inner: *mut wasm_module_t,
@@ -72,6 +72,14 @@ impl Module {
         binary: &[u8],
     ) -> Result<Self, CompileError> {
         unsafe { Self::from_binary_unchecked(_engine, binary) }
+    }
+
+    pub(crate) fn from_binary_with_progress(
+        engine: &impl AsEngineRef,
+        binary: &[u8],
+        _callback: CompilationProgressCallback,
+    ) -> Result<Self, CompileError> {
+        Self::from_binary(engine, binary)
     }
 
     #[allow(clippy::arc_with_non_send_sync)]
