@@ -193,6 +193,12 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
     pub fn data_and_store_mut(&mut self) -> (&mut T, &mut impl AsStoreMut) {
         self.0.data_and_store_mut()
     }
+
+    /// Borrows a new [`FunctionEnvMut`] from this
+    /// [`AsyncFunctionEnvHandleMut`].
+    pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
+        FunctionEnvMut(self.0.as_function_env_mut())
+    }
 }
 
 #[cfg(feature = "experimental-async")]

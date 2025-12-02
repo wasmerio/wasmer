@@ -393,6 +393,17 @@ impl<T: 'static> BackendAsyncFunctionEnvHandleMut<T> {
             _ => unsupported_async_backend::<(&mut T, &mut crate::StoreMut)>(),
         }
     }
+
+    /// Borrows a new [`BackendFunctionEnvMut`] from this
+    /// [`BackendAsyncFunctionEnvHandleMut`].
+    pub fn as_function_env_mut(&mut self) -> BackendFunctionEnvMut<'_, T> {
+        match self {
+            #[cfg(feature = "sys")]
+            Self::Sys(f) => BackendFunctionEnvMut::Sys(f.as_function_env_mut()),
+            #[cfg(not(feature = "sys"))]
+            _ => unsupported_async_backend(),
+        }
+    }
 }
 
 #[cfg(feature = "experimental-async")]

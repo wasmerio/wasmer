@@ -384,6 +384,14 @@ impl<T: 'static> AsyncFunctionEnvHandleMut<T> {
         let data = unsafe { &mut *data };
         (data, &mut self.write_lock)
     }
+
+    /// Borrows a new [`FunctionEnvMut`] from this [`AsyncFunctionEnvHandleMut`].
+    pub fn as_function_env_mut(&mut self) -> FunctionEnvMut<'_, T> {
+        FunctionEnvMut {
+            store_mut: self.write_lock.as_store_mut(),
+            func_env: self.func_env.clone(),
+        }
+    }
 }
 
 #[cfg(feature = "experimental-async")]
