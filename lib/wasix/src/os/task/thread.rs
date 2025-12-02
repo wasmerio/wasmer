@@ -1,6 +1,3 @@
-// TODO: Move to better location
-pub mod context_switching;
-
 use super::{
     control_plane::TaskCountGuard,
     task_join_handle::{OwnedTaskStatus, TaskJoinHandle},

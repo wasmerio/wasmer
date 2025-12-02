@@ -1,4 +1,4 @@
-use crate::{WasiEnv, os::task::thread::context_switching::ContextSwitchError};
+use crate::{WasiEnv, state::context_switching::ContextSwitchError};
 use futures::FutureExt;
 use tracing::instrument;
 use wasmer::{AsyncFunctionEnvMut, RuntimeError};

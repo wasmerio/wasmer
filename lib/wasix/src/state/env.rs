@@ -10,10 +10,7 @@ use crate::{
     os::task::{
         control_plane::ControlPlaneError,
         process::{WasiProcess, WasiProcessId},
-        thread::{
-            WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId,
-            context_switching::ContextSwitchingEnvironment,
-        },
+        thread::{WasiMemoryLayout, WasiThread, WasiThreadHandle, WasiThreadId},
     },
     syscalls::platform_clock_time_get,
 };
@@ -44,7 +41,7 @@ use wasmer_wasix_types::{
 use webc::metadata::annotations::Wasi;
 
 pub use super::handles::*;
-use super::{Linker, WasiState, conv_env_vars};
+use super::{Linker, WasiState, context_switching::ContextSwitchingEnvironment, conv_env_vars};
 
 /// Data required to construct a [`WasiEnv`].
 #[derive(Debug)]
