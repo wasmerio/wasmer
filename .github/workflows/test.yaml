@@ -249,7 +249,7 @@ jobs:
         run: make build-wasmer-jsc
 
   test_interpreter_api:
-    name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     strategy:
       fail-fast: false
@@ -375,7 +375,7 @@ jobs:
         run: make test-build-docs-rs-ci
 
   build_linux_aarch64:
-    name: ${{ matrix.build-what.name }} on linux-aarch64
+    name: ${{ matrix.build-what.name }} - linux-aarch64
     runs-on: ubuntu-22.04-arm
     strategy:
       fail-fast: false
@@ -436,7 +436,7 @@ jobs:
           retention-days: 2
 
   build_linux_riscv64:
-    name: ${{ matrix.build-what.name }} on linux-riscv64
+    name: ${{ matrix.build-what.name }} - linux-riscv64
     runs-on: ubuntu-22.04
     strategy:
       fail-fast: false
@@ -495,7 +495,7 @@ jobs:
           retention-days: 2
 
   build:
-    name: ${{ matrix.build-what.name }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.build-what.name }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
@@ -778,7 +778,7 @@ jobs:
           retention-days: 2
 
   test:
-    name: ${{ matrix.stage.description }} on ${{ matrix.metadata.build }}
+    name: ${{ matrix.stage.description }} - ${{ matrix.metadata.build }}
     runs-on: ${{ matrix.metadata.os }}
     needs: setup
     strategy:
@@ -791,15 +791,15 @@ jobs:
               make: "test-stage-0-wast",
             },
             {
-              description: "Packages on std",
+              description: "Packages - std",
               make: "test-stage-1-test-all",
             },
             {
-              description: "Cranelift on no-std",
+              description: "Cranelift - no-std",
               make: "test-stage-2-test-compiler-cranelift-nostd",
             },
             {
-              description: "Singlepass on no-std",
+              description: "Singlepass - no-std",
               make: "test-stage-3-test-compiler-singlepass-nostd",
             },
             {
@@ -948,7 +948,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
 
   test_integration_cli:
-    name: CLI integration tests on ${{ matrix.build }}
+    name: CLI integration tests - ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     needs: [build, build_linux_aarch64, build_linux_riscv64]
     strategy:
