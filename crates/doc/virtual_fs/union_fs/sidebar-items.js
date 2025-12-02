@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["MountPoint","MountPointRef","UnionFileSystem"]};
+window.SIDEBAR_ITEMS = {"enum":["UnionMergeMode"],"struct":["MountPoint","MountPointRef","UnionFileSystem"]};

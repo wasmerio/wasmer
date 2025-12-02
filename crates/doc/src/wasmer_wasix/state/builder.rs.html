@@ -698,561 +698,565 @@
 <a href=#698 id=698 data-nosnippet>698</a>    <span class="doccomment">/// Sets the FileSystem to be used with this WASI instance.
 <a href=#699 id=699 data-nosnippet>699</a>    ///
 <a href=#700 id=700 data-nosnippet>700</a>    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-<a href=#701 id=701 data-nosnippet>701</a>    </span><span class="kw">pub fn </span>fs(<span class="kw-2">mut </span><span class="self">self</span>, fs: Box&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+<a href=#701 id=701 data-nosnippet>701</a>    </span><span class="kw">pub fn </span>fs(<span class="kw-2">mut </span><span class="self">self</span>, fs: <span class="kw">impl </span>Into&lt;Arc&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt;&gt;) -&gt; <span class="self">Self </span>{
 <a href=#702 id=702 data-nosnippet>702</a>        <span class="self">self</span>.set_fs(fs);
 <a href=#703 id=703 data-nosnippet>703</a>        <span class="self">self
 <a href=#704 id=704 data-nosnippet>704</a>    </span>}
 <a href=#705 id=705 data-nosnippet>705</a>
-<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">pub fn </span>set_fs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fs: Box&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt;) {
-<a href=#707 id=707 data-nosnippet>707</a>        <span class="self">self</span>.fs = <span class="prelude-val">Some</span>(WasiFsRoot::Backing(Arc::new(fs)));
+<a href=#706 id=706 data-nosnippet>706</a>    <span class="kw">pub fn </span>set_fs(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fs: <span class="kw">impl </span>Into&lt;Arc&lt;<span class="kw">dyn </span>virtual_fs::FileSystem + Send + Sync&gt;&gt;) {
+<a href=#707 id=707 data-nosnippet>707</a>        <span class="self">self</span>.fs = <span class="prelude-val">Some</span>(WasiFsRoot::Backing(fs.into()));
 <a href=#708 id=708 data-nosnippet>708</a>    }
 <a href=#709 id=709 data-nosnippet>709</a>
-<a href=#710 id=710 data-nosnippet>710</a>    <span class="doccomment">/// Sets a new sandbox FileSystem to be used with this WASI instance.
-<a href=#711 id=711 data-nosnippet>711</a>    ///
-<a href=#712 id=712 data-nosnippet>712</a>    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
-<a href=#713 id=713 data-nosnippet>713</a>    </span><span class="kw">pub fn </span>sandbox_fs(<span class="kw-2">mut </span><span class="self">self</span>, fs: TmpFileSystem) -&gt; <span class="self">Self </span>{
-<a href=#714 id=714 data-nosnippet>714</a>        <span class="self">self</span>.fs = <span class="prelude-val">Some</span>(WasiFsRoot::Sandbox(Arc::new(fs)));
-<a href=#715 id=715 data-nosnippet>715</a>        <span class="self">self
-<a href=#716 id=716 data-nosnippet>716</a>    </span>}
-<a href=#717 id=717 data-nosnippet>717</a>
-<a href=#718 id=718 data-nosnippet>718</a>    <span class="doccomment">/// Configure the WASI filesystem before running.
-<a href=#719 id=719 data-nosnippet>719</a>    </span><span class="comment">// TODO: improve ergonomics on this function
-<a href=#720 id=720 data-nosnippet>720</a>    </span><span class="kw">pub fn </span>setup_fs(<span class="kw-2">mut </span><span class="self">self</span>, setup_fs_fn: SetupFsFn) -&gt; <span class="self">Self </span>{
-<a href=#721 id=721 data-nosnippet>721</a>        <span class="self">self</span>.setup_fs_fn = <span class="prelude-val">Some</span>(setup_fs_fn);
-<a href=#722 id=722 data-nosnippet>722</a>
-<a href=#723 id=723 data-nosnippet>723</a>        <span class="self">self
-<a href=#724 id=724 data-nosnippet>724</a>    </span>}
-<a href=#725 id=725 data-nosnippet>725</a>
-<a href=#726 id=726 data-nosnippet>726</a>    <span class="doccomment">/// Sets the wasmer engine and overrides the default; only used if
-<a href=#727 id=727 data-nosnippet>727</a>    /// a runtime override is not provided.
-<a href=#728 id=728 data-nosnippet>728</a>    </span><span class="kw">pub fn </span>engine(<span class="kw-2">mut </span><span class="self">self</span>, engine: Engine) -&gt; <span class="self">Self </span>{
-<a href=#729 id=729 data-nosnippet>729</a>        <span class="self">self</span>.set_engine(engine);
-<a href=#730 id=730 data-nosnippet>730</a>        <span class="self">self
-<a href=#731 id=731 data-nosnippet>731</a>    </span>}
-<a href=#732 id=732 data-nosnippet>732</a>
-<a href=#733 id=733 data-nosnippet>733</a>    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: Engine) {
-<a href=#734 id=734 data-nosnippet>734</a>        <span class="self">self</span>.engine = <span class="prelude-val">Some</span>(engine);
-<a href=#735 id=735 data-nosnippet>735</a>    }
+<a href=#710 id=710 data-nosnippet>710</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>set_fs_root(<span class="kw-2">&amp;mut </span><span class="self">self</span>, fs: WasiFsRoot) {
+<a href=#711 id=711 data-nosnippet>711</a>        <span class="self">self</span>.fs = <span class="prelude-val">Some</span>(fs);
+<a href=#712 id=712 data-nosnippet>712</a>    }
+<a href=#713 id=713 data-nosnippet>713</a>
+<a href=#714 id=714 data-nosnippet>714</a>    <span class="doccomment">/// Sets a new sandbox FileSystem to be used with this WASI instance.
+<a href=#715 id=715 data-nosnippet>715</a>    ///
+<a href=#716 id=716 data-nosnippet>716</a>    /// This is usually used in case a custom `virtual_fs::FileSystem` is needed.
+<a href=#717 id=717 data-nosnippet>717</a>    </span><span class="kw">pub fn </span>sandbox_fs(<span class="kw-2">mut </span><span class="self">self</span>, fs: TmpFileSystem) -&gt; <span class="self">Self </span>{
+<a href=#718 id=718 data-nosnippet>718</a>        <span class="self">self</span>.fs = <span class="prelude-val">Some</span>(WasiFsRoot::Sandbox(fs));
+<a href=#719 id=719 data-nosnippet>719</a>        <span class="self">self
+<a href=#720 id=720 data-nosnippet>720</a>    </span>}
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a>    <span class="doccomment">/// Configure the WASI filesystem before running.
+<a href=#723 id=723 data-nosnippet>723</a>    </span><span class="comment">// TODO: improve ergonomics on this function
+<a href=#724 id=724 data-nosnippet>724</a>    </span><span class="kw">pub fn </span>setup_fs(<span class="kw-2">mut </span><span class="self">self</span>, setup_fs_fn: SetupFsFn) -&gt; <span class="self">Self </span>{
+<a href=#725 id=725 data-nosnippet>725</a>        <span class="self">self</span>.setup_fs_fn = <span class="prelude-val">Some</span>(setup_fs_fn);
+<a href=#726 id=726 data-nosnippet>726</a>
+<a href=#727 id=727 data-nosnippet>727</a>        <span class="self">self
+<a href=#728 id=728 data-nosnippet>728</a>    </span>}
+<a href=#729 id=729 data-nosnippet>729</a>
+<a href=#730 id=730 data-nosnippet>730</a>    <span class="doccomment">/// Sets the wasmer engine and overrides the default; only used if
+<a href=#731 id=731 data-nosnippet>731</a>    /// a runtime override is not provided.
+<a href=#732 id=732 data-nosnippet>732</a>    </span><span class="kw">pub fn </span>engine(<span class="kw-2">mut </span><span class="self">self</span>, engine: Engine) -&gt; <span class="self">Self </span>{
+<a href=#733 id=733 data-nosnippet>733</a>        <span class="self">self</span>.set_engine(engine);
+<a href=#734 id=734 data-nosnippet>734</a>        <span class="self">self
+<a href=#735 id=735 data-nosnippet>735</a>    </span>}
 <a href=#736 id=736 data-nosnippet>736</a>
-<a href=#737 id=737 data-nosnippet>737</a>    <span class="doccomment">/// Sets the WASI runtime implementation and overrides the default
-<a href=#738 id=738 data-nosnippet>738</a>    /// implementation
-<a href=#739 id=739 data-nosnippet>739</a>    </span><span class="kw">pub fn </span>runtime(<span class="kw-2">mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
-<a href=#740 id=740 data-nosnippet>740</a>        <span class="self">self</span>.set_runtime(runtime);
-<a href=#741 id=741 data-nosnippet>741</a>        <span class="self">self
-<a href=#742 id=742 data-nosnippet>742</a>    </span>}
-<a href=#743 id=743 data-nosnippet>743</a>
-<a href=#744 id=744 data-nosnippet>744</a>    <span class="kw">pub fn </span>set_runtime(<span class="kw-2">&amp;mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;) {
-<a href=#745 id=745 data-nosnippet>745</a>        <span class="self">self</span>.runtime = <span class="prelude-val">Some</span>(runtime);
-<a href=#746 id=746 data-nosnippet>746</a>    }
+<a href=#737 id=737 data-nosnippet>737</a>    <span class="kw">pub fn </span>set_engine(<span class="kw-2">&amp;mut </span><span class="self">self</span>, engine: Engine) {
+<a href=#738 id=738 data-nosnippet>738</a>        <span class="self">self</span>.engine = <span class="prelude-val">Some</span>(engine);
+<a href=#739 id=739 data-nosnippet>739</a>    }
+<a href=#740 id=740 data-nosnippet>740</a>
+<a href=#741 id=741 data-nosnippet>741</a>    <span class="doccomment">/// Sets the WASI runtime implementation and overrides the default
+<a href=#742 id=742 data-nosnippet>742</a>    /// implementation
+<a href=#743 id=743 data-nosnippet>743</a>    </span><span class="kw">pub fn </span>runtime(<span class="kw-2">mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;) -&gt; <span class="self">Self </span>{
+<a href=#744 id=744 data-nosnippet>744</a>        <span class="self">self</span>.set_runtime(runtime);
+<a href=#745 id=745 data-nosnippet>745</a>        <span class="self">self
+<a href=#746 id=746 data-nosnippet>746</a>    </span>}
 <a href=#747 id=747 data-nosnippet>747</a>
-<a href=#748 id=748 data-nosnippet>748</a>    <span class="kw">pub fn </span>capabilities(<span class="kw-2">mut </span><span class="self">self</span>, capabilities: Capabilities) -&gt; <span class="self">Self </span>{
-<a href=#749 id=749 data-nosnippet>749</a>        <span class="self">self</span>.set_capabilities(capabilities);
-<a href=#750 id=750 data-nosnippet>750</a>        <span class="self">self
-<a href=#751 id=751 data-nosnippet>751</a>    </span>}
-<a href=#752 id=752 data-nosnippet>752</a>
-<a href=#753 id=753 data-nosnippet>753</a>    <span class="kw">pub fn </span>capabilities_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Capabilities {
-<a href=#754 id=754 data-nosnippet>754</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.capabilites
-<a href=#755 id=755 data-nosnippet>755</a>    }
+<a href=#748 id=748 data-nosnippet>748</a>    <span class="kw">pub fn </span>set_runtime(<span class="kw-2">&amp;mut </span><span class="self">self</span>, runtime: Arc&lt;<span class="kw">dyn </span>Runtime + Send + Sync&gt;) {
+<a href=#749 id=749 data-nosnippet>749</a>        <span class="self">self</span>.runtime = <span class="prelude-val">Some</span>(runtime);
+<a href=#750 id=750 data-nosnippet>750</a>    }
+<a href=#751 id=751 data-nosnippet>751</a>
+<a href=#752 id=752 data-nosnippet>752</a>    <span class="kw">pub fn </span>capabilities(<span class="kw-2">mut </span><span class="self">self</span>, capabilities: Capabilities) -&gt; <span class="self">Self </span>{
+<a href=#753 id=753 data-nosnippet>753</a>        <span class="self">self</span>.set_capabilities(capabilities);
+<a href=#754 id=754 data-nosnippet>754</a>        <span class="self">self
+<a href=#755 id=755 data-nosnippet>755</a>    </span>}
 <a href=#756 id=756 data-nosnippet>756</a>
-<a href=#757 id=757 data-nosnippet>757</a>    <span class="kw">pub fn </span>set_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) {
-<a href=#758 id=758 data-nosnippet>758</a>        <span class="self">self</span>.capabilites = capabilities;
+<a href=#757 id=757 data-nosnippet>757</a>    <span class="kw">pub fn </span>capabilities_mut(<span class="kw-2">&amp;mut </span><span class="self">self</span>) -&gt; <span class="kw-2">&amp;mut </span>Capabilities {
+<a href=#758 id=758 data-nosnippet>758</a>        <span class="kw-2">&amp;mut </span><span class="self">self</span>.capabilites
 <a href=#759 id=759 data-nosnippet>759</a>    }
 <a href=#760 id=760 data-nosnippet>760</a>
-<a href=#761 id=761 data-nosnippet>761</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#762 id=762 data-nosnippet>762</a>    </span><span class="kw">pub fn </span>add_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) {
-<a href=#763 id=763 data-nosnippet>763</a>        <span class="self">self</span>.snapshot_on.push(on);
-<a href=#764 id=764 data-nosnippet>764</a>    }
-<a href=#765 id=765 data-nosnippet>765</a>
-<a href=#766 id=766 data-nosnippet>766</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#767 id=767 data-nosnippet>767</a>    </span><span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interval: std::time::Duration) {
-<a href=#768 id=768 data-nosnippet>768</a>        <span class="self">self</span>.snapshot_interval.replace(interval);
-<a href=#769 id=769 data-nosnippet>769</a>    }
-<a href=#770 id=770 data-nosnippet>770</a>
-<a href=#771 id=771 data-nosnippet>771</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#772 id=772 data-nosnippet>772</a>    </span><span class="kw">pub fn </span>with_stop_running_after_snapshot(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stop_running: bool) {
-<a href=#773 id=773 data-nosnippet>773</a>        <span class="self">self</span>.stop_running_after_snapshot = stop_running;
-<a href=#774 id=774 data-nosnippet>774</a>    }
-<a href=#775 id=775 data-nosnippet>775</a>
-<a href=#776 id=776 data-nosnippet>776</a>    <span class="kw">pub fn </span>with_skip_stdio_during_bootstrap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, skip: bool) {
-<a href=#777 id=777 data-nosnippet>777</a>        <span class="self">self</span>.skip_stdio_during_bootstrap = skip;
+<a href=#761 id=761 data-nosnippet>761</a>    <span class="kw">pub fn </span>set_capabilities(<span class="kw-2">&amp;mut </span><span class="self">self</span>, capabilities: Capabilities) {
+<a href=#762 id=762 data-nosnippet>762</a>        <span class="self">self</span>.capabilites = capabilities;
+<a href=#763 id=763 data-nosnippet>763</a>    }
+<a href=#764 id=764 data-nosnippet>764</a>
+<a href=#765 id=765 data-nosnippet>765</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#766 id=766 data-nosnippet>766</a>    </span><span class="kw">pub fn </span>add_snapshot_trigger(<span class="kw-2">&amp;mut </span><span class="self">self</span>, on: SnapshotTrigger) {
+<a href=#767 id=767 data-nosnippet>767</a>        <span class="self">self</span>.snapshot_on.push(on);
+<a href=#768 id=768 data-nosnippet>768</a>    }
+<a href=#769 id=769 data-nosnippet>769</a>
+<a href=#770 id=770 data-nosnippet>770</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#771 id=771 data-nosnippet>771</a>    </span><span class="kw">pub fn </span>with_snapshot_interval(<span class="kw-2">&amp;mut </span><span class="self">self</span>, interval: std::time::Duration) {
+<a href=#772 id=772 data-nosnippet>772</a>        <span class="self">self</span>.snapshot_interval.replace(interval);
+<a href=#773 id=773 data-nosnippet>773</a>    }
+<a href=#774 id=774 data-nosnippet>774</a>
+<a href=#775 id=775 data-nosnippet>775</a>    <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#776 id=776 data-nosnippet>776</a>    </span><span class="kw">pub fn </span>with_stop_running_after_snapshot(<span class="kw-2">&amp;mut </span><span class="self">self</span>, stop_running: bool) {
+<a href=#777 id=777 data-nosnippet>777</a>        <span class="self">self</span>.stop_running_after_snapshot = stop_running;
 <a href=#778 id=778 data-nosnippet>778</a>    }
 <a href=#779 id=779 data-nosnippet>779</a>
-<a href=#780 id=780 data-nosnippet>780</a>    <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-<a href=#781 id=781 data-nosnippet>781</a>    /// can be used to construct a new [`WasiEnv`].
-<a href=#782 id=782 data-nosnippet>782</a>    ///
-<a href=#783 id=783 data-nosnippet>783</a>    /// Returns the error from `WasiFs::new` if there's an error
-<a href=#784 id=784 data-nosnippet>784</a>    ///
-<a href=#785 id=785 data-nosnippet>785</a>    /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
-<a href=#786 id=786 data-nosnippet>786</a>    /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
-<a href=#787 id=787 data-nosnippet>787</a>    /// to ensure proper invokation of WASI modules.
-<a href=#788 id=788 data-nosnippet>788</a>    </span><span class="kw">pub fn </span>build_init(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvInit, WasiStateCreationError&gt; {
-<a href=#789 id=789 data-nosnippet>789</a>        <span class="kw">for </span>arg <span class="kw">in </span><span class="self">self</span>.args.iter() {
-<a href=#790 id=790 data-nosnippet>790</a>            <span class="kw">for </span>b <span class="kw">in </span>arg.as_bytes().iter() {
-<a href=#791 id=791 data-nosnippet>791</a>                <span class="kw">if </span><span class="kw-2">*</span>b == <span class="number">0 </span>{
-<a href=#792 id=792 data-nosnippet>792</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::ArgumentContainsNulByte(arg.clone()));
-<a href=#793 id=793 data-nosnippet>793</a>                }
-<a href=#794 id=794 data-nosnippet>794</a>            }
-<a href=#795 id=795 data-nosnippet>795</a>        }
-<a href=#796 id=796 data-nosnippet>796</a>
-<a href=#797 id=797 data-nosnippet>797</a>        <span class="kw">enum </span>InvalidCharacter {
-<a href=#798 id=798 data-nosnippet>798</a>            Nul,
-<a href=#799 id=799 data-nosnippet>799</a>            Equal,
-<a href=#800 id=800 data-nosnippet>800</a>        }
-<a href=#801 id=801 data-nosnippet>801</a>
-<a href=#802 id=802 data-nosnippet>802</a>        <span class="kw">for </span>(env_key, env_value) <span class="kw">in </span><span class="self">self</span>.envs.iter() {
-<a href=#803 id=803 data-nosnippet>803</a>            <span class="kw">match </span>env_key.as_bytes().iter().find_map(|<span class="kw-2">&amp;</span>ch| {
-<a href=#804 id=804 data-nosnippet>804</a>                <span class="kw">if </span>ch == <span class="number">0 </span>{
-<a href=#805 id=805 data-nosnippet>805</a>                    <span class="prelude-val">Some</span>(InvalidCharacter::Nul)
-<a href=#806 id=806 data-nosnippet>806</a>                } <span class="kw">else if </span>ch == <span class="string">b'=' </span>{
-<a href=#807 id=807 data-nosnippet>807</a>                    <span class="prelude-val">Some</span>(InvalidCharacter::Equal)
-<a href=#808 id=808 data-nosnippet>808</a>                } <span class="kw">else </span>{
-<a href=#809 id=809 data-nosnippet>809</a>                    <span class="prelude-val">None
-<a href=#810 id=810 data-nosnippet>810</a>                </span>}
-<a href=#811 id=811 data-nosnippet>811</a>            }) {
-<a href=#812 id=812 data-nosnippet>812</a>                <span class="prelude-val">Some</span>(InvalidCharacter::Nul) =&gt; {
-<a href=#813 id=813 data-nosnippet>813</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
-<a href=#814 id=814 data-nosnippet>814</a>                        <span class="macro">format!</span>(<span class="string">"found nul byte in env var key \"{env_key}\" (key=value)"</span>),
-<a href=#815 id=815 data-nosnippet>815</a>                    ));
-<a href=#816 id=816 data-nosnippet>816</a>                }
-<a href=#817 id=817 data-nosnippet>817</a>
-<a href=#818 id=818 data-nosnippet>818</a>                <span class="prelude-val">Some</span>(InvalidCharacter::Equal) =&gt; {
-<a href=#819 id=819 data-nosnippet>819</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
-<a href=#820 id=820 data-nosnippet>820</a>                        <span class="macro">format!</span>(<span class="string">"found equal sign in env var key \"{env_key}\" (key=value)"</span>),
-<a href=#821 id=821 data-nosnippet>821</a>                    ));
-<a href=#822 id=822 data-nosnippet>822</a>                }
-<a href=#823 id=823 data-nosnippet>823</a>
-<a href=#824 id=824 data-nosnippet>824</a>                <span class="prelude-val">None </span>=&gt; (),
-<a href=#825 id=825 data-nosnippet>825</a>            }
-<a href=#826 id=826 data-nosnippet>826</a>
-<a href=#827 id=827 data-nosnippet>827</a>            <span class="kw">if </span>env_value.contains(<span class="kw-2">&amp;</span><span class="number">0</span>) {
-<a href=#828 id=828 data-nosnippet>828</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
-<a href=#829 id=829 data-nosnippet>829</a>                    <span class="macro">format!</span>(
-<a href=#830 id=830 data-nosnippet>830</a>                        <span class="string">"found nul byte in env var value \"{}\" (key=value)"</span>,
-<a href=#831 id=831 data-nosnippet>831</a>                        String::from_utf8_lossy(env_value),
-<a href=#832 id=832 data-nosnippet>832</a>                    ),
-<a href=#833 id=833 data-nosnippet>833</a>                ));
-<a href=#834 id=834 data-nosnippet>834</a>            }
-<a href=#835 id=835 data-nosnippet>835</a>        }
-<a href=#836 id=836 data-nosnippet>836</a>
-<a href=#837 id=837 data-nosnippet>837</a>        <span class="comment">// Determine the STDIN
-<a href=#838 id=838 data-nosnippet>838</a>        </span><span class="kw">let </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt; = <span class="self">self
-<a href=#839 id=839 data-nosnippet>839</a>            </span>.stdin
-<a href=#840 id=840 data-nosnippet>840</a>            .take()
-<a href=#841 id=841 data-nosnippet>841</a>            .unwrap_or_else(|| Box::new(ArcFile::new(Box::&lt;<span class="kw">super</span>::Stdin&gt;::default())));
-<a href=#842 id=842 data-nosnippet>842</a>
-<a href=#843 id=843 data-nosnippet>843</a>        <span class="kw">let </span>fs_backing = <span class="self">self
-<a href=#844 id=844 data-nosnippet>844</a>            </span>.fs
-<a href=#845 id=845 data-nosnippet>845</a>            .take()
-<a href=#846 id=846 data-nosnippet>846</a>            .unwrap_or_else(|| WasiFsRoot::Sandbox(Arc::new(TmpFileSystem::new())));
-<a href=#847 id=847 data-nosnippet>847</a>
-<a href=#848 id=848 data-nosnippet>848</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_dir {
-<a href=#849 id=849 data-nosnippet>849</a>            <span class="kw">match </span>fs_backing.read_dir(dir) {
-<a href=#850 id=850 data-nosnippet>850</a>                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
-<a href=#851 id=851 data-nosnippet>851</a>                    <span class="comment">// All good
-<a href=#852 id=852 data-nosnippet>852</a>                </span>}
-<a href=#853 id=853 data-nosnippet>853</a>                <span class="prelude-val">Err</span>(FsError::EntryNotFound) =&gt; {
-<a href=#854 id=854 data-nosnippet>854</a>                    fs_backing.create_dir(dir).map_err(|err| {
-<a href=#855 id=855 data-nosnippet>855</a>                        WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
-<a href=#856 id=856 data-nosnippet>856</a>                            <span class="string">"Could not create specified current directory at '{}': {err}"</span>,
-<a href=#857 id=857 data-nosnippet>857</a>                            dir.display()
-<a href=#858 id=858 data-nosnippet>858</a>                        ))
-<a href=#859 id=859 data-nosnippet>859</a>                    })<span class="question-mark">?</span>;
-<a href=#860 id=860 data-nosnippet>860</a>                }
-<a href=#861 id=861 data-nosnippet>861</a>                <span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#862 id=862 data-nosnippet>862</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
-<a href=#863 id=863 data-nosnippet>863</a>                        <span class="string">"Could check specified current directory at '{}': {err}"</span>,
-<a href=#864 id=864 data-nosnippet>864</a>                        dir.display()
-<a href=#865 id=865 data-nosnippet>865</a>                    )));
-<a href=#866 id=866 data-nosnippet>866</a>                }
-<a href=#867 id=867 data-nosnippet>867</a>            }
-<a href=#868 id=868 data-nosnippet>868</a>        }
-<a href=#869 id=869 data-nosnippet>869</a>
-<a href=#870 id=870 data-nosnippet>870</a>        <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]
-<a href=#871 id=871 data-nosnippet>871</a>        </span><span class="kw">let </span>inodes = <span class="kw">crate</span>::state::WasiInodes::new();
-<a href=#872 id=872 data-nosnippet>872</a>        <span class="kw">let </span>wasi_fs = {
-<a href=#873 id=873 data-nosnippet>873</a>            <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]
-<a href=#874 id=874 data-nosnippet>874</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_fs =
-<a href=#875 id=875 data-nosnippet>875</a>                WasiFs::new_with_preopen(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;</span><span class="self">self</span>.preopens, <span class="kw-2">&amp;</span><span class="self">self</span>.vfs_preopens, fs_backing)
-<a href=#876 id=876 data-nosnippet>876</a>                    .map_err(WasiStateCreationError::WasiFsCreationError)<span class="question-mark">?</span>;
-<a href=#877 id=877 data-nosnippet>877</a>
-<a href=#878 id=878 data-nosnippet>878</a>            <span class="comment">// set up the file system, overriding base files and calling the setup function
-<a href=#879 id=879 data-nosnippet>879</a>            </span>wasi_fs
-<a href=#880 id=880 data-nosnippet>880</a>                .swap_file(__WASI_STDIN_FILENO, stdin)
-<a href=#881 id=881 data-nosnippet>881</a>                .map_err(WasiStateCreationError::FileSystemError)<span class="question-mark">?</span>;
-<a href=#882 id=882 data-nosnippet>882</a>
-<a href=#883 id=883 data-nosnippet>883</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(stdout_override) = <span class="self">self</span>.stdout.take() {
-<a href=#884 id=884 data-nosnippet>884</a>                wasi_fs
-<a href=#885 id=885 data-nosnippet>885</a>                    .swap_file(__WASI_STDOUT_FILENO, stdout_override)
-<a href=#886 id=886 data-nosnippet>886</a>                    .map_err(WasiStateCreationError::FileSystemError)<span class="question-mark">?</span>;
-<a href=#887 id=887 data-nosnippet>887</a>            }
-<a href=#888 id=888 data-nosnippet>888</a>
-<a href=#889 id=889 data-nosnippet>889</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr_override) = <span class="self">self</span>.stderr.take() {
-<a href=#890 id=890 data-nosnippet>890</a>                wasi_fs
-<a href=#891 id=891 data-nosnippet>891</a>                    .swap_file(__WASI_STDERR_FILENO, stderr_override)
-<a href=#892 id=892 data-nosnippet>892</a>                    .map_err(WasiStateCreationError::FileSystemError)<span class="question-mark">?</span>;
-<a href=#893 id=893 data-nosnippet>893</a>            }
-<a href=#894 id=894 data-nosnippet>894</a>
-<a href=#895 id=895 data-nosnippet>895</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = <span class="kw-2">&amp;</span><span class="self">self</span>.setup_fs_fn {
-<a href=#896 id=896 data-nosnippet>896</a>                f(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;mut </span>wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)<span class="question-mark">?</span>;
+<a href=#780 id=780 data-nosnippet>780</a>    <span class="kw">pub fn </span>with_skip_stdio_during_bootstrap(<span class="kw-2">&amp;mut </span><span class="self">self</span>, skip: bool) {
+<a href=#781 id=781 data-nosnippet>781</a>        <span class="self">self</span>.skip_stdio_during_bootstrap = skip;
+<a href=#782 id=782 data-nosnippet>782</a>    }
+<a href=#783 id=783 data-nosnippet>783</a>
+<a href=#784 id=784 data-nosnippet>784</a>    <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
+<a href=#785 id=785 data-nosnippet>785</a>    /// can be used to construct a new [`WasiEnv`].
+<a href=#786 id=786 data-nosnippet>786</a>    ///
+<a href=#787 id=787 data-nosnippet>787</a>    /// Returns the error from `WasiFs::new` if there's an error
+<a href=#788 id=788 data-nosnippet>788</a>    ///
+<a href=#789 id=789 data-nosnippet>789</a>    /// NOTE: You should prefer to not work directly with [`WasiEnvInit`].
+<a href=#790 id=790 data-nosnippet>790</a>    /// Use [`WasiEnvBuilder::build`] or [`WasiEnvBuilder::instantiate`] instead
+<a href=#791 id=791 data-nosnippet>791</a>    /// to ensure proper invokation of WASI modules.
+<a href=#792 id=792 data-nosnippet>792</a>    </span><span class="kw">pub fn </span>build_init(<span class="kw-2">mut </span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnvInit, WasiStateCreationError&gt; {
+<a href=#793 id=793 data-nosnippet>793</a>        <span class="kw">for </span>arg <span class="kw">in </span><span class="self">self</span>.args.iter() {
+<a href=#794 id=794 data-nosnippet>794</a>            <span class="kw">for </span>b <span class="kw">in </span>arg.as_bytes().iter() {
+<a href=#795 id=795 data-nosnippet>795</a>                <span class="kw">if </span><span class="kw-2">*</span>b == <span class="number">0 </span>{
+<a href=#796 id=796 data-nosnippet>796</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::ArgumentContainsNulByte(arg.clone()));
+<a href=#797 id=797 data-nosnippet>797</a>                }
+<a href=#798 id=798 data-nosnippet>798</a>            }
+<a href=#799 id=799 data-nosnippet>799</a>        }
+<a href=#800 id=800 data-nosnippet>800</a>
+<a href=#801 id=801 data-nosnippet>801</a>        <span class="kw">enum </span>InvalidCharacter {
+<a href=#802 id=802 data-nosnippet>802</a>            Nul,
+<a href=#803 id=803 data-nosnippet>803</a>            Equal,
+<a href=#804 id=804 data-nosnippet>804</a>        }
+<a href=#805 id=805 data-nosnippet>805</a>
+<a href=#806 id=806 data-nosnippet>806</a>        <span class="kw">for </span>(env_key, env_value) <span class="kw">in </span><span class="self">self</span>.envs.iter() {
+<a href=#807 id=807 data-nosnippet>807</a>            <span class="kw">match </span>env_key.as_bytes().iter().find_map(|<span class="kw-2">&amp;</span>ch| {
+<a href=#808 id=808 data-nosnippet>808</a>                <span class="kw">if </span>ch == <span class="number">0 </span>{
+<a href=#809 id=809 data-nosnippet>809</a>                    <span class="prelude-val">Some</span>(InvalidCharacter::Nul)
+<a href=#810 id=810 data-nosnippet>810</a>                } <span class="kw">else if </span>ch == <span class="string">b'=' </span>{
+<a href=#811 id=811 data-nosnippet>811</a>                    <span class="prelude-val">Some</span>(InvalidCharacter::Equal)
+<a href=#812 id=812 data-nosnippet>812</a>                } <span class="kw">else </span>{
+<a href=#813 id=813 data-nosnippet>813</a>                    <span class="prelude-val">None
+<a href=#814 id=814 data-nosnippet>814</a>                </span>}
+<a href=#815 id=815 data-nosnippet>815</a>            }) {
+<a href=#816 id=816 data-nosnippet>816</a>                <span class="prelude-val">Some</span>(InvalidCharacter::Nul) =&gt; {
+<a href=#817 id=817 data-nosnippet>817</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
+<a href=#818 id=818 data-nosnippet>818</a>                        <span class="macro">format!</span>(<span class="string">"found nul byte in env var key \"{env_key}\" (key=value)"</span>),
+<a href=#819 id=819 data-nosnippet>819</a>                    ));
+<a href=#820 id=820 data-nosnippet>820</a>                }
+<a href=#821 id=821 data-nosnippet>821</a>
+<a href=#822 id=822 data-nosnippet>822</a>                <span class="prelude-val">Some</span>(InvalidCharacter::Equal) =&gt; {
+<a href=#823 id=823 data-nosnippet>823</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
+<a href=#824 id=824 data-nosnippet>824</a>                        <span class="macro">format!</span>(<span class="string">"found equal sign in env var key \"{env_key}\" (key=value)"</span>),
+<a href=#825 id=825 data-nosnippet>825</a>                    ));
+<a href=#826 id=826 data-nosnippet>826</a>                }
+<a href=#827 id=827 data-nosnippet>827</a>
+<a href=#828 id=828 data-nosnippet>828</a>                <span class="prelude-val">None </span>=&gt; (),
+<a href=#829 id=829 data-nosnippet>829</a>            }
+<a href=#830 id=830 data-nosnippet>830</a>
+<a href=#831 id=831 data-nosnippet>831</a>            <span class="kw">if </span>env_value.contains(<span class="kw-2">&amp;</span><span class="number">0</span>) {
+<a href=#832 id=832 data-nosnippet>832</a>                <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::EnvironmentVariableFormatError(
+<a href=#833 id=833 data-nosnippet>833</a>                    <span class="macro">format!</span>(
+<a href=#834 id=834 data-nosnippet>834</a>                        <span class="string">"found nul byte in env var value \"{}\" (key=value)"</span>,
+<a href=#835 id=835 data-nosnippet>835</a>                        String::from_utf8_lossy(env_value),
+<a href=#836 id=836 data-nosnippet>836</a>                    ),
+<a href=#837 id=837 data-nosnippet>837</a>                ));
+<a href=#838 id=838 data-nosnippet>838</a>            }
+<a href=#839 id=839 data-nosnippet>839</a>        }
+<a href=#840 id=840 data-nosnippet>840</a>
+<a href=#841 id=841 data-nosnippet>841</a>        <span class="comment">// Determine the STDIN
+<a href=#842 id=842 data-nosnippet>842</a>        </span><span class="kw">let </span>stdin: Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt; = <span class="self">self
+<a href=#843 id=843 data-nosnippet>843</a>            </span>.stdin
+<a href=#844 id=844 data-nosnippet>844</a>            .take()
+<a href=#845 id=845 data-nosnippet>845</a>            .unwrap_or_else(|| Box::new(ArcFile::new(Box::&lt;<span class="kw">super</span>::Stdin&gt;::default())));
+<a href=#846 id=846 data-nosnippet>846</a>
+<a href=#847 id=847 data-nosnippet>847</a>        <span class="kw">let </span>fs_backing = <span class="self">self
+<a href=#848 id=848 data-nosnippet>848</a>            </span>.fs
+<a href=#849 id=849 data-nosnippet>849</a>            .take()
+<a href=#850 id=850 data-nosnippet>850</a>            .unwrap_or_else(|| WasiFsRoot::Sandbox(TmpFileSystem::new()));
+<a href=#851 id=851 data-nosnippet>851</a>
+<a href=#852 id=852 data-nosnippet>852</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_dir {
+<a href=#853 id=853 data-nosnippet>853</a>            <span class="kw">match </span>fs_backing.read_dir(dir) {
+<a href=#854 id=854 data-nosnippet>854</a>                <span class="prelude-val">Ok</span>(<span class="kw">_</span>) =&gt; {
+<a href=#855 id=855 data-nosnippet>855</a>                    <span class="comment">// All good
+<a href=#856 id=856 data-nosnippet>856</a>                </span>}
+<a href=#857 id=857 data-nosnippet>857</a>                <span class="prelude-val">Err</span>(FsError::EntryNotFound) =&gt; {
+<a href=#858 id=858 data-nosnippet>858</a>                    fs_backing.create_dir(dir).map_err(|err| {
+<a href=#859 id=859 data-nosnippet>859</a>                        WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
+<a href=#860 id=860 data-nosnippet>860</a>                            <span class="string">"Could not create specified current directory at '{}': {err}"</span>,
+<a href=#861 id=861 data-nosnippet>861</a>                            dir.display()
+<a href=#862 id=862 data-nosnippet>862</a>                        ))
+<a href=#863 id=863 data-nosnippet>863</a>                    })<span class="question-mark">?</span>;
+<a href=#864 id=864 data-nosnippet>864</a>                }
+<a href=#865 id=865 data-nosnippet>865</a>                <span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#866 id=866 data-nosnippet>866</a>                    <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
+<a href=#867 id=867 data-nosnippet>867</a>                        <span class="string">"Could check specified current directory at '{}': {err}"</span>,
+<a href=#868 id=868 data-nosnippet>868</a>                        dir.display()
+<a href=#869 id=869 data-nosnippet>869</a>                    )));
+<a href=#870 id=870 data-nosnippet>870</a>                }
+<a href=#871 id=871 data-nosnippet>871</a>            }
+<a href=#872 id=872 data-nosnippet>872</a>        }
+<a href=#873 id=873 data-nosnippet>873</a>
+<a href=#874 id=874 data-nosnippet>874</a>        <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]
+<a href=#875 id=875 data-nosnippet>875</a>        </span><span class="kw">let </span>inodes = <span class="kw">crate</span>::state::WasiInodes::new();
+<a href=#876 id=876 data-nosnippet>876</a>        <span class="kw">let </span>wasi_fs = {
+<a href=#877 id=877 data-nosnippet>877</a>            <span class="comment">// self.preopens are checked in [`PreopenDirBuilder::build`]
+<a href=#878 id=878 data-nosnippet>878</a>            </span><span class="kw">let </span><span class="kw-2">mut </span>wasi_fs =
+<a href=#879 id=879 data-nosnippet>879</a>                WasiFs::new_with_preopen(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;</span><span class="self">self</span>.preopens, <span class="kw-2">&amp;</span><span class="self">self</span>.vfs_preopens, fs_backing)
+<a href=#880 id=880 data-nosnippet>880</a>                    .map_err(WasiStateCreationError::WasiFsCreationError)<span class="question-mark">?</span>;
+<a href=#881 id=881 data-nosnippet>881</a>
+<a href=#882 id=882 data-nosnippet>882</a>            <span class="comment">// set up the file system, overriding base files and calling the setup function
+<a href=#883 id=883 data-nosnippet>883</a>            </span>wasi_fs
+<a href=#884 id=884 data-nosnippet>884</a>                .swap_file(__WASI_STDIN_FILENO, stdin)
+<a href=#885 id=885 data-nosnippet>885</a>                .map_err(WasiStateCreationError::FileSystemError)<span class="question-mark">?</span>;
+<a href=#886 id=886 data-nosnippet>886</a>
+<a href=#887 id=887 data-nosnippet>887</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(stdout_override) = <span class="self">self</span>.stdout.take() {
+<a href=#888 id=888 data-nosnippet>888</a>                wasi_fs
+<a href=#889 id=889 data-nosnippet>889</a>                    .swap_file(__WASI_STDOUT_FILENO, stdout_override)
+<a href=#890 id=890 data-nosnippet>890</a>                    .map_err(WasiStateCreationError::FileSystemError)<span class="question-mark">?</span>;
+<a href=#891 id=891 data-nosnippet>891</a>            }
+<a href=#892 id=892 data-nosnippet>892</a>
+<a href=#893 id=893 data-nosnippet>893</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr_override) = <span class="self">self</span>.stderr.take() {
+<a href=#894 id=894 data-nosnippet>894</a>                wasi_fs
+<a href=#895 id=895 data-nosnippet>895</a>                    .swap_file(__WASI_STDERR_FILENO, stderr_override)
+<a href=#896 id=896 data-nosnippet>896</a>                    .map_err(WasiStateCreationError::FileSystemError)<span class="question-mark">?</span>;
 <a href=#897 id=897 data-nosnippet>897</a>            }
-<a href=#898 id=898 data-nosnippet>898</a>            wasi_fs
-<a href=#899 id=899 data-nosnippet>899</a>        };
-<a href=#900 id=900 data-nosnippet>900</a>
-<a href=#901 id=901 data-nosnippet>901</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_dir {
-<a href=#902 id=902 data-nosnippet>902</a>            <span class="kw">let </span>s = dir.to_str().ok_or_else(|| {
-<a href=#903 id=903 data-nosnippet>903</a>                WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
-<a href=#904 id=904 data-nosnippet>904</a>                    <span class="string">"Specified current directory is not valid UTF-8: '{}'"</span>,
-<a href=#905 id=905 data-nosnippet>905</a>                    dir.display()
-<a href=#906 id=906 data-nosnippet>906</a>                ))
-<a href=#907 id=907 data-nosnippet>907</a>            })<span class="question-mark">?</span>;
-<a href=#908 id=908 data-nosnippet>908</a>            wasi_fs.set_current_dir(s);
-<a href=#909 id=909 data-nosnippet>909</a>        }
-<a href=#910 id=910 data-nosnippet>910</a>
-<a href=#911 id=911 data-nosnippet>911</a>        <span class="kw">for </span>id <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.included_packages {
-<a href=#912 id=912 data-nosnippet>912</a>            wasi_fs.has_unioned.lock().unwrap().insert(id.clone());
+<a href=#898 id=898 data-nosnippet>898</a>
+<a href=#899 id=899 data-nosnippet>899</a>            <span class="kw">if let </span><span class="prelude-val">Some</span>(f) = <span class="kw-2">&amp;</span><span class="self">self</span>.setup_fs_fn {
+<a href=#900 id=900 data-nosnippet>900</a>                f(<span class="kw-2">&amp;</span>inodes, <span class="kw-2">&amp;mut </span>wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)<span class="question-mark">?</span>;
+<a href=#901 id=901 data-nosnippet>901</a>            }
+<a href=#902 id=902 data-nosnippet>902</a>            wasi_fs
+<a href=#903 id=903 data-nosnippet>903</a>        };
+<a href=#904 id=904 data-nosnippet>904</a>
+<a href=#905 id=905 data-nosnippet>905</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(dir) = <span class="kw-2">&amp;</span><span class="self">self</span>.current_dir {
+<a href=#906 id=906 data-nosnippet>906</a>            <span class="kw">let </span>s = dir.to_str().ok_or_else(|| {
+<a href=#907 id=907 data-nosnippet>907</a>                WasiStateCreationError::WasiFsSetupError(<span class="macro">format!</span>(
+<a href=#908 id=908 data-nosnippet>908</a>                    <span class="string">"Specified current directory is not valid UTF-8: '{}'"</span>,
+<a href=#909 id=909 data-nosnippet>909</a>                    dir.display()
+<a href=#910 id=910 data-nosnippet>910</a>                ))
+<a href=#911 id=911 data-nosnippet>911</a>            })<span class="question-mark">?</span>;
+<a href=#912 id=912 data-nosnippet>912</a>            wasi_fs.set_current_dir(s);
 <a href=#913 id=913 data-nosnippet>913</a>        }
 <a href=#914 id=914 data-nosnippet>914</a>
-<a href=#915 id=915 data-nosnippet>915</a>        <span class="kw">let </span>state = WasiState {
-<a href=#916 id=916 data-nosnippet>916</a>            fs: wasi_fs,
-<a href=#917 id=917 data-nosnippet>917</a>            secret: rand::thread_rng().r#gen::&lt;[u8; <span class="number">32</span>]&gt;(),
-<a href=#918 id=918 data-nosnippet>918</a>            inodes,
-<a href=#919 id=919 data-nosnippet>919</a>            args: std::sync::Mutex::new(<span class="self">self</span>.args.clone()),
-<a href=#920 id=920 data-nosnippet>920</a>            preopen: <span class="self">self</span>.vfs_preopens.clone(),
-<a href=#921 id=921 data-nosnippet>921</a>            futexs: Default::default(),
-<a href=#922 id=922 data-nosnippet>922</a>            clock_offset: Default::default(),
-<a href=#923 id=923 data-nosnippet>923</a>            envs: std::sync::Mutex::new(conv_env_vars(<span class="self">self</span>.envs)),
-<a href=#924 id=924 data-nosnippet>924</a>            signals: std::sync::Mutex::new(<span class="self">self</span>.signals.iter().map(|s| (s.sig, s.disp)).collect()),
-<a href=#925 id=925 data-nosnippet>925</a>        };
-<a href=#926 id=926 data-nosnippet>926</a>
-<a href=#927 id=927 data-nosnippet>927</a>        <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
-<a href=#928 id=928 data-nosnippet>928</a>            <span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
-<a href=#929 id=929 data-nosnippet>929</a>            </span>{
-<a href=#930 id=930 data-nosnippet>930</a>                <span class="attr">#[allow(unused_mut)]
-<a href=#931 id=931 data-nosnippet>931</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>runtime = <span class="kw">crate</span>::runtime::PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default()));
-<a href=#932 id=932 data-nosnippet>932</a>                runtime.set_engine(
-<a href=#933 id=933 data-nosnippet>933</a>                    <span class="self">self
-<a href=#934 id=934 data-nosnippet>934</a>                        </span>.engine
-<a href=#935 id=935 data-nosnippet>935</a>                        .as_ref()
-<a href=#936 id=936 data-nosnippet>936</a>                        .expect(
-<a href=#937 id=937 data-nosnippet>937</a>                            <span class="string">"Neither a runtime nor an engine was provided to WasiEnvBuilder. \
-<a href=#938 id=938 data-nosnippet>938</a>                            This is not supported because it means the module that's going to \
-<a href=#939 id=939 data-nosnippet>939</a>                            run with the resulting WasiEnv will have been loaded using a \
-<a href=#940 id=940 data-nosnippet>940</a>                            different engine than the one that will exist within the WasiEnv. \
-<a href=#941 id=941 data-nosnippet>941</a>                            Use either `set_runtime` or `set_engine` before calling `build_init`."</span>,
-<a href=#942 id=942 data-nosnippet>942</a>                        )
-<a href=#943 id=943 data-nosnippet>943</a>                        .clone()
-<a href=#944 id=944 data-nosnippet>944</a>                );
-<a href=#945 id=945 data-nosnippet>945</a>                <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#946 id=946 data-nosnippet>946</a>                </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.read_only_journals.clone() {
-<a href=#947 id=947 data-nosnippet>947</a>                    runtime.add_read_only_journal(journal);
-<a href=#948 id=948 data-nosnippet>948</a>                }
+<a href=#915 id=915 data-nosnippet>915</a>        <span class="kw">for </span>id <span class="kw">in </span><span class="kw-2">&amp;</span><span class="self">self</span>.included_packages {
+<a href=#916 id=916 data-nosnippet>916</a>            wasi_fs.has_unioned.lock().unwrap().insert(id.clone());
+<a href=#917 id=917 data-nosnippet>917</a>        }
+<a href=#918 id=918 data-nosnippet>918</a>
+<a href=#919 id=919 data-nosnippet>919</a>        <span class="kw">let </span>state = WasiState {
+<a href=#920 id=920 data-nosnippet>920</a>            fs: wasi_fs,
+<a href=#921 id=921 data-nosnippet>921</a>            secret: rand::thread_rng().r#gen::&lt;[u8; <span class="number">32</span>]&gt;(),
+<a href=#922 id=922 data-nosnippet>922</a>            inodes,
+<a href=#923 id=923 data-nosnippet>923</a>            args: std::sync::Mutex::new(<span class="self">self</span>.args.clone()),
+<a href=#924 id=924 data-nosnippet>924</a>            preopen: <span class="self">self</span>.vfs_preopens.clone(),
+<a href=#925 id=925 data-nosnippet>925</a>            futexs: Default::default(),
+<a href=#926 id=926 data-nosnippet>926</a>            clock_offset: Default::default(),
+<a href=#927 id=927 data-nosnippet>927</a>            envs: std::sync::Mutex::new(conv_env_vars(<span class="self">self</span>.envs)),
+<a href=#928 id=928 data-nosnippet>928</a>            signals: std::sync::Mutex::new(<span class="self">self</span>.signals.iter().map(|s| (s.sig, s.disp)).collect()),
+<a href=#929 id=929 data-nosnippet>929</a>        };
+<a href=#930 id=930 data-nosnippet>930</a>
+<a href=#931 id=931 data-nosnippet>931</a>        <span class="kw">let </span>runtime = <span class="self">self</span>.runtime.unwrap_or_else(|| {
+<a href=#932 id=932 data-nosnippet>932</a>            <span class="attr">#[cfg(feature = <span class="string">"sys-thread"</span>)]
+<a href=#933 id=933 data-nosnippet>933</a>            </span>{
+<a href=#934 id=934 data-nosnippet>934</a>                <span class="attr">#[allow(unused_mut)]
+<a href=#935 id=935 data-nosnippet>935</a>                </span><span class="kw">let </span><span class="kw-2">mut </span>runtime = <span class="kw">crate</span>::runtime::PluggableRuntime::new(Arc::new(<span class="kw">crate</span>::runtime::task_manager::tokio::TokioTaskManager::default()));
+<a href=#936 id=936 data-nosnippet>936</a>                runtime.set_engine(
+<a href=#937 id=937 data-nosnippet>937</a>                    <span class="self">self
+<a href=#938 id=938 data-nosnippet>938</a>                        </span>.engine
+<a href=#939 id=939 data-nosnippet>939</a>                        .as_ref()
+<a href=#940 id=940 data-nosnippet>940</a>                        .expect(
+<a href=#941 id=941 data-nosnippet>941</a>                            <span class="string">"Neither a runtime nor an engine was provided to WasiEnvBuilder. \
+<a href=#942 id=942 data-nosnippet>942</a>                            This is not supported because it means the module that's going to \
+<a href=#943 id=943 data-nosnippet>943</a>                            run with the resulting WasiEnv will have been loaded using a \
+<a href=#944 id=944 data-nosnippet>944</a>                            different engine than the one that will exist within the WasiEnv. \
+<a href=#945 id=945 data-nosnippet>945</a>                            Use either `set_runtime` or `set_engine` before calling `build_init`."</span>,
+<a href=#946 id=946 data-nosnippet>946</a>                        )
+<a href=#947 id=947 data-nosnippet>947</a>                        .clone()
+<a href=#948 id=948 data-nosnippet>948</a>                );
 <a href=#949 id=949 data-nosnippet>949</a>                <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#950 id=950 data-nosnippet>950</a>                </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.writable_journals.clone() {
-<a href=#951 id=951 data-nosnippet>951</a>                    runtime.add_writable_journal(journal);
+<a href=#950 id=950 data-nosnippet>950</a>                </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.read_only_journals.clone() {
+<a href=#951 id=951 data-nosnippet>951</a>                    runtime.add_read_only_journal(journal);
 <a href=#952 id=952 data-nosnippet>952</a>                }
-<a href=#953 id=953 data-nosnippet>953</a>                Arc::new(runtime)
-<a href=#954 id=954 data-nosnippet>954</a>            }
-<a href=#955 id=955 data-nosnippet>955</a>
-<a href=#956 id=956 data-nosnippet>956</a>            <span class="attr">#[cfg(not(feature = <span class="string">"sys-thread"</span>))]
-<a href=#957 id=957 data-nosnippet>957</a>            </span>{
-<a href=#958 id=958 data-nosnippet>958</a>                <span class="macro">panic!</span>(<span class="string">"this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()"</span>);
-<a href=#959 id=959 data-nosnippet>959</a>            }
-<a href=#960 id=960 data-nosnippet>960</a>        });
-<a href=#961 id=961 data-nosnippet>961</a>
-<a href=#962 id=962 data-nosnippet>962</a>        <span class="kw">let </span>uses = <span class="self">self</span>.uses;
-<a href=#963 id=963 data-nosnippet>963</a>        <span class="kw">let </span>map_commands = <span class="self">self</span>.map_commands;
-<a href=#964 id=964 data-nosnippet>964</a>
-<a href=#965 id=965 data-nosnippet>965</a>        <span class="kw">let </span>bin_factory = BinFactory::new(runtime.clone());
-<a href=#966 id=966 data-nosnippet>966</a>
-<a href=#967 id=967 data-nosnippet>967</a>        <span class="kw">let </span>capabilities = <span class="self">self</span>.capabilites;
+<a href=#953 id=953 data-nosnippet>953</a>                <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#954 id=954 data-nosnippet>954</a>                </span><span class="kw">for </span>journal <span class="kw">in </span><span class="self">self</span>.writable_journals.clone() {
+<a href=#955 id=955 data-nosnippet>955</a>                    runtime.add_writable_journal(journal);
+<a href=#956 id=956 data-nosnippet>956</a>                }
+<a href=#957 id=957 data-nosnippet>957</a>                Arc::new(runtime)
+<a href=#958 id=958 data-nosnippet>958</a>            }
+<a href=#959 id=959 data-nosnippet>959</a>
+<a href=#960 id=960 data-nosnippet>960</a>            <span class="attr">#[cfg(not(feature = <span class="string">"sys-thread"</span>))]
+<a href=#961 id=961 data-nosnippet>961</a>            </span>{
+<a href=#962 id=962 data-nosnippet>962</a>                <span class="macro">panic!</span>(<span class="string">"this build does not support a default runtime - specify one with WasiEnvBuilder::runtime()"</span>);
+<a href=#963 id=963 data-nosnippet>963</a>            }
+<a href=#964 id=964 data-nosnippet>964</a>        });
+<a href=#965 id=965 data-nosnippet>965</a>
+<a href=#966 id=966 data-nosnippet>966</a>        <span class="kw">let </span>uses = <span class="self">self</span>.uses;
+<a href=#967 id=967 data-nosnippet>967</a>        <span class="kw">let </span>map_commands = <span class="self">self</span>.map_commands;
 <a href=#968 id=968 data-nosnippet>968</a>
-<a href=#969 id=969 data-nosnippet>969</a>        <span class="kw">let </span>plane_config = ControlPlaneConfig {
-<a href=#970 id=970 data-nosnippet>970</a>            max_task_count: capabilities.threading.max_threads,
-<a href=#971 id=971 data-nosnippet>971</a>            enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
-<a href=#972 id=972 data-nosnippet>972</a>            enable_exponential_cpu_backoff: capabilities.threading.enable_exponential_cpu_backoff,
-<a href=#973 id=973 data-nosnippet>973</a>        };
-<a href=#974 id=974 data-nosnippet>974</a>        <span class="kw">let </span>control_plane = WasiControlPlane::new(plane_config);
-<a href=#975 id=975 data-nosnippet>975</a>
-<a href=#976 id=976 data-nosnippet>976</a>        <span class="kw">let </span>init = WasiEnvInit {
-<a href=#977 id=977 data-nosnippet>977</a>            state,
-<a href=#978 id=978 data-nosnippet>978</a>            runtime,
-<a href=#979 id=979 data-nosnippet>979</a>            webc_dependencies: uses,
-<a href=#980 id=980 data-nosnippet>980</a>            mapped_commands: map_commands,
-<a href=#981 id=981 data-nosnippet>981</a>            control_plane,
-<a href=#982 id=982 data-nosnippet>982</a>            bin_factory,
-<a href=#983 id=983 data-nosnippet>983</a>            capabilities,
-<a href=#984 id=984 data-nosnippet>984</a>            memory_ty: <span class="prelude-val">None</span>,
-<a href=#985 id=985 data-nosnippet>985</a>            process: <span class="prelude-val">None</span>,
-<a href=#986 id=986 data-nosnippet>986</a>            thread: <span class="prelude-val">None</span>,
-<a href=#987 id=987 data-nosnippet>987</a>            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#988 id=988 data-nosnippet>988</a>            </span>call_initialize: <span class="self">self</span>.read_only_journals.is_empty()
-<a href=#989 id=989 data-nosnippet>989</a>                &amp;&amp; <span class="self">self</span>.writable_journals.is_empty(),
-<a href=#990 id=990 data-nosnippet>990</a>            <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
-<a href=#991 id=991 data-nosnippet>991</a>            </span>call_initialize: <span class="bool-val">true</span>,
-<a href=#992 id=992 data-nosnippet>992</a>            can_deep_sleep: <span class="bool-val">false</span>,
-<a href=#993 id=993 data-nosnippet>993</a>            extra_tracing: <span class="bool-val">true</span>,
-<a href=#994 id=994 data-nosnippet>994</a>            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#995 id=995 data-nosnippet>995</a>            </span>snapshot_on: <span class="self">self</span>.snapshot_on,
-<a href=#996 id=996 data-nosnippet>996</a>            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
-<a href=#997 id=997 data-nosnippet>997</a>            </span>stop_running_after_snapshot: <span class="self">self</span>.stop_running_after_snapshot,
-<a href=#998 id=998 data-nosnippet>998</a>            skip_stdio_during_bootstrap: <span class="self">self</span>.skip_stdio_during_bootstrap,
-<a href=#999 id=999 data-nosnippet>999</a>        };
-<a href=#1000 id=1000 data-nosnippet>1000</a>
-<a href=#1001 id=1001 data-nosnippet>1001</a>        <span class="prelude-val">Ok</span>(init)
-<a href=#1002 id=1002 data-nosnippet>1002</a>    }
-<a href=#1003 id=1003 data-nosnippet>1003</a>
-<a href=#1004 id=1004 data-nosnippet>1004</a>    <span class="attr">#[allow(clippy::result_large_err)]
-<a href=#1005 id=1005 data-nosnippet>1005</a>    </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnv, WasiRuntimeError&gt; {
-<a href=#1006 id=1006 data-nosnippet>1006</a>        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
-<a href=#1007 id=1007 data-nosnippet>1007</a>        <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
-<a href=#1008 id=1008 data-nosnippet>1008</a>        WasiEnv::from_init(init, module_hash)
-<a href=#1009 id=1009 data-nosnippet>1009</a>    }
-<a href=#1010 id=1010 data-nosnippet>1010</a>
-<a href=#1011 id=1011 data-nosnippet>1011</a>    <span class="doccomment">/// Construct a [`WasiFunctionEnv`].
-<a href=#1012 id=1012 data-nosnippet>1012</a>    ///
-<a href=#1013 id=1013 data-nosnippet>1013</a>    /// NOTE: you still must call [`WasiFunctionEnv::initialize`] to make an
-<a href=#1014 id=1014 data-nosnippet>1014</a>    /// instance usable.
-<a href=#1015 id=1015 data-nosnippet>1015</a>    </span><span class="attr">#[doc(hidden)]
-<a href=#1016 id=1016 data-nosnippet>1016</a>    #[allow(clippy::result_large_err)]
-<a href=#1017 id=1017 data-nosnippet>1017</a>    </span><span class="kw">pub fn </span>finalize(
-<a href=#1018 id=1018 data-nosnippet>1018</a>        <span class="self">self</span>,
-<a href=#1019 id=1019 data-nosnippet>1019</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#1020 id=1020 data-nosnippet>1020</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFunctionEnv, WasiRuntimeError&gt; {
-<a href=#1021 id=1021 data-nosnippet>1021</a>        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
-<a href=#1022 id=1022 data-nosnippet>1022</a>        <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
-<a href=#1023 id=1023 data-nosnippet>1023</a>        <span class="kw">let </span>env = WasiEnv::from_init(init, module_hash)<span class="question-mark">?</span>;
-<a href=#1024 id=1024 data-nosnippet>1024</a>        <span class="kw">let </span>func_env = WasiFunctionEnv::new(store, env);
-<a href=#1025 id=1025 data-nosnippet>1025</a>        <span class="prelude-val">Ok</span>(func_env)
-<a href=#1026 id=1026 data-nosnippet>1026</a>    }
-<a href=#1027 id=1027 data-nosnippet>1027</a>
-<a href=#1028 id=1028 data-nosnippet>1028</a>    <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
-<a href=#1029 id=1029 data-nosnippet>1029</a>    /// can be used to construct a new [`WasiEnv`].
-<a href=#1030 id=1030 data-nosnippet>1030</a>    ///
-<a href=#1031 id=1031 data-nosnippet>1031</a>    /// Returns the error from `WasiFs::new` if there's an error
-<a href=#1032 id=1032 data-nosnippet>1032</a>    </span><span class="comment">// FIXME: use a proper custom error type
-<a href=#1033 id=1033 data-nosnippet>1033</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
-<a href=#1034 id=1034 data-nosnippet>1034</a>    </span><span class="kw">pub fn </span>instantiate(
-<a href=#1035 id=1035 data-nosnippet>1035</a>        <span class="self">self</span>,
-<a href=#1036 id=1036 data-nosnippet>1036</a>        module: Module,
-<a href=#1037 id=1037 data-nosnippet>1037</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#1038 id=1038 data-nosnippet>1038</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
-<a href=#1039 id=1039 data-nosnippet>1039</a>        <span class="self">self</span>.instantiate_ext(module, ModuleHash::random(), store)
-<a href=#1040 id=1040 data-nosnippet>1040</a>    }
-<a href=#1041 id=1041 data-nosnippet>1041</a>
-<a href=#1042 id=1042 data-nosnippet>1042</a>    <span class="attr">#[allow(clippy::result_large_err)]
-<a href=#1043 id=1043 data-nosnippet>1043</a>    </span><span class="kw">pub fn </span>instantiate_ext(
-<a href=#1044 id=1044 data-nosnippet>1044</a>        <span class="self">self</span>,
-<a href=#1045 id=1045 data-nosnippet>1045</a>        module: Module,
-<a href=#1046 id=1046 data-nosnippet>1046</a>        module_hash: ModuleHash,
-<a href=#1047 id=1047 data-nosnippet>1047</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
-<a href=#1048 id=1048 data-nosnippet>1048</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
-<a href=#1049 id=1049 data-nosnippet>1049</a>        <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
-<a href=#1050 id=1050 data-nosnippet>1050</a>        <span class="kw">let </span>call_init = init.call_initialize;
-<a href=#1051 id=1051 data-nosnippet>1051</a>        <span class="kw">let </span>env = WasiEnv::from_init(init, module_hash)<span class="question-mark">?</span>;
-<a href=#1052 id=1052 data-nosnippet>1052</a>        <span class="kw">let </span>memory = module
-<a href=#1053 id=1053 data-nosnippet>1053</a>            .imports()
-<a href=#1054 id=1054 data-nosnippet>1054</a>            .find_map(|i| <span class="kw">match </span>i.ty() {
-<a href=#1055 id=1055 data-nosnippet>1055</a>                wasmer::ExternType::Memory(ty) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>ty),
-<a href=#1056 id=1056 data-nosnippet>1056</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
-<a href=#1057 id=1057 data-nosnippet>1057</a>            })
-<a href=#1058 id=1058 data-nosnippet>1058</a>            .map(|ty| wasmer::Memory::new(store, ty))
-<a href=#1059 id=1059 data-nosnippet>1059</a>            .transpose()
-<a href=#1060 id=1060 data-nosnippet>1060</a>            .map_err(WasiThreadError::MemoryCreateFailed)<span class="question-mark">?</span>;
-<a href=#1061 id=1061 data-nosnippet>1061</a>        <span class="prelude-val">Ok</span>(env.instantiate(module, store, memory, <span class="bool-val">true</span>, call_init, <span class="prelude-val">None</span>)<span class="question-mark">?</span>)
-<a href=#1062 id=1062 data-nosnippet>1062</a>    }
-<a href=#1063 id=1063 data-nosnippet>1063</a>}
-<a href=#1064 id=1064 data-nosnippet>1064</a>
-<a href=#1065 id=1065 data-nosnippet>1065</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_env_vars(envs: Vec&lt;(String, Vec&lt;u8&gt;)&gt;) -&gt; Vec&lt;Vec&lt;u8&gt;&gt; {
-<a href=#1066 id=1066 data-nosnippet>1066</a>    envs.into_iter()
-<a href=#1067 id=1067 data-nosnippet>1067</a>        .map(|(key, value)| {
-<a href=#1068 id=1068 data-nosnippet>1068</a>            <span class="kw">let </span><span class="kw-2">mut </span>env = Vec::with_capacity(key.len() + value.len() + <span class="number">1</span>);
-<a href=#1069 id=1069 data-nosnippet>1069</a>            env.extend_from_slice(key.as_bytes());
-<a href=#1070 id=1070 data-nosnippet>1070</a>            env.push(<span class="string">b'='</span>);
-<a href=#1071 id=1071 data-nosnippet>1071</a>            env.extend_from_slice(<span class="kw-2">&amp;</span>value);
-<a href=#1072 id=1072 data-nosnippet>1072</a>
-<a href=#1073 id=1073 data-nosnippet>1073</a>            env
-<a href=#1074 id=1074 data-nosnippet>1074</a>        })
-<a href=#1075 id=1075 data-nosnippet>1075</a>        .collect()
-<a href=#1076 id=1076 data-nosnippet>1076</a>}
-<a href=#1077 id=1077 data-nosnippet>1077</a>
-<a href=#1078 id=1078 data-nosnippet>1078</a><span class="doccomment">/// Builder for preopened directories.
-<a href=#1079 id=1079 data-nosnippet>1079</a></span><span class="attr">#[derive(Debug, Default)]
-<a href=#1080 id=1080 data-nosnippet>1080</a></span><span class="kw">pub struct </span>PreopenDirBuilder {
-<a href=#1081 id=1081 data-nosnippet>1081</a>    path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
-<a href=#1082 id=1082 data-nosnippet>1082</a>    alias: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#1083 id=1083 data-nosnippet>1083</a>    read: bool,
-<a href=#1084 id=1084 data-nosnippet>1084</a>    write: bool,
-<a href=#1085 id=1085 data-nosnippet>1085</a>    create: bool,
-<a href=#1086 id=1086 data-nosnippet>1086</a>}
-<a href=#1087 id=1087 data-nosnippet>1087</a>
-<a href=#1088 id=1088 data-nosnippet>1088</a><span class="doccomment">/// The built version of `PreopenDirBuilder`
-<a href=#1089 id=1089 data-nosnippet>1089</a></span><span class="attr">#[derive(Debug, Clone, Default)]
-<a href=#1090 id=1090 data-nosnippet>1090</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PreopenedDir {
-<a href=#1091 id=1091 data-nosnippet>1091</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) path: PathBuf,
-<a href=#1092 id=1092 data-nosnippet>1092</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) alias: <span class="prelude-ty">Option</span>&lt;String&gt;,
-<a href=#1093 id=1093 data-nosnippet>1093</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) read: bool,
-<a href=#1094 id=1094 data-nosnippet>1094</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) write: bool,
-<a href=#1095 id=1095 data-nosnippet>1095</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) create: bool,
-<a href=#1096 id=1096 data-nosnippet>1096</a>}
-<a href=#1097 id=1097 data-nosnippet>1097</a>
-<a href=#1098 id=1098 data-nosnippet>1098</a><span class="kw">impl </span>PreopenDirBuilder {
-<a href=#1099 id=1099 data-nosnippet>1099</a>    <span class="doccomment">/// Create an empty builder
-<a href=#1100 id=1100 data-nosnippet>1100</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
-<a href=#1101 id=1101 data-nosnippet>1101</a>        PreopenDirBuilder::default()
-<a href=#1102 id=1102 data-nosnippet>1102</a>    }
-<a href=#1103 id=1103 data-nosnippet>1103</a>
-<a href=#1104 id=1104 data-nosnippet>1104</a>    <span class="doccomment">/// Point the preopened directory to the path given by `po_dir`
-<a href=#1105 id=1105 data-nosnippet>1105</a>    </span><span class="kw">pub fn </span>directory&lt;FilePath&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, po_dir: FilePath) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
-<a href=#1106 id=1106 data-nosnippet>1106</a>    </span><span class="kw">where
-<a href=#1107 id=1107 data-nosnippet>1107</a>        </span>FilePath: AsRef&lt;Path&gt;,
-<a href=#1108 id=1108 data-nosnippet>1108</a>    {
-<a href=#1109 id=1109 data-nosnippet>1109</a>        <span class="kw">let </span>path = po_dir.as_ref();
-<a href=#1110 id=1110 data-nosnippet>1110</a>        <span class="self">self</span>.path = <span class="prelude-val">Some</span>(path.to_path_buf());
-<a href=#1111 id=1111 data-nosnippet>1111</a>
-<a href=#1112 id=1112 data-nosnippet>1112</a>        <span class="self">self
-<a href=#1113 id=1113 data-nosnippet>1113</a>    </span>}
-<a href=#1114 id=1114 data-nosnippet>1114</a>
-<a href=#1115 id=1115 data-nosnippet>1115</a>    <span class="doccomment">/// Make this preopened directory appear to the WASI program as `alias`
-<a href=#1116 id=1116 data-nosnippet>1116</a>    </span><span class="kw">pub fn </span>alias(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-<a href=#1117 id=1117 data-nosnippet>1117</a>        <span class="comment">// We mount at preopened dirs at `/` by default and multiple `/` in a row
-<a href=#1118 id=1118 data-nosnippet>1118</a>        // are equal to a single `/`.
-<a href=#1119 id=1119 data-nosnippet>1119</a>        </span><span class="kw">let </span>alias = alias.trim_start_matches(<span class="string">'/'</span>);
-<a href=#1120 id=1120 data-nosnippet>1120</a>        <span class="self">self</span>.alias = <span class="prelude-val">Some</span>(alias.to_string());
-<a href=#1121 id=1121 data-nosnippet>1121</a>
-<a href=#1122 id=1122 data-nosnippet>1122</a>        <span class="self">self
-<a href=#1123 id=1123 data-nosnippet>1123</a>    </span>}
-<a href=#1124 id=1124 data-nosnippet>1124</a>
-<a href=#1125 id=1125 data-nosnippet>1125</a>    <span class="doccomment">/// Set read permissions affecting files in the directory
-<a href=#1126 id=1126 data-nosnippet>1126</a>    </span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, toggle: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-<a href=#1127 id=1127 data-nosnippet>1127</a>        <span class="self">self</span>.read = toggle;
+<a href=#969 id=969 data-nosnippet>969</a>        <span class="kw">let </span>bin_factory = BinFactory::new(runtime.clone());
+<a href=#970 id=970 data-nosnippet>970</a>
+<a href=#971 id=971 data-nosnippet>971</a>        <span class="kw">let </span>capabilities = <span class="self">self</span>.capabilites;
+<a href=#972 id=972 data-nosnippet>972</a>
+<a href=#973 id=973 data-nosnippet>973</a>        <span class="kw">let </span>plane_config = ControlPlaneConfig {
+<a href=#974 id=974 data-nosnippet>974</a>            max_task_count: capabilities.threading.max_threads,
+<a href=#975 id=975 data-nosnippet>975</a>            enable_asynchronous_threading: capabilities.threading.enable_asynchronous_threading,
+<a href=#976 id=976 data-nosnippet>976</a>            enable_exponential_cpu_backoff: capabilities.threading.enable_exponential_cpu_backoff,
+<a href=#977 id=977 data-nosnippet>977</a>        };
+<a href=#978 id=978 data-nosnippet>978</a>        <span class="kw">let </span>control_plane = WasiControlPlane::new(plane_config);
+<a href=#979 id=979 data-nosnippet>979</a>
+<a href=#980 id=980 data-nosnippet>980</a>        <span class="kw">let </span>init = WasiEnvInit {
+<a href=#981 id=981 data-nosnippet>981</a>            state,
+<a href=#982 id=982 data-nosnippet>982</a>            runtime,
+<a href=#983 id=983 data-nosnippet>983</a>            webc_dependencies: uses,
+<a href=#984 id=984 data-nosnippet>984</a>            mapped_commands: map_commands,
+<a href=#985 id=985 data-nosnippet>985</a>            control_plane,
+<a href=#986 id=986 data-nosnippet>986</a>            bin_factory,
+<a href=#987 id=987 data-nosnippet>987</a>            capabilities,
+<a href=#988 id=988 data-nosnippet>988</a>            memory_ty: <span class="prelude-val">None</span>,
+<a href=#989 id=989 data-nosnippet>989</a>            process: <span class="prelude-val">None</span>,
+<a href=#990 id=990 data-nosnippet>990</a>            thread: <span class="prelude-val">None</span>,
+<a href=#991 id=991 data-nosnippet>991</a>            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#992 id=992 data-nosnippet>992</a>            </span>call_initialize: <span class="self">self</span>.read_only_journals.is_empty()
+<a href=#993 id=993 data-nosnippet>993</a>                &amp;&amp; <span class="self">self</span>.writable_journals.is_empty(),
+<a href=#994 id=994 data-nosnippet>994</a>            <span class="attr">#[cfg(not(feature = <span class="string">"journal"</span>))]
+<a href=#995 id=995 data-nosnippet>995</a>            </span>call_initialize: <span class="bool-val">true</span>,
+<a href=#996 id=996 data-nosnippet>996</a>            can_deep_sleep: <span class="bool-val">false</span>,
+<a href=#997 id=997 data-nosnippet>997</a>            extra_tracing: <span class="bool-val">true</span>,
+<a href=#998 id=998 data-nosnippet>998</a>            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#999 id=999 data-nosnippet>999</a>            </span>snapshot_on: <span class="self">self</span>.snapshot_on,
+<a href=#1000 id=1000 data-nosnippet>1000</a>            <span class="attr">#[cfg(feature = <span class="string">"journal"</span>)]
+<a href=#1001 id=1001 data-nosnippet>1001</a>            </span>stop_running_after_snapshot: <span class="self">self</span>.stop_running_after_snapshot,
+<a href=#1002 id=1002 data-nosnippet>1002</a>            skip_stdio_during_bootstrap: <span class="self">self</span>.skip_stdio_during_bootstrap,
+<a href=#1003 id=1003 data-nosnippet>1003</a>        };
+<a href=#1004 id=1004 data-nosnippet>1004</a>
+<a href=#1005 id=1005 data-nosnippet>1005</a>        <span class="prelude-val">Ok</span>(init)
+<a href=#1006 id=1006 data-nosnippet>1006</a>    }
+<a href=#1007 id=1007 data-nosnippet>1007</a>
+<a href=#1008 id=1008 data-nosnippet>1008</a>    <span class="attr">#[allow(clippy::result_large_err)]
+<a href=#1009 id=1009 data-nosnippet>1009</a>    </span><span class="kw">pub fn </span>build(<span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;WasiEnv, WasiRuntimeError&gt; {
+<a href=#1010 id=1010 data-nosnippet>1010</a>        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
+<a href=#1011 id=1011 data-nosnippet>1011</a>        <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
+<a href=#1012 id=1012 data-nosnippet>1012</a>        WasiEnv::from_init(init, module_hash)
+<a href=#1013 id=1013 data-nosnippet>1013</a>    }
+<a href=#1014 id=1014 data-nosnippet>1014</a>
+<a href=#1015 id=1015 data-nosnippet>1015</a>    <span class="doccomment">/// Construct a [`WasiFunctionEnv`].
+<a href=#1016 id=1016 data-nosnippet>1016</a>    ///
+<a href=#1017 id=1017 data-nosnippet>1017</a>    /// NOTE: you still must call [`WasiFunctionEnv::initialize`] to make an
+<a href=#1018 id=1018 data-nosnippet>1018</a>    /// instance usable.
+<a href=#1019 id=1019 data-nosnippet>1019</a>    </span><span class="attr">#[doc(hidden)]
+<a href=#1020 id=1020 data-nosnippet>1020</a>    #[allow(clippy::result_large_err)]
+<a href=#1021 id=1021 data-nosnippet>1021</a>    </span><span class="kw">pub fn </span>finalize(
+<a href=#1022 id=1022 data-nosnippet>1022</a>        <span class="self">self</span>,
+<a href=#1023 id=1023 data-nosnippet>1023</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#1024 id=1024 data-nosnippet>1024</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;WasiFunctionEnv, WasiRuntimeError&gt; {
+<a href=#1025 id=1025 data-nosnippet>1025</a>        <span class="kw">let </span>module_hash = <span class="self">self</span>.module_hash.unwrap_or_else(ModuleHash::random);
+<a href=#1026 id=1026 data-nosnippet>1026</a>        <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
+<a href=#1027 id=1027 data-nosnippet>1027</a>        <span class="kw">let </span>env = WasiEnv::from_init(init, module_hash)<span class="question-mark">?</span>;
+<a href=#1028 id=1028 data-nosnippet>1028</a>        <span class="kw">let </span>func_env = WasiFunctionEnv::new(store, env);
+<a href=#1029 id=1029 data-nosnippet>1029</a>        <span class="prelude-val">Ok</span>(func_env)
+<a href=#1030 id=1030 data-nosnippet>1030</a>    }
+<a href=#1031 id=1031 data-nosnippet>1031</a>
+<a href=#1032 id=1032 data-nosnippet>1032</a>    <span class="doccomment">/// Consumes the [`WasiEnvBuilder`] and produces a [`WasiEnvInit`], which
+<a href=#1033 id=1033 data-nosnippet>1033</a>    /// can be used to construct a new [`WasiEnv`].
+<a href=#1034 id=1034 data-nosnippet>1034</a>    ///
+<a href=#1035 id=1035 data-nosnippet>1035</a>    /// Returns the error from `WasiFs::new` if there's an error
+<a href=#1036 id=1036 data-nosnippet>1036</a>    </span><span class="comment">// FIXME: use a proper custom error type
+<a href=#1037 id=1037 data-nosnippet>1037</a>    </span><span class="attr">#[allow(clippy::result_large_err)]
+<a href=#1038 id=1038 data-nosnippet>1038</a>    </span><span class="kw">pub fn </span>instantiate(
+<a href=#1039 id=1039 data-nosnippet>1039</a>        <span class="self">self</span>,
+<a href=#1040 id=1040 data-nosnippet>1040</a>        module: Module,
+<a href=#1041 id=1041 data-nosnippet>1041</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#1042 id=1042 data-nosnippet>1042</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
+<a href=#1043 id=1043 data-nosnippet>1043</a>        <span class="self">self</span>.instantiate_ext(module, ModuleHash::random(), store)
+<a href=#1044 id=1044 data-nosnippet>1044</a>    }
+<a href=#1045 id=1045 data-nosnippet>1045</a>
+<a href=#1046 id=1046 data-nosnippet>1046</a>    <span class="attr">#[allow(clippy::result_large_err)]
+<a href=#1047 id=1047 data-nosnippet>1047</a>    </span><span class="kw">pub fn </span>instantiate_ext(
+<a href=#1048 id=1048 data-nosnippet>1048</a>        <span class="self">self</span>,
+<a href=#1049 id=1049 data-nosnippet>1049</a>        module: Module,
+<a href=#1050 id=1050 data-nosnippet>1050</a>        module_hash: ModuleHash,
+<a href=#1051 id=1051 data-nosnippet>1051</a>        store: <span class="kw-2">&amp;mut </span><span class="kw">impl </span>AsStoreMut,
+<a href=#1052 id=1052 data-nosnippet>1052</a>    ) -&gt; <span class="prelude-ty">Result</span>&lt;(Instance, WasiFunctionEnv), WasiRuntimeError&gt; {
+<a href=#1053 id=1053 data-nosnippet>1053</a>        <span class="kw">let </span>init = <span class="self">self</span>.build_init()<span class="question-mark">?</span>;
+<a href=#1054 id=1054 data-nosnippet>1054</a>        <span class="kw">let </span>call_init = init.call_initialize;
+<a href=#1055 id=1055 data-nosnippet>1055</a>        <span class="kw">let </span>env = WasiEnv::from_init(init, module_hash)<span class="question-mark">?</span>;
+<a href=#1056 id=1056 data-nosnippet>1056</a>        <span class="kw">let </span>memory = module
+<a href=#1057 id=1057 data-nosnippet>1057</a>            .imports()
+<a href=#1058 id=1058 data-nosnippet>1058</a>            .find_map(|i| <span class="kw">match </span>i.ty() {
+<a href=#1059 id=1059 data-nosnippet>1059</a>                wasmer::ExternType::Memory(ty) =&gt; <span class="prelude-val">Some</span>(<span class="kw-2">*</span>ty),
+<a href=#1060 id=1060 data-nosnippet>1060</a>                <span class="kw">_ </span>=&gt; <span class="prelude-val">None</span>,
+<a href=#1061 id=1061 data-nosnippet>1061</a>            })
+<a href=#1062 id=1062 data-nosnippet>1062</a>            .map(|ty| wasmer::Memory::new(store, ty))
+<a href=#1063 id=1063 data-nosnippet>1063</a>            .transpose()
+<a href=#1064 id=1064 data-nosnippet>1064</a>            .map_err(WasiThreadError::MemoryCreateFailed)<span class="question-mark">?</span>;
+<a href=#1065 id=1065 data-nosnippet>1065</a>        <span class="prelude-val">Ok</span>(env.instantiate(module, store, memory, <span class="bool-val">true</span>, call_init, <span class="prelude-val">None</span>)<span class="question-mark">?</span>)
+<a href=#1066 id=1066 data-nosnippet>1066</a>    }
+<a href=#1067 id=1067 data-nosnippet>1067</a>}
+<a href=#1068 id=1068 data-nosnippet>1068</a>
+<a href=#1069 id=1069 data-nosnippet>1069</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>conv_env_vars(envs: Vec&lt;(String, Vec&lt;u8&gt;)&gt;) -&gt; Vec&lt;Vec&lt;u8&gt;&gt; {
+<a href=#1070 id=1070 data-nosnippet>1070</a>    envs.into_iter()
+<a href=#1071 id=1071 data-nosnippet>1071</a>        .map(|(key, value)| {
+<a href=#1072 id=1072 data-nosnippet>1072</a>            <span class="kw">let </span><span class="kw-2">mut </span>env = Vec::with_capacity(key.len() + value.len() + <span class="number">1</span>);
+<a href=#1073 id=1073 data-nosnippet>1073</a>            env.extend_from_slice(key.as_bytes());
+<a href=#1074 id=1074 data-nosnippet>1074</a>            env.push(<span class="string">b'='</span>);
+<a href=#1075 id=1075 data-nosnippet>1075</a>            env.extend_from_slice(<span class="kw-2">&amp;</span>value);
+<a href=#1076 id=1076 data-nosnippet>1076</a>
+<a href=#1077 id=1077 data-nosnippet>1077</a>            env
+<a href=#1078 id=1078 data-nosnippet>1078</a>        })
+<a href=#1079 id=1079 data-nosnippet>1079</a>        .collect()
+<a href=#1080 id=1080 data-nosnippet>1080</a>}
+<a href=#1081 id=1081 data-nosnippet>1081</a>
+<a href=#1082 id=1082 data-nosnippet>1082</a><span class="doccomment">/// Builder for preopened directories.
+<a href=#1083 id=1083 data-nosnippet>1083</a></span><span class="attr">#[derive(Debug, Default)]
+<a href=#1084 id=1084 data-nosnippet>1084</a></span><span class="kw">pub struct </span>PreopenDirBuilder {
+<a href=#1085 id=1085 data-nosnippet>1085</a>    path: <span class="prelude-ty">Option</span>&lt;PathBuf&gt;,
+<a href=#1086 id=1086 data-nosnippet>1086</a>    alias: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#1087 id=1087 data-nosnippet>1087</a>    read: bool,
+<a href=#1088 id=1088 data-nosnippet>1088</a>    write: bool,
+<a href=#1089 id=1089 data-nosnippet>1089</a>    create: bool,
+<a href=#1090 id=1090 data-nosnippet>1090</a>}
+<a href=#1091 id=1091 data-nosnippet>1091</a>
+<a href=#1092 id=1092 data-nosnippet>1092</a><span class="doccomment">/// The built version of `PreopenDirBuilder`
+<a href=#1093 id=1093 data-nosnippet>1093</a></span><span class="attr">#[derive(Debug, Clone, Default)]
+<a href=#1094 id=1094 data-nosnippet>1094</a></span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct </span>PreopenedDir {
+<a href=#1095 id=1095 data-nosnippet>1095</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) path: PathBuf,
+<a href=#1096 id=1096 data-nosnippet>1096</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) alias: <span class="prelude-ty">Option</span>&lt;String&gt;,
+<a href=#1097 id=1097 data-nosnippet>1097</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) read: bool,
+<a href=#1098 id=1098 data-nosnippet>1098</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) write: bool,
+<a href=#1099 id=1099 data-nosnippet>1099</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) create: bool,
+<a href=#1100 id=1100 data-nosnippet>1100</a>}
+<a href=#1101 id=1101 data-nosnippet>1101</a>
+<a href=#1102 id=1102 data-nosnippet>1102</a><span class="kw">impl </span>PreopenDirBuilder {
+<a href=#1103 id=1103 data-nosnippet>1103</a>    <span class="doccomment">/// Create an empty builder
+<a href=#1104 id=1104 data-nosnippet>1104</a>    </span><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>new() -&gt; <span class="self">Self </span>{
+<a href=#1105 id=1105 data-nosnippet>1105</a>        PreopenDirBuilder::default()
+<a href=#1106 id=1106 data-nosnippet>1106</a>    }
+<a href=#1107 id=1107 data-nosnippet>1107</a>
+<a href=#1108 id=1108 data-nosnippet>1108</a>    <span class="doccomment">/// Point the preopened directory to the path given by `po_dir`
+<a href=#1109 id=1109 data-nosnippet>1109</a>    </span><span class="kw">pub fn </span>directory&lt;FilePath&gt;(<span class="kw-2">&amp;mut </span><span class="self">self</span>, po_dir: FilePath) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self
+<a href=#1110 id=1110 data-nosnippet>1110</a>    </span><span class="kw">where
+<a href=#1111 id=1111 data-nosnippet>1111</a>        </span>FilePath: AsRef&lt;Path&gt;,
+<a href=#1112 id=1112 data-nosnippet>1112</a>    {
+<a href=#1113 id=1113 data-nosnippet>1113</a>        <span class="kw">let </span>path = po_dir.as_ref();
+<a href=#1114 id=1114 data-nosnippet>1114</a>        <span class="self">self</span>.path = <span class="prelude-val">Some</span>(path.to_path_buf());
+<a href=#1115 id=1115 data-nosnippet>1115</a>
+<a href=#1116 id=1116 data-nosnippet>1116</a>        <span class="self">self
+<a href=#1117 id=1117 data-nosnippet>1117</a>    </span>}
+<a href=#1118 id=1118 data-nosnippet>1118</a>
+<a href=#1119 id=1119 data-nosnippet>1119</a>    <span class="doccomment">/// Make this preopened directory appear to the WASI program as `alias`
+<a href=#1120 id=1120 data-nosnippet>1120</a>    </span><span class="kw">pub fn </span>alias(<span class="kw-2">&amp;mut </span><span class="self">self</span>, alias: <span class="kw-2">&amp;</span>str) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+<a href=#1121 id=1121 data-nosnippet>1121</a>        <span class="comment">// We mount at preopened dirs at `/` by default and multiple `/` in a row
+<a href=#1122 id=1122 data-nosnippet>1122</a>        // are equal to a single `/`.
+<a href=#1123 id=1123 data-nosnippet>1123</a>        </span><span class="kw">let </span>alias = alias.trim_start_matches(<span class="string">'/'</span>);
+<a href=#1124 id=1124 data-nosnippet>1124</a>        <span class="self">self</span>.alias = <span class="prelude-val">Some</span>(alias.to_string());
+<a href=#1125 id=1125 data-nosnippet>1125</a>
+<a href=#1126 id=1126 data-nosnippet>1126</a>        <span class="self">self
+<a href=#1127 id=1127 data-nosnippet>1127</a>    </span>}
 <a href=#1128 id=1128 data-nosnippet>1128</a>
-<a href=#1129 id=1129 data-nosnippet>1129</a>        <span class="self">self
-<a href=#1130 id=1130 data-nosnippet>1130</a>    </span>}
-<a href=#1131 id=1131 data-nosnippet>1131</a>
-<a href=#1132 id=1132 data-nosnippet>1132</a>    <span class="doccomment">/// Set write permissions affecting files in the directory
-<a href=#1133 id=1133 data-nosnippet>1133</a>    </span><span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, toggle: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-<a href=#1134 id=1134 data-nosnippet>1134</a>        <span class="self">self</span>.write = toggle;
+<a href=#1129 id=1129 data-nosnippet>1129</a>    <span class="doccomment">/// Set read permissions affecting files in the directory
+<a href=#1130 id=1130 data-nosnippet>1130</a>    </span><span class="kw">pub fn </span>read(<span class="kw-2">&amp;mut </span><span class="self">self</span>, toggle: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+<a href=#1131 id=1131 data-nosnippet>1131</a>        <span class="self">self</span>.read = toggle;
+<a href=#1132 id=1132 data-nosnippet>1132</a>
+<a href=#1133 id=1133 data-nosnippet>1133</a>        <span class="self">self
+<a href=#1134 id=1134 data-nosnippet>1134</a>    </span>}
 <a href=#1135 id=1135 data-nosnippet>1135</a>
-<a href=#1136 id=1136 data-nosnippet>1136</a>        <span class="self">self
-<a href=#1137 id=1137 data-nosnippet>1137</a>    </span>}
-<a href=#1138 id=1138 data-nosnippet>1138</a>
-<a href=#1139 id=1139 data-nosnippet>1139</a>    <span class="doccomment">/// Set create permissions affecting files in the directory
-<a href=#1140 id=1140 data-nosnippet>1140</a>    ///
-<a href=#1141 id=1141 data-nosnippet>1141</a>    /// Create implies `write` permissions
-<a href=#1142 id=1142 data-nosnippet>1142</a>    </span><span class="kw">pub fn </span>create(<span class="kw-2">&amp;mut </span><span class="self">self</span>, toggle: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
-<a href=#1143 id=1143 data-nosnippet>1143</a>        <span class="self">self</span>.create = toggle;
-<a href=#1144 id=1144 data-nosnippet>1144</a>        <span class="kw">if </span>toggle {
-<a href=#1145 id=1145 data-nosnippet>1145</a>            <span class="self">self</span>.write = <span class="bool-val">true</span>;
-<a href=#1146 id=1146 data-nosnippet>1146</a>        }
-<a href=#1147 id=1147 data-nosnippet>1147</a>
-<a href=#1148 id=1148 data-nosnippet>1148</a>        <span class="self">self
-<a href=#1149 id=1149 data-nosnippet>1149</a>    </span>}
-<a href=#1150 id=1150 data-nosnippet>1150</a>
-<a href=#1151 id=1151 data-nosnippet>1151</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PreopenedDir, WasiStateCreationError&gt; {
-<a href=#1152 id=1152 data-nosnippet>1152</a>        <span class="comment">// ensure at least one is set
-<a href=#1153 id=1153 data-nosnippet>1153</a>        </span><span class="kw">if </span>!(<span class="self">self</span>.read || <span class="self">self</span>.write || <span class="self">self</span>.create) {
-<a href=#1154 id=1154 data-nosnippet>1154</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(<span class="string">"Preopened directories must have at least one of read, write, create permissions set"</span>.to_string()));
-<a href=#1155 id=1155 data-nosnippet>1155</a>        }
-<a href=#1156 id=1156 data-nosnippet>1156</a>
-<a href=#1157 id=1157 data-nosnippet>1157</a>        <span class="kw">if </span><span class="self">self</span>.path.is_none() {
-<a href=#1158 id=1158 data-nosnippet>1158</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(
-<a href=#1159 id=1159 data-nosnippet>1159</a>                <span class="string">"Preopened directories must point to a host directory"</span>.to_string(),
-<a href=#1160 id=1160 data-nosnippet>1160</a>            ));
-<a href=#1161 id=1161 data-nosnippet>1161</a>        }
-<a href=#1162 id=1162 data-nosnippet>1162</a>        <span class="kw">let </span>path = <span class="self">self</span>.path.clone().unwrap();
-<a href=#1163 id=1163 data-nosnippet>1163</a>
-<a href=#1164 id=1164 data-nosnippet>1164</a>        <span class="comment">/*
-<a href=#1165 id=1165 data-nosnippet>1165</a>        if !path.exists() {
-<a href=#1166 id=1166 data-nosnippet>1166</a>            return Err(WasiStateCreationError::PreopenedDirectoryNotFound(path));
-<a href=#1167 id=1167 data-nosnippet>1167</a>        }
-<a href=#1168 id=1168 data-nosnippet>1168</a>        */
-<a href=#1169 id=1169 data-nosnippet>1169</a>
-<a href=#1170 id=1170 data-nosnippet>1170</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(alias) = <span class="kw-2">&amp;</span><span class="self">self</span>.alias {
-<a href=#1171 id=1171 data-nosnippet>1171</a>            validate_mapped_dir_alias(alias)<span class="question-mark">?</span>;
-<a href=#1172 id=1172 data-nosnippet>1172</a>        }
+<a href=#1136 id=1136 data-nosnippet>1136</a>    <span class="doccomment">/// Set write permissions affecting files in the directory
+<a href=#1137 id=1137 data-nosnippet>1137</a>    </span><span class="kw">pub fn </span>write(<span class="kw-2">&amp;mut </span><span class="self">self</span>, toggle: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+<a href=#1138 id=1138 data-nosnippet>1138</a>        <span class="self">self</span>.write = toggle;
+<a href=#1139 id=1139 data-nosnippet>1139</a>
+<a href=#1140 id=1140 data-nosnippet>1140</a>        <span class="self">self
+<a href=#1141 id=1141 data-nosnippet>1141</a>    </span>}
+<a href=#1142 id=1142 data-nosnippet>1142</a>
+<a href=#1143 id=1143 data-nosnippet>1143</a>    <span class="doccomment">/// Set create permissions affecting files in the directory
+<a href=#1144 id=1144 data-nosnippet>1144</a>    ///
+<a href=#1145 id=1145 data-nosnippet>1145</a>    /// Create implies `write` permissions
+<a href=#1146 id=1146 data-nosnippet>1146</a>    </span><span class="kw">pub fn </span>create(<span class="kw-2">&amp;mut </span><span class="self">self</span>, toggle: bool) -&gt; <span class="kw-2">&amp;mut </span><span class="self">Self </span>{
+<a href=#1147 id=1147 data-nosnippet>1147</a>        <span class="self">self</span>.create = toggle;
+<a href=#1148 id=1148 data-nosnippet>1148</a>        <span class="kw">if </span>toggle {
+<a href=#1149 id=1149 data-nosnippet>1149</a>            <span class="self">self</span>.write = <span class="bool-val">true</span>;
+<a href=#1150 id=1150 data-nosnippet>1150</a>        }
+<a href=#1151 id=1151 data-nosnippet>1151</a>
+<a href=#1152 id=1152 data-nosnippet>1152</a>        <span class="self">self
+<a href=#1153 id=1153 data-nosnippet>1153</a>    </span>}
+<a href=#1154 id=1154 data-nosnippet>1154</a>
+<a href=#1155 id=1155 data-nosnippet>1155</a>    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>build(<span class="kw-2">&amp;</span><span class="self">self</span>) -&gt; <span class="prelude-ty">Result</span>&lt;PreopenedDir, WasiStateCreationError&gt; {
+<a href=#1156 id=1156 data-nosnippet>1156</a>        <span class="comment">// ensure at least one is set
+<a href=#1157 id=1157 data-nosnippet>1157</a>        </span><span class="kw">if </span>!(<span class="self">self</span>.read || <span class="self">self</span>.write || <span class="self">self</span>.create) {
+<a href=#1158 id=1158 data-nosnippet>1158</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(<span class="string">"Preopened directories must have at least one of read, write, create permissions set"</span>.to_string()));
+<a href=#1159 id=1159 data-nosnippet>1159</a>        }
+<a href=#1160 id=1160 data-nosnippet>1160</a>
+<a href=#1161 id=1161 data-nosnippet>1161</a>        <span class="kw">if </span><span class="self">self</span>.path.is_none() {
+<a href=#1162 id=1162 data-nosnippet>1162</a>            <span class="kw">return </span><span class="prelude-val">Err</span>(WasiStateCreationError::PreopenedDirectoryError(
+<a href=#1163 id=1163 data-nosnippet>1163</a>                <span class="string">"Preopened directories must point to a host directory"</span>.to_string(),
+<a href=#1164 id=1164 data-nosnippet>1164</a>            ));
+<a href=#1165 id=1165 data-nosnippet>1165</a>        }
+<a href=#1166 id=1166 data-nosnippet>1166</a>        <span class="kw">let </span>path = <span class="self">self</span>.path.clone().unwrap();
+<a href=#1167 id=1167 data-nosnippet>1167</a>
+<a href=#1168 id=1168 data-nosnippet>1168</a>        <span class="comment">/*
+<a href=#1169 id=1169 data-nosnippet>1169</a>        if !path.exists() {
+<a href=#1170 id=1170 data-nosnippet>1170</a>            return Err(WasiStateCreationError::PreopenedDirectoryNotFound(path));
+<a href=#1171 id=1171 data-nosnippet>1171</a>        }
+<a href=#1172 id=1172 data-nosnippet>1172</a>        */
 <a href=#1173 id=1173 data-nosnippet>1173</a>
-<a href=#1174 id=1174 data-nosnippet>1174</a>        <span class="prelude-val">Ok</span>(PreopenedDir {
-<a href=#1175 id=1175 data-nosnippet>1175</a>            path,
-<a href=#1176 id=1176 data-nosnippet>1176</a>            alias: <span class="self">self</span>.alias.clone(),
-<a href=#1177 id=1177 data-nosnippet>1177</a>            read: <span class="self">self</span>.read,
-<a href=#1178 id=1178 data-nosnippet>1178</a>            write: <span class="self">self</span>.write,
-<a href=#1179 id=1179 data-nosnippet>1179</a>            create: <span class="self">self</span>.create,
-<a href=#1180 id=1180 data-nosnippet>1180</a>        })
-<a href=#1181 id=1181 data-nosnippet>1181</a>    }
-<a href=#1182 id=1182 data-nosnippet>1182</a>}
-<a href=#1183 id=1183 data-nosnippet>1183</a>
-<a href=#1184 id=1184 data-nosnippet>1184</a><span class="attr">#[cfg(test)]
-<a href=#1185 id=1185 data-nosnippet>1185</a></span><span class="kw">mod </span>test {
-<a href=#1186 id=1186 data-nosnippet>1186</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1174 id=1174 data-nosnippet>1174</a>        </span><span class="kw">if let </span><span class="prelude-val">Some</span>(alias) = <span class="kw-2">&amp;</span><span class="self">self</span>.alias {
+<a href=#1175 id=1175 data-nosnippet>1175</a>            validate_mapped_dir_alias(alias)<span class="question-mark">?</span>;
+<a href=#1176 id=1176 data-nosnippet>1176</a>        }
+<a href=#1177 id=1177 data-nosnippet>1177</a>
+<a href=#1178 id=1178 data-nosnippet>1178</a>        <span class="prelude-val">Ok</span>(PreopenedDir {
+<a href=#1179 id=1179 data-nosnippet>1179</a>            path,
+<a href=#1180 id=1180 data-nosnippet>1180</a>            alias: <span class="self">self</span>.alias.clone(),
+<a href=#1181 id=1181 data-nosnippet>1181</a>            read: <span class="self">self</span>.read,
+<a href=#1182 id=1182 data-nosnippet>1182</a>            write: <span class="self">self</span>.write,
+<a href=#1183 id=1183 data-nosnippet>1183</a>            create: <span class="self">self</span>.create,
+<a href=#1184 id=1184 data-nosnippet>1184</a>        })
+<a href=#1185 id=1185 data-nosnippet>1185</a>    }
+<a href=#1186 id=1186 data-nosnippet>1186</a>}
 <a href=#1187 id=1187 data-nosnippet>1187</a>
-<a href=#1188 id=1188 data-nosnippet>1188</a>    <span class="attr">#[test]
-<a href=#1189 id=1189 data-nosnippet>1189</a>    </span><span class="kw">fn </span>env_var_errors() {
-<a href=#1190 id=1190 data-nosnippet>1190</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1191 id=1191 data-nosnippet>1191</a>        </span><span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
-<a href=#1192 id=1192 data-nosnippet>1192</a>            .enable_all()
-<a href=#1193 id=1193 data-nosnippet>1193</a>            .build()
-<a href=#1194 id=1194 data-nosnippet>1194</a>            .unwrap();
-<a href=#1195 id=1195 data-nosnippet>1195</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1196 id=1196 data-nosnippet>1196</a>        </span><span class="kw">let </span>handle = runtime.handle().clone();
-<a href=#1197 id=1197 data-nosnippet>1197</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
-<a href=#1198 id=1198 data-nosnippet>1198</a>        </span><span class="kw">let </span>_guard = handle.enter();
-<a href=#1199 id=1199 data-nosnippet>1199</a>
-<a href=#1200 id=1200 data-nosnippet>1200</a>        <span class="comment">// `=` in the key is invalid.
-<a href=#1201 id=1201 data-nosnippet>1201</a>        </span><span class="macro">assert!</span>(
-<a href=#1202 id=1202 data-nosnippet>1202</a>            WasiEnv::builder(<span class="string">"test_prog"</span>)
-<a href=#1203 id=1203 data-nosnippet>1203</a>                .env(<span class="string">"HOM=E"</span>, <span class="string">"/home/home"</span>)
-<a href=#1204 id=1204 data-nosnippet>1204</a>                .build_init()
-<a href=#1205 id=1205 data-nosnippet>1205</a>                .is_err(),
-<a href=#1206 id=1206 data-nosnippet>1206</a>            <span class="string">"equal sign in key must be invalid"
-<a href=#1207 id=1207 data-nosnippet>1207</a>        </span>);
-<a href=#1208 id=1208 data-nosnippet>1208</a>
-<a href=#1209 id=1209 data-nosnippet>1209</a>        <span class="comment">// `\0` in the key is invalid.
-<a href=#1210 id=1210 data-nosnippet>1210</a>        </span><span class="macro">assert!</span>(
-<a href=#1211 id=1211 data-nosnippet>1211</a>            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
-<a href=#1212 id=1212 data-nosnippet>1212</a>                .env(<span class="string">"HOME\0"</span>, <span class="string">"/home/home"</span>)
-<a href=#1213 id=1213 data-nosnippet>1213</a>                .build_init()
-<a href=#1214 id=1214 data-nosnippet>1214</a>                .is_err(),
-<a href=#1215 id=1215 data-nosnippet>1215</a>            <span class="string">"nul in key must be invalid"
-<a href=#1216 id=1216 data-nosnippet>1216</a>        </span>);
-<a href=#1217 id=1217 data-nosnippet>1217</a>
-<a href=#1218 id=1218 data-nosnippet>1218</a>        <span class="comment">// `\0` in the value is invalid.
-<a href=#1219 id=1219 data-nosnippet>1219</a>        </span><span class="macro">assert!</span>(
-<a href=#1220 id=1220 data-nosnippet>1220</a>            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
-<a href=#1221 id=1221 data-nosnippet>1221</a>                .env(<span class="string">"HOME"</span>, <span class="string">"/home/home\0"</span>)
-<a href=#1222 id=1222 data-nosnippet>1222</a>                .build_init()
-<a href=#1223 id=1223 data-nosnippet>1223</a>                .is_err(),
-<a href=#1224 id=1224 data-nosnippet>1224</a>            <span class="string">"nul in value must be invalid"
-<a href=#1225 id=1225 data-nosnippet>1225</a>        </span>);
-<a href=#1226 id=1226 data-nosnippet>1226</a>
-<a href=#1227 id=1227 data-nosnippet>1227</a>        <span class="comment">// `=` in the value is valid.
-<a href=#1228 id=1228 data-nosnippet>1228</a>        </span><span class="macro">assert!</span>(
-<a href=#1229 id=1229 data-nosnippet>1229</a>            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
-<a href=#1230 id=1230 data-nosnippet>1230</a>                .env(<span class="string">"HOME"</span>, <span class="string">"/home/home=home"</span>)
-<a href=#1231 id=1231 data-nosnippet>1231</a>                .engine(Engine::default())
-<a href=#1232 id=1232 data-nosnippet>1232</a>                .build_init()
-<a href=#1233 id=1233 data-nosnippet>1233</a>                .is_ok(),
-<a href=#1234 id=1234 data-nosnippet>1234</a>            <span class="string">"equal sign in the value must be valid"
-<a href=#1235 id=1235 data-nosnippet>1235</a>        </span>);
-<a href=#1236 id=1236 data-nosnippet>1236</a>    }
-<a href=#1237 id=1237 data-nosnippet>1237</a>
-<a href=#1238 id=1238 data-nosnippet>1238</a>    <span class="attr">#[test]
-<a href=#1239 id=1239 data-nosnippet>1239</a>    </span><span class="kw">fn </span>nul_character_in_args() {
-<a href=#1240 id=1240 data-nosnippet>1240</a>        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
-<a href=#1241 id=1241 data-nosnippet>1241</a>            .arg(<span class="string">"--h\0elp"</span>)
-<a href=#1242 id=1242 data-nosnippet>1242</a>            .build_init();
-<a href=#1243 id=1243 data-nosnippet>1243</a>        <span class="kw">let </span>err = output.expect_err(<span class="string">"should fail"</span>);
-<a href=#1244 id=1244 data-nosnippet>1244</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-<a href=#1245 id=1245 data-nosnippet>1245</a>            err,
-<a href=#1246 id=1246 data-nosnippet>1246</a>            WasiStateCreationError::ArgumentContainsNulByte(<span class="kw">_</span>)
-<a href=#1247 id=1247 data-nosnippet>1247</a>        ));
-<a href=#1248 id=1248 data-nosnippet>1248</a>
-<a href=#1249 id=1249 data-nosnippet>1249</a>        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
-<a href=#1250 id=1250 data-nosnippet>1250</a>            .args([<span class="string">"--help"</span>, <span class="string">"--wat\0"</span>])
-<a href=#1251 id=1251 data-nosnippet>1251</a>            .build_init();
-<a href=#1252 id=1252 data-nosnippet>1252</a>        <span class="kw">let </span>err = output.expect_err(<span class="string">"should fail"</span>);
-<a href=#1253 id=1253 data-nosnippet>1253</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
-<a href=#1254 id=1254 data-nosnippet>1254</a>            err,
-<a href=#1255 id=1255 data-nosnippet>1255</a>            WasiStateCreationError::ArgumentContainsNulByte(<span class="kw">_</span>)
-<a href=#1256 id=1256 data-nosnippet>1256</a>        ));
-<a href=#1257 id=1257 data-nosnippet>1257</a>    }
-<a href=#1258 id=1258 data-nosnippet>1258</a>}</code></pre></div></section></main></body></html>
+<a href=#1188 id=1188 data-nosnippet>1188</a><span class="attr">#[cfg(test)]
+<a href=#1189 id=1189 data-nosnippet>1189</a></span><span class="kw">mod </span>test {
+<a href=#1190 id=1190 data-nosnippet>1190</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
+<a href=#1191 id=1191 data-nosnippet>1191</a>
+<a href=#1192 id=1192 data-nosnippet>1192</a>    <span class="attr">#[test]
+<a href=#1193 id=1193 data-nosnippet>1193</a>    </span><span class="kw">fn </span>env_var_errors() {
+<a href=#1194 id=1194 data-nosnippet>1194</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1195 id=1195 data-nosnippet>1195</a>        </span><span class="kw">let </span>runtime = tokio::runtime::Builder::new_multi_thread()
+<a href=#1196 id=1196 data-nosnippet>1196</a>            .enable_all()
+<a href=#1197 id=1197 data-nosnippet>1197</a>            .build()
+<a href=#1198 id=1198 data-nosnippet>1198</a>            .unwrap();
+<a href=#1199 id=1199 data-nosnippet>1199</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1200 id=1200 data-nosnippet>1200</a>        </span><span class="kw">let </span>handle = runtime.handle().clone();
+<a href=#1201 id=1201 data-nosnippet>1201</a>        <span class="attr">#[cfg(not(target_arch = <span class="string">"wasm32"</span>))]
+<a href=#1202 id=1202 data-nosnippet>1202</a>        </span><span class="kw">let </span>_guard = handle.enter();
+<a href=#1203 id=1203 data-nosnippet>1203</a>
+<a href=#1204 id=1204 data-nosnippet>1204</a>        <span class="comment">// `=` in the key is invalid.
+<a href=#1205 id=1205 data-nosnippet>1205</a>        </span><span class="macro">assert!</span>(
+<a href=#1206 id=1206 data-nosnippet>1206</a>            WasiEnv::builder(<span class="string">"test_prog"</span>)
+<a href=#1207 id=1207 data-nosnippet>1207</a>                .env(<span class="string">"HOM=E"</span>, <span class="string">"/home/home"</span>)
+<a href=#1208 id=1208 data-nosnippet>1208</a>                .build_init()
+<a href=#1209 id=1209 data-nosnippet>1209</a>                .is_err(),
+<a href=#1210 id=1210 data-nosnippet>1210</a>            <span class="string">"equal sign in key must be invalid"
+<a href=#1211 id=1211 data-nosnippet>1211</a>        </span>);
+<a href=#1212 id=1212 data-nosnippet>1212</a>
+<a href=#1213 id=1213 data-nosnippet>1213</a>        <span class="comment">// `\0` in the key is invalid.
+<a href=#1214 id=1214 data-nosnippet>1214</a>        </span><span class="macro">assert!</span>(
+<a href=#1215 id=1215 data-nosnippet>1215</a>            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+<a href=#1216 id=1216 data-nosnippet>1216</a>                .env(<span class="string">"HOME\0"</span>, <span class="string">"/home/home"</span>)
+<a href=#1217 id=1217 data-nosnippet>1217</a>                .build_init()
+<a href=#1218 id=1218 data-nosnippet>1218</a>                .is_err(),
+<a href=#1219 id=1219 data-nosnippet>1219</a>            <span class="string">"nul in key must be invalid"
+<a href=#1220 id=1220 data-nosnippet>1220</a>        </span>);
+<a href=#1221 id=1221 data-nosnippet>1221</a>
+<a href=#1222 id=1222 data-nosnippet>1222</a>        <span class="comment">// `\0` in the value is invalid.
+<a href=#1223 id=1223 data-nosnippet>1223</a>        </span><span class="macro">assert!</span>(
+<a href=#1224 id=1224 data-nosnippet>1224</a>            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+<a href=#1225 id=1225 data-nosnippet>1225</a>                .env(<span class="string">"HOME"</span>, <span class="string">"/home/home\0"</span>)
+<a href=#1226 id=1226 data-nosnippet>1226</a>                .build_init()
+<a href=#1227 id=1227 data-nosnippet>1227</a>                .is_err(),
+<a href=#1228 id=1228 data-nosnippet>1228</a>            <span class="string">"nul in value must be invalid"
+<a href=#1229 id=1229 data-nosnippet>1229</a>        </span>);
+<a href=#1230 id=1230 data-nosnippet>1230</a>
+<a href=#1231 id=1231 data-nosnippet>1231</a>        <span class="comment">// `=` in the value is valid.
+<a href=#1232 id=1232 data-nosnippet>1232</a>        </span><span class="macro">assert!</span>(
+<a href=#1233 id=1233 data-nosnippet>1233</a>            WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+<a href=#1234 id=1234 data-nosnippet>1234</a>                .env(<span class="string">"HOME"</span>, <span class="string">"/home/home=home"</span>)
+<a href=#1235 id=1235 data-nosnippet>1235</a>                .engine(Engine::default())
+<a href=#1236 id=1236 data-nosnippet>1236</a>                .build_init()
+<a href=#1237 id=1237 data-nosnippet>1237</a>                .is_ok(),
+<a href=#1238 id=1238 data-nosnippet>1238</a>            <span class="string">"equal sign in the value must be valid"
+<a href=#1239 id=1239 data-nosnippet>1239</a>        </span>);
+<a href=#1240 id=1240 data-nosnippet>1240</a>    }
+<a href=#1241 id=1241 data-nosnippet>1241</a>
+<a href=#1242 id=1242 data-nosnippet>1242</a>    <span class="attr">#[test]
+<a href=#1243 id=1243 data-nosnippet>1243</a>    </span><span class="kw">fn </span>nul_character_in_args() {
+<a href=#1244 id=1244 data-nosnippet>1244</a>        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+<a href=#1245 id=1245 data-nosnippet>1245</a>            .arg(<span class="string">"--h\0elp"</span>)
+<a href=#1246 id=1246 data-nosnippet>1246</a>            .build_init();
+<a href=#1247 id=1247 data-nosnippet>1247</a>        <span class="kw">let </span>err = output.expect_err(<span class="string">"should fail"</span>);
+<a href=#1248 id=1248 data-nosnippet>1248</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+<a href=#1249 id=1249 data-nosnippet>1249</a>            err,
+<a href=#1250 id=1250 data-nosnippet>1250</a>            WasiStateCreationError::ArgumentContainsNulByte(<span class="kw">_</span>)
+<a href=#1251 id=1251 data-nosnippet>1251</a>        ));
+<a href=#1252 id=1252 data-nosnippet>1252</a>
+<a href=#1253 id=1253 data-nosnippet>1253</a>        <span class="kw">let </span>output = WasiEnvBuilder::new(<span class="string">"test_prog"</span>)
+<a href=#1254 id=1254 data-nosnippet>1254</a>            .args([<span class="string">"--help"</span>, <span class="string">"--wat\0"</span>])
+<a href=#1255 id=1255 data-nosnippet>1255</a>            .build_init();
+<a href=#1256 id=1256 data-nosnippet>1256</a>        <span class="kw">let </span>err = output.expect_err(<span class="string">"should fail"</span>);
+<a href=#1257 id=1257 data-nosnippet>1257</a>        <span class="macro">assert!</span>(<span class="macro">matches!</span>(
+<a href=#1258 id=1258 data-nosnippet>1258</a>            err,
+<a href=#1259 id=1259 data-nosnippet>1259</a>            WasiStateCreationError::ArgumentContainsNulByte(<span class="kw">_</span>)
+<a href=#1260 id=1260 data-nosnippet>1260</a>        ));
+<a href=#1261 id=1261 data-nosnippet>1261</a>    }
+<a href=#1262 id=1262 data-nosnippet>1262</a>}</code></pre></div></section></main></body></html>

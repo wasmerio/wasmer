@@ -264,500 +264,502 @@
 <a href=#264 id=264 data-nosnippet>264</a>    package_name: <span class="kw-2">&amp;</span>str,
 <a href=#265 id=265 data-nosnippet>265</a>) -&gt; <span class="prelude-ty">Option</span>&lt;(WasiFunctionEnv, Imports)&gt; {
 <a href=#266 id=266 data-nosnippet>266</a>    <span class="kw">use </span>virtual_fs::static_fs::StaticFileSystem;
-<a href=#267 id=267 data-nosnippet>267</a>    <span class="kw">use </span>webc::v1::{FsEntryType, WebC};
-<a href=#268 id=268 data-nosnippet>268</a>
-<a href=#269 id=269 data-nosnippet>269</a>    <span class="kw">let </span>store_mut = store.as_store_mut();
-<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span>runtime = config.runtime.take();
-<a href=#271 id=271 data-nosnippet>271</a>
-<a href=#272 id=272 data-nosnippet>272</a>    <span class="kw">let </span>runtime = runtime.unwrap_or_else(|| {
-<a href=#273 id=273 data-nosnippet>273</a>        tokio::runtime::Builder::new_multi_thread()
-<a href=#274 id=274 data-nosnippet>274</a>            .enable_all()
-<a href=#275 id=275 data-nosnippet>275</a>            .build()
-<a href=#276 id=276 data-nosnippet>276</a>            .unwrap()
-<a href=#277 id=277 data-nosnippet>277</a>    });
-<a href=#278 id=278 data-nosnippet>278</a>
-<a href=#279 id=279 data-nosnippet>279</a>    <span class="kw">let </span>handle = runtime.handle().clone();
-<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">let </span>_guard = handle.enter();
-<a href=#281 id=281 data-nosnippet>281</a>    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-<a href=#282 id=282 data-nosnippet>282</a>    rt.set_engine(store_mut.engine().clone());
-<a href=#283 id=283 data-nosnippet>283</a>
-<a href=#284 id=284 data-nosnippet>284</a>    <span class="kw">let </span>slice = <span class="kw">unsafe </span>{ std::slice::from_raw_parts(bytes, len) };
-<a href=#285 id=285 data-nosnippet>285</a>    <span class="kw">let </span>volumes = WebC::parse_volumes_from_fileblock(slice).ok()<span class="question-mark">?</span>;
-<a href=#286 id=286 data-nosnippet>286</a>    <span class="kw">let </span>top_level_dirs = volumes
-<a href=#287 id=287 data-nosnippet>287</a>        .into_iter()
-<a href=#288 id=288 data-nosnippet>288</a>        .flat_map(|(<span class="kw">_</span>, volume)| {
-<a href=#289 id=289 data-nosnippet>289</a>            volume
-<a href=#290 id=290 data-nosnippet>290</a>                .header
-<a href=#291 id=291 data-nosnippet>291</a>                .top_level
-<a href=#292 id=292 data-nosnippet>292</a>                .iter()
-<a href=#293 id=293 data-nosnippet>293</a>                .filter(|entry| entry.fs_type == FsEntryType::Dir)
-<a href=#294 id=294 data-nosnippet>294</a>                .cloned()
-<a href=#295 id=295 data-nosnippet>295</a>                .map(|e| e.text.to_string())
-<a href=#296 id=296 data-nosnippet>296</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
-<a href=#297 id=297 data-nosnippet>297</a>                .into_iter()
-<a href=#298 id=298 data-nosnippet>298</a>        })
-<a href=#299 id=299 data-nosnippet>299</a>        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
-<a href=#300 id=300 data-nosnippet>300</a>
-<a href=#301 id=301 data-nosnippet>301</a>    <span class="kw">let </span>filesystem = Box::new(StaticFileSystem::init(slice, package_name)<span class="question-mark">?</span>);
-<a href=#302 id=302 data-nosnippet>302</a>    <span class="kw">let </span><span class="kw-2">mut </span>builder = config.builder.runtime(Arc::new(rt));
-<a href=#303 id=303 data-nosnippet>303</a>
-<a href=#304 id=304 data-nosnippet>304</a>    <span class="kw">if </span>!config.inherit_stdout {
-<a href=#305 id=305 data-nosnippet>305</a>        builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
-<a href=#306 id=306 data-nosnippet>306</a>    }
-<a href=#307 id=307 data-nosnippet>307</a>
-<a href=#308 id=308 data-nosnippet>308</a>    <span class="kw">if </span>!config.inherit_stderr {
-<a href=#309 id=309 data-nosnippet>309</a>        builder.set_stderr(Box::new(Pipe::channel().<span class="number">0</span>));
-<a href=#310 id=310 data-nosnippet>310</a>    }
-<a href=#311 id=311 data-nosnippet>311</a>
-<a href=#312 id=312 data-nosnippet>312</a>    builder.set_fs(filesystem);
+<a href=#267 id=267 data-nosnippet>267</a>    <span class="kw">use </span>wasmer_wasix::virtual_fs::FileSystem;
+<a href=#268 id=268 data-nosnippet>268</a>    <span class="kw">use </span>webc::v1::{FsEntryType, WebC};
+<a href=#269 id=269 data-nosnippet>269</a>
+<a href=#270 id=270 data-nosnippet>270</a>    <span class="kw">let </span>store_mut = store.as_store_mut();
+<a href=#271 id=271 data-nosnippet>271</a>    <span class="kw">let </span>runtime = config.runtime.take();
+<a href=#272 id=272 data-nosnippet>272</a>
+<a href=#273 id=273 data-nosnippet>273</a>    <span class="kw">let </span>runtime = runtime.unwrap_or_else(|| {
+<a href=#274 id=274 data-nosnippet>274</a>        tokio::runtime::Builder::new_multi_thread()
+<a href=#275 id=275 data-nosnippet>275</a>            .enable_all()
+<a href=#276 id=276 data-nosnippet>276</a>            .build()
+<a href=#277 id=277 data-nosnippet>277</a>            .unwrap()
+<a href=#278 id=278 data-nosnippet>278</a>    });
+<a href=#279 id=279 data-nosnippet>279</a>
+<a href=#280 id=280 data-nosnippet>280</a>    <span class="kw">let </span>handle = runtime.handle().clone();
+<a href=#281 id=281 data-nosnippet>281</a>    <span class="kw">let </span>_guard = handle.enter();
+<a href=#282 id=282 data-nosnippet>282</a>    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+<a href=#283 id=283 data-nosnippet>283</a>    rt.set_engine(store_mut.engine().clone());
+<a href=#284 id=284 data-nosnippet>284</a>
+<a href=#285 id=285 data-nosnippet>285</a>    <span class="kw">let </span>slice = <span class="kw">unsafe </span>{ std::slice::from_raw_parts(bytes, len) };
+<a href=#286 id=286 data-nosnippet>286</a>    <span class="kw">let </span>volumes = WebC::parse_volumes_from_fileblock(slice).ok()<span class="question-mark">?</span>;
+<a href=#287 id=287 data-nosnippet>287</a>    <span class="kw">let </span>top_level_dirs = volumes
+<a href=#288 id=288 data-nosnippet>288</a>        .into_iter()
+<a href=#289 id=289 data-nosnippet>289</a>        .flat_map(|(<span class="kw">_</span>, volume)| {
+<a href=#290 id=290 data-nosnippet>290</a>            volume
+<a href=#291 id=291 data-nosnippet>291</a>                .header
+<a href=#292 id=292 data-nosnippet>292</a>                .top_level
+<a href=#293 id=293 data-nosnippet>293</a>                .iter()
+<a href=#294 id=294 data-nosnippet>294</a>                .filter(|entry| entry.fs_type == FsEntryType::Dir)
+<a href=#295 id=295 data-nosnippet>295</a>                .cloned()
+<a href=#296 id=296 data-nosnippet>296</a>                .map(|e| e.text.to_string())
+<a href=#297 id=297 data-nosnippet>297</a>                .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;()
+<a href=#298 id=298 data-nosnippet>298</a>                .into_iter()
+<a href=#299 id=299 data-nosnippet>299</a>        })
+<a href=#300 id=300 data-nosnippet>300</a>        .collect::&lt;Vec&lt;<span class="kw">_</span>&gt;&gt;();
+<a href=#301 id=301 data-nosnippet>301</a>
+<a href=#302 id=302 data-nosnippet>302</a>    <span class="kw">let </span>filesystem =
+<a href=#303 id=303 data-nosnippet>303</a>        Arc::new(StaticFileSystem::init(slice, package_name)<span class="question-mark">?</span>) <span class="kw">as </span>Arc&lt;<span class="kw">dyn </span>FileSystem + Send + Sync&gt;;
+<a href=#304 id=304 data-nosnippet>304</a>    <span class="kw">let </span><span class="kw-2">mut </span>builder = config.builder.runtime(Arc::new(rt));
+<a href=#305 id=305 data-nosnippet>305</a>
+<a href=#306 id=306 data-nosnippet>306</a>    <span class="kw">if </span>!config.inherit_stdout {
+<a href=#307 id=307 data-nosnippet>307</a>        builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
+<a href=#308 id=308 data-nosnippet>308</a>    }
+<a href=#309 id=309 data-nosnippet>309</a>
+<a href=#310 id=310 data-nosnippet>310</a>    <span class="kw">if </span>!config.inherit_stderr {
+<a href=#311 id=311 data-nosnippet>311</a>        builder.set_stderr(Box::new(Pipe::channel().<span class="number">0</span>));
+<a href=#312 id=312 data-nosnippet>312</a>    }
 <a href=#313 id=313 data-nosnippet>313</a>
-<a href=#314 id=314 data-nosnippet>314</a>    <span class="kw">for </span>f_name <span class="kw">in </span>top_level_dirs.iter() {
-<a href=#315 id=315 data-nosnippet>315</a>        builder
-<a href=#316 id=316 data-nosnippet>316</a>            .add_preopen_build(|p| p.directory(f_name).read(<span class="bool-val">true</span>).write(<span class="bool-val">true</span>).create(<span class="bool-val">true</span>))
-<a href=#317 id=317 data-nosnippet>317</a>            .ok()<span class="question-mark">?</span>;
-<a href=#318 id=318 data-nosnippet>318</a>    }
-<a href=#319 id=319 data-nosnippet>319</a>    <span class="kw">let </span>env = builder.finalize(store).ok()<span class="question-mark">?</span>;
-<a href=#320 id=320 data-nosnippet>320</a>
-<a href=#321 id=321 data-nosnippet>321</a>    <span class="kw">let </span>import_object = env.import_object(store, module).ok()<span class="question-mark">?</span>;
-<a href=#322 id=322 data-nosnippet>322</a>    <span class="prelude-val">Some</span>((env, import_object))
-<a href=#323 id=323 data-nosnippet>323</a>}
-<a href=#324 id=324 data-nosnippet>324</a>
-<a href=#325 id=325 data-nosnippet>325</a><span class="attr">#[allow(non_camel_case_types)]
-<a href=#326 id=326 data-nosnippet>326</a></span><span class="kw">pub struct </span>wasi_env_t {
-<a href=#327 id=327 data-nosnippet>327</a>    <span class="doccomment">/// cbindgen:ignore
-<a href=#328 id=328 data-nosnippet>328</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) inner: WasiFunctionEnv,
-<a href=#329 id=329 data-nosnippet>329</a>    <span class="kw">pub</span>(<span class="kw">super</span>) store: StoreRef,
-<a href=#330 id=330 data-nosnippet>330</a>}
-<a href=#331 id=331 data-nosnippet>331</a>
-<a href=#332 id=332 data-nosnippet>332</a><span class="doccomment">/// Create a new WASI environment.
-<a href=#333 id=333 data-nosnippet>333</a>///
-<a href=#334 id=334 data-nosnippet>334</a>/// It take ownership over the `wasi_config_t`.
-<a href=#335 id=335 data-nosnippet>335</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#336 id=336 data-nosnippet>336</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_new(
-<a href=#337 id=337 data-nosnippet>337</a>    store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasm_store_t&gt;,
-<a href=#338 id=338 data-nosnippet>338</a>    <span class="kw-2">mut </span>config: Box&lt;wasi_config_t&gt;,
-<a href=#339 id=339 data-nosnippet>339</a>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasi_env_t&gt;&gt; {
-<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>store<span class="question-mark">?</span>.inner;
-<a href=#341 id=341 data-nosnippet>341</a>    <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.store_mut() };
-<a href=#342 id=342 data-nosnippet>342</a>
-<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">let </span>runtime = config.runtime.take();
+<a href=#314 id=314 data-nosnippet>314</a>    builder.set_fs(filesystem);
+<a href=#315 id=315 data-nosnippet>315</a>
+<a href=#316 id=316 data-nosnippet>316</a>    <span class="kw">for </span>f_name <span class="kw">in </span>top_level_dirs.iter() {
+<a href=#317 id=317 data-nosnippet>317</a>        builder
+<a href=#318 id=318 data-nosnippet>318</a>            .add_preopen_build(|p| p.directory(f_name).read(<span class="bool-val">true</span>).write(<span class="bool-val">true</span>).create(<span class="bool-val">true</span>))
+<a href=#319 id=319 data-nosnippet>319</a>            .ok()<span class="question-mark">?</span>;
+<a href=#320 id=320 data-nosnippet>320</a>    }
+<a href=#321 id=321 data-nosnippet>321</a>    <span class="kw">let </span>env = builder.finalize(store).ok()<span class="question-mark">?</span>;
+<a href=#322 id=322 data-nosnippet>322</a>
+<a href=#323 id=323 data-nosnippet>323</a>    <span class="kw">let </span>import_object = env.import_object(store, module).ok()<span class="question-mark">?</span>;
+<a href=#324 id=324 data-nosnippet>324</a>    <span class="prelude-val">Some</span>((env, import_object))
+<a href=#325 id=325 data-nosnippet>325</a>}
+<a href=#326 id=326 data-nosnippet>326</a>
+<a href=#327 id=327 data-nosnippet>327</a><span class="attr">#[allow(non_camel_case_types)]
+<a href=#328 id=328 data-nosnippet>328</a></span><span class="kw">pub struct </span>wasi_env_t {
+<a href=#329 id=329 data-nosnippet>329</a>    <span class="doccomment">/// cbindgen:ignore
+<a href=#330 id=330 data-nosnippet>330</a>    </span><span class="kw">pub</span>(<span class="kw">super</span>) inner: WasiFunctionEnv,
+<a href=#331 id=331 data-nosnippet>331</a>    <span class="kw">pub</span>(<span class="kw">super</span>) store: StoreRef,
+<a href=#332 id=332 data-nosnippet>332</a>}
+<a href=#333 id=333 data-nosnippet>333</a>
+<a href=#334 id=334 data-nosnippet>334</a><span class="doccomment">/// Create a new WASI environment.
+<a href=#335 id=335 data-nosnippet>335</a>///
+<a href=#336 id=336 data-nosnippet>336</a>/// It take ownership over the `wasi_config_t`.
+<a href=#337 id=337 data-nosnippet>337</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#338 id=338 data-nosnippet>338</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_new(
+<a href=#339 id=339 data-nosnippet>339</a>    store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasm_store_t&gt;,
+<a href=#340 id=340 data-nosnippet>340</a>    <span class="kw-2">mut </span>config: Box&lt;wasi_config_t&gt;,
+<a href=#341 id=341 data-nosnippet>341</a>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasi_env_t&gt;&gt; {
+<a href=#342 id=342 data-nosnippet>342</a>    <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>store<span class="question-mark">?</span>.inner;
+<a href=#343 id=343 data-nosnippet>343</a>    <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.store_mut() };
 <a href=#344 id=344 data-nosnippet>344</a>
-<a href=#345 id=345 data-nosnippet>345</a>    <span class="kw">let </span>runtime = runtime.unwrap_or_else(|| {
-<a href=#346 id=346 data-nosnippet>346</a>        tokio::runtime::Builder::new_multi_thread()
-<a href=#347 id=347 data-nosnippet>347</a>            .enable_all()
-<a href=#348 id=348 data-nosnippet>348</a>            .build()
-<a href=#349 id=349 data-nosnippet>349</a>            .unwrap()
-<a href=#350 id=350 data-nosnippet>350</a>    });
-<a href=#351 id=351 data-nosnippet>351</a>
-<a href=#352 id=352 data-nosnippet>352</a>    <span class="kw">let </span>handle = runtime.handle().clone();
-<a href=#353 id=353 data-nosnippet>353</a>    <span class="kw">let </span>_guard = handle.enter();
-<a href=#354 id=354 data-nosnippet>354</a>    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
-<a href=#355 id=355 data-nosnippet>355</a>    rt.set_engine(store_mut.engine().clone());
-<a href=#356 id=356 data-nosnippet>356</a>
-<a href=#357 id=357 data-nosnippet>357</a>    <span class="kw">if </span>!config.inherit_stdout {
-<a href=#358 id=358 data-nosnippet>358</a>        config.builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
-<a href=#359 id=359 data-nosnippet>359</a>    }
-<a href=#360 id=360 data-nosnippet>360</a>
-<a href=#361 id=361 data-nosnippet>361</a>    <span class="kw">if </span>!config.inherit_stderr {
-<a href=#362 id=362 data-nosnippet>362</a>        config.builder.set_stderr(Box::new(Pipe::channel().<span class="number">0</span>));
-<a href=#363 id=363 data-nosnippet>363</a>    }
-<a href=#364 id=364 data-nosnippet>364</a>
-<a href=#365 id=365 data-nosnippet>365</a>    <span class="comment">// TODO: impl capturer for stdin
+<a href=#345 id=345 data-nosnippet>345</a>    <span class="kw">let </span>runtime = config.runtime.take();
+<a href=#346 id=346 data-nosnippet>346</a>
+<a href=#347 id=347 data-nosnippet>347</a>    <span class="kw">let </span>runtime = runtime.unwrap_or_else(|| {
+<a href=#348 id=348 data-nosnippet>348</a>        tokio::runtime::Builder::new_multi_thread()
+<a href=#349 id=349 data-nosnippet>349</a>            .enable_all()
+<a href=#350 id=350 data-nosnippet>350</a>            .build()
+<a href=#351 id=351 data-nosnippet>351</a>            .unwrap()
+<a href=#352 id=352 data-nosnippet>352</a>    });
+<a href=#353 id=353 data-nosnippet>353</a>
+<a href=#354 id=354 data-nosnippet>354</a>    <span class="kw">let </span>handle = runtime.handle().clone();
+<a href=#355 id=355 data-nosnippet>355</a>    <span class="kw">let </span>_guard = handle.enter();
+<a href=#356 id=356 data-nosnippet>356</a>    <span class="kw">let </span><span class="kw-2">mut </span>rt = PluggableRuntime::new(Arc::new(TokioTaskManager::new(runtime)));
+<a href=#357 id=357 data-nosnippet>357</a>    rt.set_engine(store_mut.engine().clone());
+<a href=#358 id=358 data-nosnippet>358</a>
+<a href=#359 id=359 data-nosnippet>359</a>    <span class="kw">if </span>!config.inherit_stdout {
+<a href=#360 id=360 data-nosnippet>360</a>        config.builder.set_stdout(Box::new(Pipe::channel().<span class="number">0</span>));
+<a href=#361 id=361 data-nosnippet>361</a>    }
+<a href=#362 id=362 data-nosnippet>362</a>
+<a href=#363 id=363 data-nosnippet>363</a>    <span class="kw">if </span>!config.inherit_stderr {
+<a href=#364 id=364 data-nosnippet>364</a>        config.builder.set_stderr(Box::new(Pipe::channel().<span class="number">0</span>));
+<a href=#365 id=365 data-nosnippet>365</a>    }
 <a href=#366 id=366 data-nosnippet>366</a>
-<a href=#367 id=367 data-nosnippet>367</a>    </span><span class="kw">let </span>env = <span class="macro">c_try!</span>(
-<a href=#368 id=368 data-nosnippet>368</a>        config
-<a href=#369 id=369 data-nosnippet>369</a>            .builder
-<a href=#370 id=370 data-nosnippet>370</a>            .runtime(Arc::new(rt))
-<a href=#371 id=371 data-nosnippet>371</a>            .finalize(<span class="kw-2">&amp;mut </span>store_mut)
-<a href=#372 id=372 data-nosnippet>372</a>    );
-<a href=#373 id=373 data-nosnippet>373</a>
-<a href=#374 id=374 data-nosnippet>374</a>    <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
-<a href=#375 id=375 data-nosnippet>375</a>        inner: env,
-<a href=#376 id=376 data-nosnippet>376</a>        store: store.clone(),
-<a href=#377 id=377 data-nosnippet>377</a>    }))
-<a href=#378 id=378 data-nosnippet>378</a>}
-<a href=#379 id=379 data-nosnippet>379</a>
-<a href=#380 id=380 data-nosnippet>380</a><span class="doccomment">/// Delete a [`wasi_env_t`].
-<a href=#381 id=381 data-nosnippet>381</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#382 id=382 data-nosnippet>382</a></span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_delete(state: <span class="prelude-ty">Option</span>&lt;Box&lt;wasi_env_t&gt;&gt;) {
-<a href=#383 id=383 data-nosnippet>383</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>env) = state {
-<a href=#384 id=384 data-nosnippet>384</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="kw">unsafe </span>{ env.store.store_mut() };
-<a href=#385 id=385 data-nosnippet>385</a>        env.inner.on_exit(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">None</span>);
-<a href=#386 id=386 data-nosnippet>386</a>    }
-<a href=#387 id=387 data-nosnippet>387</a>}
-<a href=#388 id=388 data-nosnippet>388</a>
-<a href=#389 id=389 data-nosnippet>389</a><span class="doccomment">/// Set the memory on a [`wasi_env_t`].
-<a href=#390 id=390 data-nosnippet>390</a></span><span class="comment">// NOTE: Only here to not break the C API.
-<a href=#391 id=391 data-nosnippet>391</a>// This was previosly supported, but is no longer possible due to WASIX changes.
-<a href=#392 id=392 data-nosnippet>392</a>// Customizing memories should be done through the builder or the runtime.
-<a href=#393 id=393 data-nosnippet>393</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#394 id=394 data-nosnippet>394</a>#[deprecated(since = <span class="string">"4.0.0"</span>)]
-<a href=#395 id=395 data-nosnippet>395</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_set_memory(_env: <span class="kw-2">&amp;mut </span>wasi_env_t, _memory: <span class="kw-2">&amp;</span>wasm_memory_t) {
-<a href=#396 id=396 data-nosnippet>396</a>    <span class="macro">panic!</span>(<span class="string">"wasmer_env_set_memory() is not supported"</span>);
-<a href=#397 id=397 data-nosnippet>397</a>}
-<a href=#398 id=398 data-nosnippet>398</a>
-<a href=#399 id=399 data-nosnippet>399</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#400 id=400 data-nosnippet>400</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_read_stdout(
-<a href=#401 id=401 data-nosnippet>401</a>    env: <span class="kw-2">&amp;mut </span>wasi_env_t,
-<a href=#402 id=402 data-nosnippet>402</a>    buffer: <span class="kw-2">*mut </span>c_char,
-<a href=#403 id=403 data-nosnippet>403</a>    buffer_len: usize,
-<a href=#404 id=404 data-nosnippet>404</a>) -&gt; isize {
-<a href=#405 id=405 data-nosnippet>405</a>    <span class="kw">let </span>inner_buffer = <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(buffer <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>, buffer_len) };
-<a href=#406 id=406 data-nosnippet>406</a>    <span class="kw">let </span>store = <span class="kw">unsafe </span>{ env.store.store() };
-<a href=#407 id=407 data-nosnippet>407</a>
-<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">let </span>stdout = {
-<a href=#409 id=409 data-nosnippet>409</a>        <span class="kw">let </span>data = env.inner.data(<span class="kw-2">&amp;</span>store);
-<a href=#410 id=410 data-nosnippet>410</a>        data.stdout()
-<a href=#411 id=411 data-nosnippet>411</a>    };
-<a href=#412 id=412 data-nosnippet>412</a>
-<a href=#413 id=413 data-nosnippet>413</a>    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stdout) = stdout {
-<a href=#414 id=414 data-nosnippet>414</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(stdout) = stdout.as_mut() {
-<a href=#415 id=415 data-nosnippet>415</a>            read_inner(stdout, inner_buffer)
-<a href=#416 id=416 data-nosnippet>416</a>        } <span class="kw">else </span>{
-<a href=#417 id=417 data-nosnippet>417</a>            update_last_error(<span class="string">"could not find a file handle for `stdout`"</span>);
-<a href=#418 id=418 data-nosnippet>418</a>            -<span class="number">1
-<a href=#419 id=419 data-nosnippet>419</a>        </span>}
-<a href=#420 id=420 data-nosnippet>420</a>    } <span class="kw">else </span>{
-<a href=#421 id=421 data-nosnippet>421</a>        update_last_error(<span class="string">"could not find a file handle for `stdout`"</span>);
-<a href=#422 id=422 data-nosnippet>422</a>        -<span class="number">1
-<a href=#423 id=423 data-nosnippet>423</a>    </span>}
-<a href=#424 id=424 data-nosnippet>424</a>}
-<a href=#425 id=425 data-nosnippet>425</a>
-<a href=#426 id=426 data-nosnippet>426</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#427 id=427 data-nosnippet>427</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_read_stderr(
-<a href=#428 id=428 data-nosnippet>428</a>    env: <span class="kw-2">&amp;mut </span>wasi_env_t,
-<a href=#429 id=429 data-nosnippet>429</a>    buffer: <span class="kw-2">*mut </span>c_char,
-<a href=#430 id=430 data-nosnippet>430</a>    buffer_len: usize,
-<a href=#431 id=431 data-nosnippet>431</a>) -&gt; isize {
-<a href=#432 id=432 data-nosnippet>432</a>    <span class="kw">let </span>inner_buffer = <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(buffer <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>, buffer_len) };
-<a href=#433 id=433 data-nosnippet>433</a>    <span class="kw">let </span>store = <span class="kw">unsafe </span>{ env.store.store() };
-<a href=#434 id=434 data-nosnippet>434</a>    <span class="kw">let </span>stderr = {
-<a href=#435 id=435 data-nosnippet>435</a>        <span class="kw">let </span>data = env.inner.data(<span class="kw-2">&amp;</span>store);
-<a href=#436 id=436 data-nosnippet>436</a>        data.stderr()
-<a href=#437 id=437 data-nosnippet>437</a>    };
-<a href=#438 id=438 data-nosnippet>438</a>    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = stderr {
-<a href=#439 id=439 data-nosnippet>439</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr) = stderr.as_mut() {
-<a href=#440 id=440 data-nosnippet>440</a>            read_inner(stderr, inner_buffer)
-<a href=#441 id=441 data-nosnippet>441</a>        } <span class="kw">else </span>{
-<a href=#442 id=442 data-nosnippet>442</a>            update_last_error(<span class="string">"could not find a file handle for `stderr`"</span>);
-<a href=#443 id=443 data-nosnippet>443</a>            -<span class="number">1
-<a href=#444 id=444 data-nosnippet>444</a>        </span>}
-<a href=#445 id=445 data-nosnippet>445</a>    } <span class="kw">else </span>{
-<a href=#446 id=446 data-nosnippet>446</a>        update_last_error(<span class="string">"could not find a file handle for `stderr`"</span>);
-<a href=#447 id=447 data-nosnippet>447</a>        -<span class="number">1
-<a href=#448 id=448 data-nosnippet>448</a>    </span>}
-<a href=#449 id=449 data-nosnippet>449</a>}
-<a href=#450 id=450 data-nosnippet>450</a>
-<a href=#451 id=451 data-nosnippet>451</a><span class="kw">fn </span>read_inner(
-<a href=#452 id=452 data-nosnippet>452</a>    wasi_file: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
-<a href=#453 id=453 data-nosnippet>453</a>    inner_buffer: <span class="kw-2">&amp;mut </span>[u8],
-<a href=#454 id=454 data-nosnippet>454</a>) -&gt; isize {
-<a href=#455 id=455 data-nosnippet>455</a>    block_on(<span class="kw">async </span>{
-<a href=#456 id=456 data-nosnippet>456</a>        <span class="kw">match </span>wasi_file.read(inner_buffer).<span class="kw">await </span>{
-<a href=#457 id=457 data-nosnippet>457</a>            <span class="prelude-val">Ok</span>(a) =&gt; a <span class="kw">as </span>isize,
-<a href=#458 id=458 data-nosnippet>458</a>            <span class="prelude-val">Err</span>(err) =&gt; {
-<a href=#459 id=459 data-nosnippet>459</a>                update_last_error(<span class="macro">format!</span>(<span class="string">"failed to read wasi_file: {err}"</span>));
-<a href=#460 id=460 data-nosnippet>460</a>                -<span class="number">1
-<a href=#461 id=461 data-nosnippet>461</a>            </span>}
-<a href=#462 id=462 data-nosnippet>462</a>        }
-<a href=#463 id=463 data-nosnippet>463</a>    })
-<a href=#464 id=464 data-nosnippet>464</a>}
-<a href=#465 id=465 data-nosnippet>465</a>
-<a href=#466 id=466 data-nosnippet>466</a><span class="doccomment">/// The version of WASI. This is determined by the imports namespace
-<a href=#467 id=467 data-nosnippet>467</a>/// string.
-<a href=#468 id=468 data-nosnippet>468</a></span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
-<a href=#469 id=469 data-nosnippet>469</a>#[repr(C)]
-<a href=#470 id=470 data-nosnippet>470</a>#[allow(non_camel_case_types)]
-<a href=#471 id=471 data-nosnippet>471</a></span><span class="kw">pub enum </span>wasi_version_t {
-<a href=#472 id=472 data-nosnippet>472</a>    <span class="doccomment">/// An invalid version.
-<a href=#473 id=473 data-nosnippet>473</a>    </span>INVALID_VERSION = -<span class="number">1</span>,
-<a href=#474 id=474 data-nosnippet>474</a>
-<a href=#475 id=475 data-nosnippet>475</a>    <span class="doccomment">/// Latest version.
-<a href=#476 id=476 data-nosnippet>476</a>    ///
-<a href=#477 id=477 data-nosnippet>477</a>    /// It's a “floating” version, i.e. it's an alias to the latest
-<a href=#478 id=478 data-nosnippet>478</a>    /// version (for the moment, `Snapshot1`). Using this version is a
-<a href=#479 id=479 data-nosnippet>479</a>    /// way to ensure that modules will run only if they come with the
-<a href=#480 id=480 data-nosnippet>480</a>    /// latest WASI version (in case of security issues for instance),
-<a href=#481 id=481 data-nosnippet>481</a>    /// by just updating the runtime.
-<a href=#482 id=482 data-nosnippet>482</a>    ///
-<a href=#483 id=483 data-nosnippet>483</a>    /// Note that this version is never returned by an API. It is
-<a href=#484 id=484 data-nosnippet>484</a>    /// provided only by the user.
-<a href=#485 id=485 data-nosnippet>485</a>    </span>LATEST = <span class="number">0</span>,
-<a href=#486 id=486 data-nosnippet>486</a>
-<a href=#487 id=487 data-nosnippet>487</a>    <span class="doccomment">/// `wasi_unstable`.
-<a href=#488 id=488 data-nosnippet>488</a>    </span>SNAPSHOT0 = <span class="number">1</span>,
-<a href=#489 id=489 data-nosnippet>489</a>
-<a href=#490 id=490 data-nosnippet>490</a>    <span class="doccomment">/// `wasi_snapshot_preview1`.
-<a href=#491 id=491 data-nosnippet>491</a>    </span>SNAPSHOT1 = <span class="number">2</span>,
-<a href=#492 id=492 data-nosnippet>492</a>
-<a href=#493 id=493 data-nosnippet>493</a>    <span class="doccomment">/// `wasix_32v1`.
-<a href=#494 id=494 data-nosnippet>494</a>    </span>WASIX32V1 = <span class="number">3</span>,
-<a href=#495 id=495 data-nosnippet>495</a>
-<a href=#496 id=496 data-nosnippet>496</a>    <span class="doccomment">/// `wasix_64v1`.
-<a href=#497 id=497 data-nosnippet>497</a>    </span>WASIX64V1 = <span class="number">4</span>,
-<a href=#498 id=498 data-nosnippet>498</a>}
-<a href=#499 id=499 data-nosnippet>499</a>
-<a href=#500 id=500 data-nosnippet>500</a><span class="kw">impl </span>From&lt;WasiVersion&gt; <span class="kw">for </span>wasi_version_t {
-<a href=#501 id=501 data-nosnippet>501</a>    <span class="kw">fn </span>from(other: WasiVersion) -&gt; <span class="self">Self </span>{
-<a href=#502 id=502 data-nosnippet>502</a>        <span class="kw">match </span>other {
-<a href=#503 id=503 data-nosnippet>503</a>            WasiVersion::Snapshot0 =&gt; wasi_version_t::SNAPSHOT0,
-<a href=#504 id=504 data-nosnippet>504</a>            WasiVersion::Snapshot1 =&gt; wasi_version_t::SNAPSHOT1,
-<a href=#505 id=505 data-nosnippet>505</a>            WasiVersion::Wasix32v1 =&gt; wasi_version_t::WASIX32V1,
-<a href=#506 id=506 data-nosnippet>506</a>            WasiVersion::Wasix64v1 =&gt; wasi_version_t::WASIX64V1,
-<a href=#507 id=507 data-nosnippet>507</a>            WasiVersion::Latest =&gt; wasi_version_t::LATEST,
-<a href=#508 id=508 data-nosnippet>508</a>        }
-<a href=#509 id=509 data-nosnippet>509</a>    }
-<a href=#510 id=510 data-nosnippet>510</a>}
-<a href=#511 id=511 data-nosnippet>511</a>
-<a href=#512 id=512 data-nosnippet>512</a><span class="kw">impl </span>TryFrom&lt;wasi_version_t&gt; <span class="kw">for </span>WasiVersion {
-<a href=#513 id=513 data-nosnippet>513</a>    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
-<a href=#514 id=514 data-nosnippet>514</a>
-<a href=#515 id=515 data-nosnippet>515</a>    <span class="kw">fn </span>try_from(other: wasi_version_t) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
-<a href=#516 id=516 data-nosnippet>516</a>        <span class="prelude-val">Ok</span>(<span class="kw">match </span>other {
-<a href=#517 id=517 data-nosnippet>517</a>            wasi_version_t::INVALID_VERSION =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid WASI version cannot be used"</span>),
-<a href=#518 id=518 data-nosnippet>518</a>            wasi_version_t::SNAPSHOT0 =&gt; WasiVersion::Snapshot0,
-<a href=#519 id=519 data-nosnippet>519</a>            wasi_version_t::SNAPSHOT1 =&gt; WasiVersion::Snapshot1,
-<a href=#520 id=520 data-nosnippet>520</a>            wasi_version_t::WASIX32V1 =&gt; WasiVersion::Wasix32v1,
-<a href=#521 id=521 data-nosnippet>521</a>            wasi_version_t::WASIX64V1 =&gt; WasiVersion::Wasix64v1,
-<a href=#522 id=522 data-nosnippet>522</a>            wasi_version_t::LATEST =&gt; WasiVersion::Latest,
-<a href=#523 id=523 data-nosnippet>523</a>        })
-<a href=#524 id=524 data-nosnippet>524</a>    }
-<a href=#525 id=525 data-nosnippet>525</a>}
-<a href=#526 id=526 data-nosnippet>526</a>
-<a href=#527 id=527 data-nosnippet>527</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#528 id=528 data-nosnippet>528</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_get_wasi_version(module: <span class="kw-2">&amp;</span>wasm_module_t) -&gt; wasi_version_t {
-<a href=#529 id=529 data-nosnippet>529</a>    get_wasi_version(<span class="kw-2">&amp;</span>module.inner, <span class="bool-val">false</span>)
-<a href=#530 id=530 data-nosnippet>530</a>        .map(Into::into)
-<a href=#531 id=531 data-nosnippet>531</a>        .unwrap_or(wasi_version_t::INVALID_VERSION)
-<a href=#532 id=532 data-nosnippet>532</a>}
-<a href=#533 id=533 data-nosnippet>533</a>
-<a href=#534 id=534 data-nosnippet>534</a><span class="doccomment">/// Non-standard function to get the imports needed for the WASI
-<a href=#535 id=535 data-nosnippet>535</a>/// implementation ordered as expected by the `wasm_module_t`.
-<a href=#536 id=536 data-nosnippet>536</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#537 id=537 data-nosnippet>537</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_get_imports(
-<a href=#538 id=538 data-nosnippet>538</a>    _store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_store_t&gt;,
-<a href=#539 id=539 data-nosnippet>539</a>    wasi_env: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasi_env_t&gt;,
-<a href=#540 id=540 data-nosnippet>540</a>    module: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_module_t&gt;,
-<a href=#541 id=541 data-nosnippet>541</a>    imports: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
-<a href=#542 id=542 data-nosnippet>542</a>) -&gt; bool {
-<a href=#543 id=543 data-nosnippet>543</a>    <span class="kw">unsafe </span>{ wasi_get_imports_inner(wasi_env, module, imports) }.is_some()
-<a href=#544 id=544 data-nosnippet>544</a>}
-<a href=#545 id=545 data-nosnippet>545</a>
-<a href=#546 id=546 data-nosnippet>546</a><span class="kw">unsafe fn </span>wasi_get_imports_inner(
-<a href=#547 id=547 data-nosnippet>547</a>    wasi_env: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasi_env_t&gt;,
-<a href=#548 id=548 data-nosnippet>548</a>    module: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_module_t&gt;,
-<a href=#549 id=549 data-nosnippet>549</a>    imports: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
-<a href=#550 id=550 data-nosnippet>550</a>) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#551 id=551 data-nosnippet>551</a>    <span class="kw">let </span>wasi_env = wasi_env<span class="question-mark">?</span>;
-<a href=#552 id=552 data-nosnippet>552</a>    <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>wasi_env.store;
-<a href=#553 id=553 data-nosnippet>553</a>    <span class="kw">let </span>module = module<span class="question-mark">?</span>;
-<a href=#554 id=554 data-nosnippet>554</a>
-<a href=#555 id=555 data-nosnippet>555</a>    <span class="kw">let </span><span class="kw-2">mut </span>import_object = {
-<a href=#556 id=556 data-nosnippet>556</a>        <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.store_mut() };
-<a href=#557 id=557 data-nosnippet>557</a>        <span class="macro">c_try!</span>(wasi_env.inner.import_object(<span class="kw-2">&amp;mut </span>store_mut, <span class="kw-2">&amp;</span>module.inner))
-<a href=#558 id=558 data-nosnippet>558</a>    };
-<a href=#559 id=559 data-nosnippet>559</a>
-<a href=#560 id=560 data-nosnippet>560</a>    <span class="kw">let </span>shared_memory = module.inner.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
+<a href=#367 id=367 data-nosnippet>367</a>    <span class="comment">// TODO: impl capturer for stdin
+<a href=#368 id=368 data-nosnippet>368</a>
+<a href=#369 id=369 data-nosnippet>369</a>    </span><span class="kw">let </span>env = <span class="macro">c_try!</span>(
+<a href=#370 id=370 data-nosnippet>370</a>        config
+<a href=#371 id=371 data-nosnippet>371</a>            .builder
+<a href=#372 id=372 data-nosnippet>372</a>            .runtime(Arc::new(rt))
+<a href=#373 id=373 data-nosnippet>373</a>            .finalize(<span class="kw-2">&amp;mut </span>store_mut)
+<a href=#374 id=374 data-nosnippet>374</a>    );
+<a href=#375 id=375 data-nosnippet>375</a>
+<a href=#376 id=376 data-nosnippet>376</a>    <span class="prelude-val">Some</span>(Box::new(wasi_env_t {
+<a href=#377 id=377 data-nosnippet>377</a>        inner: env,
+<a href=#378 id=378 data-nosnippet>378</a>        store: store.clone(),
+<a href=#379 id=379 data-nosnippet>379</a>    }))
+<a href=#380 id=380 data-nosnippet>380</a>}
+<a href=#381 id=381 data-nosnippet>381</a>
+<a href=#382 id=382 data-nosnippet>382</a><span class="doccomment">/// Delete a [`wasi_env_t`].
+<a href=#383 id=383 data-nosnippet>383</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#384 id=384 data-nosnippet>384</a></span><span class="kw">pub extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_delete(state: <span class="prelude-ty">Option</span>&lt;Box&lt;wasi_env_t&gt;&gt;) {
+<a href=#385 id=385 data-nosnippet>385</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(<span class="kw-2">mut </span>env) = state {
+<a href=#386 id=386 data-nosnippet>386</a>        <span class="kw">let </span><span class="kw-2">mut </span>store = <span class="kw">unsafe </span>{ env.store.store_mut() };
+<a href=#387 id=387 data-nosnippet>387</a>        env.inner.on_exit(<span class="kw-2">&amp;mut </span>store, <span class="prelude-val">None</span>);
+<a href=#388 id=388 data-nosnippet>388</a>    }
+<a href=#389 id=389 data-nosnippet>389</a>}
+<a href=#390 id=390 data-nosnippet>390</a>
+<a href=#391 id=391 data-nosnippet>391</a><span class="doccomment">/// Set the memory on a [`wasi_env_t`].
+<a href=#392 id=392 data-nosnippet>392</a></span><span class="comment">// NOTE: Only here to not break the C API.
+<a href=#393 id=393 data-nosnippet>393</a>// This was previosly supported, but is no longer possible due to WASIX changes.
+<a href=#394 id=394 data-nosnippet>394</a>// Customizing memories should be done through the builder or the runtime.
+<a href=#395 id=395 data-nosnippet>395</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#396 id=396 data-nosnippet>396</a>#[deprecated(since = <span class="string">"4.0.0"</span>)]
+<a href=#397 id=397 data-nosnippet>397</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_set_memory(_env: <span class="kw-2">&amp;mut </span>wasi_env_t, _memory: <span class="kw-2">&amp;</span>wasm_memory_t) {
+<a href=#398 id=398 data-nosnippet>398</a>    <span class="macro">panic!</span>(<span class="string">"wasmer_env_set_memory() is not supported"</span>);
+<a href=#399 id=399 data-nosnippet>399</a>}
+<a href=#400 id=400 data-nosnippet>400</a>
+<a href=#401 id=401 data-nosnippet>401</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#402 id=402 data-nosnippet>402</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_read_stdout(
+<a href=#403 id=403 data-nosnippet>403</a>    env: <span class="kw-2">&amp;mut </span>wasi_env_t,
+<a href=#404 id=404 data-nosnippet>404</a>    buffer: <span class="kw-2">*mut </span>c_char,
+<a href=#405 id=405 data-nosnippet>405</a>    buffer_len: usize,
+<a href=#406 id=406 data-nosnippet>406</a>) -&gt; isize {
+<a href=#407 id=407 data-nosnippet>407</a>    <span class="kw">let </span>inner_buffer = <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(buffer <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>, buffer_len) };
+<a href=#408 id=408 data-nosnippet>408</a>    <span class="kw">let </span>store = <span class="kw">unsafe </span>{ env.store.store() };
+<a href=#409 id=409 data-nosnippet>409</a>
+<a href=#410 id=410 data-nosnippet>410</a>    <span class="kw">let </span>stdout = {
+<a href=#411 id=411 data-nosnippet>411</a>        <span class="kw">let </span>data = env.inner.data(<span class="kw-2">&amp;</span>store);
+<a href=#412 id=412 data-nosnippet>412</a>        data.stdout()
+<a href=#413 id=413 data-nosnippet>413</a>    };
+<a href=#414 id=414 data-nosnippet>414</a>
+<a href=#415 id=415 data-nosnippet>415</a>    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stdout) = stdout {
+<a href=#416 id=416 data-nosnippet>416</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(stdout) = stdout.as_mut() {
+<a href=#417 id=417 data-nosnippet>417</a>            read_inner(stdout, inner_buffer)
+<a href=#418 id=418 data-nosnippet>418</a>        } <span class="kw">else </span>{
+<a href=#419 id=419 data-nosnippet>419</a>            update_last_error(<span class="string">"could not find a file handle for `stdout`"</span>);
+<a href=#420 id=420 data-nosnippet>420</a>            -<span class="number">1
+<a href=#421 id=421 data-nosnippet>421</a>        </span>}
+<a href=#422 id=422 data-nosnippet>422</a>    } <span class="kw">else </span>{
+<a href=#423 id=423 data-nosnippet>423</a>        update_last_error(<span class="string">"could not find a file handle for `stdout`"</span>);
+<a href=#424 id=424 data-nosnippet>424</a>        -<span class="number">1
+<a href=#425 id=425 data-nosnippet>425</a>    </span>}
+<a href=#426 id=426 data-nosnippet>426</a>}
+<a href=#427 id=427 data-nosnippet>427</a>
+<a href=#428 id=428 data-nosnippet>428</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#429 id=429 data-nosnippet>429</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_read_stderr(
+<a href=#430 id=430 data-nosnippet>430</a>    env: <span class="kw-2">&amp;mut </span>wasi_env_t,
+<a href=#431 id=431 data-nosnippet>431</a>    buffer: <span class="kw-2">*mut </span>c_char,
+<a href=#432 id=432 data-nosnippet>432</a>    buffer_len: usize,
+<a href=#433 id=433 data-nosnippet>433</a>) -&gt; isize {
+<a href=#434 id=434 data-nosnippet>434</a>    <span class="kw">let </span>inner_buffer = <span class="kw">unsafe </span>{ slice::from_raw_parts_mut(buffer <span class="kw">as </span><span class="kw-2">*mut </span><span class="kw">_</span>, buffer_len) };
+<a href=#435 id=435 data-nosnippet>435</a>    <span class="kw">let </span>store = <span class="kw">unsafe </span>{ env.store.store() };
+<a href=#436 id=436 data-nosnippet>436</a>    <span class="kw">let </span>stderr = {
+<a href=#437 id=437 data-nosnippet>437</a>        <span class="kw">let </span>data = env.inner.data(<span class="kw-2">&amp;</span>store);
+<a href=#438 id=438 data-nosnippet>438</a>        data.stderr()
+<a href=#439 id=439 data-nosnippet>439</a>    };
+<a href=#440 id=440 data-nosnippet>440</a>    <span class="kw">if let </span><span class="prelude-val">Ok</span>(<span class="kw-2">mut </span>stderr) = stderr {
+<a href=#441 id=441 data-nosnippet>441</a>        <span class="kw">if let </span><span class="prelude-val">Some</span>(stderr) = stderr.as_mut() {
+<a href=#442 id=442 data-nosnippet>442</a>            read_inner(stderr, inner_buffer)
+<a href=#443 id=443 data-nosnippet>443</a>        } <span class="kw">else </span>{
+<a href=#444 id=444 data-nosnippet>444</a>            update_last_error(<span class="string">"could not find a file handle for `stderr`"</span>);
+<a href=#445 id=445 data-nosnippet>445</a>            -<span class="number">1
+<a href=#446 id=446 data-nosnippet>446</a>        </span>}
+<a href=#447 id=447 data-nosnippet>447</a>    } <span class="kw">else </span>{
+<a href=#448 id=448 data-nosnippet>448</a>        update_last_error(<span class="string">"could not find a file handle for `stderr`"</span>);
+<a href=#449 id=449 data-nosnippet>449</a>        -<span class="number">1
+<a href=#450 id=450 data-nosnippet>450</a>    </span>}
+<a href=#451 id=451 data-nosnippet>451</a>}
+<a href=#452 id=452 data-nosnippet>452</a>
+<a href=#453 id=453 data-nosnippet>453</a><span class="kw">fn </span>read_inner(
+<a href=#454 id=454 data-nosnippet>454</a>    wasi_file: <span class="kw-2">&amp;mut </span>Box&lt;<span class="kw">dyn </span>VirtualFile + Send + Sync + <span class="lifetime">'static</span>&gt;,
+<a href=#455 id=455 data-nosnippet>455</a>    inner_buffer: <span class="kw-2">&amp;mut </span>[u8],
+<a href=#456 id=456 data-nosnippet>456</a>) -&gt; isize {
+<a href=#457 id=457 data-nosnippet>457</a>    block_on(<span class="kw">async </span>{
+<a href=#458 id=458 data-nosnippet>458</a>        <span class="kw">match </span>wasi_file.read(inner_buffer).<span class="kw">await </span>{
+<a href=#459 id=459 data-nosnippet>459</a>            <span class="prelude-val">Ok</span>(a) =&gt; a <span class="kw">as </span>isize,
+<a href=#460 id=460 data-nosnippet>460</a>            <span class="prelude-val">Err</span>(err) =&gt; {
+<a href=#461 id=461 data-nosnippet>461</a>                update_last_error(<span class="macro">format!</span>(<span class="string">"failed to read wasi_file: {err}"</span>));
+<a href=#462 id=462 data-nosnippet>462</a>                -<span class="number">1
+<a href=#463 id=463 data-nosnippet>463</a>            </span>}
+<a href=#464 id=464 data-nosnippet>464</a>        }
+<a href=#465 id=465 data-nosnippet>465</a>    })
+<a href=#466 id=466 data-nosnippet>466</a>}
+<a href=#467 id=467 data-nosnippet>467</a>
+<a href=#468 id=468 data-nosnippet>468</a><span class="doccomment">/// The version of WASI. This is determined by the imports namespace
+<a href=#469 id=469 data-nosnippet>469</a>/// string.
+<a href=#470 id=470 data-nosnippet>470</a></span><span class="attr">#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+<a href=#471 id=471 data-nosnippet>471</a>#[repr(C)]
+<a href=#472 id=472 data-nosnippet>472</a>#[allow(non_camel_case_types)]
+<a href=#473 id=473 data-nosnippet>473</a></span><span class="kw">pub enum </span>wasi_version_t {
+<a href=#474 id=474 data-nosnippet>474</a>    <span class="doccomment">/// An invalid version.
+<a href=#475 id=475 data-nosnippet>475</a>    </span>INVALID_VERSION = -<span class="number">1</span>,
+<a href=#476 id=476 data-nosnippet>476</a>
+<a href=#477 id=477 data-nosnippet>477</a>    <span class="doccomment">/// Latest version.
+<a href=#478 id=478 data-nosnippet>478</a>    ///
+<a href=#479 id=479 data-nosnippet>479</a>    /// It's a “floating” version, i.e. it's an alias to the latest
+<a href=#480 id=480 data-nosnippet>480</a>    /// version (for the moment, `Snapshot1`). Using this version is a
+<a href=#481 id=481 data-nosnippet>481</a>    /// way to ensure that modules will run only if they come with the
+<a href=#482 id=482 data-nosnippet>482</a>    /// latest WASI version (in case of security issues for instance),
+<a href=#483 id=483 data-nosnippet>483</a>    /// by just updating the runtime.
+<a href=#484 id=484 data-nosnippet>484</a>    ///
+<a href=#485 id=485 data-nosnippet>485</a>    /// Note that this version is never returned by an API. It is
+<a href=#486 id=486 data-nosnippet>486</a>    /// provided only by the user.
+<a href=#487 id=487 data-nosnippet>487</a>    </span>LATEST = <span class="number">0</span>,
+<a href=#488 id=488 data-nosnippet>488</a>
+<a href=#489 id=489 data-nosnippet>489</a>    <span class="doccomment">/// `wasi_unstable`.
+<a href=#490 id=490 data-nosnippet>490</a>    </span>SNAPSHOT0 = <span class="number">1</span>,
+<a href=#491 id=491 data-nosnippet>491</a>
+<a href=#492 id=492 data-nosnippet>492</a>    <span class="doccomment">/// `wasi_snapshot_preview1`.
+<a href=#493 id=493 data-nosnippet>493</a>    </span>SNAPSHOT1 = <span class="number">2</span>,
+<a href=#494 id=494 data-nosnippet>494</a>
+<a href=#495 id=495 data-nosnippet>495</a>    <span class="doccomment">/// `wasix_32v1`.
+<a href=#496 id=496 data-nosnippet>496</a>    </span>WASIX32V1 = <span class="number">3</span>,
+<a href=#497 id=497 data-nosnippet>497</a>
+<a href=#498 id=498 data-nosnippet>498</a>    <span class="doccomment">/// `wasix_64v1`.
+<a href=#499 id=499 data-nosnippet>499</a>    </span>WASIX64V1 = <span class="number">4</span>,
+<a href=#500 id=500 data-nosnippet>500</a>}
+<a href=#501 id=501 data-nosnippet>501</a>
+<a href=#502 id=502 data-nosnippet>502</a><span class="kw">impl </span>From&lt;WasiVersion&gt; <span class="kw">for </span>wasi_version_t {
+<a href=#503 id=503 data-nosnippet>503</a>    <span class="kw">fn </span>from(other: WasiVersion) -&gt; <span class="self">Self </span>{
+<a href=#504 id=504 data-nosnippet>504</a>        <span class="kw">match </span>other {
+<a href=#505 id=505 data-nosnippet>505</a>            WasiVersion::Snapshot0 =&gt; wasi_version_t::SNAPSHOT0,
+<a href=#506 id=506 data-nosnippet>506</a>            WasiVersion::Snapshot1 =&gt; wasi_version_t::SNAPSHOT1,
+<a href=#507 id=507 data-nosnippet>507</a>            WasiVersion::Wasix32v1 =&gt; wasi_version_t::WASIX32V1,
+<a href=#508 id=508 data-nosnippet>508</a>            WasiVersion::Wasix64v1 =&gt; wasi_version_t::WASIX64V1,
+<a href=#509 id=509 data-nosnippet>509</a>            WasiVersion::Latest =&gt; wasi_version_t::LATEST,
+<a href=#510 id=510 data-nosnippet>510</a>        }
+<a href=#511 id=511 data-nosnippet>511</a>    }
+<a href=#512 id=512 data-nosnippet>512</a>}
+<a href=#513 id=513 data-nosnippet>513</a>
+<a href=#514 id=514 data-nosnippet>514</a><span class="kw">impl </span>TryFrom&lt;wasi_version_t&gt; <span class="kw">for </span>WasiVersion {
+<a href=#515 id=515 data-nosnippet>515</a>    <span class="kw">type </span>Error = <span class="kw-2">&amp;</span><span class="lifetime">'static </span>str;
+<a href=#516 id=516 data-nosnippet>516</a>
+<a href=#517 id=517 data-nosnippet>517</a>    <span class="kw">fn </span>try_from(other: wasi_version_t) -&gt; <span class="prelude-ty">Result</span>&lt;<span class="self">Self</span>, <span class="self">Self</span>::Error&gt; {
+<a href=#518 id=518 data-nosnippet>518</a>        <span class="prelude-val">Ok</span>(<span class="kw">match </span>other {
+<a href=#519 id=519 data-nosnippet>519</a>            wasi_version_t::INVALID_VERSION =&gt; <span class="kw">return </span><span class="prelude-val">Err</span>(<span class="string">"Invalid WASI version cannot be used"</span>),
+<a href=#520 id=520 data-nosnippet>520</a>            wasi_version_t::SNAPSHOT0 =&gt; WasiVersion::Snapshot0,
+<a href=#521 id=521 data-nosnippet>521</a>            wasi_version_t::SNAPSHOT1 =&gt; WasiVersion::Snapshot1,
+<a href=#522 id=522 data-nosnippet>522</a>            wasi_version_t::WASIX32V1 =&gt; WasiVersion::Wasix32v1,
+<a href=#523 id=523 data-nosnippet>523</a>            wasi_version_t::WASIX64V1 =&gt; WasiVersion::Wasix64v1,
+<a href=#524 id=524 data-nosnippet>524</a>            wasi_version_t::LATEST =&gt; WasiVersion::Latest,
+<a href=#525 id=525 data-nosnippet>525</a>        })
+<a href=#526 id=526 data-nosnippet>526</a>    }
+<a href=#527 id=527 data-nosnippet>527</a>}
+<a href=#528 id=528 data-nosnippet>528</a>
+<a href=#529 id=529 data-nosnippet>529</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#530 id=530 data-nosnippet>530</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_get_wasi_version(module: <span class="kw-2">&amp;</span>wasm_module_t) -&gt; wasi_version_t {
+<a href=#531 id=531 data-nosnippet>531</a>    get_wasi_version(<span class="kw-2">&amp;</span>module.inner, <span class="bool-val">false</span>)
+<a href=#532 id=532 data-nosnippet>532</a>        .map(Into::into)
+<a href=#533 id=533 data-nosnippet>533</a>        .unwrap_or(wasi_version_t::INVALID_VERSION)
+<a href=#534 id=534 data-nosnippet>534</a>}
+<a href=#535 id=535 data-nosnippet>535</a>
+<a href=#536 id=536 data-nosnippet>536</a><span class="doccomment">/// Non-standard function to get the imports needed for the WASI
+<a href=#537 id=537 data-nosnippet>537</a>/// implementation ordered as expected by the `wasm_module_t`.
+<a href=#538 id=538 data-nosnippet>538</a></span><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#539 id=539 data-nosnippet>539</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_get_imports(
+<a href=#540 id=540 data-nosnippet>540</a>    _store: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_store_t&gt;,
+<a href=#541 id=541 data-nosnippet>541</a>    wasi_env: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasi_env_t&gt;,
+<a href=#542 id=542 data-nosnippet>542</a>    module: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_module_t&gt;,
+<a href=#543 id=543 data-nosnippet>543</a>    imports: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
+<a href=#544 id=544 data-nosnippet>544</a>) -&gt; bool {
+<a href=#545 id=545 data-nosnippet>545</a>    <span class="kw">unsafe </span>{ wasi_get_imports_inner(wasi_env, module, imports) }.is_some()
+<a href=#546 id=546 data-nosnippet>546</a>}
+<a href=#547 id=547 data-nosnippet>547</a>
+<a href=#548 id=548 data-nosnippet>548</a><span class="kw">unsafe fn </span>wasi_get_imports_inner(
+<a href=#549 id=549 data-nosnippet>549</a>    wasi_env: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;mut </span>wasi_env_t&gt;,
+<a href=#550 id=550 data-nosnippet>550</a>    module: <span class="prelude-ty">Option</span>&lt;<span class="kw-2">&amp;</span>wasm_module_t&gt;,
+<a href=#551 id=551 data-nosnippet>551</a>    imports: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
+<a href=#552 id=552 data-nosnippet>552</a>) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href=#553 id=553 data-nosnippet>553</a>    <span class="kw">let </span>wasi_env = wasi_env<span class="question-mark">?</span>;
+<a href=#554 id=554 data-nosnippet>554</a>    <span class="kw">let </span>store = <span class="kw-2">&amp;mut </span>wasi_env.store;
+<a href=#555 id=555 data-nosnippet>555</a>    <span class="kw">let </span>module = module<span class="question-mark">?</span>;
+<a href=#556 id=556 data-nosnippet>556</a>
+<a href=#557 id=557 data-nosnippet>557</a>    <span class="kw">let </span><span class="kw-2">mut </span>import_object = {
+<a href=#558 id=558 data-nosnippet>558</a>        <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.store_mut() };
+<a href=#559 id=559 data-nosnippet>559</a>        <span class="macro">c_try!</span>(wasi_env.inner.import_object(<span class="kw-2">&amp;mut </span>store_mut, <span class="kw-2">&amp;</span>module.inner))
+<a href=#560 id=560 data-nosnippet>560</a>    };
 <a href=#561 id=561 data-nosnippet>561</a>
-<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">let </span>spawn_type = <span class="kw">match </span>shared_memory {
-<a href=#563 id=563 data-nosnippet>563</a>        <span class="prelude-val">Some</span>(ty) =&gt; wasmer_wasix::runtime::SpawnType::CreateMemoryOfType(ty),
-<a href=#564 id=564 data-nosnippet>564</a>        <span class="prelude-val">None </span>=&gt; wasmer_wasix::runtime::SpawnType::CreateMemory,
-<a href=#565 id=565 data-nosnippet>565</a>    };
-<a href=#566 id=566 data-nosnippet>566</a>
-<a href=#567 id=567 data-nosnippet>567</a>    <span class="kw">let </span>tasks = {
-<a href=#568 id=568 data-nosnippet>568</a>        <span class="kw">let </span>store_ref = <span class="kw">unsafe </span>{ store.store() };
-<a href=#569 id=569 data-nosnippet>569</a>        wasi_env
-<a href=#570 id=570 data-nosnippet>570</a>            .inner
-<a href=#571 id=571 data-nosnippet>571</a>            .data(<span class="kw-2">&amp;</span>store_ref)
-<a href=#572 id=572 data-nosnippet>572</a>            .runtime
-<a href=#573 id=573 data-nosnippet>573</a>            .task_manager()
-<a href=#574 id=574 data-nosnippet>574</a>            .clone()
-<a href=#575 id=575 data-nosnippet>575</a>    };
-<a href=#576 id=576 data-nosnippet>576</a>    <span class="kw">let </span>memory = {
-<a href=#577 id=577 data-nosnippet>577</a>        <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.store_mut() };
-<a href=#578 id=578 data-nosnippet>578</a>        tasks.build_memory(<span class="kw-2">&amp;mut </span>store_mut, <span class="kw-2">&amp;</span>spawn_type).unwrap()
-<a href=#579 id=579 data-nosnippet>579</a>    };
-<a href=#580 id=580 data-nosnippet>580</a>
-<a href=#581 id=581 data-nosnippet>581</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
-<a href=#582 id=582 data-nosnippet>582</a>        import_object.define(<span class="string">"env"</span>, <span class="string">"memory"</span>, memory);
-<a href=#583 id=583 data-nosnippet>583</a>    }
-<a href=#584 id=584 data-nosnippet>584</a>
-<a href=#585 id=585 data-nosnippet>585</a>    imports_set_buffer(store, <span class="kw-2">&amp;</span>module.inner, import_object, imports)<span class="question-mark">?</span>;
+<a href=#562 id=562 data-nosnippet>562</a>    <span class="kw">let </span>shared_memory = module.inner.imports().memories().next().map(|a| <span class="kw-2">*</span>a.ty());
+<a href=#563 id=563 data-nosnippet>563</a>
+<a href=#564 id=564 data-nosnippet>564</a>    <span class="kw">let </span>spawn_type = <span class="kw">match </span>shared_memory {
+<a href=#565 id=565 data-nosnippet>565</a>        <span class="prelude-val">Some</span>(ty) =&gt; wasmer_wasix::runtime::SpawnType::CreateMemoryOfType(ty),
+<a href=#566 id=566 data-nosnippet>566</a>        <span class="prelude-val">None </span>=&gt; wasmer_wasix::runtime::SpawnType::CreateMemory,
+<a href=#567 id=567 data-nosnippet>567</a>    };
+<a href=#568 id=568 data-nosnippet>568</a>
+<a href=#569 id=569 data-nosnippet>569</a>    <span class="kw">let </span>tasks = {
+<a href=#570 id=570 data-nosnippet>570</a>        <span class="kw">let </span>store_ref = <span class="kw">unsafe </span>{ store.store() };
+<a href=#571 id=571 data-nosnippet>571</a>        wasi_env
+<a href=#572 id=572 data-nosnippet>572</a>            .inner
+<a href=#573 id=573 data-nosnippet>573</a>            .data(<span class="kw-2">&amp;</span>store_ref)
+<a href=#574 id=574 data-nosnippet>574</a>            .runtime
+<a href=#575 id=575 data-nosnippet>575</a>            .task_manager()
+<a href=#576 id=576 data-nosnippet>576</a>            .clone()
+<a href=#577 id=577 data-nosnippet>577</a>    };
+<a href=#578 id=578 data-nosnippet>578</a>    <span class="kw">let </span>memory = {
+<a href=#579 id=579 data-nosnippet>579</a>        <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.store_mut() };
+<a href=#580 id=580 data-nosnippet>580</a>        tasks.build_memory(<span class="kw-2">&amp;mut </span>store_mut, <span class="kw-2">&amp;</span>spawn_type).unwrap()
+<a href=#581 id=581 data-nosnippet>581</a>    };
+<a href=#582 id=582 data-nosnippet>582</a>
+<a href=#583 id=583 data-nosnippet>583</a>    <span class="kw">if let </span><span class="prelude-val">Some</span>(memory) = memory {
+<a href=#584 id=584 data-nosnippet>584</a>        import_object.define(<span class="string">"env"</span>, <span class="string">"memory"</span>, memory);
+<a href=#585 id=585 data-nosnippet>585</a>    }
 <a href=#586 id=586 data-nosnippet>586</a>
-<a href=#587 id=587 data-nosnippet>587</a>    <span class="prelude-val">Some</span>(())
-<a href=#588 id=588 data-nosnippet>588</a>}
-<a href=#589 id=589 data-nosnippet>589</a>
-<a href=#590 id=590 data-nosnippet>590</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imports_set_buffer(
-<a href=#591 id=591 data-nosnippet>591</a>    store: <span class="kw-2">&amp;</span>StoreRef,
-<a href=#592 id=592 data-nosnippet>592</a>    module: <span class="kw-2">&amp;</span>wasmer_api::Module,
-<a href=#593 id=593 data-nosnippet>593</a>    import_object: wasmer_api::Imports,
-<a href=#594 id=594 data-nosnippet>594</a>    imports: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
-<a href=#595 id=595 data-nosnippet>595</a>) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
-<a href=#596 id=596 data-nosnippet>596</a>    imports.set_buffer(<span class="macro">c_try!</span>(
-<a href=#597 id=597 data-nosnippet>597</a>        module
-<a href=#598 id=598 data-nosnippet>598</a>            .imports()
-<a href=#599 id=599 data-nosnippet>599</a>            .map(|import_type| {
-<a href=#600 id=600 data-nosnippet>600</a>                <span class="kw">let </span>ext = import_object
-<a href=#601 id=601 data-nosnippet>601</a>                    .get_export(import_type.module(), import_type.name())
-<a href=#602 id=602 data-nosnippet>602</a>                    .ok_or_else(|| {
-<a href=#603 id=603 data-nosnippet>603</a>                        <span class="macro">format!</span>(
-<a href=#604 id=604 data-nosnippet>604</a>                            <span class="string">"Failed to resolve import \"{}\" \"{}\""</span>,
-<a href=#605 id=605 data-nosnippet>605</a>                            import_type.module(),
-<a href=#606 id=606 data-nosnippet>606</a>                            import_type.name()
-<a href=#607 id=607 data-nosnippet>607</a>                        )
-<a href=#608 id=608 data-nosnippet>608</a>                    })<span class="question-mark">?</span>;
-<a href=#609 id=609 data-nosnippet>609</a>
-<a href=#610 id=610 data-nosnippet>610</a>                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Box::new(wasm_extern_t::new(store.clone(), ext))))
-<a href=#611 id=611 data-nosnippet>611</a>            })
-<a href=#612 id=612 data-nosnippet>612</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, String&gt;&gt;()
-<a href=#613 id=613 data-nosnippet>613</a>    ));
-<a href=#614 id=614 data-nosnippet>614</a>
-<a href=#615 id=615 data-nosnippet>615</a>    <span class="prelude-val">Some</span>(())
-<a href=#616 id=616 data-nosnippet>616</a>}
-<a href=#617 id=617 data-nosnippet>617</a>
-<a href=#618 id=618 data-nosnippet>618</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#619 id=619 data-nosnippet>619</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_initialize_instance(
-<a href=#620 id=620 data-nosnippet>620</a>    wasi_env: <span class="kw-2">&amp;mut </span>wasi_env_t,
-<a href=#621 id=621 data-nosnippet>621</a>    store: <span class="kw-2">&amp;mut </span>wasm_store_t,
-<a href=#622 id=622 data-nosnippet>622</a>    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
-<a href=#623 id=623 data-nosnippet>623</a>) -&gt; bool {
-<a href=#624 id=624 data-nosnippet>624</a>    <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.inner.store_mut() };
-<a href=#625 id=625 data-nosnippet>625</a>    wasi_env
-<a href=#626 id=626 data-nosnippet>626</a>        .inner
-<a href=#627 id=627 data-nosnippet>627</a>        .initialize(<span class="kw-2">&amp;mut </span>store_mut, instance.inner.clone())
-<a href=#628 id=628 data-nosnippet>628</a>        .unwrap();
-<a href=#629 id=629 data-nosnippet>629</a>    <span class="bool-val">true
-<a href=#630 id=630 data-nosnippet>630</a></span>}
-<a href=#631 id=631 data-nosnippet>631</a>
-<a href=#632 id=632 data-nosnippet>632</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
-<a href=#633 id=633 data-nosnippet>633</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_get_start_function(
-<a href=#634 id=634 data-nosnippet>634</a>    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
-<a href=#635 id=635 data-nosnippet>635</a>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_func_t&gt;&gt; {
-<a href=#636 id=636 data-nosnippet>636</a>    <span class="kw">let </span>start = <span class="macro">c_try!</span>(instance.inner.exports.get_function(<span class="string">"_start"</span>));
-<a href=#637 id=637 data-nosnippet>637</a>
-<a href=#638 id=638 data-nosnippet>638</a>    <span class="prelude-val">Some</span>(Box::new(wasm_func_t {
-<a href=#639 id=639 data-nosnippet>639</a>        extern_: wasm_extern_t::new(instance.store.clone(), start.clone().into()),
-<a href=#640 id=640 data-nosnippet>640</a>    }))
-<a href=#641 id=641 data-nosnippet>641</a>}
-<a href=#642 id=642 data-nosnippet>642</a>
-<a href=#643 id=643 data-nosnippet>643</a><span class="attr">#[cfg(test)]
-<a href=#644 id=644 data-nosnippet>644</a></span><span class="kw">mod </span>tests {
-<a href=#645 id=645 data-nosnippet>645</a>    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
-<a href=#646 id=646 data-nosnippet>646</a>    </span><span class="kw">use </span>inline_c::assert_c;
-<a href=#647 id=647 data-nosnippet>647</a>    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
-<a href=#648 id=648 data-nosnippet>648</a>    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
-<a href=#649 id=649 data-nosnippet>649</a>
-<a href=#650 id=650 data-nosnippet>650</a>    <span class="attr">#[allow(
-<a href=#651 id=651 data-nosnippet>651</a>        unexpected_cfgs,
-<a href=#652 id=652 data-nosnippet>652</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
-<a href=#653 id=653 data-nosnippet>653</a>    </span>)]
-<a href=#654 id=654 data-nosnippet>654</a>    #[cfg_attr(coverage_nightly, coverage(off))]
-<a href=#655 id=655 data-nosnippet>655</a>    #[test]
-<a href=#656 id=656 data-nosnippet>656</a>    </span><span class="kw">fn </span>test_wasi_get_wasi_version_snapshot0() {
-<a href=#657 id=657 data-nosnippet>657</a>        (<span class="macro">assert_c!</span> {
-<a href=#658 id=658 data-nosnippet>658</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#659 id=659 data-nosnippet>659</a>
-<a href=#660 id=660 data-nosnippet>660</a>            </span>int main() {
-<a href=#661 id=661 data-nosnippet>661</a>                wasm_engine_t* engine = wasm_engine_new();
-<a href=#662 id=662 data-nosnippet>662</a>                wasm_store_t* store = wasm_store_new(engine);
-<a href=#663 id=663 data-nosnippet>663</a>                wasmer_funcenv_t* env = wasmer_funcenv_new(store, <span class="number">0</span>);
-<a href=#664 id=664 data-nosnippet>664</a>
-<a href=#665 id=665 data-nosnippet>665</a>                wasm_byte_vec_t wat;
-<a href=#666 id=666 data-nosnippet>666</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))"</span>);
-<a href=#667 id=667 data-nosnippet>667</a>                wasm_byte_vec_t wasm;
-<a href=#668 id=668 data-nosnippet>668</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
-<a href=#669 id=669 data-nosnippet>669</a>
-<a href=#670 id=670 data-nosnippet>670</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
-<a href=#671 id=671 data-nosnippet>671</a>                assert(module);
-<a href=#672 id=672 data-nosnippet>672</a>
-<a href=#673 id=673 data-nosnippet>673</a>                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
+<a href=#587 id=587 data-nosnippet>587</a>    imports_set_buffer(store, <span class="kw-2">&amp;</span>module.inner, import_object, imports)<span class="question-mark">?</span>;
+<a href=#588 id=588 data-nosnippet>588</a>
+<a href=#589 id=589 data-nosnippet>589</a>    <span class="prelude-val">Some</span>(())
+<a href=#590 id=590 data-nosnippet>590</a>}
+<a href=#591 id=591 data-nosnippet>591</a>
+<a href=#592 id=592 data-nosnippet>592</a><span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn </span>imports_set_buffer(
+<a href=#593 id=593 data-nosnippet>593</a>    store: <span class="kw-2">&amp;</span>StoreRef,
+<a href=#594 id=594 data-nosnippet>594</a>    module: <span class="kw-2">&amp;</span>wasmer_api::Module,
+<a href=#595 id=595 data-nosnippet>595</a>    import_object: wasmer_api::Imports,
+<a href=#596 id=596 data-nosnippet>596</a>    imports: <span class="kw-2">&amp;mut </span>wasm_extern_vec_t,
+<a href=#597 id=597 data-nosnippet>597</a>) -&gt; <span class="prelude-ty">Option</span>&lt;()&gt; {
+<a href=#598 id=598 data-nosnippet>598</a>    imports.set_buffer(<span class="macro">c_try!</span>(
+<a href=#599 id=599 data-nosnippet>599</a>        module
+<a href=#600 id=600 data-nosnippet>600</a>            .imports()
+<a href=#601 id=601 data-nosnippet>601</a>            .map(|import_type| {
+<a href=#602 id=602 data-nosnippet>602</a>                <span class="kw">let </span>ext = import_object
+<a href=#603 id=603 data-nosnippet>603</a>                    .get_export(import_type.module(), import_type.name())
+<a href=#604 id=604 data-nosnippet>604</a>                    .ok_or_else(|| {
+<a href=#605 id=605 data-nosnippet>605</a>                        <span class="macro">format!</span>(
+<a href=#606 id=606 data-nosnippet>606</a>                            <span class="string">"Failed to resolve import \"{}\" \"{}\""</span>,
+<a href=#607 id=607 data-nosnippet>607</a>                            import_type.module(),
+<a href=#608 id=608 data-nosnippet>608</a>                            import_type.name()
+<a href=#609 id=609 data-nosnippet>609</a>                        )
+<a href=#610 id=610 data-nosnippet>610</a>                    })<span class="question-mark">?</span>;
+<a href=#611 id=611 data-nosnippet>611</a>
+<a href=#612 id=612 data-nosnippet>612</a>                <span class="prelude-val">Ok</span>(<span class="prelude-val">Some</span>(Box::new(wasm_extern_t::new(store.clone(), ext))))
+<a href=#613 id=613 data-nosnippet>613</a>            })
+<a href=#614 id=614 data-nosnippet>614</a>            .collect::&lt;<span class="prelude-ty">Result</span>&lt;Vec&lt;<span class="kw">_</span>&gt;, String&gt;&gt;()
+<a href=#615 id=615 data-nosnippet>615</a>    ));
+<a href=#616 id=616 data-nosnippet>616</a>
+<a href=#617 id=617 data-nosnippet>617</a>    <span class="prelude-val">Some</span>(())
+<a href=#618 id=618 data-nosnippet>618</a>}
+<a href=#619 id=619 data-nosnippet>619</a>
+<a href=#620 id=620 data-nosnippet>620</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#621 id=621 data-nosnippet>621</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_env_initialize_instance(
+<a href=#622 id=622 data-nosnippet>622</a>    wasi_env: <span class="kw-2">&amp;mut </span>wasi_env_t,
+<a href=#623 id=623 data-nosnippet>623</a>    store: <span class="kw-2">&amp;mut </span>wasm_store_t,
+<a href=#624 id=624 data-nosnippet>624</a>    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
+<a href=#625 id=625 data-nosnippet>625</a>) -&gt; bool {
+<a href=#626 id=626 data-nosnippet>626</a>    <span class="kw">let </span><span class="kw-2">mut </span>store_mut = <span class="kw">unsafe </span>{ store.inner.store_mut() };
+<a href=#627 id=627 data-nosnippet>627</a>    wasi_env
+<a href=#628 id=628 data-nosnippet>628</a>        .inner
+<a href=#629 id=629 data-nosnippet>629</a>        .initialize(<span class="kw-2">&amp;mut </span>store_mut, instance.inner.clone())
+<a href=#630 id=630 data-nosnippet>630</a>        .unwrap();
+<a href=#631 id=631 data-nosnippet>631</a>    <span class="bool-val">true
+<a href=#632 id=632 data-nosnippet>632</a></span>}
+<a href=#633 id=633 data-nosnippet>633</a>
+<a href=#634 id=634 data-nosnippet>634</a><span class="attr">#[<span class="kw">unsafe</span>(no_mangle)]
+<a href=#635 id=635 data-nosnippet>635</a></span><span class="kw">pub unsafe extern </span><span class="string">"C" </span><span class="kw">fn </span>wasi_get_start_function(
+<a href=#636 id=636 data-nosnippet>636</a>    instance: <span class="kw-2">&amp;mut </span>wasm_instance_t,
+<a href=#637 id=637 data-nosnippet>637</a>) -&gt; <span class="prelude-ty">Option</span>&lt;Box&lt;wasm_func_t&gt;&gt; {
+<a href=#638 id=638 data-nosnippet>638</a>    <span class="kw">let </span>start = <span class="macro">c_try!</span>(instance.inner.exports.get_function(<span class="string">"_start"</span>));
+<a href=#639 id=639 data-nosnippet>639</a>
+<a href=#640 id=640 data-nosnippet>640</a>    <span class="prelude-val">Some</span>(Box::new(wasm_func_t {
+<a href=#641 id=641 data-nosnippet>641</a>        extern_: wasm_extern_t::new(instance.store.clone(), start.clone().into()),
+<a href=#642 id=642 data-nosnippet>642</a>    }))
+<a href=#643 id=643 data-nosnippet>643</a>}
+<a href=#644 id=644 data-nosnippet>644</a>
+<a href=#645 id=645 data-nosnippet>645</a><span class="attr">#[cfg(test)]
+<a href=#646 id=646 data-nosnippet>646</a></span><span class="kw">mod </span>tests {
+<a href=#647 id=647 data-nosnippet>647</a>    <span class="attr">#[cfg(not(target_os = <span class="string">"windows"</span>))]
+<a href=#648 id=648 data-nosnippet>648</a>    </span><span class="kw">use </span>inline_c::assert_c;
+<a href=#649 id=649 data-nosnippet>649</a>    <span class="attr">#[cfg(target_os = <span class="string">"windows"</span>)]
+<a href=#650 id=650 data-nosnippet>650</a>    </span><span class="kw">use </span>wasmer_inline_c::assert_c;
+<a href=#651 id=651 data-nosnippet>651</a>
+<a href=#652 id=652 data-nosnippet>652</a>    <span class="attr">#[allow(
+<a href=#653 id=653 data-nosnippet>653</a>        unexpected_cfgs,
+<a href=#654 id=654 data-nosnippet>654</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
+<a href=#655 id=655 data-nosnippet>655</a>    </span>)]
+<a href=#656 id=656 data-nosnippet>656</a>    #[cfg_attr(coverage_nightly, coverage(off))]
+<a href=#657 id=657 data-nosnippet>657</a>    #[test]
+<a href=#658 id=658 data-nosnippet>658</a>    </span><span class="kw">fn </span>test_wasi_get_wasi_version_snapshot0() {
+<a href=#659 id=659 data-nosnippet>659</a>        (<span class="macro">assert_c!</span> {
+<a href=#660 id=660 data-nosnippet>660</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#661 id=661 data-nosnippet>661</a>
+<a href=#662 id=662 data-nosnippet>662</a>            </span>int main() {
+<a href=#663 id=663 data-nosnippet>663</a>                wasm_engine_t* engine = wasm_engine_new();
+<a href=#664 id=664 data-nosnippet>664</a>                wasm_store_t* store = wasm_store_new(engine);
+<a href=#665 id=665 data-nosnippet>665</a>                wasmer_funcenv_t* env = wasmer_funcenv_new(store, <span class="number">0</span>);
+<a href=#666 id=666 data-nosnippet>666</a>
+<a href=#667 id=667 data-nosnippet>667</a>                wasm_byte_vec_t wat;
+<a href=#668 id=668 data-nosnippet>668</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))"</span>);
+<a href=#669 id=669 data-nosnippet>669</a>                wasm_byte_vec_t wasm;
+<a href=#670 id=670 data-nosnippet>670</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#671 id=671 data-nosnippet>671</a>
+<a href=#672 id=672 data-nosnippet>672</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
+<a href=#673 id=673 data-nosnippet>673</a>                assert(module);
 <a href=#674 id=674 data-nosnippet>674</a>
-<a href=#675 id=675 data-nosnippet>675</a>                wasm_module_delete(module);
-<a href=#676 id=676 data-nosnippet>676</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
-<a href=#677 id=677 data-nosnippet>677</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#678 id=678 data-nosnippet>678</a>                wasmer_funcenv_delete(env);
-<a href=#679 id=679 data-nosnippet>679</a>                wasm_store_delete(store);
-<a href=#680 id=680 data-nosnippet>680</a>                wasm_engine_delete(engine);
-<a href=#681 id=681 data-nosnippet>681</a>
-<a href=#682 id=682 data-nosnippet>682</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#683 id=683 data-nosnippet>683</a>            }
-<a href=#684 id=684 data-nosnippet>684</a>        })
-<a href=#685 id=685 data-nosnippet>685</a>        .success();
-<a href=#686 id=686 data-nosnippet>686</a>    }
-<a href=#687 id=687 data-nosnippet>687</a>
-<a href=#688 id=688 data-nosnippet>688</a>    <span class="attr">#[allow(
-<a href=#689 id=689 data-nosnippet>689</a>        unexpected_cfgs,
-<a href=#690 id=690 data-nosnippet>690</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
-<a href=#691 id=691 data-nosnippet>691</a>    </span>)]
-<a href=#692 id=692 data-nosnippet>692</a>    #[cfg_attr(coverage_nightly, coverage(off))]
-<a href=#693 id=693 data-nosnippet>693</a>    #[test]
-<a href=#694 id=694 data-nosnippet>694</a>    </span><span class="kw">fn </span>test_wasi_get_wasi_version_snapshot1() {
-<a href=#695 id=695 data-nosnippet>695</a>        (<span class="macro">assert_c!</span> {
-<a href=#696 id=696 data-nosnippet>696</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#697 id=697 data-nosnippet>697</a>
-<a href=#698 id=698 data-nosnippet>698</a>            </span>int main() {
-<a href=#699 id=699 data-nosnippet>699</a>                wasm_engine_t* engine = wasm_engine_new();
-<a href=#700 id=700 data-nosnippet>700</a>                wasm_store_t* store = wasm_store_new(engine);
-<a href=#701 id=701 data-nosnippet>701</a>                wasmer_funcenv_t* env = wasmer_funcenv_new(store, <span class="number">0</span>);
-<a href=#702 id=702 data-nosnippet>702</a>
-<a href=#703 id=703 data-nosnippet>703</a>                wasm_byte_vec_t wat;
-<a href=#704 id=704 data-nosnippet>704</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))"</span>);
-<a href=#705 id=705 data-nosnippet>705</a>                wasm_byte_vec_t wasm;
-<a href=#706 id=706 data-nosnippet>706</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
-<a href=#707 id=707 data-nosnippet>707</a>
-<a href=#708 id=708 data-nosnippet>708</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
-<a href=#709 id=709 data-nosnippet>709</a>                assert(module);
-<a href=#710 id=710 data-nosnippet>710</a>
-<a href=#711 id=711 data-nosnippet>711</a>                assert(wasi_get_wasi_version(module) == SNAPSHOT1);
+<a href=#675 id=675 data-nosnippet>675</a>                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
+<a href=#676 id=676 data-nosnippet>676</a>
+<a href=#677 id=677 data-nosnippet>677</a>                wasm_module_delete(module);
+<a href=#678 id=678 data-nosnippet>678</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+<a href=#679 id=679 data-nosnippet>679</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+<a href=#680 id=680 data-nosnippet>680</a>                wasmer_funcenv_delete(env);
+<a href=#681 id=681 data-nosnippet>681</a>                wasm_store_delete(store);
+<a href=#682 id=682 data-nosnippet>682</a>                wasm_engine_delete(engine);
+<a href=#683 id=683 data-nosnippet>683</a>
+<a href=#684 id=684 data-nosnippet>684</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#685 id=685 data-nosnippet>685</a>            }
+<a href=#686 id=686 data-nosnippet>686</a>        })
+<a href=#687 id=687 data-nosnippet>687</a>        .success();
+<a href=#688 id=688 data-nosnippet>688</a>    }
+<a href=#689 id=689 data-nosnippet>689</a>
+<a href=#690 id=690 data-nosnippet>690</a>    <span class="attr">#[allow(
+<a href=#691 id=691 data-nosnippet>691</a>        unexpected_cfgs,
+<a href=#692 id=692 data-nosnippet>692</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
+<a href=#693 id=693 data-nosnippet>693</a>    </span>)]
+<a href=#694 id=694 data-nosnippet>694</a>    #[cfg_attr(coverage_nightly, coverage(off))]
+<a href=#695 id=695 data-nosnippet>695</a>    #[test]
+<a href=#696 id=696 data-nosnippet>696</a>    </span><span class="kw">fn </span>test_wasi_get_wasi_version_snapshot1() {
+<a href=#697 id=697 data-nosnippet>697</a>        (<span class="macro">assert_c!</span> {
+<a href=#698 id=698 data-nosnippet>698</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#699 id=699 data-nosnippet>699</a>
+<a href=#700 id=700 data-nosnippet>700</a>            </span>int main() {
+<a href=#701 id=701 data-nosnippet>701</a>                wasm_engine_t* engine = wasm_engine_new();
+<a href=#702 id=702 data-nosnippet>702</a>                wasm_store_t* store = wasm_store_new(engine);
+<a href=#703 id=703 data-nosnippet>703</a>                wasmer_funcenv_t* env = wasmer_funcenv_new(store, <span class="number">0</span>);
+<a href=#704 id=704 data-nosnippet>704</a>
+<a href=#705 id=705 data-nosnippet>705</a>                wasm_byte_vec_t wat;
+<a href=#706 id=706 data-nosnippet>706</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))"</span>);
+<a href=#707 id=707 data-nosnippet>707</a>                wasm_byte_vec_t wasm;
+<a href=#708 id=708 data-nosnippet>708</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#709 id=709 data-nosnippet>709</a>
+<a href=#710 id=710 data-nosnippet>710</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
+<a href=#711 id=711 data-nosnippet>711</a>                assert(module);
 <a href=#712 id=712 data-nosnippet>712</a>
-<a href=#713 id=713 data-nosnippet>713</a>                wasm_module_delete(module);
-<a href=#714 id=714 data-nosnippet>714</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
-<a href=#715 id=715 data-nosnippet>715</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#716 id=716 data-nosnippet>716</a>                wasmer_funcenv_delete(env);
-<a href=#717 id=717 data-nosnippet>717</a>                wasm_store_delete(store);
-<a href=#718 id=718 data-nosnippet>718</a>                wasm_engine_delete(engine);
-<a href=#719 id=719 data-nosnippet>719</a>
-<a href=#720 id=720 data-nosnippet>720</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#721 id=721 data-nosnippet>721</a>            }
-<a href=#722 id=722 data-nosnippet>722</a>        })
-<a href=#723 id=723 data-nosnippet>723</a>        .success();
-<a href=#724 id=724 data-nosnippet>724</a>    }
-<a href=#725 id=725 data-nosnippet>725</a>
-<a href=#726 id=726 data-nosnippet>726</a>    <span class="attr">#[allow(
-<a href=#727 id=727 data-nosnippet>727</a>        unexpected_cfgs,
-<a href=#728 id=728 data-nosnippet>728</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
-<a href=#729 id=729 data-nosnippet>729</a>    </span>)]
-<a href=#730 id=730 data-nosnippet>730</a>    #[cfg_attr(coverage_nightly, coverage(off))]
-<a href=#731 id=731 data-nosnippet>731</a>    #[test]
-<a href=#732 id=732 data-nosnippet>732</a>    </span><span class="kw">fn </span>test_wasi_get_wasi_version_invalid() {
-<a href=#733 id=733 data-nosnippet>733</a>        (<span class="macro">assert_c!</span> {
-<a href=#734 id=734 data-nosnippet>734</a>            #include <span class="string">"tests/wasmer.h"
-<a href=#735 id=735 data-nosnippet>735</a>
-<a href=#736 id=736 data-nosnippet>736</a>            </span>int main() {
-<a href=#737 id=737 data-nosnippet>737</a>                wasm_engine_t* engine = wasm_engine_new();
-<a href=#738 id=738 data-nosnippet>738</a>                wasm_store_t* store = wasm_store_new(engine);
-<a href=#739 id=739 data-nosnippet>739</a>                wasmer_funcenv_t* env = wasmer_funcenv_new(store, <span class="number">0</span>);
-<a href=#740 id=740 data-nosnippet>740</a>
-<a href=#741 id=741 data-nosnippet>741</a>                wasm_byte_vec_t wat;
-<a href=#742 id=742 data-nosnippet>742</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))"</span>);
-<a href=#743 id=743 data-nosnippet>743</a>                wasm_byte_vec_t wasm;
-<a href=#744 id=744 data-nosnippet>744</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
-<a href=#745 id=745 data-nosnippet>745</a>
-<a href=#746 id=746 data-nosnippet>746</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
-<a href=#747 id=747 data-nosnippet>747</a>                assert(module);
-<a href=#748 id=748 data-nosnippet>748</a>
-<a href=#749 id=749 data-nosnippet>749</a>                assert(wasi_get_wasi_version(module) == INVALID_VERSION);
+<a href=#713 id=713 data-nosnippet>713</a>                assert(wasi_get_wasi_version(module) == SNAPSHOT1);
+<a href=#714 id=714 data-nosnippet>714</a>
+<a href=#715 id=715 data-nosnippet>715</a>                wasm_module_delete(module);
+<a href=#716 id=716 data-nosnippet>716</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+<a href=#717 id=717 data-nosnippet>717</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+<a href=#718 id=718 data-nosnippet>718</a>                wasmer_funcenv_delete(env);
+<a href=#719 id=719 data-nosnippet>719</a>                wasm_store_delete(store);
+<a href=#720 id=720 data-nosnippet>720</a>                wasm_engine_delete(engine);
+<a href=#721 id=721 data-nosnippet>721</a>
+<a href=#722 id=722 data-nosnippet>722</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#723 id=723 data-nosnippet>723</a>            }
+<a href=#724 id=724 data-nosnippet>724</a>        })
+<a href=#725 id=725 data-nosnippet>725</a>        .success();
+<a href=#726 id=726 data-nosnippet>726</a>    }
+<a href=#727 id=727 data-nosnippet>727</a>
+<a href=#728 id=728 data-nosnippet>728</a>    <span class="attr">#[allow(
+<a href=#729 id=729 data-nosnippet>729</a>        unexpected_cfgs,
+<a href=#730 id=730 data-nosnippet>730</a>        reason = <span class="string">"tools like cargo-llvm-coverage pass --cfg coverage"
+<a href=#731 id=731 data-nosnippet>731</a>    </span>)]
+<a href=#732 id=732 data-nosnippet>732</a>    #[cfg_attr(coverage_nightly, coverage(off))]
+<a href=#733 id=733 data-nosnippet>733</a>    #[test]
+<a href=#734 id=734 data-nosnippet>734</a>    </span><span class="kw">fn </span>test_wasi_get_wasi_version_invalid() {
+<a href=#735 id=735 data-nosnippet>735</a>        (<span class="macro">assert_c!</span> {
+<a href=#736 id=736 data-nosnippet>736</a>            #include <span class="string">"tests/wasmer.h"
+<a href=#737 id=737 data-nosnippet>737</a>
+<a href=#738 id=738 data-nosnippet>738</a>            </span>int main() {
+<a href=#739 id=739 data-nosnippet>739</a>                wasm_engine_t* engine = wasm_engine_new();
+<a href=#740 id=740 data-nosnippet>740</a>                wasm_store_t* store = wasm_store_new(engine);
+<a href=#741 id=741 data-nosnippet>741</a>                wasmer_funcenv_t* env = wasmer_funcenv_new(store, <span class="number">0</span>);
+<a href=#742 id=742 data-nosnippet>742</a>
+<a href=#743 id=743 data-nosnippet>743</a>                wasm_byte_vec_t wat;
+<a href=#744 id=744 data-nosnippet>744</a>                wasmer_byte_vec_new_from_string(<span class="kw-2">&amp;</span>wat, <span class="string">"(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))"</span>);
+<a href=#745 id=745 data-nosnippet>745</a>                wasm_byte_vec_t wasm;
+<a href=#746 id=746 data-nosnippet>746</a>                wat2wasm(<span class="kw-2">&amp;</span>wat, <span class="kw-2">&amp;</span>wasm);
+<a href=#747 id=747 data-nosnippet>747</a>
+<a href=#748 id=748 data-nosnippet>748</a>                wasm_module_t* module = wasm_module_new(store, <span class="kw-2">&amp;</span>wasm);
+<a href=#749 id=749 data-nosnippet>749</a>                assert(module);
 <a href=#750 id=750 data-nosnippet>750</a>
-<a href=#751 id=751 data-nosnippet>751</a>                wasm_module_delete(module);
-<a href=#752 id=752 data-nosnippet>752</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
-<a href=#753 id=753 data-nosnippet>753</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
-<a href=#754 id=754 data-nosnippet>754</a>                wasmer_funcenv_delete(env);
-<a href=#755 id=755 data-nosnippet>755</a>                wasm_store_delete(store);
-<a href=#756 id=756 data-nosnippet>756</a>                wasm_engine_delete(engine);
-<a href=#757 id=757 data-nosnippet>757</a>
-<a href=#758 id=758 data-nosnippet>758</a>                <span class="kw">return </span><span class="number">0</span>;
-<a href=#759 id=759 data-nosnippet>759</a>            }
-<a href=#760 id=760 data-nosnippet>760</a>        })
-<a href=#761 id=761 data-nosnippet>761</a>        .success();
-<a href=#762 id=762 data-nosnippet>762</a>    }
-<a href=#763 id=763 data-nosnippet>763</a>}</code></pre></div></section></main></body></html>
+<a href=#751 id=751 data-nosnippet>751</a>                assert(wasi_get_wasi_version(module) == INVALID_VERSION);
+<a href=#752 id=752 data-nosnippet>752</a>
+<a href=#753 id=753 data-nosnippet>753</a>                wasm_module_delete(module);
+<a href=#754 id=754 data-nosnippet>754</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wasm);
+<a href=#755 id=755 data-nosnippet>755</a>                wasm_byte_vec_delete(<span class="kw-2">&amp;</span>wat);
+<a href=#756 id=756 data-nosnippet>756</a>                wasmer_funcenv_delete(env);
+<a href=#757 id=757 data-nosnippet>757</a>                wasm_store_delete(store);
+<a href=#758 id=758 data-nosnippet>758</a>                wasm_engine_delete(engine);
+<a href=#759 id=759 data-nosnippet>759</a>
+<a href=#760 id=760 data-nosnippet>760</a>                <span class="kw">return </span><span class="number">0</span>;
+<a href=#761 id=761 data-nosnippet>761</a>            }
+<a href=#762 id=762 data-nosnippet>762</a>        })
+<a href=#763 id=763 data-nosnippet>763</a>        .success();
+<a href=#764 id=764 data-nosnippet>764</a>    }
+<a href=#765 id=765 data-nosnippet>765</a>}</code></pre></div></section></main></body></html>
