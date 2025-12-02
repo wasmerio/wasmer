@@ -378,3 +378,4 @@ path_rename
 singlepass    multi_value_imports
 cranelift     multi_value_imports
 windows+llvm  multi_value_imports
+windows+llvm  static_function_with_results
