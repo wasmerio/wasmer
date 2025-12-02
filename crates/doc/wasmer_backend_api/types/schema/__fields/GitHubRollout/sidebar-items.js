@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","authorEmail","authorLogin","authorName","branch","commitHash","commitMessage","commitUrl","createdAt","deletedAt","externalId","id","prevCommitHash","repoUrl","rollout","updatedAt"]};

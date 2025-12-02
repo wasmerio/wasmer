@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","amount","created","currency","id","status"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","amount","created","currency","id","invoicePdfUrl","status"]};

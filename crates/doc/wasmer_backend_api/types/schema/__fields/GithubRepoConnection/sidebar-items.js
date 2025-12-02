@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","app","connectedAt","connectedBy","deployBranch","deploymentStatusEvents","githubRepoInstallation","id","pullRequestComments"]};

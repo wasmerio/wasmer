@@ -44,7 +44,7 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.mark_instruction_address_end" class="fn">mark_instruction_address_end</a>(&amp;mut self, begin: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.usize.html">usize</a>);
 <span class="item-spacer"></span>    fn <a href="#tymethod.insert_stackoverflow" class="fn">insert_stackoverflow</a>(&amp;mut self);
 <span class="item-spacer"></span>    fn <a href="#tymethod.collect_trap_information" class="fn">collect_trap_information</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrapInformation&gt;;
-<span class="item-spacer"></span>    fn <a href="#tymethod.instructions_address_map" class="fn">instructions_address_map</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;InstructionAddressMap&gt;;
+<span class="item-spacer"></span>    fn <a href="#tymethod.instructions_address_map" class="fn">instructions_address_map</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../wasmer_compiler/types/address_map/struct.InstructionAddressMap.html" title="struct wasmer_compiler::types::address_map::InstructionAddressMap">InstructionAddressMap</a>&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.local_on_stack" class="fn">local_on_stack</a>(
         &amp;mut self,
         stack_offset: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.i32.html">i32</a>,
@@ -834,8 +834,8 @@
 <span class="item-spacer"></span>    fn <a href="#tymethod.emit_call_with_reloc" class="fn">emit_call_with_reloc</a>(
         &amp;mut self,
         calling_convention: CallingConvention,
-        reloc_target: RelocationTarget,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Relocation&gt;, CompileError&gt;;
+        reloc_target: <a class="enum" href="../../wasmer_compiler/types/relocation/enum.RelocationTarget.html" title="enum wasmer_compiler::types::relocation::RelocationTarget">RelocationTarget</a>,
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../wasmer_compiler/types/relocation/struct.Relocation.html" title="struct wasmer_compiler::types::relocation::Relocation">Relocation</a>&gt;, CompileError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.emit_binop_add64" class="fn">emit_binop_add64</a>(
         &amp;mut self,
         loc_a: <a class="enum" href="../location/enum.Location.html" title="enum wasmer_compiler_singlepass::location::Location">Location</a>&lt;Self::<a class="associatedtype" href="trait.Machine.html#associatedtype.GPR" title="type wasmer_compiler_singlepass::machine::Machine::GPR">GPR</a>, Self::<a class="associatedtype" href="trait.Machine.html#associatedtype.SIMD" title="type wasmer_compiler_singlepass::machine::Machine::SIMD">SIMD</a>&gt;,
@@ -1891,20 +1891,20 @@
         &amp;self,
         sig: &amp;FunctionType,
         calling_convention: CallingConvention,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;FunctionBody, CompileError&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../wasmer_compiler/types/function/struct.FunctionBody.html" title="struct wasmer_compiler::types::function::FunctionBody">FunctionBody</a>, CompileError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.gen_std_dynamic_import_trampoline" class="fn">gen_std_dynamic_import_trampoline</a>(
         &amp;self,
         vmoffsets: &amp;VMOffsets,
         sig: &amp;FunctionType,
         calling_convention: CallingConvention,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;FunctionBody, CompileError&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../wasmer_compiler/types/function/struct.FunctionBody.html" title="struct wasmer_compiler::types::function::FunctionBody">FunctionBody</a>, CompileError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.gen_import_call_trampoline" class="fn">gen_import_call_trampoline</a>(
         &amp;self,
         vmoffsets: &amp;VMOffsets,
         index: FunctionIndex,
         sig: &amp;FunctionType,
         calling_convention: CallingConvention,
-    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;CustomSection, CompileError&gt;;
+    ) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../wasmer_compiler/types/section/struct.CustomSection.html" title="struct wasmer_compiler::types::section::CustomSection">CustomSection</a>, CompileError&gt;;
 <span class="item-spacer"></span>    fn <a href="#tymethod.gen_dwarf_unwind_info" class="fn">gen_dwarf_unwind_info</a>(
         &amp;mut self,
         code_len: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.usize.html">usize</a>,
@@ -1950,7 +1950,7 @@
 provided beginning address.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.insert_stackoverflow" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#162">Source</a><h4 class="code-header">fn <a href="#tymethod.insert_stackoverflow" class="fn">insert_stackoverflow</a>(&amp;mut self)</h4></section></summary><div class="docblock"><p>Insert a StackOverflow (at offset 0)</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.collect_trap_information" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#164">Source</a><h4 class="code-header">fn <a href="#tymethod.collect_trap_information" class="fn">collect_trap_information</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;TrapInformation&gt;</h4></section></summary><div class="docblock"><p>Get all current TrapInformation</p>
-</div></details><section id="tymethod.instructions_address_map" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#166">Source</a><h4 class="code-header">fn <a href="#tymethod.instructions_address_map" class="fn">instructions_address_map</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;InstructionAddressMap&gt;</h4></section><details class="toggle method-toggle" open><summary><section id="tymethod.local_on_stack" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#169">Source</a><h4 class="code-header">fn <a href="#tymethod.local_on_stack" class="fn">local_on_stack</a>(
+</div></details><section id="tymethod.instructions_address_map" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#166">Source</a><h4 class="code-header">fn <a href="#tymethod.instructions_address_map" class="fn">instructions_address_map</a>(&amp;self) -&gt; <a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../wasmer_compiler/types/address_map/struct.InstructionAddressMap.html" title="struct wasmer_compiler::types::address_map::InstructionAddressMap">InstructionAddressMap</a>&gt;</h4></section><details class="toggle method-toggle" open><summary><section id="tymethod.local_on_stack" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#169">Source</a><h4 class="code-header">fn <a href="#tymethod.local_on_stack" class="fn">local_on_stack</a>(
     &amp;mut self,
     stack_offset: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.i32.html">i32</a>,
 ) -&gt; <a class="enum" href="../location/enum.Location.html" title="enum wasmer_compiler_singlepass::location::Location">Location</a>&lt;Self::<a class="associatedtype" href="trait.Machine.html#associatedtype.GPR" title="type wasmer_compiler_singlepass::machine::Machine::GPR">GPR</a>, Self::<a class="associatedtype" href="trait.Machine.html#associatedtype.SIMD" title="type wasmer_compiler_singlepass::machine::Machine::SIMD">SIMD</a>&gt;</h4></section></summary><div class="docblock"><p>Memory location for a local on the stack
@@ -2732,8 +2732,8 @@ Like emit_mov(Size::S64, location, Location::Memory(GPR::RBP, -(self.stack_offse
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.emit_call_with_reloc" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#1099-1103">Source</a><h4 class="code-header">fn <a href="#tymethod.emit_call_with_reloc" class="fn">emit_call_with_reloc</a>(
     &amp;mut self,
     calling_convention: CallingConvention,
-    reloc_target: RelocationTarget,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;Relocation&gt;, CompileError&gt;</h4></section></summary><div class="docblock"><p>emit a move function address to GPR ready for call, using appropriate relocation</p>
+    reloc_target: <a class="enum" href="../../wasmer_compiler/types/relocation/enum.RelocationTarget.html" title="enum wasmer_compiler::types::relocation::RelocationTarget">RelocationTarget</a>,
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="https://doc.rust-lang.org/1.89.0/alloc/vec/struct.Vec.html" title="struct alloc::vec::Vec">Vec</a>&lt;<a class="struct" href="../../wasmer_compiler/types/relocation/struct.Relocation.html" title="struct wasmer_compiler::types::relocation::Relocation">Relocation</a>&gt;, CompileError&gt;</h4></section></summary><div class="docblock"><p>emit a move function address to GPR ready for call, using appropriate relocation</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.emit_binop_add64" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#1105-1110">Source</a><h4 class="code-header">fn <a href="#tymethod.emit_binop_add64" class="fn">emit_binop_add64</a>(
     &amp;mut self,
     loc_a: <a class="enum" href="../location/enum.Location.html" title="enum wasmer_compiler_singlepass::location::Location">Location</a>&lt;Self::<a class="associatedtype" href="trait.Machine.html#associatedtype.GPR" title="type wasmer_compiler_singlepass::machine::Machine::GPR">GPR</a>, Self::<a class="associatedtype" href="trait.Machine.html#associatedtype.SIMD" title="type wasmer_compiler_singlepass::machine::Machine::SIMD">SIMD</a>&gt;,
@@ -3789,20 +3789,20 @@ Like emit_mov(Size::S64, location, Location::Memory(GPR::RBP, -(self.stack_offse
     &amp;self,
     sig: &amp;FunctionType,
     calling_convention: CallingConvention,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;FunctionBody, CompileError&gt;</h4></section></summary><div class="docblock"><p>Standard function Trampoline generation</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../wasmer_compiler/types/function/struct.FunctionBody.html" title="struct wasmer_compiler::types::function::FunctionBody">FunctionBody</a>, CompileError&gt;</h4></section></summary><div class="docblock"><p>Standard function Trampoline generation</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.gen_std_dynamic_import_trampoline" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#2336-2341">Source</a><h4 class="code-header">fn <a href="#tymethod.gen_std_dynamic_import_trampoline" class="fn">gen_std_dynamic_import_trampoline</a>(
     &amp;self,
     vmoffsets: &amp;VMOffsets,
     sig: &amp;FunctionType,
     calling_convention: CallingConvention,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;FunctionBody, CompileError&gt;</h4></section></summary><div class="docblock"><p>Generates dynamic import function call trampoline for a function type.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../wasmer_compiler/types/function/struct.FunctionBody.html" title="struct wasmer_compiler::types::function::FunctionBody">FunctionBody</a>, CompileError&gt;</h4></section></summary><div class="docblock"><p>Generates dynamic import function call trampoline for a function type.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.gen_import_call_trampoline" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#2343-2349">Source</a><h4 class="code-header">fn <a href="#tymethod.gen_import_call_trampoline" class="fn">gen_import_call_trampoline</a>(
     &amp;self,
     vmoffsets: &amp;VMOffsets,
     index: FunctionIndex,
     sig: &amp;FunctionType,
     calling_convention: CallingConvention,
-) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;CustomSection, CompileError&gt;</h4></section></summary><div class="docblock"><p>Singlepass calls import functions through a trampoline.</p>
+) -&gt; <a class="enum" href="https://doc.rust-lang.org/1.89.0/core/result/enum.Result.html" title="enum core::result::Result">Result</a>&lt;<a class="struct" href="../../wasmer_compiler/types/section/struct.CustomSection.html" title="struct wasmer_compiler::types::section::CustomSection">CustomSection</a>, CompileError&gt;</h4></section></summary><div class="docblock"><p>Singlepass calls import functions through a trampoline.</p>
 </div></details><details class="toggle method-toggle" open><summary><section id="tymethod.gen_dwarf_unwind_info" class="method"><a class="src rightside" href="../../src/wasmer_compiler_singlepass/machine.rs.html#2351">Source</a><h4 class="code-header">fn <a href="#tymethod.gen_dwarf_unwind_info" class="fn">gen_dwarf_unwind_info</a>(
     &amp;mut self,
     code_len: <a class="primitive" href="https://doc.rust-lang.org/1.89.0/std/primitive.usize.html">usize</a>,

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["clientMutationId","repoUrl"]};
+window.SIDEBAR_ITEMS = {"struct":["basePath","branch","clientMutationId","repoUrl","rootDir"]};

@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","buildCmd","canDeployWithoutRepo","completionTimeInSeconds","id","installCmd","kind","name","repo","repoName","repoNamespace","setupDb"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","buildCmd","completionTimeInSeconds","id","installCmd","kind","name","repo","repoName","repoNamespace","setupDb","startCmd"]};

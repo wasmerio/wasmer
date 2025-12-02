@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"mod":["_viewer_can_arguments"],"struct":["__typename","globalId","globalName","viewerCan"]};
+window.SIDEBAR_ITEMS = {"mod":["_viewer_can_arguments"],"struct":["__typename","globalId","globalName","isPro","viewerCan"]};

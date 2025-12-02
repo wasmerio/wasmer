@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"mod":["_repositories_arguments"],"struct":["__typename","githubConfigureUrl","id","repositories","slug"]};

@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","createdAt","deletedAt","externalId","id","rollout","updatedAt","zipFileHash","zipFileUrl"]};

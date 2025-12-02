@@ -1,1 +1,1 @@
-window.SIDEBAR_ITEMS = {"struct":["__typename","expiresAt","url"]};
+window.SIDEBAR_ITEMS = {"struct":["__typename","clientSecret","expiresAt","url"]};

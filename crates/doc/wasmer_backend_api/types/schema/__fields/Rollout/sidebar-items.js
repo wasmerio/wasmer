@@ -1,0 +1,1 @@
+window.SIDEBAR_ITEMS = {"struct":["__typename","buildCommand","buildConfiguration","buildId","createdAt","deployappVersion","id","installCommand","logUrl","rolloutDetails","status","updatedAt"]};
