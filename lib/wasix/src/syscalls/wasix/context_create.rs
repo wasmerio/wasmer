@@ -56,7 +56,7 @@ pub fn context_create<M: MemorySize>(
 ) -> Result<Errno, WasiError> {
     WasiEnv::do_pending_operations(&mut ctx)?;
 
-    // TODO: Unify this check with the one below for context_switching_context
+    // Verify that we are in an async context
     let async_store = match ctx.as_store_async() {
         Some(c) => c,
         None => {
