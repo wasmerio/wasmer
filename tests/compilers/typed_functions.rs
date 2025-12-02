@@ -22,7 +22,7 @@ fn long_f(a: u32, b: u32, c: u32, d: u32, e: u32, f: u16, g: u64, h: u64, i: u16
         + a as u64 * 1000000000
 }
 
-fn long_f_dynamic(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+fn long_f_dynamic(values: &[Value]) -> DynamicFunctionResult {
     Ok(vec![Value::I64(
         values[9].unwrap_i32() as i64
             + values[8].unwrap_i32() as i64 * 10

@@ -1,12 +1,12 @@
 #![cfg(feature = "experimental-async")]
 
-use std::sync::OnceLock;
+use std::{cell::RefCell, sync::OnceLock};
 
 use anyhow::Result;
 use futures::future;
 use wasmer::{
-    AsyncFunctionEnvMut, Function, FunctionEnv, FunctionType, Instance, Module, Store, StoreAsync,
-    Type, TypedFunction, Value, imports,
+    AsyncFunctionEnvMut, Function, FunctionEnv, FunctionEnvMut, FunctionType, Instance, Module,
+    Store, StoreAsync, Type, TypedFunction, Value, imports,
 };
 use wasmer_vm::TrapCode;
 
@@ -224,6 +224,82 @@ fn cannot_yield_when_not_in_async_context() -> Result<()> {
         TrapCode::YieldOutsideAsyncContext,
         "expected YieldOutsideAsyncContext trap code"
     );
+
+    Ok(())
+}
+
+#[test]
+fn nested_async_in_sync() -> Result<()> {
+    const WAT: &str = r#"
+    (module
+        (import "env" "sync" (func $sync (result i32)))
+        (import "env" "async" (func $async (result i32)))
+        (func (export "entry") (result i32)
+            call $sync
+        )
+        (func (export "inner_async") (result i32)
+            call $async
+        )
+    )
+    "#;
+    let wasm = wat::parse_str(WAT).expect("valid WAT module");
+
+    let mut store = Store::default();
+    let module = Module::new(&store, wasm)?;
+
+    struct Env {
+        inner_async: RefCell<Option<wasmer::TypedFunction<(), i32>>>,
+    }
+    let env = FunctionEnv::new(
+        &mut store,
+        Env {
+            inner_async: RefCell::new(None),
+        },
+    );
+
+    let sync = Function::new_typed_with_env(&mut store, &env, |mut env: FunctionEnvMut<Env>| {
+        let (env, mut store) = env.data_and_store_mut();
+        env.inner_async
+            .borrow()
+            .as_ref()
+            .expect("inner_async function to be set")
+            .call(&mut store)
+            .expect("inner async call to succeed")
+    });
+
+    let async_ = Function::new_typed_async(&mut store, async || {
+        tokio::task::yield_now().await;
+        42
+    });
+
+    let imports = imports! {
+        "env" => {
+            "sync" => sync,
+            "async" => async_,
+        }
+    };
+
+    let instance = Instance::new(&mut store, &module, &imports)?;
+
+    let inner_async = instance
+        .exports
+        .get_typed_function::<(), i32>(&mut store, "inner_async")
+        .unwrap();
+    env.as_mut(&mut store)
+        .inner_async
+        .borrow_mut()
+        .replace(inner_async);
+
+    let entry = instance
+        .exports
+        .get_typed_function::<(), i32>(&mut store, "entry")?;
+    let result = tokio::runtime::Builder::new_current_thread()
+        .enable_all()
+        .build()
+        .unwrap()
+        .block_on(entry.call_async(&store.into_async()))?;
+
+    assert_eq!(result, 42);
 
     Ok(())
 }

@@ -505,6 +505,7 @@ impl Function {
     ) -> Result<(), RuntimeError> {
         // Call the trampoline.
         let result = {
+            let store_id = store.objects_mut().id();
             // Safety: the store context is uninstalled before we return, and the
             // store mut is valid for the duration of the call.
             let store_install_guard =
@@ -516,9 +517,13 @@ impl Function {
                 let storeref = store.as_store_ref();
                 let vm_function = self.handle.get(storeref.objects().as_sys());
                 let config = storeref.engine().tunables().vmconfig();
+                let signal_handler = storeref.signal_handler();
                 r = unsafe {
+                    // Safety: This is the intended use-case for StoreContext::pause, as
+                    // documented in the function's doc comments.
+                    let pause_guard = StoreContext::pause(store_id);
                     wasmer_call_trampoline(
-                        store.as_store_ref().signal_handler(),
+                        signal_handler,
                         config,
                         vm_function.anyfunc.as_ptr().as_ref().vmctx,
                         trampoline,

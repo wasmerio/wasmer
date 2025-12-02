@@ -52,6 +52,7 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
+                let store_id = store.objects_mut().id();
                 // Install the store into the store context
                 let store_install_guard = unsafe {
                     StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
@@ -62,6 +63,9 @@ macro_rules! impl_native_traits {
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
+                        // Safety: This is the intended use-case for StoreContext::pause, as
+                        // documented in the function's doc comments.
+                        let pause_guard = StoreContext::pause(store_id);
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
                             config,
@@ -190,6 +194,7 @@ macro_rules! impl_native_traits {
                     rets_list.as_mut()
                 };
 
+                let store_id = store.objects_mut().id();
                 // Install the store into the store context
                 let store_install_guard = unsafe {
                     StoreContext::ensure_installed(store.as_store_mut().inner as *mut _)
@@ -200,6 +205,9 @@ macro_rules! impl_native_traits {
                     let storeref = store.as_store_ref();
                     let config = storeref.engine().tunables().vmconfig();
                     r = unsafe {
+                        // Safety: This is the intended use-case for StoreContext::pause, as
+                        // documented in the function's doc comments.
+                        let pause_guard = StoreContext::pause(store_id);
                         wasmer_vm::wasmer_call_trampoline(
                             store.as_store_ref().signal_handler(),
                             config,

@@ -96,6 +96,12 @@ pub(crate) struct StoreAsyncGuardWrapper {
     pub(crate) guard: *mut LocalRwLockWriteGuard<Box<StoreInner>>,
 }
 
+pub(crate) struct StorePtrPauseGuard {
+    store_id: StoreId,
+    ptr: *mut StoreInner,
+    ref_count_decremented: bool,
+}
+
 #[cfg(feature = "experimental-async")]
 pub(crate) enum GetStoreAsyncGuardResult {
     Ok(StoreAsyncGuardWrapper),
@@ -170,11 +176,54 @@ impl StoreContext {
     pub(crate) unsafe fn ensure_installed(store_ptr: *mut StoreInner) -> StoreInstallGuard {
         let store_id = unsafe { store_ptr.as_ref().unwrap().objects.id() };
         if Self::is_active(store_id) {
+            let current_ptr = STORE_CONTEXT_STACK.with(|cell| {
+                let stack = cell.borrow();
+                unsafe { stack.last().unwrap().entry.get().as_ref().unwrap().as_ptr() }
+            });
+            assert_eq!(store_ptr, current_ptr, "Store context pointer mismatch");
             StoreInstallGuard::NotInstalled
         } else {
             Self::install(store_id, StoreContextEntry::Sync(store_ptr));
             StoreInstallGuard::Installed(store_id)
         }
+    }
+
+    /// "Pause" one borrow of the store context.
+    ///
+    /// # Safety
+    /// Code must ensure it does not use the StorePtrWrapper or
+    /// StoreAsyncGuardWrapper that it owns, or any StoreRef/StoreMut
+    /// derived from them, while the store context is paused.
+    ///
+    /// The safe, correct use-case for this method is to
+    /// pause the store context while executing WASM code, which
+    /// cannot use the store context directly. This allows an async
+    /// context to uninstall the store context when suspending if it's
+    /// called from a sync imported function. The imported function
+    /// will have borrowed the store context in its trampoline, which
+    /// will prevent the async context from uninstalling the store.
+    /// However, since the imported function passes a mutable borrow
+    /// of its store into `Function::call`, it will expect the store
+    /// to change before the call returns.
+    pub(crate) unsafe fn pause(id: StoreId) -> StorePtrPauseGuard {
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack
+                .last_mut()
+                .expect("No store context installed on this thread");
+            assert_eq!(top.id, id, "Mismatched store context access");
+            let ref_count_decremented = if top.borrow_count > 0 {
+                top.borrow_count -= 1;
+                true
+            } else {
+                false
+            };
+            StorePtrPauseGuard {
+                store_id: id,
+                ptr: unsafe { top.entry.get().as_ref().unwrap().as_ptr() },
+                ref_count_decremented,
+            }
+        })
     }
 
     /// Safety: This method lets you borrow multiple mutable references
@@ -291,6 +340,9 @@ impl Clone for StorePtrWrapper {
 
 impl Drop for StorePtrWrapper {
     fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
         let id = self.as_mut().objects_mut().id();
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -306,6 +358,9 @@ impl Drop for StorePtrWrapper {
 #[cfg(feature = "experimental-async")]
 impl Drop for StoreAsyncGuardWrapper {
     fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
         let id = unsafe { self.guard.as_ref().unwrap().objects.id() };
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
@@ -323,12 +378,28 @@ impl Drop for StoreInstallGuard {
         if let Self::Installed(store_id) = self {
             STORE_CONTEXT_STACK.with(|cell| {
                 let mut stack = cell.borrow_mut();
-                let top = stack.pop().expect("Store context stack underflow");
-                assert_eq!(top.id, *store_id, "Mismatched store context uninstall");
-                assert_eq!(
-                    top.borrow_count, 0,
-                    "Cannot uninstall store context while it is still borrowed"
-                );
+                match (stack.pop(), std::thread::panicking()) {
+                    (Some(top), false) => {
+                        assert_eq!(top.id, *store_id, "Mismatched store context uninstall");
+                        assert_eq!(
+                            top.borrow_count, 0,
+                            "Cannot uninstall store context while it is still borrowed"
+                        );
+                    }
+                    (Some(top), true) => {
+                        // If we're panicking and there's a store ID mismatch, just
+                        // put the store back in the hope that its own install guard
+                        // take care of uninstalling it later.
+                        if top.id != *store_id {
+                            stack.push(top);
+                        }
+                    }
+                    (None, false) => panic!("Store context stack underflow"),
+                    (None, true) => {
+                        // Nothing to do if we're panicking; panics can put the context
+                        // in an invalid state, and we don't to cause another panic here.
+                    }
+                }
             })
         }
     }
@@ -338,12 +409,51 @@ impl Drop for ForcedStoreInstallGuard {
     fn drop(&mut self) {
         STORE_CONTEXT_STACK.with(|cell| {
             let mut stack = cell.borrow_mut();
-            let top = stack.pop().expect("Store context stack underflow");
-            assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
+            match (stack.pop(), std::thread::panicking()) {
+                (Some(top), false) => {
+                    assert_eq!(top.id, self.store_id, "Mismatched store context uninstall");
+                    assert_eq!(
+                        top.borrow_count, 0,
+                        "Cannot uninstall store context while it is still borrowed"
+                    );
+                }
+                (Some(top), true) => {
+                    // If we're panicking and there's a store ID mismatch, just
+                    // put the store back in the hope that its own install guard
+                    // take care of uninstalling it later.
+                    if top.id != self.store_id {
+                        stack.push(top);
+                    }
+                }
+                (None, false) => panic!("Store context stack underflow"),
+                (None, true) => {
+                    // Nothing to do if we're panicking; panics can put the context
+                    // in an invalid state, and we don't to cause another panic here.
+                }
+            }
+        })
+    }
+}
+
+impl Drop for StorePtrPauseGuard {
+    fn drop(&mut self) {
+        if std::thread::panicking() {
+            return;
+        }
+        STORE_CONTEXT_STACK.with(|cell| {
+            let mut stack = cell.borrow_mut();
+            let top = stack
+                .last_mut()
+                .expect("No store context installed on this thread");
+            assert_eq!(top.id, self.store_id, "Mismatched store context access");
             assert_eq!(
-                top.borrow_count, 0,
-                "Cannot uninstall store context while it is still borrowed"
+                unsafe { top.entry.get().as_ref().unwrap() }.as_ptr(),
+                self.ptr,
+                "Mismatched store context access"
             );
+            if self.ref_count_decremented {
+                top.borrow_count += 1;
+            }
         })
     }
 }
