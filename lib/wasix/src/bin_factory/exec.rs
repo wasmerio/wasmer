@@ -302,8 +302,6 @@ fn call_module(
 
     loop {
         // Technically, it's an error for a vfork to return from main, but anyway...
-        // TODO: Then we should probably just trap immediately when that happens...
-        //       this code is complex enough as it is
         match resume_vfork(&ctx, &mut store, &start, &call_ret) {
             // A vfork was resumed, there may be another, so loop back
             Ok(Some(ret)) => call_ret = ret,
