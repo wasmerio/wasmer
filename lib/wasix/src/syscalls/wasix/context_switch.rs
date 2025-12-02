@@ -18,14 +18,6 @@ pub async fn context_switch(
     mut ctx: AsyncFunctionEnvMut<WasiEnv>,
     target_context_id: u64,
 ) -> Result<Errno, RuntimeError> {
-    // TODO: Should we call do_pending_operations here?
-    // match WasiEnv::do_pending_operations(&mut ctx) {
-    //     Ok(()) => {}
-    //     Err(e) => {
-    //         return Now(Err(RuntimeError::user(Box::new(e))));
-    //     }
-    // }
-
     let mut write_lock = ctx.write().await;
     let data = write_lock.data_mut();
 
