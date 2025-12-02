@@ -127,21 +127,6 @@ impl ContextSwitchingEnvironment {
             .remove(target_context_id)
     }
 
-    /// Insert an unblocker for the given context ID
-    ///
-    /// Returns the previous unblocker if one existed
-    pub(crate) fn insert_unblocker(
-        &self,
-        target_context_id: u64,
-        unblocker: Sender<Result<(), RuntimeError>>,
-    ) -> Option<Sender<Result<(), RuntimeError>>> {
-        self.inner
-            .unblockers
-            .write()
-            .unwrap()
-            .insert(target_context_id, unblocker)
-    }
-
     /// Unblock the target context and suspend own context
     ///
     /// If this function succeeds, you MUST await the returned future
@@ -222,7 +207,7 @@ impl ContextSwitchingEnvironment {
     /// The entrypoint function is called when the context is unblocked for the first time
     ///
     /// If the context is cancelled before it is unblocked, the entrypoint will not be called
-    pub(crate) fn new_context<T, F>(&self, entrypoint: T) -> u64
+    pub(crate) fn create_context<T, F>(&self, entrypoint: T) -> u64
     where
         T: FnOnce(u64) -> F + 'static,
         F: Future<Output = RuntimeError> + 'static,
@@ -236,7 +221,14 @@ impl ContextSwitchingEnvironment {
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
         // Store the unblocker
-        let None = self.insert_unblocker(new_context_id, own_unblocker) else {
+
+        let None = self
+            .inner
+            .unblockers
+            .write()
+            .unwrap()
+            .insert(new_context_id, own_unblocker)
+        else {
             panic!("There already is a context suspended with ID {new_context_id}");
         };
 
