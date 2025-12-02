@@ -57,7 +57,7 @@ pub fn context_create<M: MemorySize>(
     WasiEnv::do_pending_operations(&mut ctx)?;
 
     // TODO: Unify this check with the one below for context_switching_context
-    let mut async_store = match ctx.as_store_async() {
+    let async_store = match ctx.as_store_async() {
         Some(c) => c,
         None => {
             tracing::trace!("The current store is not async");
@@ -90,7 +90,7 @@ pub fn context_create<M: MemorySize>(
         async move {
             // Call the entrypoint function
             let result: Result<Box<[Value]>, RuntimeError> = typechecked_entrypoint
-                .call_async(&mut async_store, vec![])
+                .call_async(&async_store, vec![])
                 .await;
 
             // If that function returns, we need to resume the main context with an error

@@ -138,7 +138,6 @@ impl ContextSwitchingEnvironment {
     /// Unblock the target context and suspend own context
     ///
     /// If this function succeeds, you MUST await the returned future
-    #[must_use]
     pub(crate) fn switch(
         &self,
         target_context_id: u64,
@@ -198,13 +197,11 @@ impl ContextSwitchingEnvironment {
             match unblock_result {
                 Ok(v) => v,
                 Err(canceled) => {
-                    tracing::trace!(
-                        "Context {own_context_id} was canceled while it was suspended: {}",
-                        canceled
-                    );
+                    tracing::trace!("Context {own_context_id} was canceled while it was suspended");
 
-                    let err = ContextCanceled().into();
-                    return Err(RuntimeError::user(err));
+                    // When our context was canceled return the `ContextCanceled` error.
+                    // It will be handled by the entrypoint wrapper and the context will exit silently.
+                    Err(RuntimeError::user(canceled.into()))
                 }
             }
         })
