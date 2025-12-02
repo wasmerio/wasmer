@@ -23,7 +23,7 @@ pub fn context_destroy(
     let memory: MemoryView<'_> = unsafe { env.memory_view(&ctx) };
 
     // Verify that we are in an async context
-    let contexts = match &env.context_switching_context {
+    let environment = match &env.context_switching_environment {
         Some(c) => c,
         None => {
             tracing::trace!("Context switching is not enabled");
@@ -31,8 +31,8 @@ pub fn context_destroy(
         }
     };
 
-    let own_context_id = contexts.active_context_id();
-    let main_context_id = contexts.main_context_id();
+    let own_context_id = environment.active_context_id();
+    let main_context_id = environment.main_context_id();
 
     if own_context_id == target_context_id {
         tracing::trace!(
@@ -50,7 +50,7 @@ pub fn context_destroy(
         return Ok(Errno::Inval);
     }
 
-    let removed_future = contexts.remove_unblocker(&target_context_id);
+    let removed_future = environment.remove_unblocker(&target_context_id);
     // As soon as the Sender is dropped, the corresponding context will be able unblocked,
     // the executor will continue executing it. The context will respond to the
     // cancelation by terminating gracefully.
