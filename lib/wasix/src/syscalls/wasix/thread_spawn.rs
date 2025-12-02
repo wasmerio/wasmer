@@ -5,11 +5,12 @@ use super::*;
 use crate::journal::JournalEffector;
 use crate::{
     WasiThreadHandle,
-    os::task::thread::{WasiMemoryLayout, context_switching::ContextSwitchingEnvironment},
+    os::task::thread::WasiMemoryLayout,
     runtime::{
         TaintReason,
         task_manager::{TaskWasm, TaskWasmRunProperties},
     },
+    state::context_switching::ContextSwitchingEnvironment,
     syscalls::*,
 };
 
