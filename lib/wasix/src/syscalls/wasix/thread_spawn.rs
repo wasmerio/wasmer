@@ -190,9 +190,6 @@ fn call_module_internal<M: MemorySize>(
     mut store: Store,
     start_ptr_offset: M::Offset,
 ) -> (Store, Result<(), DeepSleepWork>) {
-    // We either call the reactor callback or the thread spawn callback
-    //trace!("threading: invoking thread callback (reactor={})", reactor);
-
     // Note: we ensure both unwraps can happen before getting to this point
     let spawn = ctx
         .data(&store)
@@ -202,9 +199,8 @@ fn call_module_internal<M: MemorySize>(
         .clone()
         .unwrap();
     let tid = ctx.data(&store).tid();
-    // TODO: Find a better way to get a Function from a TypedFunction
-    // SAFETY: no
-    let spawn = unsafe { std::mem::transmute::<TypedFunction<(i32, i32), ()>, Function>(spawn) };
+
+    let spawn: Function = spawn.into();
     let tid_i32 = tid.raw().try_into().map_err(|_| Errno::Overflow).unwrap();
     let start_pointer_i32 = start_ptr_offset
         .try_into()
