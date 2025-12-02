@@ -72,7 +72,7 @@ macro_rules! impl_async_host_function_without_env {
                 Box::pin(async move {
                     fut.await
                         .into_result()
-                        .map_err(|err| RuntimeError::user(Box::new(err)))
+                        .map_err(|err| RuntimeError::from_dyn(Box::new(err)))
                 })
             }
         }
@@ -102,7 +102,7 @@ macro_rules! impl_async_host_function_with_env {
                 Box::pin(async move {
                     fut.await
                         .into_result()
-                        .map_err(|err| RuntimeError::user(Box::new(err)))
+                        .map_err(|err| RuntimeError::from_dyn(Box::new(err)))
                 })
             }
         }

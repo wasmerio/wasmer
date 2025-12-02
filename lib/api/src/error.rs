@@ -265,6 +265,13 @@ impl RuntimeError {
         }
         Ok(())
     }
+
+    pub(crate) fn from_dyn(err: Box<dyn std::error::Error + Send + Sync>) -> Self {
+        match err.downcast::<Self>() {
+            Ok(runtime_error) => *runtime_error,
+            Err(error) => Trap::user(error).into(),
+        }
+    }
 }
 
 impl std::fmt::Debug for RuntimeError {
