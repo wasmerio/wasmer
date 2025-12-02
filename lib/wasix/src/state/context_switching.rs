@@ -139,15 +139,13 @@ impl ContextSwitchingEnvironment {
         MAIN_CONTEXT_ID
     }
 
-    pub(crate) fn remove_unblocker(
-        &self,
-        target_context_id: &u64,
-    ) -> Option<Sender<Result<(), RuntimeError>>> {
+    pub(crate) fn remove_unblocker(&self, target_context_id: &u64) -> bool {
         self.inner
             .unblockers
             .write()
             .unwrap()
             .remove(target_context_id)
+            .is_some()
     }
 
     /// Unblock the target context and suspend own context

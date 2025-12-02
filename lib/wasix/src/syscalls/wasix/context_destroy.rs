@@ -50,12 +50,12 @@ pub fn context_destroy(
         return Ok(Errno::Inval);
     }
 
-    let removed_future = environment.remove_unblocker(&target_context_id);
+    let removed_unblocker = environment.remove_unblocker(&target_context_id);
     // As soon as the Sender is dropped, the corresponding context will be able unblocked,
     // the executor will continue executing it. The context will respond to the
     // cancelation by terminating gracefully.
 
-    let Some(_) = removed_future else {
+    if !removed_unblocker {
         // Context did not exist, so we do not need to remove it
         tracing::trace!(
             "Context {} tried to delete context {} but it is already removed",
