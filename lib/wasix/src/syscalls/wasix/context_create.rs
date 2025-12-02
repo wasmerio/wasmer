@@ -68,7 +68,7 @@ pub fn context_create<M: MemorySize>(
     let (data, mut store) = ctx.data_and_store_mut();
 
     // Verify that we are in an async context
-    let contexts = match &data.context_switching_context {
+    let environment = match &data.context_switching_environment {
         Some(c) => c,
         None => {
             tracing::trace!("Context switching is not enabled");
@@ -85,7 +85,7 @@ pub fn context_create<M: MemorySize>(
     };
 
     // Create the new context
-    let new_context_id = contexts.new_context(|new_context_id| {
+    let new_context_id = environment.new_context(|new_context_id| {
         // Sync part (not needed for now, but will make it easier to work with more complex entrypoints later)
         async move {
             // Call the entrypoint function

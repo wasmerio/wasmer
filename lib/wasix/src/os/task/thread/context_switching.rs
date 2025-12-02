@@ -19,13 +19,12 @@ use thiserror::Error;
 use wasmer::{RuntimeError, Store};
 
 #[derive(Debug)]
-pub(crate) struct ContextSwitchingContext {
-    /// TODO: Document these fields
-    inner: Arc<ContextSwitchingContextInner>,
+pub(crate) struct ContextSwitchingEnvironment {
+    inner: Arc<ContextSwitchingEnvironmentInner>,
 }
 
 #[derive(Debug)]
-struct ContextSwitchingContextInner {
+struct ContextSwitchingEnvironmentInner {
     /// List of the unblockers for all suspended contexts
     unblockers: RwLock<BTreeMap<u64, Sender<Result<(), RuntimeError>>>>,
     /// The ID of the currently active context
@@ -53,10 +52,10 @@ const MAIN_CONTEXT_ID: u64 = 0;
 #[error("Context was canceled")]
 pub struct ContextCanceled();
 
-impl ContextSwitchingContext {
+impl ContextSwitchingEnvironment {
     fn new(spawner: ThreadLocalSpawner) -> Self {
         Self {
-            inner: Arc::new(ContextSwitchingContextInner {
+            inner: Arc::new(ContextSwitchingEnvironmentInner {
                 unblockers: RwLock::new(BTreeMap::new()),
                 current_context_id: AtomicU64::new(MAIN_CONTEXT_ID),
                 next_available_context_id: AtomicU64::new(MAIN_CONTEXT_ID + 1),
@@ -81,10 +80,10 @@ impl ContextSwitchingContext {
 
         // Put the spawner into the WASI env, so that syscalls can use it to queue up new tasks
         let env = ctx.data_mut(&mut store);
-        let previous_context = env.context_switching_context.replace(this);
-        if previous_context.is_some() {
+        let previous_environment = env.context_switching_environment.replace(this);
+        if previous_environment.is_some() {
             panic!(
-                "Failed to start a wasix main context as there was already a context switching context present in the WASI env."
+                "Failed to start a wasix main context as there was already a context-switching environment present."
             );
         }
 
@@ -98,7 +97,7 @@ impl ContextSwitchingContext {
         let mut store = store_async.into_store().ok().unwrap();
 
         let env = ctx.data_mut(&mut store);
-        env.context_switching_context.take().expect(
+        env.context_switching_environment.take().expect(
             "Failed to remove wasix context switching context from WASI env after main context finished, this should never happen",
         );
 
