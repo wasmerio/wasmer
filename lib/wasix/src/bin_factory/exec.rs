@@ -194,10 +194,8 @@ pub fn run_exec(props: TaskWasmRunProperties) {
         .get_function("_initialize")
         .cloned()
     {
-        // TODO: The call to initialize for the main module does not yet run in an context-switching environment.
-        //       The call to initialize for dlopen'ed modules does run in an context-switching environment.
-        //       This should be made consistent.
-        // TODO: Or document that the context-switching environment only starts with main
+        // This does not need a context switching environment as the documentation
+        // states that that is only available after the first call to main
         let result = initialize.call(&mut store, &[]);
 
         if let Err(err) = result {
