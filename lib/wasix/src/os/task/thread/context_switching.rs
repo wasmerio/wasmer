@@ -378,20 +378,25 @@ impl ContextSwitchingEnvironment {
         match spawn_result {
             Ok(()) => new_context_id,
             Err(ThreadLocalSpawnerError::LocalPoolShutDown) => {
-                // TODO: Handle cancellation properly
+                // This case could happen if the executor is being shut down while it is still polling a future (this one).
+                // Which shouldn't be able with a single-threaded executor, as the shutdown would have to
+                // be initiated from within a future running on that executor.
+                // I the current WASIX context switching implemenation should not be able to produce this case,
+                // but maybe it will be possible in future implementations. If someone manages to produce this case,
+                // they should open an issue so we can discuss how to handle this case properly.
+                // If this case is reachable we could return the same error as when no context-switching environment is present,
                 panic!(
-                    "Failed to spawn context {new_context_id} because the local executor has been shut down",
+                    "Failed to spawn context {new_context_id} because the local executor has been shut down. Please open an issue and let me know how you produced this error.",
                 );
             }
             Err(ThreadLocalSpawnerError::NotOnTheCorrectThread { expected, found }) => {
-                // Not on the correct host thread. If this error happens, it is a bug in WASIX.
+                // This should never happen and is a bug in WASIX, so we panic here
                 panic!(
-                    "Failed to spawn context {new_context_id} because the current thread ({found:?}) is not the expected thread ({expected:?}) for the local executor"
+                    "Failed to create context because the thread local spawner lives on {expected:?} but you are on {found:?}"
                 )
             }
             Err(ThreadLocalSpawnerError::SpawnError) => {
-                // This should never happen
-                panic!("Failed to spawn_local context {new_context_id} , this should not happen");
+                panic!("Failed to spawn_local context {new_context_id}, this should not happen");
             }
         }
     }
