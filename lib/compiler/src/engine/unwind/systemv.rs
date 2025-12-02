@@ -54,7 +54,8 @@ fn using_libunwind() -> bool {
         return true;
     }
 
-    // TODO
+    // TODO: wasmtime started using weak symbol definition that makes the detection
+    // more reliable on linux-musl target: https://github.com/bytecodealliance/wasmtime/pull/9479
     if cfg!(target_env = "musl") {
         return true;
     }
