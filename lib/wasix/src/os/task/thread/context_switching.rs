@@ -10,12 +10,14 @@ use futures::{
 };
 use std::{
     collections::BTreeMap,
+    mem::forget,
     sync::{
         Arc, RwLock, Weak,
         atomic::{AtomicU64, Ordering},
     },
 };
 use thiserror::Error;
+use tracing::trace;
 use wasmer::{RuntimeError, Store};
 
 /// The context-switching environment represents all state for WASIX context-switching
@@ -49,14 +51,31 @@ const MAIN_CONTEXT_ID: u64 = 0;
 
 /// Contexts will trap with this error as a RuntimeError::user when they are canceled
 ///
-/// If encountered in a host function you should do cleanup and return it unchanged
+/// If encountered in a host function it MUST be propagated to the context's entrypoint.
+/// To make it harder to run into that behaviour by ignoring this error, dropping it
+/// will cause a panic with a message that it was not propagated properly. If you think
+/// you know what you are doing, you can call `defuse` (or just forget it) to avoid
+/// the panic.
 ///
 /// When it bubbles up to the start of the entrypoint function of a context, it will be
-/// handled by just letting the context exit silently. This is the only error that will
-/// not be propagated to the main context.
+/// handled by just letting the context exit silently.
 #[derive(Error, Debug)]
 #[error("Context was canceled")]
-pub struct ContextCanceled();
+pub struct ContextCanceled(());
+impl ContextCanceled {
+    /// Defuse the ContextCanceled so it does not panic when dropped
+    pub fn defuse(self) {
+        // Consume self without panicking
+        forget(self);
+    }
+}
+impl Drop for ContextCanceled {
+    fn drop(&mut self) {
+        panic!(
+            "A ContextCanceled error was dropped without being propagated to the context's entrypoint. This is likely a bug in a host function, please make sure to propagate ContextCanceled errors properly."
+        );
+    }
+}
 
 impl ContextSwitchingEnvironment {
     fn new(spawner: ThreadLocalSpawner) -> Self {
@@ -142,6 +161,7 @@ impl ContextSwitchingEnvironment {
         ContextSwitchError,
     > {
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+        let wait_for_unblock = wait_for_unblock.map_err(|_| ContextCanceled(()));
 
         // Lock contexts for this block
         let mut unblockers = self.inner.unblockers.write().unwrap();
@@ -182,36 +202,55 @@ impl ContextSwitchingEnvironment {
         unblockers.insert(own_context_id, own_unblocker);
         let weak_inner = Arc::downgrade(&self.inner);
         Ok(async move {
-            let unblock_result = wait_for_unblock.map_err(|_| ContextCanceled()).await;
-
-            // Restore our own context ID
-            let Some(inner) = Weak::upgrade(&weak_inner) else {
-                // The context-switching environment has been dropped, so we can't proceed
-                // TODO: Handle this properly
-                todo!();
-            };
-            inner
-                .current_context_id
-                .store(own_context_id, Ordering::Relaxed);
-            drop(inner);
+            let unblock_result = wait_for_unblock.await;
 
             // Handle if we were canceled instead of being unblocked
-            match unblock_result {
+            let result = match unblock_result {
                 Ok(v) => v,
                 Err(canceled) => {
                     tracing::trace!("Context {own_context_id} was canceled while it was suspended");
 
                     // When our context was canceled return the `ContextCanceled` error.
                     // It will be handled by the entrypoint wrapper and the context will exit silently.
-                    Err(RuntimeError::user(canceled.into()))
+                    //
+                    // If we reach this point, we must try to restore our context ID as it will not be read again
+                    return Err(RuntimeError::user(canceled.into()));
                 }
-            }
+            };
+
+            // Restore our own context ID
+            let Some(inner) = Weak::upgrade(&weak_inner) else {
+                // The context-switching environment has been dropped, so we can't proceed
+                //
+                // This should only happen during shutdown when the ContextSwitchingEnvironment and thus the list of unblockers
+                // is dropped and the futures continue being polled (because dropping that list would cause all wait_for_unblock
+                // futures to resolve to canceled).
+                // However looking at the implementation in `run_main_context` this should not happen, as we drop the executor
+                // before dropping the environment,
+                //
+                // In a future implementation that allows the executor to outlive the environment, we should handle this case,
+                // most likely by returning a `ContextCanceled` error here as well.
+                // For now this should never happen, so it's a WASIX bug, so we panic here.
+                panic!(
+                    "The switch future for context {own_context_id} was polled after the context-switching environment was dropped, this should not happen"
+                );
+            };
+            inner
+                .current_context_id
+                .store(own_context_id, Ordering::Relaxed);
+            drop(inner);
+
+            result
         })
     }
 
     /// Create a new context and spawn it onto the thread-local executor
     ///
     /// The entrypoint function is called when the context is unblocked for the first time
+    ///
+    /// If entrypoint returns, it must be a RuntimeError, as it is not allowed to return normally.
+    /// If the RuntimeError is a [`ContextCanceled`], the context will just exit silently.
+    /// Otherwise, the error will be propagated to the main context.
     ///
     /// If the context is cancelled before it is unblocked, the entrypoint will not be called
     pub(crate) fn create_context<T, F>(&self, entrypoint: T) -> u64
@@ -226,6 +265,7 @@ impl ContextSwitchingEnvironment {
             .fetch_add(1, Ordering::Relaxed);
 
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
+        let wait_for_unblock = wait_for_unblock.map_err(|_| ContextCanceled(()));
 
         // Store the unblocker
 
@@ -243,30 +283,43 @@ impl ContextSwitchingEnvironment {
         let weak_inner = Arc::downgrade(&self.inner);
         let context_future = async move {
             // First wait for the unblock signal
-            let prelaunch_result = wait_for_unblock.map_err(|_| ContextCanceled()).await;
-
-            // Set the current context ID
-            let Some(inner) = Weak::upgrade(&weak_inner) else {
-                // The context-switching environment has been dropped, so we can't proceed
-                // TODO: Handle this properly
-                return;
-            };
-            inner
-                .current_context_id
-                .store(new_context_id, Ordering::Relaxed);
-            drop(inner);
+            let prelaunch_result = wait_for_unblock.await;
 
             // Handle if the context was canceled before it even started
             match prelaunch_result {
                 Ok(_) => (),
                 Err(canceled) => {
-                    tracing::trace!(
-                        "Context {new_context_id} was canceled before it even started: {canceled}",
-                    );
-                    // At this point we don't need to do anything else
+                    trace!("Context {new_context_id} was successfully destroyed before it started");
+                    // We know what we are doing, so we can prevent the panic on drop
+                    canceled.defuse();
+                    // Context was cancelled before it was started, so we can just let it return.
+                    // This will resolve the original future passed to `spawn_local` with
+                    // `Ok(())` which should make the executor drop it properly
                     return;
                 }
             };
+
+            let Some(inner) = Weak::upgrade(&weak_inner) else {
+                // The context-switching environment has been dropped, so we can't proceed.
+                // See the comments on the first Weak::upgrade call in this file for background on when this can happen.
+                //
+                // Note that in case the context was canceled properly, we accept that and allowed it to exit
+                // silently (in the match block above). That could happen if the main context canceled the
+                // this context before exiting itself and the executor outlives the environment.
+                //
+                // However it should not be possible to switch to this context after the main context has exited,
+                // as there can only be one active context at a time and that one (the main context) just exited.
+                // So there can't be another context in that context-switching environment that could switch to this one.
+                panic!(
+                    "Context {new_context_id} was switched to after the context-switching environment was dropped. This indicates a bug where multiple contexts are active at the same time which should never happen"
+                );
+            };
+            // Set the current context ID
+            inner
+                .current_context_id
+                .store(new_context_id, Ordering::Relaxed);
+            // Drop inner again so we don't hold a strong ref while running the entrypoint, so it cleans itself up properly
+            drop(inner);
 
             // Launch the context entrypoint
             let launch_result = entrypoint(new_context_id).await;
@@ -274,20 +327,36 @@ impl ContextSwitchingEnvironment {
             // If that function returns something went wrong.
             // If it's a cancellation, we can just let this context run out.
             // If it's another error, we resume the main context with the error
-            let error = match launch_result.downcast_ref::<ContextCanceled>() {
-                Some(err) => {
-                    tracing::trace!("Context {new_context_id} exited with error: {}", err);
-                    // Context was cancelled, so we can just let it run out.
+            let error = match launch_result.downcast::<ContextCanceled>() {
+                Ok(canceled) => {
+                    tracing::trace!("Context {new_context_id} was successfully destroyed");
+                    // We know what we are doing, so we can prevent the panic on drop
+                    canceled.defuse();
+                    // Context was cancelled, so we can just let it return.
+                    // This will resolve the original future passed to `spawn_local` with
+                    // `Ok(())` which should make the executor drop it properly
                     return;
                 }
-                None => launch_result, // Propagate the runtime error to main
+                Err(error) => error, // Propagate the runtime error to main
             };
 
             // Retrieve the main context
             let Some(inner) = Weak::upgrade(&weak_inner) else {
-                // The context-switching environment has been dropped, so we can't proceed
-                // TODO: Handle this properly
-                return;
+                // The context-switching environment has been dropped, so we can't proceed.
+                // See the comments on the first Weak::upgrade call in this file for background on when this can happen.
+                //
+                // Note that in case the context was canceled properly, we accept that and allowed it to exit
+                // silently (in the match block above). That could happen if the main context canceled the
+                // this context before exiting itself and the executor outlives the environment.
+                //
+                // However it should not be possible to switch to this context after the main context has exited,
+                // as there can only be one active context at a time and that one (the main context) just exited.
+                // So there can't be another context in that context-switching environment that could switch to this one.
+                //
+                // So in conclusion if we reach this point it is a bug in WASIX and should never happen, so we panic here.
+                panic!(
+                    "Context {new_context_id} was switched to after the context-switching environment was dropped. This indicates a bug where multiple contexts are active at the same time which should never happen"
+                );
             };
             let Some(main_context) = inner.unblockers.write().unwrap().remove(&MAIN_CONTEXT_ID)
             else {
