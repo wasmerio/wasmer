@@ -79,34 +79,13 @@ pub fn context_create<M: MemorySize>(
     // Lookup and check the entrypoint function
     let entrypoint = match lookup_typechecked_entrypoint(data, &mut store, entrypoint) {
         Ok(func) => func,
-        Err(e) => {
-            return Ok(e);
+        Err(err) => {
+            return Ok(err);
         }
     };
 
     // Create the new context
-    let new_context_id = environment.create_context(|new_context_id| {
-        // Sync part (not needed for now, but will make it easier to work with more complex entrypoints later)
-        async move {
-            // Call the entrypoint function
-            let result: Result<(), RuntimeError> = entrypoint.call_async(&async_store).await;
-
-            // If that function returns, we need to resume the main context with an error
-            // Take the underlying error, or create a new error if the context returned a value
-            result.map_or_else(
-                |e| e,
-                |v| {
-                    // TODO: Proper error type
-                    RuntimeError::user(
-                format!(
-                    "Context {new_context_id} returned a value ({v:?}). This is not allowed for now"
-                )
-                .into(),
-            )
-                },
-            )
-        }
-    });
+    let new_context_id = environment.create_context(entrypoint.call_async(&async_store));
 
     // Write the new context ID into memory
     let memory = unsafe { data.memory_view(&store) };
