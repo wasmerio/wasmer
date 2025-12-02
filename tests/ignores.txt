@@ -375,5 +375,6 @@ windows     wasitests::nightly_2022_10_18::host_fs::path_rename
 path_rename
 
 # Multi-value tests
-singlepass  multi_value_imports
-cranelift   multi_value_imports
+singlepass    multi_value_imports
+cranelift     multi_value_imports
+windows+llvm  multi_value_imports
