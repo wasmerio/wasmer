@@ -4,9 +4,7 @@ use crate::{
     RewindState, SpawnError, WasiError, WasiRuntimeError,
     os::task::{
         TaskJoinHandle,
-        thread::{
-            RewindResultType, WasiThreadRunGuard, context_switching::ContextSwitchingEnvironment,
-        },
+        thread::{RewindResultType, WasiThreadRunGuard},
     },
     runtime::{
         TaintReason,
@@ -15,6 +13,7 @@ use crate::{
             TaskWasm, TaskWasmRecycle, TaskWasmRecycleProperties, TaskWasmRunProperties,
         },
     },
+    state::context_switching::ContextSwitchingEnvironment,
     syscalls::rewind_ext,
 };
 use crate::{Runtime, WasiEnv, WasiFunctionEnv};
