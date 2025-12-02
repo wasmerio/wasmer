@@ -2,11 +2,8 @@
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
-use tempfile::TempDir;
 use wasmer::FunctionEnv;
 use wasmer::*;
-use wasmer_compiler::EngineBuilder;
-use wasmer_compiler_llvm::LLVMCallbacks;
 
 /// Corruption of WasmerEnv when using call indirect.
 ///
@@ -592,8 +589,13 @@ fn huge_number_of_arguments_fn(
     Ok(())
 }
 
+#[cfg(feature = "llvm")]
 #[compiler_test(issues)]
 fn compiler_debug_dir_test(mut config: crate::Config) {
+    use tempfile::TempDir;
+    use wasmer_compiler::EngineBuilder;
+    use wasmer_compiler_llvm::LLVMCallbacks;
+
     let mut compiler_config = wasmer_compiler_llvm::LLVM::default();
     let temp = TempDir::new().expect("temp folder creation failed");
     compiler_config.callbacks(Some(LLVMCallbacks::new(temp.path().to_path_buf()).unwrap()));
