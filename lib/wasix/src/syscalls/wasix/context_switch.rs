@@ -58,24 +58,6 @@ pub async fn context_switch(
             );
             return Ok(Errno::Inval);
         }
-        Err(ContextSwitchError::OwnContextAlreadyBlocked) => {
-            // This should never happen, because the active context should never have an unblock function (as it is not suspended)
-            // If it does, it is an error in WASIX
-            panic!(
-                "There is already a unblock present for the current context {active_context_id}"
-            );
-        }
-        Err(ContextSwitchError::SwitchUnblockFailed) => {
-            // If there is no target to unblock, we assume it exited, but the unblock
-            // function was not removed. For now we treat this like a missing context
-            // It can't happen again, as we already removed the unblock function
-            //
-            // TODO: Think about whether this is correct
-            tracing::trace!(
-                "Context {active_context_id} tried to switch to context {target_context_id} but it could not be unblocked (perhaps it exited?)"
-            );
-            return Ok(Errno::Inval);
-        }
     };
 
     // Drop the write lock before we suspend ourself, as that would cause a deadlock

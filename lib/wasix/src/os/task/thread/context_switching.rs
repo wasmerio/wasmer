@@ -43,10 +43,6 @@ struct ContextSwitchingEnvironmentInner {
 pub enum ContextSwitchError {
     #[error("Target context to switch to is missing")]
     SwitchTargetMissing,
-    #[error("Failed to unblock target context")]
-    SwitchUnblockFailed,
-    #[error("Own context is already blocked")]
-    OwnContextAlreadyBlocked,
 }
 
 const MAIN_CONTEXT_ID: u64 = 0;
@@ -148,36 +144,42 @@ impl ContextSwitchingEnvironment {
         let (own_unblocker, wait_for_unblock) = oneshot::channel::<Result<(), RuntimeError>>();
 
         // Lock contexts for this block
-        let mut contexts = self.inner.unblockers.write().unwrap();
+        let mut unblockers = self.inner.unblockers.write().unwrap();
         let own_context_id = self.active_context_id();
 
         // Assert preconditions (target is blocked && we are unblocked)
-        if contexts.get(&target_context_id).is_none() {
+        if unblockers.get(&target_context_id).is_none() {
             return Err(ContextSwitchError::SwitchTargetMissing);
         }
-        if contexts.get(&own_context_id).is_some() {
-            return Err(ContextSwitchError::OwnContextAlreadyBlocked);
+        if unblockers.get(&own_context_id).is_some() {
+            // This should never happen, because if we are blocked, we should not be running code at all
+            //
+            // This is a bug in WASIX and should never happen, so we panic here.
+            panic!("There is already a unblock present for the current context {own_context_id}");
         }
 
         // Unblock the target
         // Dont mark ourself as blocked yet, as we first need to know that unblocking succeeded
-        let unblock_target = contexts.remove(&target_context_id).unwrap(); // Unwrap is safe due to precondition check above
+        let unblock_target = unblockers.remove(&target_context_id).unwrap(); // Unwrap is safe due to precondition check above
         let unblock_result: std::result::Result<(), std::result::Result<(), RuntimeError>> =
             unblock_target.send(Ok(()));
         let Ok(_) = unblock_result else {
-            // If there is no target to unblock, we assume it exited, but the unblock function was not removed
-            // For now we treat this like a missing context
-            // It can't happen again, as we already removed the unblock function
+            // If there is a unblock function in unblockers, the target context must be awaiting the related future.
+            // One way we can get into this path is, when the target context was already resumed and we somehow managed to keep the unblocker around.
+            // This can't happen as calling the unblocker consumes it.
+            // Another way this could happen is if the future waiting for the unblocker was canceled before we called it.
+            // This should not happen. This would be a bug in WASIX.
+            // Another way this could happen is if the target context never awaited the unblocker future in the first place.
+            // This also would be a bug in WASIX.
             //
-            // TODO: Think about whether this is correct
-            tracing::trace!(
-                "Context {own_context_id} tried to switch to context {target_context_id} but it could not be unblocked (perhaps it exited?)"
+            // So if we reach this path it is a bug in WASIX and should never happen, so we panic here.
+            panic!(
+                "Context {own_context_id} tried to unblock context {target_context_id} but the unblock target does not seem to exist."
             );
-            return Err(ContextSwitchError::SwitchUnblockFailed);
         };
 
         // After we have unblocked the target, we can insert our own unblock function
-        contexts.insert(own_context_id, own_unblocker);
+        unblockers.insert(own_context_id, own_unblocker);
         let weak_inner = Arc::downgrade(&self.inner);
         Ok(async move {
             let unblock_result = wait_for_unblock.map_err(|_| ContextCanceled()).await;
