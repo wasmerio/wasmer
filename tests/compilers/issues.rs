@@ -1,11 +1,12 @@
 //! This file is mainly to assure specific issues are working well
-use std::env;
 
 use anyhow::{Context, Result};
 use itertools::Itertools;
 use tempfile::TempDir;
 use wasmer::FunctionEnv;
 use wasmer::*;
+use wasmer_compiler::EngineBuilder;
+use wasmer_compiler_llvm::LLVMCallbacks;
 
 /// Corruption of WasmerEnv when using call indirect.
 ///
@@ -593,17 +594,10 @@ fn huge_number_of_arguments_fn(
 
 #[compiler_test(issues)]
 fn compiler_debug_dir_test(mut config: crate::Config) {
+    let mut compiler_config = wasmer_compiler_llvm::LLVM::default();
     let temp = TempDir::new().expect("temp folder creation failed");
-    unsafe {
-        env::set_var(
-            "WASMER_COMPILER_DEBUG_DIR",
-            temp.path()
-                .as_os_str()
-                .to_str()
-                .expect("path must be valid"),
-        );
-    }
-    let store = config.store();
+    compiler_config.callbacks(Some(LLVMCallbacks::new(temp.path().to_path_buf()).unwrap()));
+    let mut store = Store::new(EngineBuilder::new(compiler_config));
 
     let mut wat = include_str!("../wast/spec/fac.wast").to_string();
     wat.truncate(
