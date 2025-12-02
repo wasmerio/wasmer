@@ -1,15 +1,16 @@
 use crate::{WasiEnv, WasiError};
 use tracing::instrument;
-use wasmer::{Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, Value, WasmPtr};
+use wasmer::{
+    Function, FunctionEnvMut, MemorySize, RuntimeError, StoreMut, TypedFunction, Value, WasmPtr,
+};
 use wasmer_wasix_types::wasi::Errno;
 
 /// Return the function corresponding to the given entrypoint index if it exists and has the signature `() -> ()`
-// TODO: Use a typed function
 pub fn lookup_typechecked_entrypoint(
     data: &WasiEnv,
     mut store: &mut StoreMut<'_>,
     entrypoint_id: u32,
-) -> Result<Function, Errno> {
+) -> Result<TypedFunction<(), ()>, Errno> {
     let entrypoint = match data
         .inner()
         .indirect_function_table_lookup(&mut store, entrypoint_id)
@@ -26,15 +27,14 @@ pub fn lookup_typechecked_entrypoint(
     };
 
     let entrypoint_type = entrypoint.ty(&store);
-    if !entrypoint_type.params().is_empty() || !entrypoint_type.results().is_empty() {
+    let Ok(entrypoint) = entrypoint.typed::<(), ()>(&store) else {
         tracing::trace!(
-            "Entrypoint function {} has invalid signature: expected () -> (), got {:?} -> {:?}",
-            entrypoint_id,
+            "Entrypoint function {entrypoint_id} has invalid signature: expected () -> (), got {:?} -> {:?}",
             entrypoint_type.params(),
             entrypoint_type.results()
         );
         return Err(Errno::Inval);
-    }
+    };
 
     Ok(entrypoint)
 }
@@ -77,7 +77,7 @@ pub fn context_create<M: MemorySize>(
     };
 
     // Lookup and check the entrypoint function
-    let typechecked_entrypoint = match lookup_typechecked_entrypoint(data, &mut store, entrypoint) {
+    let entrypoint = match lookup_typechecked_entrypoint(data, &mut store, entrypoint) {
         Ok(func) => func,
         Err(e) => {
             return Ok(e);
@@ -89,9 +89,7 @@ pub fn context_create<M: MemorySize>(
         // Sync part (not needed for now, but will make it easier to work with more complex entrypoints later)
         async move {
             // Call the entrypoint function
-            let result: Result<Box<[Value]>, RuntimeError> = typechecked_entrypoint
-                .call_async(&async_store, vec![])
-                .await;
+            let result: Result<(), RuntimeError> = entrypoint.call_async(&async_store).await;
 
             // If that function returns, we need to resume the main context with an error
             // Take the underlying error, or create a new error if the context returned a value
