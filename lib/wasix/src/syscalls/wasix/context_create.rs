@@ -85,7 +85,7 @@ pub fn context_create<M: MemorySize>(
     };
 
     // Create the new context
-    let new_context_id = environment.new_context(|new_context_id| {
+    let new_context_id = environment.create_context(|new_context_id| {
         // Sync part (not needed for now, but will make it easier to work with more complex entrypoints later)
         async move {
             // Call the entrypoint function
