@@ -1,5 +1,5 @@
 use crate::{
-    WasiFunctionEnv,
+    WasiError, WasiFunctionEnv,
     utils::thread_local_executor::{
         ThreadLocalExecutor, ThreadLocalSpawner, ThreadLocalSpawnerError,
     },
@@ -19,6 +19,7 @@ use std::{
 use thiserror::Error;
 use tracing::trace;
 use wasmer::{RuntimeError, Store};
+use wasmer_wasix_types::wasi::ExitCode;
 
 /// The context-switching environment represents all state for WASIX context-switching
 /// on a single host thread.
@@ -77,6 +78,16 @@ impl Drop for ContextCanceled {
     }
 }
 
+/// Contexts will trap with this error as a RuntimeError::user when they entrypoint returns
+///
+/// It is not allowed for context entrypoints to return normally, they must always
+/// either get destroyed while suspended or trap with an error (like ContextCanceled)
+///
+/// This error will be picked up by the main context and cause it to trap as well.
+#[derive(Error, Debug)]
+#[error("The entrypoint of context {0} returned which is not allowed")]
+pub struct ContextEntrypointReturned(u64);
+
 impl ContextSwitchingEnvironment {
     fn new(spawner: ThreadLocalSpawner) -> Self {
         Self {
@@ -115,6 +126,22 @@ impl ContextSwitchingEnvironment {
         let store_async = store.into_async();
         // Run function with the spawner
         let result = local_executor.run_until(entrypoint.call_async(&store_async, params));
+
+        // Process if this was terminated by a context entrypoint returning
+        let result = match &result {
+            Err(e) => match e.downcast_ref::<ContextEntrypointReturned>() {
+                Some(ContextEntrypointReturned(id)) => {
+                    // Context entrypoint returned, which is not allowed
+                    // Exit with code 129
+                    tracing::error!("The entrypoint of context {id} returned which is not allowed");
+                    Err(RuntimeError::user(
+                        WasiError::Exit(ExitCode::from(129)).into(),
+                    ))
+                }
+                _ => result,
+            },
+            _ => result,
+        };
         // Drop the executor to ensure all spawned tasks are dropped, so we have no references to the StoreAsync left
         drop(local_executor);
 
@@ -251,10 +278,9 @@ impl ContextSwitchingEnvironment {
     /// Otherwise, the error will be propagated to the main context.
     ///
     /// If the context is cancelled before it is unblocked, the entrypoint will not be called
-    pub(crate) fn create_context<T, F>(&self, entrypoint: T) -> u64
+    pub(crate) fn create_context<F>(&self, entrypoint: F) -> u64
     where
-        T: FnOnce(u64) -> F + 'static,
-        F: Future<Output = RuntimeError> + 'static,
+        F: Future<Output = Result<(), RuntimeError>> + 'static,
     {
         // Create a new context ID
         let new_context_id = self
@@ -320,12 +346,19 @@ impl ContextSwitchingEnvironment {
             drop(inner);
 
             // Launch the context entrypoint
-            let launch_result = entrypoint(new_context_id).await;
+            let entrypoint_result = entrypoint.await;
+
+            // If that function returns, we need to resume the main context with an error
+            // Take the underlying error, or create a new error if the context returned a value
+            let entrypoint_result = entrypoint_result.map_or_else(
+                |e| e,
+                |_| RuntimeError::user(ContextEntrypointReturned(new_context_id).into()),
+            );
 
             // If that function returns something went wrong.
             // If it's a cancellation, we can just let this context run out.
             // If it's another error, we resume the main context with the error
-            let error = match launch_result.downcast::<ContextCanceled>() {
+            let error = match entrypoint_result.downcast::<ContextCanceled>() {
                 Ok(canceled) => {
                     tracing::trace!("Context {new_context_id} was successfully destroyed");
                     // We know what we are doing, so we can prevent the panic on drop
