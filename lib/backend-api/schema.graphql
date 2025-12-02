@@ -46,6 +46,7 @@ type User implements Node & PackageOwner & Owner {
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
+  isPro: Boolean!
   avatar(size: Int = 80): String!
   limitState: LimitState!
   isViewer: Boolean!
@@ -82,9 +83,10 @@ type User implements Node & PackageOwner & Owner {
   dashboardActivity(offset: Int, before: String, after: String, first: Int, last: Int): ActivityEventConnection!
   loginMethods: [LoginMethod!]!
   githubUser: SocialAuth
-  githubScopes: [String]!
-  githubRepositories: [GithubRepository]!
-  isPro: Boolean!
+  githubScopes: [String]! @deprecated(reason: "Please use github installations instead.")
+  githubRepositories: [GithubInstallationRepository]! @deprecated(reason: "Please use github installations instead.")
+  githubInstallationExists: Boolean! @deprecated(reason: "Please use github installations instead.")
+  githubInstallations: [GithubAppInstallation!]
   currentUsage(
     """List of app IDs. Usage gets filtered for the specific apps."""
     appIds: [ID]
@@ -92,7 +94,6 @@ type User implements Node & PackageOwner & Owner {
     """Optional time range filter."""
     timeRange: TimeRangeInput
   ): OwnerUsageSummary
-  webhooks: [Webhook]
 }
 
 """Setup for backwards compatibility with existing frontends."""
@@ -107,11 +108,11 @@ enum OwnerAction {
   PUBLISH_PACKAGE
 }
 
-"""An owner of a package."""
 interface Owner {
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
+  isPro: Boolean!
 }
 
 """
@@ -244,6 +245,7 @@ type Namespace implements Node & PackageOwner & Owner {
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
+  isPro: Boolean!
   limitState: LimitState!
   avatar: String!
   packages(offset: Int, before: String, after: String, first: Int, last: Int): PackageConnection!
@@ -272,7 +274,6 @@ type Namespace implements Node & PackageOwner & Owner {
     timeRange: TimeRangeInput
   ): [UsageMetric]!
   domains(offset: Int, before: String, after: String, first: Int, last: Int): DNSDomainConnection!
-  isPro: Boolean!
   billing: Billing
   currentUsage(
     """List of app IDs. Usage gets filtered for the specific apps."""
@@ -517,6 +518,7 @@ type PackageVersion implements Node & PackageReleaseInterface & PackageInstance 
   javascriptlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionNPMBindingConnection!
   pythonlanguagebindingSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageVersionPythonBindingConnection!
   deployappversionSet(offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
+  packagerolloutSet(offset: Int, before: String, after: String, first: Int, last: Int): PackageRolloutConnection!
   piritaManifest: JSONString
   piritaOffsets: JSONString
   piritaVolumes: JSONString
@@ -984,7 +986,8 @@ type DeployAppVersion implements Node {
   sourcePackage: Package!
   aggregateMetrics: AggregateMetrics!
   volumes: [AppVersionVolume]
-  gitSource: AutobuildRepository
+  gitSource: AutobuildRepository @deprecated(reason: "This field is deprecated and return null always.")
+  rolloutSource: Rollout
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
   isUploaded: Boolean!
@@ -1004,6 +1007,7 @@ type DeployApp implements Node & Owner {
   globalName: String!
   globalId: ID!
   viewerCan(action: OwnerAction!): Boolean!
+  isPro: Boolean!
   url: String!
   adminUrl: String!
   permalink: String!
@@ -1029,11 +1033,13 @@ type DeployApp implements Node & Owner {
   deleted: Boolean!
   favicon: URL
   screenshot(viewportSize: AppScreenshotViewportSize, appearance: AppScreenshotAppearance): URL
-  deployments(before: String, after: String, first: Int, last: Int): DeploymentConnection
+  deployments(before: String, after: String, first: Int, last: Int): DeploymentConnection @deprecated(reason: "Use rollouts instead")
+  rollouts(before: String, after: String, first: Int, last: Int): RolloutConnection
   buildConfiguration: BuildConfiguration
   sshServer: AppSshServer
   mails: [AppMail]
   kind: Kind
+  githubRepoConnection: GithubRepoConnection
 }
 
 """An enumeration."""
@@ -1351,7 +1357,7 @@ enum StatusEnum {
   SUCCESS
   WORKING
   RUNNING
-  FAILURE
+  FAILED
   QUEUED
   TIMEOUT
   INTERNAL_ERROR
@@ -1360,29 +1366,106 @@ enum StatusEnum {
 
 type BuildConfiguration implements Node {
   setupDb: Boolean!
-  buildCmd: String!
-  installCmd: String!
-  canDeployWithoutRepo: Boolean!
+  startCmd: String
+  buildCmd: String
+  installCmd: String
   completionTimeInSeconds: Int!
   kind: BuildKind
-  repo: String!
 
   """The ID of the object"""
   id: ID!
-  name: String!
-  repoName: String!
-  repoNamespace: String!
+  name: String
+  repo: String @deprecated(reason: "This field is deprecated and return null always.")
+  repoName: String @deprecated(reason: "This field is deprecated and return null always.")
+  repoNamespace: String @deprecated(reason: "This field is deprecated and return null always.")
 }
 
 type BuildKind implements Node {
   setupDb: Boolean!
-  buildCmd: String!
-  installCmd: String!
-  canDeployWithoutRepo: Boolean!
+  startCmd: String
+  buildCmd: String
+  installCmd: String
   name: String!
 
   """The ID of the object"""
   id: ID!
+}
+
+type RolloutConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [RolloutEdge]!
+}
+
+"""A Relay edge containing a `Rollout` and its cursor."""
+type RolloutEdge {
+  """The item at the end of the edge"""
+  node: Rollout
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type Rollout implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deployappVersion: DeployAppVersion
+  buildCommand: String!
+  installCommand: String!
+  buildId: String
+  status: StatusEnum!
+  logUrl: String
+  buildConfiguration: BuildConfiguration
+  rolloutDetails: RolloutType
+}
+
+union RolloutType = GitHubRollout | ZipRollout | PackageRollout
+
+type GitHubRollout implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  externalId: String
+  rollout: Rollout!
+  branch: String
+  commitHash: String
+  prevCommitHash: String
+  commitMessage: String
+  authorEmail: String
+  authorName: String
+  authorLogin: String
+  repoUrl: String!
+  commitUrl: String
+}
+
+type ZipRollout implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  externalId: String
+  rollout: Rollout
+  zipFileUrl: String!
+  zipFileHash: String
+}
+
+type PackageRollout implements Node {
+  """The ID of the object"""
+  id: ID!
+  createdAt: DateTime!
+  updatedAt: DateTime!
+  deletedAt: DateTime
+  externalId: String
+  rollout: Rollout!
+  sourcePackageVersion: PackageVersion
+  sourcePackageRelease: PackageWebc
 }
 
 type AppSshServer implements Node {
@@ -1469,7 +1552,7 @@ type AppMail implements Node {
   id: ID!
 }
 
-union Kind = WordpressAppKind
+union Kind = WordpressAppKind | MCPServerAppKind
 
 type WordpressAppKind {
   adminUrl: String!
@@ -1509,6 +1592,18 @@ type WordPressTheme {
   description: String
 }
 
+type MCPServerAppKind {
+  url: String!
+  transport: MCPServerTransportEnum
+}
+
+"""An enumeration."""
+enum MCPServerTransportEnum {
+  STDIO
+  STREAMABLE_HTTP
+  SSE
+}
+
 type LogConnection {
   """Pagination data for this connection."""
   pageInfo: PageInfo!
@@ -1546,6 +1641,26 @@ type AppVersionVolume {
 type AppVersionVolumeMountPath {
   path: String!
   subpath: String
+}
+
+type PackageRolloutConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PackageRolloutEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `PackageRollout` and its cursor."""
+type PackageRolloutEdge {
+  """The item at the end of the edge"""
+  node: PackageRollout
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 type PackageDistribution {
@@ -1711,8 +1826,8 @@ type AppTemplate implements Node {
   description: String!
   demoUrl: String!
   repoUrl: String!
-  branch: String
   rootDir: String
+  branch: String
   category: AppTemplateCategory!
   isPublic: Boolean!
   createdAt: DateTime!
@@ -1725,6 +1840,7 @@ type AppTemplate implements Node {
   completionTimeInSeconds: Int!
   highlighted: Boolean!
   defaultImage: String
+  defaultRepositoryCloneName: String
   framework: String!
   templateFramework: TemplateFramework
   language: String!
@@ -2507,20 +2623,6 @@ type SocialAuth implements Node {
   username: String!
 }
 
-type GithubRepository {
-  url: String!
-  name: String!
-  namespace: String!
-}
-
-type Webhook implements Node {
-  url: String!
-  active: Boolean!
-
-  """The ID of the object"""
-  id: ID!
-}
-
 type Signature {
   id: ID!
   publicKey: PublicKey!
@@ -2534,136 +2636,43 @@ type StripeCustomer {
 
 type Billing {
   stripeCustomer: StripeCustomer!
-  payments: [PaymentIntent]!
+  payments: [PaymentIntent]! @deprecated(reason: "Use `payment_connection` instead")
   subscriptions: [WasmerSubscription]!
-  paymentMethods: [PaymentMethod]!
+  paymentMethods: [PaymentMethod]! @deprecated(reason: "Use `payment_connection` instead")
+  paymentConnection(offset: Int, before: String, after: String, first: Int, last: Int): PaymentIntentConnection!
+  paymentMethodConnection(offset: Int, before: String, after: String, first: Int, last: Int): CardPaymentMethodConnection!
 }
 
 type PaymentIntent implements Node {
   """The datetime this object was created in stripe."""
   created: DateTime
 
-  """Three-letter ISO currency code"""
-  currency: String!
-
-  """
-  Status of this PaymentIntent, one of requires_payment_method, requires_confirmation, requires_action, processing, requires_capture, canceled, or succeeded. You can read more about PaymentIntent statuses here.
-  """
-  status: DjstripePaymentIntentStatusChoices!
-
   """The ID of the object"""
   id: ID!
   amount: String!
-}
-
-"""An enumeration."""
-enum DjstripePaymentIntentStatusChoices {
-  """
-  Cancellation invalidates the intent for future confirmation and cannot be undone.
-  """
-  CANCELED
-
-  """Required actions have been handled."""
-  PROCESSING
-
-  """Payment Method require additional action, such as 3D secure."""
-  REQUIRES_ACTION
-
-  """Capture the funds on the cards which have been put on holds."""
-  REQUIRES_CAPTURE
-
-  """Intent is ready to be confirmed."""
-  REQUIRES_CONFIRMATION
-
-  """Intent created and requires a Payment Method to be attached."""
-  REQUIRES_PAYMENT_METHOD
-
-  """The funds are in your account."""
-  SUCCEEDED
+  currency: String!
+  status: String!
+  invoicePdfUrl: String
 }
 
 type WasmerSubscription implements Node {
   """The datetime this object was created in stripe."""
   created: DateTime
 
-  """A description of this object."""
-  description: String
-
-  """
-  A date in the future at which the subscription will automatically get canceled.
-  """
-  cancelAt: DateTime
-
-  """
-  If the subscription has been canceled with the ``at_period_end`` flag set to true, ``cancel_at_period_end`` on the subscription will be true. You can use this attribute to determine whether a subscription that has a status of active is scheduled to be canceled at the end of the current period.
-  """
-  cancelAtPeriodEnd: Boolean!
-
-  """
-  If the subscription has been canceled, the date of that cancellation. If the subscription was canceled with ``cancel_at_period_end``, canceled_at will still reflect the date of the initial cancellation request, not the end of the subscription period when the subscription is automatically moved to a canceled state.
-  """
-  canceledAt: DateTime
-
-  """
-  End of the current period for which the subscription has been invoiced. At the end of this period, a new invoice will be created.
-  """
-  currentPeriodEnd: DateTime!
-
-  """
-  Start of the current period for which the subscription has been invoiced.
-  """
-  currentPeriodStart: DateTime!
-
-  """
-  Number of days a customer has to pay invoices generated by this subscription. This value will be `null` for subscriptions where `billing=charge_automatically`.
-  """
-  daysUntilDue: Int
-
-  """
-  If the subscription has ended (either because it was canceled or because the customer was switched to a subscription to a new plan), the date the subscription ended.
-  """
-  endedAt: DateTime
-
-  """
-  Date when the subscription was first created. The date might differ from the created date due to backdating.
-  """
-  startDate: DateTime
-
-  """The status of this subscription."""
-  status: DjstripeSubscriptionStatusChoices!
-
-  """If the subscription has a trial, the end of that trial."""
-  trialEnd: DateTime
-
-  """If the subscription has a trial, the beginning of that trial."""
-  trialStart: DateTime
-
   """The ID of the object"""
   id: ID!
-}
-
-"""An enumeration."""
-enum DjstripeSubscriptionStatusChoices {
-  """Active"""
-  ACTIVE
-
-  """Canceled"""
-  CANCELED
-
-  """Incomplete"""
-  INCOMPLETE
-
-  """Incomplete Expired"""
-  INCOMPLETE_EXPIRED
-
-  """Past due"""
-  PAST_DUE
-
-  """Trialing"""
-  TRIALING
-
-  """Unpaid"""
-  UNPAID
+  cancelAt: DateTime
+  canceledAt: DateTime
+  currentPeriodEnd: DateTime
+  currentPeriodStart: DateTime
+  daysUntilDue: Int
+  endedAt: DateTime
+  startDate: DateTime
+  status: String
+  trialEnd: DateTime
+  trialStart: DateTime
+  description: String
+  cancelAtPeriodEnd: Boolean
 }
 
 union PaymentMethod = CardPaymentMethod
@@ -2706,6 +2715,46 @@ enum CardFunding {
   DEBIT
   PREPAID
   UNKNOWN
+}
+
+type PaymentIntentConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [PaymentIntentEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `PaymentIntent` and its cursor."""
+type PaymentIntentEdge {
+  """The item at the end of the edge"""
+  node: PaymentIntent
+
+  """A cursor for use in pagination"""
+  cursor: String!
+}
+
+type CardPaymentMethodConnection {
+  """Pagination data for this connection."""
+  pageInfo: PageInfo!
+
+  """Contains the nodes in this connection."""
+  edges: [CardPaymentMethodEdge]!
+
+  """Total number of items in the connection."""
+  totalCount: Int
+}
+
+"""A Relay edge containing a `CardPaymentMethod` and its cursor."""
+type CardPaymentMethodEdge {
+  """The item at the end of the edge"""
+  node: CardPaymentMethod
+
+  """A cursor for use in pagination"""
+  cursor: String!
 }
 
 type Payment {
@@ -2876,6 +2925,36 @@ input WorkloadRunnerWasmSourceV1 {
   webc: WebcSourceV1!
 }
 
+type GithubAppInstallation implements Node {
+  """The ID of the object"""
+  id: ID!
+  slug: String!
+  githubConfigureUrl: String!
+  repositories(filterByName: String): [GithubInstallationRepository]!
+}
+
+type GithubInstallationRepository implements Node {
+  """The ID of the object"""
+  id: ID!
+  repoUrl: String!
+  installation: GithubAppInstallation!
+  url: String!
+  name: String!
+  namespace: String!
+}
+
+type GithubRepoConnection implements Node {
+  """The ID of the object"""
+  id: ID!
+  githubRepoInstallation: GithubInstallationRepository!
+  connectedBy: User!
+  deployBranch: String!
+  app: DeployApp!
+  pullRequestComments: Boolean!
+  connectedAt: DateTime!
+  deploymentStatusEvents: Boolean!
+}
+
 type Query {
   latestTOS: TermsOfService!
   getAppRegions(active: Boolean, supportsVolumes: Boolean, supportsDatabases: Boolean, offset: Int, before: String, after: String, first: Int, last: Int): AppRegionConnection!
@@ -2890,6 +2969,7 @@ type Query {
     owner: String
   ): DeployApp
   getAppByGlobalAlias(alias: String!): DeployApp
+  autobuildDeploymentStatus(buildId: UUID!): AutobuildDeploymentStatus
   getDeployApps(sortBy: DeployAppsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppConnection!
   getAppVersions(sortBy: DeployAppVersionsSortBy, updatedAfter: DateTime, offset: Int, before: String, after: String, first: Int, last: Int): DeployAppVersionConnection!
   getTemplateFrameworks(offset: Int, before: String, after: String, first: Int, last: Int): TemplateFrameworkConnection
@@ -2909,6 +2989,8 @@ type Query {
     name: String!
   ): Boolean!
   wordpressDeploymentDefaults: WordpressDeploymentDefaults!
+  rollout(id: ID!): Rollout
+  githubRollout(id: ID!): GitHubRollout
   viewer: User
   getUser(username: String!): User
   getPasswordResetToken(token: String!): GetPasswordResetToken
@@ -3039,6 +3121,12 @@ type DNSRecordEdge {
 enum DNSRecordsSortBy {
   NEWEST
   OLDEST
+}
+
+type AutobuildDeploymentStatus {
+  buildId: UUID!
+  status: StatusEnum!
+  appVersion: DeployAppVersion
 }
 
 type TemplateFrameworkConnection {
@@ -3684,6 +3772,7 @@ type Mutation {
 
   """Delete a database for an app."""
   deleteAppDb(input: DeleteAppDBInput!): DeleteAppDBPayload
+  updateBuildConfig(input: UpdateBuildConfigInput!): UpdateBuildConfigPayload
 
   """Get the autobuild config for a given repo"""
   autobuildConfigForRepo(input: AutobuildConfigForRepoInput!): AutobuildConfigForRepoPayload
@@ -3699,6 +3788,13 @@ type Mutation {
 
   """Update autobuild config for an app."""
   updateAutobuildConfigForApp(input: UpdateAutobuildConfigForAppInput!): UpdateAutobuildConfigForAppPayload
+
+  """Connect a github repo to an app."""
+  connectGithubRepoToApp(input: ConnectGithubRepoToAppInput!): ConnectGithubRepoToAppPayload
+
+  """Disconnect a github repo from an app."""
+  disconnectGithubRepoFromApp(input: DisconnectGithubRepoFromAppInput!): DisconnectGithubRepoFromAppPayload
+  updateGithubRepoConnection(input: UpdateGithubRepoAppConnectionInput!): UpdateGithubRepoAppConnectionPayload
 
   """Deploy a wordpress site."""
   deployWordpress(input: DeployWordpressInput!): DeployWordpressPayload @deprecated(reason: "Use `publishAppFromRepoAutobuild` subscription instead.")
@@ -3766,12 +3862,9 @@ type Mutation {
   mfa2EmailAuth(input: MFAEmailAuthInput!): MFAAuthResponse
   mfa2EmailGetToken(input: MFAGenerateEmailOTPInput!): MFAEmailGenerationResponse
   generateCheckoutUrl(input: GenerateCheckoutUrlInput!): GenerateCheckoutUrlPayload
-
-  """Add webhook to user"""
-  addWebhook(input: AddWebhookInput!): AddWebhookPayload
-
-  """Add webhook to user"""
-  removeWebhook(input: RemoveWebhookInput!): RemoveWebhookPayload
+  createCheckoutSession(input: CreateCheckoutSessionInput!): CreateCheckoutSessionPayload
+  cancelSubscription(input: CancelSubscriptionInput!): CancelSubscriptionPayload
+  renewCanceledSubscription(input: RenewCanceledSubscriptionInput!): RenewCanceledSubscriptionPayload
   publishPublicKey(input: PublishPublicKeyInput!): PublishPublicKeyPayload
   publishPackage(input: PublishPackageInput!): PublishPackagePayload
   pushPackageRelease(input: PushPackageReleaseInput!): PushPackageReleasePayload
@@ -4439,31 +4532,56 @@ input DeleteAppDBInput {
   clientMutationId: String
 }
 
+type UpdateBuildConfigPayload {
+  buildConfig: BuildConfiguration!
+  success: Boolean!
+  clientMutationId: String
+}
+
+input UpdateBuildConfigInput {
+  appId: ID!
+  presetName: String
+  startCmd: String
+  buildCmd: String
+  installCmd: String
+  clientMutationId: String
+}
+
 """Get the autobuild config for a given repo"""
 type AutobuildConfigForRepoPayload {
   """The build configuration"""
   buildConfig: BuildConfig
 
   """List of apps deployed with this repo."""
-  deployedApps: [DeployApp]
+  deployedApps: [DeployApp] @deprecated(reason: "This field is not used anymore")
   clientMutationId: String
 }
 
 """The Build Configuration for a given repo"""
 type BuildConfig {
-  buildCmd: String!
-  installCmd: String!
+  startCmd: String
+  buildCmd: String
+  installCmd: String
   setupDb: Boolean!
   presetName: String!
   appName: String!
-  canDeployWithoutRepo: Boolean!
   completionTimeInSeconds: Int!
   branch: String
+  canDeployWithoutRepo: Boolean! @deprecated(reason: "This field is not used anymore")
 }
 
 input AutobuildConfigForRepoInput {
   """The repo URL"""
   repoUrl: String!
+
+  """The path to build from"""
+  basePath: String @deprecated(reason: "Please use root_dir instead")
+
+  """The root directory to build from"""
+  rootDir: String
+
+  """The branch to use"""
+  branch: String
   clientMutationId: String
 }
 
@@ -4473,7 +4591,7 @@ type AutobuildConfigForZipUploadPayload {
   buildConfig: BuildConfig
 
   """List of apps deployed with this repo."""
-  deployedApps: [DeployApp]
+  deployedApps: [DeployApp] @deprecated(reason: "This field is not used anymore")
   clientMutationId: String
 }
 
@@ -4487,12 +4605,19 @@ input AutobuildConfigForZipUploadInput {
 type InstallGithubAppPayload {
   success: Boolean!
   user: User!
+  installation: GithubAppInstallation
   clientMutationId: String
 }
 
 input InstallGithubAppInput {
   """Github app Installation ID"""
   installationId: ID!
+
+  """Github App Account ID"""
+  githubAccountId: ID
+
+  """Github App Account Login"""
+  githubAccountLogin: String
   clientMutationId: String
 }
 
@@ -4523,6 +4648,53 @@ input UpdateAutobuildConfigForAppInput {
 
   """Install command for the app"""
   installCmd: String
+  clientMutationId: String
+}
+
+"""Connect a github repo to an app."""
+type ConnectGithubRepoToAppPayload {
+  app: DeployApp!
+  githubRepoConnection: GithubRepoConnection!
+  success: Boolean!
+  clientMutationId: String
+}
+
+input ConnectGithubRepoToAppInput {
+  """The ID of the App"""
+  appId: ID!
+
+  """The ID of the Github app repository installation"""
+  installationRepoId: ID!
+
+  """The branch to deploy from"""
+  deployBranch: String
+  clientMutationId: String
+}
+
+"""Disconnect a github repo from an app."""
+type DisconnectGithubRepoFromAppPayload {
+  app: DeployApp!
+  success: Boolean!
+  clientMutationId: String
+}
+
+input DisconnectGithubRepoFromAppInput {
+  """The ID of the App"""
+  appId: ID!
+  clientMutationId: String
+}
+
+type UpdateGithubRepoAppConnectionPayload {
+  githubRepoConnection: GithubRepoConnection!
+  success: Boolean!
+  clientMutationId: String
+}
+
+input UpdateGithubRepoAppConnectionInput {
+  """The ID of the GithubRepoConnection"""
+  connectionId: ID!
+  deploymentStatusEvents: Boolean
+  pullRequestComments: Boolean
   clientMutationId: String
 }
 
@@ -4645,6 +4817,7 @@ input DeployViaAutobuildInput {
   owner: String
   buildCmd: String
   installCmd: String
+  startCmd: String
   enableDatabase: Boolean
   secrets: [SecretInput]
   extraData: AutobuildDeploymentExtraData
@@ -4659,6 +4832,12 @@ input DeployViaAutobuildInput {
 
   """Region to deploy the app"""
   region: String
+
+  """The path to build from (defaults to /)"""
+  basePath: String @deprecated(reason: "Please use root_dir instead")
+
+  """The root directory to build from (defaults to /)"""
+  rootDir: String
 
   """
   Branch to deploy from. If no branch is specified, the default branch is used.
@@ -4842,6 +5021,7 @@ input RegisterUserInput {
   acceptedTos: Boolean
   intent: String
   fingerprintVisitorId: String
+  enterProTrial: Boolean
   clientMutationId: String
 }
 
@@ -4857,6 +5037,8 @@ input SocialAuthJWTInput {
   register: Boolean = false
   registerIntent: String
   fingerprintVisitorId: String
+  enterProTrial: Boolean
+  response: JSONString
   clientMutationId: String
 }
 
@@ -5162,6 +5344,7 @@ type GenerateCheckoutUrlPayload {
 type StripeCheckout {
   url: String!
   expiresAt: DateTime!
+  clientSecret: String!
 }
 
 input GenerateCheckoutUrlInput {
@@ -5182,25 +5365,54 @@ input GenerateCheckoutUrlInput {
   clientMutationId: String
 }
 
-"""Add webhook to user"""
-type AddWebhookPayload {
-  webhook: Webhook!
+type CreateCheckoutSessionPayload {
+  clientSecret: String!
   clientMutationId: String
 }
 
-input AddWebhookInput {
-  url: String!
+input CreateCheckoutSessionInput {
+  """URL to redirect."""
+  returnUrl: String!
+
+  """ID of price (product) to charge the user."""
+  priceId: ID!
+
+  """Locale of the customer."""
+  locale: String!
+
+  """ID of owner to create subscription on. Defaults to current user."""
+  forOwnerId: ID
+
+  """Whether to apply a trial period if available."""
+  isTrial: Boolean = false
   clientMutationId: String
 }
 
-"""Add webhook to user"""
-type RemoveWebhookPayload {
-  success: Boolean!
+type CancelSubscriptionPayload {
+  ok: Boolean!
   clientMutationId: String
 }
 
-input RemoveWebhookInput {
-  id: ID!
+input CancelSubscriptionInput {
+  """ID of owner whose subscription to cancel."""
+  forOwnerId: ID!
+
+  """ID of the subscription to cancel"""
+  subscriptionId: ID!
+  clientMutationId: String
+}
+
+type RenewCanceledSubscriptionPayload {
+  ok: Boolean!
+  clientMutationId: String
+}
+
+input RenewCanceledSubscriptionInput {
+  """ID of owner whose subscription to renew."""
+  forOwnerId: ID!
+
+  """ID of the subscription to renew"""
+  subscriptionId: ID!
   clientMutationId: String
 }
 

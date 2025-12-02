@@ -175,7 +175,8 @@ clap_builder = { version = "4.5.53" }
 clap_derive = { version = "4.5.49" }
 clap_lex = { version = "0.7.6" }
 fs_extra = {version = "1.3.0"}
-inkwell = {version = "0.7.1", default-features = false}
+# TODO: use a proper release
+inkwell = { git = "https://github.com/TheDan64/inkwell.git", rev = "b9c53276e30935ccec841d12c9687a17e9199958", default-features = false }
 phf = "0.13.1"
 dynasm = "4.0.0"
 dynasmrt = "4.0.0"

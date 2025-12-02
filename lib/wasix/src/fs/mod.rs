@@ -9,6 +9,7 @@ mod fd;
 mod fd_list;
 mod inode_guard;
 mod notification;
+pub(crate) mod relative_path_hack;
 
 use std::{
     borrow::{Borrow, Cow},
@@ -33,7 +34,10 @@ use futures::{Future, TryStreamExt, future::BoxFuture};
 use serde_derive::{Deserialize, Serialize};
 use tokio::io::AsyncWriteExt;
 use tracing::{debug, trace};
-use virtual_fs::{FileSystem, FsError, OpenOptions, VirtualFile, copy_reference};
+use virtual_fs::{
+    FileSystem, FsError, OpenOptions, UnionFileSystem, VirtualFile, copy_reference,
+    tmp_fs::TmpFileSystem,
+};
 use wasmer_config::package::PackageId;
 use wasmer_wasix_types::{
     types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO},
@@ -49,6 +53,7 @@ pub(crate) use self::inode_guard::{
     InodeValFileReadGuard, InodeValFileWriteGuard, POLL_GUARD_MAX_RET, WasiStateFileGuard,
 };
 pub use self::notification::NotificationInner;
+use self::relative_path_hack::RelativeOrAbsolutePathHack;
 use crate::syscalls::map_io_err;
 use crate::{ALL_RIGHTS, bin_factory::BinaryPackage, state::PreopenedDir};
 
@@ -362,91 +367,105 @@ impl Default for WasiInodes {
 
 #[derive(Debug, Clone)]
 pub enum WasiFsRoot {
-    Sandbox(Arc<virtual_fs::tmp_fs::TmpFileSystem>),
-    Backing(Arc<Box<dyn FileSystem>>),
-}
-
-impl WasiFsRoot {
-    /// Merge the contents of a filesystem into this one.
-    #[tracing::instrument(level = "debug", skip_all)]
-    pub(crate) async fn merge(
-        &self,
-        other: &Arc<dyn FileSystem + Send + Sync>,
-    ) -> Result<(), virtual_fs::FsError> {
-        match self {
-            WasiFsRoot::Sandbox(fs) => {
-                fs.union(other);
-                Ok(())
-            }
-            WasiFsRoot::Backing(fs) => {
-                merge_filesystems(other, fs).await?;
-                Ok(())
-            }
-        }
-    }
+    Sandbox(TmpFileSystem),
+    /// Dedicated canonical overlay representation.
+    ///
+    /// Overlays are the common form of the file system for WASIX packages.
+    /// Dependencies are all added to the overlay, with the regular file system
+    /// as the foundation.
+    ///
+    /// This dedicated variant is necessary to norm the behaviour and prevent
+    /// redundant recursive merging of filesystems when additional dependencies
+    /// are added.
+    Overlay(
+        Arc<
+            virtual_fs::OverlayFileSystem<
+                TmpFileSystem,
+                [RelativeOrAbsolutePathHack<UnionFileSystem>; 1],
+            >,
+        >,
+    ),
+    Backing(Arc<dyn FileSystem + Send + Sync>),
 }
 
 impl FileSystem for WasiFsRoot {
     fn readlink(&self, path: &Path) -> virtual_fs::Result<PathBuf> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.readlink(path),
-            WasiFsRoot::Backing(fs) => fs.readlink(path),
+            Self::Sandbox(fs) => fs.readlink(path),
+            Self::Overlay(overlay) => overlay.readlink(path),
+            Self::Backing(fs) => fs.readlink(path),
         }
     }
 
     fn read_dir(&self, path: &Path) -> virtual_fs::Result<virtual_fs::ReadDir> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.read_dir(path),
-            WasiFsRoot::Backing(fs) => fs.read_dir(path),
+            Self::Sandbox(fs) => fs.read_dir(path),
+            Self::Overlay(overlay) => overlay.read_dir(path),
+            Self::Backing(fs) => fs.read_dir(path),
         }
     }
+
     fn create_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.create_dir(path),
-            WasiFsRoot::Backing(fs) => fs.create_dir(path),
+            Self::Sandbox(fs) => fs.create_dir(path),
+            Self::Overlay(overlay) => overlay.create_dir(path),
+            Self::Backing(fs) => fs.create_dir(path),
         }
     }
+
     fn remove_dir(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.remove_dir(path),
-            WasiFsRoot::Backing(fs) => fs.remove_dir(path),
+            Self::Sandbox(fs) => fs.remove_dir(path),
+            Self::Overlay(overlay) => overlay.remove_dir(path),
+            Self::Backing(fs) => fs.remove_dir(path),
         }
     }
+
     fn rename<'a>(&'a self, from: &Path, to: &Path) -> BoxFuture<'a, virtual_fs::Result<()>> {
         let from = from.to_owned();
         let to = to.to_owned();
         let this = self.clone();
         Box::pin(async move {
             match this {
-                WasiFsRoot::Sandbox(fs) => fs.rename(&from, &to).await,
-                WasiFsRoot::Backing(fs) => fs.rename(&from, &to).await,
+                Self::Sandbox(fs) => fs.rename(&from, &to).await,
+                Self::Overlay(overlay) => overlay.rename(&from, &to).await,
+                Self::Backing(fs) => fs.rename(&from, &to).await,
             }
         })
     }
+
     fn metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.metadata(path),
-            WasiFsRoot::Backing(fs) => fs.metadata(path),
+            Self::Sandbox(fs) => fs.metadata(path),
+            Self::Overlay(overlay) => overlay.metadata(path),
+            Self::Backing(fs) => fs.metadata(path),
         }
     }
+
     fn symlink_metadata(&self, path: &Path) -> virtual_fs::Result<virtual_fs::Metadata> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.symlink_metadata(path),
-            WasiFsRoot::Backing(fs) => fs.symlink_metadata(path),
+            Self::Sandbox(fs) => fs.symlink_metadata(path),
+            Self::Overlay(overlay) => overlay.symlink_metadata(path),
+            Self::Backing(fs) => fs.symlink_metadata(path),
         }
     }
+
     fn remove_file(&self, path: &Path) -> virtual_fs::Result<()> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.remove_file(path),
-            WasiFsRoot::Backing(fs) => fs.remove_file(path),
+            Self::Sandbox(fs) => fs.remove_file(path),
+            Self::Overlay(overlay) => overlay.remove_file(path),
+            Self::Backing(fs) => fs.remove_file(path),
         }
     }
+
     fn new_open_options(&self) -> OpenOptions<'_> {
         match self {
-            WasiFsRoot::Sandbox(fs) => fs.new_open_options(),
-            WasiFsRoot::Backing(fs) => fs.new_open_options(),
+            Self::Sandbox(fs) => fs.new_open_options(),
+            Self::Overlay(overlay) => overlay.new_open_options(),
+            Self::Backing(fs) => fs.new_open_options(),
         }
     }
+
     fn mount(
         &self,
         name: String,
@@ -454,20 +473,25 @@ impl FileSystem for WasiFsRoot {
         fs: Box<dyn FileSystem + Send + Sync>,
     ) -> virtual_fs::Result<()> {
         match self {
-            WasiFsRoot::Sandbox(f) => f.mount(name, path, fs),
-            WasiFsRoot::Backing(f) => f.mount(name, path, fs),
+            Self::Sandbox(root) => FileSystem::mount(root, name, path, fs),
+            Self::Overlay(overlay) => FileSystem::mount(overlay.primary(), name, path, fs),
+            Self::Backing(f) => f.mount(name, path, fs),
         }
     }
 }
 
 /// Merge the contents of one filesystem into another.
 ///
+/// NOTE: merging is a very expensive operation, since it requires copying
+/// many files in memory, even if the underlying files are immutable and
+/// mapped through mmap or similar mechanisms.
+/// Merging should be avoided when possible.
 #[tracing::instrument(level = "trace", skip_all)]
 async fn merge_filesystems(
     source: &dyn FileSystem,
     destination: &dyn FileSystem,
 ) -> Result<(), virtual_fs::FsError> {
-    tracing::debug!("Falling back to a recursive copy to merge filesystems");
+    tracing::warn!("Falling back to a recursive copy to merge filesystems");
     let files = futures::stream::FuturesUnordered::new();
 
     let mut to_check = VecDeque::new();
@@ -638,15 +662,28 @@ impl WasiFs {
         &self,
         binary: &BinaryPackage,
     ) -> Result<(), virtual_fs::FsError> {
-        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(binary.id.clone());
+        let Some(webc_fs) = &binary.webc_fs else {
+            return Ok(());
+        };
 
+        let needs_to_be_unioned = self.has_unioned.lock().unwrap().insert(binary.id.clone());
         if !needs_to_be_unioned {
             return Ok(());
         }
 
-        self.root_fs.merge(&binary.webc_fs).await?;
-
-        Ok(())
+        match &self.root_fs {
+            WasiFsRoot::Sandbox(fs) => {
+                // TODO: this can be changed to switch to Self::Overlay instead!
+                let fdyn: Arc<dyn FileSystem + Send + Sync> = webc_fs.clone();
+                fs.union(&fdyn);
+                Ok(())
+            }
+            WasiFsRoot::Overlay(overlay) => {
+                let union = &overlay.secondaries()[0];
+                union.0.merge(webc_fs, virtual_fs::UnionMergeMode::Skip)
+            }
+            WasiFsRoot::Backing(backing) => merge_filesystems(webc_fs, backing).await,
+        }
     }
 
     /// Created for the builder API. like `new` but with more information
@@ -2211,14 +2248,14 @@ impl std::fmt::Debug for WasiFs {
 }
 
 /// Returns the default filesystem backing
-pub fn default_fs_backing() -> Box<dyn virtual_fs::FileSystem + Send + Sync> {
+pub fn default_fs_backing() -> Arc<dyn virtual_fs::FileSystem + Send + Sync> {
     cfg_if::cfg_if! {
         if #[cfg(feature = "host-fs")] {
-            Box::new(virtual_fs::host_fs::FileSystem::new(tokio::runtime::Handle::current(), "/").unwrap())
+            Arc::new(virtual_fs::host_fs::FileSystem::new(tokio::runtime::Handle::current(), "/").unwrap())
         } else if #[cfg(not(feature = "host-fs"))] {
-            Box::<virtual_fs::mem_fs::FileSystem>::default()
+            Arc::<virtual_fs::mem_fs::FileSystem>::default()
         } else {
-            Box::<FallbackFileSystem>::default()
+            Arc::<FallbackFileSystem>::default()
         }
     }
 }
