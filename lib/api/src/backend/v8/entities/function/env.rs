@@ -62,7 +62,7 @@ impl<T> FunctionEnv<T> {
     }
 
     /// Convert it into a `FunctionEnvMut`
-    pub fn into_mut(self, store: &mut impl AsStoreMut) -> FunctionEnvMut<T>
+    pub fn into_mut(self, store: &'_ mut impl AsStoreMut) -> FunctionEnvMut<'_, T>
     where
         T: Any + Send + 'static + Sized,
     {
@@ -137,7 +137,7 @@ impl<T: Send + 'static> FunctionEnvMut<'_, T> {
     }
 
     /// Borrows a new mutable reference of both the attached Store and host state
-    pub fn data_and_store_mut(&mut self) -> (&mut T, StoreMut) {
+    pub fn data_and_store_mut(&'_ mut self) -> (&'_ mut T, StoreMut<'_>) {
         let data = self.func_env.as_mut(&mut self.store_mut) as *mut T;
         // telling the borrow check to close his eyes here
         // this is still relatively safe to do as func_env are
