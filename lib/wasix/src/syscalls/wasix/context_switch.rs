@@ -19,6 +19,15 @@ pub async fn context_switch(
     target_context_id: u64,
 ) -> Result<Errno, RuntimeError> {
     let mut write_lock = ctx.write().await;
+
+    let mut sync_env = write_lock.as_function_env_mut();
+    match WasiEnv::do_pending_operations(&mut sync_env) {
+        Ok(()) => {}
+        Err(e) => {
+            return Err(RuntimeError::user(e.into()));
+        }
+    }
+
     let data = write_lock.data_mut();
 
     // Verify that we are in an async context
