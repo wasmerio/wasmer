@@ -104,6 +104,16 @@ pub struct Intrinsics<'ctx> {
     pub cmp_f32x4: FunctionValue<'ctx>,
     pub cmp_f64x2: FunctionValue<'ctx>,
 
+    pub minimum_f32: FunctionValue<'ctx>,
+    pub minimum_f64: FunctionValue<'ctx>,
+    pub minimum_f32x4: FunctionValue<'ctx>,
+    pub minimum_f64x2: FunctionValue<'ctx>,
+
+    pub maximum_f32: FunctionValue<'ctx>,
+    pub maximum_f64: FunctionValue<'ctx>,
+    pub maximum_f32x4: FunctionValue<'ctx>,
+    pub maximum_f64x2: FunctionValue<'ctx>,
+
     pub ceil_f32: FunctionValue<'ctx>,
     pub ceil_f64: FunctionValue<'ctx>,
     pub ceil_f32x4: FunctionValue<'ctx>,
@@ -157,6 +167,8 @@ pub struct Intrinsics<'ctx> {
     pub stack_probe: Attribute,
     pub uwtable: Attribute,
     pub frame_pointer: Attribute,
+    // Stack probe function used on Windows MSVC
+    pub chkstk: FunctionValue<'ctx>,
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
@@ -624,6 +636,32 @@ impl<'ctx> Intrinsics<'ctx> {
                 None,
             ),
 
+            minimum_f32: module.add_function("llvm.minimum.f32", ret_f32_take_f32_f32, None),
+            minimum_f64: module.add_function("llvm.minimum.f64", ret_f64_take_f64_f64, None),
+            minimum_f32x4: module.add_function(
+                "llvm.minimum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            minimum_f64x2: module.add_function(
+                "llvm.minimum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
+
+            maximum_f32: module.add_function("llvm.maximum.f32", ret_f32_take_f32_f32, None),
+            maximum_f64: module.add_function("llvm.maximum.f64", ret_f64_take_f64_f64, None),
+            maximum_f32x4: module.add_function(
+                "llvm.maximum.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            maximum_f64x2: module.add_function(
+                "llvm.maximum.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
+
             fpext_f32: module.add_function(
                 "llvm.experimental.constrained.fpext.f64.f32",
                 ret_f64_take_f32_md,
@@ -728,6 +766,7 @@ impl<'ctx> Intrinsics<'ctx> {
             stack_probe: context.create_string_attribute("probe-stack", "inline-asm"),
             uwtable: context.create_enum_attribute(Attribute::get_named_enum_kind_id("uwtable"), 1),
             frame_pointer: context.create_string_attribute("frame-pointer", "non-leaf"),
+            chkstk: module.add_function("__chkstk", void_ty.fn_type(&[], false), None),
             void_ty,
             i1_ty,
             i2_ty,

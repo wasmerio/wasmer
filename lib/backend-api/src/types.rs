@@ -1328,7 +1328,7 @@ mod queries {
     pub enum StatusEnum {
         Success,
         Working,
-        Failure,
+        Failed,
         Queued,
         Timeout,
         InternalError,
@@ -1341,7 +1341,7 @@ mod queries {
             match self {
                 Self::Success => "success",
                 Self::Working => "working",
-                Self::Failure => "failure",
+                Self::Failed => "failed",
                 Self::Queued => "queued",
                 Self::Timeout => "timeout",
                 Self::InternalError => "internal_error",
@@ -1373,8 +1373,9 @@ mod queries {
 
     #[derive(cynic::QueryFragment, Debug, Clone, Serialize)]
     pub struct BuildConfig {
-        pub build_cmd: String,
-        pub install_cmd: String,
+        pub build_cmd: Option<String>,
+        pub install_cmd: Option<String>,
+        pub start_cmd: Option<String>,
         pub setup_db: bool,
         pub preset_name: String,
         pub app_name: String,

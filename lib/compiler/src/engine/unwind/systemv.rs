@@ -54,6 +54,12 @@ fn using_libunwind() -> bool {
         return true;
     }
 
+    // TODO: wasmtime started using weak symbol definition that makes the detection
+    // more reliable on linux-musl target: https://github.com/bytecodealliance/wasmtime/pull/9479
+    if cfg!(target_env = "musl") {
+        return true;
+    }
+
     // On other platforms the unwinder can vary. Sometimes the unwinder is
     // selected at build time and sometimes it differs at build time and runtime
     // (or at least I think that's possible). Fall back to a `libc::dlsym` to

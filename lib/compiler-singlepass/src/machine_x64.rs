@@ -12,7 +12,10 @@ use crate::{
 use dynasmrt::{DynasmError, VecAssembler, x64::X64Relocation};
 #[cfg(feature = "unwind")]
 use gimli::{X86_64, write::CallFrameInstruction};
-use std::ops::{Deref, DerefMut};
+use std::{
+    collections::HashMap,
+    ops::{Deref, DerefMut},
+};
 use wasmer_compiler::{
     types::{
         address_map::InstructionAddressMap,
@@ -2519,9 +2522,15 @@ impl Machine for MachineX86_64 {
     }
 
     // assembler finalize
-    fn assembler_finalize(self) -> Result<Vec<u8>, CompileError> {
-        self.assembler.finalize().map_err(|e| {
-            CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+    fn assembler_finalize(
+        self,
+        assembly_comments: HashMap<usize, AssemblyComment>,
+    ) -> Result<FinalizedAssembly, CompileError> {
+        Ok(FinalizedAssembly {
+            body: self.assembler.finalize().map_err(|e| {
+                CompileError::Codegen(format!("Assembler failed finalization with: {e:?}"))
+            })?,
+            assembly_comments,
         })
     }
 

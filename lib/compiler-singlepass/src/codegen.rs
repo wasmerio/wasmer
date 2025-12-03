@@ -7,17 +7,21 @@ use crate::{
     common_decl::*,
     config::Singlepass,
     location::{Location, Reg},
-    machine::{Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition},
+    machine::{
+        AssemblyComment, FinalizedAssembly, Label, Machine, NATIVE_PAGE_SIZE, UnsignedCondition,
+    },
     unwind::UnwindFrame,
 };
 #[cfg(feature = "unwind")]
 use gimli::write::Address;
 use itertools::Itertools;
 use smallvec::{SmallVec, smallvec};
-use std::{cmp, iter, ops::Neg};
+use std::{cmp, collections::HashMap, iter, ops::Neg};
+use target_lexicon::Architecture;
 
 use wasmer_compiler::{
     FunctionBodyData,
+    misc::CompiledKind,
     types::{
         function::{CompiledFunction, CompiledFunctionFrameInfo, FunctionBody},
         relocation::{Relocation, RelocationTarget},
@@ -98,6 +102,12 @@ pub struct FuncGen<'a, M: Machine> {
 
     /// Calling convention to use.
     calling_convention: CallingConvention,
+
+    /// Name of the function.
+    function_name: String,
+
+    /// Assembly comments.
+    assembly_comments: HashMap<usize, AssemblyComment>,
 }
 
 struct SpecialLabelSet {
@@ -419,6 +429,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         sig: FunctionType,
         calling_convention: CallingConvention,
     ) -> Result<Vec<Location<M::GPR, M::SIMD>>, CompileError> {
+        self.add_assembly_comment(AssemblyComment::InitializeLocals);
+
         // How many machine stack slots will all the locals use?
         let num_mem_slots = (0..n)
             .filter(|&x| self.machine.is_local_on_stack(x))
@@ -846,6 +858,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
     }
 
     fn emit_head(&mut self) -> Result<(), CompileError> {
+        self.add_assembly_comment(AssemblyComment::FunctionPrologue);
         self.machine.emit_function_prolog()?;
 
         // Initialize locals.
@@ -856,6 +869,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         )?;
 
         // simulate "red zone" if not supported by the platform
+        self.add_assembly_comment(AssemblyComment::RedZone);
         self.machine.extend_stack(32)?;
 
         let return_types: SmallVec<_> = self
@@ -887,6 +901,7 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         // We insert set StackOverflow as the default trap that can happen
         // anywhere in the function prologue.
         self.machine.insert_stackoverflow();
+        self.add_assembly_comment(AssemblyComment::FunctionBody);
 
         Ok(())
     }
@@ -920,6 +935,11 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             bad_signature: machine.get_label(),
             unaligned_atomic: machine.get_label(),
         };
+        let function_name = module
+            .function_names
+            .get(&func_index)
+            .map(|fname| fname.to_string())
+            .unwrap_or_else(|| format!("function_{}", func_index.as_u32()));
 
         let mut fg = FuncGen {
             module,
@@ -940,6 +960,8 @@ impl<'a, M: Machine> FuncGen<'a, M> {
             relocations: vec![],
             special_labels,
             calling_convention,
+            function_name,
+            assembly_comments: HashMap::new(),
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5740,10 +5762,20 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         Ok(())
     }
 
+    fn add_assembly_comment(&mut self, comment: AssemblyComment) {
+        // Collect assembly comments only if we're going to emit them.
+        if self.config.callbacks.is_some() {
+            self.assembly_comments
+                .insert(self.machine.get_offset().0, comment);
+        }
+    }
+
     pub fn finalize(
         mut self,
         data: &FunctionBodyData,
+        arch: Architecture,
     ) -> Result<(CompiledFunction, Option<UnwindFrame>), CompileError> {
+        self.add_assembly_comment(AssemblyComment::TrapHandlersTable);
         // Generate actual code for special labels.
         self.machine
             .emit_label(self.special_labels.integer_division_by_zero)?;
@@ -5808,8 +5840,24 @@ impl<'a, M: Machine> FuncGen<'a, M> {
         let address_map =
             get_function_address_map(self.machine.instructions_address_map(), data, body_len);
         let traps = self.machine.collect_trap_information();
-        let mut body = self.machine.assembler_finalize()?;
+        let FinalizedAssembly {
+            mut body,
+            assembly_comments,
+        } = self.machine.assembler_finalize(self.assembly_comments)?;
         body.shrink_to_fit();
+
+        if let Some(callbacks) = self.config.callbacks.as_ref() {
+            callbacks.obj_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                &body,
+            );
+            callbacks.asm_memory_buffer(
+                &CompiledKind::Local(self.local_func_index, self.function_name.clone()),
+                arch,
+                &body,
+                assembly_comments,
+            )?;
+        }
 
         Ok((
             CompiledFunction {
