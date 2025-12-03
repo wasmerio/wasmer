@@ -556,7 +556,7 @@
 <a href=#556 id=556 data-nosnippet>556</a>
 <a href=#557 id=557 data-nosnippet>557</a>    <span class="prelude-val">Ok</span>(MiniCargoTomlPackage {
 <a href=#558 id=558 data-nosnippet>558</a>        cargo_toml_path: manifest_path.clone(),
-<a href=#559 id=559 data-nosnippet>559</a>        name: package.name.clone(),
+<a href=#559 id=559 data-nosnippet>559</a>        name: package.name.as_str().to_owned(),
 <a href=#560 id=560 data-nosnippet>560</a>        version: package.version.clone(),
 <a href=#561 id=561 data-nosnippet>561</a>        description: package.description.clone(),
 <a href=#562 id=562 data-nosnippet>562</a>        homepage: package.homepage.clone(),

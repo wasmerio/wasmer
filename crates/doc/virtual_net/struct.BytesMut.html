@@ -87,7 +87,7 @@ bytes.put_slice(<span class="string">b"xy"</span>);
 referenced by the handle will no longer be mutated. Once the conversion
 is done, the handle can be cloned and shared across threads.</p>
 <h5 id="examples-6"><a class="doc-anchor" href="#examples-6">§</a>Examples</h5>
-<div class="example-wrap"><pre class="rust rust-example-rendered"><code><span class="kw">use </span>bytes::{BytesMut, BufMut};
+<div class="example-wrap ignore"><a href="#" class="tooltip" title="This example is not tested on wasm">ⓘ</a><pre class="rust rust-example-rendered"><code><span class="kw">use </span>bytes::{BytesMut, BufMut};
 <span class="kw">use </span>std::thread;
 
 <span class="kw">let </span><span class="kw-2">mut </span>b = BytesMut::with_capacity(<span class="number">64</span>);

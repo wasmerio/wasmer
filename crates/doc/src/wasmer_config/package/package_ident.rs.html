@@ -1,4 +1,4 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/config/src/package/package_ident.rs`."><title>package_ident.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_config" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_config/package/</div>package_ident.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::str::FromStr;
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source of the Rust file `lib/config/src/package/package_ident.rs`."><title>package_ident.rs - source</title><script>if(window.location.protocol!=="file:")document.head.insertAdjacentHTML("beforeend","SourceSerif4-Regular-6b053e98.ttf.woff2,FiraSans-Italic-81dc35de.woff2,FiraSans-Regular-0fe48ade.woff2,FiraSans-MediumItalic-ccf7e434.woff2,FiraSans-Medium-e1aa3f0a.woff2,SourceCodePro-Regular-8badfe75.ttf.woff2,SourceCodePro-Semibold-aa29a496.ttf.woff2".split(",").map(f=>`<link rel="preload" as="font" type="font/woff2" crossorigin href="../../../static.files/${f}">`).join(""))</script><link rel="stylesheet" href="../../../static.files/normalize-9960930a.css"><link rel="stylesheet" href="../../../static.files/rustdoc-84e720fa.css"><meta name="rustdoc-vars" data-root-path="../../../" data-static-root-path="../../../static.files/" data-current-crate="wasmer_config" data-themes="" data-resource-suffix="" data-rustdoc-version="1.89.0 (29483883e 2025-08-04)" data-channel="1.89.0" data-search-js="search-92309212.js" data-settings-js="settings-5514c975.js" ><script src="../../../static.files/storage-4e99c027.js"></script><script defer src="../../../static.files/src-script-813739b1.js"></script><script defer src="../../../src-files.js"></script><script defer src="../../../static.files/main-fd3af306.js"></script><noscript><link rel="stylesheet" href="../../../static.files/noscript-32bb7600.css"></noscript><link rel="alternate icon" type="image/png" href="../../../static.files/favicon-32x32-6580c154.png"><link rel="icon" type="image/svg+xml" href="../../../static.files/favicon-044be391.svg"></head><body class="rustdoc src"><!--[if lte IE 11]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="src-sidebar-title"><h2>Files</h2></div></nav><div class="sidebar-resizer" title="Drag to resize sidebar"></div><main><rustdoc-search></rustdoc-search><section id="main-content" class="content"><div class="main-heading"><h1><div class="sub-heading">wasmer_config/package/</div>package_ident.rs</h1><rustdoc-toolbar></rustdoc-toolbar></div><div class="example-wrap digits-3"><pre class="rust"><code><a href=#1 id=1 data-nosnippet>1</a><span class="kw">use </span>std::{borrow::Cow, str::FromStr};
 <a href=#2 id=2 data-nosnippet>2</a>
 <a href=#3 id=3 data-nosnippet>3</a><span class="kw">use super</span>::{NamedPackageIdent, PackageHash, PackageId, PackageParseError};
 <a href=#4 id=4 data-nosnippet>4</a>
@@ -96,37 +96,45 @@
 <a href=#96 id=96 data-nosnippet>96</a>}
 <a href=#97 id=97 data-nosnippet>97</a>
 <a href=#98 id=98 data-nosnippet>98</a><span class="kw">impl </span>schemars::JsonSchema <span class="kw">for </span>PackageIdent {
-<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">fn </span>schema_name() -&gt; String {
-<a href=#100 id=100 data-nosnippet>100</a>        <span class="string">"PackageIdent"</span>.to_string()
+<a href=#99 id=99 data-nosnippet>99</a>    <span class="kw">fn </span>schema_name() -&gt; Cow&lt;<span class="lifetime">'static</span>, str&gt; {
+<a href=#100 id=100 data-nosnippet>100</a>        Cow::Borrowed(<span class="string">"PackageIdent"</span>)
 <a href=#101 id=101 data-nosnippet>101</a>    }
 <a href=#102 id=102 data-nosnippet>102</a>
-<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">fn </span>json_schema(r#gen: <span class="kw-2">&amp;mut </span>schemars::r#gen::SchemaGenerator) -&gt; schemars::schema::Schema {
-<a href=#104 id=104 data-nosnippet>104</a>        String::json_schema(r#gen)
+<a href=#103 id=103 data-nosnippet>103</a>    <span class="kw">fn </span>json_schema(generator: <span class="kw-2">&amp;mut </span>schemars::SchemaGenerator) -&gt; schemars::Schema {
+<a href=#104 id=104 data-nosnippet>104</a>        String::json_schema(generator)
 <a href=#105 id=105 data-nosnippet>105</a>    }
-<a href=#106 id=106 data-nosnippet>106</a>}
-<a href=#107 id=107 data-nosnippet>107</a>
-<a href=#108 id=108 data-nosnippet>108</a><span class="attr">#[cfg(test)]
-<a href=#109 id=109 data-nosnippet>109</a></span><span class="kw">mod </span>tests {
-<a href=#110 id=110 data-nosnippet>110</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
-<a href=#111 id=111 data-nosnippet>111</a>
-<a href=#112 id=112 data-nosnippet>112</a>    <span class="attr">#[test]
-<a href=#113 id=113 data-nosnippet>113</a>    </span><span class="kw">fn </span>test_package_ident_matches_id() {
-<a href=#114 id=114 data-nosnippet>114</a>        <span class="macro">assert!</span>(
-<a href=#115 id=115 data-nosnippet>115</a>            PackageIdent::from_str(<span class="string">"ns/pkg"</span>)
-<a href=#116 id=116 data-nosnippet>116</a>                .unwrap()
-<a href=#117 id=117 data-nosnippet>117</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"1.0.0"</span>.parse().unwrap()))
-<a href=#118 id=118 data-nosnippet>118</a>        );
+<a href=#106 id=106 data-nosnippet>106</a>
+<a href=#107 id=107 data-nosnippet>107</a>    <span class="kw">fn </span>inline_schema() -&gt; bool {
+<a href=#108 id=108 data-nosnippet>108</a>        <span class="bool-val">false
+<a href=#109 id=109 data-nosnippet>109</a>    </span>}
+<a href=#110 id=110 data-nosnippet>110</a>
+<a href=#111 id=111 data-nosnippet>111</a>    <span class="kw">fn </span>schema_id() -&gt; std::borrow::Cow&lt;<span class="lifetime">'static</span>, str&gt; {
+<a href=#112 id=112 data-nosnippet>112</a>        <span class="self">Self</span>::schema_name()
+<a href=#113 id=113 data-nosnippet>113</a>    }
+<a href=#114 id=114 data-nosnippet>114</a>}
+<a href=#115 id=115 data-nosnippet>115</a>
+<a href=#116 id=116 data-nosnippet>116</a><span class="attr">#[cfg(test)]
+<a href=#117 id=117 data-nosnippet>117</a></span><span class="kw">mod </span>tests {
+<a href=#118 id=118 data-nosnippet>118</a>    <span class="kw">use super</span>::<span class="kw-2">*</span>;
 <a href=#119 id=119 data-nosnippet>119</a>
-<a href=#120 id=120 data-nosnippet>120</a>        <span class="macro">assert!</span>(
-<a href=#121 id=121 data-nosnippet>121</a>            PackageIdent::from_str(<span class="string">"ns/pkg@2"</span>)
-<a href=#122 id=122 data-nosnippet>122</a>                .unwrap()
-<a href=#123 id=123 data-nosnippet>123</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
-<a href=#124 id=124 data-nosnippet>124</a>        );
-<a href=#125 id=125 data-nosnippet>125</a>
-<a href=#126 id=126 data-nosnippet>126</a>        <span class="macro">assert!</span>(
-<a href=#127 id=127 data-nosnippet>127</a>            !PackageIdent::from_str(<span class="string">"ns/pkg@3"</span>)
-<a href=#128 id=128 data-nosnippet>128</a>                .unwrap()
-<a href=#129 id=129 data-nosnippet>129</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
-<a href=#130 id=130 data-nosnippet>130</a>        );
-<a href=#131 id=131 data-nosnippet>131</a>    }
-<a href=#132 id=132 data-nosnippet>132</a>}</code></pre></div></section></main></body></html>
+<a href=#120 id=120 data-nosnippet>120</a>    <span class="attr">#[test]
+<a href=#121 id=121 data-nosnippet>121</a>    </span><span class="kw">fn </span>test_package_ident_matches_id() {
+<a href=#122 id=122 data-nosnippet>122</a>        <span class="macro">assert!</span>(
+<a href=#123 id=123 data-nosnippet>123</a>            PackageIdent::from_str(<span class="string">"ns/pkg"</span>)
+<a href=#124 id=124 data-nosnippet>124</a>                .unwrap()
+<a href=#125 id=125 data-nosnippet>125</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"1.0.0"</span>.parse().unwrap()))
+<a href=#126 id=126 data-nosnippet>126</a>        );
+<a href=#127 id=127 data-nosnippet>127</a>
+<a href=#128 id=128 data-nosnippet>128</a>        <span class="macro">assert!</span>(
+<a href=#129 id=129 data-nosnippet>129</a>            PackageIdent::from_str(<span class="string">"ns/pkg@2"</span>)
+<a href=#130 id=130 data-nosnippet>130</a>                .unwrap()
+<a href=#131 id=131 data-nosnippet>131</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
+<a href=#132 id=132 data-nosnippet>132</a>        );
+<a href=#133 id=133 data-nosnippet>133</a>
+<a href=#134 id=134 data-nosnippet>134</a>        <span class="macro">assert!</span>(
+<a href=#135 id=135 data-nosnippet>135</a>            !PackageIdent::from_str(<span class="string">"ns/pkg@3"</span>)
+<a href=#136 id=136 data-nosnippet>136</a>                .unwrap()
+<a href=#137 id=137 data-nosnippet>137</a>                .matches_id(<span class="kw-2">&amp;</span>PackageId::new_named(<span class="string">"ns/pkg"</span>, <span class="string">"2.3.7"</span>.parse().unwrap()))
+<a href=#138 id=138 data-nosnippet>138</a>        );
+<a href=#139 id=139 data-nosnippet>139</a>    }
+<a href=#140 id=140 data-nosnippet>140</a>}</code></pre></div></section></main></body></html>

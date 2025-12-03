@@ -56,7 +56,7 @@
 <a href=#56 id=56 data-nosnippet>56</a>                <span class="self">Self</span>::Sys(sys::wasmer_sys_engine_config_t::default())
 <a href=#57 id=57 data-nosnippet>57</a>            }
 <a href=#58 id=58 data-nosnippet>58</a>            <span class="attr">#[cfg(feature = <span class="string">"v8"</span>)]
-<a href=#59 id=59 data-nosnippet>59</a>            </span><span class="kw">super</span>::wasmer_backend_t::V8 =&gt; <span class="self">Self</span>::V8(v8::wasmer_v8_engine_config_t::default()),
+<a href=#59 id=59 data-nosnippet>59</a>            </span><span class="kw">super</span>::wasmer_backend_t::V8 =&gt; <span class="self">Self</span>::V8(v8::wasmer_v8_engine_config_t),
 <a href=#60 id=60 data-nosnippet>60</a>            <span class="attr">#[cfg(feature = <span class="string">"wasmi"</span>)]
 <a href=#61 id=61 data-nosnippet>61</a>            </span><span class="kw">super</span>::wasmer_backend_t::WASMI =&gt; {
 <a href=#62 id=62 data-nosnippet>62</a>                <span class="self">Self</span>::Wasmi(wasmi::wasmer_wasmi_engine_config_t::default())
