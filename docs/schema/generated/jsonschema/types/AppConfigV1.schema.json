@@ -1,11 +1,8 @@
 {
   "$schema": "https://json-schema.org/draft/2019-09/schema",
   "title": "AppConfigV1",
-  "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend; Edge itself does not use this format and relies on the internal `AppVersionV1Spec` representation instead.",
+  "description": "User-facing app.yaml config file for apps.\n\nNOTE: only used by the backend; Edge itself does not use this format and\nrelies on the internal `AppVersionV1Spec` representation instead.",
   "type": "object",
-  "required": [
-    "package"
-  ],
   "properties": {
     "app_id": {
       "description": "App id assigned by the backend.\n\nThis will get populated once the app has been deployed.\n\nThis id is also used to map to the existing app during deployments.",
@@ -17,7 +14,7 @@
     "capabilities": {
       "anyOf": [
         {
-          "$ref": "#/definitions/AppConfigCapabilityMapV1"
+          "$ref": "#/$defs/AppConfigCapabilityMapV1"
         },
         {
           "type": "null"
@@ -42,7 +39,7 @@
       ]
     },
     "domains": {
-      "description": "Domains for the app.\n\nThis can include both provider-supplied alias domains and custom domains.",
+      "description": "Domains for the app.\n\nThis can include both provider-supplied\nalias domains and custom domains.",
       "type": [
         "array",
         "null"
@@ -64,7 +61,7 @@
         "null"
       ],
       "items": {
-        "$ref": "#/definitions/HealthCheckV1"
+        "$ref": "#/$defs/HealthCheckV1"
       }
     },
     "jobs": {
@@ -73,14 +70,14 @@
         "null"
       ],
       "items": {
-        "$ref": "#/definitions/Job"
+        "$ref": "#/$defs/Job"
       }
     },
     "locality": {
       "description": "Location-related configuration for the app.",
       "anyOf": [
         {
-          "$ref": "#/definitions/Locality"
+          "$ref": "#/$defs/Locality"
         },
         {
           "type": "null"
@@ -103,12 +100,12 @@
     },
     "package": {
       "description": "The package to execute.",
-      "$ref": "#/definitions/PackageSource"
+      "$ref": "#/$defs/PackageSource"
     },
     "redirect": {
       "anyOf": [
         {
-          "$ref": "#/definitions/Redirect"
+          "$ref": "#/$defs/Redirect"
         },
         {
           "type": "null"
@@ -118,7 +115,7 @@
     "scaling": {
       "anyOf": [
         {
-          "$ref": "#/definitions/AppScalingConfigV1"
+          "$ref": "#/$defs/AppScalingConfigV1"
         },
         {
           "type": "null"
@@ -131,7 +128,7 @@
         "null"
       ],
       "items": {
-        "$ref": "#/definitions/AppScheduledTask"
+        "$ref": "#/$defs/AppScheduledTask"
       }
     },
     "volumes": {
@@ -140,21 +137,24 @@
         "null"
       ],
       "items": {
-        "$ref": "#/definitions/AppVolume"
+        "$ref": "#/$defs/AppVolume"
       }
     }
   },
   "additionalProperties": true,
-  "definitions": {
+  "required": [
+    "package"
+  ],
+  "$defs": {
     "AppConfigCapabilityInstaBootV1": {
-      "description": "Enables accelerated instance boot times with startup snapshots.\n\nHow it works: The Edge runtime will create a pre-initialized snapshot of apps that is ready to serve requests Your app will then restore from the generated snapshot, which has the potential to significantly speed up cold starts.\n\nTo drive the initialization, multiple http requests can be specified. All the specified requests will be sent to the app before the snapshot is created, allowing the app to pre-load files, pre initialize caches, ...",
+      "description": "Enables accelerated instance boot times with startup snapshots.\n\nHow it works:\nThe Edge runtime will create a pre-initialized snapshot of apps that is\nready to serve requests\nYour app will then restore from the generated snapshot, which has the\npotential to significantly speed up cold starts.\n\nTo drive the initialization, multiple http requests can be specified.\nAll the specified requests will be sent to the app before the snapshot is\ncreated, allowing the app to pre-load files, pre initialize caches, ...",
       "type": "object",
       "properties": {
         "max_age": {
-          "description": "Maximum age of snapshots.\n\nFormat: 5m, 1h, 2d, ...\n\nAfter the specified time new snapshots will be created, and the old ones discarded.",
+          "description": "Maximum age of snapshots.\n\nFormat: 5m, 1h, 2d, ...\n\nAfter the specified time new snapshots will be created, and the old\nones discarded.",
           "anyOf": [
             {
-              "$ref": "#/definitions/PrettyDuration"
+              "$ref": "#/$defs/PrettyDuration"
             },
             {
               "type": "null"
@@ -163,34 +163,34 @@
         },
         "mode": {
           "description": "The method to use to generate the instaboot snapshot for the instance.",
-          "default": null,
           "anyOf": [
             {
-              "$ref": "#/definitions/InstabootSnapshotModeV1"
+              "$ref": "#/$defs/InstabootSnapshotModeV1"
             },
             {
               "type": "null"
             }
-          ]
+          ],
+          "default": null
         },
         "requests": {
-          "description": "HTTP requests to perform during startup snapshot creation. Apps can perform all the appropriate warmup logic in these requests.\n\nNOTE: if no requests are configured, then a single HTTP request to '/' will be performed instead.",
+          "description": "HTTP requests to perform during startup snapshot creation.\nApps can perform all the appropriate warmup logic in these requests.\n\nNOTE: if no requests are configured, then a single HTTP\nrequest to '/' will be performed instead.",
           "type": "array",
           "items": {
-            "$ref": "#/definitions/HttpRequest"
+            "$ref": "#/$defs/HttpRequest"
           }
         }
       }
     },
     "AppConfigCapabilityMapV1": {
-      "description": "Restricted version of the internal `CapabilityMapV1`, with only a select subset of settings.",
+      "description": "Restricted version of the internal `CapabilityMapV1`, with only a select\nsubset of settings.",
       "type": "object",
       "properties": {
         "instaboot": {
           "description": "Enables app bootstrapping with startup snapshots.",
           "anyOf": [
             {
-              "$ref": "#/definitions/AppConfigCapabilityInstaBootV1"
+              "$ref": "#/$defs/AppConfigCapabilityInstaBootV1"
             },
             {
               "type": "null"
@@ -201,7 +201,7 @@
           "description": "Instance memory settings.",
           "anyOf": [
             {
-              "$ref": "#/definitions/AppConfigCapabilityMemoryV1"
+              "$ref": "#/$defs/AppConfigCapabilityMemoryV1"
             },
             {
               "type": "null"
@@ -212,7 +212,7 @@
           "description": "Runtime settings.",
           "anyOf": [
             {
-              "$ref": "#/definitions/AppConfigCapabilityRuntimeV1"
+              "$ref": "#/$defs/AppConfigCapabilityRuntimeV1"
             },
             {
               "type": "null"
@@ -222,7 +222,7 @@
         "ssh": {
           "anyOf": [
             {
-              "$ref": "#/definitions/CapabilitySshServerV1"
+              "$ref": "#/$defs/CapabilitySshServerV1"
             },
             {
               "type": "null"
@@ -233,7 +233,7 @@
       "additionalProperties": true
     },
     "AppConfigCapabilityMemoryV1": {
-      "description": "Memory capability settings.\n\nNOTE: this is kept separate from the internal `CapabilityMemoryV1` struct to keep the high-level app.yaml distinct from the internal App entity.",
+      "description": "Memory capability settings.\n\nNOTE: this is kept separate from the internal `CapabilityMemoryV1` struct\nto keep the high-level app.yaml distinct from the internal App entity.",
       "type": "object",
       "properties": {
         "limit": {
@@ -271,7 +271,7 @@
         "mode": {
           "anyOf": [
             {
-              "$ref": "#/definitions/AppScalingModeV1"
+              "$ref": "#/$defs/AppScalingModeV1"
             },
             {
               "type": "null"
@@ -288,21 +288,17 @@
     },
     "AppScheduledTask": {
       "type": "object",
-      "required": [
-        "name"
-      ],
       "properties": {
         "name": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "name"
+      ]
     },
     "AppVolume": {
       "type": "object",
-      "required": [
-        "mount",
-        "name"
-      ],
       "properties": {
         "mount": {
           "type": "string"
@@ -310,7 +306,11 @@
         "name": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "name",
+        "mount"
+      ]
     },
     "CapabilitySshServerV1": {
       "description": "Configure SSH server credentials and settings.",
@@ -329,7 +329,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/SshUserV1"
+            "$ref": "#/$defs/SshUserV1"
           }
         }
       },
@@ -341,7 +341,7 @@
         "capabilities": {
           "anyOf": [
             {
-              "$ref": "#/definitions/ExecutableJobCompatibilityMapV1"
+              "$ref": "#/$defs/ExecutableJobCompatibilityMapV1"
             },
             {
               "type": "null"
@@ -349,7 +349,7 @@
           ]
         },
         "cli_args": {
-          "description": "CLI arguments passed to the runner. Only applicable for runners that accept CLI arguments.",
+          "description": "CLI arguments passed to the runner.\nOnly applicable for runners that accept CLI arguments.",
           "type": [
             "array",
             "null"
@@ -379,7 +379,7 @@
           "description": "The package that contains the command to run. Defaults to the app config's package.",
           "anyOf": [
             {
-              "$ref": "#/definitions/PackageSource"
+              "$ref": "#/$defs/PackageSource"
             },
             {
               "type": "null"
@@ -392,7 +392,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/AppVolume"
+            "$ref": "#/$defs/AppVolume"
           }
         }
       }
@@ -404,7 +404,7 @@
           "description": "Instance memory settings.",
           "anyOf": [
             {
-              "$ref": "#/definitions/AppConfigCapabilityMemoryV1"
+              "$ref": "#/$defs/AppConfigCapabilityMemoryV1"
             },
             {
               "type": "null"
@@ -417,9 +417,6 @@
     "HealthCheckHttpV1": {
       "description": "Health check configuration for http endpoints.",
       "type": "object",
-      "required": [
-        "path"
-      ],
       "properties": {
         "body": {
           "description": "Request body as a string.",
@@ -431,7 +428,7 @@
         "expect": {
           "anyOf": [
             {
-              "$ref": "#/definitions/HttpRequestExpect"
+              "$ref": "#/$defs/HttpRequestExpect"
             },
             {
               "type": "null"
@@ -445,7 +442,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/HttpHeader"
+            "$ref": "#/$defs/HttpHeader"
           }
         },
         "healthy_threshold": {
@@ -455,7 +452,7 @@
             "null"
           ],
           "format": "uint32",
-          "minimum": 0.0
+          "minimum": 0
         },
         "interval": {
           "description": "Interval for the health check.\n\nFormat: 1s, 5m, 11h, ...\n\nDefaults to 60s.",
@@ -479,7 +476,7 @@
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
           "anyOf": [
             {
-              "$ref": "#/definitions/PrettyDuration"
+              "$ref": "#/$defs/PrettyDuration"
             },
             {
               "type": "null"
@@ -493,33 +490,32 @@
             "null"
           ],
           "format": "uint32",
-          "minimum": 0.0
+          "minimum": 0
         }
-      }
+      },
+      "required": [
+        "path"
+      ]
     },
     "HealthCheckV1": {
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "http"
-          ],
           "properties": {
             "http": {
-              "$ref": "#/definitions/HealthCheckHttpV1"
+              "$ref": "#/$defs/HealthCheckHttpV1"
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "http"
+          ]
         }
       ]
     },
     "HttpHeader": {
       "description": "Definition for an HTTP header.",
       "type": "object",
-      "required": [
-        "name",
-        "value"
-      ],
       "properties": {
         "name": {
           "type": "string"
@@ -527,14 +523,15 @@
         "value": {
           "type": "string"
         }
-      }
+      },
+      "required": [
+        "name",
+        "value"
+      ]
     },
     "HttpRequest": {
       "description": "Defines an HTTP request.",
       "type": "object",
-      "required": [
-        "path"
-      ],
       "properties": {
         "body": {
           "description": "Request body as a string.",
@@ -546,7 +543,7 @@
         "expect": {
           "anyOf": [
             {
-              "$ref": "#/definitions/HttpRequestExpect"
+              "$ref": "#/$defs/HttpRequestExpect"
             },
             {
               "type": "null"
@@ -560,7 +557,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/HttpHeader"
+            "$ref": "#/$defs/HttpHeader"
           }
         },
         "method": {
@@ -578,14 +575,17 @@
           "description": "Request timeout.\n\nFormat: 1s, 5m, 11h, ...",
           "anyOf": [
             {
-              "$ref": "#/definitions/PrettyDuration"
+              "$ref": "#/$defs/PrettyDuration"
             },
             {
               "type": "null"
             }
           ]
         }
-      }
+      },
+      "required": [
+        "path"
+      ]
     },
     "HttpRequestExpect": {
       "description": "Validation checks for an [`HttpRequest`].",
@@ -614,7 +614,8 @@
           "items": {
             "type": "integer",
             "format": "uint16",
-            "minimum": 0.0
+            "maximum": 65535,
+            "minimum": 0
           }
         }
       }
@@ -623,65 +624,60 @@
       "description": "How will an instance be bootstrapped?",
       "oneOf": [
         {
-          "description": "Start the instance without any snapshot triggers. Once the requests are done, use `wasmer_wasix::WasiProcess::snapshot_and_stop` to capture a snapshot and shut the instance down.",
+          "description": "Start the instance without any snapshot triggers. Once the requests are done,\nuse `wasmer_wasix::WasiProcess::snapshot_and_stop` to capture a snapshot\nand shut the instance down.",
           "type": "string",
-          "enum": [
-            "bootstrap"
-          ]
+          "const": "bootstrap"
         },
         {
-          "description": "Explicitly enable the given snapshot triggers before starting the instance. The instance's process will have its stop_running_after_checkpoint flag set, so the first snapshot will cause the instance to shut down.",
+          "description": "Explicitly enable the given snapshot triggers before starting the instance.\nThe instance's process will have its stop_running_after_checkpoint flag set,\nso the first snapshot will cause the instance to shut down.",
           "type": "object",
-          "required": [
-            "triggers"
-          ],
           "properties": {
             "triggers": {
               "type": "array",
               "items": {
-                "$ref": "#/definitions/SnapshotTrigger"
+                "$ref": "#/$defs/SnapshotTrigger"
               }
             }
           },
-          "additionalProperties": false
+          "additionalProperties": false,
+          "required": [
+            "triggers"
+          ]
         }
       ]
     },
     "Job": {
       "description": "Job configuration.",
       "type": "object",
-      "required": [
-        "action",
-        "name",
-        "trigger"
-      ],
       "properties": {
         "action": {
-          "$ref": "#/definitions/JobAction"
+          "$ref": "#/$defs/JobAction"
         },
         "jitter_percent_max": {
-          "description": "Maximum percent of \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time. The calculation works by multiplying the time between invocations by a random amount, and taking the percentage of that random amount.\n\nSee also [`Self::jitter_percent_min`] to set a minimum jitter.",
+          "description": "Maximum percent of \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time.\nThe calculation works by multiplying the time between invocations\nby a random amount, and taking the percentage of that random amount.\n\nSee also [`Self::jitter_percent_min`] to set a minimum jitter.",
           "type": [
             "integer",
             "null"
           ],
           "format": "uint8",
-          "minimum": 0.0
+          "maximum": 255,
+          "minimum": 0
         },
         "jitter_percent_min": {
-          "description": "Minimum \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time. The calculation works by multiplying the time between invocations by a random amount, and taking the percentage of that random amount.\n\nIf not specified while `jitter_percent_max` is, it will default to 10%.\n\nSee also [`Self::jitter_percent_max`] to set a maximum jitter.",
+          "description": "Minimum \"jitter\" to introduce between invocations.\n\nValue range: 0-100\n\nJitter is used to spread out jobs over time.\nThe calculation works by multiplying the time between invocations\nby a random amount, and taking the percentage of that random amount.\n\nIf not specified while `jitter_percent_max` is, it will default to 10%.\n\nSee also [`Self::jitter_percent_max`] to set a maximum jitter.",
           "type": [
             "integer",
             "null"
           ],
           "format": "uint8",
-          "minimum": 0.0
+          "maximum": 255,
+          "minimum": 0
         },
         "max_schedule_drift": {
-          "description": "Don't start job if past the due time by this amount, instead opting to wait for the next instance of it to be triggered.",
+          "description": "Don't start job if past the due time by this amount,\ninstead opting to wait for the next instance of it\nto be triggered.",
           "anyOf": [
             {
-              "$ref": "#/definitions/PrettyDuration"
+              "$ref": "#/$defs/PrettyDuration"
             },
             {
               "type": "null"
@@ -697,12 +693,12 @@
             "null"
           ],
           "format": "uint32",
-          "minimum": 0.0
+          "minimum": 0
         },
         "timeout": {
           "anyOf": [
             {
-              "$ref": "#/definitions/PrettyDuration"
+              "$ref": "#/$defs/PrettyDuration"
             },
             {
               "type": "null"
@@ -710,37 +706,40 @@
           ]
         },
         "trigger": {
-          "$ref": "#/definitions/JobTrigger"
+          "$ref": "#/$defs/JobTrigger"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "required": [
+        "name",
+        "trigger",
+        "action"
+      ]
     },
     "JobAction": {
       "type": "object",
       "oneOf": [
         {
           "type": "object",
-          "required": [
-            "fetch"
-          ],
           "properties": {
             "fetch": {
-              "$ref": "#/definitions/HttpRequest"
+              "$ref": "#/$defs/HttpRequest"
             }
           },
-          "additionalProperties": false
+          "required": [
+            "fetch"
+          ]
         },
         {
           "type": "object",
-          "required": [
-            "execute"
-          ],
           "properties": {
             "execute": {
-              "$ref": "#/definitions/ExecutableJob"
+              "$ref": "#/$defs/ExecutableJob"
             }
           },
-          "additionalProperties": false
+          "required": [
+            "execute"
+          ]
         }
       ]
     },
@@ -749,9 +748,6 @@
     },
     "Locality": {
       "type": "object",
-      "required": [
-        "regions"
-      ],
       "properties": {
         "regions": {
           "type": "array",
@@ -759,7 +755,10 @@
             "type": "string"
           }
         }
-      }
+      },
+      "required": [
+        "regions"
+      ]
     },
     "PackageSource": {
       "type": "string"
@@ -769,40 +768,36 @@
         {
           "description": "Plain text password.",
           "type": "object",
-          "required": [
-            "password",
-            "type"
-          ],
           "properties": {
             "password": {
               "type": "string"
             },
             "type": {
               "type": "string",
-              "enum": [
-                "plain"
-              ]
+              "const": "plain"
             }
-          }
+          },
+          "required": [
+            "type",
+            "password"
+          ]
         },
         {
           "description": "Bcrypt password hash.",
           "type": "object",
-          "required": [
-            "hash",
-            "type"
-          ],
           "properties": {
             "hash": {
               "type": "string"
             },
             "type": {
               "type": "string",
-              "enum": [
-                "bcrypt"
-              ]
+              "const": "bcrypt"
             }
-          }
+          },
+          "required": [
+            "type",
+            "hash"
+          ]
         }
       ]
     },
@@ -827,9 +822,6 @@
     },
     "SshUserV1": {
       "type": "object",
-      "required": [
-        "username"
-      ],
       "properties": {
         "authorized_keys": {
           "description": "SSH public keys for this user.",
@@ -848,7 +840,7 @@
             "null"
           ],
           "items": {
-            "$ref": "#/definitions/PasswordV1"
+            "$ref": "#/$defs/PasswordV1"
           }
         },
         "username": {
@@ -856,7 +848,10 @@
           "type": "string"
         }
       },
-      "additionalProperties": true
+      "additionalProperties": true,
+      "required": [
+        "username"
+      ]
     }
   }
 }
