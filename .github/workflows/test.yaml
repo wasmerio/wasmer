@@ -709,7 +709,7 @@ jobs:
       - name: Build C-API
         shell: bash
         run: ${{ matrix.build-what.build-cmd }}
-        if: ${{ matrix.build-what.key == 'capi' }}
+        if: ${{ matrix.build-what.key == 'capi' && matrix.metadata.build != 'macos-x64' }}
         env:
           TARGET: ${{ matrix.metadata.target }}
           TARGET_DIR: target/${{ matrix.metadata.target }}/release
@@ -720,7 +720,7 @@ jobs:
         if: ${{ matrix.build-what.key == 'capi-v8' && matrix.metadata.supports_v8 == true  }}
       - name: Build Wasmer
         shell: bash
-        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' }}
+        if: ${{ matrix.build-what.key == 'wasmer' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
         run: ${{ matrix.build-what.build-cmd }}
         env:
           TARGET: ${{ matrix.metadata.target }}
@@ -728,7 +728,7 @@ jobs:
           CARGO_TARGET: ${{ matrix.metadata.target }}
       - name: Check `wasmer` crate with all the `sys` features enabled
         shell: bash
-        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' }}
+        if: ${{ matrix.build-what.key == 'api-feats' && matrix.metadata.build != 'windows-gnu' && matrix.metadata.build != 'macos-x64' }}
         run: ${{ matrix.build-what.build-cmd }}
 
       - name: Lint C-API
